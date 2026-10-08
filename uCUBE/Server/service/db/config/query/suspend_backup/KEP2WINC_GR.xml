@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="EUC-KR"?>
+<SQL>
+  <!-- *********************************************************************** -->
+  <SQL_DOC INTERFACE_ID="KEP2WINC_GR">
+    <V_SQL NAME='$G_RS' ISLOOP="TRUE" COMMIT_BY_RESULT="FALSE">
+    <![CDATA[
+    SELECT BUYER, GR_NO, GR_SEQ, STATUS, DECODE(STATUS,'C',TO_CHAR(SYSDATE, 'HH24MI'),GR_TIME) AS ADD_TIME, IF_FLAG
+      FROM EAI.IF_UCUBE_GR_SEND
+     WHERE BUYER IN (SELECT BUYER FROM IF_ADMIN WHERE BUYER_ID = 'WINC')
+       AND IF_FLAG IN ('N','E')
+       AND NOT (TRIM(KEY_3) IS NULL OR TRIM(KEY_9) IS NULL OR TRIM(ADD_USER_ID) IS NULL OR (STATUS = 'D' AND GR_TIME IS NULL) )
+       AND ROWNUM  = 1
+     ORDER BY IF_FLAG DESC , BUYER, GR_NO, GR_SEQ, STATUS
+    ]]>
+    </V_SQL>
+    <P_SQL SEQ="1" TYPE="SELECT" POST_SQL="TRUE">
+    <![CDATA[
+    SELECT
+           A.BUYER,
+           A.GR_NO AS KEP_GR_NO,
+           A.GR_SEQ AS KEP_GR_SEQ,
+           B.PO_NO AS KEP_PO_NO,
+           B.PO_SEQ AS KEP_PO_SEQ,
+           A.STATUS,
+           A.BUYER_ITEM_NO,
+           B.DESCRIPTION,
+           B.SPECIFICATION,
+           A.GR_DATE AS ADD_DATE,
+           '$G_RS.ADD_TIME$' AS ADD_TIME,
+           A.ADD_USER_ID,
+           A.GR_DATE,
+           A.GR_QTY AS ITP_QTY,
+           A.UNIT_PRICE AS ITP_UNIT_PRICE,
+           A.GR_AMT AS ITP_PRICE,
+           A.KEY_1 AS ITP_FAC_CODE,
+           A.KEY_9 AS ITP_ITE_CODE,
+           'D000' AS ITP_COL_CODE,
+           A.KEY_10 AS ITP_LENGTH,
+           A.KEY_5 AS ITP_VEND_CODE,
+           A.KEY_7 AS ITP_SPOT_CODE,
+           A.KEY_8 AS ITP_SPOT_NAME,
+           A.KEY_3 AS ITP_BUY_CODE,
+           A.KEY_4 AS ITP_LOCATION
+      FROM EAI.IF_UCUBE_GR_SEND A
+         , ICOMPODT B
+         , ICOMGRDT C
+     WHERE A.BUYER  = '$G_RS.BUYER$'
+       AND A.GR_NO  = '$G_RS.GR_NO$'
+       AND A.GR_SEQ = '$G_RS.GR_SEQ$'
+       AND A.STATUS = '$G_RS.STATUS$'
+       AND A.BUYER  = C.BUYER
+       AND A.GR_NO  = C.GR_NO
+       AND A.GR_SEQ = C.GR_SEQ
+       AND C.BUYER  = B.BUYER
+       AND C.PO_NO  = B.PO_NO
+       AND C.PO_SEQ = B.PO_SEQ
+    ]]>
+      <C_SQL TYPE="UPDATE" P_SQL_RESULT="TRUE">
+      <![CDATA[
+      UPDATE EAI.IF_UCUBE_GR_SEND
+         SET IF_FLAG = 'Y'
+           , IF_DATM = SYSDATE
+           , GR_TIME = '$G_RS.ADD_TIME$'
+       WHERE BUYER  = '$G_RS.BUYER$'
+         AND GR_NO  = '$G_RS.GR_NO$'
+         AND GR_SEQ = '$G_RS.GR_SEQ$'
+         AND STATUS = '$G_RS.STATUS$'
+      ]]>
+      </C_SQL>
+      <C_SQL TYPE="UPDATE" P_SQL_RESULT="FALSE">
+      <![CDATA[
+      UPDATE EAI.IF_UCUBE_GR_SEND
+         SET IF_FLAG = 'E'
+           , IF_DATM = SYSDATE
+       WHERE BUYER  = '$G_RS.BUYER$'
+         AND GR_NO  = '$G_RS.GR_NO$'
+         AND GR_SEQ = '$G_RS.GR_SEQ$'
+         AND STATUS = '$G_RS.STATUS$'
+      ]]>
+      </C_SQL>
+    </P_SQL>
+  </SQL_DOC>
+  <RETRY_CODE>
+    <CODE>03113</CODE>
+    <CODE>03114</CODE>
+    <CODE>02154</CODE>
+    <CODE>02541</CODE>
+    <CODE>04068</CODE>
+  </RETRY_CODE>
+</SQL>

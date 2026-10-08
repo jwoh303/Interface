@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="EUC-KR"?>
+<SQL>
+	<!-- *********************************************************************** -->
+	<SQL_DOC INTERFACE_ID="BUYER2KEP_PO">
+		<V_SQL NAME='$G_RS' ISLOOP="TRUE" COMMIT_BY_RESULT="FALSE"> 
+                   SELECT NVL(SYS160.SYS160_CMPS,' ') AS PLANT
+                        , PODT.PO_NO  AS LEGACY_PO_NO
+                   FROM  ICOYPOHD POHD, ICOYPODT PODT, 
+				         ICOYCNDT CNDT, COM.SYS170TL SYS170, COM.SYS160TL SYS160
+                   WHERE POHD.VENDOR_CODE = 'VC1290'
+                   AND   POHD.IF_PO_FLAG = 'N'
+                   AND   POHD.PO_NO = PODT.PO_NO
+                   AND   PODT.EXEC_NO = CNDT.EXEC_NO
+                   AND   PODT.EXEC_SEQ= CNDT.EXEC_SEQ
+                   AND   CNDT.ROOM_CD = SYS170.SYS170_ROOM_CD
+                   AND   SYS170.SYS170_BLD_CD   = SYS160.SYS160_BLD_CD
+                   GROUP BY SYS160.SYS160_CMPS, PODT.PO_NO
+				   ORDER BY SYS160.SYS160_CMPS, PODT.PO_NO
+		</V_SQL> 
+		<P_SQL SEQ="1" TYPE="SELECT" POST_SQL="TRUE">
+		<![CDATA[
+                   SELECT 'DONGA'            AS BUYER
+                        , 'KA'               AS SITE
+                        , NVL(SYS160.SYS160_CMPS,' ') AS PLANT
+                        , PODT.PO_NO         AS LEGACY_PO_NO
+                        , PODT.PO_SEQ        AS LEGACY_PO_SEQ
+                        , 'C'                AS STATUS
+                        , PODT.ITEM_CODE     AS BUYER_ITEM_NO
+                        , 'KRW'              AS CURRENCY_CODE
+                        , PODT.EST_PRICE     AS UNIT_PRICE
+                        , PODT.REQ_QUTY      AS ITEM_QTY
+                        , PODT.EST_AMT       AS ITEM_AMT
+                        , POHD.PO_DATE       AS ADD_DATE
+                        , TO_CHAR(SYSDATE+3,'YYYYMMDD') AS RD_DATE
+                        , SYS170.SYS170_ROOM_CD         AS DELY_TO_LOCATION
+                        , POHD.ADD_USER_ID              AS PURCHASER_USER_ID
+                        , UINFO.USERNAME || '/' ||
+                          UINFO.DEPTNAME || '/' ||
+                          UINFO.USERTEL  AS REQ_USER_INFO
+                        , PODT.EXEC_NO||'-'||PODT.EXEC_SEQ  AS LEGACY_PR_NO
+                        , DECODE(SYS160_CMPS,'01','승학',
+                                             '02','구덕',
+                                             '03','부민',SYS160_CMPS) ||'^'||
+                          SYS160.SYS160_BLD_NM  ||'^'||
+                          SYS170.SYS170_ROOM_NM ||'^'||
+                          PODT.DT_DESC              AS REMARK
+                    FROM ICOYPOHD POHD
+                       , ICOYPODT PODT
+                       , ICOYCNDT CNDT
+                       , COM.SYS170TL SYS170
+                       , COM.SYS160TL SYS160
+                       , ADM.USERINFOVW UINFO
+                   WHERE POHD.VENDOR_CODE = 'VC1290'
+                   AND   POHD.IF_PO_FLAG = 'N'
+                   AND   POHD.PO_NO = '$G_RS.LEGACY_PO_NO$'
+                   AND   POHD.PO_NO = PODT.PO_NO
+                   AND   PODT.EXEC_NO = CNDT.EXEC_NO
+                   AND   PODT.EXEC_SEQ= CNDT.EXEC_SEQ
+                   AND   CNDT.ROOM_CD = SYS170.SYS170_ROOM_CD
+                   AND   SYS170.SYS170_BLD_CD   = SYS160.SYS160_BLD_CD
+                   AND   POHD.ADD_USER_ID = UINFO.USERID
+
+		]]>
+			<C_SQL TYPE="UPDATE" P_SQL_RESULT="TRUE">
+			<![CDATA[
+                    UPDATE ICOYPOHD
+                    SET    IF_PO_FLAG = 'Y'
+				    WHERE  PO_NO = '$G_RS.LEGACY_PO_NO$'
+			]]>
+			</C_SQL>
+			<C_SQL TYPE="UPDATE" P_SQL_RESULT="FALSE">
+			<![CDATA[]]>
+			</C_SQL>
+		</P_SQL>
+	</SQL_DOC>
+	<RETRY_CODE>
+		<CODE>03113</CODE>
+		<CODE>03114</CODE>
+		<CODE>02154</CODE>
+		<CODE>02541</CODE>
+		<CODE>04068</CODE>
+	</RETRY_CODE>
+</SQL>

@@ -1,0 +1,273 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//iBATIS.com//DTD SQL Map 2.0//EN"
+"http://www.ibatis.com/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="KumhPrSubmit">
+
+	<select id="selectKumhTargetList" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+	 <![CDATA[
+	   SELECT * FROM 
+	   (SELECT BUYER, 
+               DOC_NO, 
+               STATUS,
+               CASE 
+               	WHEN STATUS = 'D' THEN DOC_SEQ
+                ELSE NULL
+               END AS DOC_SEQ
+		FROM EAI.IF_UCUBE_PR_SEND
+		WHERE BUYER IN (SELECT COM_CODE FROM ICOMCMPY WHERE BYCA_COMORG_CODE ='KRKUMHG001')
+		AND IF_FLAG = 'N' 
+		AND (BUYER, DOC_NO) NOT IN (
+			SELECT BUYER,REF_NO FROM ICOMPRDT PRDT
+			WHERE BUYER IN (SELECT COM_CODE FROM ICOMCMPY
+			                 WHERE BYCA_COMORG_CODE = 'KRKUMHG001'
+			                 )
+			AND CHANGE_DATE >= TO_CHAR(SYSDATE-90,'YYYYMMDD')
+			AND STATUS != 'D'
+			AND RECV_FLAG = 'PS'
+			AND EXISTS (SELECT * FROM IF_UCUBE_PR_SEND
+			             WHERE BUYER = PRDT.BUYER
+			             AND DOC_NO = PRDT.REF_NO
+			            )
+			AND NOT EXISTS (SELECT * FROM IF_UCUBE_PR_SEND
+			                  WHERE BUYER = PRDT.BUYER
+			                  AND DOC_NO = PRDT.REF_NO
+			                  AND DOC_SEQ= PRDT.REF_SEQ
+			                 )
+			GROUP BY BUYER,REF_NO
+		)
+      )
+      GROUP BY BUYER, DOC_NO, STATUS, DOC_SEQ
+      ORDER BY BUYER, DOC_NO,STATUS
+	  	]]>
+	</select>
+
+
+	<select id="selectKumhPrList" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+		SELECT
+		     STATUS AS STAU
+		    ,BUYER AS BUYER
+		    ,DOC_NO AS DOC_NO
+		    ,DOC_SEQ AS DOC_SEQ
+		    ,CASE 
+		    	WHEN STATUS = 'I' THEN DOC_NO
+		    	ELSE LEGACY_PO_NO
+		    END AS LEBELN
+		    ,LEGACY_PO_SEQ AS LEBELP
+		    ,KEY_1 AS ACCTASSCAT
+		    ,CASE 
+		    	WHEN KEY_1 != ' ' THEN ACCOUNT_TYPE
+		    	ELSE NULL
+		    END AS GL_ACCOUNT
+		    ,CASE 
+		    	WHEN KEY_1 = 'K' THEN BUDGET_DEPT
+		    	WHEN KEY_1 = 'P' THEN KEY_4
+		    	ELSE NULL
+		    END AS COSTCENTER
+		    ,PLANT AS WERKS
+		    ,KEY_2 AS EKGRP
+		    ,'2400' AS STGE_LOC
+		    ,KEY_3 AS INFNR
+		    ,BUYER_ITEM_NO AS MATNR
+		    ,SPECIFICATION AS TXZ01
+		    ,ITEM_QTY AS MENGE
+		    ,UNIT_PRICE AS NETPR
+		    ,UNIT_MEASURE AS NETPRQ
+		    ,'KRW' AS WAERS
+		    ,'0000113157' AS LIFNR
+		    ,'A330' AS ZTERM
+		    ,REQ_USER_NAME AS PREQ_NAME
+		    ,'V1' AS MWSKZ
+		    ,'N' AS TEXT1 				
+			,'' AS TEXT2 
+			,'N' AS TEXT3 
+			,'' AS TEXT4 
+			,'N' AS TEXT5 
+			,'' AS TEXT6 
+			,'' AS TEXT7 
+		    ,'NB' AS BSART
+		    ,'Z04' AS INCO1
+		    ,'' AS INCO2 
+		    ,RD_DATE AS EEIND
+		    ,'' AS KDATB 
+		    ,'' AS KDATE 
+		    ,'' AS TESX2 
+		    ,EMAIL AS EMAIL
+	FROM IF_UCUBE_PR_SEND
+	WHERE BUYER = #BUYER# 
+	AND IF_FLAG = 'N'
+	AND DOC_NO = #DOC_NO#
+	AND STATUS = #STATUS#
+	<isEqual property="STATUS" compareValue="D">
+		AND DOC_SEQ = #DOC_SEQ#
+	</isEqual>
+	ORDER BY TO_NUMBER(DOC_SEQ)
+	</select>
+
+
+	<update id="updateKumhResultData" parameterClass="java.util.HashMap">
+		UPDATE EAI.IF_UCUBE_PR_SEND
+		   SET IF_FLAG = #ZRTCD#
+		     , IF_DATM = SYSDATE
+		     , LEGACY_PO_NO = #EBELN#
+		     , KEY_10 = #ZRTMSG#
+	     WHERE BUYER = #BUYER#
+	       AND DOC_NO = #DOC_NO#
+	       AND STATUS = #STAU#
+	       AND IF_FLAG = 'N'
+	       <isEqual property="STAU" compareValue="D">
+				AND DOC_SEQ = #DOC_SEQ#
+			</isEqual>
+	</update>
+	
+	
+	<update id="insertKumhIfProgress" parameterClass="java.util.HashMap">
+		 INSERT INTO IF_PROGRESS (
+              BUYER,GUBUN,LEGACY_NO,REVISION,STATUS,
+              IF_FLAG,TOT_CNT,TOT_AMT,ERR_CNT,ERR_MSG,
+              REMARK,CHANGE_DATE,CHANGE_TIME,ADD_DATE,NO_CNT
+            ) VALUES (
+              #BUYER#,'XX',#DOC_NO#,'00','C',
+              'C',1,1,0,'작업중!!',
+              'BUDGET',TO_CHAR(SYSDATE,'YYYYMMDD'),TO_CHAR(SYSDATE,'HH24MISS'),TO_CHAR(SYSDATE,'YYYYMMDD'),0
+            )
+	</update>
+	
+	
+	<update id="updateLegecyPoInfo" parameterClass="java.util.HashMap">
+		UPDATE ICOMPRDT T
+		   SET T.LEGACY_PO_NO = #EBELN#,
+		       T.LEGACY_PO_SEQ = (
+		           SELECT S.NEW_LEGACY_PO_SEQ
+		             FROM (
+		                 SELECT BUYER,
+		                        REF_NO,
+		                        REF_SEQ,
+		                        LPAD(
+		                            TO_CHAR(
+		                                ROW_NUMBER() OVER (
+		                                    ORDER BY TO_NUMBER(REF_SEQ)
+		                                ) * 10
+		                            ),
+		                            5,
+		                            '0'
+		                        ) AS NEW_LEGACY_PO_SEQ
+		                   FROM ICOMPRDT
+		                  WHERE BUYER = #BUYER#
+		                    AND REF_NO = #DOC_NO#
+		                    AND RECV_FLAG = 'PS'
+		                    AND STATUS != 'D'
+		             ) S
+		            WHERE S.BUYER   = T.BUYER
+		              AND S.REF_NO  = T.REF_NO
+		              AND S.REF_SEQ = T.REF_SEQ
+		       )
+		 WHERE T.BUYER = #BUYER#
+		   AND T.REF_NO = #DOC_NO#
+		   AND T.RECV_FLAG = 'PS'
+		   AND T.STATUS != 'D'
+	</update>
+	
+	<insert id="KumhAppMailSend" parameterClass="java.util.HashMap">
+		INSERT INTO KEP_MAIL
+                       ( SEQ,
+                         SEND_EMAIL,
+                         SEND_NAME,
+                         RECEIVE_EMAIL,
+                         RECEIVE_NAME,
+                         SUBJECT,
+                         CONTENTS,
+                         CREATE_DATE,
+                         JOB_FLAG)
+                 VALUES( SEQ_KEP_MAIL.NEXTVAL,
+                         'koreab2b@koreab2b.com',
+                         '운영자',
+                         'comanche@koreab2b.com;coolkim@koreab2b.com;limtaehun@koreab2b.com;joheju69@koreab2b.com;' || #MAIL_EMAIL# ,
+                         '김승우;김시원;임태헌;조해주;' || #MAIL_NAME#,
+                         '[코리아이플랫폼]금호석유화학 주문 결재 오류 알림의 건',
+                         '오류생성 일시 : '||TO_CHAR(SYSDATE,'YYYYMMDD HH24:MI:SS')||')'|| #MAIL_CONTENT#,
+                         SYSDATE,
+                         'N')
+	  </insert>
+	  
+	  <select id="selectMailInfo" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+		 <![CDATA[
+		  	SELECT
+			    TEXT1 AS NAME
+			    ,TEXT2 AS EMAIL
+			FROM KEP.ICOMCOD2
+			WHERE TYPE ='MAIL'
+			AND CODE ='PR_ERR'
+			AND COMPANY_CODE = #BUYER#
+		  	]]>
+		</select>
+		
+		  <select id="selectKumhPlantList" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+		 <![CDATA[
+		  	SELECT 
+				CODE AS PLANT
+				,TEXT1 AS BUYER
+			FROM ICOMCOD2
+			WHERE COMPANY_CODE ='KRKUMHG001'
+			AND TYPE = 'PLNT'
+			AND TEXT5 ='Y'
+			ORDER BY TEXT1
+		  	]]>
+		</select>
+		
+	  <update id = "insertKumhGr" parameterClass="java.util.HashMap">
+			MERGE INTO IF_GRDT_UC A
+			USING ( 
+			     SELECT
+				    #MBLNR# AS LEGACY_GR_NO,		
+				    #POSNR# AS LEGACY_GR_SEQ,
+			  		#EBELN# AS LEGACY_PO_NO,
+			  		#EBELP# AS LEGACY_PO_SEQ,
+			  		#WERKS# AS PLANT,
+			  		#MENGE# AS MENGE
+			  	   FROM DUAL
+			) B ON (1 = 1
+			  AND A.BUYER = 'KUMH'
+			  AND A.LEGACY_GR_NO = B.LEGACY_GR_NO
+			  AND A.LEGACY_GR_SEQ = B.LEGACY_GR_SEQ
+			  AND A.LEGACY_PO_NO = B.LEGACY_PO_NO
+			  AND A.LEGACY_PO_SEQ = B.LEGACY_PO_SEQ
+			  AND A.PLANT = B.PLANT
+			  AND A.GR_QTY = B.MENGE
+			)
+		   	WHEN NOT MATCHED THEN    
+		   	INSERT (
+			    KEP_SEQ, BUYER, SITE,
+				LEGACY_GR_NO,
+				LEGACY_GR_SEQ,
+				LEGACY_PO_NO,
+				LEGACY_PO_SEQ,
+				STATUS,
+				BUYER_ITEM_NO,
+				GR_QTY,
+				GR_DATE,
+				PLANT,
+				UNIT_PRICE,
+				GR_AMT,
+				LOAD_DATE,
+				LOAD_TIME,
+				IF_FLAG
+		   	) VALUES (
+		   		SEQ_IF_GRDT_UC.NEXTVAL, 'KUMH', 'KA',
+		  		#MBLNR#,
+		  		#POSNR#,
+		  		#EBELN#,
+		  		#EBELP#,
+		  		'C',
+		  		LTRIM(#MATNR#, '0'),
+		  		#MENGE#,
+		  		#BUDAT#,
+		  		#WERKS#,
+		  		#UNIT_PRICE#,
+		  		#GR_AMT#,
+		  		TO_CHAR(SYSDATE, 'YYYYMMDD'),
+		  		TO_CHAR(SYSDATE, 'HH24MISS'),
+		  		'N'
+		   	)
+		</update>
+</sqlMap>

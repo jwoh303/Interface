@@ -1,0 +1,219 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap      
+    PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN"
+    "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="HwinAppStatus">
+
+	<select id="selectHwinAppStatusIdList" resultClass="java.util.HashMap">
+	SELECT DISTINCT KEY_1 AS APPR_ID
+	  FROM EAI.IF_APM_SEND
+	 WHERE BUYER IN (SELECT BUYER FROM IF_ADMIN WHERE BUYER_ID = 'HWIN')
+	   AND KEY_9 IS NULL
+	   AND KEY_1 IS NOT NULL
+	   AND CREATE_DATM > TRUNC(SYSDATE - 60)
+	</select>
+	
+	<update id="updateHwinAppStatus" parameterClass="java.util.Map">
+	UPDATE EAI.IF_APM_SEND
+	   SET KEY_8 = #RTN_MSG#
+	     , KEY_9 = #RTN_FLAG#
+	     , KEY_10 = TO_CHAR(SYSDATE, 'YYYY/MM/DD HH24:MI:SS')
+	 WHERE KEY_1 = #APPR_ID#
+	</update>
+	
+	<select id="selectHwinAppDocInfo" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+	SELECT DISTINCT
+	       B.COMPANY,
+	       B.DOCU_NO,
+	       B.PASS_STATUS,
+	       B.EXTIF_TP,
+	       B.EXTIF_NO,
+	       B.EXTIF_COUNT,
+	       B.CUR_ORDER_NO,
+	       C.USER_ID
+	  FROM EAI.IF_APM_SEND A
+	     , ICOGDOCU B
+	     , ICOGPASSLN C
+       , ICOMLUSR D
+	 WHERE 1 = 1
+	   AND A.KEY_1  = #APPR_ID#
+	   AND A.BUYER  = B.COMPANY
+	   AND A.DOC_NO = B.DOCU_NO
+     
+       AND D.COM_CODE = A.BUYER
+       AND D.LEGACY_USER_ID = #APPR_SGID#
+	   
+	   AND C.COMPANY = B.COMPANY
+	   AND C.DOCU_NO = B.DOCU_NO
+	   AND C.USER_ID = D.USER_ID
+	</select>
+	
+	<update id="modifyICOGPASSLN" parameterClass="java.util.Map">
+	UPDATE ICOGPASSLN
+	   SET PASS_DATE = TO_DATE(#PASS_DATE#, 'YYYYMMDDHH24MISS')
+	     , REFER_DATE= TO_DATE(#PASS_DATE#, 'YYYYMMDDHH24MISS')
+	     , PASS_KN   = #PASS_KN#
+	     , PASS_ADD  = #PASS_ADD# 
+	 WHERE COMPANY   = #COMPANY#
+	   AND DOCU_NO   = #DOCU_NO#
+	   AND USER_ID   = #USER_ID#
+	</update>
+	
+	<select id="getICOGPASSLNOrderNo" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+	SELECT
+	       TO_CHAR(ORDER_NO) AS ORDER_NO
+	  FROM ICOGPASSLN
+	WHERE 1 = 1
+	  AND COMPANY = #COMPANY#
+	  AND DOCU_NO = #DOCU_NO#
+	  AND PASS_TP = #PASS_TP#
+	  AND PASS_KN IS NULL
+	 ORDER BY TO_NUMBER(ORDER_NO)
+	</select>
+	
+	<update id="modifyICOGDOCU1" parameterClass="java.util.Map">
+	UPDATE ICOGDOCU
+	   SET PASS_STATUS = #PASS_STATUS#
+	 WHERE COMPANY = #COMPANY#
+	   AND DOCU_NO = #DOCU_NO#
+	</update>
+	
+	<update id="updateAppFinal2" parameterClass="java.util.Map">
+	UPDATE ICOGDOCU
+	   SET PASS_STATUS = #PASS_STATUS#
+	 WHERE (COMPANY, DOCU_NO) IN (
+		   SELECT BUYER, DOC_NO FROM EAI.IF_APM_SEND
+		    WHERE KEY_1 = #APPR_ID#
+		      AND CREATE_DATM > TO_DATE('20180401', 'YYYYMMDD')
+	   )
+	   AND PASS_STATUS NOT IN ('1','3')
+	</update>
+	
+	<update id="modifyICOGDOCU2" parameterClass="java.util.Map">
+	UPDATE ICOGDOCU 
+	   SET CUR_ORDER_NO = #CUR_ORDER_NO#
+	     , PASS_STATUS = #PASS_STATUS#
+	 WHERE COMPANY = #COMPANY#
+	   AND DOCU_NO = #DOCU_NO#
+	</update>
+	
+	<update id="modifyICOGDOCU_PASSSTATUS" parameterClass="java.util.Map">
+	UPDATE ICOGDOCU
+	   SET PASS_STATUS='4'
+	 WHERE (COMPANY,DOCU_NO) IN (
+	         SELECT BUYER, DOC_NO FROM EAI.IF_APM_SEND
+	          WHERE KEY_1 = #APPR_ID# )
+	</update>
+	
+	<update id="modifyICOGPASSLN_PASSKN" parameterClass="java.util.Map">
+	UPDATE ICOGPASSLN
+	   SET PASS_KN='4'
+	     , PASS_ADD=#PASS_ADD#
+	 WHERE (COMPANY,DOCU_NO) IN (
+	         SELECT BUYER, DOC_NO FROM EAI.IF_APM_SEND
+	          WHERE KEY_1 = #APPR_ID# )
+	</update>
+	
+	<select id="selectPrCancelInfoList" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+	
+	SELECT DISTINCT
+	       C.BUYER, C.PR_NO
+	  FROM EAI.IF_APM_SEND A
+	     , ICOMTRGW B
+	     , ICOMPRDT C
+	 WHERE A.KEY_1 = #APPR_ID#
+	   
+	   AND A.BUYER = B.COM_CODE
+	   AND A.DOC_NO = B.TARGET
+	   
+	   AND B.COM_CODE = C.BUYER
+	   AND B.KEY_1 = C.REF_NO
+	
+	</select>
+	
+	<update id="updatePrCancel" parameterClass="java.util.Map">
+	UPDATE ICOMPRDT
+	   SET RECV_FLAG = #RECV_FLAG#
+	     , CHANGE_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD')
+	     , CHANGE_TIME = TO_CHAR(SYSDATE, 'HH24MISS')
+
+	 WHERE BUYER = #BUYER#
+	   AND PR_NO = #PR_NO#
+	</update>
+	
+	<update id="updateReturnPrBudget" parameterClass="java.util.Map">
+    UPDATE ICOMBDGT A SET                                                                   
+            A.TEMP_AMT = A.TEMP_AMT -                                                       
+                         (SELECT                                                            
+                                NVL(SUM(TARGET_QTY * TARGET_PRICE),0)                       
+                            FROM ICOMPRDT                                                   
+                            WHERE BUYER = A.BUYER                                           
+                              AND PR_NO = #PR_NO# 
+                              AND BUDGET_DEPT||ACCOUNT_TYPE = A.DEPT||A.ACCOUNT_TYPE        
+                              AND PLAN_AMT_FLAG = 'Y'                                       
+                            GROUP BY BUDGET_DEPT , ACCOUNT_TYPE )                           
+    WHERE BUYER = #BUYER#                         
+      AND DEPT||ACCOUNT_TYPE IN (                                                           
+                             SELECT                                                         
+                                BUDGET_DEPT||ACCOUNT_TYPE                                   
+                            FROM ICOMPRDT                                                   
+                            WHERE BUYER = A.BUYER                                           
+                              AND PR_NO = #PR_NO# 
+                              AND PLAN_AMT_FLAG = 'Y'                                       
+                            GROUP BY BUDGET_DEPT , ACCOUNT_TYPE                             
+                            )                                                               
+      AND (SELECT MAX(ADD_DATE) FROM ICOMPRDT WHERE BUYER = #BUYER#  AND PR_NO = #PR_NO#  ) BETWEEN A.FROM_DATE AND A.TO_DATE  
+	</update>
+	
+	<update id="saveAPPR_STATUS" parameterClass="com.stw.kep.ws.service.M2KEP0002M2016.T_APPR_STATUS_IN_STEP">
+	MERGE INTO HWIN_APPR_STATUS A
+	USING (
+	  SELECT #APPRID# AS APPRID
+	    FROM DUAL
+	) B ON ( 1 = 1
+	  AND A.APPRID = B.APPRID
+	)
+	WHEN MATCHED THEN
+	  UPDATE SET
+		APPRSTATUSCD = #APPRSTATUSCD#,
+		APPRTRANSSTATUSCD = #APPRTRANSSTATUSCD#,
+		APPRKEY = #APPRKEY#,
+		APPRREVNO = #APPRREVNO#,
+		APPRSUBMITDT = #APPRSUBMITDT#,
+		APPRCONFIRMDT = #APPRCONFIRMDT#,
+		INSERTUID = #INSERTUID#,
+		INSERTDT = #INSERTDT#,
+		UPDATEUID = #UPDATEUID#,
+		UPDATEDT = #UPDATEDT#,
+		ERRORDETAIL = #ERRORDETAIL#
+	WHEN NOT MATCHED THEN
+	  INSERT (
+		APPRID,
+		APPRSTATUSCD,
+		APPRTRANSSTATUSCD,
+		APPRKEY,
+		APPRREVNO,
+		APPRSUBMITDT,
+		APPRCONFIRMDT,
+		INSERTUID,
+		INSERTDT,
+		UPDATEUID,
+		UPDATEDT,
+		ERRORDETAIL
+	  ) VALUES (
+		#APPRID#,
+		#APPRSTATUSCD#,
+		#APPRTRANSSTATUSCD#,
+		#APPRKEY#,
+		#APPRREVNO#,
+		#APPRSUBMITDT#,
+		#APPRCONFIRMDT#,
+		#INSERTUID#,
+		#INSERTDT#,
+		#UPDATEUID#,
+		#UPDATEDT#,
+		#ERRORDETAIL#	  
+	  )
+	</update>
+</sqlMap>    

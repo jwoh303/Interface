@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="EUC-KR"?>
+<SQL>
+	<!-- *********************************************************************** -->
+	<SQL_DOC INTERFACE_ID="KEP2SYNG_RT">
+		<V_SQL NAME='$G_RS' ISLOOP="TRUE" COMMIT_BY_RESULT="FALSE"> 
+                        SELECT DOC_NAME
+                             , TARGET AS BUYER
+                             , KEY_1  AS QUOTATION_NO
+                             , KEY_2  AS QUOTATION_SEQ
+                             , KEY_3  AS REVISION
+                             , KEY_4  AS KEP_SEQ
+                        FROM   ICOMTRXL
+                        WHERE  DOC_NAME = 'SYNG_RJT'
+                        AND    KEY_9 = 'N'
+                        UNION
+                        SELECT 'RQ'              AS DOC_NAME
+                             , BUYER
+                             , QUOTATION_NO
+                             , QUOTATION_SEQ
+                             , TO_CHAR(REVISION) AS REVISION
+                             , '1'               AS KEP_SEQ
+                        FROM  KEPRQDT
+                        WHERE BUYER IN (SELECT TEXT4 FROM ICOMCOD2
+                                        WHERE COMPANY_CODE = 'KRSYSE0001'
+                                        AND  TYPE = 'PLNT')
+                        AND  QUOTATION_NO NOT LIKE 'RE%'
+                        AND  ( RECV_FLAG = 'CM' or
+                               (QUOTATION_NO NOT LIKE 'RE%' AND RECV_FLAG = 'GD'))
+                        AND   ATOB_SEND_FLAG = 'Y'
+                        AND   SND_CHK IN ('N','T')
+		</V_SQL> 
+		<P_SQL SEQ="1" TYPE="SELECT" POST_SQL="TRUE">
+		<![CDATA[
+                        SELECT PLANT
+                             , BUYER_ITEM_NO
+                             , 0   AS UNIT_PRICE
+                             , MAKER_NAME
+                             , ORIGIN_NAME
+                             , NULL AS ITEM_NO
+                             , REQ_USER_NAME
+                             , TO_CHAR(SYSDATE,'YYYYMMDD') AS ATOB_DATE
+                             , SUBSTRB(DESCRIPTION,1,30)   AS DESCRIPTION
+                             , SUBSTRB(SPECIFICATION,1,30) AS SPECIFICATION
+                             , UNIT_MEASURE
+                             , ADD_DATE||ADD_TIME          AS BTOA_DATE
+                             , 'D'     AS REJECT_STAT
+                             , '중복'  AS REJECT_DESC
+                             , ' '   AS QUOTATION_NO
+                             , ' '   AS QUOTATION_SEQ
+                             , f_split(REF_IF_NO,'^',1)  AS SY_SEQ
+                             , f_split(REF_IF_NO,'^',2)  AS REQNO
+                             , '2'        AS SY_GBN
+                        FROM IF_REDT_UC
+                        WHERE BUYER  = 'SYNG'
+                        AND   KEP_SEQ= '$G_RS.KEP_SEQ$'
+                     UNION ALL
+                        SELECT nvl(trim(RQDT.PLANT),
+                                  (select min(code) from ICOMCOD2
+                                WHERE COMPANY_CODE = 'KRSYSE0001'
+                                AND   TYPE = 'PLNT'
+                                AND   text4 = rqdt.buyer)) AS PLANT
+                             , decode(substr(RQDT.BUYER_ITEM_NO,1,7),'NO_CODE',' ',
+                                      RQDT.BUYER_ITEM_NO)    as BUYER_ITEM_NO
+                             , QTDT.ATOB_UNIT_PRICE AS UNIT_PRICE
+                             , SUBSTRB(RQDT.MAKER_NAME,1,30) AS MAKER_NAME
+                             , RQDT.ORIGIN_NAME
+                             , RQDT.CMS_CATLG_ID AS ITEM_NO
+                             , RQDT.BTOA_USER_NAME
+                             , RQDT.ATOB_DATE
+                             , SUBSTRB(RQDT.DESCRIPTION,1,30)   AS DESCRIPTION
+                             , SUBSTRB(RQDT.SPECIFICATION,1,30) AS SPECIFICATION
+                             , RQDT.UNIT_MEASURE
+                             , RQDT.BTOA_DATE||BTOA_TIME        AS BTOA_DATE
+                             , DECODE(RQDT.RECV_FLAG,'CM','A','GD','K','X')  AS REJECT_STAT
+                             , ' '  AS REJECT_DESC
+                             , RQDT.QUOTATION_NO
+                             , RQDT.QUOTATION_SEQ
+                             , f_split(RQDT.REF_NO,'^',1)  AS SY_SEQ
+                             , f_split(RQDT.REF_NO,'^',2)  AS REQNO
+                             , decode(TRIM(PLANT),null,'1','2') as SY_GBN
+                        FROM KEPRQDT RQDT, KEPQTDT QTDT
+                        WHERE RQDT.BUYER = '$G_RS.BUYER$'
+                        AND   RQDT.QUOTATION_NO = '$G_RS.QUOTATION_NO$'
+                        AND   RQDT.QUOTATION_SEQ= '$G_RS.QUOTATION_SEQ$'
+                        AND   RQDT.REVISION     = '$G_RS.REVISION$'
+                        AND   RQDT.BUYER        = QTDT.BUYER
+                        AND   RQDT.QUOTATION_NO = QTDT.QUOTATION_NO
+                        AND   RQDT.QUOTATION_SEQ= QTDT.QUOTATION_SEQ
+                        AND   RQDT.REVISION     = QTDT.REVISION
+                        AND   QTDT.STATUS       = 'C'
+                        AND   QTDT.BID_SUCCESS_FLAG = 'Y'
+		]]>
+                <C_SQL TYPE="UPDATE" P_SQL_RESULT="TRUE">
+                 <![CDATA[
+                     DECLARE
+                     BEGIN
+                       IF '$G_RS.DOC_NAME$' = 'SYNG_RJT' THEN
+                           UPDATE ICOMTRXL
+                           SET    KEY_9 = 'Y'
+                                , KEY_8 = TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+                           WHERE  DOC_NAME = 'SYNG_RJT'
+                           AND    TARGET = 'SYNG'
+                           AND    KEY_4 = '$G_RS.KEP_SEQ$';
+                       ELSE
+                           UPDATE KEPRQDT
+                           SET    SND_CHK = 'Y'
+                                , SND_DATM= SYSDATE
+                           WHERE  BUYER        = '$G_RS.BUYER$'
+                           AND    QUOTATION_NO = '$G_RS.QUOTATION_NO$'
+                           AND    QUOTATION_SEQ= '$G_RS.QUOTATION_SEQ$'
+                           AND    REVISION     = '$G_RS.REVISION$';
+                       END IF;
+                     END;
+                 ]]>
+		</C_SQL>
+		</P_SQL>
+	</SQL_DOC>
+	<RETRY_CODE>
+		<CODE>03113</CODE>
+		<CODE>03114</CODE>
+		<CODE>02154</CODE>
+		<CODE>02541</CODE>
+		<CODE>04068</CODE>
+	</RETRY_CODE>
+</SQL>

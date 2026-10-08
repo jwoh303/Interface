@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap      
+    PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN"
+    "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="IyngIp">
+  
+  <update id="updateDBDispatcher">
+    UPDATE KEP_COURIER_MNG
+       SET IF_FLAG = 'T'
+     WHERE IF_FLAG = 'N'  
+  </update>
+  
+  <update id="updateDBDispatcher2">
+    UPDATE KEP_COURIER_MNG A
+       SET IF_FLAG = 'D'
+         , IF_DATE = SYSDATE
+     WHERE IF_FLAG = 'T'
+       AND NOT EXISTS ( SELECT 'X' FROM WMSIVDT
+       							  WHERE BUYER = A.BUYER
+       							    AND INV_NO = A.INV_NO
+       							    AND STATUS != 'D')   
+  </update>
+
+  <select id="selectIyngLogisCur" resultClass="java.util.HashMap" >
+      SELECT BUYER
+		  , INV_NO
+		  , BOX_SEQ
+		  , COURIER_NO
+		  , nvl(SENDER_POINT_CODE,' ') AS SENDER_POINT_CODE
+		  , nvl(SENDER_POINT_NAME,' ') AS SENDER_POINT_NAME
+		  , nvl(SENDER_NAME,' ') AS SENDER_NAME
+		  , nvl(SENDER_PHONE_NUMBER,' ') AS SENDER_PHONE_NUMBER
+		  , nvl(SENDER_ZIP_CODE,' ') AS SENDER_ZIP_CODE
+		  , nvl(SENDER_ADDRESS,' ') AS SENDER_ADDRESS
+		  , nvl(RECEIVER_POINT_CODE,' ') AS RECEIVER_POINT_CODE
+		  , nvl(RECEIVER_POINT_NAME,' ') AS RECEIVER_POINT_NAME
+		  , nvl(ADD_USER_ID,' ') AS ADD_USER_ID
+		  
+      FROM KEP_COURIER_MNG
+      WHERE IF_FLAG = 'T'
+      ORDER BY BUYER, INV_NO, BOX_SEQ, COURIER_NO
+  </select>
+  
+  <select id="DATA_Assign" parameterClass="java.util.HashMap" resultClass="java.util.HashMap" >
+     	   SELECT 
+                    F.COM_NAME_LOC   AS RECEIVER_COMPANY
+                  , E.USER_NAME_LOC  AS RECEIVER_NAME
+                  , E.PHONE_NUMBER   AS RECEIVER_TEL1
+                  , SUBSTR(C.DELY_TO_LOCATION,1,6)  AS RECEIVE_ZIP_CODE
+                  , TRIM(SUBSTR(C.DELY_TO_LOCATION,7,LENGTHB(C.DELY_TO_LOCATION))) AS RECEIVE_ADDRESS
+                  , '전기자재류' AS ITEM_NAME
+                  , substrb(c.PO_REMARK,1,30) AS REMARK1
+                  , nvl(CHANGE_USER_MOBILE_PHONE,' ') AS RECEIVE_TEL2
+                  , TO_CHAR(#READ_CNT#,'FM00000') AS SEND_SEQ
+				  , TO_CHAR(SYSDATE,'YYYYMMDD') AS SEND_DATE
+				  , NVL(#COURIER_NO#, ' ') AS COURIER_NO
+				  , '104100004' AS KEP_ID
+				  , ' ' AS KEY_1
+				  , #INV_NO#|| '-' || #BOX_SEQ# AS PO_NO
+				  , '1' AS BOX_QTY
+				  , '100000' AS UNIT_PRICE
+				  , ' ' AS KEY_2
+				  , NVL(#SENDER_NAME#, ' ') AS SENDER_COMPANY_NM
+				  , (SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = #ADD_USER_ID#) AS SENDER_NAME
+				  , NVL(#SENDER_PHONE_NUMBER#,' ') AS SENDER_TEL1
+				  , ' ' AS SENDER_TEL2
+				  , NVL(#SENDER_ZIP_CODE#, ' ') AS SENDER_ZIP_CODE
+				  , NVL(#SENDER_ADDRESS#, ' ') AS SENDER_ADDRESS
+				  , NVL(#SENDER_POINT_CODE#, ' ') AS COURIER_CODE
+				  , NVL(#RECEIVER_POINT_CODE#, ' ') AS ILYANG_OFFICE_CD
+				  , ' ' AS SP_NOTE
+				  , '01' AS PAYMENT_TYPE
+				  , '01' AS PAYMENT_CD
+				  , ' ' AS BOX_NOTE
+				  , '10' AS BOX_WEIGHT
+				  , ' ' AS SEND_FARE
+				  , '01' AS SEND_TYPE
+              FROM WMSIVDT A, ICOMPODT B, ICOMPOHD C, ICOMPRDT D, ICOMLUSR E, ICOMCMPY F, ICOMPRHD G
+              WHERE A.BUYER  = #BUYER#
+              AND   A.INV_NO = #INV_NO#
+              AND   A.STATUS != 'D'
+              AND   A.BUYER  = B.BUYER
+              AND   A.PO_NO  = B.PO_NO
+              AND   A.PO_SEQ = B.PO_SEQ
+              AND   B.STATUS != 'D'
+              AND   A.BUYER  = C.BUYER
+              AND   A.PO_NO  = C.PO_NO
+              AND   C.STATUS != 'D'
+              AND   B.BUYER  = D.BUYER
+              AND   B.PR_NO  = D.PR_NO
+              AND   B.PR_SEQ = D.PR_SEQ
+              AND   D.STATUS != 'D'
+              AND   D.REQ_USER_ID = E.USER_ID
+              AND   C.BUYER       = E.COM_CODE
+              AND   E.COM_CODE    = F.COM_CODE
+              AND   D.BUYER  = G.BUYER
+              AND   D.PR_NO  = G.PR_NO
+              AND   ROWNUM = 1
+  </select>  
+  
+  <update id="DATA_Update" parameterClass="java.util.HashMap">
+    UPDATE KEP_COURIER_MNG 
+       SET IF_FLAG = 'Y'
+         , IF_DATE = SYSDATE
+     WHERE BUYER = #BUYER#
+       AND INV_NO = #INV_NO#
+       AND BOX_SEQ = #BOX_SEQ#
+       AND COURIER_NO = #COURIER_NO#
+  </update>
+</sqlMap>

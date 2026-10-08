@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="EUC-KR"?>
+<SQL>
+  <!-- *********************************************************************** -->
+  <SQL_DOC INTERFACE_ID="KEP2NEPS_ITEM">
+    <V_SQL NAME='$G_RS' ISLOOP="TRUE" COMMIT_BY_RESULT="FALSE">
+    <![CDATA[
+      SELECT
+             TARGET AS BUYER,
+             KEY_1  AS BUYER_ITEM_NO,
+             KEY_2  AS UNIT_PRICE
+        FROM ICOMTRXL
+       WHERE DOC_NAME = 'ATOB_PRICE'
+         AND TARGET   = 'KRNEPEG001'
+         AND KEY_9    = ' '
+         AND ROWNUM  <= 100
+    ]]>
+    </V_SQL>
+    <P_SQL SEQ="1" TYPE="SELECT" POST_SQL="TRUE">
+    <![CDATA[
+    SELECT
+           MAX(A.DESCRIPTION)                     AS ITEM_NM,
+           TRIM(F_SPLIT(MAX(CATEG_PATH), '>', 2)) AS ITEM_GROUP1,
+           TRIM(F_SPLIT(MAX(CATEG_PATH), '>', 3)) AS ITEM_GROUP2,
+           MAX(A.SPECIFICATION)                   AS SPEC,
+           MAX(A.UNIT_MEASURE)                    AS UNIT,
+           A.UNIT_PRICE                           AS AMT,
+           MAX(NVL(A.MIN_ORDER_QTY,0))            AS MOQ,
+           A.BUYER_ITEM_NO                        AS MRO_ITEM_CD,
+           MAX(A.DELIVERY_LT)                     AS ITEM_DAY,
+           CASE
+             WHEN MAX(A.STATUS) = 'D' THEN 'N'
+             ELSE 'Y'
+           END                                    AS VALID_FLG
+      FROM ICOMCQDT A
+           INNER JOIN ICOMBYIT B ON (1 = 1
+             AND B.BUYER = A.BUYER
+             AND B.BUYER_ITEM_NO = A.BUYER_ITEM_NO
+           )
+           INNER JOIN ICOMBYCA C ON (1 = 1
+             AND C.COM_CODE = B.BUYER
+             AND C.STD_CATEG_ID = B.CATEGORY_NO
+           )
+     WHERE A.BUYER         = '$G_RS.BUYER$'
+       AND A.BUYER_ITEM_NO = '$G_RS.BUYER_ITEM_NO$'
+       AND A.UNIT_PRICE    = '$G_RS.UNIT_PRICE$'
+     GROUP BY A.BUYER, A.BUYER_ITEM_NO, A.UNIT_PRICE
+    ]]>
+      <C_SQL TYPE="UPDATE" P_SQL_RESULT="TRUE">
+      <![CDATA[
+      UPDATE ICOMTRXL
+         SET KEY_9  = 'Y',
+             KEY_10 = TO_CHAR(SYSDATE, 'YYYY/MM/DD HH24:MI:SS')
+       WHERE DOC_NAME = 'ATOB_PRICE'
+         AND TARGET   = '$G_RS.BUYER$'
+         AND KEY_1    = '$G_RS.BUYER_ITEM_NO$'
+         AND KEY_2    = '$G_RS.UNIT_PRICE$'
+         AND KEY_9    = ' '
+      ]]>
+      </C_SQL>
+      <C_SQL TYPE="UPDATE" P_SQL_RESULT="FALSE">
+      <![CDATA[
+      ]]>
+      </C_SQL>
+    </P_SQL>
+  </SQL_DOC>
+  <RETRY_CODE>
+    <CODE>03113</CODE>
+    <CODE>03114</CODE>
+    <CODE>02154</CODE>
+    <CODE>02541</CODE>
+    <CODE>04068</CODE>
+  </RETRY_CODE>
+</SQL>
+

@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="EUC-KR"?>
+<SQL>
+        <!-- *********************************************************************** -->
+        <SQL_DOC INTERFACE_ID="KEP2DRBW_INV">
+                <V_SQL NAME='$G_RS' ISLOOP="TRUE" COMMIT_BY_RESULT="FALSE">
+                      SELECT TARGET, KEY_1, KEY_2
+                        FROM ICOMTRXL TRXL, ICOMIVHD IVHD
+                       WHERE TRXL.DOC_NAME = 'IVDOWN'
+                         AND TRXL.TARGET = 'KRKDAC0001'
+                         AND TRXL.TARGET = IVHD.BUYER
+                         AND TRXL.KEY_1  = IVHD.INV_NO
+                         AND IVHD.INV_TYPE = '0'
+                         AND KEY_1 LIKE 'IV%'
+                         AND KEY_9 = ' '
+                         AND KEY_10 in (' ','A')
+                       UNION
+                       SELECT TARGET, KEY_1, KEY_2
+                        FROM ICOMTRXL TRXL, ICOMPODT PODT
+                       WHERE TRXL.DOC_NAME = 'IVDOWN'
+                         AND TRXL.TARGET = 'KRKDAC0001'
+                         AND TRXL.TARGET = PODT.BUYER
+                         AND TRXL.KEY_3  = PODT.PO_NO
+                         AND TRXL.KEY_4  = PODT.PO_SEQ
+                         AND PODT.PROCESS_TYPE ^= '0'
+                         AND KEY_1 LIKE 'IK%'
+                         AND KEY_9 = ' '
+                         AND KEY_10 in (' ','A')
+                </V_SQL>
+                <P_SQL SEQ="1" TYPE="SELECT" POST_SQL="TRUE">
+                <![CDATA[
+                   SELECT '01' AS COMLTD
+                         ,'D4240' AS VSRNO
+                         ,PODT.DELY_TO_LOCATION||IVDT.INV_NO AS SLNO
+                         ,SUBSTR(PODT.LEGACY_PO_SEQ,1,8) AS SRNO
+                         ,SUBSTR(PODT.LEGACY_PO_SEQ,9,2) AS SRNO1
+                         ,SUBSTR(PODT.DELY_TO_LOCATION,1,1) AS XPLANT
+                         ,SUBSTR(PODT.DELY_TO_LOCATION,2,1) AS DIV
+                         ,PODT.BUYER_ITEM_NO AS ITNO
+                         ,nvl(trim(IFPO.DESCRIPTION),'.')   AS ITNM
+                         ,nvl(trim(IFPO.SPECIFICATION),'.') AS SPEC
+                         ,nvl(PODT.MAKER_NAME,' ') AS MAKER
+                         ,PODT.UNIT_MEASURE  AS XUNIT
+                         ,nvl(trim(SUBSTRB(PRDT.IV_COLUMN,INSTRB(PRDT.IV_COLUMN,'^',1,4)+1,INSTRB(PRDT.IV_COLUMN,'^',1,5) -INSTRB(PRDT.IV_COLUMN,'^',1,4)-1 )),' ') AS CLS
+                         ,nvl(trim(SUBSTRB(PRDT.IV_COLUMN,INSTRB(PRDT.IV_COLUMN,'^',1,5)+1,INSTRB(PRDT.IV_COLUMN,'^',1,6) -INSTRB(PRDT.IV_COLUMN,'^',1,5)-1 )),'.') AS XTYPE
+                         ,' '                AS GUBUN
+                         ,PODT.REF_PR_NO AS RQNO
+                         ,PRDT.REQ_USER_ID AS EMPNO
+                         ,nvl(trim(SUBSTRB(PRDT.IV_COLUMN,INSTRB(PRDT.IV_COLUMN,'^',1,2)+1,INSTRB(PRDT.IV_COLUMN,'^',1,3) -INSTRB(PRDT.IV_COLUMN,'^',1,2)-1 )),'.') AS DEPT
+                         ,IVDT.INVOICE_DATE AS STDT
+                         ,IVDT.ADD_DATE     AS PRTDT
+                         ,PODT.ITEM_QTY     AS PQTY
+                         ,PODT.UNIT_PRICE   AS XCOST
+                         ,PRDT.LEGACY_PO_NO AS PURNO
+                         ,PODT.RD_DATE      AS PDUDT
+                         ,IVDT.INV_QTY      AS AQTY
+                         ,' '               AS STCD
+                         ,'N'               AS IFFLAG
+                         ,DECODE(IVDT.STATUS,'D','D','C') AS CDFLAG
+                    from icomivdt ivdt, icompodt podt, icomprdt prdt, if_podt ifpo
+                   where ivdt.buyer = '$G_RS.TARGET$'
+                     and ivdt.inv_no = '$G_RS.KEY_1$'
+                     and ivdt.inv_seq= '$G_RS.KEY_2$'
+                     and ivdt.buyer = podt.buyer
+                     and ivdt.po_no = podt.po_no
+                     and ivdt.po_seq= podt.po_seq
+                     and podt.buyer = prdt.buyer
+                     and podt.pr_no = prdt.pr_no
+                     and podt.pr_seq= prdt.pr_seq
+                     and prdt.buyer = ifpo.buyer
+                     and prdt.legacy_po_no = ifpo.legacy_po_no
+                     and prdt.legacy_po_seq= ifpo.legacy_po_seq
+                     and podt.process_type = '0'
+                   UNION ALL
+                   SELECT '01' AS COMLTD
+                         ,'D4240' AS VSRNO
+                         ,PODT.DELY_TO_LOCATION||IVDT.INV_NO AS SLNO
+                         ,SUBSTR(PODT.LEGACY_PO_SEQ,1,8) AS SRNO
+                         ,SUBSTR(PODT.LEGACY_PO_SEQ,9,2) AS SRNO1
+                         ,SUBSTR(PODT.DELY_TO_LOCATION,1,1) AS XPLANT
+                         ,SUBSTR(PODT.DELY_TO_LOCATION,2,1) AS DIV
+                         ,PODT.BUYER_ITEM_NO AS ITNO
+                         ,nvl(trim(IFPO.DESCRIPTION),'.')   AS ITNM
+                         ,nvl(trim(IFPO.SPECIFICATION),'.') AS SPEC
+                         ,nvl(PODT.MAKER_NAME,' ') AS MAKER
+                         ,replace(replace(PODT.UNIT_MEASURE,'BOX','BX'),'SET','ST')  AS XUNIT
+                         ,nvl(trim(SUBSTRB(PRDT.IV_COLUMN,INSTRB(PRDT.IV_COLUMN,'^',1,4)+1,INSTRB(PRDT.IV_COLUMN,'^',1,5) -INSTRB(PRDT.IV_COLUMN,'^',1,4)-1 )),' ') AS CLS
+                         ,nvl(trim(SUBSTRB(PRDT.IV_COLUMN,INSTRB(PRDT.IV_COLUMN,'^',1,5)+1,INSTRB(PRDT.IV_COLUMN,'^',1,6) -INSTRB(PRDT.IV_COLUMN,'^',1,5)-1 )),'.') AS XTYPE
+                         ,' '                AS GUBUN
+                         ,PODT.REF_PR_NO AS RQNO
+                         ,PRDT.REQ_USER_ID AS EMPNO
+                         ,nvl(trim(SUBSTRB(PRDT.IV_COLUMN,INSTRB(PRDT.IV_COLUMN,'^',1,2)+1,INSTRB(PRDT.IV_COLUMN,'^',1,3) -INSTRB(PRDT.IV_COLUMN,'^',1,2)-1 )),'.') AS DEPT
+                         ,IVDT.INV_DATE AS STDT
+                         ,IVDT.ADD_DATE     AS PRTDT
+                         ,PODT.ITEM_QTY     AS PQTY
+                         ,PODT.UNIT_PRICE   AS XCOST
+                         ,PRDT.LEGACY_PO_NO AS PURNO
+                         ,PODT.RD_DATE      AS PDUDT
+                         ,IVDT.INV_QTY      AS AQTY
+                         ,' '               AS STCD
+                         ,'N'               AS IFFLAG
+                         ,DECODE(IVDT.STATUS,'D','D','C') AS CDFLAG
+                    from wmsivdt ivdt, icompodt podt, icomprdt prdt, if_podt ifpo
+                   where ivdt.buyer = '$G_RS.TARGET$'
+                     and ivdt.inv_no = '$G_RS.KEY_1$'
+                     and ivdt.inv_seq= '$G_RS.KEY_2$'
+                     and ivdt.buyer = podt.buyer
+                     and ivdt.po_no = podt.po_no
+                     and ivdt.po_seq= podt.po_seq
+                     and podt.buyer = prdt.buyer
+                     and podt.pr_no = prdt.pr_no
+                     and podt.pr_seq= prdt.pr_seq
+                     and prdt.buyer = ifpo.buyer
+                     and prdt.legacy_po_no = ifpo.legacy_po_no
+                     and prdt.legacy_po_seq= ifpo.legacy_po_seq
+                   ORDER BY SLNO,SRNO,SRNO1
+
+                ]]>
+                        <C_SQL TYPE="UPDATE" P_SQL_RESULT="TRUE">
+                        <![CDATA[
+                            UPDATE ICOMTRXL
+                               SET KEY_10 = 'Y'
+                                  ,KEY_9 = TO_CHAR(SYSDATE,'YYYYMMDD HH24MISS')
+                            WHERE DOC_NAME = 'IVDOWN'
+                              AND TARGET = '$G_RS.TARGET$'
+                              AND KEY_1 = '$G_RS.KEY_1$'
+                              AND KEY_2 = '$G_RS.KEY_2$'
+                              AND KEY_9 = ' '
+                              AND KEY_10 in (' ','A')
+                        ]]>
+                        </C_SQL>
+                        <C_SQL TYPE="UPDATE" P_SQL_RESULT="FALSE">
+                        <![CDATA[
+                            UPDATE ICOMTRXL
+                               SET KEY_10 = 'E'
+                                  ,KEY_9 = TO_CHAR(SYSDATE,'YYYYMMDD HH24MISS')
+                            WHERE DOC_NAME = 'IVDOWN'
+                              AND TARGET = '$G_RS.TARGET$'
+                              AND KEY_1 = '$G_RS.KEY_1$'
+                              AND KEY_2 = '$G_RS.KEY_2$'
+                              AND KEY_9 = ' '
+                              AND KEY_10 in (' ','A')
+                        ]]>
+                        </C_SQL>
+                </P_SQL>
+        </SQL_DOC>
+        <RETRY_CODE>
+                <CODE>03113</CODE>
+                <CODE>03114</CODE>
+                <CODE>02154</CODE>
+                <CODE>02541</CODE>
+                <CODE>04068</CODE>
+        </RETRY_CODE>
+</SQL>

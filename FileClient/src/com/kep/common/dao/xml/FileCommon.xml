@@ -1,0 +1,466 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap      
+    PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN"
+    "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="FileCommon">
+
+  <select id="selectWorkHdList" resultClass="java.util.HashMap">
+    SELECT P_ID
+      FROM EAI.IF_FILE_HD
+     WHERE FLAG = 'Y'
+     ORDER BY P_ID
+  </select>
+  
+  <select id="selectWorkHdInfo" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+    SELECT P_ID, FOLDER, CHARSET, SPLIT_TYPE, PREFIX, BUYER_ID, TARGET_IP, TARGET_PORT, TARGET_ID, TARGET_PW, FTP_TYPE, TARGET_DIR
+      FROM EAI.IF_FILE_HD
+     WHERE FLAG = 'Y'
+       AND P_ID = #P_ID#
+     ORDER BY P_ID
+  </select>
+
+  <select id="selectWorkDtList" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+    SELECT A.P_ID, TO_CHAR(A.P_SEQ) P, TO_CHAR(A.SEQ) SEQ, A.F_ID, A.F_NAME, TO_CHAR(A.F_LENGTH) F_LENGTH
+      FROM EAI.IF_FILE_DT A
+     WHERE A.P_ID = #P_ID#
+       AND A.FLAG = 'Y'
+     ORDER BY P_SEQ
+  </select>
+    <select id="selectPrCheck" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+		SELECT BUYER, 'PR' GUBUN, LEGACY_PR_NO AS LEGACY_NO, REVISION,
+		       TO_CHAR(COUNT(*)) AS TOT_CNT,
+		       TO_CHAR(NVL(SUM(ITEM_AMT),0)) AS TOT_AMT,
+		       TO_CHAR(COUNT(DECODE(IF_FLAG,'E','X',NULL))) AS ERR_CNT,
+		       TO_CHAR(COUNT(DECODE(STATUS, 'D','D',NULL))) AS DEL_CNT
+		  FROM IF_PRDT
+		 WHERE BUYER = #BUYER#
+		   AND LEGACY_PR_NO  = #LEGACY_PR_NO#
+		   AND REVISION = #REVISION#
+	  GROUP BY  BUYER, LEGACY_PR_NO, REVISION	  
+	</select>
+  
+  <select id="selectPoCheck" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+		SELECT BUYER, 'PO' GUBUN, LEGACY_PO_NO AS LEGACY_NO, REVISION,
+		       TO_CHAR(COUNT(*)) AS TOT_CNT,
+		       TO_CHAR(NVL(SUM(ITEM_AMT),0)) AS TOT_AMT,
+		       TO_CHAR(COUNT(DECODE(IF_FLAG,'E','X',NULL))) AS ERR_CNT,
+		       TO_CHAR(COUNT(DECODE(STATUS, 'D','D',NULL))) AS DEL_CNT
+		  FROM IF_PODT
+		 WHERE BUYER = #BUYER#
+		   AND LEGACY_PO_NO  = #LEGACY_PO_NO#
+		   AND REVISION = #REVISION#
+	  GROUP BY  BUYER, LEGACY_PO_NO, REVISION	  
+	</select>
+	
+  <select id="selectGrCheck" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+	SELECT 
+	       BUYER, 'GR' GUBUN, LEGACY_GR_NO AS LEGACY_NO, REVISION,
+	       TO_CHAR(COUNT(*)) AS TOT_CNT,
+	       TO_CHAR(NVL(SUM(GR_AMT),0)) AS TOT_AMT,
+	       TO_CHAR(COUNT(DECODE(IF_FLAG,'E','X',NULL))) AS ERR_CNT,
+	       TO_CHAR(COUNT(DECODE(STATUS, 'D','D',NULL))) AS DEL_CNT
+	  FROM IF_GRDT
+	 WHERE BUYER        = NVL(#BUYER#,' ')
+	  AND  LEGACY_GR_NO = NVL(#LEGACY_GR_NO#,' ')
+	  AND  REVISION     = NVL(#REVISION#,' ')
+	 GROUP BY  BUYER, LEGACY_GR_NO, REVISION
+  </select>
+  
+  <select id="selectIvCheck" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+  SELECT 
+         BUYER, 'IV' GUBUN, LEGACY_IV_NO AS LEGACY_NO, REVISION,
+         TO_CHAR(COUNT(*)) AS TOT_CNT,
+         TO_CHAR(NVL(SUM(INV_QTY),0)) AS TOT_AMT,
+         TO_CHAR(COUNT(DECODE(IF_FLAG,'E','X',NULL))) AS ERR_CNT,
+         TO_CHAR(COUNT(DECODE(STATUS, 'D','D',NULL))) AS DEL_CNT
+    FROM IF_IVDT
+   WHERE BUYER        = NVL(#BUYER#,' ')
+    AND  LEGACY_IV_NO = NVL(#LEGACY_IV_NO#,' ')
+    AND  REVISION     = NVL(#REVISION#,' ')
+   GROUP BY  BUYER, LEGACY_IV_NO, REVISION
+  </select>
+  
+  <update id="mergeIfProgress" parameterClass="java.util.HashMap">
+  	MERGE INTO IF_PROGRESS A
+  	USING (
+  	  SELECT NVL(TRIM(#BUYER#), ' ') AS BUYER,
+  	         #GUBUN# AS GUBUN,
+  	         NVL(TRIM(#LEGACY_NO#), ' ') AS LEGACY_NO,
+  	         NVL(TRIM(#REVISION#), ' ') AS REVISION
+  	    FROM DUAL
+  	) B ON (1 = 1
+  	  AND A.BUYER = B.BUYER
+  	  AND A.GUBUN = B.GUBUN
+  	  AND A.LEGACY_NO = B.LEGACY_NO
+  	  AND A.REVISION = B.REVISION
+  	)
+  	WHEN NOT MATCHED THEN
+			INSERT (
+				BUYER, GUBUN, LEGACY_NO,
+				REVISION, STATUS, IF_FLAG,
+				TOT_CNT, TOT_AMT, ERR_CNT,
+				ERR_MSG, REMARK, CHANGE_DATE,
+				CHANGE_TIME, ADD_DATE 
+			) VALUES (
+				NVL(TRIM(#BUYER#), ' '),      #GUBUN#,                      NVL(TRIM(#LEGACY_NO#), ' '),
+				NVL(TRIM(#REVISION#), ' '),   NVL(TRIM(#STATUS#), ' '),     CASE WHEN NVL(TRIM(#BUYER#), ' ') IN (SELECT CODE FROM ICOMCOD1 WHERE TYPE = 'I004' AND FLAG = 'Y') AND 
+				                                                                      #GUBUN# = 'PO' THEN 'A' ELSE NVL(#IF_FLAG#, ' ') END,
+				NVL(#TOT_CNT#, 0),            NVL(#TOT_AMT#, 0),            NVL(#ERR_CNT#, 0),
+				CASE WHEN NVL(TRIM(#BUYER#), ' ') IN (SELECT CODE FROM ICOMCOD1 WHERE TYPE = 'I004' AND FLAG = 'Y') AND 
+				          #GUBUN# = 'PO' THEN '발주 확인후 실행하세요' ELSE NVL(TRIM(#ERR_MSG#), ' ') END,
+				
+				NVL(TRIM(#REMARK#), ' '),     TO_CHAR(SYSDATE, 'YYYYMMDD'),
+				TO_CHAR(SYSDATE, 'HH24MISS'), TO_CHAR(SYSDATE, 'YYYYMMDD')
+			)
+		WHEN MATCHED THEN
+			UPDATE SET 
+			     STATUS        = NVL(TRIM(#STATUS#),' '),
+				   IF_FLAG       = NVL(TRIM(#IF_FLAG#),' '),
+				   TOT_CNT       = NVL(#TOT_CNT#,0),
+				   ERR_CNT       = NVL(#ERR_CNT#,0),
+				   ERR_MSG       = NVL(TRIM(#ERR_MSG#),' '),
+				   REMARK        = NVL(TRIM(#REMARK#),' '),
+				   CHANGE_DATE   = TO_CHAR(SYSDATE, 'YYYYMMDD'),
+				   CHANGE_TIME   = TO_CHAR(SYSDATE, 'HH24MISS')
+  </update>
+  <update id="mergeIfPodt" parameterClass="com.kep.common.vo.PodtVo">
+	MERGE INTO IF_PODT A
+    USING (
+      SELECT NVL(TRIM(#BUYER#),' ') AS BUYER,
+      		 NVL(TRIM(#LEGACY_PO_NO#),' ') AS LEGACY_PO_NO,
+      		 NVL(TRIM(#LEGACY_PO_SEQ#),' ') AS LEGACY_PO_SEQ,
+     		 NVL(TRIM(#BUYER_ITEM_NO#),' ') AS BUYER_ITEM_NO
+        FROM DUAL
+    ) B ON (1 = 1
+      AND A.BUYER = B.BUYER
+      AND A.LEGACY_PO_NO = B.LEGACY_PO_NO
+      AND A.LEGACY_PO_SEQ = B.LEGACY_PO_SEQ
+      AND A.BUYER_ITEM_NO = B.BUYER_ITEM_NO
+    )
+    WHEN NOT MATCHED THEN
+      INSERT (
+        BUYER, STATUS, LEGACY_PO_NO, LEGACY_PO_SEQ, REVISION,
+        BUYER_ITEM_NO, CURRENCY_CODE, UNIT_PRICE, ITEM_QTY, ITEM_AMT,
+        ADD_DATE, RD_DATE, DELY_TO_LOCATION, DELY_TO_LOCATION_TEXT, PURCHASER_USER_ID,
+        PURCHASER_USER_DEPT,AGENT,LEGACY_SELLER_CODE,LEGACY_PR_NO, REQ_USER_ID,
+        REQ_USER_NAME, REQ_USER_DEPT, REQ_USER_DEPT_NAME, REMARK,REMARK2, ERROR_MSG,
+        REF_IF_NO, ACCOUNT_TYPE, D_IMAGE_KEY, REMARK_DETAIL_1, UNIT_MEASURE,
+        DOC_TYPE, IF_FLAG, FILE_NAME, SELLER, BYIT_COMORG_CODE, REQ_USER_INFO    
+      ) VALUES (
+        NVL(#BUYER#, ' '), NVL(#STATUS#, ' '), NVL(#LEGACY_PO_NO#, ' '), NVL(#LEGACY_PO_SEQ#, ' '), NVL(#REVISION#, ' '),
+        NVL(#BUYER_ITEM_NO#, ' '), NVL(#CURRENCY_CODE#, ' '), NVL(#UNIT_PRICE#, 0), NVL(#ITEM_QTY#, 0), NVL(#ITEM_AMT#, 0), 
+        NVL(#ADD_DATE#, TO_CHAR(SYSDATE, 'YYYYMMDD')), NVL(#RD_DATE#, ' '), NVL(#DELY_TO_LOCATION#, ' '), NVL(#DELY_TO_LOCATION_TEXT#, ' '), NVL(#PURCHASER_USER_ID#, ' '), 
+        NVL(#PURCHASER_USER_DEPT#, ' '), NVL(#AGENT#, ' '), NVL(#LEGACY_SELLER_CODE#, ' '), NVL(#LEGACY_PR_NO#, ' '), NVL(#REQ_USER_ID#, ' '), NVL(#REQ_USER_NAME#, ' '),
+        NVL(#REQ_USER_DEPT#, ' '), NVL(#REQ_USER_DEPT_NAME#, ' '),NVL(#REMARK#, ' '),NVL(#REMARK2#, ' '), NVL(#ERROR_MSG#, '데이터 확인 필요.'),
+        NVL(#REF_IF_NO#, ' '), NVL(#ACCOUNT_TYPE#, ' '), NVL(#D_IMAGE_KEY#, ' '), NVL(#REMARK_DETAIL_1#, ' '), NVL(#UNIT_MEASURE#, ' '),
+        NVL(#DOC_TYPE#, 'N'), NVL(#IF_FLAG#, 'E'), NVL(#FILE_NAME#, ' '), NVL(#SELLER#, ' '),
+        NVL(#BYIT_COMORG_CODE#, ' '), NVL(SUBSTRB(NVL(#REQ_USER_NAME#,' ')||' '||NVL(#REQ_USER_DEPT_NAME#,' '),1,50),' ')
+      )
+    WHEN MATCHED THEN
+      UPDATE SET
+			STATUS =  NVL(#STATUS#,' '),
+			REVISION =  NVL(#REVISION#,' '),
+			CURRENCY_CODE =  NVL(#CURRENCY_CODE#,' '),
+			UNIT_PRICE =  NVL(#UNIT_PRICE#, 0),
+			ITEM_QTY =  NVL(#ITEM_QTY#,0),
+			ITEM_AMT =  NVL(#ITEM_AMT#,0),
+			ADD_DATE =  NVL(#ADD_DATE#,TO_CHAR(SYSDATE, 'YYYYMMDD')),
+			RD_DATE =  NVL(#RD_DATE#,' '),
+			DELY_TO_LOCATION =  NVL(#DELY_TO_LOCATION#,' '),
+			DELY_TO_LOCATION_TEXT =  NVL(#DELY_TO_LOCATION_TEXT#,' '),
+			PURCHASER_USER_ID =  NVL(#PURCHASER_USER_ID#,' '),
+			PURCHASER_USER_DEPT =  NVL(#PURCHASER_USER_DEPT#,' '),
+			AGENT =  NVL(#AGENT#,' '),
+			LEGACY_SELLER_CODE =  NVL(#LEGACY_SELLER_CODE#,' '),
+			LEGACY_PR_NO =  NVL(#LEGACY_PR_NO#,' '),
+			REQ_USER_ID =  NVL(#REQ_USER_ID#,' '),
+			REQ_USER_NAME =  NVL(#REQ_USER_NAME#,' '),
+			REQ_USER_DEPT =  NVL(#REQ_USER_DEPT#,' '),
+			REQ_USER_DEPT_NAME =  NVL(#REQ_USER_DEPT_NAME#,' '),
+			REMARK =  NVL(#REMARK#,' '),
+			REMARK2 =  NVL(#REMARK2#,' '),
+			ERROR_MSG =  NVL(#ERROR_MSG#,' '),
+			REF_IF_NO =  NVL(#REF_IF_NO#,' '),
+			ACCOUNT_TYPE =  NVL(#ACCOUNT_TYPE#,' '),
+			D_IMAGE_KEY =  NVL(#D_IMAGE_KEY#,' '),
+			REMARK_DETAIL_1 =  NVL(#REMARK_DETAIL_1#,' '),
+			UNIT_MEASURE =  NVL(#UNIT_MEASURE#,' '),
+			DOC_TYPE =  NVL(#DOC_TYPE#,' '),
+			IF_FLAG =  NVL(#IF_FLAG#,' '),
+			FILE_NAME =  NVL(#FILE_NAME#,' '),
+			SELLER =  NVL(#SELLER#,' '),
+			CHANGE_DATE =  NVL(#CHANGE_DATE#,' '),
+			CHANGE_TIME =  NVL(#CHANGE_TIME#,' '),
+			BYIT_COMORG_CODE =  NVL(#BYIT_COMORG_CODE#,' '),
+			REQ_USER_INFO =  NVL(SUBSTRB(NVL(#REQ_USER_NAME#,' ')||' '||NVL(#REQ_USER_DEPT_NAME#,' '),1,50),' ')
+  </update>
+  
+  <update id="mergeIfGrdt" parameterClass="com.kep.common.vo.GrdtVo">
+  	MERGE INTO IF_GRDT A 
+  	USING (
+  	  SELECT NVL(TRIM(#BUYER#)         ,' ') AS BUYER,
+  	         NVL(TRIM(#LEGACY_GR_NO#)  ,' ') AS LEGACY_GR_NO,
+  	         NVL(TRIM(#LEGACY_GR_SEQ#) ,' ') AS LEGACY_GR_SEQ,
+  	         NVL(TRIM(#REVISION#)      ,' ') AS REVISION,
+  	         NVL(TRIM(#LEGACY_PO_NO#)  ,' ') AS LEGACY_PO_NO,
+  	         NVL(TRIM(#LEGACY_PO_SEQ#) ,' ') AS LEGACY_PO_SEQ,
+  	         NVL(TRIM(#BUYER_ITEM_NO#) ,' ') AS BUYER_ITEM_NO
+  	    FROM DUAL
+  	) B ON (1 = 1
+  	  AND A.BUYER = B.BUYER
+  	  AND A.LEGACY_GR_NO = B.LEGACY_GR_NO
+  	  AND A.LEGACY_GR_SEQ = B.LEGACY_GR_SEQ
+  	  AND A.REVISION = B.REVISION
+  	  AND A.LEGACY_PO_NO = B.LEGACY_PO_NO
+  	  AND A.LEGACY_PO_SEQ = B.LEGACY_PO_SEQ
+  	  AND A.BUYER_ITEM_NO = B.BUYER_ITEM_NO
+  	)
+  	WHEN NOT MATCHED THEN
+			INSERT (
+				BUYER, STATUS, LEGACY_PO_NO,
+				LEGACY_PO_SEQ, BUYER_ITEM_NO, BUYER_ITEM_NO1,
+				CURRENCY_CODE, UNIT_PRICE, GR_QTY,
+				GR_AMT, GR_DATE, LEGACY_PR_NO,
+				LEGACY_INV_NO, LEGACY_GR_NO, LEGACY_GR_SEQ,
+				REVISION, RO_QTY, RO_AMT,
+				REMARK, ERROR_MSG, REF_IF_NO,
+				REF_IF_NO1, IF_FLAG, FILE_NAME,
+				LOAD_DATE, LOAD_TIME,
+        CREATE_DATE, CREATE_TIME
+			) VALUES (
+				NVL(TRIM(#BUYER#)         ,' '), NVL(TRIM(#STATUS#)        ,' '), NVL(TRIM(#LEGACY_PO_NO#)  ,' '),
+				NVL(TRIM(#LEGACY_PO_SEQ#) ,' '), NVL(TRIM(#BUYER_ITEM_NO#) ,' '), NVL(TRIM(#BUYER_ITEM_NO1#),' '),
+				NVL(TRIM(#CURRENCY_CODE#) ,' '), NVL(#UNIT_PRICE#          ,  0), NVL(#GR_QTY#              ,  0),
+				NVL(#GR_AMT#              ,  0), NVL(TRIM(#GR_DATE#)       ,' '), NVL(TRIM(#LEGACY_PR_NO#)  ,' '),
+				NVL(TRIM(#LEGACY_INV_NO#) ,' '), NVL(TRIM(#LEGACY_GR_NO#)  ,' '), NVL(TRIM(#LEGACY_GR_SEQ#) ,' '),
+				NVL(TRIM(#REVISION#)      ,' '), NVL(#RO_QTY#              ,  0), NVL(#RO_AMT#              ,  0),
+				NVL(TRIM(#REMARK#)        ,' '), NVL(TRIM(#ERROR_MSG#)     ,' '), NVL(TRIM(#REF_IF_NO#)     ,' '),
+				NVL(TRIM(#REF_IF_NO1#)    ,' '), NVL(TRIM(#IF_FLAG#)       ,' '), NVL(TRIM(#FILE_NAME#)     ,' '),
+				TO_CHAR(SYSDATE, 'YYYYMMDD'), TO_CHAR(SYSDATE, 'HH24MISS'), 
+				TO_CHAR(SYSDATE, 'YYYYMMDD'), TO_CHAR(SYSDATE, 'HH24MISS')
+			)	
+  	WHEN MATCHED THEN
+		  UPDATE SET  
+	       STATUS              = NVL(TRIM(#STATUS#)        ,' '),
+	       BUYER_ITEM_NO1      = NVL(TRIM(#BUYER_ITEM_NO1#),' '),
+	       CURRENCY_CODE       = NVL(TRIM(#CURRENCY_CODE#) ,' '),
+	       UNIT_PRICE          = NVL(#UNIT_PRICE#          ,  0),
+	       GR_QTY              = NVL(#GR_QTY#              ,  0),
+	       GR_AMT              = NVL(#GR_AMT#              ,  0),
+	       GR_DATE             = NVL(TRIM(#GR_DATE#)       ,' '),
+	       LEGACY_PR_NO        = NVL(TRIM(#LEGACY_PR_NO#)  ,' '),
+	       LEGACY_INV_NO       = NVL(TRIM(#LEGACY_INV_NO#) ,' '),
+	       RO_QTY              = NVL(#RO_QTY#              ,  0),
+	       RO_AMT              = NVL(#RO_AMT#              ,  0),
+	       REMARK              = NVL(TRIM(#REMARK#)        ,' '),
+	       ERROR_MSG           = NVL(TRIM(#ERROR_MSG#)     ,' '),
+	       REF_IF_NO           = NVL(TRIM(#REF_IF_NO#)     ,' '),
+	       REF_IF_NO1          = NVL(TRIM(#REF_IF_NO1#)    ,' '),
+	       IF_FLAG             = NVL(TRIM(#IF_FLAG#)       ,' '),
+	       FILE_NAME           = NVL(TRIM(#FILE_NAME#)     ,' '),
+	       CHANGE_DATE         = TO_CHAR(SYSDATE, 'YYYYMMDD'),
+	       CHANGE_TIME         = TO_CHAR(SYSDATE, 'HH24MISS')
+  </update>
+  
+  <update id="mergeIfIvdt" parameterClass="com.kep.common.vo.IvdtVo">
+    MERGE INTO IF_IVDT A
+    USING (
+      SELECT #BUYER# AS BUYER,
+             #LEGACY_IV_NO# AS LEGACY_IV_NO,
+             #LEGACY_IV_SEQ# AS LEGACY_IV_SEQ
+        FROM DUAL
+    ) B ON (1 = 1
+      AND A.BUYER = B.BUYER
+      AND A.LEGACY_IV_NO = B.LEGACY_IV_NO
+      AND A.LEGACY_IV_SEQ = B.LEGACY_IV_SEQ
+    )
+    WHEN NOT MATCHED THEN
+      INSERT (
+        BUYER,  STATUS, LEGACY_PO_NO,
+        LEGACY_PO_SEQ,  LEGACY_IV_NO, LEGACY_IV_SEQ,
+        REVISION, BUYER_ITEM_NO,  INVOICE_DATE,
+        INV_QTY,  PO_NO,  PO_SEQ,
+        INV_NO, INV_SEQ,  IF_FLAG,
+        DELIVERY_QTY, DELIVERY_DATE,  TABLE_FLAG,
+        ERROR_MSG,  LOAD_DATE,  LOAD_TIME,
+        S_INV_NO, PARCEL_COM_CODE,  PARCEL_INV_NO      
+      ) VALUES (
+        NVL(TRIM(#BUYER#), ' '),                                NVL(TRIM(#STATUS#),          ' '),  NVL(TRIM(#LEGACY_PO_NO#), ' '),
+        NVL(TRIM(TO_CHAR(#LEGACY_PO_SEQ#, 'FM000000')), ' '),   NVL(TRIM(#LEGACY_IV_NO#),    ' '),  NVL(TRIM(#LEGACY_IV_SEQ#), ' '),
+        NVL(TRIM(#REVISION#), ' '),                             NVL(TRIM(#BUYER_ITEM_NO#),   ' '),  NVL(TRIM(#INVOICE_DATE#), ' '),
+        NVL(#INV_QTY#, 0),                                      NVL(TRIM(#PO_NO#),           ' '),  NVL(TRIM(#PO_SEQ#), ' '),
+        NVL(TRIM(#INV_NO#), ' '),                               NVL(TRIM(#INV_SEQ#),         ' '),  NVL(TRIM(#IF_FLAG#), 'E'),
+        NVL(#DELIVERY_QTY#, 0),                                 NVL(TRIM(#DELIVERY_DATE#)  , ' '),  '1',
+        '',                                                     TO_CHAR(SYSDATE,'YYYYMMDD'),        TO_CHAR(SYSDATE,'HH24MISS'),
+        NVL(TRIM(#S_INV_NO#), ' '),                             NVL(TRIM(#PARCEL_COM_CODE#), ' '),  NVL(TRIM(#PARCEL_INV_NO#), ' ')
+      )
+    WHEN MATCHED THEN
+      UPDATE SET 
+          STATUS               = NVL(TRIM(#STATUS#), ' '),
+          LEGACY_PO_NO         = NVL(TRIM(#LEGACY_PO_NO#), ' '),
+          LEGACY_PO_SEQ        = NVL(TRIM(TO_CHAR(#LEGACY_PO_SEQ#, 'FM000000')), ' '),
+          INVOICE_DATE         = NVL(TRIM(#INVOICE_DATE#), ' '),
+          INV_QTY              = NVL(#INV_QTY#, 0),
+          DELIVERY_QTY         = NVL(#DELIVERY_QTY#, 0),
+          DELIVERY_DATE        = NVL(TRIM(#DELIVERY_DATE#), ' '),
+          PO_NO                = NVL(TRIM(#PO_NO#), ' '),
+          PO_SEQ               = NVL(TRIM(#PO_SEQ#), ' '),
+          INV_NO               = NVL(TRIM(#INV_NO#), ' '),
+          INV_SEQ              = NVL(TRIM(#INV_SEQ#), ' '),
+          IF_FLAG              = NVL(TRIM(#IF_FLAG#), 'E'),
+          TABLE_FLAG           = '1',
+          ERROR_MSG            = ' ',
+          LOAD_DATE            = TO_CHAR(SYSDATE,'YYYYMMDD'),
+          LOAD_TIME            = TO_CHAR(SYSDATE,'HH24MISS'),
+          S_INV_NO             = NVL(TRIM(#S_INV_NO#), ' '),
+          PARCEL_COM_CODE      = NVL(TRIM(#PARCEL_COM_CODE#), ' '),
+          PARCEL_INV_NO        = NVL(TRIM(#PARCEL_INV_NO#), ' ')
+  </update>
+  
+  <select id="selectCommonPoPurchaserInfo" parameterClass="com.kep.common.vo.PodtVo" resultClass="java.util.HashMap">
+    SELECT COUNT(*) AS CNT
+         , NVL(MAX(USER_ID), #PURCHASER_USER_ID#) AS PURCHASER_USER_ID
+         , NVL(MAX(DEPARTMENT),' ') AS PURCHASER_USER_DEPT
+      FROM ICOMLUSR
+     WHERE COM_CODE = #BUYER#
+       AND LEGACY_USER_ID = #PURCHASER_USER_ID#
+       AND STATUS IN ('C','R')
+  </select>
+  
+  <insert id="insertPodtUc" parameterClass="com.kep.common.vo.PodtUCVo">
+		INSERT INTO IF_PODT_UC(
+		  KEP_SEQ,
+		  SITE,  BUYER,  LEGACY_PO_NO,
+		  LEGACY_PO_SEQ,  REVISION,  STATUS,
+		  BUYER_ITEM_NO,  CURRENCY_CODE,  UNIT_PRICE,
+		  ITEM_QTY,  ITEM_AMT,  ADD_DATE,
+		  RD_DATE,  DELY_TO_LOCATION,  PURCHASER_USER_ID,
+		  PURCHASER_USER_DEPT,  AGENT,  LEGACY_SELLER_CODE,
+		  LEGACY_PR_NO,  REQ_USER_ID,  REQ_USER_NAME,
+		  REQ_USER_DEPT,  REQ_USER_DEPT_NAME,  REMARK,
+		  REMARK2,  ERROR_MSG,  REF_IF_NO,
+		  DOC_TYPE,  FILE_NAME,  SELLER,
+		  LOAD_DATE,  LOAD_TIME,  REQ_USER_INFO,
+		  BYIT_COMORG_CODE,  CONTRACT_NO,  CONTRACT_SEQ,
+		  D_IMAGE_KEY,  REMARK_DETAIL_1,  CHANGE_USER_ID,
+		  CHANGE_DATE,  CHANGE_TIME,  LIST_PRICE,
+		  MK_UNIT_PRICE,  IF_FLAG,  CATEG_ID,
+		  PURCHASER_USER_TEL,  DELY_TO_LOCATION_TEXT,  CREATE_DATE,
+		  UNIT_MEASURE,  UNIT_MEASURE2,  UNIT_QTY,
+		  HD_REMARK,  ACCOUNT_TYPE,  DESCRIPTION,
+		  SPECIFICATION,  IV_COLUMN,  PLANT,
+		  CLOSE_QTY,  CLOSE_FLAG,  REQ_EMAIL_NM,
+		  REQ_EMAIL_ADD
+		) VALUES (
+		  SEQ_IF_PODT_UC.NEXTVAL,
+		  NVL(#SITE#, 'KA'),  NVL(#BUYER#,' '),  NVL(#LEGACY_PO_NO#, ' '),
+		  NVL(#LEGACY_PO_SEQ#, ' '),  NVL(#REVISION#, '00'),  NVL(#STATUS#, 'D'),
+		  NVL(#BUYER_ITEM_NO#, ' '),  NVL(#CURRENCY_CODE#, 'KRW'),  NVL(#UNIT_PRICE#, 0),
+		  NVL(#ITEM_QTY#, 0),  NVL(#ITEM_AMT#, 0),  NVL(#ADD_DATE#, ' '),
+		  NVL(#RD_DATE#, ' '),  NVL(#DELY_TO_LOCATION#, ' '),  #PURCHASER_USER_ID#,
+		  #PURCHASER_USER_DEPT#,  #AGENT#,  #LEGACY_SELLER_CODE#,
+		  #LEGACY_PR_NO#,  #REQ_USER_ID#,  #REQ_USER_NAME#,
+		  #REQ_USER_DEPT#,  #REQ_USER_DEPT_NAME#,  #REMARK#,
+		  #REMARK2#,  #ERROR_MSG#,  #REF_IF_NO#,
+		  #DOC_TYPE#,  #FILE_NAME#,  #SELLER#,
+		  TO_CHAR(SYSDATE,'YYYYMMDD'),  TO_CHAR(SYSDATE,'HH24MISS'),  #REQ_USER_INFO#,
+		  #BYIT_COMORG_CODE#,  #CONTRACT_NO#,  #CONTRACT_SEQ#,
+		  #D_IMAGE_KEY#,  #REMARK_DETAIL_1#,  #CHANGE_USER_ID#,
+		  #CHANGE_DATE#,  #CHANGE_TIME#,  #LIST_PRICE#,
+		  #MK_UNIT_PRICE#,  'N',  #CATEG_ID#,
+		  #PURCHASER_USER_TEL#,  #DELY_TO_LOCATION_TEXT#,  TO_CHAR(#CREATE_DATE#, TO_CHAR(SYSDATE, 'YYYYMMDD') ),
+		  #UNIT_MEASURE#,  #UNIT_MEASURE2#,  #UNIT_QTY#,
+		  #HD_REMARK#,  #ACCOUNT_TYPE#,  #DESCRIPTION#,
+		  #SPECIFICATION#,  #IV_COLUMN#,  #PLANT#,
+		  #CLOSE_QTY#,  #CLOSE_FLAG#,  #REQ_EMAIL_NM#,
+		  #REQ_EMAIL_ADD#
+		)
+  </insert>
+  
+  <insert id="insertGrdtUc" parameterClass="com.kep.common.vo.GrdtUCVo">
+		INSERT INTO IF_GRDT_UC (
+		  KEP_SEQ,
+		  SITE,  BUYER,  STATUS,
+		  LEGACY_PO_NO,  LEGACY_PO_SEQ,  BUYER_ITEM_NO,
+		  BUYER_ITEM_NO1,  CURRENCY_CODE,  UNIT_PRICE,
+		  GR_QTY,  GR_AMT,  GR_DATE,
+		  LEGACY_PR_NO,  LEGACY_INV_NO,  LEGACY_GR_NO,
+		  LEGACY_GR_SEQ,  REVISION,  RO_QTY,
+		  RO_AMT,  REMARK,  ERROR_MSG,
+		  REF_IF_NO,  REF_IF_NO1,  FILE_NAME,
+		  LOAD_DATE,  LOAD_TIME,  ADD_USER_ID,
+		  CHANGE_DATE,  CHANGE_TIME,  CHANGE_USER_ID,
+		  IF_FLAG,  BYIT_COMORG_CODE,  PO_NO,
+		  PO_SEQ,  TARGET_PRICE,  DELY_TO_LOCATION,
+		  PLANT
+		) VALUES (
+		  SEQ_IF_GRDT_UC.NEXTVAL,
+		  NVL(#SITE#,'KA'),  #BUYER#,  #STATUS#,
+		  #LEGACY_PO_NO#,  #LEGACY_PO_SEQ#,  #BUYER_ITEM_NO#,
+		  #BUYER_ITEM_NO1#,  #CURRENCY_CODE#,  #UNIT_PRICE#,
+		  #GR_QTY#,  #GR_AMT#,  #GR_DATE#,
+		  #LEGACY_PR_NO#,  #LEGACY_INV_NO#,  #LEGACY_GR_NO#,
+		  #LEGACY_GR_SEQ#,  #REVISION#,  #RO_QTY#,
+		  #RO_AMT#,  #REMARK#,  #ERROR_MSG#,
+		  #REF_IF_NO#,  #REF_IF_NO1#,  #FILE_NAME#,
+		  TO_CHAR(SYSDATE,'YYYYMMDD'),  TO_CHAR(SYSDATE,'HH24MISS'),  #ADD_USER_ID#,
+		  #CHANGE_DATE#,  #CHANGE_TIME#,  #CHANGE_USER_ID#,
+		  'N',  #BYIT_COMORG_CODE#,  #PO_NO#,
+		  #PO_SEQ#,  #TARGET_PRICE#,  #DELY_TO_LOCATION#,
+		  #PLANT#
+		)
+  </insert>
+  
+  <insert id="insertIvdtUc" parameterClass="com.kep.common.vo.IvdtUCVo">
+		INSERT INTO IF_IVDT_UC (
+		  KEP_SEQ, 
+		  SITE, BUYER, STATUS, 
+		  LEGACY_IV_NO, LEGACY_IV_SEQ, REVISION, PO_NO
+		  ,PO_SEQ, LEGACY_PO_NO, LEGACY_PO_SEQ, BUYER_ITEM_NO, INVOICE_DATE, INV_QTY, INV_NO
+		  ,INV_SEQ, ERROR_MSG, LOAD_DATE, LOAD_TIME, IF_FLAG, REMARK, DS_DATE, STC_D_SELLER_PRICE, PROCESS_TYPE
+          ,TABLE_FLAG, DELIVERY_QTY, DELIVERY_DATE
+		) VALUES (
+		  SEQ_IF_IVDT_UC.NEXTVAL,
+		  NVL(#SITE#,'KA'),  #BUYER#,  #STATUS#,
+		  #LEGACY_IV_NO#,  #LEGACY_IV_SEQ#,  #REVISION#, #PO_NO#,
+		  #PO_SEQ#,  #LEGACY_PO_NO#,  #LEGACY_PO_SEQ#, #BUYER_ITEM_NO#,  #INVOICE_DATE#,  #INV_QTY#, #INV_NO#, 
+		  #INV_SEQ#,  #ERROR_MSG#, TO_CHAR(SYSDATE,'YYYYMMDD'),  TO_CHAR(SYSDATE,'HH24MISS'),  'N', #REMARK#,  #DS_DATE#,  #STC_D_SELLER_PRICE#, #PROCESS_TYPE#, 
+		  #TABLE_FLAG#,  #DELIVERY_QTY#, #DELIVERY_DATE#
+		)
+  </insert>  
+  
+    <insert id="insertRedtUc" parameterClass="com.kep.common.vo.RedtUCVo">
+		INSERT INTO IF_REDT_UC (
+		  KEP_SEQ, SITE, BUYER, QUOTATION_NO, QUOTATION_SEQ, REVISION, STATUS, ADD_DATE, BUYER_ITEM_NO, DESCRIPTION, SPECIFICATION, MAKER_NAME,
+	      ORIGIN_NAME, UNIT_MEASURE, PREV_UNIT_PRICE, OLD_AGENT, REMARK, CATEG_NAME1, CATEG_NAME2, REMARK_HEAD, H_IMAGE_KEY,
+		  REMARK_DETAIL1, REMARK_DETAIL2, D_IMAGE_KEY, DWING_NO, DW_IMAGE_KEY, REQ_USER_NAME, REQ_USER_DEPT, QC_INSPECTION,
+		  DELY_CONDITION, FILE_NAME, LOAD_DATE, LOAD_TIME, REQ_USER_TEL, REF_IF_NO, RD_DATE, CLOSE_DATE ,ITEM_QTY, ERROR_MSG,
+		  HD_REMARK, ADD_USER_ID, BYIT_COMORG_CODE, IF_FLAG, REMARK_URL, CREATE_DATE, CLOSE_TIME, ETC_REMARK, REQ_USER_FAX,
+		  REQ_USER_MAIL, ITEM_GUBUN, CATEGORY_NO, YEAR_QTY, CONTRACT_NO, CONTRACT_SEQ, MAKER_PART_NO, PLANT, ADD_TIME
+		) VALUES (
+		SEQ_IF_REDT_UC.NEXTVAL  , #SITE#  ,#BUYER# , #QUOTATION_NO#  , #QUOTATION_SEQ# , #REVISION#, #STATUS#, 
+		#ADD_DATE#, #BUYER_ITEM_NO# , #DESCRIPTION#, #SPECIFICATION# , #MAKER_NAME#    , #ORIGIN_NAME#   , #UNIT_MEASURE#, 
+		#PREV_UNIT_PRICE#, #OLD_AGENT#, #REMARK#, #CATEG_NAME1#, #CATEG_NAME2#, #REMARK_HEAD#, #H_IMAGE_KEY#, #REMARK_DETAIL1#,
+		#REMARK_DETAIL2#, #D_IMAGE_KEY#, #DWING_NO#, #DW_IMAGE_KEY#  , #REQ_USER_NAME# , #REQ_USER_DEPT# , #QC_INSPECTION# ,
+		#DELY_CONDITION#, #FILE_NAME#, TO_CHAR(SYSDATE,'YYYYMMDD'), TO_CHAR(SYSDATE,'HH24MISS'), #REQ_USER_TEL#  , #REF_IF_NO#,
+		#RD_DATE#, #CLOSE_DATE#, #ITEM_QTY#, #ERROR_MSG#, #HD_REMARK#, #ADD_USER_ID#, #BYIT_COMORG_CODE#,
+		'N', #REMARK_URL#, #CREATE_DATE#, #CLOSE_TIME#, #ETC_REMARK#, #REQ_USER_FAX#, #REQ_USER_MAIL# , #ITEM_GUBUN#, 
+		#CATEGORY_NO#, #YEAR_QTY#, #CONTRACT_NO#   , #CONTRACT_SEQ#  , #MAKER_PART_NO# , #PLANT#,#ADD_TIME#
+		)
+  </insert>  
+  
+    <select id="YHKB_getBuyerItemNo" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+	 	 SELECT TO_NUMBER(#BUYER_ITEM_NO#) AS BUYER_ITEM_NO
+	       FROM dual
+  </select>
+  
+  <update id="updateIfAdmin" parameterClass="java.util.HashMap">
+  UPDATE IF_ADMIN ADMIN
+  SET    ADD_DATE = TO_CHAR(SYSDATE,'YYYYMMDD')
+       , ADD_TIME = TO_CHAR(SYSDATE,'HH24MISS')
+  WHERE EXISTS (SELECT 'X' FROM IF_ADMIN
+                WHERE BUYER =  NVL(TRIM(#BUYER#),' ')
+                AND   BUYER_ID = ADMIN.BUYER_ID)
+  </update>
+</sqlMap>

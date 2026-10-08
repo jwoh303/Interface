@@ -1,0 +1,330 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap      
+    PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN"
+    "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="MsmsPo">
+
+    <select id="MSMS_PO_DBDispatcher"  resultClass="java.lang.Integer">
+		 SELECT  NVL(count(*), 0) 
+               FROM  icomtrxl a
+             WHERE doc_name = 'OFFICE'
+               AND key_2 = 'KRMISU0004'
+               and key_9 in (' ','N')
+               and exists (select 'x' from icompohd
+                           where buyer = a.target
+                           and po_no = a.key_1
+                           and trim(send_date) is null)
+               and not exists (select 'x' from icomtrxl
+                               where doc_name = 'MHUB_CHG'
+                               and   target = a.target
+                               and   key_1  = a.key_1
+                               and   key_9 = 'N') 
+	</select>
+	
+	<select id="MSMS_PO_TRXL_Select"  resultClass="java.util.HashMap">
+		 SELECT  *
+               FROM  icomtrxl a
+             WHERE doc_name = 'OFFICE'
+               AND key_2 = 'KRMISU0004'
+               and key_9 in (' ','N')
+               and exists (select 'x' from icompohd
+                           where buyer = a.target
+                           and po_no = a.key_1
+                           and trim(send_date) is null)
+               and not exists (select 'x' from icomtrxl
+                               where doc_name = 'MHUB_CHG'
+                               and   target = a.target
+                               and   key_1  = a.key_1
+                               and   key_9 = 'N') 
+	</select>
+
+	<update id="MSMS_PO_TRXL_Dequeue">
+    UPDATE icomtrxl a
+             SET key_9 = 'D'
+               , key_8 = to_char(sysdate,'YYYY/MM/DD hh24:mi:ss')
+               , key_10 = '변경전 전송중단.'
+             WHERE doc_name = 'OFFICE'
+             and   key_2 = 'KRMISU0004'
+             and   key_9 in (' ','N')
+             and   not exists (select 'x' from icompohd
+                               where buyer = a.target
+                               and po_no = a.key_1
+                               and trim(send_date) is null)
+  </update>
+	
+<select id="MSMS_POHD_Select" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+		SELECT decode(b.status,'D','D','C') as STATUS,
+                    nvl(b.buyer              ,' ') AS BUYER,
+                    nvl(b.po_no              ,' ') AS PO_NO,
+                    nvl(b.po_seq             ,' ') AS PO_SEQ,
+                    substrb(nvl(replace(replace(replace(replace(decode(b.process_type,'2',f.com_name_loc||'.','')||decode(trim(a.po_remark||' '||b.po_remark),null,null,trim(a.po_remark||' '||b.po_remark)),chr(13),null),chr(10),null),']',')'),'[','('),' '),1,100) as REMARK,
+                    nvl(b.buyer_item_no      ,' ') AS BUYER_ITEM_NO,
+                    nvl(f_split(b.seller_item_no,'^||^',1)  ,' ') AS SELLER_ITEM_NO,
+                    nvl(f_split(b.seller_item_no,'^||^',2)  ,' ') AS MSM_BRAND_CD,
+                    nvl(replace(replace(b.description, chr(13),null),chr(10),null),' ') AS DESCRIPTION,
+                    nvl(replace(replace(b.specification, chr(13),null),chr(10),null),' ') AS SPECIFICATION,
+                    nvl(b.maker_name         ,' ') AS MAKER_NAME,
+                    nvl(b.maker_code         ,' ') AS MAKER_CODE,
+                    nvl(b.add_date           ,' ') AS ADD_DATE,
+                    nvl(b.add_time           ,' ') AS ADD_TIME,
+                    nvl(b.change_date        ,' ') AS CHANGE_DATE,
+                    nvl(b.change_time        ,' ') AS CHANGE_TIME,
+                    nvl(decode(b.process_type,'2',f_get_tr_date(b.rd_date,-2),f_get_tr_date(b.rd_date,-1)),' ')  AS RD_DATE,
+                    nvl(b.item_qty           , 0 ) AS ITEM_QTY,
+                    nvl(b.unit_measure       ,' ') AS UNIT_MEASURE,
+                    nvl(b.unit_price         , 0 ) AS UNIT_PRICE,
+                    nvl(b.item_amt           , 0 ) AS ITEM_AMT,
+                    nvl(b.agent_price/nvl(value1,1)   , 0 ) AS AGENT_PRICE,
+                    nvl(b.agent_item_amt/nvl(value1,1), 0 ) AS AGENT_ITEM_AMT,
+                    nvl(a.add_user_id        ,' ') AS PUR_ID,
+                    nvl(c.req_user_id        ,' ') AS REQ_ID,
+                    CASE
+                      WHEN B.BUYER = 'KRKOLO0118' THEN ' '
+                      ELSE nvl(trim(c.req_user_info),' ')
+                    END AS REQ_USER_INFO,
+                    nvl(b.dely_to_location   ,' ') AS PODT_DELY_TO_LOCATION,
+                    nvl(replace(replace(replace(replace(a.dely_to_location, chr(13),null),chr(10),null),']',')'),'[','('),' ') as POHD_DELY_TO_LOCATION,
+                    nvl(b.process_type       ,' ') AS PROCESS_TYPE,
+                    nvl(b.warehouse_code     ,' ') AS WAREHOUSE_CODE,
+                    nvl(to_char(b.po_seq,'FM000') ,' ') AS PO_SEQ,
+                    CASE
+                      WHEN B.BUYER = 'KRKOLO0118' THEN nvl(F_SPLIT(trim(c.req_user_info),'/',1), nvl(d.change_user_name,' '))
+                      WHEN B.BUYER = 'KRSAMS0140' AND F_SPLIT(c.IV_COLUMN,'^','11') != 'E100' THEN '김민영'
+                      WHEN B.BUYER = 'KRSAMS0123' AND nvl(b.dely_to_location   ,' ') = 'Z8095' THEN '한민지'
+                      WHEN B.BUYER = 'KRSAMS0123' AND nvl(b.dely_to_location   ,' ') != 'Z8095' THEN '고은해'
+                      WHEN B.BUYER = 'KRSAMS0140' THEN nvl(F_SPLIT(trim(c.req_user_info),'/',1), nvl(d.change_user_name,' '))
+                      ELSE nvl(substrb(d.change_user_name,1,20),' ')
+                    END as REQ_NAME,
+                    substrb(CASE
+                      WHEN B.BUYER = 'KRKOLO0118' THEN nvl(F_SPLIT(trim(c.req_user_info),'/',3), nvl(d.change_user_tel,' '))
+                      WHEN B.BUYER = 'KRSAMS0140' AND F_SPLIT(c.IV_COLUMN,'^','11') != 'E100' THEN '031-895-8032'
+                      WHEN B.BUYER = 'KRSAMS0123' AND nvl(b.dely_to_location   ,' ') = 'Z8095' THEN '02-3016-7297'
+                      WHEN B.BUYER = 'KRSAMS0123' AND nvl(b.dely_to_location   ,' ') != 'Z8095' THEN '02-3016-7246'
+                      WHEN B.BUYER = 'KRSAMS0140' THEN nvl(F_SPLIT(F_SPLIT(trim(c.req_user_info),'/',2),',',1), nvl(d.change_user_tel,' '))
+                      ELSE nvl(d.change_user_tel,' ')
+                    END,1,20) as REQ_TEL,
+                    nvl(b.legacy_po_no,' ') AS LEGACY_PO_NO,
+                    nvl(b.legacy_po_seq,' ') AS LEGACY_PO_SEQ,
+                    nvl(decode(a.doc_type,'X',b.pr_no,decode(b.byit_comorg_code,'KRILSHG001',b.ref_if_no,replace(b.ref_pr_no,chr(9),null))),' ') AS REF_PR_NO,
+                    nvl(replace(replace(c.iv_column,']',')'),'[','('),' ') as IV_COLUMN ,
+                    nvl(a.po_create_date,' ') AS PO_DATE
+               FROM  icompohd a, icompodt b, icomprdt c, icomprhd d, icomcmpy f, icomcod1 cod1
+              WHERE b.buyer    = #TARGET#
+                AND b.po_no    = #KEY_1#
+                AND b.status  != 'D'
+                AND b.buyer    = a.buyer
+                AND b.po_no    = a.po_no
+                AND b.buyer    = c.buyer
+                AND b.pr_no    = c.pr_no
+                AND b.pr_seq   = c.pr_seq
+                AND c.buyer    = d.buyer
+                AND c.pr_no    = d.pr_no
+                AND b.buyer    = f.com_code(+)
+                AND cod1.type(+) = 'Z015'
+                AND b.buyer = cod1.code(+)
+	</select>
+	
+	<select id="REQ_Info" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+		SELECT replace(replace(nvl(text1,' '),'[','('),']',')') AS REQ_DEPT,
+                    nvl(mobile_phone,' ') AS REQ_MOB
+               FROM  icomlusr, icomcod2
+              WHERE  user_id    = #REQ_ID#
+                AND  com_code   = company_code(+)
+                AND  'C001'     = type(+)
+                AND  department = code(+)
+	</select>
+	
+	<select id="ADD_Info" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+		SELECT TO_CHAR(count(*)) AS V_CNT,
+                    CASE WHEN IS_NUMBER(REPLACE(F_SPLIT(#POHD_DELY_TO_LOCATION#,' ',1),'-','')) = 0 THEN
+                         F_SPLIT(#POHD_DELY_TO_LOCATION#,' ',1)
+                    ELSE ' ' END AS ADD_ZIP,
+                    CASE WHEN IS_NUMBER(REPLACE(F_SPLIT(#POHD_DELY_TO_LOCATION#,' ',1),'-','')) = 0 THEN
+                         TRIM(SUBSTR(#POHD_DELY_TO_LOCATION#,LENGTH(F_SPLIT(#POHD_DELY_TO_LOCATION#,' ',1))+1,300))
+                    ELSE SUBSTR(#POHD_DELY_TO_LOCATION#,1,300) END AS ADD_NAME
+              
+              FROM  dual
+	</select>
+	
+	<select id="COM_Info_IRS1" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+		SELECT  nvl(code1,' ') AS COM_IRS_NO,
+                nvl(text1,' ') AS COM_NAME,
+                nvl(text2,' ') AS COM_CEO,
+                nvl(text5,' ') AS COM_ZIP,
+                nvl(text6,' ') AS COM_ADD,
+                nvl(text3,' ') AS COM_INDUSTRY,
+                nvl(text4,' ') AS COM_BUSINESS
+         FROM  icomcod4
+         WHERE buyer = decode(#PROCESS_TYPE#,'2',decode(buyer,'KRSAMS0123', #BUYER#, #WAREHOUSE_CODE#),#BUYER#)
+           AND code2 = #PUR_ID#
+	</select>
+	
+	<select id="COM_Info" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+		SELECT  nvl(irs_no,' ') AS COM_IRS_NO,
+                         nvl(com_name_loc,' ') AS COM_NAME,
+                         nvl(ceo_name_loc,' ') AS COM_CEO,
+                         nvl(zip_code,' ') AS COM_ZIP,
+                         nvl(substrb(address_loc,1,120),' ') AS COM_ADD,
+                         nvl(industry_type,' ') AS COM_INDUSTRY,
+                         nvl(business_items,' ') AS COM_BUSINESS
+                  FROM  icomcmpy
+                  WHERE com_code = decode(#PROCESS_TYPE#,'2',decode(com_code,'KRSAMS0123', #BUYER#, #WAREHOUSE_CODE#),#BUYER#)
+                    AND ROWNUM = 1
+	</select>
+    
+    <select id="getReq1" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+		SELECT TRIM(REPLACE(COM_NAME_LOC,'코리아이플랫폼(주)','')) AS REQ_NAME
+                      , TEL_NO AS REQ_TEL
+                 FROM   ICOMCMPY
+                 WHERE  COM_CODE = #WAREHOUSE_CODE#
+	</select>
+	
+	<select id="getReq2" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+		SELECT  f_split(:temp_iv_column,'^',8) AS REQ_NAME
+              , f_split(:temp_iv_column,'^',9) AS REQ_TEL
+          FROM  DUAL
+	</select>
+	
+	<select id="getReq3" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+		SELECT NVL(MAX(PR_USER_NM),' ') AS REQ_NAME
+                      , NVL(MAX(PR_USER_TEL_NO),' ') AS REQ_TEL
+                 FROM ZSCM_KEP_PO_INT
+                 WHERE PO_NO = #LEGACY_PO_NO#
+                 AND   PO_LINE_NO = #LEGACY_PO_SEQ#
+	</select>
+	<select id="getReq4" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+		SELECT f_split(#REQ_USER_INFO#,'(',1) AS REQ_NAME
+                      , replace(f_split(#REQ_USER_INFO#,')',1),f_split(#REQ_USER_INFO#,'(',1)||'(',null) AS REQ_TEL
+                 FROM   dual
+	</select>
+	
+	<select id="getHub" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+		SELECT nvl(com_name_loc,' ') AS HUB_NAME
+                     , nvl(zip_code,' ') AS HUB_ZIP
+                     , nvl(substrb(address_loc,1,120),' ') AS HUB_ADD
+                FROM   icomcmpy
+                where com_code = #WAREHOUSE_CODE#
+	</select>
+	<select id="getKEP" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+		select c.text1 AS KEP_PM_DEPT_NM
+                  , substrb(b.user_name_loc,1,20) AS KEP_PM_NAME
+                  , b.phone_number AS KEP_PM_TEL
+                  , b.email AS KEP_PM_EMAIL
+             from mis_buyer_mng a, icomlusr b, icomcod2 c
+             where a.year = to_char(sysdate,'YYYY')
+             and a.status = 'C'
+             and a.priority = 'Y'
+             and a.buyer = #BUYER#
+             and a.kep_user_id = b.user_id
+             and b.com_code = c.company_code
+             and c.type = 'C001'
+             and c.code = a.kep_dept
+             and rownum=1
+	</select>
+	
+	<update id="MSMS_POHD_SendUpdate" parameterClass="java.util.HashMap">
+	 UPDATE icompohd
+        SET send_date = TO_CHAR(SYSDATE,'YYYYMMDD'),
+            send_time = TO_CHAR(SYSDATE,'HH24MMSS')
+              WHERE buyer   = #TARGET#
+                AND po_no   = #KEY_1#
+	</update>
+	<update id="MSMS_PODT_SendUpdate" parameterClass="java.util.HashMap">
+	 UPDATE icompodt
+                SET send_date = TO_CHAR(SYSDATE,'YYYYMMDD'),
+                    send_time = TO_CHAR(SYSDATE,'HH24MMSS')
+              WHERE buyer         = #BUYER#
+                AND po_no         = #PO_NO#
+                AND po_seq        = #PO_SEQ#
+	</update>
+	
+	<delete id="MSMS_TRXL_Delete" parameterClass="java.util.HashMap">
+	     DELETE FROM ICOMTRXL
+               WHERE DOC_NAME = #DOC_NAME#
+                AND TARGET   = #TARGET#
+                AND KEY_1    = #KEY_1#
+                AND KEY_2    = #KEY_2#
+                AND KEY_3    = #KEY_3#
+                AND KEY_4    = #KEY_4#
+                AND KEY_5    = #KEY_5#
+                AND KEY_6    = #KEY_6#
+                AND KEY_7    = #KEY_7#
+                AND KEY_8    = #KEY_8#
+                AND KEY_9    = #KEY_9#
+                AND KEY_10   = #KEY_10#
+	</delete>
+	
+	
+	<select id="MSMS_getBuyerInfo" parameterClass="java.util.HashMap"  resultClass="java.lang.Integer">
+		 <![CDATA[
+		 SELECT COUNT(*) AS CNT
+         FROM KEP.icomcod1
+         WHERE TYPE = 'MSMI-B'
+         AND CODE = #BUYER#
+         ]]>
+	</select>
+	
+	<select id="Msms_Mail_Content" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+		<![CDATA[
+		SELECT
+			POSITION_GROUP AS POSITION_GROUP,
+			MAX(KEP_NAME) AS KEP_NAME,
+			COM_CODE AS COM_CODE,
+			COM_NAME AS COM_NAME,
+			IRS_NO AS IRS_NO 
+		FROM (
+			SELECT
+			COM_CODE AS COM_CODE,
+			COM_NAME_LOC||'/'||COM_NAME_ENG AS COM_NAME,
+			MS.POSITION_GROUP,
+			(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID=MS.KEP_USER_ID AND STATUS IN
+			('C','R') ) AS KEP_NAME,
+			IRS_NO AS IRS_NO
+			FROM ICOMCMPY CM, MIS_BUYER_MNG MS
+			WHERE CM.COM_CODE = #BUYER#
+			AND CM.STATUS IN ('C','R')
+			AND MS.STATUS(+) IN ('C')
+			AND CM.COM_CODE = MS.BUYER(+)
+			AND MS.YEAR= TO_CHAR(SYSDATE, 'YYYY')
+		)
+		GROUP BY POSITION_GROUP,COM_CODE,COM_NAME,IRS_NO
+		]]>
+	</select>
+	
+	<insert id="Msms_Mail_Send" parameterClass="java.util.HashMap">
+		INSERT INTO KEP_MAIL
+                       ( SEQ,
+                         SEND_EMAIL,
+                         SEND_NAME,
+                         RECEIVE_EMAIL,
+                         RECEIVE_NAME,
+                         SUBJECT,
+                         CONTENTS,
+                         CREATE_DATE,
+                         JOB_FLAG)
+        VALUES( SEQ_KEP_MAIL.NEXTVAL,
+                         'koreab2b@koreab2b.com',
+                         '운영자',
+                         'comanche@koreab2b.com;coolkim@koreab2b.com;IT@misumi.co.kr;jwoh@koreab2b.com;coco1064@koreab2b.com;',
+                         '김승우;김시원;미스미;오지원;박진홍;',
+                         '[코리아이플랫폼]발주 고객 등록 정보 송부의 건',
+                         #MAIL_CONTENT#,
+                         SYSDATE,
+                         'N')
+  	</insert>
+  	
+  	<insert id="Msms_code_insert" parameterClass="java.util.HashMap">
+  		INSERT INTO ICOMCOD1 (
+  			TYPE
+  			,CODE
+  			,FLAG
+  			,ADD_DATE
+  		)VALUES(
+  		   'MSMI-B'
+  		   ,#BUYER#
+  		   ,'Y'
+  		   ,TO_CHAR(SYSDATE,'YYYYMMDD')
+  		)
+  	</insert>
+</sqlMap>

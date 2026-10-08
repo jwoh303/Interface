@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="EUC-KR"?>
+<SQL>
+	<!-- *********************************************************************** -->
+	<SQL_DOC INTERFACE_ID="KEP2DGIL_PO">
+		<V_SQL NAME='$G_RS' ISLOOP="TRUE" COMMIT_BY_RESULT="FALSE"> 
+			SELECT DOC_NAME, TARGET AS BUYER, KEY_1 AS PO_NO
+			FROM ICOMTRXL
+			WHERE  DOC_NAME = 'CTDOWN'
+			AND TARGET IN ('KRDONG0077','KRDONG0078','KRDONG0079','KRDONG0129 ')
+			AND KEY_9 = ' '
+			GROUP BY DOC_NAME, TARGET, KEY_1
+		</V_SQL> 
+		<P_SQL SEQ="1" TYPE="SELECT" POST_SQL="TRUE">
+		<![CDATA[
+			
+				SELECT 
+					(
+						CASE 
+                        WHEN A.BUYER='KRDONG0077' THEN 'C'
+                        WHEN A.BUYER='KRDONG0078' THEN 'J'
+						WHEN A.BUYER='KRDONG0079' THEN 'I'
+						WHEN A.BUYER='KRDONG0129' THEN 'H'
+                        ELSE 'X' END 
+					) AS PLAN,
+					NVL(A.BUYER,' ') AS BUYER,
+                    NVL(A.PO_NO,' ') AS PO_NO,
+                    NVL(A.PO_SEQ,' ') AS PO_SEQ,
+                    NVL(A.PR_NO,' ') AS LEGACY_PO_NO,
+                    NVL(TO_CHAR(A.PR_SEQ,'FM0000'),' ') AS LEGACY_PO_SEQ,
+                    NVL(DECODE(B.STATUS,'R','C',B.STATUS),' ') AS STATUS,
+                    NVL(A.ACCOUNT_TYPE,' ') AS ACC_CD,
+                    NVL(A.REF_PR_NO,' ') AS MAC_CD,
+                    NVL(A.BUDGET_DEPT,' ') AS DEPT_CD,
+                    NVL(A.BUYER_ITEM_NO,' ') AS BUYER_ITEM_NO,
+                    NVL(A.DESCRIPTION,' ') AS DESCRIPTION,
+                    NVL(SUBSTRB(A.SPECIFICATION,1,50),' ') AS SPECIFICATION,
+                    NVL(A.ITEM_QTY, 0) AS ITEM_QTY,
+					(
+						SELECT NVL(TEXT1,'0')
+						 FROM ICOMCOD2
+						WHERE COMPANY_CODE = 'KRDONG0129'
+						  AND TYPE = 'C007'
+						  AND TEXT2 = A.UNIT_MEASURE
+					) AS UNIT_MEASURE,
+                    NVL(A.ITEM_AMT, 0) AS ITEM_AMT,
+                    NVL(A.PO_REMARK,' ') AS REMARK
+               FROM ICOMPODT A, ICOMPRDT B
+              WHERE A.BUYER   = '$G_RS.BUYER$'
+                AND A.PO_NO   = '$G_RS.PO_NO$'
+                AND A.BUYER = B.BUYER
+                AND A.PR_NO = B.PR_NO
+                AND A.PR_SEQ= B.PR_SEQ
+          ORDER BY  A.BUYER,A.PR_NO,A.PR_SEQ
+
+		]]>
+			<C_SQL TYPE="UPDATE" P_SQL_RESULT="TRUE">
+			<![CDATA[
+				BEGIN
+
+					UPDATE ICOMPODT A
+					SET LEGACY_PO_NO = PR_NO,
+						LEGACY_PO_SEQ= PR_SEQ,
+						SEND_DATE = TO_CHAR(SYSDATE,'YYYYMMDD'),
+						SEND_TIME = TO_CHAR(SYSDATE,'HH24MISS')
+				  WHERE BUYER = '$G_RS.BUYER$'
+					AND PO_NO = '$G_RS.PO_NO$'
+					;
+					
+					UPDATE ICOMPRDT A
+					SET LEGACY_PO_NO = PR_NO,
+						LEGACY_PO_SEQ= PR_SEQ
+				  WHERE BUYER = '$G_RS.BUYER$'
+					AND EXISTS (SELECT 'X' FROM ICOMPODT B
+								 WHERE B.BUYER = '$G_RS.BUYER$'
+								   AND B.PO_NO = '$G_RS.PO_NO$'
+								   AND B.BUYER = A.BUYER
+								   AND B.PR_NO = A.PR_NO
+								   AND B.PR_SEQ= A.PR_SEQ)
+					;
+
+					UPDATE ICOMTRXL
+						SET KEY_9 = 'Y', KEY_10 = TO_CHAR(SYSDATE,'YYYYMMDD HH24MISS')
+					WHERE DOC_NAME = '$G_RS.DOC_NAME$'
+					AND KEY_9 = ' '
+					AND TARGET = '$G_RS.BUYER$'
+					AND KEY_1 ='$G_RS.PO_NO$'
+					;
+
+				END;
+			]]>
+			</C_SQL>
+			<C_SQL TYPE="UPDATE" P_SQL_RESULT="FALSE">
+			<![CDATA[
+				UPDATE ICOMTRXL
+					SET KEY_9 = 'E', KEY_10 = TO_CHAR(SYSDATE,'YYYYMMDD HH24MISS')
+				WHERE DOC_NAME = '$G_RS.DOC_NAME$'
+				AND KEY_9 = ' '
+				AND TARGET = '$G_RS.BUYER$'
+				AND KEY_1 ='$G_RS.PO_NO$'
+			]]>
+			</C_SQL>
+		</P_SQL>
+	</SQL_DOC>
+	<RETRY_CODE>
+		<CODE>03113</CODE>
+		<CODE>03114</CODE>
+		<CODE>02154</CODE>
+		<CODE>02541</CODE>
+		<CODE>04068</CODE>
+	</RETRY_CODE>
+</SQL>

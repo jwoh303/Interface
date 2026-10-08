@@ -1,0 +1,269 @@
+<?xml version="1.0" encoding="EUC-KR"?>
+<SQL>
+	<!-- *********************************************************************** -->
+	<SQL_DOC INTERFACE_ID="KEP2BNGS_INV">
+		<V_SQL NAME='$G_RS' ISLOOP="TRUE" COMMIT_BY_RESULT="FALSE"> 
+			SELECT DOC_NAME, TARGET AS BUYER, TO_CHAR(KEY_1) AS INV_NO, TO_CHAR(KEY_2) AS INV_SEQ
+			FROM ICOMTRXL C
+			WHERE  DOC_NAME = 'IVDOWN'
+			AND    KEY_10 = 'N' 
+			AND    TARGET   IN ('KRHWAS0031')
+            AND    EXISTS (
+                             SELECT 'X' FROM ICOMIVDT A, ICOMPODT B
+                              WHERE A.BUYER   = C.TARGET
+                                AND A.INV_NO  = C.KEY_1
+                                AND A.INV_SEQ  = C.KEY_2
+                                AND A.BUYER  = B.BUYER
+                                AND A.PO_NO  = B.PO_NO
+                                AND A.PO_SEQ = B.PO_SEQ
+                                AND B.PROCESS_TYPE = '0'
+								AND TRIM(B.LEGACY_PO_NO) IS NOT NULL
+                          )
+			UNION ALL
+            SELECT DOC_NAME, TARGET AS BUYER, TO_CHAR(KEY_1) AS INV_NO, TO_CHAR(KEY_2) AS INV_SEQ
+			FROM ICOMTRXL C
+			WHERE  DOC_NAME = 'IVDOWN'
+			AND    KEY_10 = 'N' 
+			AND    TARGET   IN ('KRHWAS0031')
+            AND    EXISTS (
+                             SELECT 'X' FROM WMSIVDT E, ICOMPODT B
+                              WHERE E.BUYER   = C.TARGET
+                                AND E.INV_NO  = C.KEY_1
+                                AND E.INV_SEQ = C.KEY_2
+                                AND E.BUYER  = B.BUYER
+                                AND E.PO_NO  = B.PO_NO
+                                AND E.PO_SEQ = B.PO_SEQ
+                                AND TRIM(B.LEGACY_PO_NO) IS NOT NULL
+                          )
+		</V_SQL> 
+		<P_SQL SEQ="1" TYPE="SELECT" POST_SQL="TRUE">
+		<![CDATA[
+			
+			
+				SELECT 
+					A.BUYER, 
+					A.INV_NO||A.INV_SEQ AS DN_NO_SUPP, 
+					' ' AS GR_DATE, 
+					NVL(SUBSTR(A.REF_PR_NO,1,INSTR(A.REF_PR_NO,'^',1)-1),' ') AS CUST_PO_NO, 
+					NVL(SUBSTR(A.REF_PR_NO,INSTR(A.REF_PR_NO,'^',1)+1,10),'1') AS CUST_PO_SEQ, 
+					B.REF_IF_NO  AS CUST_ITEM_CD, 
+					B.DESCRIPTION AS CUST_ITEM_NM, 
+					B.UNIT_MEASURE AS ITEM_UNIT, 
+					SUBSTRB(B.SPECIFICATION,1,50) AS SPEC, 
+					NVL(B.MAKER_NAME,' ') AS MAKER, 
+					NVL(C.MAKER_PART_NO,' ') AS MODEL, 
+					A.INV_QTY  AS QTY, 
+					NVL(A.DELIVERY_QTY,0) AS DELIVERY_QTY, 
+					B.UNIT_PRICE AS PRICE, 
+					A.INV_QTY*B.UNIT_PRICE AS  AMT, 
+					DECODE(A.STATUS,'D','Y','N') AS DEL_FLAG, 
+					B.ITEM_QTY AS KEP_PO_QTY, 
+					B.IV_QTY   AS KEP_IV_QTY, 
+					B.GR_QTY   AS KEP_GR_QTY, 
+					B.DI_QTY   AS KEP_DI_QTY, 
+					B.LEGACY_PO_NO AS LEGACY_PO_NO, 
+					B.LEGACY_PO_SEQ AS LEGACY_PO_SEQ,
+					CASE WHEN B.GR_QTY > 0 THEN (CASE WHEN B.ITEM_QTY=B.GR_QTY THEN '06' ELSE '05' END)
+						ELSE (CASE WHEN NVL(A.DELIVERY_QTY,0) > 0 THEN '04' ELSE '03' END) END AS ORD_STATUS
+				FROM ICOMTRXL D, ICOMIVDT A, ICOMPODT B, ICOMPRDT C 
+				WHERE D.DOC_NAME = '$G_RS.DOC_NAME$'
+				AND D.TARGET = '$G_RS.BUYER$'
+				AND D.KEY_1 = '$G_RS.INV_NO$'
+				AND D.KEY_2 = '$G_RS.INV_SEQ$'
+				AND D.KEY_10 = 'N' 
+				AND D.TARGET = A.BUYER 
+				AND D.KEY_1 = A.INV_NO 
+				AND D.KEY_2 = A.INV_SEQ 
+				AND A.BUYER = B.BUYER 
+				AND A.PO_NO = B.PO_NO 
+				AND A.PO_SEQ= B.PO_SEQ 
+				AND B.BUYER = C.BUYER 
+				AND B.PR_NO = C.PR_NO 
+				AND B.PR_SEQ= C.PR_SEQ 
+
+				UNION ALL 
+
+				SELECT 
+					A.BUYER, 
+					A.INV_NO||A.INV_SEQ AS DN_NO_SUPP, 
+					' ' AS GR_DATE, 
+					NVL(SUBSTR(A.REF_PR_NO,1,INSTR(A.REF_PR_NO,'^',1)-1),' ') AS CUST_PO_NO, 
+					NVL(SUBSTR(A.REF_PR_NO,INSTR(A.REF_PR_NO,'^',1)+1,10),'1') AS CUST_PO_SEQ, 
+					B.REF_IF_NO  AS CUST_ITEM_CD, 
+					B.DESCRIPTION AS CUST_ITEM_NM, 
+					B.UNIT_MEASURE AS ITEM_UNIT, 
+					SUBSTRB(B.SPECIFICATION,1,50) AS SPEC, 
+					NVL(B.MAKER_NAME,' ') AS MAKER, 
+					NVL(C.MAKER_PART_NO,' ') AS MODEL, 
+					A.INV_QTY  AS QTY, 
+					NVL(A.DELIVERY_QTY,0) AS DELIVERY_QTY, 
+					B.UNIT_PRICE AS PRICE, 
+					A.INV_QTY*B.UNIT_PRICE AS  AMT, 
+					DECODE(A.STATUS,'D','Y','N') AS DEL_FLAG, 
+					B.ITEM_QTY AS KEP_PO_QTY, 
+					B.IV_QTY   AS KEP_IV_QTY, 
+					B.GR_QTY   AS KEP_GR_QTY, 
+					B.DI_QTY   AS KEP_DI_QTY, 
+					B.LEGACY_PO_NO AS LEGACY_PO_NO, 
+					B.LEGACY_PO_SEQ AS LEGACY_PO_SEQ,
+					CASE WHEN B.GR_QTY > 0 THEN (CASE WHEN B.ITEM_QTY=B.GR_QTY THEN '06' ELSE '05' END)
+						ELSE (CASE WHEN NVL(A.DELIVERY_QTY,0) > 0 THEN '04' ELSE '03' END) END AS ORD_STATUS
+				FROM ICOMTRXL D, WMSIVDT A, ICOMPODT B, ICOMPRDT C 
+				WHERE D.DOC_NAME = '$G_RS.DOC_NAME$'
+				AND D.TARGET = '$G_RS.BUYER$'
+				AND D.KEY_1 = '$G_RS.INV_NO$'
+				AND D.KEY_2 = '$G_RS.INV_SEQ$'
+				AND D.KEY_10 = 'N' 
+				AND D.TARGET = A.BUYER 
+				AND D.KEY_1 = A.INV_NO 
+				AND D.KEY_2 = A.INV_SEQ 
+				AND A.BUYER = B.BUYER 
+				AND A.PO_NO = B.PO_NO 
+				AND A.PO_SEQ= B.PO_SEQ 
+				AND B.BUYER = C.BUYER 
+				AND B.PR_NO = C.PR_NO 
+				AND B.PR_SEQ= C.PR_SEQ 
+
+		]]>
+			<C_SQL TYPE="UPDATE" P_SQL_RESULT="TRUE">
+			<![CDATA[
+
+				DECLARE
+
+					V_COUNT				NUMBER;
+					V_SEND_DATE		ICOMIVDT.SEND_DATE%TYPE;
+					V_SEND_TIME		ICOMIVDT.SEND_TIME%TYPE;
+					V_SEND_DATETIME	ICOMTRXL.KEY_9%TYPE;
+
+				BEGIN
+					
+					SELECT
+					TO_CHAR(SYSDATE,'YYYYMMDD'), TO_CHAR(SYSDATE,'HH24MISS'), TO_CHAR(SYSDATE,'YYYYMMDD HH24MISS')
+					INTO V_SEND_DATE, V_SEND_TIME, V_SEND_DATETIME
+					FROM DUAL;
+					
+					V_COUNT				:= 0;
+				
+					SELECT COUNT(1) INTO V_COUNT
+					FROM ICOMIVDT
+					WHERE  BUYER  = '$G_RS.BUYER$'
+					AND  INV_NO = '$G_RS.INV_NO$'
+					AND  INV_SEQ = '$G_RS.INV_SEQ$'
+					AND  TRIM(SEND_DATE) IS NULL
+					AND	 ROWNUM = 1
+					;
+					
+					IF V_COUNT = 1 THEN
+
+						UPDATE ICOMIVDT SET 
+							SEND_DATE    = V_SEND_DATE,
+							SEND_TIME    = V_SEND_TIME
+						WHERE  BUYER  = '$G_RS.BUYER$'
+						AND  INV_NO = '$G_RS.INV_NO$'
+						AND  INV_SEQ = '$G_RS.INV_SEQ$'
+						AND  TRIM(SEND_DATE) IS NULL
+						;
+
+					END IF;
+
+					V_COUNT				:= 0;
+				
+					SELECT COUNT(1) INTO V_COUNT
+					FROM WMSIVDT
+					WHERE  BUYER  = '$G_RS.BUYER$'
+					AND  INV_NO = '$G_RS.INV_NO$'
+					AND  INV_SEQ = '$G_RS.INV_SEQ$'
+					AND  TRIM(SEND_DATE) IS NULL
+					AND	 ROWNUM = 1
+					;
+					
+					IF V_COUNT = 1 THEN
+
+						UPDATE WMSIVDT SET 
+							SEND_DATE    = V_SEND_DATE,
+							SEND_TIME    = V_SEND_TIME
+						WHERE  BUYER  = '$G_RS.BUYER$'
+						AND  INV_NO = '$G_RS.INV_NO$'
+						AND  INV_SEQ = '$G_RS.INV_SEQ$'
+						AND  TRIM(SEND_DATE) IS NULL
+						;
+
+					END IF;
+
+					UPDATE ICOMTRXL
+					SET KEY_10 = 'Y', KEY_9 = TO_CHAR(SYSDATE,'YYYYMMDD HH24MISS')
+					WHERE  DOC_NAME = '$G_RS.DOC_NAME$'
+					AND TARGET      = '$G_RS.BUYER$'
+					AND KEY_1       = '$G_RS.INV_NO$'
+					AND KEY_2		= '$G_RS.INV_SEQ$'
+					AND KEY_10		= 'N'
+					;
+					
+					UPDATE ICOMTRXL C
+					SET KEY_10 = 'I/F대상아님', KEY_9 = TO_CHAR(SYSDATE,'YYYYMMDD HH24MISS')
+					WHERE  DOC_NAME = '$G_RS.DOC_NAME$'
+					AND    KEY_10	= 'N'
+					AND    TARGET   = '$G_RS.BUYER$'
+					AND  NOT  EXISTS (
+									 SELECT 'X' FROM ICOMIVDT E, ICOMPODT B
+									  WHERE E.BUYER   = C.TARGET
+										AND E.INV_NO  = C.KEY_1
+										AND E.INV_SEQ = C.KEY_2
+										AND E.BUYER  = B.BUYER
+										AND E.PO_NO  = B.PO_NO
+										AND E.PO_SEQ = B.PO_SEQ
+										AND TRIM(B.LEGACY_PO_NO) IS NULL
+								  )
+					;
+
+					DELETE FROM ICOMTRXL C
+					WHERE  DOC_NAME = '$G_RS.DOC_NAME$'
+					AND    KEY_10	= 'N'
+					AND    TARGET   = '$G_RS.BUYER$'
+					AND   NOT  EXISTS (
+									 SELECT 'X' FROM ICOMIVDT A, ICOMPODT B
+									  WHERE A.BUYER   = C.TARGET
+										AND A.INV_NO  = C.KEY_1
+										AND A.INV_SEQ  = C.KEY_2
+										AND A.BUYER  = B.BUYER
+										AND A.PO_NO  = B.PO_NO
+										AND A.PO_SEQ = B.PO_SEQ
+										AND B.PROCESS_TYPE = '0'
+								  )
+					AND  NOT  EXISTS (
+									 SELECT 'X' FROM WMSIVDT E, ICOMPODT B
+									  WHERE E.BUYER   = C.TARGET
+										AND E.INV_NO  = C.KEY_1
+										AND E.INV_SEQ = C.KEY_2
+										AND E.BUYER  = B.BUYER
+										AND E.PO_NO  = B.PO_NO
+										AND E.PO_SEQ = B.PO_SEQ
+										AND B.PROCESS_TYPE != '0'
+								  )
+					;
+
+				END;
+
+			]]>
+			</C_SQL>
+			<C_SQL TYPE="UPDATE" P_SQL_RESULT="FALSE">
+			<![CDATA[
+				UPDATE ICOMTRXL
+					SET KEY_10 = 'E', KEY_9 = TO_CHAR(SYSDATE,'YYYYMMDD HH24MISS')
+				WHERE  DOC_NAME = '$G_RS.DOC_NAME$'
+				AND TARGET      = '$G_RS.BUYER$'
+				AND KEY_1       = '$G_RS.INV_NO$'
+				AND KEY_2		= '$G_RS.INV_SEQ$'
+				AND KEY_10		= 'N'
+			]]>
+			</C_SQL>
+		</P_SQL>
+	</SQL_DOC>
+	<RETRY_CODE>
+		<CODE>03113</CODE>
+		<CODE>03114</CODE>
+		<CODE>02154</CODE>
+		<CODE>02541</CODE>
+		<CODE>04068</CODE>
+	</RETRY_CODE>
+</SQL>

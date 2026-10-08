@@ -1,0 +1,281 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap      
+    PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN"
+    "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="HkInn">
+
+	<resultMap id="brand" class="java.util.HashMap">
+		<result property="idx" column="IDX"/>
+		<result property="name" column="NAME"/>
+		<result property="sjIdx" column="SJIDX"/>		
+	</resultMap>
+	
+	<resultMap id="item" class="java.util.HashMap">
+		<result property="idx" column="IDX"/>
+		<result property="brandIdx" column="BRANDIDX"/>
+		<result property="code" column="CODE"/>		
+        <result property="name" column="NAME"/>
+        <result property="unit" column="UNIT"/>
+        <result property="volume" column="VOLUME"/>        
+        <result property="casno" column="CASNO"/>
+        <result property="msds" column="MSDS"/>
+        <result property="imageUrl" column="IMAGEURL"/>
+        <result property="price" column="PRICE"/>
+        <result property="minQty" column="MINQTY"/>
+        <result property="multipleQty" column="MULTIPLEQTY"/>
+        <result property="type" column="TYPE"/>
+        <result property="desc" column="DES"/>
+        <result property="status" column="STATUS"/>        
+	</resultMap>
+	
+	<resultMap id="invoice" class="java.util.HashMap">
+		<result property="idx" column="IDX"/>
+		<result property="itemIdx" column="ITEMIDX"/>
+		<result property="mroProductIdx" column="MROPRODUCTIDX"/>
+		<result property="invoiceNo" column="INVOICENO"/>
+		<result property="invoiceItemNo" column="INVOICEITEMNO"/>
+		<result property="qty" column="QTY"/>
+		<result property="invoiceDate" column="INVOICEDATE"/>
+		<result property="status" column="STATUS"/>				
+	</resultMap>
+	
+	<select id="checkTokenVal" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+		SELECT CASE WHEN (SELECT KEY_8 AS EXPIRE_DATE
+                            FROM ICOMTRXL
+                           WHERE DOC_NAME = 'TOKEN'
+                             AND TARGET = 'KRINNO0066') >= TO_CHAR(SYSDATE,'YYYY-MM-DD') THEN 'true'
+               ELSE 'false'
+               END TOKEN_VAL,
+               KEY_7 AS TOKEN
+          FROM ICOMTRXL
+         WHERE DOC_NAME = 'TOKEN'
+           AND TARGET = 'KRINNO0066'
+	</select>
+
+	<select id="selectHkInnToken" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+		SELECT KEY_7 AS TOKEN
+		  FROM ICOMTRXL
+		 WHERE DOC_NAME = 'TOKEN'
+		   AND TARGET = 'KRINNO0066'
+	</select>
+		
+	<update id="mergeHkInnToken"  parameterClass="java.util.Map">
+		MERGE INTO ICOMTRXL A
+			USING (
+				SELECT
+					#token# AS KEY_7
+				FROM DUAL
+			) B ON (1 = 1
+					AND A.DOC_NAME = 'TOKEN'
+		   			AND A.TARGET = 'KRINNO0066'
+			)
+		WHEN MATCHED THEN
+	        UPDATE SET
+		    	KEY_7 = #token#,
+		   	    KEY_8 = #expireDate#,
+		        KEY_10 = TO_CHAR(SYSDATE, 'YYYY/MM/DD HH24:MI:SS')
+		WHEN NOT MATCHED THEN
+			INSERT (
+					DOC_NAME, TARGET, KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6, KEY_7, KEY_8, KEY_9, KEY_10					
+			) VALUES (
+					'TOKEN', 'KRINNO0066', ' ', ' ', ' ', ' ', ' ', ' ', #token#, #expireDate#, ' ', TO_CHAR(SYSDATE, 'YYYY/MM/DD HH24:MI:SS')
+			)	
+	</update>
+
+	<select id="selectHkInnBrandList" parameterClass="java.util.Map" resultMap="brand">
+		SELECT  CODE    AS IDX
+		      , TEXT1   AS NAME
+		      , NVL(TEXT2,0) AS SJIDX
+		   FROM ICOMCOD2
+		  WHERE COMPANY_CODE = 'KRINNO0066'
+		    AND TYPE = 'M104'
+		    AND FLAG = 'Y'
+		    AND VALUE1 = '0'
+	</select>
+	
+	<update id="updateHkInnBrandData"  parameterClass="java.util.Map">
+		UPDATE ICOMCOD2 SET 
+		       VALUE1 = #isSuccess#
+		 WHERE COMPANY_CODE = 'KRINNO0066'
+		   AND TYPE = 'M104'
+		   AND FLAG = 'Y'
+		   AND VALUE1 = '0'					  		  
+	</update>
+	
+	<update id="updateItemFlag"  parameterClass="java.util.Map">
+		UPDATE EAI.IF_INNON_ITEM_SEND
+           SET IF_FLAG = 'T'
+         WHERE IF_FLAG = 'N'	  		  
+	</update>
+	
+	<select id="selectHkInnItemList" parameterClass="java.util.Map" resultMap="item">		
+		SELECT BUYER_ITEM_NO AS IDX,
+		       MAKER_CODE AS BRANDIDX,
+		       ITEM_NO AS CODE,
+		       DESCRIPTION AS NAME,
+		       UNIT_MEASURE AS UNIT,
+		       VOLUME,
+		       CAS_NO AS CASNO,
+		       MSDS_URL AS MSDS,
+		       IMG_URL AS IMAGEURL,
+		       UNIT_PRICE AS PRICE,
+               MIN_ORDER_QTY AS MINQTY,
+               PUR_UNIT_QTY AS MULTIPLEQTY,
+		       TYPE,
+		       SPECIFICATION AS DES,
+		       STATUS
+		  FROM EAI.IF_INNON_ITEM_SEND
+		 WHERE IF_FLAG = 'T'   
+	</select>
+	
+	<update id="updateItemRslt"  parameterClass="java.util.Map">
+		UPDATE EAI.IF_INNON_ITEM_SEND
+           SET IF_FLAG = #result_flag#,
+               IF_DATE = SYSDATE
+         WHERE IF_FLAG = 'T'	  		  
+	</update>
+	
+	<select id="selectHkInnPoCancelIdx" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+		SELECT DISTINCT TARGET AS BUYER, 
+                		KEY_5 AS IDX      
+		  FROM ICOMTRXL 
+		 WHERE DOC_NAME = 'PO_DEL'
+		   AND TARGET = 'KRINNO0066'
+		   AND KEY_3 = 'DEL'
+		   AND KEY_9 = 'N'
+      ORDER BY BUYER,IDX
+	</select>	
+	
+	<select id="selectHkInnPoCancelList" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+		SELECT TARGET AS BUYER,
+		       KEY_5 AS IDX,
+               KEY_6 AS ITEM_IDX,
+               (SELECT DECODE(STATUS,'D','A','P')
+                 FROM ICOMPRHD 
+                WHERE BUYER = TARGET
+                  AND PR_NO = KEY_1) AS TYPE
+		  FROM ICOMTRXL 
+		 WHERE DOC_NAME = 'PO_DEL'
+		   AND TARGET = #BUYER#
+		   AND KEY_3 = 'DEL'
+           AND KEY_5 = #IDX#
+		   AND KEY_9 = 'N'
+      ORDER BY BUYER,IDX,TYPE,ITEM_IDX
+	</select>	
+	
+	<update id="updateHkInnDelNotInterPo"  parameterClass="java.util.Map">
+		UPDATE ICOMTRXL A
+           SET KEY_9 = 'D'
+         WHERE DOC_NAME = 'ORDER_TRK'
+           AND TARGET = 'KRINNO0066'         
+           AND KEY_3 IN ('2_DO', '3_IV')
+           AND KEY_1 IN (SELECT PO_NO FROM ICOMPODT
+                          WHERE BUYER = 'KRINNO0066'
+                            AND PO_NO IN A.KEY_1
+                            AND (SUBSTRB(TRIM(LEGACY_PO_NO),1,2) IN ('PR','PM')
+                                      OR LEGACY_PO_NO IS NULL))  
+ 		   AND KEY_9 = 'N'                                
+	</update>
+	
+	<select id="selectHkInnPoStatusIdx" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+		SELECT DISTINCT TARGET AS BUYER, 
+                		KEY_5 AS IDX      
+		  FROM ICOMTRXL A
+		 WHERE DOC_NAME = 'ORDER_TRK'
+		   AND TARGET = 'KRINNO0066'	
+		   AND KEY_3 IN ('2_DO', '3_IV')	   
+           AND KEY_1 IN (SELECT PO_NO FROM ICOMPODT
+                          WHERE BUYER = 'KRINNO0066'
+                            AND PO_NO IN A.KEY_1
+                            AND STATUS != 'D'
+                            AND LEGACY_PO_NO IS NOT NULL
+                            AND SUBSTRB(TRIM(LEGACY_PO_NO),1,2) NOT IN ('PR','PM'))
+		   AND KEY_9 = 'N'
+	  ORDER BY BUYER,IDX
+	</select>	
+	
+	<select id="selectHkInnPoStatusItem" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+		SELECT TARGET AS BUYER,
+       		   KEY_5 AS IDX,
+       		   KEY_6 AS ITEM_IDX,
+       		   CASE WHEN KEY_3 = '2_DO' THEN '0'                  
+               ELSE '1'
+               END STATUS
+               ,
+               (SELECT MAX(TO_CHAR(TO_DATE(BUYER_DS_DATE,'YYYY-MM-DD'),'YYYY-MM-DD'))
+                  FROM ICOMPORS 
+                 WHERE BUYER = A.TARGET
+                   AND PO_NO = A.KEY_1
+                   AND PO_SEQ = A.KEY_2
+                   AND BUYER_ITEM_NO = A.KEY_7) AS DUE_DATE
+          FROM ICOMTRXL A
+         WHERE DOC_NAME = 'ORDER_TRK'
+           AND TARGET = #BUYER#
+           AND KEY_3 IN ('2_DO', '3_IV')
+           AND KEY_5 = #IDX#
+           AND KEY_9 = 'N'
+      ORDER BY BUYER,IDX,ITEM_IDX,STATUS
+	</select>
+	
+	<update id="updateHkInnPoStatus"  parameterClass="java.util.Map">
+		UPDATE ICOMTRXL
+           SET KEY_9 = 'Y',
+           	   KEY_10 = TO_CHAR(SYSDATE, 'YYYY/MM/DD HH24:MI:SS')
+         WHERE DOC_NAME = 'ORDER_TRK'
+           AND TARGET = #BUYER#
+           AND KEY_3 IN ('2_DO', '3_IV')
+           AND KEY_5 = #IDX#
+           AND KEY_9 = 'N'	           	  		  
+	</update>
+	
+	<update id="updateHkInnPoCancel"  parameterClass="java.util.Map">
+		UPDATE ICOMTRXL
+           SET KEY_9 = 'Y',
+           	   KEY_10 = TO_CHAR(SYSDATE, 'YYYY/MM/DD HH24:MI:SS')
+         WHERE DOC_NAME = 'PO_DEL'
+           AND TARGET = #BUYER#
+           AND KEY_3 = 'DEL'           
+           AND KEY_5 = #IDX#
+           AND KEY_9 = 'N'
+	</update>
+	
+	<update id="updateHkInnPoCancelFail"  parameterClass="java.util.Map">
+		UPDATE ICOMTRXL
+           SET KEY_9 = 'E',
+           	   KEY_7 = #MSG#,
+           	   KEY_10 = TO_CHAR(SYSDATE, 'YYYY/MM/DD HH24:MI:SS')
+         WHERE DOC_NAME = 'PO_DEL'
+           AND TARGET = #BUYER#
+           AND KEY_3 = 'DEL'           
+           AND KEY_5 = #IDX#
+           AND KEY_9 = 'N'
+	</update>
+	
+	<select id="selectHkInnIvList" parameterClass="java.util.Map" resultMap="invoice">		
+		SELECT LEGACY_PO_NO AS IDX,
+		       LEGACY_PO_SEQ AS ITEMIDX,
+		       BUYER_ITEM_NO AS MROPRODUCTIDX,
+		       INV_NO AS INVOICENO,
+		       INV_SEQ AS INVOICEITEMNO,
+		       ITEM_QTY AS QTY,
+		       TO_CHAR(TO_DATE(INV_DATE,'YYYY-MM-DD'),'YYYY-MM-DD') AS INVOICEDATE,
+		       STATUS
+		  FROM EAI.IF_UCUBE_INV_SEND
+		 WHERE BUYER = 'KRINNO0066'           
+           AND IF_FLAG = 'N'   
+	</select>
+	
+	<update id="updateHkInnIvData"  parameterClass="java.util.Map">
+		UPDATE EAI.IF_UCUBE_INV_SEND 
+           SET IF_FLAG = #result_flag#, 
+               IF_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD'),
+         	   IF_TIME = TO_CHAR(SYSDATE, 'HH24MISS')
+         where IF_FLAG = 'N'
+           AND BUYER = 'KRINNO0066'
+           AND INV_NO = #invoiceNo#
+           AND INV_SEQ = #invoiceItemNo#
+           AND STATUS = #status#
+	</update>
+	
+</sqlMap>    

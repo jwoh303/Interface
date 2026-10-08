@@ -1,0 +1,66 @@
+SELECT data.* , NVL(ifmg.MULTI_RECV_COUNT,1) count FROM (
+
+SELECT  a.*, count(*) over () as row_cnt, ceil(rownum/?) as page_no
+        FROM 
+(
+SELECT * 
+FROM (
+    SELECT /*+ S603 UI  인터페이스로그 상세처리현황 DetailLogInfoVO 황용길 */
+      DISTINCT EAI_INTERFACE_ID ifd ,
+      TRANSACTION_CODE tc ,
+      UPPER(Uevent.LOCAL_HOST_NAME) sc ,
+      (
+        SELECT HOST_NAME
+        FROM TB_S60_SYST020
+        WHERE EAI_SYSTEM_ID=UPPER(Uevent.LOCAL_HOST_NAME)) sysnam
+--,Uevent.EVENT_MODULE status
+      ,
+      Uevent.DESCRIPTION msg ,
+      DECODE(Uevent.DATA_LOGGER_STATUS, 'EAI_110', '송신', 'EAI_108', '수신', 'EAI_126', '송신', Uevent.DATA_LOGGER_STATUS) code ,
+      TO_CHAR(EAI_SEND_TIMESTAMP, 'yyyy-mm-dd hh24:mi:ss.ff') est ,
+      TO_CHAR(Uevent.EAI_RECEIVE_TIMESTAMP, 'yyyy-mm-dd hh24:mi:ss.ff') ert ,
+     --SUBSTRB(TO_CHAR(Sdata.SEND_DATA), 1, 3900) sdata ,
+     SUBSTRB(dbms_lob.SUBSTR(Sdata.SEND_DATA,4000,1),1,3900) sdata ,
+      DECODE(Uevent.DATA_LOGGER_STATUS, 'EAI_108', 'MES LOG', '') ml
+    FROM EAI_USER_EVENTS Uevent LEFT OUTER JOIN EAI_SEND_DATA Sdata USING (EAI_SEND_TIMESTAMP ,
+          TRANSACTION_CODE ,
+          EAI_INTERFACE_ID)
+    WHERE ? !='EAI_108'
+      AND EAI_SEND_TIMESTAMP >= TO_TIMESTAMP(?, 'yyyy-mm-dd hh24:mi:ss.ff')
+      AND EAI_SEND_TIMESTAMP <= TO_TIMESTAMP(?, 'yyyy-mm-dd hh24:mi:ss.ff')
+      AND TRANSACTION_CODE LIKE CONCAT(?, '%')
+      AND EAI_INTERFACE_ID LIKE CONCAT(?, '%')
+      AND UPPER(Uevent.LOCAL_HOST_NAME) LIKE CONCAT(UPPER(?), '%')
+      AND Uevent.DATA_LOGGER_STATUS LIKE CONCAT(?, '%')
+    UNION ALL
+    SELECT /*+ index(Uevent IX_EAIUSEVENT_N3) */
+      DISTINCT EAI_INTERFACE_ID ifd ,
+      TRANSACTION_CODE tc ,
+      UPPER(Uevent.LOCAL_HOST_NAME) sc ,
+      (
+        SELECT HOST_NAME
+        FROM TB_S60_SYST020
+        WHERE EAI_SYSTEM_ID=UPPER(Uevent.LOCAL_HOST_NAME)) sysnam
+--,Uevent.EVENT_MODULE status
+      ,
+      Uevent.DESCRIPTION msg ,
+      'RECV' code ,
+      TO_CHAR(EAI_SEND_TIMESTAMP, 'yyyy-mm-dd hh24:mi:ss.ff') est ,
+      TO_CHAR(Uevent.EAI_RECEIVE_TIMESTAMP, 'yyyy-mm-dd hh24:mi:ss.ff') ert ,
+ --SUBSTRB(TO_CHAR(Sdata.SEND_DATA), 1, 3900) sdata ,
+     SUBSTRB(dbms_lob.SUBSTR(Sdata.SEND_DATA,4000,1),1,3900) sdata ,
+      'MES LOG' ml
+    FROM EAI_USER_EVENTS Uevent LEFT OUTER JOIN EAI_SEND_DATA Sdata USING (EAI_SEND_TIMESTAMP ,
+          TRANSACTION_CODE ,
+          EAI_INTERFACE_ID)
+    WHERE ? = 'EAI_108'
+      AND Uevent.EAI_RECEIVE_TIMESTAMP >= TO_TIMESTAMP(?, 'yyyy-mm-dd hh24:mi:ss.ff')
+      AND Uevent.EAI_RECEIVE_TIMESTAMP <= TO_TIMESTAMP(?, 'yyyy-mm-dd hh24:mi:ss.ff')
+      AND TRANSACTION_CODE LIKE CONCAT(?, '%')
+      AND EAI_INTERFACE_ID LIKE CONCAT(?, '%')
+      AND UPPER(Uevent.LOCAL_HOST_NAME) LIKE CONCAT(UPPER(?), '%')
+      AND Uevent.DATA_LOGGER_STATUS = 'EAI_108' )
+ORDER BY DECODE(?, 'EAI_108', ert, est), code 
+) a
+) data, (SELECT EAI_INTERFACE_ID,MULTI_RECV_COUNT FROM TB_S60_IFMG020 GROUP BY EAI_INTERFACE_ID,MULTI_RECV_COUNT) ifmg WHERE data.ifd = ifmg.EAI_INTERFACE_ID(+)
+AND page_no=? order by data.est, data.code

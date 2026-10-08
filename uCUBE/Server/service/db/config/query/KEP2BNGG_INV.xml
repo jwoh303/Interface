@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="EUC-KR"?>
+<SQL>
+  <!-- *********************************************************************** -->
+  <SQL_DOC INTERFACE_ID="KEP2BNGG_INV">
+        <V_SQL NAME='$G_RS' ISLOOP="TRUE" COMMIT_BY_RESULT="FALSE">
+              <![CDATA[
+                        SELECT *
+                          FROM(
+                              SELECT DISTINCT A.BUYER, A.INV_NO
+                              FROM EAI.IF_UCUBE_INV_SEND A
+                              WHERE A.BUYER IN (SELECT BUYER
+                                                 FROM IF_ADMIN
+                                                WHERE BUYER_ID = 'BING')
+                                AND A.IF_FLAG = 'N'
+                           ORDER BY A.BUYER, A.INV_NO
+                           )
+                         WHERE ROWNUM < 10
+              ]]>
+        </V_SQL>
+    <P_SQL SEQ="1" TYPE="SELECT" POST_SQL="TRUE">
+    <![CDATA[
+                                                SELECT '000'  AS HOUSE_CODE
+                              , '1000' AS COMPANY_CODE
+                              , F_SPLIT(F.IV_COLUMN,'^',2) AS SELLER_CODE
+                              , F_SPLIT(F.IV_COLUMN,'^',3) AS PO_COUNT
+                              , DECODE(A.STATUS,'C','1','2') AS INV_COUNT
+                              , D.PLANT AS PLANT_CODE
+                              , A.INV_NO AS INV_NUMBER
+                              , A.INV_SEQ AS INV_SEQ
+                              , A.LEGACY_PO_NO AS PO_NUMBER
+                              , A.LEGACY_PO_SEQ AS PO_SEQ
+                              , B.INV_TTL_AMT AS INV_TTL_AMT
+                              , C.ITEM_AMT AS INV_AMT
+                              , B.CUR AS CUR
+                              , 'N' AS IV_STATUS
+			      , DECODE(A.STATUS,'C','N','Y') AS DEL_FLAG
+                              , B.ADD_DATE AS ADD_DATE
+                              , B.ADD_TIME AS ADD_TIME
+                              ,(SELECT T.LEGACY_USER_ID FROM ICOMLUSR T WHERE T.USER_ID = B.ADD_USER_ID) AS ADD_USER_ID
+                              , A.INV_DATE AS INV_DATE
+                              , (SELECT IL.USER_NAME_LOC
+                           FROM KEP.ICOMLUSR IL
+                          WHERE USER_ID = (SELECT MBM.KEP_USER_ID
+                                             FROM KEP.MIS_BUYER_MNG MBM
+                                            WHERE MBM.BUYER = A.BUYER
+                                              AND MBM.YEAR = TO_CHAR(SYSDATE,'YYYY')
+                                              AND MBM.POSITION_GROUP = 'PM'
+                                              AND STATUS = 'C'
+                                              AND ROWNUM = 1)
+                        ) AS SALES_PERSON_NAME
+                              , (SELECT IL.PHONE_NUMBER
+                           FROM KEP.ICOMLUSR IL
+                          WHERE USER_ID = (SELECT MBM.KEP_USER_ID
+                                             FROM KEP.MIS_BUYER_MNG MBM
+                                            WHERE MBM.BUYER = A.BUYER
+                                              AND MBM.YEAR = TO_CHAR(SYSDATE,'YYYY')
+                                              AND MBM.POSITION_GROUP = 'PM'
+                                              AND STATUS = 'C'
+                                              AND ROWNUM = 1)
+                         ) AS SALES_PERSON_TEL
+                              , A.BUYER_ITEM_NO AS MATERIAL_NUMBER
+                              , C.DESCRIPTION AS DESCRIPTION_LOC
+                              , C.SPECIFICATION AS SPECIFICATION
+                              , F_SPLIT(F.IV_COLUMN,'^',1) AS MAKER_NAME
+                              , C.UNIT_MEASURE AS UNIT_MEASURE
+                              , A.ITEM_QTY AS INV_QTY
+                              , A.ATTR_02 AS ITEM_QTY
+                              , C.UNIT_PRICE AS UNIT_PRICE
+                              , A.ATTR_01 AS PO_RD_DATE
+                              , E.PO_CREATE_DATE AS PO_CREATE_DATE
+                         FROM EAI.IF_UCUBE_INV_SEND A
+                            , ICOMIVHD B
+                            , ICOMIVDT C
+                            , ICOMPODT D
+                            , ICOMPOHD E
+                            , ICOMPRDT F
+                        WHERE 1=1
+                          AND A.INV_NO = C.INV_NO
+                          AND A.INV_SEQ = C.INV_SEQ
+                          AND A.BUYER = C.BUYER
+
+                  AND B.INV_NO = C.INV_NO
+                          AND B.BUYER = C.BUYER
+
+                  AND C.PO_NO = D.PO_NO
+                  AND C.PO_SEQ = D.PO_SEQ
+                  AND C.BUYER = D.BUYER
+
+                  AND C.PR_NO = F.PR_NO
+                  AND C.PR_SEQ = F.PR_SEQ
+                  AND C.BUYER = F.BUYER
+
+                          AND D.PO_NO = E.PO_NO
+                          AND D.BUYER = E.BUYER
+                          AND A.BUYER   = '$G_RS.BUYER$'
+                          AND A.INV_NO  = '$G_RS.INV_NO$'
+
+    ]]>
+      <C_SQL TYPE="UPDATE" P_SQL_RESULT="TRUE">
+      <![CDATA[
+                  UPDATE EAI.IF_UCUBE_INV_SEND A
+                 SET A.IF_FLAG = 'Y'
+                   , A.IF_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD')
+                   , A.IF_TIME = TO_CHAR(SYSDATE, 'HH24MISS')
+               WHERE A.BUYER   = '$G_RS.BUYER$'
+                 AND A.INV_NO  = '$G_RS.INV_NO$'
+      ]]>
+      </C_SQL>
+      <C_SQL TYPE="UPDATE" P_SQL_RESULT="FALSE">
+      <![CDATA[
+          UPDATE EAI.IF_UCUBE_INV_SEND A
+             SET A.IF_FLAG = 'E'
+               , A.IF_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD')
+               , A.IF_TIME = TO_CHAR(SYSDATE, 'HH24MISS')
+           WHERE A.BUYER   = '$G_RS.BUYER$'
+             AND A.INV_NO  = '$G_RS.INV_NO$'
+      ]]>
+      </C_SQL>
+    </P_SQL>
+  </SQL_DOC>
+  <RETRY_CODE>
+    <CODE>03113</CODE>
+    <CODE>03114</CODE>
+    <CODE>02154</CODE>
+    <CODE>02541</CODE>
+    <CODE>04068</CODE>
+  </RETRY_CODE>
+</SQL>

@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="EUC-KR"?>
+<SQL>
+	<!-- *********************************************************************** -->
+	<SQL_DOC INTERFACE_ID="KEP2DBMP_PRI">
+		<V_SQL NAME='$G_RS' ISLOOP="TRUE" COMMIT_BY_RESULT="FALSE"> 
+		<![CDATA[
+                SELECT * FROM (
+			SELECT
+			       A.TAX_BILL_NO,
+			       A.DEPT_CODE
+			  FROM IF_ARDT A
+			 WHERE 1 = 1
+                           AND ISSUE_DATE >= TO_CHAR(ADD_MONTHS(SYSDATE, -2)) 
+			   AND IF_SEND_FLAG = 'N'
+                           AND CANCEL_FLAG = 'N'
+			   AND STATUS ^= 'D'
+			 ORDER BY A.TAX_BILL_NO, A.DEPT_CODE
+                ) WHERE ROWNUM <= 100
+		]]>
+		</V_SQL> 
+		<P_SQL SEQ="1" TYPE="SELECT" POST_SQL="TRUE">
+		<![CDATA[
+
+		SELECT
+		       A.TAX_BILL_NO                  AS INVOICE_NO,
+		       TX01.TEXT1                     AS SAUPJ,
+		       TX06.TEXT1                     AS DEPARTCODE,
+		       A.ISSUE_DATE                   AS INVOICE_DATE,
+		       TRIM(REPLACE(A.IRS_NO,'-','')) AS CUSTOMER,
+		       A.SUPP_PRICE                   AS AMOUNT,
+		       A.TOT_SUPP_PRICE               AS TOT_AMOUNT,
+		       A.TAX_PRICE                    AS TAX_AMOUNT,
+		       A.TOT_TAX_PRICE                AS TOT_TAX_AMOUNT,
+		       A.TAX_TYPE                     AS TAX_CODE,
+		       1                              AS TAX_COUNT,
+		       A.REMARK_DESCRIPTION || 
+		       A.REMARK_SPECIFICATION         AS REMARK,
+		       A.ADD_USER_ID                  AS CREATE_EMPNO,
+		       A.ADD_DATE                     AS CREATE_DATE,
+		       A.SITE                         AS ATTRIBUTE1,
+                       DECODE(nvl(A.AR_TYPE,' '),'02','물류매출','상품매출') AS ATTRIBUTE3,
+                       A.EXP_CUR                      AS ATTRIBUTE9,
+                       NVL(A.EXP_CUR_PRICE,0)         AS DAMOUNT,
+                       NVL(A.EXP_FOR_ITEM_AMT,0)      AS TOT_DAMOUNT,
+                       A.EXP_GR_NO                    AS ATTRIBUTE7,
+                       A.EXP_DATE_OF_SHIPMENT         AS ATTRIBUTE8
+		  FROM IF_ARDT A
+		       INNER JOIN ICOMCOD1 TX01 ON (1 = 1
+		         AND TX01.TYPE = 'TX01'
+		         AND TX01.CODE = A.KEP_IRS
+		       )
+		       INNER JOIN ICOMCOD1 TX06 ON (1 = 1
+		         AND TX06.TYPE = 'TX06'
+		         AND TX06.CODE = A.DEPT_CODE
+		       )
+		 WHERE 1 = 1
+		   AND A.TAX_BILL_NO = '$G_RS.TAX_BILL_NO$'
+		   AND A.DEPT_CODE   = '$G_RS.DEPT_CODE$'
+		   AND IF_SEND_FLAG = 'N'
+		   AND STATUS ^= 'D'
+		]]>
+			<C_SQL TYPE="UPDATE" P_SQL_RESULT="TRUE">
+			<![CDATA[
+			DECLARE
+				V_CNT1	NUMBER;
+				V_CNT2	NUMBER;
+			BEGIN
+
+				SELECT COUNT(*) 
+				  INTO V_CNT1
+				  FROM ICOMCOD1 TX01
+				 WHERE TYPE = 'TX01'
+				   AND CODE = (
+				         SELECT KEP_IRS
+				           FROM IF_ARDT
+				          WHERE TAX_BILL_NO = '$G_RS.TAX_BILL_NO$'
+				            AND DEPT_CODE   = '$G_RS.DEPT_CODE$'
+				       );
+
+				SELECT COUNT(*) 
+				  INTO V_CNT2
+				  FROM ICOMCOD1 TX06
+				 WHERE TYPE = 'TX06'
+				   AND CODE = (
+				         SELECT DEPT_CODE
+				           FROM IF_ARDT
+				          WHERE TAX_BILL_NO = '$G_RS.TAX_BILL_NO$'
+				            AND DEPT_CODE   = '$G_RS.DEPT_CODE$'
+				       );
+				IF V_CNT1 = 0 OR V_CNT2 = 0 THEN
+					UPDATE IF_ARDT A
+					   SET IF_SEND_FLAG = 'E'
+					     , IF_SEND_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD')
+					     , IF_SEND_TIME = TO_CHAR(SYSDATE, 'HH24MISS')
+					 WHERE 1 = 1
+					   AND A.TAX_BILL_NO = '$G_RS.TAX_BILL_NO$'
+					   AND A.DEPT_CODE   = '$G_RS.DEPT_CODE$';
+				ELSE
+					UPDATE IF_ARDT A
+					   SET IF_SEND_FLAG = 'Y'
+					     , IF_SEND_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD')
+					     , IF_SEND_TIME = TO_CHAR(SYSDATE, 'HH24MISS')
+					 WHERE 1 = 1
+					   AND A.TAX_BILL_NO = '$G_RS.TAX_BILL_NO$'
+					   AND A.DEPT_CODE   = '$G_RS.DEPT_CODE$';
+				END IF;
+			END;
+			]]>
+			</C_SQL>
+			<C_SQL TYPE="UPDATE" P_SQL_RESULT="FALSE">
+			<![CDATA[
+			UPDATE IF_ARDT A
+			   SET IF_SEND_FLAG = 'E'
+			     , IF_SEND_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD')
+			     , IF_SEND_TIME = TO_CHAR(SYSDATE, 'HH24MISS')
+			 WHERE 1 = 1
+			   AND A.TAX_BILL_NO = '$G_RS.TAX_BILL_NO$'
+			   AND A.DEPT_CODE   = '$G_RS.DEPT_CODE$'
+			]]>
+			</C_SQL>
+		</P_SQL>
+	</SQL_DOC>
+	<RETRY_CODE>
+		<CODE>03113</CODE>
+		<CODE>03114</CODE>
+		<CODE>02154</CODE>
+		<CODE>02541</CODE>
+		<CODE>04068</CODE>
+	</RETRY_CODE>
+</SQL>

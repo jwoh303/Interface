@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap      
+    PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN"
+    "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="Parcel">
+
+	<resultMap id="trkg" class="java.util.HashMap">
+		<result property="carrierId" column="CARRIERID"/>
+		<result property="trackingNumber" column="TRACKINGNUMBER"/>
+		<result property="callbackUrl" column="CALLBACKURL"/>
+		<result property="expirationTime" column="EXPIRATIONTIME"/>			
+	</resultMap>
+	
+	<resultMap id="srch" class="java.util.HashMap">
+		<result property="carrierId" column="CARRIERID"/>
+		<result property="trackingNumber" column="TRACKINGNUMBER"/>	
+	</resultMap>
+	
+	<select id="selectParcelToken" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+		SELECT KEY_7 AS TOKEN
+          FROM ICOMTRXL
+         WHERE DOC_NAME = 'TOKEN'
+           AND TARGET = 'PARCEL'
+	</select>
+	
+	<select id="selectParcelTrkgList" parameterClass="java.util.Map" resultMap="trkg">
+		SELECT parcel_com_code AS carrierId,
+		       parcel_no AS trackingNumber,
+               'https://eai.koreab2b.com:9191/parcel.do' AS callbackUrl,
+               to_char(sysdate +2,'YYYY-MM-DD"T"HH24:MI:SS') AS expirationTime
+		  FROM KEP.kep_parcel
+		 WHERE IF_FLAG = 'N'
+		   AND PARCEL_ID = 'B'
+	</select>	
+	
+	<update id="updateParcelTrkg"  parameterClass="java.util.Map">
+		UPDATE KEP.KEP_PARCEL 
+		   SET IF_FLAG = #flag#,
+		       IF_DATE = SYSDATE
+		 WHERE IF_FLAG = 'N'	  		  
+		   AND PARCEL_COM_CODE = #carrierId#
+		   AND PARCEL_NO = #trackingNumber# 
+		   AND PARCEL_ID = 'B'
+	</update>	
+	
+	<select id="selectParcelSrchList" parameterClass="java.util.Map" resultMap="srch">
+		SELECT PARCEL_COM_CODE AS CARRIERID,
+		       PARCEL_NO AS TRACKINGNUMBER                              
+		  FROM KEP.KEP_PARCEL
+		 WHERE IF_FLAG IN ('N','Y','S')
+           AND PARCEL_ID = 'B'
+	</select>
+	
+	<update id="updateParcelSrch"  parameterClass="java.util.Map">
+		UPDATE KEP.KEP_PARCEL 
+		   SET IF_FLAG = #flag#,
+		       IF_DATE = SYSDATE,
+               START_DATE = DECODE(IF_FLAG||#flag#,'SS',IF_DATE,SYSDATE),
+               PRO_STATUS = CASE #status#
+                                WHEN 'UNKNOWN' THEN '상태미확인'
+                                WHEN 'INFORMATION_RECEIVED' THEN '배송정보접수'
+                                WHEN 'AT_PICKUP' THEN '집하완료'
+                                WHEN 'IN_TRANSIT' THEN '배송중'
+                                WHEN 'OUT_FOR_DELIVERY' THEN '배송출발'
+                                WHEN 'ATTEMPT_FAIL' THEN '배송실패'
+                                WHEN 'DELIVERED' THEN '배송완료'
+                                WHEN 'AVAILABLE_FOR_PICKUP' THEN '수령가능'
+                                WHEN 'EXCEPTION' THEN '배송예외'
+                                ELSE '기타'
+                            END,               
+               PRO_STATUS_DATE = TO_CHAR(SYSDATE,'YYYY-MM-DD HH24:MI:SS')
+		 WHERE IF_FLAG IN ('N','Y','S')	  		  
+		   AND PARCEL_COM_CODE = #carrierId#
+		   AND PARCEL_NO = #trackingNumber#
+		   AND PARCEL_ID = 'B'
+	</update>
+	
+	<update id="updateParcelSrchAllFail"  parameterClass="java.util.Map">
+		UPDATE KEP.KEP_PARCEL
+		   SET IF_FLAG = 'E',
+		       IF_DATE = SYSDATE,
+		       JOB_NOTE = NVL2(JOB_NOTE, JOB_NOTE || ' ', '' ) || #err#
+		 WHERE IF_FLAG IN ('N','Y','S')		   
+           AND PARCEL_ID = 'B'
+	</update>
+	
+	<insert id="insertParcelSrchDt" parameterClass="java.util.Map">
+		INSERT INTO KEP.KEP_PARCEL_DT (
+            FID,          INVOICE_NO,    TIME_TRANS,     
+            TIME_SWEET,   DETAILS,       COMCODE			
+		) VALUES (
+			#fid#,        #trackingNumber#,  #lastTime#,
+            TO_CHAR(SYSDATE,'YYYY-MM-DD HH24:MI:SS'),      #details#,    	 #carrierId#
+		)		
+	</insert>	
+	
+</sqlMap>    

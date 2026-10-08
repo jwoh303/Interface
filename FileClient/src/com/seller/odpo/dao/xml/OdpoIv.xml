@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap      
+    PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN"
+    "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="OdpoIv">
+  
+  <select id="selectOdpoPoInfo" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+    SELECT NVL(PO_NO ,' ') AS PO_NO,
+           NVL(PO_SEQ,' ') AS PO_SEQ
+      FROM ICOMPODT
+     WHERE BUYER  = NVL(TRIM(#BUYER#),' ')
+       AND PO_NO  = NVL(TRIM(#LEGACY_PO_NO#),' ')
+       AND PO_SEQ = NVL(TRIM(TO_CHAR(#LEGACY_PO_SEQ#,'FM000000')),' ')
+       AND BUYER_ITEM_NO = NVL(TRIM(#BUYER_ITEM_NO#),' ')  
+  </select>
+  
+    <insert id="IVODPOIFLOAD_Insert" parameterClass="java.util.HashMap">
+		MERGE INTO IF_IVDT A
+		  USING (
+		  	SELECT #BUYER# AS BUYER,
+		  	       #LEGACY_IV_NO# AS LEGACY_IV_NO,
+		  	       #LEGACY_IV_SEQ# AS LEGACY_IV_SEQ,
+		  	       #BUYER_ITEM_NO# AS BUYER_ITEM_NO
+		      FROM DUAL
+		  ) B ON ( 1=1
+		         AND B.BUYER = A.BUYER
+		         AND B.LEGACY_IV_NO = A.LEGACY_IV_NO
+		         AND B.LEGACY_IV_SEQ = A.LEGACY_IV_SEQ
+		         AND B.BUYER_ITEM_NO = A.BUYER_ITEM_NO
+		         
+		  )
+		  WHEN MATCHED THEN
+		  UPDATE SET STATUS               = NVL(TRIM(#STATUS#)             ,' '),
+                    LEGACY_PO_NO         = NVL(TRIM(#LEGACY_PO_NO#)       ,' '),
+                    LEGACY_PO_SEQ        = NVL(TRIM(TO_CHAR(#LEGACY_PO_SEQ#,'FM000000')),' '),
+                    INVOICE_DATE         = NVL(TRIM(#INVOICE_DATE#)       ,' '),
+                    INV_QTY              = NVL(     #INV_QTY#              ,  0),
+                    DELIVERY_QTY         = NVL(     #INV_QTY#              ,  0),
+                    DELIVERY_DATE        = NVL(TRIM(#INVOICE_DATE#)       ,' '),
+                    PO_NO                = NVL(TRIM(#PO_NO#)              ,' '),
+                    PO_SEQ               = NVL(TRIM(#PO_SEQ#)             ,' '),
+                    INV_NO               = NVL(TRIM(#INV_NO#)             ,' '),
+                    INV_SEQ              = NVL(TRIM(#INV_SEQ#)            ,' '),
+                    IF_FLAG              = NVL(TRIM(#IF_FLAG#)            ,' '),
+                    TABLE_FLAG           = '1',
+                    ERROR_MSG            = ' ',
+                    LOAD_DATE            = NVL(TRIM(#LOAD_DATE#)          ,' '),
+                    LOAD_TIME            = NVL(TRIM(#LOAD_TIME#)          ,' '),
+                    S_INV_NO             = NVL(TRIM(#S_INV_NO#)           ,' '),
+                    PARCEL_COM_CODE      = NVL(TRIM(#PARCEL_COM_CODE#)    ,' '),
+                    PARCEL_INV_NO        = NVL(TRIM(#PARCEL_INV_NO#)      ,' ')
+                    
+          WHEN NOT MATCHED THEN
+             INSERT (
+                    BUYER,
+                    STATUS,
+                    LEGACY_PO_NO,
+                    LEGACY_PO_SEQ,
+                    LEGACY_IV_NO,
+                    LEGACY_IV_SEQ,
+                    REVISION,
+                    BUYER_ITEM_NO,
+                    INVOICE_DATE,
+                    INV_QTY,
+                    PO_NO,
+                    PO_SEQ,
+                    INV_NO,
+                    INV_SEQ,
+                    IF_FLAG,
+                    DELIVERY_QTY,
+                    DELIVERY_DATE,
+                    TABLE_FLAG,
+                    ERROR_MSG,
+                    LOAD_DATE,
+                    LOAD_TIME,
+                    S_INV_NO,
+                    PARCEL_COM_CODE,
+                    PARCEL_INV_NO
+             ) VALUES (
+                    NVL(TRIM(#BUYER#)           ,' '),
+                    NVL(TRIM(#STATUS#)             ,' '),
+                    NVL(TRIM(#LEGACY_PO_NO#)       ,' '),
+                    NVL(TRIM(TO_CHAR(#LEGACY_PO_SEQ#,'FM000000')),' '),
+                    NVL(TRIM(#LEGACY_IV_NO#)       ,' '),
+                    NVL(TRIM(#LEGACY_IV_SEQ#)      ,' '),
+                    NVL(TRIM(#REVISION#)           ,' '),
+                    NVL(TRIM(#BUYER_ITEM_NO#)      ,' '),
+                    NVL(TRIM(#INVOICE_DATE#)       ,' '),
+                    NVL(     #INV_QTY#              ,  0),
+                    NVL(TRIM(#PO_NO#)              ,' '),
+                    NVL(TRIM(#PO_SEQ#)             ,' '),
+                    NVL(TRIM(#INV_NO#)             ,' '),
+                    NVL(TRIM(#INV_SEQ#)            ,' '),
+                    'N',
+                    NVL(     #INV_QTY#              ,  0),
+                    NVL(TRIM(#INVOICE_DATE#)       ,' '),
+                    '1',
+                    ' ',
+                    NVL(TO_CHAR(SYSDATE,'YYYYMMDD')         ,' '),
+                    NVL(TO_CHAR(SYSDATE,'HH24MMSS')          ,' '),
+                    NVL(TRIM(#S_INV_NO#)          ,' '),
+                    NVL(TRIM(#PARCEL_COM_CODE#)    ,' '),
+                    NVL(TRIM(#PARCEL_INV_NO#)      ,' ')
+             )         
+  </insert>
+  
+    <select id="selectOpdoIvCheck" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+  SELECT 
+         
+         TO_CHAR(COUNT(*)) AS TOT_CNT,
+         TO_CHAR(NVL(SUM(INV_QTY),0)) AS TOT_AMT,
+         TO_CHAR(COUNT(DECODE(IF_FLAG,'E','X',NULL))) AS ERR_CNT,
+         TO_CHAR(COUNT(DECODE(STATUS, 'D','D',NULL))) AS DEL_CNT
+    FROM IF_IVDT
+   WHERE BUYER        = NVL(#BUYER#,' ')
+    AND  LEGACY_IV_NO = NVL(#LEGACY_IV_NO#,' ')
+    AND  REVISION     = NVL(#REVISION#,' ')
+  </select>
+</sqlMap>

@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap      
+    PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN"
+    "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="Hoban">
+
+	<select id="selectHobanRqData" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+		SELECT DECODE(A.BUYER,'KRHOBA0003','01','KRHOBA0004','02','KRHOBA0005','03',NULL) as "plant", 
+               A.QUOTATION_NO as "quotationNo", A.QUOTATION_SEQ as "quotationSeq", '' as "buyerItemNo", 
+               A.DESCRIPTION as "description", A.SPECIFICATION as "specification", A.UNIT_MEASURE as "unitMeasure", 
+               A.MAKER_NAME as "makerName", DELIVERY_LT as "deliveryLt", B.UNIT_PRICE as "unitPrice", 
+               B.CATEGORY_NO as "categCode", B.CATEGORY_TEXT as "categName", A.CONFIRM_USER_ID as "confirmUserId"
+		  FROM KEPRQDT A, ICOMBYIT B
+		 WHERE 
+		 	   A.BUYER IN (SELECT BUYER FROM IF_ADMIN WHERE BUYER_ID = 'HOBA')
+		   AND A.SND_CHK = 'N'
+		   AND A.ATOB_UNIT_PRICE != 0
+		   AND A.RECV_FLAG = 'CM'
+ 		   AND A.BUYER_ITEM_NO LIKE 'NO_CODE%' 
+		   AND A.ATOB_SEND_FLAG = 'Y'
+		   AND A.REF_NO IS NULL
+           AND B.BUYER = 'KRHOBAG001'
+		   AND B.BUYER_ITEM_NO = A.BUYER_ITEM_NO
+	</select>
+	
+	<insert id="insertRqResultData"  parameterClass="java.util.Map">
+		INSERT INTO IF_FILE_UC 
+		    ( 
+		        KEP_SEQ, DOC_TYPE, BUYER,
+		        KEY_NO, KEY_SEQ, DATA02, 
+		        DATA03, DATA04, DATA05,
+		        IF_FLAG, IF_DATE, IF_TIME
+		    ) VALUES (
+		        SEQ_IF_FILE_UC.NEXTVAL, 'RT', 'HOBA',
+		        #quotationNo#, #quotationSeq#, #buyerItemNo#, 
+		        DECODE(#resultCode#, '0000', 'C', 'E'), #plant#, #message#, 
+		        'N', TO_CHAR(SYSDATE, 'YYYYMMDD'), TO_CHAR(SYSDATE, 'HH24MISS')
+		    )
+	</insert>
+	
+	<update id="mergeHobanPoData"  parameterClass="java.util.Map">
+		MERGE INTO IF_PODT_UC A
+			USING (
+				SELECT
+					#legacyPoNo# AS LEGACY_PO_NO,
+					#legacyPoSeq# AS LEGACY_PO_SEQ,
+					DECODE(#status#,'99','C','D') AS STATUS,
+					#buyerItemNo# AS BUYER_ITEM_NO,
+					#itemQty# AS ITEM_QTY,					
+					#unitPrice# AS UNIT_PRICE,
+					#rdDate# AS RD_DATE
+				FROM DUAL
+			) B ON (1 = 1
+					AND A.BUYER = 'HOBA'
+					AND A.SITE = 'KA'
+					AND A.LEGACY_PO_NO = B.LEGACY_PO_NO
+					AND A.LEGACY_PO_SEQ = B.LEGACY_PO_SEQ
+					AND A.STATUS = B.STATUS
+					AND A.BUYER_ITEM_NO = B.BUYER_ITEM_NO
+					AND A.ITEM_QTY = B.ITEM_QTY
+					AND A.UNIT_PRICE = B.UNIT_PRICE
+					AND A.RD_DATE = B.RD_DATE
+			)
+		WHEN NOT MATCHED THEN
+			INSERT (
+					KEP_SEQ, SITE, BUYER, 
+					PLANT, LEGACY_PO_NO, LEGACY_PO_SEQ, 
+					STATUS, CREATE_DATE, RD_DATE,
+					BUYER_ITEM_NO, UNIT_PRICE, ITEM_QTY,
+					ITEM_AMT, PURCHASER_USER_ID, REQ_USER_ID,
+					REQ_USER_NAME, REQ_USER_DEPT, REQ_USER_DEPT_NAME,
+					REQ_EMAIL_ADD, CHANGE_DATE, CHANGE_TIME,
+					IF_FLAG, LOAD_DATE, LOAD_TIME,
+                    HD_REMARK
+			) VALUES (
+					SEQ_IF_PODT_UC.NEXTVAL, 'KA', 'HOBA',
+					#plant#, #legacyPoNo#, #legacyPoSeq#,
+					DECODE(#status#,'99','C','D'), #poDate#, #rdDate#,
+					#buyerItemNo#, #unitPrice#, #itemQty#,
+					#itemAmt#, #poUserId#, #prUserId#,
+					#prUserName#, #reqUserDeptCd#, #reqUserDeptNm#,
+					#REQ_USER_EMAIL#, TO_CHAR(SYSDATE, 'YYYYMMDD'), TO_CHAR(SYSDATE, 'HH24MISS'),
+					'N', TO_CHAR(SYSDATE, 'YYYYMMDD'), TO_CHAR(SYSDATE, 'HH24MISS'),
+					#bigo#
+			)				  		  
+	</update>
+	
+	<update id="mergeHobanGrData"  parameterClass="java.util.Map">
+		MERGE INTO IF_GRDT_UC A
+			USING (
+				SELECT
+                    #LEGACY_GR_NO# AS LEGACY_GR_NO,		
+                    #LEGACY_GR_SEQ# AS LEGACY_GR_SEQ,
+                    #LEGACY_PO_NO# AS LEGACY_PO_NO,
+                    #LEGACY_PO_SEQ# AS LEGACY_PO_SEQ,
+                    #GR_QTY# AS GR_QTY
+                FROM DUAL
+			) B ON (1 = 1
+					AND A.BUYER = 'HOBA'
+                    AND A.LEGACY_GR_NO = B.LEGACY_GR_NO
+                    AND A.LEGACY_GR_SEQ = B.LEGACY_GR_SEQ
+                    AND A.LEGACY_PO_NO = B.LEGACY_PO_NO
+                    AND A.LEGACY_PO_SEQ = B.LEGACY_PO_SEQ
+                    AND A.GR_QTY = B.GR_QTY
+			)
+        WHEN NOT MATCHED THEN    
+            INSERT (
+	                KEP_SEQ, SITE, BUYER,
+	                PLANT, LEGACY_GR_NO, LEGACY_GR_SEQ,
+	                STATUS, LEGACY_PO_NO, LEGACY_PO_SEQ,
+	                BUYER_ITEM_NO, UNIT_PRICE, GR_QTY, 
+	                GR_AMT, GR_DATE, CHANGE_DATE,
+	                CHANGE_TIME, 
+	                IF_FLAG, LOAD_DATE, LOAD_TIME
+            ) VALUES (
+					SEQ_IF_GRDT_UC.NEXTVAL, 'KA', 'HOBA',
+                    #plant#, #legacyGrNo#, #legacyGrSeq#,
+                    #status#, #legacyPoNo#, #legacyPoSeq#, 
+                    #buyerItemNo#, #unitPrice#, #grQty#,
+                    #grAmt#, #grDate#, TO_CHAR(TO_DATE(('20'||SUBSTR(#changeTime#,1,8)), 'yyyy/mm/dd'),'YYYYMMDD'),
+                    REPLACE(SUBSTR(#changeTime#,10),':')||'00',
+                    'N', TO_CHAR(SYSDATE, 'YYYYMMDD'), TO_CHAR(SYSDATE, 'HH24MISS')
+			)
+	</update>
+	
+	
+</sqlMap>    

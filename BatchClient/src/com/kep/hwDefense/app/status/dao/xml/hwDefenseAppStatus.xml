@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap      
+    PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN"
+    "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="hwDefenseAppStatus">
+
+	<select id="selectHwDefenseAppStatusIdList" resultClass="java.util.HashMap">
+	<![CDATA[
+  SELECT DISTINCT KEY_1 AS APPR_ID
+    FROM EAI.IF_APM_SEND
+   WHERE BUYER IN (SELECT BUYER FROM IF_ADMIN WHERE BUYER_ID IN ('HWDF','HWDF3'))
+     AND KEY_9 IS NULL
+     AND KEY_1 IS NOT NULL
+     AND CREATE_DATM > TRUNC(SYSDATE - 60)
+     AND IF_FLAG = 'S'
+	]]>
+	</select>
+	
+	<update id="updateHwDefenseStatus" parameterClass="java.util.Map">
+	UPDATE EAI.IF_APM_SEND
+	   SET KEY_8 = #RTN_MSG#
+	     , KEY_9 = #RTN_FLAG#
+	     , KEY_10 = TO_CHAR(SYSDATE, 'YYYY/MM/DD HH24:MI:SS')
+	 WHERE KEY_1 = #APPR_ID#
+	</update>
+	
+	<select id="selectHwDefenseDocInfo" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+	SELECT DISTINCT
+	       B.COMPANY,
+	       B.DOCU_NO,
+	       B.PASS_STATUS,
+	       B.EXTIF_TP,
+	       B.EXTIF_NO,
+	       B.EXTIF_COUNT,
+	       B.CUR_ORDER_NO,
+	       C.USER_ID
+	  FROM EAI.IF_APM_SEND A
+	     , ICOGDOCU B
+	     , ICOGPASSLN C
+       , ICOMLUSR D
+	 WHERE 1 = 1
+	   AND A.KEY_1  = #APPR_ID#
+	   AND A.BUYER  = B.COMPANY
+	   AND A.DOC_NO = B.DOCU_NO
+     
+       AND D.COM_CODE = A.BUYER
+       AND D.LEGACY_USER_ID = #APPR_SGID#
+	   
+	   AND C.COMPANY = B.COMPANY
+	   AND C.DOCU_NO = B.DOCU_NO
+	   AND C.USER_ID = D.USER_ID
+	</select>
+	
+	<update id="saveAPPR_STATUS_HwDefense" parameterClass="java.util.HashMap">
+	MERGE INTO HWIN_APPR_STATUS A
+	USING (
+	  SELECT #APPRID# AS APPRID
+	    FROM DUAL
+	) B ON ( 1 = 1
+	  AND A.APPRID = B.APPRID
+	)
+	WHEN MATCHED THEN
+	  UPDATE SET
+		APPRSTATUSCD = #APPRSTATUSCD#,
+		APPRTRANSSTATUSCD = #APPRTRANSSTATUSCD#,
+		APPRKEY = #APPRKEY#,
+		APPRREVNO = #APPRREVNO#,
+		APPRSUBMITDT = #APPRSUBMITDT#,
+		APPRCONFIRMDT = #APPRCONFIRMDT#,
+		INSERTUID = #INSERTUID#,
+		INSERTDT = #INSERTDT#,
+		UPDATEUID = #UPDATEUID#,
+		UPDATEDT = #UPDATEDT#,
+		ERRORDETAIL = #ERRORDETAIL#
+	WHEN NOT MATCHED THEN
+	  INSERT (
+		APPRID,
+		APPRSTATUSCD,
+		APPRTRANSSTATUSCD,
+		APPRKEY,
+		APPRREVNO,
+		APPRSUBMITDT,
+		APPRCONFIRMDT,
+		INSERTUID,
+		INSERTDT,
+		UPDATEUID,
+		UPDATEDT,
+		ERRORDETAIL
+	  ) VALUES (
+		#APPRID#,
+		#APPRSTATUSCD#,
+		#APPRTRANSSTATUSCD#,
+		#APPRKEY#,
+		#APPRREVNO#,
+		#APPRSUBMITDT#,
+		#APPRCONFIRMDT#,
+		#INSERTUID#,
+		#INSERTDT#,
+		#UPDATEUID#,
+		#UPDATEDT#,
+		#ERRORDETAIL#	  
+	  )
+	</update>
+</sqlMap>    

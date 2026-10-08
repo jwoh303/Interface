@@ -1,0 +1,1 @@
+java -jar -Xms64m -Xmx128m D:\SFTPClient\bin_sftp\SFTPClient.jar MSMS 2

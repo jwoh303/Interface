@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap      
+    PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN"
+    "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="EcontractModuSign">
+
+    <!-- 전자계약서 서명요청 대상 조회 C1: 기본계약서, C2:기본+물류계약서 -->
+    <select id="selectEcontSendList" resultClass="java.util.HashMap">
+    <![CDATA[
+	SELECT A.SUPPLIER, A.EC_USER_EMAIL, A.EC_USER_NAME,        
+	       A.EC_DATE ||'_'|| REPLACE(B.IRS_NO,'-','') || '_' || C.TEXT1 AS TITLE,
+	       B.COM_NAME_LOC AGENT_NAME, B.IRS_NO AGENT_IRS_NO, 
+	       C.TEXT2 TEMPLATE_ID,
+	       C.TEXT3 ROLE
+	  FROM SUPLINFO2 A, ICOMCMPY B, ICOMCOD1 C
+	 WHERE 1 = 1
+	   AND A.SUPPLIER IN ( SELECT TARGET FROM ICOMTRXL WHERE DOC_NAME = 'ECONT' AND KEY_9 = ' ' AND ROWNUM <= 100 )
+	   AND B.COM_CODE = A.SUPPLIER
+	   AND C.TYPE = 'CT01'
+	   AND C.CODE = DECODE(A.E_CONTRACT_FLAG,'Y','C2', 'N','C1', '')  /*계약서 유형 확인*/
+	   AND A.EC_USER_EMAIL IS NOT NULL
+	   AND A.EC_USER_NAME IS NOT NULL
+	   AND A.EC_DATE IS NOT NULL
+	   AND A.SP_TYPE = 'N'
+    ]]>
+    </select>
+    
+    <!-- 전자계약서 상세속성 조회 -->
+    <select id="selectEcontInfo" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+	SELECT 
+	       K.AGENT_NAME COM_NAME_AGENT1,
+	       K.FROM_DATE CON_FROMDATE1,
+	       K.TO_DATE CON_TODATE1,
+	       K.FROM_DATE CONTRACT_DATE1,
+	       K.KEP_ADDRESS ADDRESS_KEP1,
+	       K.KEP_CEO_NAME CEO_NAME_KEP1,
+	       K.AGENT_NAME COM_NAME_AGENT2,
+	       K.AGENT_IRS_NO IRS_NO_AGENT1,
+	       K.AGENT_ADDRESS ADDRESS_AGENT1,
+	       K.AGENT_CEO_NAME CEO_NAME_AGENT1,
+	       K.FROM_DATE CONTRACT_DATE2,
+	       K.AGENT_NAME COM_NAME_AGENT3,
+	       K.AGENT_IRS_NO IRS_NO_AGENT2,
+	       K.AGENT_CEO_NAME CEO_NAME_AGENT2,
+	       DECODE(K.E_CONTRACT_FLAG,'Y',K.AGENT_NAME,NULL) COM_NAME_AGENT4,
+	       DECODE(K.E_CONTRACT_FLAG,'Y',K.FROM_DATE,NULL) CON_FROMDATE2,
+	       DECODE(K.E_CONTRACT_FLAG,'Y',K.TO_DATE,NULL) CON_TODATE2,
+	       DECODE(K.E_CONTRACT_FLAG,'Y',K.FROM_DATE,NULL) CONTRACT_DATE3,
+	       DECODE(K.E_CONTRACT_FLAG,'Y',K.AGENT_NAME,NULL) COM_NAME_AGENT5,
+	       DECODE(K.E_CONTRACT_FLAG,'Y',K.AGENT_IRS_NO,NULL) IRS_NO_AGENT3,
+	       DECODE(K.E_CONTRACT_FLAG,'Y',K.AGENT_ADDRESS,NULL) ADDRESS_AGENT2,
+	       DECODE(K.E_CONTRACT_FLAG,'Y',K.AGENT_CEO_NAME,NULL) CEO_NAME_AGENT3,
+	       DECODE(K.E_CONTRACT_FLAG,'Y',K.KEP_ADDRESS,NULL) ADDRESS_KEP2,
+	       DECODE(K.E_CONTRACT_FLAG,'Y',K.KEP_CEO_NAME,NULL) CEO_NAME_KEP2
+	  FROM (
+		SELECT 
+		       B.COM_NAME_LOC AS AGENT_NAME, 
+		       B.IRS_NO AS AGENT_IRS_NO,
+		       B.CEO_NAME_LOC AS AGENT_CEO_NAME,
+		       B.ADDRESS_LOC AS AGENT_ADDRESS,
+		       TO_CHAR(TO_DATE( A.EC_DATE , 'YYYYMMDD'), 'YYYY/MM/DD') AS FROM_DATE,
+		       TO_CHAR( ADD_MONTHS(TO_DATE(A.EC_DATE, 'YYYYMMDD'),12), 'YYYY/MM/DD') AS TO_DATE,
+		       A.E_CONTRACT_FLAG,
+		       C.ADDRESS_LOC AS KEP_ADDRESS,
+		       C.CEO_NAME_LOC AS KEP_CEO_NAME
+		  FROM SUPLINFO2 A, ICOMCMPY B, ICOMCMPY C
+		 WHERE A.SUPPLIER = #SUPPLIER#
+		   AND B.COM_CODE = A.SUPPLIER
+		   AND C.COM_CODE = 'KRKORE0001'
+	) K  
+    </select>
+    
+    <!-- 전자계약서 처리 결과 반영 / ICOMTRXL RESULT_FLAG[Y:성공, E:오류] -->
+    <update id="updateEcontSendResult" parameterClass="java.util.HashMap">
+    UPDATE ICOMTRXL
+       SET KEY_9 = #RESULT_FLAG#
+         , KEY_7 = NVL(SUBSTRB( #RESULT_MSG#, 1, 200 ), ' ')
+         , KEY_10 = TO_CHAR(SYSDATE, 'YYYY/MM/DD HH24:MI:SS')
+     WHERE DOC_NAME = 'ECONT'
+       AND TARGET = #SUPPLIER#
+       AND KEY_9 = ' '
+    </update>
+    
+    <!-- 전자계약서 문서ID 저장 / SUPLINFO2 -->
+    <update id="updateEcDocId" parameterClass="java.util.HashMap">
+    UPDATE SUPLINFO2
+       SET EC_DOC_ID = #EC_DOC_ID#
+     WHERE SUPPLIER = #SUPPLIER#
+    </update>
+    
+    <!--전자계약서 상태 확인 대상.  -->
+    <select id="selectEcontStatusList" resultClass="java.util.HashMap">
+    SELECT A.SUPPLIER, A.EC_DOC_ID
+      FROM SUPLINFO2 A
+     WHERE 1 = 1
+     AND E_CONTRACT_TYPE IN ('A','B')
+     AND EC_DOC_ID IS NOT NULL
+    </select>
+    
+    <!-- 전자계약서 상태값 반영 / SUPLINFO2 -->
+    <update id="updateEcontStatus" parameterClass="java.util.HashMap">
+    UPDATE SUPLINFO2
+       SET E_CONTRACT_TYPE = #E_CONTRACT_TYPE#
+     WHERE SUPPLIER = #SUPPLIER#
+    </update>
+    
+    <!-- 회원사 승인 처리 -->
+    <update id="updateEcontCmpy" parameterClass="java.util.HashMap">
+    UPDATE ICOMCMPY SET
+           STATUS = 'C'
+         , CONFIRM_DATE = TO_CHAR(SYSDATE,'YYYYMMDD')
+         , CONFIRM_TIME = TO_CHAR(SYSDATE,'HH24MISS')
+     WHERE COM_CODE = #SUPPLIER#
+    </update>
+    
+    <!-- 사용자 승인 처리 -->
+    <update id="updateEcontLusr" parameterClass="java.util.HashMap">
+    UPDATE ICOMLUSR A SET
+           STATUS = 'C'
+         , CONFIRM_DATE = TO_CHAR(SYSDATE,'YYYYMMDD')
+         , CONFIRM_USER_ID = (SELECT CONFIRM_USER_ID FROM ICOMCMPY WHERE COM_CODE = A.COM_CODE)
+     WHERE COM_CODE = #SUPPLIER#
+    </update>
+    
+    <!-- 협력사 정보 승인 처리 -->
+    <update id="updateEcontSuplinfo2" parameterClass="java.util.HashMap">
+    UPDATE SUPLINFO2 A SET
+           CONFIRM1_USER_ID = (SELECT CONFIRM_USER_ID FROM ICOMCMPY WHERE COM_CODE = A.SUPPLIER)
+         , CONFIRM1_DATE = TO_CHAR(SYSDATE,'YYYYMMDD')
+         , CONFIRM1_TIME = TO_CHAR(SYSDATE,'HH24MISS')
+     WHERE SUPPLIER = #SUPPLIER#
+    </update>
+    
+    <!-- 협력사 계좌정보 승인 처리 -->
+    <update id="updateEcontAcntsupl" parameterClass="java.util.HashMap">
+    UPDATE ACNTSUPL A SET
+           CONFIRM_USER_ID = (SELECT CONFIRM_USER_ID FROM ICOMCMPY WHERE COM_CODE = A.SUPPLIER)
+         , CONFIRM_ADD_DATE = TO_CHAR(SYSDATE,'YYYYMMDD')
+     WHERE SUPPLIER = #SUPPLIER#
+    </update>
+    
+</sqlMap>

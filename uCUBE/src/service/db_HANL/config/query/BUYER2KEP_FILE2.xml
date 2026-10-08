@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="EUC-KR"?>
+<SQL>
+  <!-- *********************************************************************** -->
+  <SQL_DOC INTERFACE_ID="BUYER2KEP_FILE">
+    <V_SQL NAME='$G_RS' ISLOOP="TRUE" COMMIT_BY_RESULT="FALSE">
+    <![CDATA[
+
+SELECT * FROM(
+        SELECT 'HANL' AS BUYER
+             , 'PO' AS DOC_TYPE
+                 , NVL(PO_REQ_NO,' ') AS KEY_NO
+                 , NVL(GD_CD_MRO,' ') AS KEY_SEQ
+                 , NVL(GD_CD,' ') AS DATA01
+                 , NVL(REQ_QTY, 0) AS DATA02
+                 , NVL(REQ_DATE,' ') AS DATA03
+                 , NVL(OK_QTY, 0) AS DATA04
+                 , NVL(APPSTATUS,' ') || '^' || NVL(SEPARATE_YN,' ') AS DATA05
+
+         FROM MRO_PO_REQ
+         WHERE MRO_SEND  = 'N'
+
+
+         UNION ALL
+
+         SELECT 'HANL' AS BUYER
+                 , 'INV' AS DOC_TYPE
+                 , NVL(PO_REQ_NO,' ') AS KEY_NO
+                 , NVL(GD_CD_MRO,' ') AS KEY_SEQ
+                 , NVL(GD_CD,' ') AS DATA01
+                 , NVL(TO_NUMBER(IP_DT), 0) AS DATA02
+                 , NVL(STATUS,' ') AS DATA03
+                 , NVL(TO_NUMBER(IP_CNFM_DT), 0) AS DATA04
+                 , NVL(APPSTATUS,' ') AS DATA05
+
+         FROM MRO_PO_IPGO
+         WHERE IF_FLAG = 'N'
+           AND GR_NO IS NULL
+        ) Z
+        ORDER BY Z.DOC_TYPE, Z.BUYER, Z.KEY_NO, Z.KEY_SEQ
+
+    ]]>
+    </V_SQL>
+    <P_SQL SEQ="1" TYPE="SELECT" POST_SQL="TRUE">
+    <![CDATA[
+        SELECT
+             '$G_RS.BUYER$' AS BUYER,
+             '$G_RS.DOC_TYPE$'    AS DOC_TYPE,
+             '$G_RS.KEY_NO$'   AS KEY_NO,
+             '$G_RS.KEY_SEQ$'  AS KEY_SEQ,
+             '$G_RS.DATA01$'   AS DATA01,
+             '$G_RS.DATA02$'   AS DATA02,
+             '$G_RS.DATA03$'   AS DATA03,
+             '$G_RS.DATA04$'   AS DATA04,
+             '$G_RS.DATA05$'   AS DATA05
+
+        FROM DUAL
+
+    ]]>
+      <C_SQL TYPE="UPDATE" P_SQL_RESULT="TRUE">
+      <![CDATA[
+      BEGIN
+       IF '$G_RS.DOC_TYPE$' = 'PO' THEN
+        UPDATE MRO_PO_REQ
+           SET
+
+                  MRO_SEND = 'Y'
+                 , MRO_SEND_DT = SYSDATE
+
+         WHERE PO_REQ_NO = '$G_RS.KEY_NO$'
+           AND GD_CD_MRO = '$G_RS.KEY_SEQ$';
+
+        ELSIF '$G_RS.DOC_TYPE$' = 'INV' THEN
+         UPDATE MRO_PO_IPGO
+            SET
+                  IF_FLAG = 'Y',
+                  IF_DATE = SYSDATE
+
+         WHERE PO_REQ_NO = '$G_RS.KEY_NO$'
+           AND GD_CD_MRO = '$G_RS.KEY_SEQ$'
+           AND IP_DT = '$G_RS.DATA02$'
+           AND STATUS = '$G_RS.DATA03$';
+         END IF;
+       END;
+      ]]>
+      </C_SQL>
+      <C_SQL TYPE="UPDATE" P_SQL_RESULT="FALSE">
+      <![CDATA[
+
+        BEGIN
+       IF '$G_RS.DOC_TYPE$' = 'PO' THEN
+        UPDATE MRO_PO_REQ
+           SET
+                  MRO_SEND = 'E'
+                 , MRO_SEND_DT = SYSDATE
+
+         WHERE PO_REQ_NO = '$G_RS.KEY_NO$'
+           AND GD_CD_MRO = '$G_RS.KEY_SEQ$';
+
+        ELSIF '$G_RS.DOC_TYPE$' = 'INV' THEN
+         UPDATE MRO_PO_IPGO
+            SET
+                  IF_FLAG = 'E',
+                  IF_DATE = SYSDATE
+
+         WHERE PO_REQ_NO = '$G_RS.KEY_NO$'
+           AND GD_CD_MRO = '$G_RS.KEY_SEQ$'
+           AND IP_DT = '$G_RS.DATA02$'
+           AND STATUS = '$G_RS.DATA03$';
+         END IF;
+       END;
+      ]]>
+      </C_SQL>
+    </P_SQL>
+  </SQL_DOC>
+  <RETRY_CODE>
+    <CODE>03113</CODE>
+    <CODE>03114</CODE>
+    <CODE>02154</CODE>
+    <CODE>02541</CODE>
+    <CODE>04068</CODE>
+ </RETRY_CODE>
+</SQL>

@@ -1,0 +1,211 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap      
+    PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN"
+    "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="HwinAppSend">
+
+	<select id="selectHwinIFTargetList" resultClass="java.util.HashMap">
+	SELECT TARGET AS BUYER,
+	       KEY_1  AS PR_NO
+	  FROM ICOMTRXL
+	 WHERE DOC_NAME = 'HWIN_APP'
+	   AND TARGET IN (SELECT BUYER FROM IF_ADMIN WHERE BUYER_ID = #BUYER_ID#)
+	   AND KEY_9    = ' '
+	 ORDER BY TARGET, KEY_1  
+	</select>
+
+	<select id="selectHwinIFAppPrList" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+	SELECT
+	       A.BUYER,
+	       A.PR_NO,
+	       A.PR_SEQ,
+	       A.BUYER_ITEM_NO,
+	       A.DESCRIPTION,
+	       A.SPECIFICATION,
+	       'KRW' AS CUR,
+	       A.UNIT_MEASURE,
+	       A.BUDGET_DEPT,
+	       A.ACCOUNT_TYPE,
+	       TO_CHAR(TO_DATE(A.ADD_DATE,'YYYYMMDD'),'YYYY-MM-DD') AS ADD_DATE,
+	       TO_CHAR(TO_DATE(A.RD_DATE,'YYYYMMDD'),'YYYY-MM-DD') AS RD_DATE,
+	       (SELECT COM_NAME_LOC FROM ICOMCMPY
+	         WHERE COM_CODE = 
+	               CASE
+	                 WHEN B.AGENT_OPEN_FLAG = 'Y' THEN A.AGENT
+	                 ELSE 'KRKORE0001'
+	               END ) AS AGENT_NAME,
+	       TRIM(TO_CHAR(A.TARGET_QTY,'999,999,999,999,999.99')) AS TARGET_QTY,
+	       TRIM(TO_CHAR(A.TARGET_PRICE,'999,999,999,999,999.99')) AS PRICE,
+	       TRIM(TO_CHAR((A.TARGET_QTY * A.TARGET_PRICE) ,'999,999,999,999,999.99')) AS AMT
+	  FROM ICOMPRDT A
+	     , ICOMCMPY B
+	 WHERE 1 = 1
+	   AND A.BUYER = #BUYER#
+	   AND A.PR_NO = #PR_NO#
+	   
+	   AND A.BUYER = B.COM_CODE	
+	</select>
+	
+	<select id="selectHwinIFAppInfo" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+	SELECT 
+	    COMPANY,
+	    DOCU_NO,
+	    DOCU_TITLE,
+	    DOCU_CONT,
+	    USER_ID,
+	    USER_NM,
+	    TO_CHAR(START_DATE,'YYYYMMDD') AS APP_DATE,
+	    GET_CSTMR_DEAL_STTMN_NO(COMPANY) AS APPR_ID
+	  FROM ICOGDOCU
+	 WHERE (COMPANY, DOCU_NO) IN (
+	    SELECT COM_CODE, TARGET
+	      FROM ICOMTRGW
+	     WHERE DOC_NAME = 'PX'
+	       AND (COM_CODE, KEY_1) IN (
+	        SELECT A.BUYER, A.REF_NO
+	          FROM ICOMPRDT A
+	         WHERE 1 = 1
+	           AND A.BUYER = #BUYER#
+	           AND A.PR_NO = #PR_NO# ) )	
+	</select>
+	
+	<insert id="insertIfAplSend" parameterClass="java.util.HashMap">
+	INSERT INTO EAI.IF_APL_SEND (
+	  BUYER,
+	  DOC_NO,
+	  APP_SEQ,
+	  USER_ID,
+	  USER_NAME,
+	  KEY_1,
+	  KEY_2,
+	  KEY_3,
+	  KEY_4,
+	  KEY_5,
+	  KEY_6,
+	  KEY_7,
+	  KEY_8,
+	  KEY_9,
+	  KEY_10
+	)
+	SELECT 
+	  A.COMPANY,
+	  A.DOCU_NO,
+	  A.ORDER_NO,
+	  A.USER_ID,
+	  B.USER_NAME_LOC,
+	  #APPR_ID# AS KEY_1,
+	  TO_CHAR(A.PASS_TP) AS KEY_2,
+	  '' AS KEY_3,
+	  '' AS KEY_4,
+	  '' AS KEY_5,
+	  '' AS KEY_6,
+	  '' AS KEY_7,
+	  '' AS KEY_8,
+	  '' AS KEY_9,
+	  '' AS KEY_10
+	  FROM ICOGPASSLN A
+	     , ICOMLUSR B
+	 WHERE 1 = 1
+	   AND A.COMPANY = #COMPANY#
+	   AND A.DOCU_NO = #DOCU_NO#
+	   
+	   AND A.USER_ID = B.USER_ID	
+	</insert>
+	
+	<insert id="insertIfApmSend" parameterClass="java.util.HashMap">
+	INSERT INTO EAI.IF_APM_SEND (
+	    BUYER,
+	    DOC_NO,
+	    SUBJECT,
+	    CONTENTS,
+	    APP_USER_ID,
+	    APP_USER_NAME,
+	    APP_DATE,
+	    KEY_1,
+	    KEP_2,
+	    KEP_3,
+	    KEP_4,
+	    KEY_5,
+	    KEY_6,
+	    KEY_7,
+	    KEY_8,
+	    KEY_9,
+	    KEY_10,
+	    CREATE_DATM,
+	    IF_FLAG
+	) VALUES (
+	    #COMPANY#,
+	    #DOCU_NO#,
+	    #DOCU_TITLE#,
+	    #CONTENTS:CLOB#,
+	    #USER_ID#,
+	    #USER_NM#,
+	    #APP_DATE#,
+	    #APPR_ID#,
+	    '',
+	    '',
+	    '',
+	    '',
+	    '',
+	    '',
+	    '',
+	    '',
+	    '',
+	    SYSDATE,
+	    'N'
+	)	
+	</insert>
+	
+	<select id="selectHanhwaDocu" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+	SELECT
+	       A.KEY_1 AS APPRID,
+	       A.SUBJECT,
+	       B.LEGACY_USER_ID,
+	       TO_CHAR(C.START_DATE, 'YYYYMMDDHH24MISS') AS ADD_DATE,
+	       NVL(D.CODE,'501') AS COMP_CD,
+	       NVL(D.TEXT2,'') AS SHIFT_DATA
+	  FROM EAI.IF_APM_SEND A
+	     , ICOMLUSR B
+	     , ICOGDOCU C
+	     , ICOMCOD2 D
+	 WHERE A.BUYER = #COMPANY# 
+	   AND A.DOC_NO = #DOCU_NO#
+	   
+	   AND A.APP_USER_ID = B.USER_ID
+	   
+	   AND A.BUYER = C.COMPANY
+	   AND A.DOC_NO = C.DOCU_NO
+	   
+	   AND 'CMPC'  = D.TYPE(+)
+	   AND A.BUYER = D.COMPANY_CODE(+)
+	</select>
+	
+	<select id="selectHanhwaPassln" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+	SELECT
+	       A.KEY_1 AS APPRID,
+	       TO_CHAR(A.APP_SEQ - 1) AS APPRSEQ,
+	       DECODE(A.KEY_2, '2', '9', A.KEY_2) AS APPRACTIONCD,
+	       B.LEGACY_USER_ID,
+	       B.USER_NAME_LOC,
+	       C.TEXT1 AS APPRDEPTNM,
+	       D.TEXT1 AS APPRGRDNM
+	  FROM EAI.IF_APL_SEND A
+	     , ICOMLUSR B
+	     , ICOMCOD2 C
+	     , ICOMCOD2 D
+	 WHERE A.BUYER = #COMPANY#
+	   AND A.DOC_NO = #DOCU_NO#
+	   
+	   AND A.USER_ID = B.USER_ID
+	   
+	   AND C.TYPE = 'C001'
+	   AND C.COMPANY_CODE = B.COM_CODE
+	   AND C.CODE = B.DEPARTMENT
+	   
+	   AND D.TYPE = 'C004'
+	   AND D.COMPANY_CODE = B.COM_CODE
+	   AND D.CODE = B.POSITION	
+	</select>
+
+</sqlMap>    

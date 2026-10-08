@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="EUC-KR"?>
+<SQL>
+  <!-- *********************************************************************** -->
+  <SQL_DOC INTERFACE_ID="KEP2KAI_RT">
+    <V_SQL NAME='$G_RS' ISLOOP="TRUE" COMMIT_BY_RESULT="FALSE">
+       SELECT BUYER
+            , QUOTATION_NO
+            , REVISION
+         FROM KEPRQDT
+        WHERE BUYER = 'KRKORE0212'
+          AND RECV_FLAG in ('GA','CM')
+          AND SND_CHK        = 'N'
+          AND ATOB_SEND_FLAG = 'Y'
+          AND SO_CA_FLAG     = 'SO'
+          AND ATOB_UNIT_PRICE != 0
+          AND trim(ATOB_DATE) is not null
+          AND STATUS IN ('C','R')
+          AND QUOTATION_NO NOT LIKE 'RE%'
+          AND BTOA_DATE >= '20180401'
+        GROUP BY BUYER
+               , QUOTATION_NO
+               , REVISION
+        ORDER BY BUYER
+               , QUOTATION_NO
+               , REVISION
+    </V_SQL>
+    <P_SQL SEQ="1" TYPE="SELECT" POST_SQL="TRUE">
+    <![CDATA[
+      SELECT RQDT.QUOTATION_NO
+           , RQDT.REVISION
+           , RQDT.QUOTATION_SEQ
+           , RQDT.BUYER_ITEM_NO
+           , RQDT.ATOB_UNIT_PRICE AS UNIT_PRICE
+           , RQDT.ATOB_REMARK
+           , RQDT.ATOB_DATE
+           , RQDT.ATOB_TIME
+           , to_char(sysdate+365,'YYYYMMDD') as TO_DATE
+           , QTDT.LEAD_TIME
+        FROM KEPRQDT RQDT,
+             KEPQTDT QTDT
+       WHERE RQDT.BUYER         = '$G_RS.BUYER$'
+         AND RQDT.QUOTATION_NO  = '$G_RS.QUOTATION_NO$'
+         AND RQDT.REVISION      = '$G_RS.REVISION$'
+         AND RQDT.ATOB_SEND_FLAG= 'Y'
+         AND RQDT.ATOB_UNIT_PRICE != 0
+         AND RQDT.BUYER         = QTDT.BUYER
+         AND RQDT.QUOTATION_NO  = QTDT.QUOTATION_NO
+         AND RQDT.QUOTATION_SEQ = QTDT.QUOTATION_SEQ
+         AND RQDT.REVISION      = QTDT.REVISION
+         AND QTDT.STATUS        = 'C'
+         AND QTDT.BID_SUCCESS_FLAG = 'Y'
+    ]]>
+      <C_SQL TYPE="UPDATE" P_SQL_RESULT="TRUE">
+      <![CDATA[
+        UPDATE KEPRQDT
+           SET SND_CHK  = 'Y'
+             , SND_DATM = sysdate
+         WHERE BUYER = '$G_RS.BUYER$'
+           AND QUOTATION_NO  = '$G_RS.QUOTATION_NO$'
+           AND REVISION      = '$G_RS.REVISION$'
+           AND ATOB_SEND_FLAG= 'Y'
+           AND nvl(ATOB_UNIT_PRICE,0) != 0
+      ]]>
+      </C_SQL>
+      <C_SQL TYPE="UPDATE" P_SQL_RESULT="FALSE">
+      <![CDATA[
+        UPDATE KEPRQDT
+           SET SND_CHK  = 'E'
+             , SND_DATM = sysdate
+         WHERE BUYER = '$G_RS.BUYER$'
+           AND QUOTATION_NO  = '$G_RS.QUOTATION_NO$'
+           AND QUOTATION_SEQ = '$G_RS.QUOTATION_SEQ$'
+           AND REVISION      = '$G_RS.REVISION$'
+           AND ATOB_SEND_FLAG= 'Y'
+           AND nvl(ATOB_UNIT_PRICE,0) != 0
+      ]]>
+      </C_SQL>
+    </P_SQL>
+  </SQL_DOC>
+  <RETRY_CODE>
+    <CODE>03113</CODE>
+    <CODE>03114</CODE>
+    <CODE>02154</CODE>
+    <CODE>02541</CODE>
+    <CODE>04068</CODE>
+  </RETRY_CODE>
+</SQL>

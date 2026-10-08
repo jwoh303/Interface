@@ -1,0 +1,68 @@
+<?xml version='1.0' encoding='EUC-KR'?>
+<queryMap desc="uComposer Project Query File">
+
+	<query id="interfaceService.insert" desc="InerfaceService Insert" fetchSize="10">
+		<![CDATA[
+	    	INSERT INTO ucube_interface_service(
+            	interface_seq, version, service_seq, sender_service_seq, 
+            	service_pos_x, service_pos_y, ucube_user_seq, last_updated_timestamp)
+    		VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
+		]]>
+	</query>
+
+	<query id="interfaceServiceVersion.select" desc="InterfaceServiceVersion Select" fetchSize="10">
+		<![CDATA[
+			SELECT coalesce(max(version), 0) as version
+			FROM ucube_interface_service
+			WHERE interface_seq = ?
+		]]>
+	</query>
+
+	<query id="interfaceService.select" desc="InterfaceService Select" fetchSize="10">
+		<![CDATA[
+			SELECT 
+				(SELECT sma.system_seq||'_'||sgm.service_group_seq||'_'||service_seq||'|'||sgt.service_group_type_category||'|'||sgt.service_group_type_seq||'|'||system_id||'<p>'||service_group_id||'<p>'||service_id as title
+				FROM 
+					ucube_service_master sm, 
+					ucube_service_group_master sgm, 
+					ucube_service_group_type sgt, 
+					ucube_system_master sma
+				WHERE
+					sm.service_seq=ise.service_seq
+					and sm.service_group_seq=sgm.service_group_seq
+					and sgm.service_group_type_seq=sgt.service_group_type_seq
+					and sgm.system_seq=sma.system_seq ) AS service_info,
+				ise.service_pos_x, ise.service_pos_y, ise.service_seq, ise.sender_service_seq,
+				(SELECT que.queue_seq||'_'||eng.engine_id||'_'||que.queue_id
+					FROM ucube_connection con, ucube_queue que, ucube_engine eng
+					WHERE con.queue_seq = que.queue_seq 
+						AND que.engine_seq = eng.engine_seq
+						AND con.interface_seq = ise.interface_seq 
+						AND function_unit_seq = (SELECT function_unit_seq
+													FROM ucube_function_unit_master fum, ucube_function_unit_type fut
+													WHERE fum.service_seq = ise.service_seq
+														AND fum.function_unit_type_seq = fut.function_unit_type_seq 
+														AND port_type = 'R')) AS engine_queue_info,
+				(SELECT COUNT(*)
+					FROM ucube_dbadapter_sql_parent
+					WHERE interface_seq = ise.interface_seq
+					AND function_unit_seq =(SELECT function_unit_seq 
+								FROM ucube_function_unit_master 
+								WHERE service_seq = ise.service_seq
+									AND (function_unit_type_seq=9 OR function_unit_type_seq=17))) AS sql_conf_cnt,
+				(SELECT COUNT(*)
+					FROM ucube_dbadapter_layout_parent
+					WHERE interface_seq = ise.interface_seq
+					AND function_unit_seq =(SELECT function_unit_seq 
+								FROM ucube_function_unit_master 
+								WHERE service_seq = ise.service_seq
+									AND function_unit_type_seq=9)) AS layout_conf_cnt															
+			FROM 
+				ucube_interface_service ise
+			WHERE 
+				interface_seq = ? 
+				and ise.version = ?
+		]]>
+	</query>
+
+</queryMap>

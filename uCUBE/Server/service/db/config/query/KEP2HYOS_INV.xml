@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="EUC-KR"?>
+<SQL>
+        <!-- *********************************************************************** -->
+        <SQL_DOC INTERFACE_ID="KEP2HYOS_INV">
+                <V_SQL NAME='$G_RS' ISLOOP="TRUE" COMMIT_BY_RESULT="FALSE">
+                        SELECT 
+                               A.BUYER, A.LEGACY_IV_SERIAL, A.INV_NO, '0' AS PROCESS_TYPE
+                          FROM ICOMIVHD A
+                         WHERE A.BUYER IN ('KRHYOS0033','KRHYOS0034','KRHYOS0036','KRHYOS0037','KRHYOS0043')
+                           AND trim(A.LEGACY_IV_SERIAL) IS NOT NULL
+                           AND A.INV_TYPE = '0' 
+                           AND A.SND_CHK = 'N'
+                        UNION 
+                        SELECT
+                               B.BUYER, B.LEGACY_IV_SERIAL, B.INV_NO, '2' AS PROCESS_TYPE
+                          FROM WMSIVDT B
+                         WHERE B.BUYER IN ('KRHYOS0033','KRHYOS0034','KRHYOS0036','KRHYOS0037','KRHYOS0043')
+                           AND B.LEGACY_IV_SERIAL IS NOT NULL
+                           AND B.SND_CHK = 'N'
+                         GROUP BY B.BUYER, B.LEGACY_IV_SERIAL, B.INV_NO
+                        ORDER BY BUYER, LEGACY_IV_SERIAL, INV_NO
+                </V_SQL>
+                <P_SQL SEQ="1" TYPE="SELECT" POST_SQL="TRUE">
+                <![CDATA[
+                        SELECT 
+                               PODT.PLANT AS PLANT,
+                               IVHD.LEGACY_IV_SERIAL AS LEGACY_IV_NO,
+                               TO_CHAR(IVDT.INV_SEQ,'FM0000') AS LEGACY_IV_SEQ,
+                               CASE
+                                 WHEN IVDT.STATUS = 'D' THEN 'D'
+                                 ELSE 'C'
+                               END AS STATUS,
+                               PODT.LEGACY_PO_NO AS LEGACY_PO_NO,
+                               PODT.LEGACY_PO_SEQ AS LEGACY_PO_SEQ,
+                               IVDT.BUYER_ITEM_NO AS BUYER_ITEM_NO,
+                               IVDT.INV_QTY AS INV_QTY,
+                               IVHD.INV_DATE AS INV_DATE,
+                               '경기94사3404' AS CAR_NO,
+                               '정연웅' AS CAR_PERSON_NAME
+                          FROM ICOMIVHD IVHD
+                             , ICOMIVDT IVDT
+                             , ICOMPODT PODT
+                         WHERE IVHD.BUYER            = '$G_RS.BUYER$'
+                           AND IVHD.INV_NO           = '$G_RS.INV_NO$'
+                           AND IVHD.LEGACY_IV_SERIAL = '$G_RS.LEGACY_IV_SERIAL$'
+                           AND IVDT.BUYER            = IVHD.BUYER
+                           AND IVDT.INV_NO           = IVHD.INV_NO
+                           AND PODT.BUYER            = IVDT.BUYER
+                           AND PODT.PO_NO            = IVDT.PO_NO
+                           AND PODT.PO_SEQ           = IVDT.PO_SEQ
+                        UNION
+                        SELECT 
+                               PODT.PLANT AS PLANT,
+                               IVDT.LEGACY_IV_SERIAL AS LEGACY_IV_NO,
+                               TO_CHAR(IVDT.INV_SEQ,'FM0000') AS LEGACY_IV_SEQ,
+                               CASE
+                                 WHEN IVDT.STATUS = 'D' THEN 'D'
+                                 ELSE 'C'
+                               END AS STATUS,
+                               PODT.LEGACY_PO_NO AS LEGACY_PO_NO,
+                               PODT.LEGACY_PO_SEQ AS LEGACY_PO_SEQ,
+                               IVDT.BUYER_ITEM_NO AS BUYER_ITEM_NO,
+                               IVDT.INV_QTY AS INV_QTY,
+                               IVDT.INV_DATE AS INV_DATE,
+                               '경기94사3404' AS CAR_NO,
+                               '정연웅' AS CAR_PERSON_NAME
+                          FROM WMSIVDT  IVDT
+                             , ICOMPODT PODT
+                         WHERE IVDT.BUYER            = '$G_RS.BUYER$'
+                           AND IVDT.INV_NO           = '$G_RS.INV_NO$'
+                           AND IVDT.LEGACY_IV_SERIAL = '$G_RS.LEGACY_IV_SERIAL$'
+                           AND PODT.BUYER            = IVDT.BUYER
+                           AND PODT.PO_NO            = IVDT.PO_NO
+                           AND PODT.PO_SEQ           = IVDT.PO_SEQ
+                     ORDER BY PLANT, LEGACY_IV_NO, LEGACY_IV_SEQ
+                ]]>
+                        <C_SQL TYPE="UPDATE" P_SQL_RESULT="TRUE">
+                        <![CDATA[
+                            BEGIN
+
+                              IF '$G_RS.PROCESS_TYPE$' = '0' THEN
+                                UPDATE ICOMIVHD SET
+                                       SND_CHK = 'Y',
+                                       SND_DATM = SYSDATE
+                                 WHERE BUYER            = '$G_RS.BUYER$'
+                                   AND INV_NO           = '$G_RS.INV_NO$'
+                                   AND LEGACY_IV_SERIAL = '$G_RS.LEGACY_IV_SERIAL$';
+                              ELSE 
+                                UPDATE WMSIVDT SET
+                                       SND_CHK = 'Y',
+                                       SND_DATM = SYSDATE
+                                 WHERE BUYER            = '$G_RS.BUYER$'
+                                   AND INV_NO           = '$G_RS.INV_NO$'
+                                   AND LEGACY_IV_SERIAL = '$G_RS.LEGACY_IV_SERIAL$';
+                              END IF;
+
+                            END;
+                        ]]>
+                        </C_SQL>
+                        <C_SQL TYPE="UPDATE" P_SQL_RESULT="FALSE">
+                        <![CDATA[
+                            BEGIN
+
+                              IF '$G_RS.PROCESS_TYPE$' = '0' THEN
+                                UPDATE ICOMIVHD SET
+                                       SND_CHK = 'E',
+                                       SND_DATM = SYSDATE
+                                 WHERE BUYER            = '$G_RS.BUYER$'
+                                   AND INV_NO           = '$G_RS.INV_NO$'
+                                   AND LEGACY_IV_SERIAL = '$G_RS.LEGACY_IV_SERIAL$';
+                              ELSE 
+                                UPDATE WMSIVDT SET
+                                       SND_CHK = 'E',
+                                       SND_DATM = SYSDATE
+                                 WHERE BUYER            = '$G_RS.BUYER$'
+                                   AND INV_NO           = '$G_RS.INV_NO$'
+                                   AND LEGACY_IV_SERIAL = '$G_RS.LEGACY_IV_SERIAL$';
+                              END IF;
+
+                            END;
+                        ]]>
+                        </C_SQL>
+                </P_SQL>
+        </SQL_DOC>
+        <RETRY_CODE>
+                <CODE>03113</CODE>
+                <CODE>03114</CODE>
+                <CODE>02154</CODE>
+                <CODE>02541</CODE>
+                <CODE>04068</CODE>
+        </RETRY_CODE>
+</SQL>

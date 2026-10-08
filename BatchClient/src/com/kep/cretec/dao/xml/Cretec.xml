@@ -1,0 +1,309 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap      
+    PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN"
+    "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+<sqlMap namespace="Cretec">
+	<select id="selectCretecProperty" resultClass="java.util.HashMap">
+		/*selectCretecProperty*/
+		SELECT 
+		       TEXT1 AS DOMAIN,
+		       TEXT2 AS PATH,
+		       TEXT3 AS ID,
+		       TEXT4 AS PW
+		  FROM KEP.ICOMCOD2
+		 WHERE TYPE = 'IFST'
+		   AND COMPANY_CODE = 'KRCRET0001'
+		   AND VALUE1 = #server_mode#
+     	   AND FLAG = 'Y'	
+	</select>
+	
+	<select id="selectCretecPoList" resultClass="java.util.HashMap">
+		/*selectCretecPoList*/
+		SELECT DISTINCT AGENT, BUYER, PO_NO, 
+		       B.TEXT3 AS CARGO, B.TEXT4 AS CARGOBIZ, REPLACE(A.ZIP_CODE,'-','') AS POSTCD, A.ADDR1 AS ADDR1, A.ADDR2 AS ADDR2,
+		       B.TEXT1 AS DELIVERYAREA, B.TEXT2 AS DELIVERYGB, TO_CHAR(SYSDATE + 1, 'YYYYMMDD')||'0700' AS DELIVERYLIST, D.COM_NAME_LOC AS DELIVERYDIRECTNM, '' AS DELIVERYDIRECTTEL,
+		       A.BUYER ||'^'|| A.PO_NO ||'^'|| A.PO_SEQ AS REMARK, A.PO_NO ||', '|| C.COM_NAME_LOC  AS PO_REMARK,
+		       A.AGENT, A.BUYER, A.PO_NO, A.PO_SEQ, A.STATUS, A.REMARK AS POHD_REMARK, 
+		       A.SELLER_ITEM_NO, A.ITEM_QTY, 'C' AS COMP_CD, A.DATA01 AS COM_NAME_LOC,
+		       A.DESCRIPTION, A.SPECIFICATION, A.UNIT_MEASURE, A.MAKER_NAME,
+		       B.TEXT5, B.TEXT6, A.DELY_TO_ADDRESS, A.REQ_USER_NAME, A.REQ_USER_TEL, A.AGENT_PRICE, A.AGENT_ITEM_AMT
+		  FROM EAI.IF_SUPPLY_PO_SEND A
+		     , KEP.ICOMCOD2 B
+		     , KEP.ICOMCMPY C
+		     , KEP.ICOMCMPY D
+		 WHERE A.AGENT IN ('KRCRET0001', 'KRCRET0002')
+		   AND A.IF_FLAG = 'N'
+		   
+		   AND B.TYPE = 'C020'
+		   AND B.COMPANY_CODE = A.AGENT
+		   AND B.CODE = A.WAREHOUSE_CODE
+		   
+		   AND C.COM_CODE = A.BUYER
+		   
+		   AND D.COM_CODE = A.WAREHOUSE_CODE
+	</select>
+	
+	<select id="selectCretecPodtList" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+		/*selectCretecPodtList*/
+		SELECT A.AGENT, A.BUYER, A.PO_NO, A.PO_SEQ, A.STATUS, 
+		       A.SELLER_ITEM_NO, A.ITEM_QTY, 'C' AS COMP_CD
+		  FROM EAI.IF_SUPPLY_PO_SEND A
+		 WHERE A.AGENT = #AGENT#
+		   AND A.BUYER = #BUYER#
+		   AND A.PO_NO = #PO_NO#
+		   AND A.IF_FLAG = 'N'
+		 ORDER BY A.BUYER, A.PO_NO, A.PO_SEQ
+	</select>
+	
+	<update id="updateCretecIfResult" parameterClass="java.util.HashMap">
+		UPDATE EAI.IF_SUPPLY_PO_SEND
+		   SET IF_FLAG = #RTN_FLAG#
+		     , IF_DATE = SYSDATE
+		     , IF_MSG = #RTN_MSG#
+		     , AGENT_PO_NO = #AGENT_PO_NO#
+		     , AGENT_PO_SEQ = #AGENT_PO_SEQ#
+		     <isEqual property="RTN_FLAG" compareValue="F">
+				, DATA02 = TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS')
+			 </isEqual>
+		 WHERE AGENT = #AGENT#
+		   AND BUYER = #BUYER#
+		   AND PO_NO = #PO_NO#
+		   AND PO_SEQ = #PO_SEQ#
+		   AND STATUS = 'C'
+	</update>
+	
+	<select id="selectCretecDlvList" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+		SELECT AGENT, BUYER, PO_NO, PO_SEQ, AGENT_PO_NO, SELLER_ITEM_NO
+		  FROM EAI.IF_SUPPLY_PO_SEND A
+		 WHERE A.AGENT = #AGENT#
+		   AND A.AGENT_PO_NO IS NOT NULL
+		   AND A.STATUS != 'D'
+		   AND A.IF_FLAG = 'S'
+		   AND NVL(A.DATA10,'PO') IN ('PO','DS')
+		ORDER BY AGENT_PO_NO
+	</select>
+	
+	<select id="checkPORS_ADDEvent" parameterClass="java.util.HashMap" resultClass="java.lang.Integer">
+		SELECT COUNT(*) AS CNT
+		  FROM KEP.ICOMTRXL
+		 WHERE DOC_NAME = 'PORS_ADD'
+		   AND TARGET = #BUYER#
+		   AND KEY_1  = #PO_NO#
+		   AND KEY_2  = ' '
+		   AND KEY_3  = ' '
+		   AND KEY_4  = ' '
+		   AND KEY_5  = ' '
+		   AND KEY_6  = ' '
+		   AND KEY_7  = ' '
+		   AND KEY_8  = ' '
+		   AND KEY_9  = ' '
+		   AND KEY_10 = ' ' 
+	</select>
+	
+	<insert id="insertPORS_ADDEvent" parameterClass="java.util.HashMap">
+		INSERT INTO KEP.ICOMTRXL (
+			DOC_NAME, TARGET, KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6, KEY_7, KEY_8, KEY_9, KEY_10
+		) VALUES (
+			'PORS_ADD', #BUYER#, #PO_NO#, ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '
+		)
+	</insert>
+	
+	<select id="selectCretecItemCheckList" resultClass="java.util.HashMap">
+	<![CDATA[
+		SELECT CODE AS SELLER_ITEM_NO
+		  FROM ICOMCOD1
+		 WHERE TYPE = 'MP-C'
+		   AND FLAG != 'N'
+		 ORDER BY CODE
+	]]>
+	</select>
+	
+	<delete id="deleteCretecItems">
+		DELETE EAI.AGENT_ITEM_INFO
+		 WHERE AGENT = 'KRCRET0001'
+	</delete>
+	
+	<insert id="insertCretecItem">
+		INSERT INTO EAI.AGENT_ITEM_INFO (
+			AGENT, SELLER_ITEM_NO, DESCRIPTION, SPECIFICATION, UNIT_MEASURE, MOQ_QTY, PUR_UNIT_QTY, PRODUCT_CLOSE_FLAG, 
+			STOCK_YN, MAKER_NAME, MODEL_NO, STATUS, AGENT_PRICE, SALES_PRICE
+		) VALUES (
+			'KRCRET0001', #SELLER_ITEM_NO#, #DESCRIPTION#, #SPECIFICATION#, #UNIT_MEASURE#, #MOQ_QTY#, #PUR_UNIT_QTY#, #PRODUCT_CLOSE_FLAG#, 
+			#STOCK_YN#, #MAKER_NAME#, #MODEL_NO#, #STATUS#, #AGENT_PRICE#, #SALES_PRICE#
+		)
+	</insert>
+	
+	<select id="selectCretecItemDetailInfo" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+		SELECT MOQ_QTY, PUR_UNIT_QTY, PRODUCT_CLOSE_FLAG, STOCK_YN
+		  FROM EAI.AGENT_ITEM_INFO
+		 WHERE SELLER_ITEM_NO = #SELLER_ITEM_NO#
+		   AND AGENT = 'KRCRET0001'
+	</select>
+	
+	<select id="selectTargetCatalogList" resultClass="java.util.HashMap">
+    <![CDATA[
+      SELECT A.*
+        FROM (
+      SELECT COM_CODE AS BUYER, COL01_DATA AS TYPE,
+             CASE
+               WHEN COM_CODE = 'KRGPLK0001' THEN 0
+               ELSE 1
+             END AS ORD
+        FROM KEP.BNTSLGIMP
+       WHERE SLG_ID = 'P16-0000001'
+         AND OPEN_DATE <= TO_CHAR(SYSDATE, 'YYYYMMDD')
+         AND CLOSE_DATE > TO_CHAR(SYSDATE, 'YYYYMMDD')
+        ) A
+       ORDER BY ORD, TYPE, BUYER
+    ]]>
+	</select>
+	
+	<update id="insertCretecItemCloseAlertList" parameterClass="java.util.HashMap">
+	    INSERT INTO EAI.AGENT_ITEM_ALERT_LIST 
+	    SELECT BUYER, BUYER_ITEM_NO FROM KEP.ICOMBYIT A
+		 WHERE A.BUYER = #BUYER#
+		   AND A.STATUS IN ('C','R')
+		   AND A.PRODUCT_CLOSE_FLAG = 'N'
+		   AND A.BUYER_ITEM_NO IN (
+		     SELECT BUYER_ITEM_NO FROM KEP.ICOMCQDT B, EAI.AGENT_ITEM_INFO C
+		      WHERE B.BUYER = A.BUYER
+		        AND B.AGENT = 'KRCRET0001'
+		        AND B.BUYER_ITEM_NO = A.BUYER_ITEM_NO
+		        AND B.STATUS IN ('C','R')
+		        AND B.AGENT = C.AGENT
+		        AND B.SELLER_ITEM_NO = C.SELLER_ITEM_NO
+		        AND CASE
+                  WHEN #TYPE# = 'TYPE01' AND NVL(C.STATUS,'D') IN ('E','D') AND NVL(C.STOCK_YN,'N') = 'N' THEN 1
+                  WHEN #TYPE# = 'TYPE02' AND (NVL(C.STATUS,'D') = 'D' OR NVL(C.STOCK_YN,'N') = 'N') THEN 1
+		              ELSE 0 
+		            END = 1
+		   )
+	</update>
+	
+	<update id="updateCretecItemClose" parameterClass="java.util.HashMap">
+		UPDATE KEP.ICOMBYIT A
+		   SET PRODUCT_CLOSE_FLAG = 'Y'
+		     , STATUS = 'R'
+		     , CHANGE_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD')
+		 WHERE A.BUYER = #BUYER#
+		   AND A.STATUS IN ('C','R')
+		   AND A.PRODUCT_CLOSE_FLAG = 'N'
+		   AND A.BUYER_ITEM_NO IN (
+		     SELECT BUYER_ITEM_NO FROM KEP.ICOMCQDT B, EAI.AGENT_ITEM_INFO C
+		      WHERE B.BUYER = A.BUYER
+		        AND B.AGENT = 'KRCRET0001'
+		        AND B.BUYER_ITEM_NO = A.BUYER_ITEM_NO
+		        AND B.STATUS IN ('C','R')
+            AND B.AGENT = C.AGENT
+            AND B.SELLER_ITEM_NO = C.SELLER_ITEM_NO
+		        AND CASE
+                  WHEN #TYPE# = 'TYPE01' AND NVL(C.STATUS,'D') IN ('E','D') AND NVL(C.STOCK_YN,'N') = 'N' THEN 1
+		              WHEN #TYPE# = 'TYPE02' AND (NVL(C.STATUS,'D') = 'D' OR NVL(C.STOCK_YN,'N') = 'N') THEN 1
+		              ELSE 0 
+		            END = 1 
+		   )
+	</update>
+	
+	<update id="insertCretecItemRecoverAlertList" parameterClass="java.util.HashMap">
+	    INSERT INTO EAI.AGENT_ITEM_ALERT_LIST 
+	    SELECT BUYER, BUYER_ITEM_NO FROM KEP.ICOMBYIT A
+		 WHERE A.BUYER = #BUYER#
+		   AND A.STATUS IN ('C','R')
+		   AND A.PRODUCT_CLOSE_FLAG = 'Y'
+		   AND A.BUYER_ITEM_NO IN (
+		     SELECT BUYER_ITEM_NO FROM KEP.ICOMCQDT B, EAI.AGENT_ITEM_INFO C
+		      WHERE B.BUYER = A.BUYER
+		        AND B.AGENT = 'KRCRET0001'
+		        AND B.BUYER_ITEM_NO = A.BUYER_ITEM_NO
+		        AND B.STATUS IN ('C','R')
+            AND B.AGENT = C.AGENT
+            AND B.SELLER_ITEM_NO = C.SELLER_ITEM_NO
+		        AND CASE
+                  WHEN #TYPE# = 'TYPE01' AND C.STATUS = 'Y' OR (C.STATUS = 'E' AND C.STOCK_YN = 'Y') THEN 1
+                  WHEN #TYPE# = 'TYPE02' AND (C.STATUS != 'D' AND C.STOCK_YN = 'Y') THEN 1
+		              ELSE 0 
+		            END = 1
+		   )
+	</update>
+	
+	<update id="updateCretecItemRecover" parameterClass="java.util.HashMap">
+		UPDATE KEP.ICOMBYIT A
+		   SET PRODUCT_CLOSE_FLAG = 'N'
+		     , STATUS = 'R'
+		     , CHANGE_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD')
+		 WHERE A.BUYER = #BUYER#
+		   AND A.STATUS IN ('C','R')
+		   AND A.PRODUCT_CLOSE_FLAG = 'Y'
+		   AND A.BUYER_ITEM_NO IN (
+		     SELECT BUYER_ITEM_NO FROM KEP.ICOMCQDT B, EAI.AGENT_ITEM_INFO C
+		      WHERE B.BUYER = A.BUYER
+		        AND B.AGENT = 'KRCRET0001'
+		        AND B.BUYER_ITEM_NO = A.BUYER_ITEM_NO
+		        AND B.STATUS IN ('C','R')
+		        AND B.AGENT = C.AGENT
+		        AND B.SELLER_ITEM_NO = C.SELLER_ITEM_NO
+		        AND CASE
+		              WHEN #TYPE# = 'TYPE01' AND C.STATUS = 'Y' OR (C.STATUS = 'E' AND C.STOCK_YN = 'Y') THEN 1
+		              WHEN #TYPE# = 'TYPE02' AND (C.STATUS != 'D' AND C.STOCK_YN = 'Y') THEN 1
+		              ELSE 0 
+		            END = 1
+		   )
+	</update>
+	
+	<delete id="deleteAlertList">
+		DELETE EAI.AGENT_ITEM_ALERT_LIST
+	</delete>
+	
+	<update id="updateCretecItemStatus">
+		UPDATE ICOMCOD1 A
+		   SET (TEXT1, TEXT2, FLAG, ADD_DATE) = (SELECT PRODUCT_CLOSE_FLAG, STOCK_YN, 'T', TO_CHAR(SYSDATE,'YYYYMMDD') FROM EAI.AGENT_ITEM_INFO WHERE AGENT = 'KRCRET0001' AND SELLER_ITEM_NO = A.CODE ) 
+		 WHERE TYPE = 'MP-C'
+		   AND FLAG != 'N'
+		   AND NOT EXISTS (
+		     SELECT 'X' FROM EAI.AGENT_ITEM_INFO 
+		      WHERE AGENT = 'KRCRET0001' 
+		        AND SELLER_ITEM_NO = A.CODE
+		        AND PRODUCT_CLOSE_FLAG = A.TEXT1
+		        AND STOCK_YN = A.TEXT2 )
+	</update>
+	
+	<insert id="insertCretecIvdtUc" parameterClass="java.util.HashMap">
+		INSERT INTO IF_IVDT_UC (
+		  KEP_SEQ, 
+		  SITE, BUYER, STATUS, 
+		  LEGACY_IV_NO, LEGACY_IV_SEQ, PO_NO
+		  ,PO_SEQ, BUYER_ITEM_NO, INVOICE_DATE, INV_QTY, LOAD_DATE, LOAD_TIME, IF_FLAG,
+          DELIVERY_QTY, AGENT, PARCEL_COM_CODE, PARCEL_INV_NO
+		) VALUES (
+		  SEQ_IF_IVDT_UC.NEXTVAL,
+		  NVL(#SITE#,'KA'),  #BUYER#,  #STATUS#,
+		  #LEGACY_IV_NO#,  #LEGACY_IV_SEQ#, #PO_NO#,
+		  #PO_SEQ#,   #BUYER_ITEM_NO#,  #INVOICE_DATE#,  #INV_QTY#, TO_CHAR(SYSDATE,'YYYYMMDD'),  TO_CHAR(SYSDATE,'HH24MISS'),  'N', 
+		  #INV_QTY#, 'CRET', #PARCEL_COM_CODE#, #PARCEL_INV_NO#
+		)
+  </insert>  
+  
+  <insert id="insertCretecIvMail" parameterClass="java.util.HashMap">
+		INSERT INTO KEP_MAIL
+                       ( SEQ,
+                         SEND_EMAIL,
+                         SEND_NAME,
+                         RECEIVE_EMAIL,
+                         RECEIVE_NAME,
+                         SUBJECT,
+                         CONTENTS,
+                         CREATE_DATE,
+                         JOB_FLAG)
+                 VALUES( SEQ_KEP_MAIL.NEXTVAL,
+                         'koreab2b@koreab2b.com',
+                         '운영자',
+                         'comanche@koreab2b.com;coolkim@koreab2b.com;',
+                         '김승우;김시원;',
+                         '[코리아이플랫폼]크레텍 출고 정보 호출 오류',
+                         '오류생성 일시 : '||TO_CHAR(SYSDATE,'YYYYMMDD HH24:MI:SS')||')',
+                         SYSDATE,
+                         'N')
+  </insert>
+
+	
+</sqlMap>

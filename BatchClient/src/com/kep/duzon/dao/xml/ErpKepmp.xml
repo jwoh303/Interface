@@ -1,0 +1,774 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap      
+    PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN"
+    "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+<sqlMap namespace="ErpKepmp">
+	
+	<select id="selectArKepmpList" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+	SELECT
+			'KA' IF_SYSTEM, #CD_COMPANY# CD_COMPANY,	A.TAX_BILL_NO ROW_ID,	ROW_NUMBER() OVER(PARTITION BY A.TAX_BILL_NO ORDER BY A.ADD_DATE, A.ADD_TIME) SEQ,	
+			CASE
+			  WHEN A.AR_TYPE = '01' AND TX02.TEXT8 = '99'  THEN '2080'       <![CDATA[ /*상품권매출*/ ]]>
+		    WHEN A.AR_TYPE = '01' AND A.EXP_CUR != 'KRW' THEN '2030'       <![CDATA[ /*상품매출채권(해외)*/ ]]>
+		    WHEN A.AR_TYPE = '01' THEN '2010'                              <![CDATA[ /*상품매출채권(국내)*/ ]]>
+		    WHEN A.AR_TYPE = '02' THEN '2020'                              <![CDATA[ /*물류비매출채권*/ ]]>
+		    ELSE '2010'
+		  END CD_EPCODE,	'1000' CD_PC,	'110020' CD_WDEPT,	A.ISSUE_DATE DT_ACCT,	TX02.TEXT8 CD_EVID,
+			A.ISSUE_DATE DT_START,	'' DT_END,	SUBSTRB(A.REMARK_DESCRIPTION || A.REMARK_SPECIFICATION,1,100) NM_NOTE, A.SUPP_PRICE AM_TAXSTD,	NVL(A.TAX_PRICE,0) AM_ADDTAX,
+			TX01.TEXT1 CD_BIZAREA,	TX06.TEXT1 CD_CC,	TX06.TEXT1 CD_DEPT,	REPLACE(A.SEND_USER_ID, 'KEP', '') CD_EMPLOY,	TRIM(REPLACE(A.IRS_NO,'-','')) CD_PARTNER,
+			TRIM(REPLACE(A.IRS_NO,'-','')) NO_COMPANY,	A.BUYER_CODE CD_UMNG1,	
+			'A02' CD_MNG1,	TX06.TEXT1 CD_MNGD1,	TX06.TEXT2 NM_MNGD1,	
+			'A06' CD_MNG2,	TRIM(REPLACE(A.IRS_NO,'-','')) CD_MNGD2,	A.IRS_NAME NM_MNGD2,	
+			'B22' CD_MNG3,	'' CD_MNGD3,	'' NM_MNGD3,	
+			'C44' CD_MNG4,	'' CD_MNGD4,	A.EXP_GR_NO NM_MNGD4,
+			'C16' CD_MNG5,	'' CD_MNGD5,	A.TAX_PRICE NM_MNGD5,	
+			'B24' CD_MNG6,	CASE WHEN A.EXP_CUR = 'USD' THEN '001' ELSE '000' END CD_MNGD6,	A.EXP_CUR NM_MNGD6,	
+			'B25' CD_MNG7,	'' CD_MNGD7,	A.EXP_CUR_PRICE AS NM_MNGD7,	
+			'B26' CD_MNG8,	'' CD_MNGD8,	A.EXP_FOR_ITEM_AMT AS NM_MNGD8,	
+			'K02' CD_MNG9,	'' CD_MNGD9,	A.TAX_BILL_NO NM_MNGD9,
+			'K01' CD_MNG10,	'KA' CD_MNGD10,	'구매대행' NM_MNGD10,
+			CASE WHEN A.EXP_CUR = 'USD' THEN '001' ELSE '000' END CD_EXCH,	A.EXP_CUR_PRICE RT_EXCH,	A.EXP_FOR_ITEM_AMT AM_EX,
+			'' ST_MUTUAL,	A.EXP_GR_NO NO_TO,	A.EXP_DATE_OF_SHIPMENT DT_SHIPPING,	
+			CASE
+			  WHEN A.TAX_TYPE IN ('11','12') THEN '3'
+			  WHEN A.TAX_TYPE IN ('13') THEN '4'
+			  WHEN A.TAX_TYPE IN ('16', '17', '18') THEN '0'
+			  ELSE '0'
+			END TP_EVIDENCE,
+			DECODE(A.BILL_TYPE, '12', '0', '2') AS YN_ISS,
+			'N' AS YN_SPLIT,
+			A.TAX_BILL_NO, A.DEPT_CODE, '' AS ORDER_NO, '' CD_DEPOSIT, '' CD_BANK
+			
+	  FROM KEPTARDT A
+	       INNER JOIN ICOMCOD1 TX01 ON (1 = 1
+	         AND TX01.TYPE = 'TX01'
+	         AND TX01.CODE = A.KEP_IRS
+	       )
+	       INNER JOIN ICOMCOD1 TX06 ON (1 = 1
+	         AND TX06.TYPE = 'TX06'
+	         AND TX06.CODE = A.DEPT_CODE
+	       )
+	       INNER JOIN ICOMCOD1 TX02 ON (1 = 1
+	         AND TX02.TYPE = 'TX02'
+	         AND TX02.CODE = A.TAX_TYPE
+	       )
+	 WHERE A.IF_SEND_FLAG = 'N'
+	   AND A.STATUS != 'D'
+	 ORDER BY ROW_ID, SEQ
+	</select>
+	
+	<update id="updateArKepmp" parameterClass="java.util.HashMap">
+	UPDATE KEPTARDT
+	   SET IF_SEND_FLAG = #IF_SEND_FLAG#
+	     , IF_SEND_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD')
+	     , IF_SEND_TIME = TO_CHAR(SYSDATE, 'HH24MISS')
+	 WHERE TAX_BILl_NO = #TAX_BILL_NO#
+	   AND DEPT_CODE = #DEPT_CODE#
+	</update>
+	
+	<select id="selectApKepmpList" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+	SELECT 
+			'KA' IF_SYSTEM, #CD_COMPANY# CD_COMPANY,	A.TAX_BILL_NO ROW_ID,	ROW_NUMBER() OVER(PARTITION BY A.TAX_BILL_NO ORDER BY A.ADD_DATE, A.ADD_TIME) SEQ,	
+			CASE
+			  WHEN TX02.TEXT8 = '99' THEN '1020' <![CDATA[ /*상품권매입*/ ]]>
+			  ELSE '1010'                        <![CDATA[ /*매입채무*/ ]]>
+			END CD_EPCODE,	'1000' CD_PC,	'110020' CD_WDEPT,	A.ISSUE_DATE DT_ACCT,	TX02.TEXT8 CD_EVID,
+			A.ISSUE_DATE DT_START,	'' DT_END,	SUBSTRB(A.REMARK_DESCRIPTION || A.REMARK_SPECIFICATION,1,100) NM_NOTE, A.SUPP_PRICE AM_TAXSTD,	NVL(A.TAX_PRICE,0) AM_ADDTAX,
+			TX01.TEXT1 CD_BIZAREA,	TX06.TEXT1 CD_CC,	TX06.TEXT1 CD_DEPT,	REPLACE(A.SEND_USER_ID, 'KEP', '') CD_EMPLOY,	TRIM(REPLACE(A.IRS_NO,'-','')) CD_PARTNER,
+			TRIM(REPLACE(A.IRS_NO,'-','')) NO_COMPANY,	A.AGENT_CODE CD_UMNG1,	
+			'A02' CD_MNG1,	TX06.TEXT1 CD_MNGD1,	TX06.TEXT2 NM_MNGD1,	
+			'A06' CD_MNG2, TRIM(REPLACE(A.IRS_NO,'-','')) CD_MNGD2, A.IRS_NAME NM_MNGD2,	
+			'B22' CD_MNG3, '' CD_MNGD3,	'' NM_MNGD3,	
+			'C44' CD_MNG4, '' CD_MNGD4,	'' NM_MNGD4,
+			'C16' CD_MNG5, '' CD_MNGD5,	A.TAX_PRICE NM_MNGD5,	
+			'B24' CD_MNG6, '' CD_MNGD6,	'' NM_MNGD6,	
+			'B25' CD_MNG7, '' CD_MNGD7, '' NM_MNGD7,	
+			'B26' CD_MNG8, '' CD_MNGD8,	'' NM_MNGD8,	
+			'K02' CD_MNG9, '' CD_MNGD9,	A.TAX_BILL_NO NM_MNGD9,
+			'K01' CD_MNG10, 'KA' CD_MNGD10,	'구매대행' NM_MNGD10,	 
+			'000' CD_EXCH,	'' RT_EXCH,	'' AM_EX,
+			'' ST_MUTUAL,	'' NO_TO,	'' DT_SHIPPING,	
+			'3' TP_EVIDENCE, 
+			DECODE(A.BILL_TYPE, '12', '0', '2') AS YN_ISS,
+			'N' AS YN_SPLIT,
+			A.TAX_BILL_NO, A.DEPT_CODE, '' AS ORDER_NO, '' CD_DEPOSIT, '' CD_BANK
+	  FROM KEPTAPDT A
+	       INNER JOIN ICOMCOD1 TX01 ON (1 = 1
+	         AND TX01.TYPE = 'TX01'
+	         AND TX01.CODE = A.KEP_IRS
+	       )
+	       INNER JOIN ICOMCOD1 TX06 ON (1 = 1
+	         AND TX06.TYPE = 'TX06'
+	         AND TX06.CODE = A.DEPT_CODE
+	       )
+	       INNER JOIN ICOMCOD1 TX02 ON (1 = 1
+	         AND TX02.TYPE = 'TX02'
+	         AND TX02.CODE = A.TAX_TYPE
+	       )
+	 WHERE A.IF_SEND_FLAG = 'N'
+	   AND A.STATUS != 'D'
+	 ORDER BY ROW_ID, SEQ	
+	</select>
+	
+	<delete id="deleteAPCloseConfirm" parameterClass="java.util.HashMap" >
+		DELETE KEP.AP_CLOSE_CONFIRM_LIST
+	 	WHERE TAX_BILL_NO like #TAX_BILL_NO#||'%'
+	</delete>
+	
+	<select id="selectApBillCloseUser" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+	SELECT
+	        AP_CLOSE_MONTH AS CLOSE_MONTH
+	      , AGENT_CODE AS AGENT_CODE
+	      , CONFIRM_LEGACY_USER_ID AS LEGACY_USER_ID	      
+	  FROM KEP.AP_CLOSE_CONFIRM_LIST
+     WHERE TAX_BILL_NO LIKE #TAX_BILL_NO#||'%'
+	</select>
+	
+	<update id="updateApBillCloseUserKepmp" parameterClass="java.util.HashMap">
+		UPDATE KEP.BILL_CLOSE_USER_LIST
+		   SET CLOSE_CMPL_YN = 'N'
+		   ,   CHANGE_DATE = SYSDATE
+		 WHERE LEGACY_USER_ID     = #LEGACY_USER_ID#
+		 AND   BILL_CLOSE_MONTH   = #CLOSE_MONTH#
+		 AND   CLOSE_TYPE         = 'AP'
+		 AND   AGENT_CODE         = #AGENT_CODE#
+	</update>
+	
+	<update id="updateApKepmp" parameterClass="java.util.HashMap">
+		UPDATE KEPTAPDT A
+		   SET IF_SEND_FLAG = #IF_SEND_FLAG#
+		     , IF_SEND_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD')
+		     , IF_SEND_TIME = TO_CHAR(SYSDATE, 'HH24MISS')
+		 WHERE 1 = 1
+		   AND A.TAX_BILL_NO = #TAX_BILL_NO#
+		   AND A.DEPT_CODE = #DEPT_CODE#
+	</update>
+
+	<delete id="deleteARCloseConfirm" parameterClass="java.util.HashMap" >
+		DELETE KEP.AR_CLOSE_CONFIRM_LIST
+	 	WHERE TAX_BILL_NO = #TAX_BILL_NO#
+	</delete>
+	
+	<select id="selectArBillCloseUser" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+	SELECT
+	        AR_CLOSE_MONTH AS CLOSE_MONTH
+	      , DECODE(AR_TYPE, 'AR', BUYER_CODE, AGENT_CODE) AS COM_CODE
+	      , CONFIRM_LEGACY_USER_ID AS LEGACY_USER_ID
+	      , DECODE(AR_TYPE, 'AR', AR_TYPE, 'LG') AS AR_TYPE
+	  FROM KEP.AR_CLOSE_CONFIRM_LIST
+     WHERE TAX_BILL_NO = #TAX_BILL_NO#
+	</select>
+	
+	<update id="updateArBillCloseUserKepmp" parameterClass="java.util.HashMap">
+		UPDATE KEP.BILL_CLOSE_USER_LIST
+		   SET CLOSE_CMPL_YN = 'N'
+		   ,   CHANGE_DATE = SYSDATE
+		 WHERE LEGACY_USER_ID     = #LEGACY_USER_ID#
+		 AND   BILL_CLOSE_MONTH   = #CLOSE_MONTH#
+		 AND   CLOSE_TYPE         = #AR_TYPE#
+		 AND   DECODE(#AR_TYPE#, 'AR', BUYER_CODE, AGENT_CODE) = #COM_CODE#
+	</update>
+	
+	<update id="updateCancelArKepmp" parameterClass="java.util.HashMap">
+		UPDATE KEPTARDT
+		   SET CONFIRM_FLAG    = 'N'
+		     , CONFIRM_DATE    = NULL
+		     , CONFIRM_TIME    = NULL
+		     , CONFIRM_USER_ID = NULL
+		     , SEND_DATE       = NULL
+		     , SEND_TIME       = NULL
+		     , SEND_USER_ID    = NULL
+		     , IF_SEND_DATE    = NULL
+		     , IF_SEND_TIME    = NULL
+		     , IF_SEND_FLAG    = NULL
+		     , CHANGE_USER_ID  = 'IF_USER'
+		     , CHANGE_DATE     = TO_CHAR(SYSDATE, 'YYYYMMDD')
+		     , CHANGE_TIME     = TO_CHAR(SYSDATE, 'HH24MISS')
+		 WHERE TAX_BILL_NO     = #TAX_BILL_NO#
+	</update>
+	
+	<update id="updateCancelApKepmp" parameterClass="java.util.HashMap">
+		UPDATE KEPTAPDT
+		   SET IF_SEND_FLAG   = NULL
+		     , IF_SEND_DATE   = NULL
+		     , IF_SEND_TIME   = NULL
+		     , SEND_USER_ID   = NULL
+		     , SEND_DATE      = NULL
+		     , SEND_TIME      = NULL
+		     , CHANGE_USER_ID = 'IF_USER'
+		     , CHANGE_DATE    = TO_CHAR(SYSDATE, 'YYYYMMDD')
+		     , CHANGE_TIME    = TO_CHAR(SYSDATE, 'HH24MISS')
+		     , CONFIRM_FLAG    = 'N'
+		     , CONFIRM_DATE    = NULL
+		     , CONFIRM_TIME    = NULL
+		     , CONFIRM_USER_ID = NULL		     
+		 WHERE TAX_BILL_NO     = #TAX_BILL_NO#
+	</update>
+	
+	<select id="selectFiDocu" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+	SELECT 
+			IF_ID, IF_SEQ, IF_SYSTEM, CD_COMPANY,	ROW_ID,	SEQ,
+			CD_EPCODE,	CD_PC,	CD_WDEPT,	DT_ACCT,	CD_EVID,
+			DT_START,	DT_END,	NM_NOTE,	AM_TAXSTD,	AM_ADDTAX,
+			CD_BIZAREA,	CD_CC,	CD_DEPT,	CD_EMPLOY,	CD_PARTNER,
+			NO_COMPANY,	CD_UMNG1,	
+			CD_MNG1,	CD_MNGD1,	NM_MNGD1,	
+			CD_MNG2,	CD_MNGD2,	NM_MNGD2,	
+			CD_MNG3,	CD_MNGD3,	NM_MNGD3,	
+			CD_MNG4,	CD_MNGD4,	NM_MNGD4,
+			CD_MNG5,	CD_MNGD5,	NM_MNGD5,	
+			CD_MNG6,	CD_MNGD6,	NM_MNGD6,	
+			CD_MNG7,	CD_MNGD7,	NM_MNGD7,	
+			CD_MNG8,	CD_MNGD8,	NM_MNGD8,	
+			CD_MNG9,	CD_MNGD9,	NM_MNGD9,
+			CD_MNG10,	CD_MNGD10,	NM_MNGD10,	
+			CD_EXCH,	RT_EXCH,	AM_EX,
+			ST_MUTUAL,	NO_TO,	DT_SHIPPING,	TP_EVIDENCE,
+			YN_ISS, YN_SPLIT, CD_DEPOSIT, CD_BANK
+	FROM EAI.ERP_FI_EPDOCU
+	WHERE IF_FLAG = 'N'
+	  AND CD_COMPANY = #CD_COMPANY#
+	ORDER BY IF_ID, IF_SEQ
+	</select>
+
+	<update id="updateFiDocu" parameterClass="java.util.HashMap">
+	UPDATE EAI.ERP_FI_EPDOCU
+	   SET IF_FLAG = #IF_FLAG#
+	     , IF_MSG = #IF_MSG#
+	     , IF_DATE = SYSDATE
+	 WHERE IF_ID = #IF_ID#
+	   AND IF_SEQ = #IF_SEQ#
+	</update>
+	
+	<insert id="insertErpFiEpdocu" parameterClass="java.util.HashMap">
+	INSERT INTO EAI.ERP_FI_EPDOCU (
+		IF_ID, IF_SEQ, IF_SYSTEM, CD_COMPANY,	ROW_ID,	SEQ,
+		CD_EPCODE,	CD_PC,	CD_WDEPT,	DT_ACCT,	CD_EVID,
+		DT_START,	DT_END,	NM_NOTE,	AM_TAXSTD,	AM_ADDTAX,
+		CD_BIZAREA,	CD_CC,	CD_DEPT,	CD_EMPLOY,	CD_PARTNER,
+		NO_COMPANY,	CD_UMNG1,	
+		CD_MNG1,	CD_MNGD1,	NM_MNGD1,	
+		CD_MNG2,	CD_MNGD2,	NM_MNGD2,	
+		CD_MNG3,	CD_MNGD3,	NM_MNGD3,	
+		CD_MNG4,	CD_MNGD4,	NM_MNGD4,
+		CD_MNG5,	CD_MNGD5,	NM_MNGD5,	
+		CD_MNG6,	CD_MNGD6,	NM_MNGD6,	
+		CD_MNG7,	CD_MNGD7,	NM_MNGD7,	
+		CD_MNG8,	CD_MNGD8,	NM_MNGD8,	
+		CD_MNG9,	CD_MNGD9,	NM_MNGD9,
+		CD_MNG10,	CD_MNGD10,	NM_MNGD10,	
+		CD_EXCH,	RT_EXCH,	AM_EX,
+		ST_MUTUAL,	NO_TO,	DT_SHIPPING,	TP_EVIDENCE, 
+		YN_ISS, YN_SPLIT, IF_FLAG, ORDER_NO, CD_DEPOSIT, CD_BANK
+	) VALUES (
+		#IF_ID#, 			#IF_SEQ#, 		#IF_SYSTEM#, 		#CD_COMPANY#,	#ROW_ID#,		#SEQ#,
+		#CD_EPCODE#,	#CD_PC#,			#CD_WDEPT#,			#DT_ACCT#,		#CD_EVID#,
+		#DT_START#,		#DT_END#,			#NM_NOTE#,			#AM_TAXSTD#,	#AM_ADDTAX#,
+		#CD_BIZAREA#,	#CD_CC#,			#CD_DEPT#,			#CD_EMPLOY#,	#CD_PARTNER#,
+		#NO_COMPANY#,	#CD_UMNG1#,		
+		#CD_MNG1#,	#CD_MNGD1#,		#NM_MNGD1#,		
+		#CD_MNG2#,	#CD_MNGD2#,		#NM_MNGD2#,		
+		#CD_MNG3#,	#CD_MNGD3#,		#NM_MNGD3#,			
+		#CD_MNG4#,	#CD_MNGD4#,		#NM_MNGD4#,
+		#CD_MNG5#,	#CD_MNGD5#,		#NM_MNGD5#,		
+		#CD_MNG6#,	#CD_MNGD6#,		#NM_MNGD6#,		
+		#CD_MNG7#,	#CD_MNGD7#,		#NM_MNGD7#,		
+		#CD_MNG8#,	#CD_MNGD8#,		#NM_MNGD8#,			
+		#CD_MNG9#,	#CD_MNGD9#,		#NM_MNGD9#,
+		#CD_MNG10#,	#CD_MNGD10#,	#NM_MNGD10#,	
+		#CD_EXCH#,			#RT_EXCH#,		#AM_EX#,
+		#ST_MUTUAL#,	#NO_TO#,			#DT_SHIPPING#,	#TP_EVIDENCE#, 
+		#YN_ISS#, #YN_SPLIT#, 'N', #ORDER_NO#, #CD_DEPOSIT#, #CD_BANK#
+	)
+	</insert>
+	
+	<insert id="insertErpFiEpdocuR" parameterClass="java.util.HashMap">
+	INSERT INTO EAI.ERP_FI_EPDOCU_R (
+		IF_ID,			IF_SEQ,		IF_SYSTEM,
+		CD_COMPANY,		ROW_ID,		SEQ,
+		CD_EPCODE,		CD_PC, 		IF_FLAG
+	) VALUES (
+		#IF_ID#,		#IF_SEQ#,	#IF_SYSTEM#,
+		#CD_COMPANY#,	#ROW_ID#,	#SEQ#,
+		#CD_EPCODE#,	#CD_PC#,	'N'
+	)
+	</insert>
+	
+	<select id="selectFiDocuR" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+	SELECT IF_ID, IF_SEQ, ROW_ID AS TAX_BILL_NO
+	  FROM EAI.ERP_FI_EPDOCU_R
+     WHERE IF_FLAG = 'N'
+       AND IF_SYSTEM = #IF_SYSTEM#
+       AND CD_COMPANY = #CD_COMPANY#
+       AND CD_EPCODE LIKE CASE
+                            WHEN #TYPE# = 'AR' THEN '20'
+                            WHEN #TYPE# = 'PG' THEN '40'
+                            ELSE '10' 
+                          END || '%'
+     ORDER BY IF_ID, IF_SEQ
+	</select>
+
+	<update id="updateFiDocuR" parameterClass="java.util.HashMap">
+	UPDATE EAI.ERP_FI_EPDOCU_R
+	   SET IF_FLAG = #IF_FLAG#
+	     , IF_DATE = SYSDATE
+	 WHERE IF_ID = #IF_ID#
+	   AND IF_SEQ = #IF_SEQ#
+	</update>
+
+	<select id="selectPartnerTemp" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+	<![CDATA[
+	SELECT * FROM (
+	SELECT
+		IF_ID,	IF_SEQ,	IF_SYSTEM,
+		CD_COMPANY,	CD_PARTNER,	LN_PARTNER,	NO_COMPANY,	SN_PARTNER,
+		FG_PARTNER,	CLS_PARTNER,	NO_MERCHANT,
+		CD_DEPT,	CD_CC,	NM_CEO,	NO_POST1,	DC_ADS1_H,
+		DC_ADS1_D,	NO_TEL1,	NO_FAX1,	TP_JOB,	CLS_JOB,
+		CD_EMP_PARTNER,	NO_HPEMP_PARTNER,	E_MAIL,	NO_TEL,	NO_FAX,
+		YN_JEONJA,	CD_TAXTYPE,	CD_CON,	DT_CLOSE,	NM_TEXT,
+		USE_YN
+	  FROM EAI.ERP_PARTNER_TEMP
+	 WHERE IF_FLAG = 'N'
+	   AND CD_COMPANY = #CD_COMPANY#
+	 ORDER BY IF_ID, IF_SEQ
+	 )
+	]]>
+	</select>
+	
+	<update id="updatePartnerTemp" parameterClass="java.util.HashMap">
+	UPDATE EAI.ERP_PARTNER_TEMP
+	   SET IF_FLAG = #IF_FLAG#
+	     , IF_DATE = SYSDATE
+	     , IF_MSG = SUBSTR(#IF_MSG#, 1, 1000)
+	 WHERE IF_ID = #IF_ID#
+	   AND IF_SEQ = #IF_SEQ#
+	</update>
+	
+	<select id="selectPartnerDeposit" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+	<![CDATA[
+	SELECT * FROM (
+	SELECT 
+		   IF_ID,	IF_SEQ,	IF_SYSTEM,
+		   CD_COMPANY,	CD_PARTNER,	NO_COMPANY,	NO_DEPOSIT,	CD_BANK,
+		   NM_DEPOSIT,	USE_YN,	HELP_USE,	DC_RMK,	CD_DEPOSITNO	
+	  FROM EAI.ERP_PARTNER_DEPOSIT
+	 WHERE IF_FLAG = 'N'
+	   AND CD_COMPANY = #CD_COMPANY#
+	 ORDER BY IF_ID, IF_SEQ
+	 )
+	]]>
+	</select>
+	
+	<update id="updatePartnerDeposit" parameterClass="java.util.HashMap">
+	UPDATE EAI.ERP_PARTNER_DEPOSIT
+	   SET IF_FLAG = #IF_FLAG#
+	     , IF_MSG = #IF_MSG#
+	     , IF_DATE = SYSDATE
+	     , NO_DEPOSIT = '*********'
+	 WHERE IF_ID = #IF_ID#
+	   AND IF_SEQ = #IF_SEQ#
+	</update>
+	
+	<select id="selectSaleCost" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+	SELECT  A.YYYYMM, 
+	        'KA' IF_SYSTEM, #CD_COMPANY# CD_COMPANY,
+	        '3010' CD_EPCODE,	'1000' CD_PC,	'110020' CD_WDEPT,	TO_CHAR(LAST_DAY(TO_DATE(A.YYYYMM, 'YYYYMM')), 'YYYYMMDD') AS DT_ACCT,	'99' CD_EVID,
+	        TO_CHAR(LAST_DAY(TO_DATE(A.YYYYMM, 'YYYYMM')), 'YYYYMMDD') AS DT_START,	'' DT_END,	'매출원가' NM_NOTE, A.W_AMT AM_TAXSTD,	 0 AM_ADDTAX,
+	        'SE' CD_BIZAREA,	TX06.TEXT1 CD_CC,	TX06.TEXT1 CD_DEPT,	'2179014' CD_EMPLOY,	TRIM(REPLACE(A.IRS_NO,'-','')) CD_PARTNER,
+	        TRIM(REPLACE(A.IRS_NO,'-','')) NO_COMPANY,	A.BUYER CD_UMNG1,	
+	        'A02' CD_MNG1,	TX06.TEXT1 CD_MNGD1,	TX06.TEXT2 NM_MNGD1,	
+	        'A06' CD_MNG2,	TRIM(REPLACE(A.IRS_NO,'-','')) CD_MNGD2,	A.IRS_NAME NM_MNGD2,	
+	        'B22' CD_MNG3,	'' CD_MNGD3,	'' NM_MNGD3,	
+	        'C44' CD_MNG4,	'' CD_MNGD4,	'' NM_MNGD4,
+	        'C16' CD_MNG5,	'' CD_MNGD5,	'' NM_MNGD5,	
+	        'B24' CD_MNG6,	'' CD_MNGD6,	'' NM_MNGD6,	
+	        'B25' CD_MNG7,	'' CD_MNGD7,	'' NM_MNGD7,	
+	        'B26' CD_MNG8,	'' CD_MNGD8,	'' NM_MNGD8,	
+	        'K02' CD_MNG9,	'' CD_MNGD9,	' ' NM_MNGD9,
+	        'K01' CD_MNG10,	'KA' CD_MNGD10,	'구매대행' NM_MNGD10,	 
+	        '000' CD_EXCH,	'' RT_EXCH,	'' AM_EX,
+	        '' ST_MUTUAL,	'' NO_TO,	'' DT_SHIPPING,	'0' TP_EVIDENCE
+	  FROM KEP_SUBUL_IRS_MNG A
+	       INNER JOIN ICOMCOD1 TX06 ON (1 = 1
+	         AND TX06.TYPE = 'TX06'
+	         AND TX06.CODE = A.DEPT_CODE
+	       )
+	 WHERE 1=1
+	   AND A.YYYYMM = (SELECT KEY_1 FROM ICOMTRXL WHERE DOC_NAME = 'SALE_COST' AND TARGET = 'KA' AND KEY_9 = ' ')
+	 ORDER BY CD_CC, CD_PARTNER
+	</select>
+	
+	<update id="updateSaleCost" parameterClass="java.util.HashMap">
+	UPDATE ICOMTRXL SET 
+	   KEY_9 = #FLAG#, KEY_10 = TO_CHAR(SYSDATE, 'YYYY/MM/DD HH24:MI:SS')
+	 WHERE DOC_NAME = 'SALE_COST' 
+	   AND TARGET = 'KA' 
+	   AND KEY_1 = #YYYYMM#
+	</update>
+	
+	<select id="selectPartnerTempKepmp" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+	<![CDATA[
+		SELECT CD_PARTNER, CD_COMPANY, LN_PARTNER, NO_COMPANY, SN_PARTNER, FG_PARTNER, CLS_PARTNER, 
+		       CD_DEPT, CD_CC, NM_CEO, NO_POST1, DC_ADS1_H, DC_ADS1_D, NO_TEL1, NO_FAX1, TP_JOB, 
+		       CLS_JOB, YN_JEONJA, CD_TAXTYPE, CD_CON, DT_CLOSE, NM_TEXT, USE_YN, COM_CODE
+		FROM (
+		SELECT 
+				REPLACE(IRS_NO,'-','') CD_PARTNER
+				, ROW_NUMBER() OVER(PARTITION BY IRS_NO ORDER BY A.ADD_DATE) AS RNUM
+				, #CD_COMPANY# CD_COMPANY
+				, SUBSTRB(COM_NAME_LOC, 1, 50) LN_PARTNER
+				, REPLACE(IRS_NO,'-','') NO_COMPANY
+				, SUBSTRB(COM_NAME_LOC, 1, 50) SN_PARTNER
+				, '001' FG_PARTNER
+				, CASE
+				   WHEN A.BUSINESS_COND = 'B' THEN '002'
+				   ELSE '001'
+				  END CLS_PARTNER
+				, '' CD_DEPT
+				, '' CD_CC
+				, SUBSTRB(CEO_NAME_LOC, 1, 40) NM_CEO
+				, A.ZIP_CODE NO_POST1
+				, NVL(A.ADDRESS_LOC1, A.ADDRESS_LOC) DC_ADS1_H
+				, A.ADDRESS_LOC2 DC_ADS1_D
+				, A.TEL_NO NO_TEL1
+				, A.FAX_NO NO_FAX1
+				, SUBSTRB(A.INDUSTRY_TYPE, 1, 50) TP_JOB
+				, SUBSTRB(A.BUSINESS_ITEMS, 1, 50) CLS_JOB
+				, 'Y' YN_JEONJA
+				, '11' CD_TAXTYPE
+				, '001' CD_CON
+				, '' DT_CLOSE
+				, '' NM_TEXT
+				, 'Y' USE_YN
+				, A.COM_CODE
+		  FROM ICOMCMPY A
+		 WHERE STATUS IN ('C','R')
+		   AND A.COM_CODE IN (
+		     SELECT TARGET FROM ICOMTRXL
+		      WHERE DOC_NAME = 'PARTNER'
+		        AND KEY_9 = ' '
+		   )
+		)
+	]]>
+	</select>
+	
+	<update id="updatePartnerTempKepmp" parameterClass="java.util.HashMap">
+	UPDATE ICOMTRXL
+	   SET KEY_9 = #IF_SEND_FLAG#
+	     , KEY_10 = TO_CHAR(SYSDATE, 'YYYY/MM/DD HH24:MI:SS')
+	 WHERE DOC_NAME = 'PARTNER'
+	   AND TARGET = #COM_CODE#
+	   AND KEY_9 = ' '
+	</update>
+	
+	<insert id="insertPartnerTemp" parameterClass="java.util.HashMap">
+	INSERT INTO EAI.ERP_PARTNER_TEMP (
+		IF_ID,	IF_SEQ,	IF_SYSTEM,
+		CD_COMPANY,	CD_PARTNER,	LN_PARTNER,	NO_COMPANY,	SN_PARTNER,
+		FG_PARTNER,	CLS_PARTNER,	NO_MERCHANT,
+		CD_DEPT,	CD_CC,	NM_CEO,	NO_POST1,	DC_ADS1_H,
+		DC_ADS1_D,	NO_TEL1,	NO_FAX1,	TP_JOB,	CLS_JOB,
+		CD_EMP_PARTNER,	NO_HPEMP_PARTNER,	E_MAIL,	NO_TEL,	NO_FAX,
+		YN_JEONJA,	CD_TAXTYPE,	CD_CON,	DT_CLOSE,	NM_TEXT,
+		USE_YN	
+	) VALUES (
+		#IF_ID#,				#IF_SEQ#,						#IF_SYSTEM#,
+		#CD_COMPANY#,			#CD_PARTNER#,				#LN_PARTNER#,	#NO_COMPANY#,	#SN_PARTNER#,
+		#FG_PARTNER#,			#CLS_PARTNER#,			#NO_MERCHANT#,
+		#CD_DEPT#,				#CD_CC#,						#NM_CEO#,			#NO_POST1#,	#DC_ADS1_H#,
+		#DC_ADS1_D#,			#NO_TEL1#,					#NO_FAX1#,		#TP_JOB#,		#CLS_JOB#,
+		#CD_EMP_PARTNER#,	#NO_HPEMP_PARTNER#,	#E_MAIL#,			#NO_TEL#,		#NO_FAX#,
+		#YN_JEONJA#,			#CD_TAXTYPE#,				#CD_CON#,			#DT_CLOSE#,	#NM_TEXT#,
+		#USE_YN#
+	)
+	</insert>
+	
+	<insert id="insertPartnerDeposit" parameterClass="java.util.HashMap">
+	INSERT INTO EAI.ERP_PARTNER_DEPOSIT (
+		IF_ID,	IF_SEQ,	IF_SYSTEM,
+		CD_COMPANY,	CD_PARTNER,	NO_COMPANY,	NO_DEPOSIT,	CD_BANK,
+		NM_DEPOSIT,	USE_YN,	HELP_USE,	DC_RMK,	CD_DEPOSITNO
+	) VALUES (
+		#IF_ID#,	#IF_SEQ#,	#IF_SYSTEM#,
+		#CD_COMPANY#,	#CD_PARTNER#,	#NO_COMPANY#,	#NO_DEPOSIT#,	#CD_BANK#,
+		#NM_DEPOSIT#,	#USE_YN#,	#HELP_USE#,	#DC_RMK#,	#CD_DEPOSITNO#
+	)
+	</insert>
+	
+	<select id="selectPartnerDepositKepmp" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+	<![CDATA[
+	SELECT 
+	       'KA' AS IF_SYSTEM,
+	       #CD_COMPANY# CD_COMPANY,
+	       REPLACE(B.IRS_NO,'-','') CD_PARTNER,
+	       REPLACE(B.IRS_NO,'-','') NO_COMPANY,
+	       A.BANK_ACCOUNT_NO,
+	       '' NO_DEPOSIT,
+	       (SELECT NVL(TEXT8,CODE) FROM ICOMCOD1 WHERE TYPE = 'M005' AND CODE = A.BANK_CD) CD_BANK,
+	       SUBSTRB(A.DEPOSITOR, 1, 50) NM_DEPOSIT,
+	       'N' USE_YN,
+	       'Y' HELP_USE,
+	       '' DC_RMK,
+	       (ROW_NUMBER() OVER(PARTITION BY A.BANK_ACCOUNT_NO ORDER BY A.CONFIRM_ADD_DATE) ) + 10 CD_DEPOSITNO,
+	       SUPPLIER
+	  FROM ACNTSUPL A
+	       INNER JOIN ICOMCMPY B ON (1 = 1
+	         AND B.COM_CODE = A.SUPPLIER
+	         AND B.IRS_NO NOT IN ( '107-81-85880' , '671-01-11144' )
+	       )
+	 WHERE SUPPLIER IN (
+	     SELECT TARGET FROM ICOMTRXL
+	      WHERE DOC_NAME = 'PARTNER'
+	        AND KEY_9 = 'T'
+	       )    
+	 ORDER BY CD_PARTNER
+	]]>
+	</select>
+	
+	<update id="updatePartnerDepositKepmp" parameterClass="java.util.HashMap">
+	UPDATE ICOMTRXL
+	   SET KEY_9 = #IF_SEND_FLAG#
+	     , KEY_10 = TO_CHAR(SYSDATE, 'YYYY/MM/DD HH24:MI:SS')
+	 WHERE DOC_NAME = 'PARTNER'
+	   AND TARGET = #SUPPLIER#
+	   AND KEY_9 = 'T'
+	</update>
+	
+	<select id="checkPartnerTemp" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+	SELECT TO_CHAR(COUNT(*)) AS CNT
+	  FROM EAI.ERP_PARTNER_TEMP
+	 WHERE IF_FLAG IN ('Y', 'N')
+	   AND CD_PARTNER = #CD_PARTNER#
+	   AND CD_COMPANY = #CD_COMPANY#
+	</select>
+	
+	<update id="updateEventResult" parameterClass="java.util.HashMap">
+	UPDATE ICOMTRXL
+	   SET KEY_9 = #IF_FLAG#
+	     , KEY_10 = TO_CHAR(SYSDATE, 'YYYY/MM/DD HH24:MI:SS')
+	 WHERE DOC_NAME = #DOC_NAME#
+	 AND TARGET = #TARGET#
+	 AND KEY_1 = #KEY_1#
+	 AND KEY_9 = ' '
+	</update>
+	
+	<delete id="deleteCredit" parameterClass="java.util.HashMap" >
+	DELETE EAI.ERP_TACCOUNT_IF
+	 WHERE CD_COMPANY = #CD_COMPANY#
+	</delete>
+	
+	<insert id="insertCredit" parameterClass="java.util.HashMap">
+	INSERT INTO EAI.ERP_TACCOUNT_IF (
+		CD_COMPANY,	CD_CC,
+		NM_CC,	CD_ACCT,	NM_ACCT,
+		CD_PARTNER,	NM_PARTNER,	P_AMOUNT,
+		AM_DR,	AM_CR,	N_AMOUNT	
+	) VALUES (
+		#CD_COMPANY#,	#CD_CC#,
+		#NM_CC#,	#CD_ACCT#,	#NM_ACCT#,
+		#CD_PARTNER#,	#NM_PARTNER#,	#P_AMOUNT#,
+		#AM_DR#,	#AM_CR#,	#N_AMOUNT#
+	)
+	</insert>
+	
+	<insert id="insertPartnerDepositR" parameterClass="java.util.HashMap">
+	INSERT INTO EAI.ERP_PARTNER_DEPOSIT_R (
+		DTS_INSERT, DTS_JOBDATE, ID_USER, 
+		CD_JOB, CD_COMPANY, CD_PARTNER,
+		NO_DEPOSIT, CD_BANK,
+		NM_DEPOSIT, USE_YN,
+		NO_DEPOSIT_N, CD_BANK_N,
+		NM_DEPOSIT_N, USE_YN_N, 
+		CREATE_DATE, IF_FLAG	
+	) VALUES (
+		#DTS_INSERT#, #DTS_JOBDATE#, #ID_USER#, 
+		#CD_JOB#, #CD_COMPANY#, #CD_PARTNER#,
+		#NO_DEPOSIT#, #CD_BANK#,
+		#NM_DEPOSIT#, #USE_YN#,
+		#NO_DEPOSIT_N#, #CD_BANK_N#,
+		#NM_DEPOSIT_N#, #USE_YN_N#, 
+		SYSDATE, 'N'	
+	)
+	</insert>
+	
+	<select id="selectPartnerDepositRKepmp" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+	SELECT 
+         DTS_INSERT, DTS_JOBDATE, ID_USER, 
+         CD_JOB, CD_COMPANY, CD_PARTNER,
+         NO_DEPOSIT, CD_BANK,
+         NM_DEPOSIT, USE_YN,
+         NO_DEPOSIT_N, CD_BANK_N,
+         NM_DEPOSIT_N, USE_YN_N  
+	  FROM EAI.ERP_PARTNER_DEPOSIT_R
+	 WHERE CD_COMPANY = #CD_COMPANY#
+	   AND IF_FLAG = 'N'
+	 ORDER BY CREATE_DATE
+	</select>
+	
+	<update id="updatePartnerDepositRKepmp" parameterClass="java.util.HashMap">
+	UPDATE EAI.ERP_PARTNER_DEPOSIT_R
+	   SET IF_FLAG = #IF_FLAG#
+	     , IF_DATE = SYSDATE
+	     , IF_MSG = #ERROR_MSG#
+	     , NO_DEPOSIT = CASE #IF_FLAG# WHEN 'Y' THEN '***' ELSE NO_DEPOSIT END
+	     , CD_BANK = CASE #IF_FLAG# WHEN 'Y' THEN '***' ELSE CD_BANK END
+	     , NM_DEPOSIT = CASE #IF_FLAG# WHEN 'Y' THEN '***' ELSE NM_DEPOSIT END
+	     , NO_DEPOSIT_N = CASE #IF_FLAG# WHEN 'Y' THEN '***' ELSE NO_DEPOSIT_N END
+	     , CD_BANK_N = CASE #IF_FLAG# WHEN 'Y' THEN '***' ELSE CD_BANK_N END
+	     , NM_DEPOSIT_N = CASE #IF_FLAG# WHEN 'Y' THEN '***' ELSE NM_DEPOSIT_N END
+	 WHERE DTS_INSERT = #DTS_INSERT#
+	   AND DTS_JOBDATE = #DTS_JOBDATE#
+	   AND ID_USER = #ID_USER#
+	   AND CD_JOB = #CD_JOB#
+	   AND CD_COMPANY = #CD_COMPANY#
+	   AND CD_PARTNER = #CD_PARTNER#
+	</update>
+	
+	<update id="updateACNTSUPL" parameterClass="java.util.HashMap">
+	UPDATE ACNTSUPL
+	   SET BANK_CD = #BANK_CD#
+	     , BANK_ACCOUNT_NO = #BANK_ACCOUNT_NO#
+	     , DEPOSITOR = #DEPOSITOR#
+	     , CONFIRM_MOD_DATE = TO_CHAR(SYSDATE,'YYYYMMDD')
+	     , CONFIRM_USER_ID = CASE #ID_USER# WHEN 'SYSTEM' THEN 'FTP' ELSE 'KEP' || #ID_USER# END
+	 WHERE SUPPLIER = (SELECT COM_CODE FROM ICOMCMPY WHERE IRS_NO = SUBSTR(#CD_PARTNER#,1,3) || '-' || SUBSTR(#CD_PARTNER#,4,2) || '-' || SUBSTR(#CD_PARTNER#,6,5)  AND STATUS IN ('C','R') AND BUSINESS_COND = 'S')
+	</update>
+	
+	<update id="updateNoDocu" parameterClass="java.util.HashMap">
+	UPDATE EAI.ERP_FI_EPDOCU
+	   SET NO_DOCU = #NO_DOCU#, RTN_FLAG = 'N'
+	 WHERE 1 = 1
+	   AND IF_ID = #IF_ID#
+	   AND IF_SEQ = #IF_SEQ#
+	</update>
+	
+	<select id="selectArPrmtFiNoList" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+	SELECT IF_ID, IF_SEQ, NO_DOCU, ROW_ID AS TAX_BILL_NO, SEQ
+	  FROM EAI.ERP_FI_EPDOCU
+	 WHERE 1 = 1
+	   AND CD_COMPANY = #CD_COMPANY#
+	   AND IF_SYSTEM = 'PA'
+	   AND RTN_FLAG = 'N'
+	   AND TRIM(NO_DOCU) IS NOT NULL
+	</select>
+	
+	<update id="updateArPrmtFiNoRtnFlag" parameterClass="java.util.HashMap">
+	UPDATE EAI.ERP_FI_EPDOCU
+	   SET RTN_FLAG = #RTN_FLAG#, RTN_DATE = SYSDATE
+	 WHERE 1 = 1
+	   AND CD_COMPANY = #CD_COMPANY#
+	   AND IF_SYSTEM = 'PA'
+	   AND RTN_FLAG = 'N'
+	   AND IF_ID = #IF_ID#
+	   AND IF_SEQ = #IF_SEQ#
+	</update>
+	
+	<delete id="deletePartnerDepositRKepmp" parameterClass="java.util.HashMap">
+	<![CDATA[
+	DELETE EAI.ERP_PARTNER_DEPOSIT_R
+	 WHERE IF_FLAG IN ('D', 'Y')
+	   AND CREATE_DATE < TRUNC(SYSDATE)
+	]]>
+	</delete>
+	
+	<select id="selectPgCreditList" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+	SELECT 
+			TRADE_DT,	ORI_TRADE_DT,	GUBUN,	KCP_TRADE_NO,	ORDER_NO,
+			PAYMENT_AMT,	CHARGE,	CHARGE_NO_INTEREST,	TAX_AMT,	ESCRO_CHARGE,
+			ESCRO_TAX,	ACCOUNT_AMT,	CLOSE_DT,	ACCOUNT_DT,	MONTH_INSTALLMENT_CNT,
+			CONFIRM_NO,	CARD_COM_CODE,	BRANCH_NO,	ITEM_NO,	CARD_PAY_AMT,
+			CARD_PAY_CHARGE,	PAYCO_PAY_AMT,	PAYCO_PAY_CHARGE,	CARD_POINT_PAY_AMT,	CARD_POINT_PAY_CHARGE,
+			POINT_CHARGE,	SIMPLE_PAY_GUBUN,	SIMPLE_PAY_CHARGE,	PARCIAL_CANCEL_SEQ,	CHARGE_BACK_FLAG,
+			NO_INTEREST_INSTALLMENT_FLAG,	EX_1,	EX_2,	EX_3,
+			'PA' IF_SYSTEM, #CD_COMPANY# CD_COMPANY,
+			'1030' CD_EPCODE,
+			'1000' CD_PC,	'110020' CD_WDEPT,	ACCOUNT_DT DT_ACCT,	'99' CD_EVID,
+			ACCOUNT_DT DT_START,	'' DT_END,	'판촉몰 입금내역' NM_NOTE, 
+			0 AM_TAXSTD,
+			0 AM_ADDTAX,
+			TO_CHAR(
+			CASE
+			  WHEN A.GUBUN IN ('STMO') THEN A.ACCOUNT_AMT * -1
+			  ELSE A.ACCOUNT_AMT
+			END
+			) ERP_ACCOUNT,
+			TO_CHAR(
+			CASE
+			  WHEN A.GUBUN IN ('STMO') THEN ( A.CHARGE+A.TAX_AMT ) * -1
+			  ELSE A.CHARGE+A.TAX_AMT
+			END
+			) ERP_CHARGE,
+			'SE' CD_BIZAREA,	'402020' CD_CC,	'402020' CD_DEPT,	'200305' CD_EMPLOY,	
+			(SELECT NVL(MAX(CD_PARTNER), '8888888888') FROM EAI.ERP_FI_EPDOCU WHERE IF_SYSTEM = 'PA' AND ORDER_NO = A.ORDER_NO ) CD_PARTNER,
+			(SELECT NVL(MAX(CD_PARTNER), '8888888888') FROM EAI.ERP_FI_EPDOCU WHERE IF_SYSTEM = 'PA' AND ORDER_NO = A.ORDER_NO ) NO_COMPANY,  
+			(SELECT NVL(MAX(CD_UMNG1),'8888888888') FROM EAI.ERP_FI_EPDOCU WHERE IF_SYSTEM = 'PA' AND ORDER_NO = A.ORDER_NO ) CD_UMNG1,   
+			'A02' CD_MNG1,  '402020' CD_MNGD1,  '판촉사업파트' NM_MNGD1,  
+			'A06' CD_MNG2,
+			(SELECT NVL(MAX(CD_PARTNER), '8888888888') FROM EAI.ERP_FI_EPDOCU WHERE IF_SYSTEM = 'PA' AND ORDER_NO = A.ORDER_NO ) CD_MNGD2,    
+			(SELECT NVL(MAX(NM_MNGD2), '카드개인매출') FROM EAI.ERP_FI_EPDOCU WHERE IF_SYSTEM = 'PA' AND ORDER_NO = A.ORDER_NO ) NM_MNGD2,    	
+			'B22' CD_MNG3,	'' CD_MNGD3,	'' NM_MNGD3,	
+			'C44' CD_MNG4,	'' CD_MNGD4,	'' NM_MNGD4,
+			'C16' CD_MNG5,	'' CD_MNGD5,	'' NM_MNGD5,
+			'B24' CD_MNG6,	'' CD_MNGD6,	'' NM_MNGD6,	
+			'B25' CD_MNG7,	'' CD_MNGD7,	'' NM_MNGD7,	
+			'B26' CD_MNG8,	'' CD_MNGD8,	'' NM_MNGD8,	
+			'K02' CD_MNG9,	'' CD_MNGD9,	A.ORDER_NO NM_MNGD9,
+			'K01' CD_MNG10,	'PA' CD_MNGD10,	'판촉몰' NM_MNGD10,	 
+			'000' CD_EXCH,	'' RT_EXCH,	'' AM_EX,
+			'' ST_MUTUAL,	'' NO_TO,	'' DT_SHIPPING,	
+			'0' TP_EVIDENCE,
+			'N' AS YN_ISS,
+			'N' AS YN_SPLIT,
+			'154-910022-40904' CD_DEPOSIT, '081' CD_BANK
+	  FROM EAI.PG_CREDIT_LIST A
+	 WHERE IF_FLAG = 'N'
+	   AND GUBUN IN ('STJY', 'STMO')
+	 ORDER BY TO_CHAR(A.CREATE_DATE,'YYYYMMDD'), TRADE_DT,KCP_TRADE_NO,ORDER_NO
+	</select>
+	
+	<update id="updatePgCreditResult" parameterClass="java.util.HashMap">
+	UPDATE EAI.PG_CREDIT_LIST A
+	   SET IF_FLAG = #IF_FLAG#
+	     , IF_DATE = SYSDATE
+	     , IF_MSG = #IF_MSG#
+	     , ROW_ID = #ROW_ID#
+	     , SEQ = #SEQ#
+	 WHERE TRADE_DT = #TRADE_DT#
+	   AND KCP_TRADE_NO = #KCP_TRADE_NO#
+	   AND ORDER_NO = #ORDER_NO#
+	</update>
+	
+	<select id="selectFiNoDocu" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+	SELECT A.IF_ID, A.IF_SEQ, A.ROW_ID AS TAX_BILL_NO, A.SEQ, A.NO_DOCU, B.TRADE_DT, B.KCP_TRADE_NO, B.ORDER_NO
+	  FROM EAI.ERP_FI_EPDOCU A
+	     , EAI.PG_CREDIT_LIST B
+	 WHERE A.RTN_FLAG = 'N'
+	   AND A.NO_DOCU IS NOT NULL
+	   AND A.CD_COMPANY = #CD_COMPANY#
+	   AND A.IF_SYSTEM = #IF_SYSTEM#
+	   AND A.ROW_ID = B.ROW_ID(+)
+	   and A.SEQ = B.SEQ(+)
+	 ORDER BY A.IF_ID, A.IF_SEQ
+	</select>
+	
+	<update id="updateFiNoDocuResult" parameterClass="java.util.HashMap">
+	UPDATE EAI.ERP_FI_EPDOCU SET RTN_FLAG = #RTN_FLAG#, RTN_DATE = SYSDATE
+	 WHERE RTN_FLAG = 'N'
+	   AND IF_ID = #IF_ID#
+	   AND IF_SEQ = #IF_SEQ#
+	</update>
+	
+	<select id="selectPGFiNoDocuR" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+	SELECT A.IF_ID, A.IF_SEQ, A.ROW_ID AS TAX_BILL_NO, A.SEQ, B.TRADE_DT, B.KCP_TRADE_NO, B.ORDER_NO, '' NO_DOCU
+	  FROM EAI.ERP_FI_EPDOCU_R A
+	     , EAI.PG_CREDIT_LIST B
+	 WHERE A.IF_FLAG = 'N'
+	   AND A.CD_COMPANY = #CD_COMPANY#
+	   AND A.IF_SYSTEM = #IF_SYSTEM#
+	   AND A.ROW_ID = B.ROW_ID
+	   and A.SEQ = B.SEQ
+	 ORDER BY A.IF_ID, A.IF_SEQ	 
+	</select>
+	
+</sqlMap>

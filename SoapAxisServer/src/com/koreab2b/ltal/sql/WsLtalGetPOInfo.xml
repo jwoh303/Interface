@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap      
+    PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN"
+    "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="WsLtalGetPOInfo">
+
+	<select id="getPurchaseOrderList" resultClass="java.util.HashMap">
+	<![CDATA[
+	  SELECT *
+	    FROM (
+		  SELECT BUYER, PO_NO, STATUS
+			FROM EAI.IF_UCUBE_PO_SEND
+		   WHERE BUYER IN ( SELECT BUYER FROM IF_ADMIN WHERE BUYER_ID = 'LTAL2')
+			 AND IF_FLAG = 'N'
+		   GROUP BY BUYER, PO_NO, STATUS
+		   ORDER BY BUYER, PO_NO, STATUS
+	    )
+	   WHERE 1 = 1
+		 AND ROWNUM <= 30
+	]]>
+	</select>
+
+	<select id="getPurchaseOrderHeader" parameterClass="java.util.HashMap" resultClass="com.koreab2b.ltal.vo.PurchaseOrderHeaderVO">
+	<![CDATA[
+		  SELECT    SEQ AS IF_SEQ
+			      , CASE
+			          WHEN MAX(A.STATUS) = 'C' THEN 'C'
+			          WHEN MAX(A.STATUS) != MIN(A.STATUS) THEN 'U'
+			          WHEN MIN(A.STATUS) = 'D' THEN 'D'
+			          ELSE MAX(A.STATUS)
+			        END AS STATUS
+			      , TO_CHAR(SYSDATE,'YYYYMMDD') AS IF_DATE
+			      , TO_CHAR(SYSDATE,'HH24MISS') AS IF_TIME
+			      , NVL(MAX(A.LEGACY_PO_NO),' ') AS LEGACY_PO_NO
+			      , SUM(A.ITEM_AMT) AS TOT_AMT
+			      , 'KRW' AS CURRENCY
+			      , MAX(A.PO_CREATE_DATE) AS PO_CREATE_DATE
+			      , NVL(MAX(TRIM(A.HD_REMARK)),' ') AS HD_REMARK
+			      , ' ' AS KEY_1
+			      , ' ' AS KEY_2
+			      , ' ' AS KEY_3
+			      , ' ' AS KEY_4
+			      , ' ' AS KEY_5
+			FROM EAI.IF_UCUBE_PO_SEND A
+			WHERE A.BUYER = #BUYER#
+			  AND A.PO_NO = #PO_NO#
+			  AND A.STATUS = #STATUS#
+			  AND A.IF_FLAG = 'N'
+			  GROUP BY A.SEQ, A.BUYER,
+			      A.LEGACY_PO_NO,
+			       A.PO_CREATE_DATE,
+			        A.HD_REMARK,
+			         A.STATUS,A.PO_NO	
+	]]>
+	</select>
+
+	
+	<select id="getPurchaseOrderDataList" parameterClass="java.util.HashMap" resultClass="com.koreab2b.ltal.vo.PurchaseOrderItemVO">
+	<![CDATA[
+		SELECT  SEQ AS IF_SEQ
+		        ,NVL(TRIM(LEGACY_PO_NO), ' ') AS LEGACY_PO_NO
+		        ,LEGACY_PO_SEQ AS LEGACY_PO_SEQ
+		        ,STATUS AS STATUS
+		        ,DESCRIPTION AS DESCRIPTION
+		        ,BUYER_ITEM_NO AS BUYER_ITEM_NO
+		        ,ITEM_QTY AS ITEM_QTY
+		        ,UNIT_PRICE AS UNIT_PRICE
+		        ,F_GET_PER(UNIT_PRICE) AS UNIT_QTY
+		        ,UNIT_MEASURE AS UNIT_MEASURE
+		        ,ITEM_AMT AS ITEM_AMT
+		        ,RD_DATE AS RD_DATE
+		        ,PLANT AS PLANT
+		        ,DELY_TO_LOCATION AS DELY_TO_LOCATION
+		        ,LEGACY_USER_ID AS ADD_USER_ID
+		        ,NVL(TRIM(PO_NO),' ') AS PO_NO
+		        ,NVL(TRIM(KEY_1),' ') AS KEY_1
+		        ,NVL(TRIM(KEY_2),' ') AS KEY_2
+		        ,NVL(TRIM(KEY_3),' ') AS KEY_3
+		        ,NVL(TRIM(KEY_4),' ') AS KEY_4
+		        ,NVL(TRIM(KEY_5),' ') AS KEY_5
+		        ,NVL(TRIM(KEY_6),' ') AS KEY_6
+		        ,NVL(TRIM(KEY_7),' ') AS KEY_7
+		        ,NVL(TRIM(KEY_8),' ') AS KEY_8
+		        ,NVL(TRIM(KEY_9),' ') AS KEY_9
+		        ,NVL(TRIM(KEY_10),' ') AS KEY_10
+		   FROM EAI.IF_UCUBE_PO_SEND
+		  WHERE BUYER = #BUYER#
+		    AND PO_NO = #PO_NO#
+		    AND IF_FLAG = 'N'
+	]]>
+	</select>
+	
+	<update id="updatePurchaseOrderList" parameterClass="java.util.HashMap">
+	<![CDATA[
+		UPDATE EAI.IF_UCUBE_PO_SEND
+		   SET IF_FLAG = 'Y'
+		     , IF_DATE = SYSDATE
+	     WHERE BUYER = #BUYER#
+	       AND PO_NO = #PO_NO#
+	       AND STATUS = #STATUS#
+	       AND IF_FLAG = 'N'
+	]]>
+	</update>
+
+</sqlMap>

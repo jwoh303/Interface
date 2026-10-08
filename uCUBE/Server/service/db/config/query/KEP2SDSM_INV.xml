@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="EUC-KR"?>
+<SQL>
+        <!-- *********************************************************************** -->
+        <SQL_DOC INTERFACE_ID="KEP2SDSM_INV">
+                <V_SQL NAME='$G_RS' ISLOOP="TRUE" COMMIT_BY_RESULT="FALSE">
+                       SELECT IVDT.BUYER,IVDT.INV_NO,IVDT.INV_SEQ,IVHD.INV_TYPE AS PROCESS_TYPE
+                       FROM   ICOMIVHD IVHD, ICOMIVDT IVDT
+                       WHERE  IVDT.SND_CHK = 'N'
+                       AND    IVDT.BUYER = 'KRSUNG0341'
+                       AND    IVDT.BUYER = IVHD.BUYER
+                       AND    IVDT.INV_NO= IVHD.INV_NO
+                       AND    IVHD.INV_TYPE = '0'
+                       AND    trim(IVHD.LEGACY_IV_SERIAL) is not null
+                       UNION
+                       SELECT BUYER,INV_NO,INV_SEQ,PROCESS_TYPE
+                       FROM   WMSIVDT
+                       WHERE  SND_CHK = 'N'
+                       AND    BUYER = 'KRSUNG0341'
+                       AND    trim(LEGACY_IV_SERIAL) is not null
+                </V_SQL>
+                <P_SQL SEQ="1" TYPE="SELECT" POST_SQL="TRUE">
+                <![CDATA[
+                   SELECT NVL(PODT.PLANT,'SDSM')   AS PLANT
+                         ,IVHD.LEGACY_IV_SERIAL   AS DLVY_NO
+                         ,PODT.LEGACY_PO_NO       AS PO_NO
+                         ,PODT.LEGACY_PO_SEQ      AS PO_LNNO
+                         ,IVDT.STATUS             AS STATUS
+                         ,IVDT.INVOICE_DATE       AS DLVY_DUE_DATE
+                         ,PODT.UNIT_PRICE         AS PRCH_UNT_PR
+                         ,IVDT.INV_QTY            AS DLVY_DUE_QTY
+                         ,PODT.UNIT_PRICE*IVDT.INV_QTY  AS DLVY_AMT
+                         ,SUBSTRB(PODT.REF_PR_NO,1,INSTRB(PODT.REF_PR_NO,'-',1,1)-1) AS POR_NO
+                         ,SUBSTRB(PODT.REF_PR_NO,INSTRB(PODT.REF_PR_NO,'-',1,1)+1,5) AS POR_LNNO
+                         ,''     AS REMARK
+                         ,TO_CHAR(SYSDATE,'YYYYMMDD') AS IF_DATE
+                         ,'N'    AS IF_FLAG
+                    FROM ICOMIVDT IVDT, ICOMIVHD IVHD, ICOMPODT PODT
+                   WHERE IVDT.BUYER = '$G_RS.BUYER$'
+                     AND IVDT.INV_NO = '$G_RS.INV_NO$'
+                     AND IVDT.INV_SEQ= '$G_RS.INV_SEQ$'
+                     AND IVDT.BUYER = IVHD.BUYER
+                     AND IVDT.INV_NO= IVHD.INV_NO
+                     AND IVDT.BUYER = PODT.BUYER
+                     AND IVDT.PO_NO = PODT.PO_NO
+                     AND IVDT.PO_SEQ= PODT.PO_SEQ
+                   UNION ALL
+                   SELECT NVL(PODT.PLANT,'SDSM')  AS PLANT
+                         ,IVDT.LEGACY_IV_SERIAL   AS DLVY_NO
+                         ,PODT.LEGACY_PO_NO       AS PO_NO
+                         ,PODT.LEGACY_PO_SEQ      AS PO_LNNO
+                         ,IVDT.STATUS             AS STATUS
+                         ,IVDT.INV_DATE           AS DLVY_DUE_DATE
+                         ,PODT.UNIT_PRICE         AS PRCH_UNT_PR
+                         ,IVDT.INV_QTY            AS DLVY_DUE_QTY
+                         ,PODT.UNIT_PRICE*IVDT.INV_QTY  AS DLVY_AMT
+                         ,SUBSTRB(PODT.REF_PR_NO,1,INSTRB(PODT.REF_PR_NO,'-',1,1)-1) AS POR_NO
+                         ,SUBSTRB(PODT.REF_PR_NO,INSTRB(PODT.REF_PR_NO,'-',1,1)+1,5) AS POR_LNNO
+                         ,''     AS REMARK
+                         ,TO_CHAR(SYSDATE,'YYYYMMDD') AS IF_DATE
+                         ,'N'    AS IF_FLAG
+                    FROM WMSIVDT IVDT, ICOMPODT PODT
+                   WHERE IVDT.BUYER = '$G_RS.BUYER$'
+                     AND IVDT.INV_NO = '$G_RS.INV_NO$'
+                     AND IVDT.INV_SEQ= '$G_RS.INV_SEQ$'
+                     AND IVDT.BUYER = PODT.BUYER
+                     AND IVDT.PO_NO = PODT.PO_NO
+                     AND IVDT.PO_SEQ= PODT.PO_SEQ
+                   ORDER BY DLVY_NO, PO_NO, PO_LNNO
+                ]]>
+                        <C_SQL TYPE="UPDATE" P_SQL_RESULT="TRUE">
+                        <![CDATA[
+                            DECLARE
+                            BEGIN
+                            IF '$G_RS.PROCESS_TYPE$' = '0' THEN
+                                UPDATE ICOMIVDT
+                                SET    SND_CHK = 'Y'
+                                     , SND_DATM= SYSDATE
+                                WHERE  BUYER  = '$G_RS.BUYER$'
+                                AND    INV_NO = '$G_RS.INV_NO$'
+                                AND    INV_SEQ= '$G_RS.INV_SEQ$';
+                            ELSE
+                                UPDATE WMSIVDT
+                                SET    SND_CHK = 'Y'
+                                     , SND_DATM= SYSDATE
+                                WHERE  BUYER  = '$G_RS.BUYER$'
+                                AND    INV_NO = '$G_RS.INV_NO$'
+                                AND    INV_SEQ= '$G_RS.INV_SEQ$';
+                            END IF; 
+                            END;
+                        ]]>
+                        </C_SQL>
+                        <C_SQL TYPE="UPDATE" P_SQL_RESULT="FALSE">
+                        <![CDATA[
+                            DECLARE
+                            BEGIN
+                            IF '$G_RS.PROCESS_TYPE$' = '0' THEN
+                                UPDATE ICOMIVDT
+                                SET    SND_CHK = 'E'
+                                     , SND_DATM= SYSDATE
+                                WHERE  BUYER  = '$G_RS.BUYER$'
+                                AND    INV_NO = '$G_RS.INV_NO$'
+                                AND    INV_SEQ= '$G_RS.INV_SEQ$';
+                            ELSE
+                                UPDATE WMSIVDT
+                                SET    SND_CHK = 'E'
+                                     , SND_DATM= SYSDATE
+                                WHERE  BUYER  = '$G_RS.BUYER$'
+                                AND    INV_NO = '$G_RS.INV_NO$'
+                                AND    INV_SEQ= '$G_RS.INV_SEQ$';
+                            END IF;
+                            END;
+                        ]]>
+                        </C_SQL>
+                </P_SQL>
+        </SQL_DOC>
+        <RETRY_CODE>
+                <CODE>03113</CODE>
+                <CODE>03114</CODE>
+                <CODE>02154</CODE>
+                <CODE>02541</CODE>
+                <CODE>04068</CODE>
+        </RETRY_CODE>
+</SQL>

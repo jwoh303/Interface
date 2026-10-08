@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap      
+    PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN"
+    "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="GsepGrDown">
+
+    <select id="GsepGrDown_DBDispatcher"  resultClass="java.lang.Integer">
+		 SELECT  count(*)
+		   FROM ICOMTRXL
+		  WHERE DOC_NAME = 'GR_DOWN'
+		    AND TARGET = 'KRGS-E0001'
+		    AND KEY_9  =  'N'
+	</select>
+	<select id="GsepGrDown_DBDispatcherList"  resultClass="java.util.HashMap">
+		<![CDATA[
+		 SELECT  *
+		   FROM ICOMTRXL
+		  WHERE DOC_NAME = 'GR_DOWN'
+		    AND TARGET = 'KRGS-E0001'
+		    AND KEY_9  =  'N'
+		    AND ROWNUM <= 200
+		]]>
+	</select>
+		
+	<update id="GsepGrDown_TrxlUpdate" parameterClass="java.util.HashMap">
+		 UPDATE ICOMTRXL
+	       SET key_9 = 'Y',
+	           key_10= to_char(sysdate,'YYYYMMDD HH24MISS')
+	     WHERE doc_name = #DOC_NAME#
+	       AND target = #TARGET#
+	       AND key_1 = #KEY_1#
+	       AND key_2 = #KEY_2#
+	       AND nvl(key_9,' ')  = 'N'
+  </update>
+	<select id="GsepGrDown_GRDT_Select" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+         SELECT NVL(A.LEGACY_PO_NO,' ') AS LEGACY_PO_NO,
+                NVL(TO_CHAR(A.LEGACY_PO_SEQ,'FM0000'),' ') AS LEGACY_PO_SEQ,
+                A.BUYER_ITEM_NO,
+                NVL(B.ITEM_QTY,0)  AS GR_QTY,
+                NVL(B.GR_DATE,' ') AS GR_DATE,
+                NVL(DECODE(A.PROCESS_TYPE,'0',(SELECT MAX(COD1.TEXT1) FROM ICOMIVDT IVDT, ICOMIVHD IVHD, ICOMCOD1 COD1
+                                           WHERE IVDT.BUYER = B.BUYER
+                                           AND IVDT.PO_NO = B.PO_NO
+                                           AND IVDT.PO_SEQ= B.PO_SEQ
+                                           AND IVDT.INV_NO= B.INV_NO
+                                           AND IVDT.INV_SEQ=B.INV_SEQ
+                                           AND IVDT.BUYER = IVHD.BUYER
+                                           AND IVDT.INV_NO= IVHD.INV_NO
+                                           AND IVHD.PARCEL_COM_CODE = COD1.CODE
+                                           AND COD1.TYPE = 'C019'),
+                                           (SELECT MAX(COD1.TEXT1)  FROM  WMSIVDT IVDT, ICOMCOD1 COD1
+                                           WHERE IVDT.BUYER = B.BUYER
+                                           AND IVDT.PO_NO = B.PO_NO
+                                           AND IVDT.PO_SEQ= B.PO_SEQ
+                                           AND IVDT.INV_NO= B.INV_NO
+                                           AND IVDT.INV_SEQ=B.INV_SEQ
+                                           AND IVDT.DELIVERY_COMPANY = COD1.CODE
+                                           AND COD1.TYPE = 'C019')),'자체배송')  AS DELIVERY_COMPANY,
+                NVL(DECODE(A.PROCESS_TYPE,'0',(SELECT MAX(IVHD.PARCEL_INV_NO) FROM ICOMIVDT IVDT, ICOMIVHD IVHD
+                                           WHERE IVDT.BUYER = B.BUYER
+                                           AND IVDT.PO_NO = B.PO_NO 
+                                           AND IVDT.PO_SEQ= B.PO_SEQ
+                                           AND IVDT.INV_NO= B.INV_NO
+                                           AND IVDT.INV_SEQ=B.INV_SEQ
+                                           AND IVDT.BUYER = IVHD.BUYER
+                                           AND IVDT.INV_NO= IVHD.INV_NO),
+                                           (SELECT MAX(IVDT.DELIVERY_NO)  FROM  WMSIVDT IVDT
+                                           WHERE IVDT.BUYER = B.BUYER
+                                           AND IVDT.PO_NO = B.PO_NO
+                                           AND IVDT.PO_SEQ= B.PO_SEQ
+                                           AND IVDT.INV_NO= B.INV_NO
+                                           AND IVDT.INV_SEQ=B.INV_SEQ)),' ') AS DELIVERY_NO,
+                TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS') AS CUR_DATATIME,
+                B.GR_NO
+         FROM ICOMPODT A, ICOMGRDT B
+         WHERE B.BUYER  = #TARGET#
+         AND B.GR_NO  = #KEY_1#
+         AND B.BUYER  = A.BUYER
+         AND B.PO_NO  = A.PO_NO
+         AND B.PO_SEQ = A.PO_SEQ
+         AND A.STATUS != 'D'
+         AND B.STATUS != 'D'
+	</select>
+	
+    <update id="Gsep_GRDT_Update" parameterClass="java.util.HashMap">
+		 UPDATE icomgrdt
+         SET  send_date = to_char(sysdate,'YYYYMMDD'),
+              send_time = to_char(sysdate,'HH24MISS')
+         WHERE  buyer = 'KRGS-E0001'
+         and  gr_no  = nvl(rtrim(#GR_NO#),' ')
+         and  status != 'D'
+  </update>
+  <delete id="GsepGrDown_TRXL_Dequeue" parameterClass="java.util.HashMap">
+		      UPDATE ICOMTRXL
+		      SET KEY_9 = 'Y'
+		        , KEY_10 = TO_CHAR(SYSDATE,'YYYY/MM/DD HH24:MI:SS')
+              WHERE DOC_NAME = #DOC_NAME#
+                AND TARGET   = #TARGET#
+                AND KEY_1    = #KEY_1#
+                AND KEY_2    = #KEY_2#
+                AND KEY_3    = #KEY_3#
+                AND KEY_4    = #KEY_4#
+                AND KEY_5    = #KEY_5#
+                AND KEY_6    = #KEY_6#
+                AND KEY_7    = #KEY_7#
+                AND KEY_8    = #KEY_8#
+                AND KEY_9    = #KEY_9#
+                AND KEY_10   = #KEY_10#
+  </delete>	
+ </sqlMap>

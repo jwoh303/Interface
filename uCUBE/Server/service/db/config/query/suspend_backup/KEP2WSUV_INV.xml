@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="EUC-KR"?>
+<SQL>
+    <!-- *********************************************************************** -->
+    <SQL_DOC INTERFACE_ID="KEP2WSUV_INV">
+        <V_SQL NAME='$G_RS' ISLOOP="TRUE" COMMIT_BY_RESULT="FALSE"> 
+        <![CDATA[
+        SELECT
+               A.BUYER
+             , A.INV_NO
+             , '0' AS PROCESS_TYPE
+          FROM ICOMIVHD A
+         WHERE A.BUYER   = 'KRWOOS0062'
+           AND A.SND_CHK = 'N'
+
+        UNION
+
+        SELECT DISTINCT
+               B.BUYER
+             , B.INV_NO
+             , '2' AS PROCESS_TYPE
+          FROM WMSIVDT B
+         WHERE B.BUYER   = 'KRWOOS0062'
+           AND B.SND_CHK = 'N'
+        ]]>
+        </V_SQL> 
+        <P_SQL SEQ="1" TYPE="SELECT" POST_SQL="TRUE">
+        <![CDATA[
+            SELECT 
+                   PODT.PLANT
+                 , IVDT.INV_NO
+                 , IVDT.INV_SEQ
+                 , IVDT.STATUS
+                 , PODT.PO_NO
+                 , PODT.PO_SEQ
+                 , IVDT.INV_QTY
+                 , IVHD.INV_DATE
+              FROM ICOMIVDT IVDT
+                   INNER JOIN ICOMPODT PODT ON (1 = 1
+                     AND PODT.BUYER  = IVDT.BUYER
+                     AND PODT.PO_NO  = IVDT.PO_NO
+                     AND PODT.PO_SEQ = IVDT.PO_SEQ
+                     AND PODT.PROCESS_TYPE = '0'
+                   )
+                   INNER JOIN ICOMIVHD IVHD ON (1 = 1
+                     AND IVHD.BUYER  = IVDT.BUYER
+                     AND IVHD.INV_NO = IVDT.INV_NO
+                     AND IVHD.INV_TYPE = '0'
+                   )
+             WHERE 1 = 1
+               AND IVDT.BUYER  = '$G_RS.BUYER$'
+               AND IVDT.INV_NO = '$G_RS.INV_NO$'
+            UNION
+            SELECT 
+                   PODT.PLANT
+                 , IVDT.INV_NO
+                 , IVDT.INV_SEQ
+                 , IVDT.STATUS
+                 , PODT.PO_NO
+                 , PODT.PO_SEQ
+                 , IVDT.INV_QTY
+                 , IVDT.INV_DATE
+              FROM WMSIVDT IVDT
+                   INNER JOIN ICOMPODT PODT ON (1 = 1
+                     AND PODT.BUYER  = IVDT.BUYER
+                     AND PODT.PO_NO  = IVDT.PO_NO
+                     AND PODT.PO_SEQ = IVDT.PO_SEQ
+                     AND PODT.PROCESS_TYPE = '2'
+                   )
+             WHERE 1 = 1
+               AND IVDT.BUYER  = '$G_RS.BUYER$'
+               AND IVDT.INV_NO = '$G_RS.INV_NO$'
+        ]]>
+
+            <C_SQL TYPE="UPDATE" P_SQL_RESULT="TRUE">
+            <![CDATA[
+            BEGIN 
+
+              IF '$G_RS.PROCESS_TYPE$' = '0' THEN
+                UPDATE ICOMIVHD IVHD SET 
+                       IVHD.SND_CHK  = 'Y'
+                     , IVHD.SND_DATM = SYSDATE
+                 WHERE IVHD.BUYER  = '$G_RS.BUYER$'
+                   AND IVHD.INV_NO = '$G_RS.INV_NO$'
+                ;
+              ELSE
+                UPDATE WMSIVDT IVDT SET 
+                       IVDT.SND_CHK  = 'Y'
+                     , IVDT.SND_DATM = SYSDATE
+                 WHERE IVDT.BUYER  = '$G_RS.BUYER$'
+                   AND IVDT.INV_NO = '$G_RS.INV_NO$'
+                ;
+              END IF;
+
+            END;
+            ]]>
+            </C_SQL>
+            <C_SQL TYPE="UPDATE" P_SQL_RESULT="FALSE">
+            <![CDATA[
+            BEGIN 
+
+              IF '$G_RS.PROCESS_TYPE$' = '0' THEN
+                UPDATE ICOMIVHD IVHD SET 
+                       IVHD.SND_CHK  = 'E'
+                     , IVHD.SND_DATM = SYSDATE
+                 WHERE IVHD.BUYER  = '$G_RS.BUYER$'
+                   AND IVHD.INV_NO = '$G_RS.INV_NO$'
+                ;
+              ELSE
+                UPDATE WMSIVDT IVDT SET 
+                       IVDT.SND_CHK  = 'E'
+                     , IVDT.SND_DATM = SYSDATE
+                 WHERE IVDT.BUYER  = '$G_RS.BUYER$'
+                   AND IVDT.INV_NO = '$G_RS.INV_NO$'
+                ;
+              END IF;
+
+            END;
+
+            ]]>
+
+            </C_SQL>
+        </P_SQL>
+    </SQL_DOC>
+    <RETRY_CODE>
+        <CODE>03113</CODE>
+        <CODE>03114</CODE>
+        <CODE>02154</CODE>
+        <CODE>02541</CODE>
+        <CODE>04068</CODE>
+    </RETRY_CODE>
+</SQL>

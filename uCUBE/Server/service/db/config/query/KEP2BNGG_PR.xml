@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="EUC-KR"?>
+<SQL>
+  <!-- *********************************************************************** -->
+  <SQL_DOC INTERFACE_ID="KEP2BNGG_PR">
+
+      <V_SQL NAME='$G_RS' ISLOOP="TRUE" COMMIT_BY_RESULT="FALSE">
+      <![CDATA[
+                  SELECT USER_ID, BUYER
+                    FROM ICOMCART
+                   WHERE BUYER IN (SELECT DISTINCT(BUYER)
+                                     FROM IF_ADMIN
+                                    WHERE BUYER_ID = 'BING'
+                                      AND OK_FLAG = 'Y')
+                     AND USE_FLAG = 'T'
+                     AND ROWNUM = 1
+                GROUP BY USER_ID, BUYER
+      ]]>
+      </V_SQL>
+      <P_SQL SEQ="1" TYPE="SELECT" POST_SQL="TRUE">
+      <![CDATA[
+       SELECT  '000' AS HOUSE_CODE
+            , '1000' AS COMPANY_CODE
+            , 'PR' || TO_CHAR(SYSDATE,'YYYYMMDDHHMISS') AS PR_NUMBER
+            , LPAD(ROWNUM,'3','0') AS PR_SEQ
+            , CART.BUYER_ITEM_NO AS MATERIAL_NUMBER
+            , BYIT.DESCRIPTION_LOC AS DESCRIPTION_LOC
+            , DECODE(CART.CART_QTY,'0','1',NVL(CART.CART_QTY,1)) AS PR_QTY
+            , CQDT.UNIT_MEASURE AS UNIT_MEASURE
+            , CQDT.CUR AS CUR
+            , DECODE(BYIT.FIXED_PRICE_FLAG,'N',NVL(CART.UNIT_PRICE,0),NVL(CQDT.TARGET_PRICE,0)) AS UNIT_PRICE
+            , DECODE(BYIT.FIXED_PRICE_FLAG,'N',NVL(CART.UNIT_PRICE,0),NVL(CQDT.TARGET_PRICE,0))*DECODE(CART.CART_QTY,'0','1',NVL(CART.CART_QTY,1)) AS PR_AMT
+            , ' ' AS RD_DATE
+            , CART.REMARK AS REMARK
+            , CASE
+                WHEN COUNT(*) OVER (PARTITION BY CART.USER_ID) > 1
+                  THEN MAX(BYIT.DESCRIPTION_LOC) OVER (PARTITION BY CART.USER_ID) || ' . ' || TO_NUMBER( (COUNT(*) OVER (PARTITION BY CART.USER_ID) )-1 ) || '.'
+                ELSE MAX(BYIT.DESCRIPTION_LOC) OVER (PARTITION BY CART.USER_ID)
+              END AS SUBJECT
+            , 'N' AS DEL_FLAG
+            , (SELECT T.LEGACY_USER_ID FROM ICOMLUSR T WHERE T.USER_ID = CART.USER_ID) AS PR_USER_ID
+            , (SELECT B.USER_NAME_LOC
+                FROM ICOMLUSR B
+               WHERE B.USER_ID = CART.USER_ID) AS PR_USER_NAME
+            , 'KP' AS CREATE_TYPE
+            , TO_CHAR(SYSDATE, 'YYYYMMDD') AS ADD_DATE
+            , TO_CHAR(SYSDATE, 'HH24MISS') AS ADD_TIME
+            , (SELECT T.LEGACY_USER_ID FROM ICOMLUSR T WHERE T.USER_ID = CART.USER_ID) AS ADD_USER_ID
+            , '001' AS PR_TYPE
+            , 'T' AS SIGN_STATUS
+            , 'T' AS PR_STATUS
+            , SUM(DECODE(BYIT.FIXED_PRICE_FLAG,'N',NVL(CART.UNIT_PRICE,0),NVL(CQDT.TARGET_PRICE,0))*DECODE(CART.CART_QTY,'0','1',NVL(CART.CART_QTY,1))) OVER (PARTITION BY CART.USER_ID) AS PR_TOT_AMT
+        FROM ICOMCART CART, ICOMBYIT BYIT, ICOMCQDT CQDT
+        WHERE 1=1
+          AND CART.BUYER_ITEM_NO      = BYIT.BUYER_ITEM_NO
+          AND CART.BYIT_COMORG_CODE   = BYIT.BUYER
+
+          AND BYIT.BUYER              = CQDT.BUYER
+
+          AND CART.BUYER_ITEM_NO      = CQDT.BUYER_ITEM_NO
+          AND CART.CONTRACT_NO        = CQDT.CONTRACT_NO
+          AND CART.CONTRACT_SEQ       = CQDT.CONTRACT_SEQ
+          AND CART.BUYER              = '$G_RS.BUYER$'
+          AND CART.USER_ID            = '$G_RS.USER_ID$'
+          AND CART.USE_FLAG           = 'T'
+          ORDER BY PR_SEQ
+      ]]>
+          <C_SQL TYPE="UPDATE" P_SQL_RESULT="TRUE">
+          <![CDATA[
+                        DELETE FROM ICOMCART
+                     WHERE BUYER = '$G_RS.BUYER$'
+                       AND USER_ID = '$G_RS.USER_ID$'
+                       AND USE_FLAG = 'T'
+          ]]>
+          </C_SQL>
+          <C_SQL TYPE="UPDATE" P_SQL_RESULT="FALSE">
+          <![CDATA[
+                        UPDATE ICOMCART
+                           SET USE_FLAG = 'C'
+                        WHERE BUYER = '$G_RS.BUYER$'
+                          AND USER_ID = '$G_RS.USER_ID$'
+                          AND USE_FLAG = 'T'
+          ]]>
+          </C_SQL>
+      </P_SQL>
+  </SQL_DOC>
+  <RETRY_CODE>
+      <CODE>03113</CODE>
+      <CODE>03114</CODE>
+      <CODE>02154</CODE>
+      <CODE>02541</CODE>
+      <CODE>04068</CODE>
+  </RETRY_CODE>
+</SQL>

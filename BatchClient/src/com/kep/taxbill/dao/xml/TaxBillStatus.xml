@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap      
+    PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN"
+    "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="TaxBillStatus">
+
+	<select id="selectSearchCondition" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+       SELECT
+         MESSAGEID, 			SIGNAL, 			REQUESTTIME,
+         SENDCOMREGNO, 		AUTHTOKEN, 		SERVICECODE,
+         SEARCHCOMREGNO,  REPOTYPECODE
+      FROM (
+	      SELECT
+	          'BiZoNSvCeTaxBillStatusAR'            AS MESSAGEID
+	         ,'DTI_STATUS_LIST'                     AS SIGNAL
+	         , TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')  AS REQUESTTIME
+	         , A.SUP_COM_REGNO                      AS SENDCOMREGNO
+	         , MAX(NVL(C.AUTHTOKEN,'MUNmdHNMeWlwWGRyb0doeHZOdHIvb2JzTjBka1dVMUNxNUYxWlpTS1Jjdz0K')) AS AUTHTOKEN
+	         , 'DTI'                                AS SERVICECODE
+	         , ''                                   AS SEARCHCOMREGNO
+	         , MAX(A.SUPBUY_TYPE)                   AS REPOTYPECODE
+	      FROM XXSB_DTI_MAIN A, XXSB_DTI_STATUS B, XXSB_DTI_SM_USER C
+	     WHERE A.CONVERSATION_ID = B.CONVERSATION_ID
+	     AND A.SUPBUY_TYPE = 'AR'
+	       AND A.CREATED_BY = C.FND_USER(+)
+	       AND A.SUP_COM_REGNO = C.FND_REGNO(+)
+	       AND B.DTI_STATUS IN ('I','C','V','S','A','O','E') 
+	       AND B.NTS_SEND_STATUS IN ('9','3','2','1','0')
+	       AND A.CREATION_DATE BETWEEN SYSDATE-20 AND SYSDATE
+	     GROUP BY A.SUPBUY_TYPE, A.SUP_COM_REGNO
+	     UNION ALL
+	     SELECT
+	          'BiZoNSvCeTaxBillStatusAP'            AS MESSAGEID
+	         ,'DTI_STATUS_LIST'                     AS SIGNAL
+	         , TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')  AS REQUESTTIME
+	         , A.BYR_COM_REGNO                      AS SENDCOMREGNO
+	         , MAX(NVL(C.AUTHTOKEN,'MUNmdHNMeWlwWGRyb0doeHZOdHIvb2JzTjBka1dVMUNxNUYxWlpTS1Jjdz0K')) AS AUTHTOKEN
+	         , 'DTI'                                AS SERVICECODE
+	         , ''                                   AS SEARCHCOMREGNO
+	         , MAX(A.SUPBUY_TYPE)                   AS REPOTYPECODE
+	      FROM XXSB_DTI_MAIN A, XXSB_DTI_STATUS B, XXSB_DTI_SM_USER C
+	     WHERE A.CONVERSATION_ID = B.CONVERSATION_ID
+	       AND A.SUPBUY_TYPE = 'AP'
+	       AND A.CREATED_BY = C.FND_USER(+)
+	       AND A.BYR_COM_REGNO = C.FND_REGNO(+)
+	       AND B.DTI_STATUS IN ('I','C','V','S','A','O','E') 
+	       AND B.NTS_SEND_STATUS IN ('9','3','2','1','0')
+	       AND A.CREATION_DATE BETWEEN SYSDATE-20 AND SYSDATE
+	     GROUP BY A.SUPBUY_TYPE, A.BYR_COM_REGNO
+     )
+	</select>
+	
+	<update id="updateTaxBillStatus" parameterClass="java.util.HashMap">
+	UPDATE XXSB_DTI_STATUS
+	   SET NTS_RESULT_CODE  	= #NTS_RESULT_CODE#
+	     , NTS_SEND_STATUS  	= #NTS_SEND_STATUS#
+	     , NTS_SEND_DATE    	= #NTS_SEND_DATE#
+	     , DTI_STATUS       	= #DTI_STATUS#
+	     , RETURN_CODE      	= DECODE(#DTI_STATUS#,'C','',RETURN_CODE)
+	     , RETURN_DESCRIPTION   = DECODE(#DTI_STATUS#,'C','',RETURN_DESCRIPTION)
+	     , LAST_UPDATED_BY  = 'BATCH'
+	     , LAST_UPDATE_DATE = SYSDATE
+	 WHERE CONVERSATION_ID = #ETC_PCS_NO#
+	</update>
+	
+	<select id="runCheck" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+		SELECT CNT, GUBUN, SEARCHFROMDATE, SEARCHTODATE,
+		       CASE
+		         WHEN GUBUN IN ('1', '2', '3') THEN 'Y'
+		         WHEN GUBUN = '4' AND MOD(CNT,2) = 0 THEN 'Y'
+		         WHEN GUBUN = '5' AND MOD(CNT,2) = 1 THEN 'Y'
+		         WHEN GUBUN = '6' AND MOD(CNT,3) = 1 THEN 'Y'
+		         ELSE 'N'
+		       END AS RUN
+		  FROM (
+				SELECT 
+				       CASE
+				         WHEN TO_CHAR(SYSDATE,'HH24') BETWEEN '07' AND '20' THEN 'Y'
+				         ELSE 'N'
+				       END AS FLAG,
+				       (SELECT COUNT(*)
+								  FROM MRO_JOB_DATE
+								 WHERE PGM_ID = #PGM_ID#
+								   AND JOB_SDATE > TRUNC(SYSDATE)  
+								   AND TO_CHAR(JOB_SDATE,'HH24') = TO_CHAR(SYSDATE,'HH24')
+				       ) AS CNT
+				  FROM DUAL
+		  ) A,
+		  (SELECT '1' AS GUBUN, TO_CHAR(SYSDATE-7 ,'YYYY-MM-DD') AS SEARCHFROMDATE, TO_CHAR(SYSDATE   ,'YYYY-MM-DD') AS SEARCHTODATE FROM DUAL
+		   UNION
+		   SELECT '2' AS GUBUN, TO_CHAR(SYSDATE-14,'YYYY-MM-DD') AS SEARCHFROMDATE, TO_CHAR(SYSDATE-8 ,'YYYY-MM-DD') AS SEARCHTODATE FROM DUAL
+		   UNION
+		   SELECT '3' AS GUBUN, TO_CHAR(SYSDATE-21,'YYYY-MM-DD') AS SEARCHFROMDATE, TO_CHAR(SYSDATE-15,'YYYY-MM-DD') AS SEARCHTODATE FROM DUAL
+		   UNION
+		   SELECT '4' AS GUBUN, TO_CHAR(SYSDATE-28,'YYYY-MM-DD') AS SEARCHFROMDATE, TO_CHAR(SYSDATE-22,'YYYY-MM-DD') AS SEARCHTODATE FROM DUAL
+		   UNION
+		   SELECT '5' AS GUBUN, TO_CHAR(SYSDATE-35,'YYYY-MM-DD') AS SEARCHFROMDATE, TO_CHAR(SYSDATE-29,'YYYY-MM-DD') AS SEARCHTODATE FROM DUAL
+		   UNION
+		   SELECT '6' AS GUBUN, TO_CHAR(SYSDATE-42,'YYYY-MM-DD') AS SEARCHFROMDATE, TO_CHAR(SYSDATE-36,'YYYY-MM-DD') AS SEARCHTODATE FROM DUAL) B
+	</select>
+</sqlMap>

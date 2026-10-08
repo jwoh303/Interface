@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="EUC-KR"?>
+<SQL>
+	<!-- *********************************************************************** -->
+	<SQL_DOC INTERFACE_ID="KEP2SYNG_MSDS">
+		<V_SQL NAME='$G_RS' ISLOOP="TRUE" COMMIT_BY_RESULT="FALSE"> 
+                SELECT target AS BUYER
+                     , KEY_1  AS QUOTATION_NO
+                     , KEY_2  AS QUOTATION_SEQ
+                     , KEY_3  AS REVISION
+                     , KEY_4  AS MSDS_NO
+                FROM  ICOMTRXL
+                WHERE DOC_NAME = 'MSDS'
+                AND   TARGET IN (SELECT TEXT4 FROM ICOMCOD2
+                                 WHERE COMPANY_CODE = 'KRSYSE0001'
+                                 AND  TYPE = 'PLNT')
+                AND   KEY_9 = '3'
+                ORDER BY TARGET,KEY_1,KEY_2,KEY_3
+		</V_SQL> 
+		<P_SQL SEQ="1" TYPE="SELECT" POST_SQL="TRUE">
+		<![CDATA[
+                       SELECT RQDT.PLANT
+                            , RQDT.MSDS_NO     AS ITEM_NO
+                            , SUBSTRB(RQDT.DESCRIPTION,1,30) as DESCRIPTION
+                            , RQDT.MAKER_NAME
+                            , RQDT.ORIGIN_NAME
+                            , RQDT.UNIT_MEASURE
+                            , SUBSTRB(NVL(CASE WHEN RQDT.BTOA_USER_ID='SAMYANGBP' THEN
+                                                    DECODE(LOWER(SUBSTR(BTOA_AGENT_NAME,1,2)),'sy',BTOA_AGENT_NAME,'syc195366')
+                                               WHEN RQDT.BTOA_USER_ID = 'SYC210026' THEN
+                                                    DECODE(LOWER(SUBSTR(BTOA_AGENT_NAME,1,2)),'sy',BTOA_AGENT_NAME,'syc210026')
+                                          ELSE
+                                               (SELECT LEGACY_USER_ID FROM ICOMLUSR
+                                                WHERE USER_ID = RQDT.BTOA_USER_ID)
+                                          END, RQDT.BTOA_USER_ID),1,10)   AS  BTOA_USER_ID
+                            , RQDT.SPECIFICATION
+                            , '' AS MIXTURE_YN
+                            , MSDS.CAS_NO
+                            , '' AS UN_NO
+                            , RQDT.ATOB_DATE
+                            , RQDT.ATOB_TIME
+                            , decode(substr(RQDT.BUYER_ITEM_NO,1,7),'NO_CODE','',
+                                            RQDT.BUYER_ITEM_NO) AS BUYER_ITEM_NO
+                            , BUYER||'/'||QUOTATION_NO||'/'||QUOTATION_SEQ  AS KEP_KEY
+                            , NVL(TRIM(RQDT.PLANT),
+                                  (SELECT MAX(CODE) FROM   ICOMCOD2
+                                   WHERE COMPANY_CODE = 'KRSYSE0001'
+                                   AND   TYPE = 'PLNT'
+                                   AND   TEXT4 = RQDT.BUYER))    AS CENTER_CD
+                       FROM kep.KEPRQDT RQDT, kep.KEPMSDSHD MSDS
+                       WHERE RQDT.BUYER = '$G_RS.BUYER$'
+                       AND QUOTATION_NO = '$G_RS.QUOTATION_NO$'
+                       AND QUOTATION_SEQ= '$G_RS.QUOTATION_SEQ$'
+                       AND REVISION     = '$G_RS.REVISION$'
+                       AND RQDT.MSDS_NO = MSDS.MSDS_NO
+		]]>
+		<C_SQL TYPE="UPDATE" P_SQL_RESULT="TRUE">
+		<![CDATA[
+                    UPDATE ICOMTRXL
+                    SET key_9  = 'Y'
+                      , key_10 = to_char(SYSDATE,'YYYYMMDD HH24MISS')
+                    WHERE doc_name  = 'MSDS'
+                    and target = '$G_RS.BUYER$'
+                    AND key_1  = '$G_RS.QUOTATION_NO$'
+                    AND key_2  = '$G_RS.QUOTATION_SEQ$'
+                    AND key_3  = '$G_RS.REVISION$'
+                    AND KEY_9 = '3'
+		]]>
+		</C_SQL>
+		<C_SQL TYPE="UPDATE" P_SQL_RESULT="FALSE">
+		<![CDATA[
+                    UPDATE ICOMTRXL
+                    SET key_9  = 'E'
+                      , key_10 = to_char(SYSDATE,'YYYYMMDD HH24MISS')
+                    WHERE doc_name  = 'MSDS'
+                    and target = '$G_RS.BUYER$'
+                    AND key_1  = '$G_RS.QUOTATION_NO$'
+                    AND key_2  = '$G_RS.QUOTATION_SEQ$'
+                    AND key_3  = '$G_RS.REVISION$'
+                    AND KEY_9 = '3'
+		]]>
+		</C_SQL>
+		</P_SQL>
+	</SQL_DOC>
+	<RETRY_CODE>
+		<CODE>03113</CODE>
+		<CODE>03114</CODE>
+		<CODE>02154</CODE>
+		<CODE>02541</CODE>
+		<CODE>04068</CODE>
+	</RETRY_CODE>
+</SQL>

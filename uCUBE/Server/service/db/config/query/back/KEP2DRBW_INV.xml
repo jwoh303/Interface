@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="EUC-KR"?>
+<SQL>
+        <!-- *********************************************************************** -->
+        <SQL_DOC INTERFACE_ID="KEP2DRBW_INV">
+                <V_SQL NAME='$G_RS' ISLOOP="TRUE" COMMIT_BY_RESULT="FALSE">
+                      SELECT TARGET, KEY_1, KEY_2
+                        FROM KEP.ICOMTRXL
+                       WHERE DOC_NAME = 'IV_DOWN'
+                         AND TARGET = 'KRDONG0595'
+                         AND TRIM(KEY_10) IS NULL
+                </V_SQL>
+                <P_SQL SEQ="1" TYPE="SELECT" POST_SQL="TRUE">
+                <![CDATA[
+                      SELECT nvl(trim(PODT.PLANT),'100') AS MANDT
+                            ,GRDT.LEGACY_PO_NO AS EBELN
+                            ,GRDT.LEGACY_PO_SEQ AS EBELP
+                            ,GRDT.INV_NO  AS INV_NO
+                            ,GRDT.INV_SEQ  AS INV_SEQ
+                            ,(select count(*) from KEP.icomivdt
+                               where status ^= 'D'
+                                 and buyer = ivdt.buyer
+                                 and po_no = ivdt.po_no
+                                 and po_seq= ivdt.po_seq
+                                 and add_date||add_time < ivdt.add_date||ivdt.add_time) + 1 AS PARTIAL_NO
+                            ,to_char(to_date(IVDT.INVOICE_DATE,'YYYYMMDD'),'YYYY-MM-DD')  AS DEL_DATE
+                            ,GRDT.BUYER_ITEM_NO AS MATNR
+                            ,GRDT.ITEM_QTY      AS MENGE
+                            ,trim(substrb(GRDT.UNIT_MEASURE,1,3))  AS MEINS
+                            ,PODT.UNIT_PRICE    AS NETPR
+                            ,DECODE(PODT.ITEM_QTY,GRDT.ITEM_QTY,'N','Y') AS PARTIAL_DEL
+                            ,GRDT.ITEM_QTY AS DEL_QTY
+                            ,PODT.ITEM_QTY - PODT.IV_QTY AS REMAIN_QTY
+                            ,0 AS GR_QTY
+                            ,'C' AS STATUS
+                       FROM KEP.ICOMGRDT GRDT, KEP.ICOMPODT PODT, KEP.ICOMIVDT IVDT
+                      WHERE GRDT.BUYER = '$G_RS.TARGET$'
+                        AND GRDT.GR_NO = '$G_RS.KEY_1$'
+                        AND GRDT.GR_SEQ= '$G_RS.KEY_2$'
+                        AND GRDT.BUYER = PODT.BUYER
+                        AND GRDT.PO_NO = PODT.PO_NO
+                        AND GRDT.PO_SEQ= PODT.PO_SEQ
+                        AND GRDT.BUYER = IVDT.BUYER
+                        AND GRDT.PO_NO = IVDT.PO_NO
+                        AND GRDT.PO_SEQ= IVDT.PO_SEQ
+                        AND GRDT.INV_NO = IVDT.INV_NO
+                        AND GRDT.INV_SEQ= IVDT.INV_SEQ
+                  UNION ALl
+                      SELECT nvl(trim(PODT.PLANT),'100') AS MANDT
+                            ,GRDT.LEGACY_PO_NO AS EBELN
+                            ,GRDT.LEGACY_PO_SEQ AS EBELP
+                            ,GRDT.INV_NO  AS INV_NO
+                            ,GRDT.INV_SEQ  AS INV_SEQ
+                            ,(select count(*) from KEP.wmsivdt
+                               where status ^= 'D'
+                                 and buyer = ivdt.buyer
+                                 and po_no = ivdt.po_no
+                                 and po_seq= ivdt.po_seq
+                                 and add_date||add_time < ivdt.add_date||ivdt.add_time) + 1 AS PARTIAL_NO
+                            ,to_char(to_date(IVDT.INV_DATE,'YYYYMMDD'),'YYYY-MM-DD')  AS DEL_DATE
+                            ,GRDT.BUYER_ITEM_NO AS MATNR
+                            ,GRDT.ITEM_QTY      AS MENGE
+                            ,trim(substrb(GRDT.UNIT_MEASURE,1,3))  AS MEINS
+                            ,PODT.UNIT_PRICE    AS NETPR
+                            ,DECODE(PODT.ITEM_QTY,GRDT.ITEM_QTY,'N','Y') AS PARTIAL_DEL
+                            ,GRDT.ITEM_QTY AS DEL_QTY
+                            ,PODT.ITEM_QTY - PODT.IV_QTY AS REMAIN_QTY
+                            ,0 AS GR_QTY
+                            ,'C' AS STATUS
+                       FROM KEP.ICOMGRDT GRDT, KEP.ICOMPODT PODT, KEP.WMSIVDT IVDT
+                      WHERE GRDT.BUYER = '$G_RS.TARGET$'
+                        AND GRDT.GR_NO = '$G_RS.KEY_1$'
+                        AND GRDT.GR_SEQ= '$G_RS.KEY_2$'
+                        AND GRDT.BUYER = PODT.BUYER
+                        AND GRDT.PO_NO = PODT.PO_NO
+                        AND GRDT.PO_SEQ= PODT.PO_SEQ
+                        AND GRDT.BUYER = IVDT.BUYER
+                        AND GRDT.PO_NO = IVDT.PO_NO
+                        AND GRDT.PO_SEQ= IVDT.PO_SEQ
+                        AND GRDT.INV_NO = IVDT.INV_NO
+                        AND GRDT.INV_SEQ= IVDT.INV_SEQ
+                      ORDER BY  INV_NO, INV_SEQ
+                ]]>
+                        <C_SQL TYPE="UPDATE" P_SQL_RESULT="TRUE">
+                        <![CDATA[
+                            UPDATE KEP.ICOMTRXL
+                               SET KEY_10 = 'Y'
+                                  ,KEY_9 = TO_CHAR(SYSDATE,'YYYYMMDD HH24MISS')
+                            WHERE DOC_NAME = 'IV_DOWN'
+                              AND TARGET = '$G_RS.TARGET$'
+                              AND KEY_1 = '$G_RS.KEY_1$'
+                              AND KEY_2 = '$G_RS.KEY_2$'
+                              AND TRIM(KEY_10) IS NULL
+                        ]]>
+                        </C_SQL>
+                        <C_SQL TYPE="UPDATE" P_SQL_RESULT="FALSE">
+                        <![CDATA[
+                            UPDATE KEP.ICOMTRXL
+                               SET KEY_10 = 'E'
+                                  ,KEY_9 = TO_CHAR(SYSDATE,'YYYYMMDD HH24MISS')
+                            WHERE DOC_NAME = 'IV_DOWN'
+                              AND TARGET = '$G_RS.TARGET$'
+                              AND KEY_1 = '$G_RS.KEY_1$'
+                              AND KEY_2 = '$G_RS.KEY_2$'
+                              AND TRIM(KEY_10) IS NULL
+                        ]]>
+                        </C_SQL>
+                </P_SQL>
+        </SQL_DOC>
+        <RETRY_CODE>
+                <CODE>03113</CODE>
+                <CODE>03114</CODE>
+                <CODE>02154</CODE>
+                <CODE>02541</CODE>
+                <CODE>04068</CODE>
+        </RETRY_CODE>
+</SQL>

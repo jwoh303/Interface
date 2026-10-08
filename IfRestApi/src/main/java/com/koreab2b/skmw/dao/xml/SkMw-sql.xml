@@ -1,0 +1,239 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap      
+    PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN"
+    "http://ibatis.apache.org/dtd/sql-map-2.dtd">    
+<sqlMap namespace="skMw">		
+	
+	<!-- 품목 회신 -->
+	
+	<select id="selectSkMwItemSend" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+		SELECT BUYER,
+			   BELOW_COMORG_CODE,
+			   STATUS,
+			   BUYER_ITEM_NO,
+		       QUOTATION_NO,
+			   QUOTATION_SEQ,
+			   DATA01 AS MOD_DIV,
+			   DATA02 AS REQ_DIV
+		  FROM EAI.IF_UCUBE_IT_SEND
+		 WHERE BUYER IN ('KRSK--G001','KRSK--G002')
+		   AND PLANT = #if_plant_cd#                   
+		   AND BUYER_ITEM_NO = #item_cd#
+		   AND IF_FLAG = 'T'
+	</select>
+	
+	<select id="selectSkMwItemSendConfirm" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+		SELECT BUYER_ITEM_NO
+		  FROM EAI.IF_UCUBE_IT_SEND
+		 WHERE BUYER IN ('KRSK--G001','KRSK--G002')
+		   AND PLANT = #if_plant_cd#                   
+		   AND BUYER_ITEM_NO = #item_cd#
+		   AND IF_FLAG = 'Y'
+		   AND DATE02 = #req_div#
+	</select>
+	
+	<select id="selectSkMwCqep" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+		SELECT BUYER,
+			   BUYER_ITEM_NO,
+		       QUOTATION_NO,
+			   QUOTATION_SEQ
+		  FROM EAI.IF_UCUBE_IT_SEND
+		 WHERE BUYER IN ('KRSK--G001','KRSK--G002')
+		   AND PLANT = #if_plant_cd#                   
+		   AND BUYER_ITEM_NO = #item_cd#
+		   AND IF_FLAG = 'T'
+	</select>
+	
+	<update id="updateSkMwItemSend"  parameterClass="java.util.Map">
+		UPDATE EAI.IF_UCUBE_IT_SEND
+		   SET DATA03 = #sap_item_cd#,
+		       IF_FLAG = 'Y',
+		       IF_DATE = SYSDATE
+		 WHERE BUYER IN ('KRSK--G001','KRSK--G002')
+		   AND PLANT = #if_plant_cd#                   
+		   AND BUYER_ITEM_NO = #item_cd#
+		   AND IF_FLAG = 'T'
+		   AND DATA02 = #req_div#
+	</update>	
+	
+	<insert id="insertSkMwCod4" parameterClass="java.util.Map">
+		INSERT INTO ICOMCOD4(
+			BUYER, TYPE, CODE1, CODE2, TEXT1,
+			FLAG, ADD_USER_ID, ADD_DATE
+		)
+     	VALUES (
+     		#buyer#,'SKMI', #below_comorg_code#, #sap_item_cd#,
+              'E', 'Y', 'KOREAB2B', TO_CHAR(SYSDATE,'YYYYMMDD')
+        )
+	</insert>	
+	
+	<update id="updateSkMwRqdt"  parameterClass="java.util.Map">
+		UPDATE KEPRQDT
+		   SET BUYER_ITEM_NO = #sap_item_cd#,
+		       REG_ITEM_NO = #sap_item_cd#,
+		       RECV_FLAG = 'CM',
+		       CONFIRM_USER_ID = 'MASTER',
+		       CONFIRM_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD'),
+		       CONFIRM_TIME = TO_CHAR(SYSDATE, 'HH24MISS'),
+		       LOAD_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD'),
+		       LOAD_TIME = TO_CHAR(SYSDATE, 'HH24MISS')
+		 WHERE BUYER = (SELECT TEXT1 
+		                  FROM ICOMCOD2
+		                 WHERE TYPE = 'PLNT' 
+		                   AND COMPANY_CODE IN ('KRSK--G001','KRSK--G002')
+		                   AND CODE = #if_plant_cd#
+		                   AND FLAG = 'Y')
+		   AND BUYER_ITEM_NO = #item_cd#
+		   AND QUOTATION_NO = #quotation_no#
+		   AND QUOTATION_SEQ = #quotation_seq#
+		   AND STATUS != 'D'
+	</update>
+	
+	<update id="updateSkMwByit"  parameterClass="java.util.Map">
+		UPDATE ICOMBYIT
+		   SET BUYER_ITEM_NO = #sap_item_cd#,
+		       PRODUCT_CLOSE_FLAG = 'N',
+		       STATUS = 'C',
+		       CHANGE_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD')
+		 WHERE BUYER = (SELECT COMPANY_CODE 
+		                  FROM ICOMCOD2
+		                 WHERE TYPE = 'PLNT' 
+		                   AND COMPANY_CODE IN ('KRSK--G001','KRSK--G002')
+		                   AND CODE = #if_plant_cd#
+		                   AND FLAG = 'Y')
+		   AND BUYER_ITEM_NO = #item_cd#
+		   AND STATUS != 'D'
+	</update>
+	
+	<update id="updateSkMwCqdt"  parameterClass="java.util.Map">
+		UPDATE ICOMCQDT
+		   SET BUYER_ITEM_NO = #sap_item_cd#,
+		   	   STATUS = 'C',
+		       CHANGE_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD'),
+		       CHANGE_TIME = TO_CHAR(SYSDATE, 'HH24MISS')
+		 WHERE BUYER = (SELECT COMPANY_CODE 
+		                  FROM ICOMCOD2
+		                 WHERE TYPE = 'PLNT' 
+		                   AND COMPANY_CODE IN ('KRSK--G001','KRSK--G002')
+		                   AND CODE = #if_plant_cd#
+		                   AND FLAG = 'Y')
+		   AND BUYER_ITEM_NO = #item_cd#
+		   AND QUOTATION_NO = #quotation_no#
+		   AND QUOTATION_SEQ = #quotation_seq#
+		   AND STATUS != 'D'
+	</update>
+	
+	<update id="updateSkMwQtdt"  parameterClass="java.util.Map">
+		UPDATE KEPQTDT
+		   SET BUYER_ITEM_NO = #sap_item_cd#
+		 WHERE BUYER = (SELECT TEXT1 
+		                  FROM ICOMCOD2
+		                 WHERE TYPE = 'PLNT' 
+		                   AND COMPANY_CODE IN ('KRSK--G001','KRSK--G002')
+		                   AND CODE = #if_plant_cd#
+		                   AND FLAG = 'Y')
+		   AND BUYER_ITEM_NO = #item_cd#
+		   AND QUOTATION_NO = #quotation_no#
+		   AND QUOTATION_SEQ = #quotation_seq#
+		   AND STATUS != 'D'
+	</update>
+	
+	<insert id="insertSkMwCqep" parameterClass="java.util.Map">
+		INSERT INTO ICOMCQEP (
+          BUYER,  CONTRACT_NO,  CONTRACT_SEQ,
+          PRICE_SEQ,  STATUS,  ADD_DATE,
+          ADD_TIME,  CHANGE_DATE,  CHANGE_TIME,
+          ADD_USER_ID,  BUYER_ITEM_NO,  FROM_DATE,
+          TO_DATE,  FROM_QTY,  TO_QTY,
+          UNIT_PRICE,  DETAIL_TERM,  DETAIL_TERM_QTY,
+          TAX_PRICE,  LIST_PRICE,  AGENT,
+          REMARK,  MARGIN_RE,  UNIT_SEQ
+        )
+        SELECT BUYER, CONTRACT_NO, CONTRACT_SEQ,
+               (SELECT TO_CHAR(NVL(MAX(TO_NUMBER(PRICE_SEQ))+1,1),'FM000')
+                  FROM ICOMCQEP
+                 WHERE BUYER=A.BUYER AND CONTRACT_NO=A.CONTRACT_NO AND CONTRACT_SEQ=A.CONTRACT_SEQ ),
+               'C',
+               TO_CHAR(SYSDATE,'YYYYMMDD'), TO_CHAR(SYSDATE,'HH24MMSS'),
+               TO_CHAR(SYSDATE,'YYYYMMDD'), TO_CHAR(SYSDATE,'HH24MMSS'),
+               'KOREAB2B' ADD_USER_ID, BUYER_ITEM_NO,
+               FROM_DATE, TO_DATE,
+               1 FROM_QTY, CONTRACT_QTY,
+               UNIT_PRICE, DETAIL_TERM,
+               DETAIL_TERM_QTY, TAX_PRICE,
+               LIST_PRICE, AGENT,
+               '' REMARK, '' AS MARGIN_RE, 1
+          FROM ICOMCQDT A
+         WHERE A.BUYER = #buyer#
+           AND A.QUOTATION_NO = #quotation_no#
+           AND A.QUOTATION_SEQ = #quotation_seq#
+	</insert>
+	
+	<update id="updateSkMwCqep"  parameterClass="java.util.Map">
+		UPDATE ICOMCQEP
+		   SET BUYER_ITEM_NO = #sap_item_cd#,
+		       CHANGE_DATE = TO_CHAR(SYSDATE,'YYYYMMDD'),
+		       CHANGE_TIME = TO_CHAR(SYSDATE,'HH24MMSS')
+		 WHERE BUYER = #buyer#
+           AND BUYER_ITEM_NO = #item_cd#
+	</update>
+	
+	<update id="updateSkMwItemSendConfirm"  parameterClass="java.util.Map">
+		UPDATE EAI.IF_UCUBE_IT_SEND
+		   SET RESULT_FLAG = #result_flag#,
+		       RESULT_MSG = #result_msg#
+		 WHERE BUYER IN ('KRSK--G001','KRSK--G002')
+		   AND PLANT = #if_plant_cd#                   
+		   AND BUYER_ITEM_NO = #item_cd#
+		   AND IF_FLAG = 'Y'
+	</update>		
+	
+	<!-- 발주 -->
+	<insert id="insertSkMwPo" parameterClass="java.util.Map">
+		INSERT INTO IF_PODT_UC (
+			KEP_SEQ, 			       SITE,	 	 	        BUYER,
+			STATUS,				       REVISION, 	 	        CURRENCY_CODE,
+			LEGACY_PO_NO,  		       LEGACY_PO_SEQ, 	        UNIT_PRICE,                                
+			ITEM_QTY,      		       ITEM_AMT,  		        DESCRIPTION,   
+            SPECIFICATION,             UNIT_MEASURE,            ADD_DATE, 
+            RD_DATE,                   PURCHASER_USER_ID,       HD_REMARK,    		
+            LOAD_DATE,                 LOAD_TIME, 	    	    LEGACY_PR_NO, 
+            BUYER_ITEM_NO,             REQ_USER_ID,             REQ_USER_NAME,           
+            REQ_EMAIL_ADD,             REQ_EMAIL_NM,            REQ_USER_PHONE_NUMBER,     
+            REQ_USER_MOBILE_PHONE,     DELY_TO_LOCATION_TEXT,   DELY_TO_LOCATION,          
+            PLANT,                     CLOSE_NOTE
+		) VALUES (
+			SEQ_IF_PODT_UC.NEXTVAL,		            'KA', 			                'SKMW',
+			DECODE(#po_item.del_yn#,'Y','D','C'),   '1',                            'KRW',
+			#po_item.if_po_no#,  		            #po_item.if_po_lno#,            #po_item.po_uprc#,
+			#po_item.qty#,				            #po_item.po_amt#,	 	        #po_item.item_nm#,		   
+            #po_item.spec#,                         #po_item.unit#,	                #po_header.po_date#,      
+            #po_item.dlvy_date#,                    #po_header.po_chr_emply_num#,   #po_header.rem#,		 
+            TO_CHAR(SYSDATE, 'YYYYMMDD'),           TO_CHAR(SYSDATE, 'HH24MISS'),   #po_item.if_pr_no#,  
+            #po_item.item_cd#,                      #po_item.pr_chr_emply_num#,     #po_item.pr_chr_nm#,            
+            #po_item.pr_chr_email#,                 #po_item.pr_chr_nm#,            #po_item.pr_chr_tel_no#,                
+            #po_item.pr_chr_mobile#,                #po_item.dlvy_loc#,             #po_item.str_loc#,                      
+            #po_item.plt_cd#,                       #po_item.crc_close_cause#
+		)
+	</insert>
+	
+	<!-- 입고 -->
+	<insert id="insertSkMwGr" parameterClass="java.util.Map">
+		INSERT INTO IF_GRDT_UC (
+			KEP_SEQ, 			SITE,	 	 	   BUYER,
+			STATUS,				REVISION, 	 	   CURRENCY_CODE,
+            LEGACY_GR_NO,       LEGACY_GR_SEQ,     LEGACY_PO_NO,  		
+            LEGACY_PO_SEQ, 	    UNIT_PRICE,        GR_QTY,      		
+            GR_AMT,  		    GR_DATE,           LOAD_DATE,		
+            LOAD_TIME,          BUYER_ITEM_NO,     PLANT
+		) VALUES (
+			SEQ_IF_GRDT_UC.NEXTVAL,	                    'KA', 			 		'SKMW',
+			DECODE(#gr_header.del_yn#,'Y','D','C'),     '00',  			  	    'KRW',
+            #gr_item.if_gr_no#,                         #gr_item.if_gr_lno#,    #gr_item.if_po_no#,  		 
+            #gr_item.if_po_lno#,  			            #gr_item.uprc#,         #gr_item.gr_qty#,		 		 
+            #gr_item.gr_amt#,		   		            #gr_header.gr_date#,    TO_CHAR(SYSDATE, 'YYYYMMDD'),
+            TO_CHAR(SYSDATE, 'HH24MISS'),               #gr_item.item_cd#,      #gr_item.plt_cd#
+		)
+	</insert>
+	
+</sqlMap>    

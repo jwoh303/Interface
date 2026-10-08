@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="EUC-KR"?>
+<SQL>
+  <!-- *********************************************************************** -->
+  <SQL_DOC INTERFACE_ID="KEP2KOLN_RT2">
+    <V_SQL NAME='$G_RS' ISLOOP="TRUE" COMMIT_BY_RESULT="FALSE">
+    <![CDATA[
+      SELECT RQDT.BUYER
+           , RQDT.QUOTATION_NO
+           , RQDT.QUOTATION_SEQ
+           , RQDT.REVISION
+       FROM KEPRQDT RQDT
+            INNER JOIN KEPQTDT QTDT ON (1 = 1
+              AND QTDT.BUYER            = RQDT.BUYER
+              AND QTDT.QUOTATION_NO     = RQDT.QUOTATION_NO
+              AND QTDT.QUOTATION_SEQ    = RQDT.QUOTATION_SEQ
+              AND QTDT.REVISION         = RQDT.REVISION
+              AND QTDT.BID_SUCCESS_FLAG = 'Y'
+              AND QTDT.STATUS           = 'C'
+            )
+      WHERE RQDT.BUYER IN (SELECT BUYER FROM IF_ADMIN WHERE BUYER_ID='KOLN')
+        AND RQDT.SND_CHK        = 'Z'
+        AND RQDT.ATOB_SEND_FLAG = 'Y'
+        AND RQDT.STATUS IN ('C','R')
+        AND RQDT.QUOTATION_NO NOT LIKE 'RE%'
+        AND RQDT.RECV_FLAG <> 'GD'
+        AND 0 = (SELECT COUNT(*) FROM KEPRQDT
+                  WHERE BUYER        = RQDT.BUYER
+                    AND QUOTATION_NO = RQDT.QUOTATION_NO
+                    AND REVISION     = RQDT.REVISION
+                    AND STATUS IN ('C','R')
+                    AND RECV_FLAG <> 'GD'
+                    AND ATOB_SEND_FLAG <> 'Y')
+       ORDER BY RQDT.BUYER
+              , RQDT.QUOTATION_NO
+              , RQDT.QUOTATION_SEQ
+              , RQDT.REVISION
+    ]]>
+    </V_SQL>
+    <P_SQL SEQ="1" TYPE="SELECT" POST_SQL="TRUE">
+    <![CDATA[
+      SELECT 
+             NVL(A.QUOTATION_NO       ,' ') AS RFQ_NO,
+             TO_NUMBER (SUBSTR(A.QUOTATION_SEQ,1,INSTR(A.QUOTATION_SEQ,'-')-1)) AS RFQ_LINE_NUM,
+             NVL(C.IRS_NO             ,' ') AS VENDOR_CODE,
+             NVL(C.COM_NAME_LOC       ,' ') AS VENDOR_NAME,
+             NVL(B.ITEM_QTY           , 0 ) AS QUANTITY,
+             NVL(B.ATOB_UNIT_PRICE    , 0 ) AS UNIT_PRICE,
+             NVL(A.ATOB_REMARK        ,' ') AS SEND_REMARK
+        FROM KEPRQDT A
+             INNER JOIN KEPQTDT B ON (1 = 1
+               AND B.BUYER            = A.BUYER
+               AND B.QUOTATION_NO     = A.QUOTATION_NO
+               AND B.QUOTATION_SEQ    = A.QUOTATION_SEQ
+               AND B.REVISION         = A.REVISION
+               AND B.AGENT_REVISION   = 1
+               AND B.ATOB_UNIT_PRICE != 0
+             )
+             INNER JOIN ICOMCMPY C ON (1 = 1
+               AND C.COM_CODE = B.AGENT
+             )
+       WHERE A.BUYER        = '$G_RS.BUYER$'
+         AND A.QUOTATION_NO = '$G_RS.QUOTATION_NO$'
+         AND A.QUOTATION_SEQ= '$G_RS.QUOTATION_SEQ$'
+         AND A.REVISION     = '$G_RS.REVISION$'
+    ]]>
+      <C_SQL TYPE="UPDATE" P_SQL_RESULT="TRUE">
+      <![CDATA[
+        UPDATE KEPRQDT
+           SET SND_CHK  = 'Y'
+             , SND_DATM = SYSDATE
+         WHERE BUYER         = '$G_RS.BUYER$'
+           AND QUOTATION_NO  = '$G_RS.QUOTATION_NO$'
+           AND QUOTATION_SEQ = '$G_RS.QUOTATION_SEQ$'
+           AND REVISION      = '$G_RS.REVISION$'
+      ]]>
+      </C_SQL>
+      <C_SQL TYPE="UPDATE" P_SQL_RESULT="FALSE">
+      <![CDATA[
+        UPDATE KEPRQDT
+           SET SND_CHK  = 'A'
+             , SND_DATM = SYSDATE
+         WHERE BUYER         = '$G_RS.BUYER$'
+           AND QUOTATION_NO  = '$G_RS.QUOTATION_NO$'
+           AND QUOTATION_SEQ = '$G_RS.QUOTATION_SEQ$'
+           AND REVISION      = '$G_RS.REVISION$'
+      ]]>
+      </C_SQL>
+    </P_SQL>
+  </SQL_DOC>
+  <RETRY_CODE>
+    <CODE>03113</CODE>
+    <CODE>03114</CODE>
+    <CODE>02154</CODE>
+    <CODE>02541</CODE>
+    <CODE>04068</CODE>
+  </RETRY_CODE>
+</SQL>

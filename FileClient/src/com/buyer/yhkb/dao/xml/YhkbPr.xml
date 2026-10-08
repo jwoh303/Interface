@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap      
+    PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN"
+    "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="YhkbPr">
+
+    <select id="SelectIcomcqdt" parameterClass="com.kep.common.vo.PrdtVo" resultClass="java.util.HashMap">
+		 SELECT     UNIT_PRICE
+                  , CONTRACT_NO
+                  , CONTRACT_SEQ
+                  , AGENT
+             FROM  icomcqdt
+             WHERE buyer = 'KRYUHAG001'
+             and   below_comorg_code = #BUYER#
+             and   buyer_item_no = #BUYER_ITEM_NO#
+             and   status != 'D'
+	</select>
+	<select id="selectYhkbPRIfCheck" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+		SELECT 
+		     TO_CHAR(COUNT(*)) AS TOT_CNT,
+             TO_CHAR(NVL(SUM(ITEM_AMT),0)) AS TOT_AMT,
+             TO_CHAR(COUNT(DECODE(IF_FLAG,'E','X',NULL))) AS ERR_CNT,
+             TO_CHAR(COUNT(DECODE(STATUS, 'D','D',NULL))) AS DEL_CNT
+		  FROM IF_PRDT
+		 WHERE BUYER = #BUYER#
+		   AND LEGACY_PR_NO  = #LEGACY_PR_NO#
+		   AND REVISION = #REVISION#
+		  
+	</select>
+	
+	  <update id="mergeYhkbIfProgress" parameterClass="java.util.HashMap">
+  	MERGE INTO IF_PROGRESS A
+  	USING (
+  	  SELECT NVL(TRIM(#BUYER#), ' ') AS BUYER,
+  	         #GUBUN# AS GUBUN,
+  	         NVL(TRIM(#LEGACY_NO#), ' ') AS LEGACY_NO,
+  	         NVL(TRIM(#REVISION#), ' ') AS REVISION
+  	    FROM DUAL
+  	) B ON (1 = 1
+  	  AND A.BUYER = B.BUYER
+  	  AND A.GUBUN = B.GUBUN
+  	  AND A.LEGACY_NO = B.LEGACY_NO
+  	  AND A.REVISION = B.REVISION
+  	)
+  	WHEN NOT MATCHED THEN
+			INSERT (
+				BUYER, GUBUN, LEGACY_NO,
+				REVISION, STATUS, IF_FLAG,
+				TOT_CNT, TOT_AMT, ERR_CNT,
+				ERR_MSG, REMARK, CHANGE_DATE,
+				CHANGE_TIME, ADD_DATE 
+			) VALUES (
+				NVL(TRIM(#BUYER#), ' '),      #GUBUN#,                      NVL(TRIM(#LEGACY_NO#), ' '),
+				NVL(TRIM(#REVISION#), ' '),   NVL(TRIM(#STATUS#), ' '),     NVL(#IF_FLAG#, ' '),
+				NVL(#TOT_CNT#, 0),            NVL(#TOT_AMT#, 0),            NVL(#ERR_CNT#, 0),
+				NVL(TRIM(#ERR_MSG#), ' '),    NVL(TRIM(#REMARK#), ' '),     TO_CHAR(SYSDATE, 'YYYYMMDD'),
+				TO_CHAR(SYSDATE, 'HH24MISS'), TO_CHAR(SYSDATE, 'YYYYMMDD')
+			)
+		WHEN MATCHED THEN
+			UPDATE SET 
+			     STATUS        = NVL(TRIM(#STATUS#),' '),
+				   IF_FLAG       = NVL(TRIM(#IF_FLAG#),' '),
+				   TOT_CNT       = NVL(#TOT_CNT#,0),
+				   ERR_CNT       = NVL(#ERR_CNT#,0),
+				   ERR_MSG       = NVL(TRIM(#ERR_MSG#),' '),
+				   REMARK        = NVL(TRIM(#REMARK#),' '),
+				   CHANGE_DATE   = TO_CHAR(SYSDATE, 'YYYYMMDD'),
+				   CHANGE_TIME   = TO_CHAR(SYSDATE, 'HH24MISS')
+  </update>
+  
+  
+    <update id="mergeYhkbIfPrdt" parameterClass="com.kep.common.vo.PrdtVo">
+    	MERGE INTO IF_PRDT A
+    	USING (
+    		SELECT NVL(TRIM(#BUYER#), ' ') AS BUYER,
+    		       NVL(TRIM(#LEGACY_PR_NO#), ' ') AS LEGACY_PR_NO,
+    		       NVL(TRIM(#LEGACY_PR_SEQ#), ' ') AS LEGACY_PR_SEQ,
+    		       NVL(TRIM(#REVISION#), ' ') AS REVISION
+    		  FROM DUAL    
+    	) B ON ( 1=1
+    	  AND A.BUYER = B.BUYER
+    	  AND A.LEGACY_PR_NO = B.LEGACY_PR_NO
+    	  AND A.LEGACY_PR_SEQ = B.LEGACY_PR_SEQ
+    	  AND A.REVISION = B.REVISION
+    	)
+    	WHEN NOT MATCHED THEN
+    	     INSERT (
+    	     	BUYER,
+                LEGACY_PR_NO,
+                LEGACY_PR_SEQ,
+                REVISION,
+                STATUS,
+                BUYER_ITEM_NO,
+                UNIT_PRICE,
+                ITEM_QTY,
+                ITEM_AMT,
+                RD_DATE,
+                REQ_USER_ID,
+                REQ_USER_NAME,
+                NOTE,
+                ADD_DATE,
+                PLANT,
+                CREATE_DATE,
+                CREATE_TIME,
+                IF_DATE,
+                IF_TIME,
+                FILE_NAME,
+                IF_FLAG,
+                ERROR_MSG
+    	     ) VALUES (
+    	        NVL(TRIM(#BUYER#),                         ' '),
+                NVL(TRIM(#LEGACY_PR_NO#),                  ' '),
+                NVL(TRIM(#LEGACY_PR_SEQ#),                 ' '),
+                NVL(TRIM(#REVISION#),                      ' '),
+                NVL(TRIM(#STATUS#),                        ' '),
+                NVL(TRIM(#BUYER_ITEM_NO#),                 ' '),
+                NVL(    #UNIT_PRICE#,                      0),
+                NVL(    #ITEM_QTY#,                        0),
+                NVL(    #ITEM_AMT#,                        0),
+                NVL(TRIM(#RD_DATE#),                       ' '),
+                NVL(TRIM(#REQ_USER_ID#),                   ' '),
+                NVL(TRIM(#REQ_USER_NAME#),                 ' '),
+                NVL(TRIM(#NOTE#),                          ' '),
+                NVL(TRIM(#ADD_DATE#),                      ' '),
+                NVL(TRIM(#PLANT#),                         ' '),
+                NVL(TO_CHAR(SYSDATE, 'YYYYMMDD'),                   ' '),
+                NVL(TO_CHAR(SYSDATE, 'HH24MISS'),                   ' '),
+                NVL(TO_CHAR(SYSDATE, 'YYYYMMDD'),                   ' '),
+                NVL(TO_CHAR(SYSDATE, 'HH24MISS'),                   ' '),
+                NVL(TRIM(#FILE_NAME#),                     ' '),
+                NVL(TRIM(#IF_FLAG#),                       ' '),
+                NVL(TRIM(#ERROR_MSG#),                     ' ')
+    	     )
+    	     WHEN MATCHED THEN
+			UPDATE SET STATUS                   = NVL(TRIM(#STATUS#),                   ' '),
+                        BUYER_ITEM_NO            = NVL(TRIM(#BUYER_ITEM_NO#),            ' '),
+                        UNIT_PRICE               = NVL(    #UNIT_PRICE#,                 0),
+                        ITEM_QTY                 = NVL(    #ITEM_QTY#,                   0),
+                        ITEM_AMT                 = NVL(    #ITEM_AMT#,                   0),
+                        RD_DATE                  = NVL(TRIM(#RD_DATE#),                  ' '),
+                        REQ_USER_ID              = NVL(TRIM(#REQ_USER_ID#),              ' '),
+                        REQ_USER_NAME            = NVL(TRIM(#REQ_USER_NAME#),            ' '),
+                        NOTE                     = NVL(TRIM(#NOTE#),                     ' '),
+                        ADD_DATE                 = NVL(TRIM(#ADD_DATE#),                 ' '),
+                        PLANT                    = NVL(TRIM(#PLANT#),                    ' '),
+                        FILE_NAME                = NVL(TRIM(#FILE_NAME#),                ' '),
+                        IF_FLAG                  = NVL(TRIM(#IF_FLAG#),                  ' '),
+                        IF_DATE                  = NVL(TRIM(#IF_DATE#),                  ' '),
+                        IF_TIME                  = NVL(TRIM(#IF_TIME#),                  ' '),
+                        ERROR_MSG                = NVL(TRIM(#ERROR_MSG#),                ' ')
+    </update>
+   
+</sqlMap>

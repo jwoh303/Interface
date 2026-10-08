@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="EUC-KR"?>
+<SQL>
+	<!-- *********************************************************************** -->
+	<SQL_DOC INTERFACE_ID="KEP2SYGP_PO">
+		<V_SQL NAME='$G_RS' ISLOOP="TRUE" COMMIT_BY_RESULT="FALSE"> 
+                     SELECT TARGET
+                          , KEY_1
+                          , KEY_2
+                          , KEY_3
+                          , KEY_4
+                          , KEY_5
+                     FROM kep.ICOMTRXL
+                     WHERE DOC_NAME = 'ORDER_TR'
+                     AND   TARGET   in (SELECT TEXT4 FROM ICOMCOD2
+                                        WHERE COMPANY_CODE = 'KRSYSE0001'
+                                        AND  TYPE = 'PLNT')
+                     AND   KEY_9   = 'N'
+		</V_SQL> 
+		<P_SQL SEQ="1" TYPE="SELECT" POST_SQL="TRUE">
+		<![CDATA[
+                     SELECT podt.PLANT
+                          , prdt.LEGACY_PO_NO
+                          , prdt.LEGACY_PO_SEQ
+                          , prdt.BUYER_ITEM_NO
+                          , case when podt.status = 'D' then
+                                      '31'
+                            else
+                                 case when podt.do_qty = 0 then
+                                      '1'
+                                      when podt.gr_qty !=0 then
+                                      'K4'
+                                      when podt.do_qty != 0 and podt.iv_qty =0 and podt.di_qty =0 and podt.gr_qty=0 then
+                                      'K1'
+                                      when podt.do_qty != 0 and podt.iv_qty !=0 and podt.di_qty =0 and podt.gr_qty=0 then
+                                      'K2'
+                                      when podt.do_qty != 0 and podt.iv_qty !=0 and podt.di_qty !=0 and podt.gr_qty=0 then
+                                      'K3'
+                                 else
+                                      'XX'
+                                 end
+                             
+                            end       SUC_FLAG
+                          , case when podt.status = 'D' then
+                                      '31:발주삭제'
+                            else
+                                 case when podt.do_qty = 0 then
+                                      '1:성공(발주)'
+                                      when podt.gr_qty !=0 then
+                                      'K4:입고완료'
+                                      when podt.do_qty != 0 and podt.iv_qty =0 and podt.di_qty =0 and podt.gr_qty=0 then
+                                      'K1:수주접수'
+                                      when podt.do_qty != 0 and podt.iv_qty !=0 and podt.di_qty =0 and podt.gr_qty=0 then
+                                      'K2:납품서생성'
+                                      when podt.do_qty != 0 and podt.iv_qty !=0 and podt.di_qty !=0 and podt.gr_qty=0 then
+                                      'K3:배송완료'
+                                 else
+                                      'XX'
+                                 end
+
+                            end       ERR_DESC
+                          , podt.PO_NO
+                          , podt.PO_SEQ
+                          , prdt.iv_column as SEQ
+                          , podt.ITEM_QTY
+                          , podt.UNIT_PRICE 
+                          , nvl(podt.DS_DATE,' ') as DS_DATE
+                     FROM  kep.ICOMPODT podt, ICOMPRDT prdt
+                     WHERE podt.BUYER = '$G_RS.TARGET$'
+                     AND   podt.PO_NO = '$G_RS.KEY_1$'
+                     AND   podt.PO_SEQ= '$G_RS.KEY_2$'
+                     AND   podt.BUYER = prdt.BUYER
+                     AND   podt.PR_NO = prdt.PR_NO
+                     AND   podt.PR_SEQ= prdt.PR_SEQ
+		]]>
+                <C_SQL TYPE="UPDATE" P_SQL_RESULT="TRUE">
+                 <![CDATA[
+                    UPDATE kep.ICOMTRXL
+                    SET    KEY_9  = 'Y'
+                         , KEY_10 = to_char(sysdate,'YYYYMMDDHH24MISS')
+                    WHERE  DOC_NAME = 'ORDER_TR'
+                    AND    TARGET   = '$G_RS.TARGET$'
+                    AND    KEY_1    = '$G_RS.KEY_1$'
+                    AND    KEY_2    = '$G_RS.KEY_2$'
+                    AND    KEY_9    = 'N'
+                 ]]>
+		</C_SQL>
+		</P_SQL>
+	</SQL_DOC>
+	<RETRY_CODE>
+		<CODE>03113</CODE>
+		<CODE>03114</CODE>
+		<CODE>02154</CODE>
+		<CODE>02541</CODE>
+		<CODE>04068</CODE>
+	</RETRY_CODE>
+</SQL>

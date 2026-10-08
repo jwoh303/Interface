@@ -1,0 +1,354 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap      
+    PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN"
+    "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="GRP_MM0710">
+
+	<resultMap class="java.util.HashMap" id="likpMap">
+		<result property="LIFEX" javaType="java.lang.String"/>
+		<result property="VBELN" javaType="java.lang.String"/>
+		<result property="LIFNR" javaType="java.lang.String"/>
+		<result property="LFDAT" javaType="java.lang.String"/>
+		<result property="TYPE"  javaType="java.lang.String"/>
+	</resultMap>
+	
+	<resultMap class="java.util.HashMap" id="lipsMap">
+		<result property="VBELN" javaType="java.lang.String"/>
+		<result property="LIFEX" javaType="java.lang.String"/>
+		<result property="POSNR" javaType="java.lang.String"/>
+		<result property="EBELN" javaType="java.lang.String"/>
+		<result property="EBELP" javaType="java.lang.String"/>
+		<result property="MATNR" javaType="java.lang.String"/>
+		<result property="MENGE" javaType="java.lang.String"/>
+		<result property="MEINS" javaType="java.lang.String"/>
+		<result property="LICHN" javaType="java.lang.String"/>
+		<result property="SPE_HERKL" javaType="java.lang.String"/>
+		<result property="HSDAT" javaType="java.lang.String"/>
+		<result property="STCD2" javaType="java.lang.String"/>
+		<result property="NAME1" javaType="java.lang.String"/>
+		<result property="TEXT1" javaType="java.lang.String"/>
+		<result property="TEXT2" javaType="java.lang.String"/>
+	</resultMap>
+	
+	<resultMap class="java.util.HashMap" id="IvTarget">
+		<result property="BUYER" javaType="java.lang.String"/>
+		<result property="INV_NO" javaType="java.lang.String"/>
+		<result property="PROCESS_TYPE" javaType="java.lang.String"/>
+	</resultMap>
+	
+	<resultMap class="java.util.HashMap" id="InvSendList">
+		<result property="BUYER" javaType="java.lang.String"/>
+		<result property="INV_NO" javaType="java.lang.String"/>
+		<result property="TYPE" javaType="java.lang.String"/>
+	</resultMap>
+	
+	<select id="selectListIvTarget" resultMap="IvTarget">
+        SELECT *
+          FROM (
+            SELECT DISTINCT
+                   A.BUYER,
+                   A.INV_NO,
+                   A.INV_TYPE AS PROCESS_TYPE
+              FROM ICOMIVHD A
+                   INNER JOIN ICOMIVDT B ON (1 = 1
+                     AND B.BUYER  = A.BUYER
+                     AND B.INV_NO = A.INV_NO
+                   )
+                   INNER JOIN ICOMPODT C ON (1 = 1
+                     AND C.BUYER  = B.BUYER
+                     AND C.PO_NO  = B.PO_NO
+                     AND C.PO_SEQ = B.PO_SEQ
+                     AND TRIM(C.LEGACY_PO_NO) IS NOT NULL
+                     AND TRIM(C.LEGACY_PO_NO) NOT LIKE 'P%'
+                     AND NOT EXISTS (
+                           SELECT 'X' FROM ICOMTRXL
+                            WHERE 1 = 1
+                              AND DOC_NAME = 'SAP_X_IV'
+                              AND TARGET   = C.BUYER
+                              AND KEY_1    = C.PO_NO
+                              AND KEY_2    = C.PO_SEQ 
+                         )
+                   )
+             WHERE A.BUYER IN (SELECT DISTINCT TEXT1 FROM ICOMCOD2
+                                WHERE TYPE         = 'C002'
+                                  AND COMPANY_CODE = 'KRKOLOG001'
+                                  AND FLAG         = 'Y')
+               AND A.BUYER != 'KRKOLO0105'
+               AND A.INV_TYPE = '0'
+               AND A.SND_CHK  = 'N'
+
+            UNION ALL
+
+            SELECT DISTINCT
+                   A.BUYER,
+                   A.INV_NO,
+                   '2' AS PROCESS_TYPE
+              FROM WMSIVDT A
+                   INNER JOIN ICOMPODT C ON (1 = 1
+                     AND C.BUYER  = A.BUYER
+                     AND C.PO_NO  = A.PO_NO
+                     AND C.PO_SEQ = A.PO_SEQ
+                     AND TRIM(C.LEGACY_PO_NO) IS NOT NULL
+                     AND TRIM(C.LEGACY_PO_NO) NOT LIKE 'P%'
+                     AND NOT EXISTS (
+                           SELECT 'X' FROM ICOMTRXL
+                            WHERE 1 = 1
+                              AND DOC_NAME = 'SAP_X_IV'
+                              AND TARGET   = C.BUYER
+                              AND KEY_1    = C.PO_NO
+                              AND KEY_2    = C.PO_SEQ 
+                         )
+                   )
+             WHERE A.BUYER IN (SELECT DISTINCT TEXT1 FROM ICOMCOD2
+                                WHERE TYPE         = 'C002'
+                                  AND COMPANY_CODE = 'KRKOLOG001'
+                                  AND FLAG         = 'Y')
+               AND A.BUYER != 'KRKOLO0105'
+               AND A.SND_CHK  = 'N' ) 
+         ORDER BY Z.BUYER, Z.INV_NO
+	</select>
+
+	<select id="selectIVHeader" parameterClass="java.util.HashMap" resultMap="likpMap">
+		SELECT
+			   A.INV_NO AS LIFEX,
+			   A.LEGACY_IV_SERIAL AS VBELN,
+			   '10000191' AS LIFNR,
+			   A.INV_DATE AS LFDAT,
+			   CASE
+			     WHEN A.STATUS != 'D' THEN 'C'
+			     WHEN A.STATUS  = 'D' THEN 'D'
+			   END AS TYPE
+		  FROM ICOMIVHD A
+		 WHERE 1 = 1
+		   AND A.BUYER    = #BUYER#
+		   AND A.INV_NO   = #INV_NO#
+		   AND A.INV_TYPE = '0'
+		   AND A.SND_CHK  = 'N'
+		 ORDER BY A.INV_NO
+	</select>
+	
+	<select id="selectIVDetail" parameterClass="java.util.HashMap" resultMap="lipsMap">
+		SELECT
+			   A.LEGACY_IV_SERIAL AS VBELN,
+		       B.INV_NO        AS LIFEX,
+		       TO_NUMBER(B.INV_SEQ) * 10 AS POSNR,
+		       E.EBELN         AS EBELN,
+		       E.EBELP         AS EBELP,
+		       E.MATNR         AS MATNR,
+		       B.INV_QTY       AS MENGE,
+		       E.MEINS         AS MEINS,
+		       ''              AS LICHN,
+		       'KR'            AS SPE_HERKL,
+		       ''              AS HSDAT,
+		       REPLACE(D.IRS_NO,'-','') AS STCD2,
+		       D.COM_NAME_LOC  AS NAME1,
+		       ''              AS TEXT1,
+		       ''              AS TEXT2
+		  FROM ICOMIVHD A
+		       INNER JOIN ICOMIVDT B ON (1 = 1
+		         AND B.BUYER  = A.BUYER 
+		         AND B.INV_NO = A.INV_NO
+		       )
+		       INNER JOIN ICOMPODT C ON (1 = 1
+		         AND C.BUYER  = B.BUYER
+		         AND C.PO_NO  = B.PO_NO
+		         AND C.PO_SEQ = B.PO_SEQ
+		       )
+		       INNER JOIN ICOMCMPY D ON (1 = 1
+		         AND D.COM_CODE = A.AGENT
+		       )
+		       INNER JOIN IF_KOLON_EKPO E ON (1 = 1
+		         AND TRIM(E.EBELN) = C.LEGACY_PO_NO
+		         AND E.EBELP = C.LEGACY_PO_SEQ 
+		         AND E.KEP_SEQ = (SELECT MAX(KEP_SEQ) FROM IF_KOLON_EKPO
+		                           WHERE TRIM(EBELN) = TRIM(E.EBELN)
+		                             AND EBELP = E.EBELP)
+		       )
+		 WHERE 1 = 1
+		   AND A.BUYER    = #BUYER#
+		   AND A.INV_NO   = #INV_NO#
+		   AND A.INV_TYPE = '0'
+		   AND A.SND_CHK  = 'N'
+		 ORDER BY B.INV_NO, B.INV_SEQ
+	</select>
+
+	<select id="selectIKHeader" parameterClass="java.util.HashMap" resultMap="likpMap">
+		SELECT DISTINCT 
+			   A.INV_NO AS LIFEX,
+			   A.LEGACY_IV_SERIAL AS VBELN,
+			   '10000191' AS LIFNR,
+			   A.INV_DATE AS LFDAT,
+			   CASE
+			     WHEN A.STATUS != 'D' THEN 'C'
+			     WHEN A.STATUS  = 'D' THEN 'D'
+			   END AS TYPE
+		  FROM WMSIVDT A
+		 WHERE A.BUYER   = #BUYER#
+		   AND A.INV_NO  = #INV_NO#
+		   AND A.SND_CHK = 'N' 
+		 ORDER BY A.INV_NO
+	</select>
+	
+	<select id="selectIKDetail" parameterClass="java.util.HashMap" resultMap="lipsMap">
+		SELECT
+			   A.LEGACY_IV_SERIAL AS VBELN,
+		       A.INV_NO        AS LIFEX,
+		       TO_NUMBER(A.INV_SEQ) * 10 AS POSNR,
+		       E.EBELN         AS EBELN,
+		       E.EBELP         AS EBELP,
+		       E.MATNR         AS MATNR,
+		       A.INV_QTY       AS MENGE,
+		       E.MEINS         AS MEINS,
+		       ''              AS LICHN,
+		       'KR'            AS SPE_HERKL,
+		       ''              AS HSDAT,
+		       REPLACE(D.IRS_NO,'-','') AS STCD2,
+		       D.COM_NAME_LOC  AS NAME1,
+		       ''              AS TEXT1,
+		       ''              AS TEXT2
+		  FROM WMSIVDT A
+		       INNER JOIN ICOMPODT B ON (1 = 1
+		         AND B.BUYER  = A.BUYER
+		         AND B.PO_NO  = A.PO_NO
+		         AND B.PO_SEQ = A.PO_SEQ
+		         AND B.PROCESS_TYPE = A.PROCESS_TYPE
+		       )
+		       INNER JOIN ICOMCMPY D ON (1 = 1
+		         AND D.COM_CODE = A.AGENT
+		       )
+		       INNER JOIN IF_KOLON_EKPO E ON (1 = 1
+		         AND TRIM(E.EBELN) = B.LEGACY_PO_NO
+		         AND E.EBELP = B.LEGACY_PO_SEQ 
+		         AND E.KEP_SEQ = (SELECT MAX(KEP_SEQ) FROM IF_KOLON_EKPO
+		                           WHERE TRIM(EBELN) = TRIM(E.EBELN)
+		                             AND EBELP = E.EBELP)
+		       )
+		 WHERE A.BUYER   = #BUYER#
+		   AND A.INV_NO  = #INV_NO#
+		   AND A.SND_CHK = 'N'
+		 ORDER BY A.INV_NO, A.INV_SEQ
+	</select>
+	
+	<update id="saveIVLegacyIvSerial" parameterClass="java.util.HashMap">
+		UPDATE ICOMIVHD
+		   SET LEGACY_IV_SERIAL	= #LEGACY_IV_SERIAL#,
+		       SND_CHK	= 'Y',
+		       SND_DATM	= SYSDATE
+		 WHERE BUYER  = #BUYER#
+		   AND INV_NO = #INV_NO#
+	</update>
+	
+	<update id="saveIKLegacyIvSerial" parameterClass="java.util.HashMap">
+		UPDATE WMSIVDT
+		   SET LEGACY_IV_SERIAL	= #LEGACY_IV_SERIAL#,
+		       SND_CHK	= 'Y',
+		       SND_DATM	= SYSDATE
+		 WHERE BUYER  = #BUYER#
+		   AND INV_NO = #INV_NO#
+	</update>
+
+	<update id="updateIF_KOLON_LIKP_ALL">
+		UPDATE EAI.IF_KOLON_LIKP
+		   SET IF_FLAG = 'T'
+		     , IF_DATM = SYSDATE
+		 WHERE 1 = 1
+		   AND IF_FLAG = 'N'
+		   AND BUYER = NVL(TRIM(#BUYER#), BUYER)
+		   AND BUYER != 'KRKOLO0105'
+           AND INV_NO LIKE CASE 
+                             WHEN '0' = #PROCESS_TYPE# THEN 'IV' 
+                             WHEN '2' = #PROCESS_TYPE# THEN 'IK' 
+                           END || '%'
+	</update>
+
+	<update id="updateIF_KOLON_LIKP_SUCCESS" parameterClass="java.util.HashMap">
+		UPDATE EAI.IF_KOLON_LIKP
+		   SET IF_FLAG = 'Y'
+		     , IF_DATM = SYSDATE
+		     , VBELN   = #LEGACY_IV_SERIAL#
+		 WHERE 1 = 1
+		   AND IF_FLAG = 'T'
+		   AND BUYER   = #BUYER#
+		   AND INV_NO  = #INV_NO#
+		   AND TYPE    = #TYPE#
+	</update>
+
+	<update id="updateIF_KOLON_LIKP_FAIL" parameterClass="java.util.HashMap">
+		UPDATE EAI.IF_KOLON_LIKP
+		   SET IF_FLAG = 'E'
+		     , IF_DATM = SYSDATE
+		     , IF_MSG  = SUBSTRB(#IF_MSG#,1,4000)
+		 WHERE 1 = 1
+		   AND IF_FLAG = 'T'
+		   AND BUYER   = #BUYER#
+		   AND INV_NO  = #INV_NO#
+		   AND TYPE    = #TYPE#
+	</update>
+	
+	<update id="updateIF_KOLON_LIPS" parameterClass="java.util.HashMap">
+		UPDATE EAI.IF_KOLON_LIPS
+		   SET VBELN   = #LEGACY_IV_SERIAL#
+		 WHERE 1 = 1
+		   AND BUYER  = #BUYER#
+		   AND INV_NO = #INV_NO#
+		   AND TYPE   = #TYPE#
+	</update>
+	
+	<select id="selectINVSendList" parameterClass="java.util.HashMap" resultMap="InvSendList">
+		SELECT A.BUYER, A.INV_NO, A.TYPE, A.VBELN, 
+		       CASE
+		         WHEN A.INV_NO LIKE 'IV%' THEN (SELECT ADD_DATE||ADD_TIME FROM ICOMIVHD WHERE BUYER = A.BUYER AND INV_NO = A.INV_NO)
+		         WHEN A.INV_NO LIKE 'IK%' THEN (SELECT MAX(ADD_DATE||ADD_TIME) FROM WMSIVDT WHERE BUYER = A.BUYER AND INV_NO = A.INV_NO)
+		       END AS PROCESS_TIME
+		  FROM EAI.IF_KOLON_LIKP A
+		 WHERE IF_FLAG = 'T'
+		   AND BUYER != 'KRKOLO0105'
+		   AND BUYER = NVL(TRIM(#BUYER#), BUYER)
+           AND INV_NO LIKE CASE 
+                             WHEN '0' = #PROCESS_TYPE# THEN 'IV' 
+                             WHEN '2' = #PROCESS_TYPE# THEN 'IK' 
+                           END || '%'
+		ORDER BY PROCESS_TIME, TYPE
+	</select>
+
+	<select id="selectLikpList" parameterClass="java.util.HashMap" resultMap="likpMap">
+        SELECT 
+               LIFEX,
+               VBELN,
+               LIFNR,
+               LFDAT,
+               TYPE
+          FROM EAI.IF_KOLON_LIKP
+         WHERE 1 = 1
+           AND BUYER   = #BUYER#
+           AND INV_NO  = #INV_NO#
+           AND TYPE    = #TYPE#
+           AND IF_FLAG = 'T'
+	</select>
+	
+	<select id="selectLipsList" parameterClass="java.util.HashMap" resultMap="lipsMap">
+        SELECT 
+               VBELN,
+               LIFEX,
+               POSNR,
+               EBELN,
+               EBELP,
+               MATNR,
+               MENGE,
+               MEINS,
+               LICHN,
+               SPE_HERKL,
+               HSDAT,
+               STCD2,
+               NAME1,
+               TEXT1,
+               TEXT2
+          FROM EAI.IF_KOLON_LIPS
+         WHERE 1 = 1
+           AND BUYER   = #BUYER#
+           AND INV_NO  = #INV_NO#
+           AND TYPE    = #TYPE#
+	</select>
+	
+</sqlMap>    

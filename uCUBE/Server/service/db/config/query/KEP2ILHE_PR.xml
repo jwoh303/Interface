@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="EUC-KR"?>
+<SQL>
+  <!-- *********************************************************************** -->
+  <SQL_DOC INTERFACE_ID="KEP2ILHE_PR">
+    <V_SQL NAME='$G_RS' ISLOOP="TRUE" COMMIT_BY_RESULT="FALSE">
+    <![CDATA[
+    SELECT DISTINCT
+           A.BUYER, A.DOC_NO
+      FROM EAI.IF_UCUBE_PR_SEND A
+     WHERE A.BUYER IN (SELECT BUYER FROM IF_ADMIN WHERE BUYER_ID = 'ILHE')
+       AND A.IF_FLAG IN ('N','E')
+       AND TRIM(A.MG_NOTE) IS NOT NULL
+    ]]>
+    </V_SQL>
+    <P_SQL SEQ="1" TYPE="SELECT" POST_SQL="TRUE">
+    <![CDATA[
+    SELECT
+           A.BUYER AS BUYER,
+           A.DOC_NO AS DOC_NO,
+           A.DOC_SEQ AS DOC_SEQ,
+           'C' AS STATUS,
+           A.ADD_DATE AS ADD_DATE,
+           A.ADD_TIME AS ADD_TIME,
+           NVL(B.TEXT1, A.BUYER_ITEM_NO) AS BUYER_ITEM_NO,
+           NVL(B.CODE1,'-1') AS ITEM_ID,
+           NVL(B.TEXT2,'') AS CATEGORY_ID,
+           NVL(B.TEXT3,'N') AS INVENTORY_FLAG,
+           A.CATEGORY1 AS ITEM_CAT1,
+           A.CATEGORY2 AS ITEM_CAT2,
+           A.CATEGORY3 AS ITEM_CAT3,
+           A.DESCRIPTION,
+           A.SPECIFICATION,
+           A.UNIT_MEASURE,
+           A.ITEM_QTY,
+           A.UNIT_PRICE,
+           (A.ITEM_QTY * A.UNIT_PRICE) AS ITEM_AMT,
+           A.RD_DATE,
+           NVL(TRIM(F_SPLIT(A.MG_NOTE, '^' , 9)),A.LEGACY_USER_ID) AS REQ_USER,
+           A.DELY_TO_LOCATION,
+           A.DELY_TO_LOCATION_TEXT,
+           NVL(A.REMARK,' ') AS REMARK,
+           TRIM(F_SPLIT(A.MG_NOTE, '^' , 1)) AS ORGANIZATION_ID,
+           TRIM(F_SPLIT(A.MG_NOTE, '^' , 3)) AS SUBINVENTORY_CODE,
+           (SELECT TEXT4 FROM ICOMCOD2
+             WHERE TYPE = 'C020'
+               AND COMPANY_CODE = A.BUYER
+               AND CODE = TRIM(F_SPLIT(A.MG_NOTE, '^' , 1))) AS LOCATION_ID,
+           TRIM(F_SPLIT(A.MG_NOTE, '^' , 4)) AS EXPENSE_TYPE_ID,
+           TRIM(F_SPLIT(A.MG_NOTE, '^' , 6)) AS PROJECT_ID,
+           TRIM(F_SPLIT(A.MG_NOTE, '^' , 8)) AS TASK_ID,
+           A.LEGACY_USER_ID AS PREPARER
+      FROM IF_UCUBE_PR_SEND A
+         , ICOMCOD3 B
+     WHERE A.BUYER   = '$G_RS.BUYER$'
+       AND A.DOC_NO  = '$G_RS.DOC_NO$'
+       AND A.IF_FLAG IN ('N','E') 
+       AND 'C028' = B.TYPE(+)
+       AND A.BUYER = B.BUYER(+)
+       AND A.BUYER_ITEM_NO = B.TEXT1(+)
+       AND TRIM(F_SPLIT(A.MG_NOTE, '^' , 1)) = B.CODE2(+)
+     ORDER BY 1,2,TO_NUMBER(DOC_SEQ)
+    ]]>
+      <C_SQL TYPE="UPDATE" P_SQL_RESULT="TRUE">
+      <![CDATA[
+      UPDATE EAI.IF_UCUBE_PR_SEND A
+         SET IF_FLAG = 'Y',
+             IF_DATM = SYSDATE
+       WHERE A.BUYER   = '$G_RS.BUYER$'
+         AND A.DOC_NO  = '$G_RS.DOC_NO$'
+         AND A.IF_FLAG IN ('N','E') 
+      ]]>
+      </C_SQL>
+      <C_SQL TYPE="UPDATE" P_SQL_RESULT="FALSE">
+      <![CDATA[
+      UPDATE EAI.IF_UCUBE_PR_SEND A
+         SET IF_FLAG = 'E',
+             IF_DATM = SYSDATE
+       WHERE A.BUYER   = '$G_RS.BUYER$'
+         AND A.DOC_NO  = '$G_RS.DOC_NO$'
+         AND A.IF_FLAG IN ('N','E')
+      ]]>
+      </C_SQL>
+    </P_SQL>
+  </SQL_DOC>
+  <RETRY_CODE>
+    <CODE>03113</CODE>
+    <CODE>03114</CODE>
+    <CODE>02154</CODE>
+    <CODE>02541</CODE>
+    <CODE>04068</CODE>
+  </RETRY_CODE>
+</SQL>

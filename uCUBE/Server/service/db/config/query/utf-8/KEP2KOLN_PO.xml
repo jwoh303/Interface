@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="EUC-KR"?>
+<SQL>
+	<!-- *********************************************************************** -->
+	<SQL_DOC INTERFACE_ID="KEP2KOLN_PO">
+		<V_SQL NAME='$G_RS' ISLOOP="TRUE" COMMIT_BY_RESULT="FALSE"> 
+                       SELECT '01_PO' AS DOC_NAME
+                            , CSTMR_ID
+                            , ORDR_NO
+                            , ORDR_SEQ
+                       FROM   KEPMPSO06
+                       WHERE  CSTMR_ID IN  ('KRKOLO0001C001','KRKOLO0002C001','KRKOLO0003C001')
+                       AND    SND_CHK = 'N'
+                       AND    PROCE_STATE_CD IN ('SS03')
+                       UNION
+                       SELECT '02_RS' AS DOC_NAME
+                            , GI03.CSTMR_ID
+                            , GI03.ORDR_NO
+                            , GI03.ORDR_SEQ
+                       FROM   KEPMPSO06 SO06, KEPWMGI03 GI03
+                       WHERE  GI03.CSTMR_ID IN  ('KRKOLO0001C001','KRKOLO0002C001','KRKOLO0003C001')
+                       AND    GI03.SND_CHK = 'N'
+                       AND    GI03.USE_CHK = 'Y'
+                       AND    SO06.PROCE_STATE_CD IN ('SS03')
+                       AND    SO06.CSTMR_ID = GI03.CSTMR_ID
+                       AND    SO06.ORDR_NO = GI03.ORDR_NO
+                       AND    SO06.ORDR_SEQ= GI03.ORDR_SEQ
+                       GROUP BY GI03.CSTMR_ID,GI03.ORDR_NO,GI03.ORDR_SEQ
+                       ORDER BY  DOC_NAME,CSTMR_ID, ORDR_NO, ORDR_SEQ
+		</V_SQL> 
+		<P_SQL SEQ="1" TYPE="SELECT" POST_SQL="TRUE">
+		<![CDATA[
+                        SELECT DECODE(SO06.USE_CHK,'N','D','C')       AS STATUS
+                             , SO06.IF_ORDR_NO               AS LEGACY_PO_NO
+                             , SUBSTR(SO06.IF_ORDR_SEQ,1,10) AS LEGACY_PO_SEQ1
+                             , SO06.IF_ORDR_SEQ              AS LEGACY_PO_SEQ
+                             , GETALANCINFO(SO06.SPPLR_ID,'ALANC_NM') AS SELLER_NAME
+                             , (SELECT REPLACE(PHON_NO,'-','') FROM KEPCOUR01
+                                WHERE ALANC_ID = SO06.SPPLR_ID
+                                AND   USE_CHK = 'Y'
+                                AND   ROWNUM = 1)           AS SELLER_TELNO
+                             , (SELECT SUBSTRB(USR_NM,1,10) FROM KEPCOUR01
+                                WHERE ALANC_ID = SO06.SPPLR_ID
+                                AND   USE_CHK = 'Y'
+                                AND   ROWNUM = 1)           AS SELLER_PERSON_NAME
+                             , (SELECT MAX(DLVRY_PLAN_DATE) FROM KEPCON.KEPWMGI03
+                                WHERE CSTMR_ID = SO06.CSTMR_ID
+                                AND   ORDR_NO = SO06.ORDR_NO
+                                AND   ORDR_SEQ= SO06.ORDR_SEQ) AS DS_DATE
+                        FROM  KEPCON.KEPMPSO06 SO06
+                        WHERE SO06.CSTMR_ID = '$G_RS.CSTMR_ID$'
+                        AND   SO06.ORDR_NO  = '$G_RS.ORDR_NO$'
+                        AND   SO06.ORDR_NO  = '$G_RS.ORDR_NO$'
+                        ORDER BY SO06.CSTMR_ID, SO06.ORDR_NO, SO06.ORDR_SEQ
+
+		]]>
+			<C_SQL TYPE="UPDATE" P_SQL_RESULT="TRUE">
+			<![CDATA[
+				DECLARE
+
+				BEGIN
+
+				IF '$G_RS.DOC_NAME$'='01_PO' THEN
+                                    UPDATE KEPMPSO06
+                                    SET    SND_CHK = 'Y'
+                                         , SND_DATM= SYSDATE
+                                    WHERE CSTMR_ID = '$G_RS.CSTMR_ID$'
+                                    AND   ORDR_NO  = '$G_RS.ORDR_NO$'
+                                    AND   ORDR_SEQ =  $G_RS.ORDR_SEQ$;
+                                ELSE
+                                    UPDATE KEPWMGI03
+                                    SET    SND_CHK = 'Y'
+                                         , SND_DATM= SYSDATE
+                                    WHERE CSTMR_ID = '$G_RS.CSTMR_ID$'
+                                    AND   ORDR_NO  = '$G_RS.ORDR_NO$'
+                                    AND   ORDR_SEQ =  $G_RS.ORDR_SEQ$;
+                                END IF;
+                                END;
+			]]>
+			</C_SQL>
+			<C_SQL TYPE="UPDATE" P_SQL_RESULT="FALSE">
+			<![CDATA[
+                                DECLARE
+
+                                BEGIN
+
+                                IF '$G_RS.DOC_NAME$'='01_PO' THEN
+                                    UPDATE KEPMPSO06
+                                    SET    SND_CHK = 'E'
+                                         , SND_DATM= SYSDATE
+                                    WHERE CSTMR_ID = '$G_RS.CSTMR_ID$'
+                                    AND   ORDR_NO  = '$G_RS.ORDR_NO$'
+                                    AND   ORDR_SEQ =  $G_RS.ORDR_SEQ$;
+                                ELSE
+                                    UPDATE KEPWMGI03
+                                    SET    SND_CHK = 'E'
+                                         , SND_DATM= SYSDATE
+                                    WHERE CSTMR_ID = '$G_RS.CSTMR_ID$'
+                                    AND   ORDR_NO  = '$G_RS.ORDR_NO$'
+                                    AND   ORDR_SEQ =  $G_RS.ORDR_SEQ$;
+                                END IF;
+                                END;
+
+			]]>
+			</C_SQL>
+		</P_SQL>
+	</SQL_DOC>
+	<RETRY_CODE>
+		<CODE>03113</CODE>
+		<CODE>03114</CODE>
+		<CODE>02154</CODE>
+		<CODE>02541</CODE>
+		<CODE>04068</CODE>
+	</RETRY_CODE>
+</SQL>

@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="EUC-KR"?>
+<SQL>
+  <!-- *********************************************************************** -->
+  <SQL_DOC INTERFACE_ID="KEP2TCTE_INV">
+    <V_SQL NAME='$G_RS' ISLOOP="TRUE" COMMIT_BY_RESULT="FALSE">
+    <![CDATA[
+    SELECT *
+      FROM (
+        SELECT DISTINCT
+               A.BUYER, A.INV_NO
+          FROM EAI.IF_UCUBE_INV_SEND A
+         WHERE A.BUYER = 'KRTCTE0002'
+           AND A.IF_FLAG = 'N'
+         ORDER BY A.BUYER, A.INV_NO
+      )
+     WHERE ROWNUM <= 10
+    ]]>
+    </V_SQL>
+    <P_SQL SEQ="1" TYPE="SELECT" POST_SQL="TRUE">
+    <![CDATA[
+    SELECT
+           A.BUYER,
+           A.INV_NO AS KEP_INV_NO,
+           A.INV_SEQ AS KEP_INV_SEQ,
+           B.PO_NO AS KEP_PO_NO,
+           B.PO_SEQ AS KEP_PO_SEQ,
+           A.STATUS,
+           B.BUYER_ITEM_NO,
+           B.DESCRIPTION,
+           B.SPECIFICATION,
+           B.UNIT_MEASURE,
+           B.UNIT_PRICE,
+           B.ITEM_QTY AS PO_QTY,
+           B.ITEM_AMT AS PO_AMT,
+           A.ITEM_QTY AS INV_QTY,
+           B.UNIT_PRICE * A.ITEM_QTY AS INV_AMT,
+           A.INV_DATE,
+           (SELECT COM_NAME_LOC FROM ICOMCMPY
+             WHERE COM_CODE = A.ATTR_01) AS VENDOR_NAME,
+           C.PO_REMARK AS REMARK,
+           C.PURCHASER_ID AS ADD_USER_ID,
+           C.PURCHASER_NAME AS ADD_USER_NAME,
+           (SELECT D.TEXT1 FROM ICOMLUSR F, ICOMCOD2 D
+             WHERE F.USER_ID = C.PURCHASER_ID
+               AND D.TYPE         = 'C001'
+               AND D.CODE         = F.DEPARTMENT
+               AND D.COMPANY_CODE = F.COM_CODE) AS ADD_USER_DEPT_NAME
+      FROM EAI.IF_UCUBE_INV_SEND A
+         , ICOMPODT B
+         , ICOMPOHD C
+     WHERE A.BUYER   = '$G_RS.BUYER$'
+       AND A.INV_NO  = '$G_RS.INV_NO$'
+
+       AND B.BUYER  = A.BUYER
+       AND B.PO_NO  = A.LEGACY_PO_NO
+       AND B.PO_SEQ = A.LEGACY_PO_SEQ
+
+       AND C.BUYER = B.BUYER
+       AND C.PO_NO = B.PO_NO
+    ]]>
+      <C_SQL TYPE="UPDATE" P_SQL_RESULT="TRUE">
+      <![CDATA[
+      UPDATE EAI.IF_UCUBE_INV_SEND A
+         SET A.IF_FLAG = 'Y'
+           , A.IF_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD')
+           , A.IF_TIME = TO_CHAR(SYSDATE, 'HH24MISS')
+       WHERE A.BUYER   = '$G_RS.BUYER$'
+         AND A.INV_NO  = '$G_RS.INV_NO$'
+      ]]>
+      </C_SQL>
+      <C_SQL TYPE="UPDATE" P_SQL_RESULT="FALSE">
+      <![CDATA[
+      <![CDATA[
+      UPDATE EAI.IF_UCUBE_INV_SEND A
+         SET A.IF_FLAG = 'E'
+           , A.IF_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD')
+           , A.IF_TIME = TO_CHAR(SYSDATE, 'HH24MISS')
+       WHERE A.BUYER   = '$G_RS.BUYER$'
+         AND A.INV_NO  = '$G_RS.INV_NO$'
+      ]]>
+      </C_SQL>
+    </P_SQL>
+  </SQL_DOC>
+  <RETRY_CODE>
+    <CODE>03113</CODE>
+    <CODE>03114</CODE>
+    <CODE>02154</CODE>
+    <CODE>02541</CODE>
+    <CODE>04068</CODE>
+  </RETRY_CODE>
+</SQL>

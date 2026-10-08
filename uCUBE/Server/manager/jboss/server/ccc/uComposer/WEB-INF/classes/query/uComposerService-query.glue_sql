@@ -1,0 +1,137 @@
+<?xml version='1.0' encoding='EUC-KR'?>
+<queryMap desc="uComposer Project Query File">
+
+	<query id="uComposerServiceMaster.insert" desc="Interface Master Insert" fetchSize="10">
+		<![CDATA[
+    		INSERT INTO 
+    			ucube_service_master(service_group_seq, service_id)
+	    	VALUES 
+	    		(?, ?)
+		]]>
+	</query>
+	
+	<query id="uComposerServiceMaster.select" desc="Interface Master Select" fetchSize="10">
+		<![CDATA[
+    		SELECT 
+    			service_seq
+    		FROM 
+    			ucube_service_master
+			WHERE	
+    			service_group_seq = ? AND service_id = ?
+		]]>
+	</query>
+	
+	<query id="uComposerService.insert" desc="Interface Insert" fetchSize="10">
+		<![CDATA[
+    		INSERT INTO 
+    			ucube_service(service_seq, version, description, ucube_user_seq, last_updated_timestamp)
+    		VALUES 
+    			(?, coalesce((SELECT MAX(version)+1 FROM ucube_service WHERE service_seq = ?), 1), ?, ?, NOW())
+ 		]]>
+	</query>
+
+	<query id="uComposerService.select" desc="Service Select" fetchSize="10">
+		<![CDATA[
+    		SELECT 
+    			*
+    		FROM 
+    			ucube_service_master sm, ucube_service se
+			WHERE	
+    			sm.service_seq = se.service_seq AND sm.service_seq = ?
+    			AND se.version = (SELECT MAX(version) FROM ucube_service WHERE service_seq=sm.service_seq)
+		]]>
+	</query>
+
+	<query id="uComposerFunctionUnitMaster.insert" desc="functionUnit Master Insert" fetchSize="10">
+		<![CDATA[
+    		INSERT INTO
+    			ucube_function_unit_master(service_seq, function_unit_id, function_unit_type_seq)
+    		VALUES (?, ?, ?)
+ 		]]>
+	</query>
+
+	<query id="uComposerFunctionUnitMaster.select" desc="functionUnitMaster Select" fetchSize="10">
+		<![CDATA[
+    		SELECT 
+    			function_unit_seq
+  			FROM 
+  				ucube_function_unit_master
+			WHERE 
+				service_seq = ? AND function_unit_id = ?
+ 		]]>
+	</query>
+
+	<query id="uComposerFunctionUnit.insert" desc="functionUnit Insert" fetchSize="10">
+		<![CDATA[
+    		INSERT INTO 
+    			ucube_function_unit(function_unit_seq, version, description, ucube_user_seq, last_updated_timestamp)
+    		VALUES 
+    			(?, coalesce((SELECT MAX(version)+1 FROM ucube_function_unit WHERE function_unit_seq = ?), 1), ?, ?, NOW())
+ 		]]>
+	</query>
+
+	<query id="uComposerFunctionUnit.select" desc="functionUnit Select" fetchSize="10">
+		<![CDATA[
+    		SELECT 
+    			MAX(version) as version
+  			FROM 
+  				ucube_function_unit
+			WHERE 
+				function_unit_seq = ?
+ 		]]>
+	</query>
+
+	<query id="uComposerFunctionUnitColumns.insert" desc="functionUnit Columns Insert" fetchSize="10">
+		<![CDATA[
+    		INSERT INTO 
+    			ucube_function_unit_columns(version, function_unit_seq, column_name_definition_seq, column_value)
+    		VALUES 
+    			(?, ?, ?, ?)
+ 		]]>
+	</query>
+
+	<query id="uComposerFunctionUnitColumns.select" desc="ServiceGroupFunction Select" fetchSize="10">
+		<![CDATA[
+			SELECT 
+				sgf.function_unit_type_seq, function_unit_type_id, utc.column_name_definition_seq, utc.default_value, 
+				(SELECT 
+					column_value
+				FROM 
+					ucube_function_unit_master ufm, ucube_function_unit fu, ucube_function_unit_columns fuc
+				WHERE 
+					ufm.service_seq = ?
+					AND ufm.function_unit_seq = fu.function_unit_seq 
+					AND fu.function_unit_seq = fuc.function_unit_seq 
+					AND fu.version = (SELECT MAX(version) FROM ucube_function_unit WHERE function_unit_seq = fu.function_unit_seq)
+					AND fu.version = fuc.version
+					AND ufm.function_unit_type_seq=ut.function_unit_type_seq
+					AND fuc.column_name_definition_seq=utc.column_name_definition_seq
+				) as insert_value,
+				column_name_definition_id, cnd.type, cnd.input_type, cnd.input_values 
+			FROM 
+				ucube_service_group_function sgf, ucube_function_unit_type ut, ucube_function_unit_type_columns utc, ucube_column_name_definition cnd
+			WHERE 
+				service_group_type_seq = (SELECT service_group_type_seq FROM ucube_service_group_master WHERE service_group_seq = ?)
+				AND sgf.function_unit_type_seq = ut.function_unit_type_seq
+				AND ut.function_unit_type_seq = utc.function_unit_type_seq
+				AND utc.column_name_definition_seq = cnd.column_name_definition_seq
+			ORDER BY 
+				(case when port_type='R' then 1 when port_type='N' then 2 else 3 end), utc.display_seq
+		]]>
+	</query>
+			
+	<query id="uComposerServiceAll.select" desc="Service All Select" fetchSize="10">
+		<![CDATA[
+    		SELECT 
+    			*
+    		FROM 
+    			ucube_service_group_master sgm, ucube_service_master sm, ucube_service se
+			WHERE
+				sgm.usable IS NOT FALSE	
+				AND sgm.service_group_seq = ? AND version = (SELECT MAX(version) FROM ucube_service WHERE service_seq = se.service_seq )
+    			AND sgm.service_group_seq = sm.service_group_seq AND sm.usable IS NOT FALSE AND sm.service_seq = se.service_seq
+    		ORDER BY sm.service_seq DESC
+		]]>
+	</query>
+	
+</queryMap>

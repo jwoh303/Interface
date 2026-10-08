@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="EUC-KR"?>
+<SQL>
+	<!-- *********************************************************************** -->
+	<SQL_DOC INTERFACE_ID="KEP2CHSG_DS">
+		<V_SQL NAME='$G_RS' ISLOOP="TRUE" COMMIT_BY_RESULT="FALSE"> 
+			SELECT DOC_NAME, TARGET AS BUYER, KEY_1 AS PO_NO, KEY_2 AS PO_SEQ, KEY_3 AS DS_SEQ
+			FROM ICOMTRXL C
+			WHERE  DOC_NAME = 'DSDOWN'
+			AND    KEY_10 in ('N','A')
+			AND    TARGET   IN ('KRCHAN0058','KRCHAN0059','KRCHAN0060','KRDONG0708')
+		</V_SQL> 
+		<P_SQL SEQ="1" TYPE="SELECT" POST_SQL="TRUE">
+		<![CDATA[
+			SELECT  A.KEY_5  AS PLANT, 
+				A.KEY_6   AS LEGACY_PO_NO,
+                                A.KEY_7   AS LEGACY_PO_SEQ,
+                                f_split(key_8,'^',1) AS LEGACY_PO_COUNT,
+                                A.KEY_3   AS DS_SEQ,
+                                f_split(key_8,'^',2) AS BUYER_ITEM_NO,
+                                to_number(f_split(key_8,'^',3)) AS ITEM_QTY,
+                                f_split(key_8,'^',4) AS DS_DATE,
+                                f_split(key_8,'^',5) AS NOTE,
+                                to_char(sysdate,'YYYYMMDD') AS IF_DATE,
+                                to_char(sysdate,'HH24MISS') AS IF_TIME
+			FROM ICOMTRXL A
+		        WHERE A.DOC_NAME = '$G_RS.DOC_NAME$'
+			AND A.TARGET = '$G_RS.BUYER$'
+			AND A.KEY_1 = '$G_RS.PO_NO$'
+			AND A.KEY_2 = '$G_RS.PO_SEQ$'
+			AND A.KEY_3 = '$G_RS.DS_SEQ$'
+			AND A.KEY_10 in ('A','N')
+
+		]]>
+			<C_SQL TYPE="UPDATE" P_SQL_RESULT="TRUE">
+			<![CDATA[
+				UPDATE ICOMTRXL
+				SET KEY_10 = 'Y', KEY_9 = TO_CHAR(SYSDATE,'YYYYMMDD HH24MISS')
+				WHERE  DOC_NAME = '$G_RS.DOC_NAME$'
+				AND TARGET      = '$G_RS.BUYER$'
+				AND KEY_1       = '$G_RS.PO_NO$'
+				AND KEY_2	= '$G_RS.PO_SEQ$'
+				AND KEY_3	= '$G_RS.DS_SEQ$'
+				AND KEY_10	in ('A','N')
+			]]>
+			</C_SQL>
+			<C_SQL TYPE="UPDATE" P_SQL_RESULT="FALSE">
+			<![CDATA[
+				UPDATE ICOMTRXL
+					SET KEY_10 = 'E', KEY_9 = TO_CHAR(SYSDATE,'YYYYMMDD HH24MISS')
+				WHERE  DOC_NAME = '$G_RS.DOC_NAME$'
+				AND TARGET      = '$G_RS.BUYER$'
+                                AND KEY_1       = '$G_RS.PO_NO$'
+                                AND KEY_2       = '$G_RS.PO_SEQ$'
+                                AND KEY_3       = '$G_RS.DS_SEQ$'
+				AND KEY_10	in ('A','N')
+			]]>
+			</C_SQL>
+		</P_SQL>
+	</SQL_DOC>
+	<RETRY_CODE>
+		<CODE>03113</CODE>
+		<CODE>03114</CODE>
+		<CODE>02154</CODE>
+		<CODE>02541</CODE>
+		<CODE>04068</CODE>
+	</RETRY_CODE>
+</SQL>

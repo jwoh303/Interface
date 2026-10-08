@@ -1,0 +1,492 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap
+    PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN"
+    "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+<sqlMap namespace="ErpKepcon">
+
+	<select id="selectArKepconList" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+	<![CDATA[
+	SELECT 
+	       K.IF_SYSTEM, K.CD_COMPANY,	K.ROW_ID,	K.SEQ,
+	       K.CD_EPCODE,	K.CD_PC,	K.CD_WDEPT,	K.DT_ACCT,
+	       K.CD_EVID,	K.DT_START, K.DT_END,
+	       K.NM_NOTE,	K.AM_TAXSTD,	K.AM_ADDTAX,	K.CD_BIZAREA,
+	       K.CD_CC,	K.CD_DEPT,	K.CD_EMPLOY,	K.CD_PARTNER,
+	       K.NO_COMPANY,	K.CD_UMNG1,
+	       K.CD_MNG1,	K.CD_MNGD1, K.NM_MNGD1,
+	       K.CD_MNG2,	K.CD_MNGD2, K.NM_MNGD2,
+	       K.CD_MNG3,	K.CD_MNGD3, K.NM_MNGD3,
+	       K.CD_MNG4,	K.CD_MNGD4, K.NM_MNGD4,
+	       K.CD_MNG5,	K.CD_MNGD5, K.NM_MNGD5,
+	       K.CD_MNG6,	CASE WHEN K.CD_EXCH = 'KRW' THEN '000' ELSE '001' END CD_MNGD6, K.CD_EXCH NM_MNGD6,
+	       K.CD_MNG7,	K.CD_MNGD7, K.RT_EXCH NM_MNGD7,
+	       K.CD_MNG8,	K.CD_MNGD8, K.AM_EX NM_MNGD8,
+	       K.CD_MNG9,	K.CD_MNGD9, K.NM_MNGD9,
+	       K.CD_MNG10,	K.CD_MNGD10, K.NM_MNGD10,
+	       K.CD_EXCH,	K.RT_EXCH,	K.AM_EX, 	K.ST_MUTUAL,
+	       K.NO_TO,	K.DT_SHIPPING,	K.TP_EVIDENCE,	K.TAX_BILL_NO,
+	       K.YN_ISS, K.YN_SPLIT, K.ORDER_NO, '' CD_DEPOSIT, '' CD_BANK
+	  FROM (
+		SELECT
+		        DECODE(CL01.ALANC_CLSS_CD,'C001','KA','C002','SA','C003','KW','C005','IT','KW') AS IF_SYSTEM,
+		        #CD_COMPANY# CD_COMPANY,
+		        CC01.SLS_TAX_BILL_NO AS ROW_ID,
+		        CC01.RN SEQ,
+		        CASE
+		          WHEN TX02.TEXT2 = '99' THEN '2080'
+		          ELSE '2010'
+		        END CD_EPCODE,
+		        '1000' CD_PC,
+		        '110020' AS CD_WDEPT,
+		        CL01.TAX_BILL_PBLCTN_DATE AS DT_ACCT,
+		        TX02.TEXT2 AS CD_EVID,
+		        CL01.TAX_BILL_PBLCTN_DATE AS DT_START, '' DT_END,
+		        NVL( ( SELECT MAX(T.GDS_NM)
+		                 FROM KEPCMCL02 T
+		                WHERE T.TAX_BILL_NO = CL01.SLS_TAX_BILL_NO
+		                  AND T.PRCHS_SLS_CLSS_CD = 'SA'), ' ' ) NM_NOTE,
+		        NVL(CC01.SLS_AMT,0) AM_TAXSTD,
+		        NVL(CC01.ADJUSTED_SLS_VAT,0) AM_ADDTAX,
+		        DECODE(
+		            GETALANCINFO(CL01.CMPNY_ALANC_ID,'BIZMN_REGST_NO')
+		            , '1078185880', 'SE'
+		            , '1138523209', 'GU'
+		            , '6158508913', 'CW'
+		            , ' ' ) CD_BIZAREA,
+		        CC01.ERP_DEPT_CD CD_CC,
+		        CC01.ERP_DEPT_CD CD_DEPT,
+		        REPLACE(CL01.RESGTR_ID, 'KEP', '') CD_EMPLOY,
+		        REPLACE(CL01.BIZMN_REGST_NO,'-','') CD_PARTNER,
+		        REPLACE(CL01.BIZMN_REGST_NO,'-','') NO_COMPANY,
+		        CL01.CSTMR_ID CD_UMNG1,
+		        'A02' CD_MNG1,	CC01.ERP_DEPT_CD CD_MNGD1,	CC01.DEPT_NM NM_MNGD1,
+		        'A06' CD_MNG2,	REPLACE(CL01.BIZMN_REGST_NO,'-','') CD_MNGD2,	CL01.CMP_NM NM_MNGD2,
+		        'B22' CD_MNG3,	'' CD_MNGD3,	'' NM_MNGD3,
+		        'C44' CD_MNG4,	'' CD_MNGD4,	'' NM_MNGD4,
+		        'C16' CD_MNG5,	'' CD_MNGD5,	NVL(CC01.ADJUSTED_SLS_VAT,0) NM_MNGD5,
+		        'B24' CD_MNG6,	'' CD_MNGD6,	'' NM_MNGD6,
+		        'B25' CD_MNG7,	'' CD_MNGD7,	'' NM_MNGD7,
+		        'B26' CD_MNG8,	'' CD_MNGD8,	'' NM_MNGD8,
+		        'K02' CD_MNG9,	'' CD_MNGD9,	CL01.SLS_TAX_BILL_NO NM_MNGD9,
+		        'K01' CD_MNG10,	DECODE(CL01.ALANC_CLSS_CD,'C001','KA','C002','SA','C003','KW','C005','IT','KW') CD_MNGD10,
+		        DECODE(CL01.ALANC_CLSS_CD,'C001','구매대행','C002','건설','C003','유통','C005','IT','유통') NM_MNGD10,
+		        NVL((
+	            /*+INDEX DESC (MPCL02 KEPMPCL02_PK)*/
+	            SELECT MPCL02.CURR_CD
+	            FROM   KEPMPCL02 MPCL02
+	            WHERE  MPCL02.SLS_TAX_BILL_NO = CL01.SLS_TAX_BILL_NO
+	            AND    MPCL02.USE_CHK = 'Y'
+	            AND    ROWNUM = 1
+	            ),'KRW') CD_EXCH,
+		        NVL((
+		        /*+INDEX DESC (MPCL02 KEPMPCL02_PK)*/
+		        SELECT DECODE(MPCL02.CURR_CD,'KRW',0, MPCL02.EXRATE)
+		        FROM   KEPMPCL02 MPCL02
+		        WHERE  MPCL02.SLS_TAX_BILL_NO = CL01.SLS_TAX_BILL_NO
+		        AND    MPCL02.USE_CHK = 'Y'
+		        AND    ROWNUM = 1
+		        ),0) RT_EXCH,
+		        NVL((
+		        SELECT SUM(DECODE(MPCL02.CURR_CD,'KRW',0, MPCL02.WON_CNVRS_SLS_AMT))
+		        FROM   KEPMPCL02 MPCL02
+		        WHERE  MPCL02.SLS_TAX_BILL_NO = CL01.SLS_TAX_BILL_NO
+		        AND    MPCL02.USE_CHK = 'Y'
+		        ),0) AM_EX,
+		        '' ST_MUTUAL,	'' NO_TO,	'' DT_SHIPPING,
+		        CASE
+		          WHEN CL01.TAX_CLSS_CD IN ('11', '12') THEN '3'
+		          WHEN CL01.TAX_CLSS_CD IN ('13') THEN '4'
+		          WHEN CL01.TAX_CLSS_CD IN ('16', '17', '18') THEN '0'
+		          ELSE '0'
+		        END TP_EVIDENCE,
+		        CASE CL01.ALANC_CLSS_CD
+		          WHEN 'C002' THEN 
+		            CASE
+		              WHEN NVL( TRIM(CL01.TAX_BILL_PBLCTN_SITE_CD), NVL( (SELECT TAX_BILL_PBLCTN_SITE_CD FROM KEPMDCP02 WHERE BIZNPLC_CLSS_NO = CL01.CSTMR_ID) , '99') ) IN ('01') THEN '0'
+		              ELSE '2'
+		            END 
+		          WHEN 'C003' THEN '2'
+		        END AS YN_ISS,
+		        'N' AS YN_SPLIT,
+		        CL01.SLS_TAX_BILL_NO AS TAX_BILL_NO,
+		        '' AS ORDER_NO
+		FROM   KEPCMCL01 CL01
+		    ,  VW_ERP_SLS_CMCL01 CC01
+		    ,  ICOMCDDT TX02
+		WHERE  1=1
+		AND    CL01.ERP_SND_STATE_CD ='T'
+		AND    (CL01.MILE_CHK = 'N' OR CL01.MILE_CHK IS NULL)
+		AND    CL01.BILL_CNFRM_CHK = 'Y'
+		AND    (( CL01.ELCTR_TAX_BILL_PBLCTN_CHK='Y' AND CL01.ATTR_1='Y')
+		        OR
+		        ( CL01.ELCTR_TAX_BILL_PBLCTN_CHK IS NULL )
+		        OR
+		        ( CL01.ELCTR_TAX_BILL_PBLCTN_CHK = 'N' )
+		       )
+		AND    CL01.USE_CHK = 'Y'
+		AND    CL01.SLS_TAX_BILL_NO = CC01.SLS_TAX_BILL_NO
+		
+		AND    TX02.HOUSE_CODE = '100'
+		AND    TX02.COMPANY_CODE = 'KEPC'
+		AND    TX02.CODE_NO = 'TX02'
+		AND    TX02.CODE = CL01.TAX_CLSS_CD
+		ORDER BY IF_SYSTEM, CL01.SLS_TAX_BILL_NO
+	  ) K
+	]]>
+	</select>
+
+	<update id="updateArKepcon" parameterClass="java.util.HashMap">
+		UPDATE KEPCMCL01
+		SET    ERP_SND_STATE_CD = #IF_SEND_FLAG#,
+		       ERP_SND_DATE = TO_CHAR(SYSDATE,'YYYYMMDD'),
+		       LST_MDFY_DATM = SYSDATE,
+		       MDFYR_ID = 'FTP'
+		WHERE  SLS_TAX_BILL_NO = #TAX_BILL_NO#
+		AND    USE_CHK = 'Y'
+	</update>
+
+	<select id="selectApKepconList" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+	SELECT *
+	  FROM (
+      SELECT
+	         DECODE(CMCL03.ALANC_CLSS_CD,'C001','KA','C002','SA','C003','KW','C005','IT','KW') AS IF_SYSTEM,
+	         #CD_COMPANY# CD_COMPANY,
+	         CMCL03.PRCHS_TAX_BILL_NO AS ROW_ID,
+	         ROW_NUMBER() OVER(PARTITION BY CMCL03.PRCHS_TAX_BILL_NO ORDER BY CMCL03.FRST_REGST_DATM) SEQ,
+	        CASE
+	          WHEN TX02.TEXT2 = '99' THEN '1020'
+	          ELSE '1010'
+	        END CD_EPCODE,
+	        '1000' CD_PC,
+	        '110020' CD_WDEPT,
+	        CMCL03.TAX_BILL_PBLCTN_DATE AS DT_ACCT,
+	        TX02.TEXT2 CD_EVID,
+	        CMCL03.TAX_BILL_PBLCTN_DATE AS DT_START, '' DT_END,
+	        NVL( (SELECT MAX(T.GDS_NM)
+                 FROM KEPCMCL02 T
+                WHERE T.TAX_BILL_NO = CMCL03.PRCHS_TAX_BILL_NO),' ') NM_NOTE,
+	        NVL(CMCL03.TOT_PRCHS_AMT,0) AM_TAXSTD,
+	        NVL(CC03.ADJUSTED_PRCHS_VAT,0) AM_ADDTAX,
+	        DECODE(
+	            GETALANCINFO(CMCL03.CMPNY_ALANC_ID,'BIZMN_REGST_NO')
+	            , '1078185880', 'SE'
+	            , '1138523209', 'GU'
+	            , '6158508913', 'CW'
+	            , ' ' ) CD_BIZAREA,
+	        CC03.ERP_DEPT_CD CD_CC,
+	        CC03.ERP_DEPT_CD CD_DEPT,
+	        REPLACE(CMCL03.RESGTR_ID, 'KEP', '') CD_EMPLOY,
+	        REPLACE(CMCL03.BIZMN_REGST_NO,'-','') CD_PARTNER,
+	        REPLACE(CMCL03.BIZMN_REGST_NO,'-','') NO_COMPANY,
+	        NVL(CMCL03.SPPLR_ID, ' ') CD_UMNG1,
+	        'A02' CD_MNG1,	CC03.ERP_DEPT_CD CD_MNGD1,	CC03.DEPT_NM NM_MNGD1,
+	        'A06' CD_MNG2,	REPLACE(CMCL03.BIZMN_REGST_NO,'-','') CD_MNGD2,
+	        CASE
+	          WHEN CMCL03.ALANC_CLSS_CD = 'C003' THEN (SELECT NVL(SUPPLIER_KOR, ' ') FROM KEPMDCP05 WHERE SPPLR_ID = CMCL03.SPPLR_ID) 
+	          WHEN CMCL03.ALANC_CLSS_CD = 'C002' THEN (SELECT NVL(MAX(BIZ_NM), ' ') FROM VW_KEPMDCP01_03 WHERE ALANC_ID = CMCL03.SPPLR_ID) 
+	        END NM_MNGD2,
+	        'B22' CD_MNG3,	'' CD_MNGD3,	'' NM_MNGD3,
+	        'C44' CD_MNG4,	'' CD_MNGD4,	'' NM_MNGD4,
+	        'C16' CD_MNG5,	'' CD_MNGD5,	NVL(CC03.PRCHS_VAT,0) NM_MNGD5,
+	        'B24' CD_MNG6,	'' CD_MNGD6,	'' NM_MNGD6,
+	        'B25' CD_MNG7,	'' CD_MNGD7,	'' NM_MNGD7,
+	        'B26' CD_MNG8,	'' CD_MNGD8,	'' NM_MNGD8,
+	        'K02' CD_MNG9,	'' CD_MNGD9,	CMCL03.PRCHS_TAX_BILL_NO NM_MNGD9,
+	        'K01' CD_MNG10,	DECODE(CMCL03.ALANC_CLSS_CD,'C001','KA','C002','SA','C003','KW','C005','IT','KW') CD_MNGD10,
+	        DECODE(CMCL03.ALANC_CLSS_CD,'C001','구매대행','C002','건설','C003','유통','C005','IT','유통') NM_MNGD10,
+	        CASE
+	          WHEN NVL((
+			           /*+INDEX DESC (MPCL03 KEPMPCL03_PK)*/
+			           SELECT MPCL03.CURR_CD
+			           FROM   KEPMPCL03 MPCL03
+			           WHERE  MPCL03.PRCHS_TAX_BILL_NO = CMCL03.PRCHS_TAX_BILL_NO
+			           AND    MPCL03.USE_CHK = 'Y'
+			           AND    ROWNUM = 1
+			           ),'KRW') != 'KRW' THEN '001'
+	          ELSE '000'
+	        END CD_EXCH,
+           NVL((/*+INDEX DESC (MPCL03 KEPMPCL03_PK)*/
+           SELECT DECODE(MPCL03.CURR_CD,'KRW',0, MPCL03.EXRATE)
+           FROM   KEPMPCL03 MPCL03
+           WHERE  MPCL03.PRCHS_TAX_BILL_NO = CMCL03.PRCHS_TAX_BILL_NO
+           AND    MPCL03.USE_CHK = 'Y'
+           AND    ROWNUM = 1
+           ),0) RT_EXCH,
+           NVL((
+           SELECT SUM(DECODE(MPCL03.CURR_CD,'KRW',0,MPCL03.WON_CNVRS_PRCHS_AMT))
+           FROM   KEPMPCL03 MPCL03
+           WHERE  MPCL03.PRCHS_TAX_BILL_NO = CMCL03.PRCHS_TAX_BILL_NO
+           AND    MPCL03.USE_CHK = 'Y'
+           ),0) AM_EX,
+	       '' ST_MUTUAL,	'' NO_TO,	'' DT_SHIPPING,
+	       '3' TP_EVIDENCE,
+	       CASE CMCL03.ALANC_CLSS_CD
+	         WHEN 'C002' THEN 
+	           CASE
+	             WHEN NVL( TRIM(CMCL03.TAX_BILL_PBLCTN_SITE_CD) , NVL( (SELECT TAX_BILL_PBLCTN_SITE_CD FROM KEPMDCP08 WHERE SPPLR_ID = CMCL03.SPPLR_ID) , '99') ) IN ('01') THEN '0'
+	             ELSE '2'
+	           END 
+	         WHEN 'C003' THEN '2'
+	       END AS YN_ISS,
+		   	 'N' AS YN_SPLIT,
+	       CMCL03.PRCHS_TAX_BILL_NO AS TAX_BILL_NO,
+	       '' ORDER_NO, '' CD_DEPOSIT, '' CD_BANK
+      FROM KEPCMCL03 CMCL03
+         , VW_ERP_PRCHS_CMCL03 CC03
+         , ICOMCDDT TX02
+     WHERE 1=1
+       AND CMCL03.ERP_SND_STATE_CD = 'T'
+       AND CMCL03.BILL_CNFRM_CHK = 'Y'
+       AND (( CMCL03.ELCTR_TAX_BILL_PBLCTN_CHK='Y' AND CMCL03.ATTR_1='Y')
+           OR
+           ( CMCL03.ELCTR_TAX_BILL_PBLCTN_CHK IS NULL )
+           OR
+           ( CMCL03.ELCTR_TAX_BILL_PBLCTN_CHK = 'N' )
+           )
+      AND CMCL03.USE_CHK = 'Y'
+      AND CMCL03.PRCHS_TAX_BILL_NO = CC03.PRCHS_TAX_BILL_NO
+        
+        AND    TX02.HOUSE_CODE = '100'
+        AND    TX02.COMPANY_CODE = 'KEPC'
+        AND    TX02.CODE_NO = 'TX02'
+        AND    TX02.CODE = CMCL03.TAX_CLSS_CD
+	  )
+     ORDER BY IF_SYSTEM, ROW_ID
+
+	</select>
+
+	<update id="updateApKepcon" parameterClass="java.util.HashMap">
+		UPDATE KEPCMCL03
+		SET    ERP_SND_STATE_CD = #IF_SEND_FLAG#,
+		       ERP_SND_DATE = TO_CHAR(SYSDATE,'YYYYMMDD'),
+		       LST_MDFY_DATM = SYSDATE
+		WHERE  PRCHS_TAX_BILL_NO = #TAX_BILL_NO#
+		AND    USE_CHK = 'Y'
+	</update>
+
+	<update id="updateArCancelKepcon" parameterClass="java.util.HashMap">
+		UPDATE KEPCMCL01
+		   SET ERP_SND_STATE_CD = 'N',
+		       SND_CHK = 'N',
+		       ATTR_3           = TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+		 WHERE 1 = 1
+		   AND SLS_TAX_BILL_NO  = #TAX_BILL_NO#
+		   AND ERP_SND_STATE_CD = 'Y'
+	</update>
+
+	<update id="updateCancelApKepcon" parameterClass="java.util.HashMap">
+		UPDATE KEPCMCL03
+		   SET ERP_SND_STATE_CD = 'N',
+		       SND_CHK = 'N' ,
+		       ATTR_3           = TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+		 WHERE 1=1
+		   AND PRCHS_TAX_BILL_NO = #TAX_BILL_NO#
+		   AND ERP_SND_STATE_CD  = 'Y'
+	</update>
+
+	<select id="selectPartnerTempKepcon" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+	SELECT * FROM (
+	SELECT
+	       DECODE(A.BIZ_CLSS_CD, 'C002', 'KW', 'SA') AS IF_SYSTEM,
+	       A.BIZMN_REGST_NO AS CD_PARTNER,
+	       #CD_COMPANY# AS CD_COMPANY,
+	       SUBSTRB(A.ALANC_NM, 1, 50) AS LN_PARTNER,
+	       A.BIZMN_REGST_NO AS NO_COMPANY,
+	       SUBSTRB(A.ALANC_NM, 1, 50) AS SN_PARTNER,
+	       DECODE(a.BIZSCL_CD,'CM','001','CS','002','ID','003','005') AS FG_PARTNER,
+	       DECODE(a.ALANC_TYP_CD,'C001','002','C002','001','C004','003','004') AS CLS_PARTNER,
+	       '' CD_DEPT,
+	       '' CD_CC,
+	       SUBSTRB(A.RPRDR_NM, 1, 40) AS NM_CEO,
+	       A.BIZNPLC_POSTCD AS NO_POST1,
+	       A.BIZNPLC_ADDR_BSC AS DC_ADS1_H,
+	       A.BIZNPLC_ADDR_DTAIL AS DC_ADS1_D,
+	       SUBSTRB(A.RPRSNT_PHON_NO, 1, 20) AS NO_TEL1,
+	       SUBSTRB(A.RPRSNT_FAX_NO, 1, 20) AS NO_FAX1,
+	       SUBSTRB(A.BIZCND_NM, 1, 50) AS TP_JOB,
+	       SUBSTRB(A.ITM_NM, 1, 50) AS CLS_JOB,
+	       'Y' AS YN_JEONJA,
+	       '11' AS CD_TAXTYPE,
+	       '001' AS CD_CON,
+	       '' AS DT_CLOSE,
+	       '' AS NM_TEXT,
+	       'Y' AS USE_YN,
+	       A.ALANC_ID AS COM_CODE
+	  FROM KEPMDCP01 A
+	 WHERE A.USE_CHK = 'Y'
+	   AND TRIM(A.BIZMN_REGST_NO) IS NOT NULL 
+	   AND A.ALANC_ID IN (
+	     SELECT TARGET FROM ICOMTRXL
+	      WHERE DOC_NAME = 'PARTNER'
+	        AND KEY_9 = ' '
+	   )
+	 ORDER BY A.BIZMN_REGST_NO
+	)
+	ORDER BY IF_SYSTEM, CD_PARTNER
+	</select>
+	
+	<delete id="deleteCredit" parameterClass="java.util.HashMap">
+	DELETE EAI.ERP_TACCOUNT_IF
+	 WHERE CD_COMPANY = #CD_COMPANY#
+	</delete>
+	
+	<insert id="insertCredit" parameterClass="java.util.HashMap">
+	INSERT INTO EAI.ERP_TACCOUNT_IF (
+		CD_COMPANY,	CD_CC,
+		NM_CC,		CD_ACCT,	NM_ACCT,
+		CD_PARTNER,	NM_PARTNER,	P_AMOUNT,
+		AM_DR,		AM_CR,		N_AMOUNT	
+	) VALUES (
+		#CD_COMPANY#,	#CD_CC#,
+		#NM_CC#,		#CD_ACCT#,		#NM_ACCT#,
+		#CD_PARTNER#,	#NM_PARTNER#,	#P_AMOUNT#,
+		#AM_DR#,		#AM_CR#,		#N_AMOUNT#
+	)
+	</insert>
+	
+	<select id="selectSaleCostKW" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+	SELECT
+			A.CLSN_YYMON YYYYMM, 'KW' IF_SYSTEM, #CD_COMPANY# CD_COMPANY, '3010' CD_EPCODE, 
+			'1000' CD_PC, '110020' CD_WDEPT, TO_CHAR(LAST_DAY(TO_DATE(A.CLSN_YYMON, 'YYYYMM')), 'YYYYMMDD') DT_ACCT, '99' CD_EVID, TO_CHAR(LAST_DAY(TO_DATE(A.CLSN_YYMON, 'YYYYMM')), 'YYYYMMDD') DT_START, 
+			'' DT_END, '매출원가' NM_NOTE, ROUND(A.PURCHASE_PRICE) AM_TAXSTD, 0 AM_ADDTAX, 'GU' CD_BIZAREA, 
+			CD.ERP_DEPT_CD CD_CC, CD.ERP_DEPT_CD CD_DEPT, '2179014' CD_EMPLOY, GETALANCINFO(CSTMR_ID, 'BIZMN_REGST_NO') CD_PARTNER, GETALANCINFO(CSTMR_ID, 'BIZMN_REGST_NO') NO_COMPANY, 
+			A.CSTMR_ID CD_UMNG1, 'A02' CD_MNG1, CD.ERP_DEPT_CD CD_MNGD1, CD.ALANC_DEPT_NM NM_MNGD1, 'A06' CD_MNG2, 
+			GETALANCINFO(CSTMR_ID, 'BIZMN_REGST_NO') CD_MNGD2, GETALANCINFO(CSTMR_ID, 'ALANC_NM') NM_MNGD2, 'B22' CD_MNG3, '' CD_MNGD3, ''NM_MNGD3, 
+			'C44' CD_MNG4, '' CD_MNGD4, '' NM_MNGD4, 'C16' CD_MNG5, '' CD_MNGD5, 
+			'' NM_MNGD5, 'B24' CD_MNG6, '' CD_MNGD6, '' NM_MNGD6, 'B25' CD_MNG7, 
+			'' CD_MNGD7, '' NM_MNGD7, 'B26' CD_MNG8, '' CD_MNGD8, ''NM_MNGD8, 
+			'K02' CD_MNG9, '' CD_MNGD9, ' ' NM_MNGD9, 'K10' CD_MNG10, 'KW' CD_MNGD10, 
+			'유통' NM_MNGD10, '000' CD_EXCH, '' RT_EXCH, '' AM_EX, '' ST_MUTUAL, 
+			'' NO_TO, '' DT_SHIPPING, '0' TP_EVIDENCE
+	FROM 	(SELECT A.CLSN_YYMON,
+			A.CSTMR_ID ,
+			A.BIZMN_REGST_NO,
+			(SELECT BIZNPLC_CLSS_NM FROM KEPMDCP03 WHERE BIZNPLC_CLSS_NO = A.CSTMR_ID) AS BIZNPLC_CLSS_NM,
+			SUM(A.PURCHASE_PRICE) AS PURCHASE_PRICE,
+			SUM(A.WON_CNVRS_SLS_AMT) AS WON_CNVRS_SLS_AMT
+		FROM KEPMPCL02 A
+		WHERE A.BIZ_CLSS_CD = 'C002'
+		AND   A.CLSN_YYMON = (SELECT KEY_1 FROM ICOMTRXL WHERE DOC_NAME = 'SALE_COST' AND TARGET = 'KW' AND KEY_9 = ' ')
+		AND   A.USE_CHK = 'Y'
+		AND   A.SLS_CNFRM_CHK = 'Y'
+		GROUP BY A.CLSN_YYMON, A.CSTMR_ID, A.BIZMN_REGST_NO
+		) A
+	    , KEPCODP01 CD       
+	 WHERE CD.ALANC_DEPT_CD = '100'
+	   AND CD.ALANC_ID = 'KRKORE0001'
+	 ORDER BY CD_PARTNER
+	</select>
+	
+	<select id="selectSaleCostSA" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+	SELECT 
+	  A.YYMON YYYYMM, 'SA' IF_SYSTEM, #CD_COMPANY# CD_COMPANY, '3010' CD_EPCODE, '1000'CD_PC, 
+	  '110020' CD_WDEPT, TO_CHAR(LAST_DAY(TO_DATE(A.YYMON, 'YYYYMM')), 'YYYYMMDD') DT_ACCT, '99' CD_EVID, TO_CHAR(LAST_DAY(TO_DATE(A.YYMON, 'YYYYMM')), 'YYYYMMDD') DT_START, '' DT_END, 
+	  '매출원가' NM_NOTE, PRCHS_AMT AM_TAXSTD, 0 AM_ADDTAX, 'SE' CD_BIZAREA, 
+	  CD.ERP_DEPT_CD CD_CC, CD.ERP_DEPT_CD CD_DEPT, '2179014' CD_EMPLOY, GETALANCINFO(CSTMR_ID, 'BIZMN_REGST_NO') CD_PARTNER, GETALANCINFO(CSTMR_ID, 'BIZMN_REGST_NO') NO_COMPANY, 
+	  A.CSTMR_ID CD_UMNG1, 'A02' CD_MNG1, CD.ERP_DEPT_CD CD_MNGD1, CD.ALANC_DEPT_NM NM_MNGD1, 'A06' CD_MNG2, 
+	  GETALANCINFO(CSTMR_ID, 'BIZMN_REGST_NO') CD_MNGD2, GETALANCINFO(CSTMR_ID, 'ALANC_NM') NM_MNGD2, 'B22' CD_MNG3, '' CD_MNGD3, ''NM_MNGD3, 
+	  'C44' CD_MNG4, '' CD_MNGD4, '' NM_MNGD4, 'C16' CD_MNG5, '' CD_MNGD5, 
+	  '' NM_MNGD5, 'B24' CD_MNG6, '' CD_MNGD6, '' NM_MNGD6, 'B25' CD_MNG7, 
+	  '' CD_MNGD7, '' NM_MNGD7, 'B26' CD_MNG8, '' CD_MNGD8, ''NM_MNGD8, 
+	  'K02' CD_MNG9, '' CD_MNGD9, ' ' NM_MNGD9, 'K10' CD_MNG10, 'SA' CD_MNGD10, 
+	  '건설' NM_MNGD10, '000' CD_EXCH, '' RT_EXCH, '' AM_EX, '' ST_MUTUAL, 
+	  '' NO_TO, '' DT_SHIPPING, '0' TP_EVIDENCE
+	FROM (
+	SELECT CSTMR_ID
+	     , YYMON
+	     , SUM(SLS) SLS_AMT
+	     , SUM(PRCHS) PRCHS_AMT
+	  FROM (SELECT CSTMR_ID, CLSN_YYMON YYMON, SLS_AMT SLS, 0 PRCHS
+	          FROM KEPMPCL02
+	         WHERE CLSN_YYMON = (SELECT KEY_1 FROM ICOMTRXL WHERE DOC_NAME = 'SALE_COST' AND TARGET = 'SA' AND KEY_9 = ' ')
+	           AND BIZ_CLSS_CD = 'C001'
+	           AND SLS_CNFRM_CHK = 'Y'
+	           AND USE_CHK = 'Y'
+	         UNION ALL
+	        SELECT CSTMR_ID, ACCNT_YYMON YYMON, 0 SLS, DLVRY_AMT PRCHS
+	          FROM KEPCMRP05
+	         WHERE ACCNT_YYMON = (SELECT KEY_1 FROM ICOMTRXL WHERE DOC_NAME = 'SALE_COST' AND TARGET = 'SA' AND KEY_9 = ' ')
+	           AND BIZ_CLSS_CD = 'C001') A
+	 GROUP BY A.CSTMR_ID, A.YYMON
+	<![CDATA[
+	HAVING SUM(A.SLS) > 0 OR SUM(A.PRCHS) > 0
+	]]>	 
+	) A
+	    , KEPCODP01 CD       
+	 WHERE CD.ALANC_DEPT_CD = '010'
+	   AND CD.ALANC_ID = 'KRKORE0001'
+	 ORDER BY CD_PARTNER  	
+	</select>
+	
+	<update id="updateSaleCostKepcon" parameterClass="java.util.HashMap">
+	UPDATE ICOMTRXL SET
+	       KEY_9 = #FLAG#, KEY_10 = TO_CHAR(SYSDATE, 'YYYY/MM/DD HH24:MI:SS')
+	 WHERE DOC_NAME = 'SALE_COST' 
+	   AND TARGET = #TARGET#
+	   AND KEY_1  = #YYYYMM#
+	   AND KEY_9 = ' '
+	</update>
+	
+	<update id="updatePartnerTempKepcon" parameterClass="java.util.HashMap">
+	UPDATE ICOMTRXL
+	   SET KEY_9 = #IF_SEND_FLAG#
+	     , KEY_10 = TO_CHAR(SYSDATE, 'YYYY/MM/DD HH24:MI:SS')
+	 WHERE DOC_NAME = 'PARTNER'
+	   AND TARGET = #COM_CODE#
+	   AND KEY_9 = ' '
+	</update>
+	
+	<select id="selectCreditAgingTargetList" resultClass="java.util.HashMap">
+	SELECT DISTINCT REPLACE(BIZ_REGISTRATION_NO, '-','') CD_PARTNER
+	  FROM KEPCON.MST_CUSTOMER
+	 WHERE RECORD_STATUS != 'D'
+	   AND RELATION_STATUS = '003002'
+	   AND CUSTOMER_KOR NOT LIKE '[미사용]%'
+	</select>
+	
+	<delete id="deleteCreditAging">
+	   DELETE EAI.ERP_TACCOUNT_AGING
+	</delete>
+	
+	<insert id="insertCreditAging" parameterClass="java.util.HashMap">
+	INSERT INTO EAI.ERP_TACCOUNT_AGING (
+        YY_ACCT, CD_COMPANY, CD_PARTNER, CD_ACCT, M01, M02, M03, M04, M05, M06, M07, M08, M09, M10, M11, M12, LAST_UPDATE_DATE
+    ) VALUES (
+        #YY_ACCT#, #CD_COMPANY#, #CD_PARTNER#, #CD_ACCT#, #M01#, #M02#, #M03#, #M04#, #M05#, #M06#, #M07#, #M08#, #M09#, #M10#, #M11#, #M12#, SYSDATE
+	)
+	</insert>
+	
+	<update id="mergeCreditAging" parameterClass="java.util.HashMap">
+	MERGE INTO EAI.ERP_TACCOUNT_AGING A
+	USING (
+	   SELECT #YY_ACCT# YY_ACCT, #CD_COMPANY# CD_COMPANY, #CD_PARTNER# CD_PARTNER, #CD_ACCT# CD_ACCT
+	     FROM DUAL
+	) B ON (1 = 1
+	  AND A.YY_ACCT = B.YY_ACCT
+      AND A.CD_COMPANY = B.CD_COMPANY
+      AND A.CD_PARTNER = B.CD_PARTNER
+      AND A.CD_ACCT = B.CD_ACCT
+	)
+	WHEN MATCHED THEN 
+	   UPDATE SET
+	       M01 = #M01#,
+	       M02 = #M02#, 
+	       M03 = #M03#, 
+	       M04 = #M04#, 
+	       M05 = #M05#, 
+	       M06 = #M06#, 
+	       M07 = #M07#, 
+	       M08 = #M08#, 
+	       M09 = #M09#, 
+	       M10 = #M10#, 
+	       M11 = #M11#, 
+	       M12 = #M12#,
+	       LAST_UPDATE_DATE = SYSDATE
+	WHEN NOT MATCHED THEN
+	   INSERT (
+	       YY_ACCT, CD_COMPANY, CD_PARTNER, CD_ACCT, M01, M02, M03, M04, M05, M06, M07, M08, M09, M10, M11, M12, LAST_UPDATE_DATE
+	   ) VALUES (
+	       #YY_ACCT#, #CD_COMPANY#, #CD_PARTNER#, #CD_ACCT#, #M01#, #M02#, #M03#, #M04#, #M05#, #M06#, #M07#, #M08#, #M09#, #M10#, #M11#, #M12#, SYSDATE
+	   )
+	</update>
+</sqlMap>

@@ -1,0 +1,364 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap      
+    PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN"
+    "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="HanWhaRqRequestSubmit">
+
+	<select id="selectHanWhaRqIFTargetList" resultClass="java.util.HashMap">
+	<![CDATA[  
+	SELECT 
+			A.COMPANY,
+		    A.DOCU_NO,
+		    A.DOCU_TITLE,
+		    REPLACE(REPLACE(NVL(A.DOCU_CONT, ' '), CHR(13), ''), CHR(10), '<br>') AS DOCU_CONT,
+		    A.USER_ID,
+		    A.USER_NM,
+		    TO_CHAR(A.START_DATE,'YYYYMMDD') AS APP_DATE,
+		    GET_CSTMR_DEAL_STTMN_NO(A.COMPANY) AS APPR_ID,
+		    A.IMAGE_KEY,
+	        B.KEY_1 AS GW_GA_NO,
+            (SELECT TEXT4 FROM ICOMCOD2 WHERE TYPE = 'PLNT' AND TEXT1 = A.COMPANY) AS COMPANYID
+	  FROM ICOGDOCU A, ICOMTRGW B
+	 WHERE A.COMPANY IN (SELECT TEXT1 FROM ICOMCOD2 WHERE TYPE = 'PLNT' AND COMPANY_CODE = 'KRHANWG002')
+	   AND A.EXTIF_TP = 'NG'
+	   AND A.PASS_STATUS = '0'
+	   
+	   AND A.COMPANY = B.COM_CODE
+	   AND A.DOCU_NO = B.TARGET
+	   
+	   AND NOT EXISTS (
+	   		SELECT 'X' FROM EAI.IF_APM_SEND C
+	   				  WHERE C.BUYER = A.COMPANY
+	   				    AND C.DOC_NO = A.DOCU_NO
+	   ) 
+	 ]]>
+	</select>
+	
+	<select id="selectHanWhaRqList" parameterClass="java.util.HashMap"  resultClass="java.util.HashMap">
+	<![CDATA[  
+	SELECT BUYER, QUOTATION_NO, QUOTATION_SEQ, 
+	       NVL(BUYER_ITEM_NO,' ') AS BUYER_ITEM_NO,
+	       DESCRIPTION,
+	       CASE
+	         WHEN REQ_PRICE_TYPE = 'R' THEN '실적가'
+	         WHEN REQ_PRICE_TYPE = 'M' THEN '시장가'
+	         ELSE '목표가'
+	       END AS REQ_PRICE_TYPE,
+	       NVL(TO_CHAR(BUYER_TARGET_PRICE,'999,999,999,999,999'),' ') AS BUYER_TARGET_PRICE,
+	       UNIT_MEASURE,
+	       NVL(MAKER_NAME,' ') AS MAKER_NAME,
+	       NVL(ORIGIN_NAME,' ') AS ORIGIN_NAME,
+	       NVL(AGENT_NAME,' ') AS AGENT_NAME,
+	       NVL(TO_CHAR(ITEM_QTY,'999,999,999,999,999'),' ') AS ITEM_QTY,
+	       SPECIFICATION,
+	       NVL(TO_CHAR(TO_DATE(BTOA_END_DATE,'YYYYMMDD'),'YYYY-MM-DD'),' ') AS BTOA_END_DATE,
+	       (SELECT NVL(CATEG_PATH,' ') 
+	          FROM ICOMBYCA
+	         WHERE COM_CODE = A.BUYER
+	           AND STD_CATEG_ID = A.CATEGORY_NO
+	           AND STATUS = 'C'
+	          ) AS CATEGORY_NO,
+	       NVL(BTOA_REMARK,' ') AS BTOA_REMARK,
+	       NVL(PRE_GR_FLAG,'N') AS PRE_GR_FLAG,
+	       NVL(MSDS_YN,'N') AS MSDS_YN
+	         
+	  FROM KEPRQDT A
+	 WHERE A.BUYER = #COMPANY#
+	   AND A.GW_GA_NO = #GW_GA_NO# 
+	   AND A.RECV_FLAG = 'NG'
+	   
+	   ORDER BY A.BUYER, A.QUOTATION_NO, A.QUOTATION_SEQ
+	 ]]>
+	</select>
+	<select id="HanWhagetRqIcomatch"   parameterClass="java.util.Map"   resultClass="java.util.HashMap">
+			<![CDATA[        
+				SELECT
+				     DOC_NO
+					,DOC_SEQ
+					,TYPE
+					,DES_FILE_NAME
+					,SRC_FILE_NAME
+					,FILE_SIZE / 1000 FILE_SIZE
+					,ADD_DATE
+					,ADD_TIME
+					,CHANGE_DATE
+					,CHANGE_TIME
+					,ADD_USER_ID
+					,ADD_USER_NAME
+					,DES_FILE_DIR
+				FROM ICOMATCH
+				WHERE DOC_NO = #IMAGE_KEY#
+			]]>
+	</select>	
+	
+	<insert id="insertHanWhaRqIfAplSend" parameterClass="java.util.HashMap">
+	INSERT INTO EAI.IF_APL_SEND (
+	  BUYER,
+	  DOC_NO,
+	  APP_SEQ,
+	  USER_ID,
+	  USER_NAME,
+	  KEY_1,
+	  KEY_2,
+	  KEY_3,
+	  KEY_4,
+	  KEY_5,
+	  KEY_6,
+	  KEY_7,
+	  KEY_8,
+	  KEY_9,
+	  KEY_10
+	)
+	SELECT 
+	  A.COMPANY,
+	  A.DOCU_NO,
+	  A.ORDER_NO,
+	  (SELECT NVL(LEGACY_USER_ID,A.USER_ID) FROM ICOMLUSR WHERE COM_CODE = #COMPANY# AND USER_ID = A.USER_ID) AS USER_ID,
+	  A.USER_NM,
+	  #APPR_ID# AS KEY_1,
+	  CASE
+	  	WHEN TO_CHAR(A.PASS_TP) = '2' THEN '9' 
+	  	WHEN TO_CHAR(A.PASS_TP) = '3' THEN '2'
+	  	ELSE TO_CHAR(A.PASS_TP)
+	  END AS KEY_2,
+	  '' AS KEY_3,
+	  '' AS KEY_4,
+	  '' AS KEY_5,
+	  '' AS KEY_6,
+	  '' AS KEY_7,
+	  '' AS KEY_8,
+	  '' AS KEY_9,
+	  '' AS KEY_10
+	  FROM ICOGPASSLN A
+	 WHERE 1 = 1
+	   AND A.COMPANY = #COMPANY#
+	   AND A.DOCU_NO = #DOCU_NO#
+	   
+	</insert>
+	
+	<insert id="insertHanWhaRqIfApmSend" parameterClass="java.util.HashMap">
+	INSERT INTO EAI.IF_APM_SEND (
+	    BUYER,
+	    DOC_NO,
+	    SUBJECT,
+	    CONTENTS,
+	    APP_USER_ID,
+	    APP_USER_NAME,
+	    APP_DATE,
+	    KEY_1,
+	    KEP_2,
+	    KEP_3,
+	    KEP_4,
+	    KEY_5,
+	    KEY_6,
+	    KEY_7,
+	    KEY_8,
+	    KEY_9,
+	    KEY_10,
+	    CREATE_DATM,
+	    IF_FLAG
+	) VALUES (
+	    #COMPANY#,
+	    #DOCU_NO#,
+	    #DOCU_TITLE#,
+	    #CONTENTS:CLOB#,
+	    #USER_ID#,
+	    #USER_NM#,
+	    #APP_DATE#,
+	    #APPR_ID#,
+	    'MROHW8914',
+	    'RQ',
+	    #GW_GA_NO#,
+	    '',
+	    '',
+	    '',
+	    '',
+	    '',
+	    '',
+	    SYSDATE,
+	    'N'
+	)	
+	</insert>
+	
+	<select id="selectHanWhaRqAppSendList" resultClass="java.util.HashMap">
+	SELECT A.BUYER, A.DOC_NO, KEY_1 AS APPRID, B.LEGACY_USER_ID, A.SUBJECT, A.CONTENTS,
+		   B.USER_ID AS MAIL_USER_ID,  B.USER_NAME_LOC AS MAIL_USER_NAME,	
+		   (SELECT CMP.COM_NAME_LOC FROM ICOMCMPY CMP WHERE CMP.COM_CODE = A.BUYER) AS MAIL_COM_NAME_LOC,
+	       TO_CHAR(C.START_DATE, 'YYYYMMDDHH24MISS') AS ADD_DATE,
+	       KEP_2 AS SYSTEMID,
+           CASE
+             WHEN A.BUYER IN ('KRHANW0100') THEN (
+                  SELECT MAX(CD2.TEXT4) FROM ICOMCOD2 CD1, ICOMCOD2 CD2
+                   WHERE CD1.TYPE = 'C001' 
+                     AND CD1.COMPANY_CODE = A.BUYER
+                     AND CD1.CODE = B.DEPARTMENT
+                     AND CD2.TYPE = 'PLNT'
+                     AND CD2.COMPANY_CODE = 'KRHANWG002'
+                     AND CD2.CODE = CD1.TEXT5
+                )
+             ELSE (SELECT MAX(TEXT4) FROM ICOMCOD2 WHERE TYPE = 'PLNT' AND COMPANY_CODE = 'KRHANWG002' AND TEXT1 = A.BUYER) 
+           END AS COMPANYID,
+           CASE
+             WHEN A.BUYER IN ('KRHANW0100') THEN (SELECT TEXT3 FROM ICOMCOD2 WHERE TYPE = 'C001' AND COMPANY_CODE = A.BUYER AND CODE = B.DEPARTMENT)
+             ELSE (SELECT MAX(TEXT3) FROM ICOMCOD2 WHERE TYPE = 'PLNT' AND COMPANY_CODE = 'KRHANWG002' AND TEXT1 = A.BUYER)
+           END AS FORMCODE
+	  FROM EAI.IF_APM_SEND A
+	     , ICOMLUSR B
+	     , ICOGDOCU C
+	 WHERE A.BUYER = #COMPANY#
+	   AND A.DOC_NO = #DOCU_NO#
+	   AND A.KEY_9 IS NULL
+	   AND A.KEY_1 IS NOT NULL
+	   AND A.CREATE_DATM > TRUNC(SYSDATE - 60)
+	   AND A.IF_FLAG = 'N'
+	   
+	   AND B.USER_ID = A.APP_USER_ID
+	   
+	   AND C.COMPANY = A.BUYER
+	   AND C.DOCU_NO = A.DOC_NO
+	   AND ROWNUM = 1
+	</select>
+	<select id="selectHanWhaRqPassln" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+	SELECT
+	       A.KEY_1 AS APPRID,
+	       TO_CHAR(A.APP_SEQ - 1) AS APPRSEQ,
+	       TO_CHAR(A.KEY_2) AS APPRACTIONCD,
+	        NVL(C.LEGACY_USER_ID,A.USER_ID)  AS USER_ID	
+	  FROM EAI.IF_APL_SEND A
+	     , ICOGPASSLN B
+	     , ICOMLUSR C
+	 WHERE A.BUYER = #BUYER#
+	   AND A.DOC_NO = #DOC_NO#
+	   AND A.APP_SEQ = B.ORDER_NO
+	   AND A.KEY_2 != '9'
+	   
+	   AND B.COMPANY = A.BUYER
+	   AND B.DOCU_NO = A.DOC_NO
+	   AND B.USER_ID IN (SELECT USER_ID FROM ICOMLUSR WHERE COM_CODE = A.BUYER AND LEGACY_USER_ID = A.USER_ID)
+       
+	   AND C.COM_CODE = A.BUYER
+	   AND C.LEGACY_USER_ID = A.USER_ID
+	   AND C.USER_ID = B.USER_ID
+	</select>
+	
+	<select id="selectHanWhaRqPassln_refer" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+	SELECT
+	       A.KEY_1 AS APPRID,
+	       TO_CHAR(A.APP_SEQ - 1) AS APPRSEQ,
+	       TO_CHAR(A.KEY_2) AS APPRACTIONCD,
+	        NVL(C.LEGACY_USER_ID,A.USER_ID)  AS USER_ID	
+	  FROM EAI.IF_APL_SEND A
+	     , ICOGPASSLN B
+	     , ICOMLUSR C
+	 WHERE A.BUYER = #BUYER#
+	   AND A.DOC_NO = #DOC_NO#
+	   AND A.APP_SEQ = B.ORDER_NO
+	   AND A.KEY_2 = '9'
+	   
+	   AND B.COMPANY = A.BUYER
+	   AND B.DOCU_NO = A.DOC_NO
+	   AND B.USER_ID IN (SELECT USER_ID FROM ICOMLUSR WHERE COM_CODE = A.BUYER AND LEGACY_USER_ID = A.USER_ID)
+       
+	   AND C.COM_CODE = A.BUYER
+	   AND C.LEGACY_USER_ID = A.USER_ID
+	   AND C.USER_ID = B.USER_ID
+	</select>
+	
+	<update id="updateHanWhaRqSubmitResult" parameterClass="java.util.Map">
+	UPDATE EAI.IF_APM_SEND A
+	   SET KEY_7 = #RTN_MSG#
+	     , IF_FLAG = #RTN_FLAG#
+	     , IF_DATM = SYSDATE
+     WHERE A.BUYER = #BUYER#
+       AND A.DOC_NO = #DOC_NO#
+	</update>
+    
+    <!-- 결재연동오류 알림메일 발송 -->
+    <insert id="HanWhaRqMailSend" parameterClass="java.util.HashMap">
+		INSERT INTO KEP_MAIL
+                       ( SEQ,
+                         SEND_EMAIL,
+                         SEND_NAME,
+                         RECEIVE_EMAIL,
+                         RECEIVE_NAME,
+                         SUBJECT,
+                         CONTENTS,
+                         CREATE_DATE,
+                         JOB_FLAG)
+                 VALUES( SEQ_KEP_MAIL.NEXTVAL,
+                         'koreab2b@koreab2b.com',
+                         '운영자',
+                         'comanche@koreab2b.com;coolkim@koreab2b.com;jwoh@koreab2b.com;charlotte@koreab2b.com;jys0424@koreab2b.com;',
+                         '김승우;김시원;오지원;장지은;정용상;',
+                         '한화 견적의뢰 결재 오류',
+                         '오류생성 일시 : ('||TO_CHAR(SYSDATE,'YYYYMMDD HH24:MI:SS')||')'|| #MAIL_CONTENT#,
+                         SYSDATE,
+                         'N')
+    </insert>
+
+    <!-- 기본결재선 확인 -->  
+	<select id="selectHanwhaApptCnt" parameterClass="java.util.HashMap" resultClass="java.lang.Integer">
+	SELECT COUNT(*) AS CNT
+	  FROM ICOMAPPT
+	 WHERE USER_ID = (SELECT APP_USER_ID FROM EAI.IF_APM_SEND WHERE BUYER = #BUYER# AND DOC_NO = #DOC_NO#)
+	   AND APP_PATH = 1
+	</select>
+
+    <!-- 기본결재선 생성 -->
+	<insert id="insertHanwhaAppt" parameterClass="java.util.HashMap">
+	INSERT INTO ICOMAPPT (
+		USER_ID,        APP_PATH,       SUBJECT,
+		DEFAULT_FLAG,   STATUS, 
+		ADD_DATE,       ADD_TIME,       ADD_USER_ID,
+		CHANGE_DATE,    CHANGE_TIME,    CHANGE_USER_ID
+	) SELECT
+	       APP_USER_ID,      1,      '기본결재선',
+		   'Y',    'C',
+		   TO_CHAR(SYSDATE, 'YYYYMMDD'),   TO_CHAR(SYSDATE, 'HH24MISS'),       'MASTER',
+		   TO_CHAR(SYSDATE, 'YYYYMMDD'),   TO_CHAR(SYSDATE, 'HH24MISS'),       'MASTER'
+	    FROM EAI.IF_APM_SEND
+	   WHERE BUYER = #BUYER#
+	     AND DOC_NO = #DOC_NO#
+	</insert>
+
+	<!-- 기본결재선 확인 쿼리. -->
+	<delete id="deleteHanwhaApse" parameterClass="java.util.HashMap">
+	DELETE ICOMAPSE
+	 WHERE USER_ID = (SELECT APP_USER_ID FROM EAI.IF_APM_SEND WHERE BUYER = #BUYER# AND DOC_NO = #DOC_NO#)
+	 AND APP_PATH = '1'  
+	</delete>
+
+    <!-- 기본결재선 확인 쿼리. -->
+	<insert id="insertHanwhaApse" parameterClass="java.util.HashMap">
+	INSERT INTO ICOMAPSE (
+	    APP_PATH,           USER_ID,            APPR_ID,
+	    APPR_NAME,          APPR_SEQ,           GUBUN,
+	    ADD_DATE,           ADD_TIME,           ADD_USER_ID,
+	    CHANGE_DATE,        CHANGE_TIME,        CHANGE_USER_ID,
+	    STATUS
+	)
+	SELECT
+	        1,  (SELECT APP_USER_ID FROM EAI.IF_APM_SEND WHERE BUYER = #BUYER# AND DOC_NO = #DOC_NO#),  A.USER_ID,
+	        B.USER_NAME_LOC,
+	        CASE
+	          WHEN A.PASS_TP IN ('1','3') THEN ORDER_NO - 1
+	          ELSE 0
+	        END,    
+	        CASE
+	          WHEN A.PASS_TP = '1' THEN 'C'
+	          WHEN A.PASS_TP = '3' THEN 'H'
+	          ELSE 'R'
+	        END,
+	        TO_CHAR(SYSDATE, 'YYYYMMDD'),   TO_CHAR(SYSDATE, 'HH24MISS'),   'MASTER',
+	        TO_CHAR(SYSDATE, 'YYYYMMDD'),   TO_CHAR(SYSDATE, 'HH24MISS'),   'MASTER',
+	        'C'
+	  FROM ICOGPASSLN A, ICOMLUSR B
+	 WHERE 1 = 1
+	   AND A.COMPANY = #BUYER#
+	   AND A.DOCU_NO = #DOC_NO#
+	   AND B.USER_ID = A.USER_ID
+	   AND A.ORDER_NO != 1
+	 ORDER BY A.ORDER_NO  
+	</insert>
+</sqlMap>

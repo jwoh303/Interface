@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="EUC-KR"?>
+<SQL>
+  <!-- *********************************************************************** -->
+  <SQL_DOC INTERFACE_ID="KEP2HYOS_RT">
+    <V_SQL NAME='$G_RS' ISLOOP="TRUE" COMMIT_BY_RESULT="FALSE">
+    <![CDATA[
+      SELECT RQDT.BUYER
+           , RQDT.QUOTATION_NO
+           , RQDT.QUOTATION_SEQ
+           , RQDT.REVISION
+      FROM  KEPRQDT RQDT
+            INNER JOIN KEPQTDT QTDT ON (1 = 1
+              AND QTDT.BUYER            = RQDT.BUYER
+              AND QTDT.QUOTATION_NO     = RQDT.QUOTATION_NO
+              AND QTDT.QUOTATION_SEQ    = RQDT.QUOTATION_SEQ
+              AND QTDT.REVISION         = RQDT.REVISION
+              AND QTDT.STATUS           = 'C'
+              AND QTDT.BID_SUCCESS_FLAG = 'Y'
+            )
+      WHERE RQDT.BUYER IN ('KRHYOS0033','KRHYOS0034','KRHYOS0036','KRHYOS0037','KRHYOS0043')
+      AND   RQDT.SND_CHK        = 'N'
+      AND   RQDT.ATOB_SEND_FLAG = 'Y'
+      AND   RQDT.STATUS IN ('C','R')
+      AND   RQDT.QUOTATION_NO LIKE 'MQ%'
+      AND   0  = (SELECT count(*) FROM KEPRQDT
+                  WHERE BUYER        = RQDT.BUYER
+                    AND QUOTATION_NO = RQDT.QUOTATION_NO
+                    AND REVISION     = RQDT.REVISION
+                    AND STATUS IN ('C','R')
+                    AND RECV_FLAG      != 'GD'
+                    AND ATOB_SEND_FLAG != 'Y')
+      AND  RQDT.RECV_FLAG != 'GD'
+      ORDER BY RQDT.BUYER
+             , RQDT.QUOTATION_NO
+             , TO_NUMBER(RQDT.QUOTATION_SEQ)
+             , RQDT.REVISION
+    ]]>
+    </V_SQL>
+    <P_SQL SEQ="1" TYPE="SELECT" POST_SQL="TRUE">
+    <![CDATA[
+      SELECT
+             PLANT,
+             QUOTATION_NO,
+             QUOTATION_SEQ,
+             REVISION_NO,
+             BUYER_ITEM_NO,
+             TO_NUMBER(F_SPLIT(F_SPLIT(QTA_RESULT,'^',1),':',1)) AS UNIT_PRICE,
+             F_SPLIT(F_SPLIT(QTA_RESULT,'^',1),':',2) AS MAKER_NAME,
+             F_SPLIT(F_SPLIT(QTA_RESULT,'^',1),':',3) AS LEAD_TIME,
+             F_SPLIT(F_SPLIT(QTA_RESULT,'^',1),':',4) AS CUR1,
+             F_SPLIT(F_SPLIT(QTA_RESULT,'^',1),':',5) AS TAXCODE1,
+             TO_NUMBER(F_SPLIT(F_SPLIT(QTA_RESULT,'^',2),':',1)) AS UNIT_PRICE2,
+             F_SPLIT(F_SPLIT(QTA_RESULT,'^',2),':',2) AS MAKER_NAME2,
+             F_SPLIT(F_SPLIT(QTA_RESULT,'^',2),':',3) AS LEAD_TIME2,
+             F_SPLIT(F_SPLIT(QTA_RESULT,'^',2),':',4) AS CUR2,
+             F_SPLIT(F_SPLIT(QTA_RESULT,'^',2),':',5) AS TAXCODE2,
+             TO_NUMBER(F_SPLIT(F_SPLIT(QTA_RESULT,'^',3),':',1)) AS UNIT_PRICE3,
+             F_SPLIT(F_SPLIT(QTA_RESULT,'^',3),':',2) AS MAKER_NAME3,
+             F_SPLIT(F_SPLIT(QTA_RESULT,'^',3),':',3) AS LEAD_TIME3,
+             F_SPLIT(F_SPLIT(QTA_RESULT,'^',3),':',4) AS CUR3,
+             F_SPLIT(F_SPLIT(QTA_RESULT,'^',3),':',5) AS TAXCODE3,
+             ZCOMMENT
+        FROM (
+          SELECT
+                 RQDT.PLANT   AS PLANT
+               , RQDT.QUOTATION_NO
+               , RQDT.QUOTATION_SEQ
+               , RQDT.REVISION AS REVISION_NO
+               , RQDT.BUYER_ITEM_NO
+               , (SELECT MAX(SUBSTR(SYS_CONNECT_BY_PATH(UNIT_PRICE ||':'|| AGENT ||':'|| LEAD_TIME ||':'|| 'KRW' ||':'|| 'VB', '^'),2))
+                    FROM (
+                      SELECT QT.BUYER,
+                             QT.QUOTATION_NO,
+                             QT.QUOTATION_SEQ,
+                             SUBSTRB(CP.COM_NAME_LOC,1,32) AGENT,
+                             QT.ATOB_UNIT_PRICE AS UNIT_PRICE,
+                             QT.LEAD_TIME,
+                             DENSE_RANK() OVER(ORDER BY QT.BID_SUCCESS_FLAG DESC,QT.ATOB_UNIT_PRICE) RK
+                        FROM KEPQTDT QT
+                             INNER JOIN ICOMCMPY CP ON (1 = 1
+                               AND CP.COM_CODE = QT.AGENT
+                             )
+                       WHERE 1 = 1
+                         AND BUYER         = '$G_RS.BUYER$'
+                         AND QUOTATION_NO  = '$G_RS.QUOTATION_NO$'
+                         AND QUOTATION_SEQ = '$G_RS.QUOTATION_SEQ$'
+                         AND REVISION      = '$G_RS.REVISION$'
+                         AND NVL(QT.ATOB_UNIT_PRICE,0) > 0
+                         AND QT.STATUS     = 'C'
+                       ORDER BY QT.BID_SUCCESS_FLAG DESC, QT.ATOB_UNIT_PRICE
+                    ) Z
+                    START WITH Z.RK = 1
+                    CONNECT BY PRIOR Z.RK = ( Z.RK -1 )
+                 )  AS QTA_RESULT
+               , SUBSTR(RQDT.ATOB_REMARK,1,30) AS ZCOMMENT
+            FROM KEPRQDT RQDT
+                 INNER JOIN KEPQTDT QTDT ON (1 = 1
+                   AND QTDT.BUYER            = RQDT.BUYER
+                   AND QTDT.QUOTATION_NO     = RQDT.QUOTATION_NO
+                   AND QTDT.QUOTATION_SEQ    = RQDT.QUOTATION_SEQ
+                   AND QTDT.REVISION         = RQDT.REVISION
+                   AND QTDT.BID_SUCCESS_FLAG = 'Y'
+                   AND QTDT.STATUS           = 'C'
+                 )
+           WHERE 1 = 1
+             AND RQDT.BUYER         = '$G_RS.BUYER$'
+             AND RQDT.QUOTATION_NO  = '$G_RS.QUOTATION_NO$'
+             AND RQDT.QUOTATION_SEQ = '$G_RS.QUOTATION_SEQ$'
+             AND RQDT.REVISION      = '$G_RS.REVISION$'
+        ) F
+    ]]>
+      <C_SQL TYPE="UPDATE" P_SQL_RESULT="TRUE">
+      <![CDATA[
+        UPDATE KEPRQDT
+           SET SND_CHK = 'Y',
+               SND_DATM = SYSDATE
+         WHERE BUYER         = '$G_RS.BUYER$'
+           AND QUOTATION_NO  = '$G_RS.QUOTATION_NO$'
+           AND QUOTATION_SEQ = '$G_RS.QUOTATION_SEQ$'
+           AND REVISION      = '$G_RS.REVISION$'
+      ]]>
+      </C_SQL>
+      <C_SQL TYPE="UPDATE" P_SQL_RESULT="FALSE">
+      <![CDATA[
+        UPDATE KEPRQDT
+           SET SND_CHK  = 'E',
+               SND_DATM = SYSDATE
+         WHERE BUYER         = '$G_RS.BUYER$'
+           AND QUOTATION_NO  = '$G_RS.QUOTATION_NO$'
+           AND QUOTATION_SEQ = '$G_RS.QUOTATION_SEQ$'
+           AND REVISION      = '$G_RS.REVISION$'
+      ]]>
+      </C_SQL>
+    </P_SQL>
+  </SQL_DOC>
+  <RETRY_CODE>
+    <CODE>03113</CODE>
+    <CODE>03114</CODE>
+    <CODE>02154</CODE>
+    <CODE>02541</CODE>
+    <CODE>04068</CODE>
+  </RETRY_CODE>
+</SQL>

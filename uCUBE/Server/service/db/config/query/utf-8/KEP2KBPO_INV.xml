@@ -1,0 +1,237 @@
+<?xml version="1.0" encoding="EUC-KR"?>
+<SQL>
+	<!-- *********************************************************************** -->
+	<SQL_DOC INTERFACE_ID="KEP2KBPO_INV">
+		<V_SQL NAME='$G_RS' ISLOOP="TRUE" COMMIT_BY_RESULT="FALSE"> 
+			SELECT TARGET AS BUYER, TO_CHAR(KEY_1) AS INV_NO, TO_CHAR(KEY_2) AS INV_SEQ
+			FROM ICOMTRXL C
+			WHERE  DOC_NAME = 'BPO_IVDOWN'
+			AND    TRIM(KEY_9) IS NULL
+			AND    EXISTS (
+                             SELECT 'X' FROM ICOMCOD2 A
+                              WHERE A.COMPANY_CODE   = C.TARGET
+                                AND A.TYPE  = 'BPO1'
+                          )
+            AND    EXISTS (
+                             SELECT 'X' FROM ICOMIVDT A, ICOMPODT B
+                              WHERE A.BUYER   = C.TARGET
+                                AND A.INV_NO  = C.KEY_1
+                                AND A.INV_SEQ  = C.KEY_2
+                                AND A.BUYER  = B.BUYER
+                                AND A.PO_NO  = B.PO_NO
+                                AND A.PO_SEQ = B.PO_SEQ
+                                AND B.PROCESS_TYPE = '0'
+                          )
+            UNION ALL
+            SELECT TARGET AS BUYER, TO_CHAR(KEY_1) AS INV_NO, TO_CHAR(KEY_2) AS INV_SEQ
+			FROM ICOMTRXL C
+			WHERE  DOC_NAME = 'BPO_IVDOWN'
+			AND    TRIM(KEY_9) IS NULL
+			AND    EXISTS (
+                             SELECT 'X' FROM ICOMCOD2 A
+                              WHERE A.COMPANY_CODE   = C.TARGET
+                                AND A.TYPE  = 'BPO1'
+                          )
+            AND    EXISTS (
+                             SELECT 'X' FROM WMSIVDT E, ICOMPODT B
+                              WHERE E.BUYER   = C.TARGET
+                                AND E.INV_NO  = C.KEY_1
+                                AND E.INV_SEQ = C.KEY_2
+                                AND E.BUYER  = B.BUYER
+                                AND E.PO_NO  = B.PO_NO
+                                AND E.PO_SEQ = B.PO_SEQ
+                                AND B.PROCESS_TYPE != '0'
+                          )
+		</V_SQL> 
+		<P_SQL SEQ="1" TYPE="SELECT" POST_SQL="TRUE">
+		<![CDATA[
+			SELECT 
+				B.PLANT							AS	PLANT,
+				NVL(A.INV_NO             ,' ')	AS	LEGACY_IV_NO,
+				A.INV_SEQ			AS	LEGACY_IV_SEQ,
+				NVL(B.BUYER_ITEM_NO			 ,' ')	AS	BUYER_ITEM_NO,
+				NVL(A.STATUS             ,' ')	AS	STATUS,
+				NVL(B.LEGACY_PO_NO             ,' ')	AS	LEGACY_PO_NO,
+				B.LEGACY_PO_SEQ		AS	LEGACY_PO_SEQ,
+				NVL(A.INVOICE_DATE	     ,' ')	AS	INV_DATE,
+				NVL(B.UNIT_PRICE         , 0 )	AS	UNIT_PRICE,
+				NVL(A.INV_QTY            , 0 )	AS	ITEM_QTY,
+				NVL(B.UNIT_PRICE*A.INV_QTY , 0 )	AS	INV_AMT
+			FROM  ICOMIVDT A, ICOMPODT B, ICOMTRXL C, ICOMIVHD D
+			WHERE A.BUYER   = C.TARGET
+			AND A.INV_NO  = C.KEY_1
+			AND A.INV_SEQ  = C.KEY_2
+			AND A.BUYER  = B.BUYER
+			AND A.PO_NO  = B.PO_NO
+			AND A.PO_SEQ = B.PO_SEQ
+			AND A.BUYER  = D.BUYER
+			AND A.INV_NO  = D.INV_NO
+			AND B.STATUS != 'D'
+			AND C.DOC_NAME = 'BPO_IVDOWN'
+			AND C.TARGET   = '$G_RS.BUYER$'
+			AND C.KEY_1    = '$G_RS.INV_NO$'
+			AND C.KEY_2	   = '$G_RS.INV_SEQ$'
+			AND TRIM(C.KEY_9) IS NULL
+			AND B.PROCESS_TYPE = '0'
+
+			UNION ALL
+			
+			SELECT 
+				B.PLANT							AS	PLANT,
+				NVL(E.INV_NO             ,' ')	AS	LEGACY_IV_NO,
+				E.INV_SEQ			AS	LEGACY_IV_SEQ,
+				NVL(B.BUYER_ITEM_NO			 ,' ')	AS	BUYER_ITEM_NO,
+				NVL(E.STATUS             ,' ')	AS	STATUS,
+				NVL(B.LEGACY_PO_NO             ,' ')	AS	LEGACY_PO_NO,
+				B.LEGACY_PO_SEQ		AS	LEGACY_PO_SEQ,
+				NVL(E.INV_DATE			 ,' ')	AS	INV_DATE,
+				NVL(B.UNIT_PRICE         , 0 )	AS	UNIT_PRICE,
+				NVL(E.INV_QTY            , 0 )	AS	ITEM_QTY,
+				NVL(B.UNIT_PRICE*A.INV_QTY , 0 )	AS	INV_AMT
+			FROM  ICOMIVDT A, ICOMPODT B, ICOMTRXL C, ICOMIVHD D, WMSIVDT E
+			WHERE E.BUYER   = C.TARGET
+			AND E.INV_NO  = C.KEY_1
+			AND E.INV_SEQ  = C.KEY_2
+			AND A.BUYER  = B.BUYER
+			AND A.PO_NO  = B.PO_NO
+			AND A.PO_SEQ = B.PO_SEQ
+			AND A.BUYER  = D.BUYER
+			AND A.INV_NO  = D.INV_NO
+			AND B.STATUS != 'D'
+
+			AND A.BUYER  = E.BUYER
+			AND A.PO_NO  = E.PO_NO
+			AND A.PO_SEQ = E.PO_SEQ
+			AND A.INV_NO  = E.S_INV_NO
+			AND A.INV_SEQ  = E.S_INV_SEQ
+
+			AND C.DOC_NAME = 'BPO_IVDOWN'
+			AND C.TARGET   = '$G_RS.BUYER$'
+			AND C.KEY_1    = '$G_RS.INV_NO$'
+			AND C.KEY_2	   = '$G_RS.INV_SEQ$'
+			AND TRIM(C.KEY_9) IS NULL
+			AND B.PROCESS_TYPE != '0'
+		]]>
+			<C_SQL TYPE="UPDATE" P_SQL_RESULT="TRUE">
+			<![CDATA[
+
+				DECLARE
+
+					V_COUNT				NUMBER;
+					V_SEND_DATE		ICOMIVDT.SEND_DATE%TYPE;
+					V_SEND_TIME		ICOMIVDT.SEND_TIME%TYPE;
+					V_SEND_DATETIME	ICOMTRXL.KEY_8%TYPE;
+
+				BEGIN
+					
+					SELECT
+					TO_CHAR(SYSDATE,'YYYYMMDD'), TO_CHAR(SYSDATE,'HH24MISS'), TO_CHAR(SYSDATE,'YYYYMMDD HH24MISS')
+					INTO V_SEND_DATE, V_SEND_TIME, V_SEND_DATETIME
+					FROM DUAL;
+					
+					V_COUNT				:= 0;
+				
+					SELECT COUNT(1) INTO V_COUNT
+					FROM ICOMIVDT
+					WHERE  BUYER  = '$G_RS.BUYER$'
+					AND  INV_NO = '$G_RS.INV_NO$'
+					AND  INV_SEQ = '$G_RS.INV_SEQ$'
+					AND  TRIM(SEND_DATE) IS NULL
+					AND	 ROWNUM = 1
+					;
+					
+					IF V_COUNT = 1 THEN
+
+						UPDATE ICOMIVDT SET 
+							SEND_DATE    = V_SEND_DATE,
+							SEND_TIME    = V_SEND_TIME
+						WHERE  BUYER  = '$G_RS.BUYER$'
+						AND  INV_NO = '$G_RS.INV_NO$'
+						AND  INV_SEQ = '$G_RS.INV_SEQ$'
+						AND  TRIM(SEND_DATE) IS NULL
+						;
+
+					END IF;
+
+					V_COUNT				:= 0;
+				
+					SELECT COUNT(1) INTO V_COUNT
+					FROM WMSIVDT
+					WHERE  BUYER  = '$G_RS.BUYER$'
+					AND  INV_NO = '$G_RS.INV_NO$'
+					AND  INV_SEQ = '$G_RS.INV_SEQ$'
+					AND  TRIM(SEND_DATE) IS NULL
+					AND	 ROWNUM = 1
+					;
+					
+					IF V_COUNT = 1 THEN
+
+						UPDATE WMSIVDT SET 
+							SEND_DATE    = V_SEND_DATE,
+							SEND_TIME    = V_SEND_TIME
+						WHERE  BUYER  = '$G_RS.BUYER$'
+						AND  INV_NO = '$G_RS.INV_NO$'
+						AND  INV_SEQ = '$G_RS.INV_SEQ$'
+						AND  TRIM(SEND_DATE) IS NULL
+						;
+
+					END IF;
+
+					DELETE FROM ICOMTRXL
+					WHERE  DOC_NAME = 'BPO_IVDOWN'
+					AND TARGET      = '$G_RS.BUYER$'
+					AND KEY_1       = '$G_RS.INV_NO$'
+					AND KEY_2		= '$G_RS.INV_SEQ$'
+					AND TRIM(KEY_9) IS NULL
+					;
+
+					DELETE FROM ICOMTRXL C
+					WHERE  DOC_NAME = 'BPO_IVDOWN'
+					AND    TRIM(KEY_9) IS NULL
+					AND    TARGET   IN ('$G_RS.BUYER$')
+					AND   NOT  EXISTS (
+									 SELECT 'X' FROM ICOMIVDT A, ICOMPODT B
+									  WHERE A.BUYER   = C.TARGET
+										AND A.INV_NO  = C.KEY_1
+										AND A.INV_SEQ  = C.KEY_2
+										AND A.BUYER  = B.BUYER
+										AND A.PO_NO  = B.PO_NO
+										AND A.PO_SEQ = B.PO_SEQ
+										AND B.PROCESS_TYPE = '0'
+								  )
+					AND  NOT  EXISTS (
+									 SELECT 'X' FROM WMSIVDT E, ICOMPODT B
+									  WHERE E.BUYER   = C.TARGET
+										AND E.INV_NO  = C.KEY_1
+										AND E.INV_SEQ = C.KEY_2
+										AND E.BUYER  = B.BUYER
+										AND E.PO_NO  = B.PO_NO
+										AND E.PO_SEQ = B.PO_SEQ
+										AND B.PROCESS_TYPE != '0'
+								  )
+					;
+
+				END;
+
+			]]>
+			</C_SQL>
+			<C_SQL TYPE="UPDATE" P_SQL_RESULT="FALSE">
+			<![CDATA[
+				DELETE FROM ICOMTRXL
+				WHERE  DOC_NAME = 'BPO_IVDOWN'
+				AND TARGET      = '$G_RS.BUYER$'
+				AND KEY_1       = '$G_RS.INV_NO$'
+				AND KEY_2		= '$G_RS.INV_SEQ$'
+				AND TRIM(KEY_9) IS NULL
+			]]>
+			</C_SQL>
+		</P_SQL>
+	</SQL_DOC>
+	<RETRY_CODE>
+		<CODE>03113</CODE>
+		<CODE>03114</CODE>
+		<CODE>02154</CODE>
+		<CODE>02541</CODE>
+		<CODE>04068</CODE>
+	</RETRY_CODE>
+</SQL>

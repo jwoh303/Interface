@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="EUC-KR"?>
+<SQL>
+	<!-- *********************************************************************** -->
+	<SQL_DOC INTERFACE_ID="KEP2BNGS_INV">
+		<V_SQL NAME='$G_RS' ISLOOP="TRUE" COMMIT_BY_RESULT="FALSE"> 
+                        SELECT SV01.CSTMR_ID
+                             , SV01.DEAL_STTMN_NO
+                        FROM   KEPMPSV01 SV01, KEPMPSV02 SV02
+                        WHERE  SV01.CSTMR_ID = 'KRHYUN0183C001'
+                        AND    SV01.SND_CHK  = 'N'
+                        AND    SV01.DEAL_STTMN_NO = SV02.DEAL_STTMN_NO
+		</V_SQL> 
+		<P_SQL SEQ="1" TYPE="SELECT" POST_SQL="TRUE">
+		<![CDATA[
+                        SELECT 'BNG'                             AS PLANT
+                             , F_SPLIT(SO04.MNG_NO,'-',3)        AS REQUNO
+                             , REPLACE(NVL(SV02.DEAL_STTMN_NO,' '),SV01.CSTMR_ID,'')  AS INVOICE_NO
+                             , SV02.DEAL_STTMN_SEQ               AS INVOICE_SEQ
+                             , NVL(SO04.IF_ORDR_MNG_NO,' ')      AS BUYER_ITEM_NO
+                             , DECODE(SV02.USE_CHK,'Y','C','D')  AS STATUS
+                             , REPLACE(REPLACE(REPLACE(REPLACE(SO06.IF_ORDR_NO,'PR-',''),'PO-',''),'-C',''),'-K','')    AS LEGACY_PO_NO
+                             , TO_NUMBER(SO06.IF_ORDR_SEQ)              AS LEGACY_PO_SEQ
+                             , REPLACE(PO02.PLCORD_NO,PO02.CSTMR_ID,'') AS PURCHASE_NO
+                             , NVL(SV01.DLVRY_DATE           ,' ')      AS ADD_DATE
+                             , NVL(SO06.SLS_UNTPRC         , 0 )        AS UNIT_PRICE
+                             , NVL(SV02.DLVRY_QTY          , 0 )        AS ITEM_QTY
+                             , NVL(SO06.SLS_UNTPRC*SV02.DLVRY_QTY , 0 ) AS ITEM_AMT
+                             , F_SPLIT(SO04.MNG_NO,'-',1)        AS LEGACY_PR_NO
+                             , SV01.NOTE                         AS REMARK
+                             , CASE
+                                        WHEN SO06.IF_ORDR_NO LIKE 'PR-%'
+                                        THEN 'Y'
+                                        ELSE 'N'
+                               END                               AS ADVANCE_FLAG
+                             , 'Y'                               AS DELIV_YN
+                             , TO_CHAR(SYSDATE, 'YYYYMMDD')      AS DELIV_DATE
+                             , ' '                               AS DELIV_NAME
+                             , ' '                               AS DELIV_TEL
+                        FROM   KEPMPSV01 SV01, KEPMPSV02 SV02,
+                               KEPMPSO06 SO06, KEPMPSO04 SO04,
+                               KEPMPPO02 PO02
+                        WHERE  SV01.CSTMR_ID = '$G_RS.CSTMR_ID$'
+                        AND    SV01.DEAL_STTMN_NO = '$G_RS.DEAL_STTMN_NO$'
+                        AND    SV01.SND_CHK  = 'N'
+                        AND    SV01.DEAL_STTMN_NO = SV02.DEAL_STTMN_NO
+                        AND    SV02.ORDR_NO  = SO06.ORDR_NO
+                        AND    SV02.ORDR_SEQ = SO06.ORDR_SEQ
+                        AND    SO06.ORDR_RE_NO = SO04.ORDR_RE_NO
+                        AND    SO06.ORDR_RE_SEQ= SO04.ORDR_RE_SEQ
+                        AND    SO06.ORDR_NO    = PO02.ORDR_NO
+                        AND    SO06.ORDR_SEQ   = PO02.ORDR_SEQ
+                        AND    PO02.USE_CHK    = 'Y'
+
+		]]>
+			<C_SQL TYPE="UPDATE" P_SQL_RESULT="TRUE">
+			<![CDATA[
+                             declare
+                             begin
+                                UPDATE KEPMPSV01
+                                SET    SND_CHK = 'Y'
+                                     , SND_DATM = SYSDATE
+                                WHERE  CSTMR_ID = '$G_RS.CSTMR_ID$'
+                                AND    DEAL_STTMN_NO = '$G_RS.DEAL_STTMN_NO$';
+                                UPDATE KEPMPSV02
+                                SET    SND_CHK = 'Y'
+                                     , SND_DATM = SYSDATE
+                                WHERE  DEAL_STTMN_NO = '$G_RS.DEAL_STTMN_NO$'
+                                AND    SND_CHK = 'N';
+                             end;
+      
+			]]>
+			</C_SQL>
+			<C_SQL TYPE="UPDATE" P_SQL_RESULT="FALSE">
+			<![CDATA[
+                                UPDATE KEPMPSV01
+                                SET    SND_CHK = 'E'
+                                     , SND_DATM = SYSDATE
+                                WHERE  CSTMR_ID = '$G_RS.CSTMR_ID$'
+                                AND    DEAL_STTMN_NO = '$G_RS.DEAL_STTMN_NO$'
+			]]>
+			</C_SQL>
+		</P_SQL>
+	</SQL_DOC>
+	<RETRY_CODE>
+		<CODE>03113</CODE>
+		<CODE>03114</CODE>
+		<CODE>02154</CODE>
+		<CODE>02541</CODE>
+		<CODE>04068</CODE>
+	</RETRY_CODE>
+</SQL>

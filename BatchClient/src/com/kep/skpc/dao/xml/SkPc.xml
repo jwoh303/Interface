@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap      
+    PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN"
+    "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="SkPc">
+	
+	<select id="selectSkPcToken" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+		SELECT KEY_7 AS TOKEN
+          FROM ICOMTRXL
+         WHERE DOC_NAME = 'TOKEN'
+           AND TARGET = 'KRSKPC'
+	</select>
+	
+	<select id="selectSkPcItList" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+		SELECT CATEGORY1,
+               CATEGORY3,
+               CATEGORY4,
+			   BUYER_ITEM_NO,
+			   STATUS,
+			   DESCRIPTION,
+			   SPECIFICATION,
+			   DATA01 AS MAKER_CODE,
+			   MAKER_NAME,
+			   DATA03 AS ORIGIN_CODE,
+			   UNIT_MEASURE,
+			   UNIT_PRICE,
+			   DELIVERY_LT,
+			   PLANT,
+			   DATA02 AS IMAGE_URL
+		  FROM EAI.IF_UCUBE_IT_SEND
+		 WHERE BELOW_COMORG_CODE IN ('KRSKPU0001','KRSKPU0002')
+		   AND TRIM(CATEGORY4) IS NOT NULL
+		   AND IF_FLAG = 'N'
+	</select>
+	
+	<update id="updateSkPcItSend"  parameterClass="java.util.Map">
+		UPDATE EAI.IF_UCUBE_IT_SEND
+		   SET IF_FLAG = #flag#,
+		   	   IF_DATE = SYSDATE,
+		       IF_MSG = #msg#
+		 WHERE BELOW_COMORG_CODE IN ('KRSKPU0001','KRSKPU0002')
+		   AND BELOW_COMORG_CODE = 'KRSKPU0001'                   
+		   AND BUYER_ITEM_NO = #BUYER_ITEM_NO#
+		   AND CATEGORY4 = #CATEGORY4#	   
+		   AND IF_FLAG = 'N'
+	</update>	
+	
+	<update id="updateSkPcItErr" >
+		UPDATE EAI.IF_UCUBE_IT_SEND
+           SET IF_FLAG = 'E',
+               IF_DATE = SYSDATE
+         WHERE BELOW_COMORG_CODE IN ('KRSKPU0001','KRSKPU0002')
+		   AND BELOW_COMORG_CODE = 'KRSKPU0001'  
+		   AND TRIM(CATEGORY4) IS NOT NULL
+		   AND IF_FLAG = 'N'		  
+	</update>
+	
+	<select id="selectSkPcReQuoList" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+		SELECT DISTINCT(QUOTATION_NO)
+		  FROM EAI.IF_UCUBE_IT_SEND A
+		 WHERE BELOW_COMORG_CODE IN ('KRSKPU0001','KRSKPU0002')		  
+		   AND TRIM(CATEGORY4) IS NULL
+           AND QUOTATION_NO IS NOT NULL
+           AND QUOTATION_NO NOT LIKE 'RE%'
+<!-- 		   AND 0 = (SELECT COUNT(*) FROM IF_REDT -->
+<!--         		 	 WHERE BUYER = A.BELOW_COMORG_CODE -->
+<!--          			   AND QUOTATION_NO = A.QUOTATION_NO) - (SELECT COUNT(*) FROM EAI.IF_UCUBE_IT_SEND -->
+<!--                                                				  WHERE BELOW_COMORG_CODE = A.BELOW_COMORG_CODE -->
+<!--                                                				    AND QUOTATION_NO = A.QUOTATION_NO) -->
+		   AND IF_FLAG = 'N'
+	</select>
+	
+	<select id="selectSkPcReRtList" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+		SELECT QUOTATION_NO,
+		       QUOTATION_SEQ,
+		       STATUS,
+		       BUYER_ITEM_NO,
+		       DESCRIPTION,
+		       SPECIFICATION,
+		       DATA01 AS ORIGIN_NAME,       
+		       MAKER_NAME,
+		       UNIT_MEASURE,
+		       UNIT_PRICE,
+		       DATA03 AS REMARK,       
+		       PLANT,
+		       DATA02 AS IMAGE_URL,
+		       CATEGORY_PATH,
+		       (SELECT MAX(REF_NO) 
+                  FROM KEPRQDT 
+                 WHERE BUYER = A.BELOW_COMORG_CODE
+                   AND QUOTATION_NO = A.QUOTATION_NO
+                   AND QUOTATION_SEQ = A.QUOTATION_SEQ
+                   ) AS RFX_NO
+		FROM EAI.IF_UCUBE_IT_SEND A
+		WHERE BELOW_COMORG_CODE IN ('KRSKPU0001','KRSKPU0002')		  
+		  AND TRIM(CATEGORY4) IS NULL
+		  AND QUOTATION_NO = #QUOTATION_NO#
+		  AND IF_FLAG = 'N'
+	</select>
+	
+	<update id="updateSkPcReRt"  parameterClass="java.util.Map">
+		UPDATE EAI.IF_UCUBE_IT_SEND
+		   SET IF_FLAG = #flag#,
+		       IF_DATE = SYSDATE,
+		       IF_MSG = #msg#
+		 WHERE BELOW_COMORG_CODE IN ('KRSKPU0001','KRSKPU0002')
+		   AND BELOW_COMORG_CODE = 'KRSKPU0001'           
+		   AND QUOTATION_NO = #QUOTATION_NO#
+		   AND QUOTATION_NO = #QUOTATION_SEQ#
+		   AND TRIM(CATEGORY4) IS NULL
+		   AND IF_FLAG = 'N'
+	</update>	
+	
+	<update id="updateSkPcReRtErr" >
+		UPDATE EAI.IF_UCUBE_IT_SEND
+           SET IF_FLAG = 'E',
+		       IF_DATE = SYSDATE
+         WHERE BELOW_COMORG_CODE IN ('KRSKPU0001','KRSKPU0002')
+		   AND BELOW_COMORG_CODE = 'KRSKPU0001'
+		   AND TRIM(CATEGORY4) IS NULL
+		   AND IF_FLAG = 'N'			  
+	</update>
+	
+	<select id="selectSkPcIvList" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+		SELECT PODT.PO_NO,
+       		   PODT.LEGACY_PO_NO,
+		       PODT.LEGACY_PO_SEQ,
+		       MAX(PORS.BUYER_DS_DATE) AS BUYER_DS_DATE,
+		       MAX(PODT.ITEM_QTY) AS CD_QTY,
+		       PODT.PLANT
+		  FROM ICOMPODT PODT, ICOMTRXL TRXL, ICOMPORS PORS
+		 WHERE TRXL.DOC_NAME = 'DSDOWN'
+		   AND TRIM(TRXL.KEY_9) IS NULL 
+		   AND PODT.BUYER IN ('KRSKPU0001','KRSKPU0002')		   
+		   AND PODT.BUYER = PORS.BUYER
+		   AND PODT.BUYER_ITEM_NO = PORS.BUYER_ITEM_NO
+		   AND PODT.PO_NO = PORS.PO_NO
+		   AND PODT.PO_SEQ = PORS.PO_SEQ
+		   AND SUBSTR(NVL(TRIM(PODT.LEGACY_PO_NO), ' '),1,2) NOT IN (' ','PM')		   
+		   AND PODT.BUYER = TRXL.TARGET
+		   AND PODT.PO_NO = TRXL.KEY_1	   
+		   GROUP BY PODT.PO_NO,PODT.LEGACY_PO_NO, LEGACY_PO_SEQ, PODT.PLANT
+	</select>
+	
+	<update id="updateSkPcIvTrxl"  parameterClass="java.util.Map">
+		UPDATE ICOMTRXL
+		   SET KEY_9 = #flag#,
+		       KEY_8 = #msg#,
+		       KEY_2 = #LEGACY_PO_NO#,
+		       KEY_3 = #LEGACY_PO_SEQ#,		       
+               KEY_10 = TO_CHAR(SYSTIMESTAMP,'YYYYMMDD HH24:MI:SS.FF3')
+		 WHERE DOC_NAME = 'DSDOWN'		
+		   AND TARGET = 'KRSKPU0001'
+		   AND KEY_1 = #PO_NO#
+		   AND TRIM(KEY_2) IS NULL
+		   AND TRIM(KEY_9) IS NULL
+	</update>
+	
+</sqlMap>    

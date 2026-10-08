@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap      
+    PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN"
+    "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="KepAppStatus">
+	<select id="selectAppTargetList" resultClass="java.util.HashMap">
+	SELECT 
+	       A.BUYER,
+	       A.DOC_NO,
+	       A.APP_USER_ID,
+	       NVL(A.KEY_8, 'SUBMIT') AS APPRO_STATE,
+	       (SELECT MAX(RECV_FLAG) FROM ICOMPRDT
+	         WHERE BUYER = A.BUYER
+	           AND PR_NO = A.DOC_NO) AS RECV_FLAG
+	  FROM EAI.IF_APM_SEND A
+	 WHERE A.BUYER   = 'KRWOOJ0078'
+	   AND A.IF_FLAG = 'N'
+	</select>
+
+	<update id="updateAppTargetInfo" parameterClass="java.util.HashMap">
+	UPDATE EAI.IF_APM_SEND
+	   SET KEY_8   = #APPRO_STATE#
+	     , KEY_10  = TO_CHAR(SYSDATE, 'YYYY/MM/DD HH24:MI:SS')
+	     , IF_FLAG = CASE
+	                   WHEN #APPRO_STATE# IN ('CONFIRM', 'REJECT', 'CANCEL') THEN 'Y'
+	                   ELSE 'N'
+	                 END
+	     , IF_DATM = SYSDATE
+	 WHERE BUYER  = #BUYER#
+	   AND DOC_NO = #DOC_NO#
+	</update>
+
+	<insert id="updateAppStatus" parameterClass="java.util.HashMap">
+		/* buyer.mpso.updateAppStatus */
+		UPDATE ICOMPRDT A
+		   SET RECV_FLAG   = 
+		          CASE
+		            WHEN #APPRO_STATE# = 'CONFIRM' THEN 'GA'
+		            WHEN #APPRO_STATE# = 'REJECT' THEN 'GR'
+		            WHEN #APPRO_STATE# = 'CANCEL' THEN 'GD'
+		            ELSE 'GS'
+		          END 
+		     , STATUS      = CASE WHEN STATUS IN ('C','R') THEN 'R' ELSE 'D' END
+		     , CHANGE_DATE = TO_CHAR(SYSDATE,'YYYYMMDD')
+		     , CHANGE_TIME = TO_CHAR(SYSDATE,'HH24MISS')
+		 WHERE A.BUYER = #BUYER#
+		   AND A.PR_NO = #DOC_NO#
+	</insert>
+
+</sqlMap>

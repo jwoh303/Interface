@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="EUC-KR"?>
+<SQL>
+	<!-- *********************************************************************** -->
+	<SQL_DOC INTERFACE_ID="KEP2KOL3_PO">
+		<V_SQL NAME='$G_RS' ISLOOP="TRUE" COMMIT_BY_RESULT="FALSE"> 
+			SELECT DOC_NAME, TARGET AS BUYER, KEY_1 AS PO_NO, KEY_2 AS PO_SEQ
+			FROM ICOMTRXL
+			WHERE  DOC_NAME = 'ORDER_TR'
+			AND TARGET IN (SELECT BUYER FROM IF_ADMIN WHERE BUYER_ID='KOL3')
+			AND KEY_9 = 'N'
+			GROUP BY DOC_NAME, TARGET, KEY_1, KEY_2
+		</V_SQL> 
+		<P_SQL SEQ="1" TYPE="SELECT" POST_SQL="TRUE">
+		<![CDATA[
+			
+				SELECT 
+					PODT.LEGACY_PO_NO AS LEGACY_PO_NO
+                    ,PODT.LEGACY_PO_SEQ AS LEGACY_PO_SEQ
+                    ,PODT.BUYER_ITEM_NO AS ITEM_NO
+                    ,NVL(PODT.DS_DATE,' ') AS DS_DATE
+                    ,POHD.AGENT
+                    ,PODT.ITEM_QTY
+                    ,PODT.DO_QTY
+                    ,PODT.IV_QTY
+                    ,PODT.DI_QTY
+                    ,PODT.GR_QTY
+                    ,PODT.BUYER AS PLANT
+                    ,PODT.PO_NO
+                    ,PODT.PO_SEQ
+					,(
+						CASE 
+                        WHEN PODT.DO_QTY=0 THEN '1'
+                        WHEN PODT.DO_QTY != 0 AND PODT.IV_QTY = 0 THEN '2'
+                        WHEN PODT.DO_QTY != 0 AND PODT.IV_QTY != 0 AND PODT.DI_QTY = 0 THEN '3'
+                        WHEN PODT.DO_QTY != 0 AND PODT.IV_QTY != 0 AND PODT.DI_QTY != 0 THEN '4'
+                        ELSE '9' END 
+					) AS ORDER_FLAG
+					,(SELECT NVL(T.COM_NAME_LOC,' ')
+					   FROM ICOMCMPY T
+					  WHERE T.COM_CODE = POHD.AGENT	 ) AS AGENT_NAME
+					 ,(SELECT NVL(T.TEL_NO,' ')
+					   FROM ICOMCMPY T
+					  WHERE T.COM_CODE = POHD.AGENT	 ) AS AGENT_TEL
+					 ,TO_CHAR(SYSDATE, 'YYYYMMDD') AS SYS_DATE
+					 ,TO_CHAR(SYSDATE, 'HH24MISS') AS SYS_TIME
+                FROM ICOMPODT PODT, ICOMPOHD POHD, ICOMTRXL TRXL
+               WHERE TRXL.DOC_NAME = '$G_RS.DOC_NAME$'
+                 AND TRXL.KEY_9  = 'N'
+                 AND TRXL.TARGET = PODT.BUYER
+                 AND TRXL.KEY_1  = PODT.PO_NO
+                 AND TRXL.KEY_2  = PODT.PO_SEQ
+				 AND TRXL.TARGET = '$G_RS.BUYER$'
+                 AND TRXL.KEY_1  = '$G_RS.PO_NO$'
+                 AND TRXL.KEY_2  = '$G_RS.PO_SEQ$'
+                 AND PODT.STATUS IN ('C','R')
+                 AND PODT.BUYER = POHD.BUYER
+                 AND PODT.PO_NO = POHD.PO_NO
+                 AND POHD.STATUS  IN ('C','R')
+              ORDER BY PODT.BUYER, PODT.LEGACY_PO_NO, PODT.LEGACY_PO_SEQ
+
+		]]>
+			<C_SQL TYPE="UPDATE" P_SQL_RESULT="TRUE">
+			<![CDATA[
+				UPDATE ICOMTRXL
+					SET KEY_9 = 'Y', KEY_10 = TO_CHAR(SYSDATE,'YYYYMMDD HH24MISS')
+				WHERE DOC_NAME = '$G_RS.DOC_NAME$'
+				AND KEY_9 = 'N'
+				AND TARGET = '$G_RS.BUYER$'
+				AND KEY_1 ='$G_RS.PO_NO$'
+				AND KEY_2 = '$G_RS.PO_SEQ$'
+			]]>
+			</C_SQL>
+			<C_SQL TYPE="UPDATE" P_SQL_RESULT="FALSE">
+			<![CDATA[
+				UPDATE ICOMTRXL
+					SET KEY_9 = 'E', KEY_10 = TO_CHAR(SYSDATE,'YYYYMMDD HH24MISS')
+				WHERE DOC_NAME = '$G_RS.DOC_NAME$'
+				AND KEY_9 = 'N'
+				AND TARGET = '$G_RS.BUYER$'
+				AND KEY_1 ='$G_RS.PO_NO$'
+				AND KEY_2 = '$G_RS.PO_SEQ$'
+			]]>
+			</C_SQL>
+		</P_SQL>
+	</SQL_DOC>
+	<RETRY_CODE>
+		<CODE>03113</CODE>
+		<CODE>03114</CODE>
+		<CODE>02154</CODE>
+		<CODE>02541</CODE>
+		<CODE>04068</CODE>
+	</RETRY_CODE>
+</SQL>

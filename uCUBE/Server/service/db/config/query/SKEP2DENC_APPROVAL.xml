@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<SQL>
+        <!-- *********************************************************************** -->
+        <SQL_DOC INTERFACE_ID="SKEP2DENC_APPROVAL">
+                <V_SQL NAME='$G_RS' ISLOOP="TRUE" COMMIT_BY_RESULT="FALSE">
+                       SELECT 'DOOS_AP'          AS DOC_TYPE
+                             , SO06.CSTMR_ID     AS CSTMR_ID
+                             , SO06.ORDR_NO      AS ORDR_NO
+                        FROM KEPMPSO06 SO06, KEPMPSO05 SO05
+                        WHERE SO06.CSTMR_ID in ('KRDOOS0004C002', 'KRDOOS0012C002', 'KRDOOP0011', 'KRDOOP0012')
+                        AND   SO06.ORDR_NO = SO05.ORDR_NO
+                        AND   SO05.SND_CHK = 'N'
+                        AND   SO05.SIGN_STATE_CD = 'P'
+                        AND   ROWNUM =1 
+                        GROUP BY SO06.CSTMR_ID
+                               , SO06.ORDR_NO
+                </V_SQL>
+                <P_SQL SEQ="1" TYPE="SELECT" POST_SQL="TRUE">
+                <![CDATA[
+                   SELECT 'D'            AS GUBUN
+                        , SO06.ORDR_NO   AS DATA01
+                        , TO_CHAR(SO06.ORDR_SEQ)   AS DATA02
+                        , substrb(SO04.GDS_NM,1,200)    AS DATA03
+                        , substrb(SO04.STND_NM,1,500)   AS DATA04
+                        , TO_CHAR(SO04.SLS_UNTPRC) AS DATA05
+                        , TO_CHAR(SO06.ORDR_QTY)   AS DATA06
+                        , TO_CHAR(SO06.ORDR_QTY*SO06.SLS_UNTPRC) AS DATA07
+                        , SO06.RESGTR_ID           AS DATA08
+                        , (SELECT TEXT1
+                             FROM KEPMPSO04 A, ICOMCDDT B
+                            WHERE ORDR_RE_NO = SO06.ORDR_RE_NO
+                              AND ORDR_RE_SEQ = SO06.ORDR_RE_SEQ
+                              AND B.CODE_NO = 'H068'
+                              AND B.HOUSE_CODE = '100'
+                              AND B.COMPANY_CODE = A.CSTMR_ID
+                              AND B.CODE = A.ACCNT_CD
+                              AND ROWNUM = 1 ) DATA09
+                        , NVL((SELECT DECODE(A.HRANK_CNSTRCMP_CTGRY_CD, 'CTUA00000001', 'Y', 'N') 
+                                 FROM KEPMDCA15 A, KEPMDCA16 B 
+                                WHERE A.CSTMR_ID = B.CSTMR_ID 
+                                  AND A.CNSTRCMP_CTGRY_CD = B.CNSTRCMP_CTGRY_CD 
+                                  AND B.CSTMR_ID = SO06.CSTMR_ID 
+                                  AND B.GDS_CD = SO06.GDS_CD)
+                               , 'N') DATA10
+                   FROM KEPMPSO06 SO06, KEPMPSO04 SO04, KEPMPSO05 SO05
+                   WHERE SO06.ORDR_NO = '$G_RS.ORDR_NO$'
+                   AND SO06.ORDR_RE_NO = SO04.ORDR_RE_NO
+                   AND SO06.ORDR_RE_SEQ= SO04.ORDR_RE_SEQ
+                   AND SO06.ORDR_NO = SO05.ORDR_NO
+                   AND SO05.SND_CHK = 'N'
+                   AND SO06.USE_CHK = 'Y'
+                   AND SO06.PROCE_STATE_CD = 'SS01'
+                   UNION ALL
+                   SELECT 'T'  AS GUBUN
+                        , MAX(SO06.ORDR_NO)    AS DATA01
+                        , F_SPLIT(MAX(UR01.EMAIL_ADDR),'@',1) AS DATA02
+                        , MAX(ALANC_DEPT_CD)  AS DATA03
+                        , TO_CHAR(COUNT(*))   AS DATA04
+                        , NULL                AS DATA05
+                        , NULL                AS DATA06
+                        , NULL                AS DATA07
+                        , MAX(SO06.RESGTR_ID) AS DATA08
+                        , NULL                AS DATA09
+                        , NULL                AS DATA10
+                   FROM KEPMPSO06 SO06, KEPCOUR01 UR01, KEPMPSO05 SO05
+                   WHERE SO06.ORDR_NO = '$G_RS.ORDR_NO$'
+                   AND   SO06.RESGTR_ID = UR01.USR_ID
+                   AND   SO06.ORDR_NO = SO05.ORDR_NO
+                   AND   SO05.SND_CHK = 'N'
+                   AND   SO06.USE_CHK = 'Y'
+                   AND   SO06.PROCE_STATE_CD = 'SS01'
+                ]]>
+                        <C_SQL TYPE="UPDATE" P_SQL_RESULT="TRUE">
+                        <![CDATA[
+                                UPDATE KEPCON.KEPMPSO05
+                                SET    SND_CHK  = 'Y'
+                                     , SND_DATM = sysdate
+                                WHERE  ORDR_NO = '$G_RS.ORDR_NO$'
+                        ]]>
+                        </C_SQL>
+                        <C_SQL TYPE="UPDATE" P_SQL_RESULT="FALSE">
+                        <![CDATA[
+                                UPDATE KEPCON.KEPMPSO05
+                                SET    SND_CHK  = 'E'
+                                     , SND_DATM = sysdate
+                                WHERE  ORDR_NO = '$G_RS.ORDR_NO$'
+                        ]]>
+                        </C_SQL>
+                </P_SQL>
+        </SQL_DOC>
+        <RETRY_CODE>
+                <CODE>03113</CODE>
+                <CODE>03114</CODE>
+                <CODE>02154</CODE>
+                <CODE>02541</CODE>
+                <CODE>04068</CODE>
+        </RETRY_CODE>
+</SQL>

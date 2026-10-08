@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap      
+    PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN"
+    "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="HanwhaOrg">
+
+	<delete id="deleteHanwhaOrgDept" parameterClass="java.util.HashMap">
+	DELETE EAI.HANWHA_DEPT
+	 WHERE COMPANY_ID = #COMPANY_ID#
+	</delete>
+	
+	<insert id="insertHanwhaOrgDeptInfo" parameterClass="java.util.HashMap">
+	INSERT INTO EAI.HANWHA_DEPT (
+		DEPT_ID,	DEPT_NAME,	PARENT_DEPT_ID,	PARENT_DEPT_NAME,
+		ABBREVIATION,	ACTION_YN,	SORT_NO,	COMPANY_ID,
+		COMPANY_NAME,	CHILD_INC_YN,	MANAGER_ID,	SUBMANAGER_ID,
+		DEPT_CODE	
+	) VALUES (
+		#DEPT_ID#,	#DEPT_NAME#,	#PARENT_DEPT_ID#,	#PARENT_DEPT_NAME#,
+		#ABBREVIATION#,	#ACTION_YN#,	#SORT_NO#,	#COMPANY_ID#,
+		#COMPANY_NAME#,	#CHILD_INC_YN#,	#MANAGER_ID#,	#SUBMANAGER_ID#,
+		#DEPT_CODE#
+	)
+	</insert>
+	
+	<select id="selectHanwhaCompanyID" resultClass="java.util.HashMap">
+	SELECT TEXT4 AS COMPANY_ID FROM ICOMCOD2 WHERE TYPE = 'PLNT' AND COMPANY_CODE = 'KRHANWG002' AND FLAG = 'Y' GROUP BY TEXT4 ORDER BY 1
+	</select>
+	
+	<select id="selectHanwhaKepUserList" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+	SELECT LEGACY_USER_ID
+	  FROM ICOMLUSR A
+	 WHERE A.COM_CODE IN (SELECT TEXT1 FROM ICOMCOD2 WHERE TYPE = 'PLNT' AND COMPANY_CODE = 'KRHANWG002' AND TEXT4 = #COMPANY_ID# AND FLAG = 'Y')
+	   AND A.STATUS IN ('C','R')
+	   AND A.LEGACY_USER_ID IS NOT NULL
+	 GROUP BY LEGACY_USER_ID
+	</select>
+    
+    <select id="selectHanwhaOrgManagerList" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+    SELECT NVL(MANAGER_ID, SUBMANAGER_ID) AS MANAGER_ID
+      FROM EAI.HANWHA_DEPT A
+     WHERE EXISTS (
+       SELECT 'X' FROM ICOMCOD2 
+        WHERE TYPE = 'C001'
+          AND COMPANY_CODE IN (SELECT TEXT1 FROM ICOMCOD2 WHERE TYPE = 'PLNT' AND COMPANY_CODE = 'KRHANWG002' AND TEXT4 = #COMPANY_ID# AND FLAG = 'Y')
+          AND FLAG = 'Y'
+          AND CODE = A.DEPT_ID
+     )
+     AND ( MANAGER_ID IS NOT NULL OR SUBMANAGER_ID IS NOT NULL )
+    </select>
+    
+    <update id="mergeHanwhaOrgUser" parameterClass="java.util.HashMap">
+    MERGE INTO EAI.HANWHA_USER A
+    USING (
+      SELECT #USER_ID# AS USER_ID
+        FROM DUAL
+    ) B ON (1 = 1
+      AND A.ID = B.USER_ID
+    )
+    WHEN MATCHED THEN
+        UPDATE SET
+        NAME    = #USER_NAME_LOC#,
+        DEPT_CODE   = #DEPT_CODE#,
+        DEPT_NAME   = #DEPARTMENT#,
+        EMP_NO  = #EMP_NO#,
+        PLANT   = #PLANT#,
+        IF_DATE = SYSDATE,
+        IF_MSG = 'IF배치결과 반영'
+    WHEN NOT MATCHED THEN
+        INSERT (
+            ID, NAME,   DEPT_CODE,
+            DEPT_NAME,  EMP_NO, PLANT,
+            CREATE_DATE,    IF_FLAG, IF_DATE, 
+            IF_MSG  
+        ) VALUES (
+            #USER_ID#, #USER_NAME_LOC#,   #DEPT_CODE#,
+            #DEPARTMENT#,  #EMP_NO#,  #PLANT#,
+            SYSDATE,    'Y',    SYSDATE,
+            'IF배치결과 반영'
+        )    
+    </update>
+
+</sqlMap>

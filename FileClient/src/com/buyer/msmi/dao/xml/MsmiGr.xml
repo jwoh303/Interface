@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap      
+    PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN"
+    "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="MsmiGr">
+   	<select id="Msmi_getBuyerItemNo" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+		SELECT NVL(buyer_item_no,' ') AS BUYER_ITEM_NO
+            , NVL(unit_price, 0) AS UNIT_PRICE
+            , TO_CHAR(SYSDATE, 'YYYYMMDD') AS LOAD_DATE
+            , TO_CHAR(SYSDATE, 'HH24MISS') AS LOAD_TIME
+          FROM ICOMPODT
+          WHERE buyer = #BUYER#
+          AND   legacy_po_no = #LEGACY_PO_NO#
+          AND   legacy_po_seq= #LEGACY_PO_SEQ#
+          AND   status != 'D'
+          AND   ROWNUM = 1
+	</select>
+   	  <select id="Msmi_selectGrCheck" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+	SELECT 
+	      
+	       TO_CHAR(NVL(COUNT(*), 0)) AS TOT_CNT,
+	       TO_CHAR(NVL(SUM(GR_AMT),0)) AS TOT_AMT,
+	       TO_CHAR(NVL(COUNT(DECODE(IF_FLAG,'E','X',NULL)), 0)) AS ERR_CNT,
+	       TO_CHAR(NVL(COUNT(DECODE(STATUS, 'D','D',NULL)), 0)) AS DEL_CNT
+	  FROM IF_GRDT
+	 WHERE BUYER        = NVL(#BUYER#,' ')
+	  AND  LEGACY_GR_NO = NVL(#LEGACY_GR_NO#,' ')
+	  AND  REVISION     = NVL(#REVISION#,' ')
+  </select>
+  
+	 <update id="Msmi_GRIFLOAD_Insert" parameterClass="java.util.HashMap">
+  	MERGE INTO IF_GRDT A 
+  	USING (
+  	  SELECT NVL(TRIM(#BUYER#)         ,' ') AS BUYER,
+  	         NVL(TRIM(#LEGACY_GR_NO#)  ,' ') AS LEGACY_GR_NO,
+  	         NVL(TRIM(#LEGACY_GR_SEQ#) ,' ') AS LEGACY_GR_SEQ,
+  	         NVL(TRIM(#LEGACY_PO_NO#)  ,' ') AS LEGACY_PO_NO,
+  	         NVL(TRIM(#LEGACY_PO_SEQ#) ,' ') AS LEGACY_PO_SEQ,
+  	         NVL(TRIM(#BUYER_ITEM_NO#) ,' ') AS BUYER_ITEM_NO
+  	    FROM DUAL
+  	) B ON (1 = 1
+  	  AND A.BUYER = B.BUYER
+  	  AND A.LEGACY_GR_NO = B.LEGACY_GR_NO
+  	  AND A.LEGACY_GR_SEQ = B.LEGACY_GR_SEQ
+  	  AND A.LEGACY_PO_NO = B.LEGACY_PO_NO
+  	  AND A.LEGACY_PO_SEQ = B.LEGACY_PO_SEQ
+  	  AND A.BUYER_ITEM_NO = B.BUYER_ITEM_NO
+  	)
+  	WHEN NOT MATCHED THEN
+			INSERT (
+				BUYER, STATUS, LEGACY_PO_NO,
+				LEGACY_PO_SEQ, BUYER_ITEM_NO, BUYER_ITEM_NO1,
+				CURRENCY_CODE, UNIT_PRICE, GR_QTY,
+				GR_AMT, GR_DATE, LEGACY_PR_NO,
+				LEGACY_INV_NO, LEGACY_GR_NO, LEGACY_GR_SEQ,
+				REVISION, RO_QTY, RO_AMT,
+				REMARK, ERROR_MSG, REF_IF_NO,
+				REF_IF_NO1, IF_FLAG, FILE_NAME,
+				LOAD_DATE, LOAD_TIME,
+        		CREATE_DATE, CREATE_TIME
+			) VALUES (
+				NVL(TRIM(#BUYER#)         ,' '), NVL(TRIM(#STATUS#)        ,' '), NVL(TRIM(#LEGACY_PO_NO#)  ,' '),
+				NVL(TRIM(#LEGACY_PO_SEQ#) ,' '), NVL(TRIM(#BUYER_ITEM_NO#) ,' '), NVL(TRIM(#BUYER_ITEM_NO1#),' '),
+				NVL(TRIM(#CURRENCY_CODE#) ,' '), NVL(#UNIT_PRICE#          ,  0), NVL(#GR_QTY#              ,  0),
+				NVL(#GR_AMT#              ,  0), NVL(TRIM(#GR_DATE#)       ,' '), NVL(TRIM(#LEGACY_PR_NO#)  ,' '),
+				NVL(TRIM(#LEGACY_INV_NO#) ,' '), NVL(TRIM(#LEGACY_GR_NO#)  ,' '), NVL(TRIM(#LEGACY_GR_SEQ#) ,' '),
+				NVL(TRIM(#REVISION#)      ,' '), NVL(#RO_QTY#              ,  0), NVL(#RO_AMT#              ,  0),
+				NVL(TRIM(#REMARK#)        ,' '), NVL(TRIM(#ERROR_MSG#)     ,' '), NVL(TRIM(#REF_IF_NO#)     ,' '),
+				NVL(TRIM(#REF_IF_NO1#)    ,' '), NVL(TRIM(#IF_FLAG#)       ,' '), NVL(TRIM(#FILE_NAME#)     ,' '),
+				TO_CHAR(SYSDATE, 'YYYYMMDD'), TO_CHAR(SYSDATE, 'HH24MISS'), 
+				TO_CHAR(SYSDATE, 'YYYYMMDD'), TO_CHAR(SYSDATE, 'HH24MISS') 
+			)	
+  	WHEN MATCHED THEN
+		  UPDATE SET  
+	    		        STATUS              = NVL(TRIM(#STATUS#)       ,' '),
+                        BUYER_ITEM_NO1      = NVL(TRIM(#BUYER_ITEM_NO1#),' '),
+                        CURRENCY_CODE       = NVL(TRIM(#CURRENCY_CODE#),' '),
+                        UNIT_PRICE          = NVL(#UNIT_PRICE#          ,  0),
+                        GR_QTY              = NVL(#GR_QTY#              ,  0),
+                        GR_AMT              = NVL(#GR_AMT#              ,  0),
+                        GR_DATE             = NVL(TRIM(#GR_DATE#)      ,' '),
+                        LEGACY_PR_NO        = NVL(TRIM(#LEGACY_PR_NO#) ,' '),
+                        LEGACY_INV_NO       = NVL(TRIM(#LEGACY_INV_NO#),' '),
+                        RO_QTY              = NVL(#RO_QTY#              ,  0),
+                        RO_AMT              = NVL(#RO_AMT#              ,  0),
+                        REMARK              = NVL(TRIM(#REMARK#)       ,' '),
+                        ERROR_MSG           = NVL(TRIM(#ERROR_MSG#)    ,' '),
+                        REF_IF_NO           = NVL(TRIM(#REF_IF_NO#)    ,' '),
+                        REF_IF_NO1          = NVL(TRIM(#REF_IF_NO1#)   ,' '),
+                        IF_FLAG             = NVL(TRIM(#IF_FLAG#)      ,' '),
+                        TARGET_PRICE        = NVL(#TARGET_PRICE#        ,  0),
+                        FILE_NAME           = NVL(TRIM(#FILE_NAME#)    ,' '),
+                        LOAD_DATE           = NVL(TRIM(#LOAD_DATE#)    ,' '),
+                        LOAD_TIME           = NVL(TRIM(#LOAD_TIME#)    ,' ')
+  </update>
+ 
+</sqlMap>

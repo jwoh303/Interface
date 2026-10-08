@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap      
+    PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN"
+    "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="TaxAccountIf_ERP">
+
+	<select id="selectTargetList" resultClass="java.util.HashMap">
+    SELECT *
+      FROM (
+       SELECT GL.A01_ACCNO  AS ACCNO,
+              GL.A01_ACCSEQ AS ACCSEQ,
+              'C' AS STATUS
+         FROM ERPFM..TACCOUNT GL
+        WHERE 1 = 1
+          AND ( GL.CREATE_DATE >= DATEADD(DD,-2, GETDATE())
+            OR GL.UPDATE_DATE >= DATEADD(DD,-2, GETDATE()) )
+          AND A01_ACODE IN ( '1114805', '2112605')
+         UNION ALL
+         SELECT HS.X01_ACCNO  AS ACCNO,
+                HS.X01_ACCSEQ AS ACCSEQ,
+                'D' AS STATUS
+           FROM ERPFM..TACCOUNT_HIS HS
+          WHERE 1 = 1
+            AND HS.UPDATE_DATE >= DATEADD(DD,-6, GETDATE())
+            AND HS.X01_ACODE IN ( '1114805', '2112605')
+            AND NOT EXISTS (
+                  SELECT 'X' FROM ERPFM..TACCOUNT
+                   WHERE A01_ACCNO = HS.X01_ACCNO
+                     AND A01_ACCSEQ = HS.X01_ACCSEQ
+                     AND A01_ACODE IN ( '1114805', '2112605')
+                )
+      ) A
+     ORDER BY A.ACCNO, A.ACCSEQ, A.STATUS
+	</select>
+	
+	<select id="selectTaccountIfGLList" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+	SELECT 
+	       A01_ACCNO AS ACCNO,
+	       A01_ACCSEQ AS ACCSEQ,
+	       CASE
+	         WHEN GL.UPDATE_DATE IS NULL THEN 'C'
+	         ELSE 'R'
+	       END AS STATUS,
+	       A01_GL_DATE AS GL_DATE,
+	       A01_CURRENCY AS CURRENCY,
+	       CASE
+	         WHEN A01_DRCR = '1' THEN A01_AMOUNT
+	         ELSE NULL
+	       END AS DEBIT,
+	       CASE
+	         WHEN A01_DRCR = '2' THEN A01_AMOUNT
+	         ELSE NULL
+	       END AS CREDIT,
+	       A01_ACODE AS ACODE,
+	       A01_SAUPJ AS SAUPJ,
+	       (SELECT TOP 1 ISNULL(C.A02_ACODENM , '' ) FROM ERPFM..TACODE C
+	         WHERE C.A02_ACODE = GL.A01_ACODE  ) AS ACODENM,
+	       A01_REMARK AS REMARK,
+	       A01_REGNO AS A01_REGNO,
+	       A01_CUSTOMERNM AS A01_CUSTOMERNM,
+	       (SELECT TOP 1 A01_DEPARTCODE FROM ERPFM..TACCOUNT
+	         WHERE A01_ACCNO= GL.A01_ACCNO AND A01_DRCR ='1' ) AS A01_CCODE,
+	       (SELECT TOP 1 CT.CT01_NAME  FROM ERPFM..TCTCCC AS CT
+	         WHERE CT .CT01_CC = (SELECT TOP 1 A01_DEPARTCODE FROM ERPFM..TACCOUNT
+	                               WHERE A01_ACCNO= GL.A01_ACCNO
+	                                 AND A01_DRCR ='1' )) AS CT01_NAME ,
+	       A01_REFNO1 AS REFNO1,
+	       A01_REFNO2 AS REFNO2,
+	       A01_ISSUE_DATE AS ISSUE_DATE,
+	       A01_DUE_DATE AS DUE_DATE,
+	       A01_BANK + ' ' + A01_BANKNM AS BANK,
+	       A01_QUANTITY AS QUANTITY,
+	       A01_ITEM_UNIT AS ITEM_UNIT,
+	       A01_PRICE AS PRICE,
+	       A01_ITEM AS ITEM,
+	       A01_FINA_CLASS AS FINA_CLASS,
+	       A01_WHOUT_TYPE AS WHOUT_TYPE,
+	       A01_PRIN_AMOUNT AS PRIN_AMOUNT,
+	       A01_RATE AS RATE,
+	       A01_REFNO5 AS A01_REFNO5,
+	       A01_ATTRIBUTE2 AS A01_ATTRIBUTE2,
+	       A01_REFNO3 AS REFNO3,
+	       A01_REFNO4 AS REFNO4,
+	       A01_APPROVE_STATUS AS APPROVE_STATUS ,
+	       A01_APPROVE_EMPLOYEE AS APPROVE_EMPLOYEE,
+	       convert (CHAR(8),A01_APPROVE_DATE, 112 ) AS APPROVE_DATE,
+	       A01_ENTRY_DATE AS ENTRY_DATE,
+	       CONVERT( CHAR(8) ,GL.CREATE_DATE , 112 ) AS CREATE_DATE,
+	       A01_REFNO10 AS REFNO10,
+	       A01_EMPLOYEE AS EMPLOYEE,
+	       A01_STATUS AS A01_STATUS,
+	       A01_APPROVE_STATUS AS A01_APPROVE_STATUS,
+	       1 AS SEQ
+	  FROM ERPFM..TACCOUNT GL
+	 WHERE 1 = 1
+	   AND GL.A01_ACCNO  = #ACCNO#
+	   AND GL.A01_ACCSEQ = #ACCSEQ#
+	   AND GL.A01_ACODE IN ( '1114805', '2112605')
+	</select>
+	
+	<select id="selectTaccountIfHisList" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+	SELECT 
+	       X01_ACCNO AS ACCNO,
+	       X01_ACCSEQ AS ACCSEQ,
+	       'D' AS STATUS,
+	       '' AS GL_DATE,
+	       X01_CURRENCY AS CURRENCY,
+	       CASE
+	         WHEN X01_DRCR = '1' THEN X01_AMOUNT
+	         ELSE NULL
+	       END AS DEBIT,
+	       CASE
+	         WHEN X01_DRCR = '2' THEN X01_AMOUNT 
+	         ELSE NULL 
+	       END AS CREDIT,
+	       X01_ACODE AS ACODE,
+	       '' AS SAUPJ,
+	       (SELECT TOP 1 ISNULL(C.A02_ACODENM, '' ) FROM ERPFM..TACODE C
+	         WHERE C.A02_ACODE = HS.X01_ACODE  ) AS ACODENM,
+	       X01_REMARK AS REMARK,
+	       X01_REGNO AS A01_REGNO,
+	       X01_CUSTOMERNM AS A01_CUSTOMERNM,
+	       X01_CCODE AS A01_CCODE,
+	       (SELECT TOP 1 CT.CT01_NAME  FROM ERPFM..TCTCCC AS CT
+	         WHERE CT.CT01_CC = (SELECT TOP 1 A01_DEPARTCODE FROM ERPFM..TACCOUNT
+	                              WHERE A01_ACCNO= HS.X01_ACCNO
+	                                AND A01_DRCR ='1' )) AS CT01_NAME,
+	       X01_REFNO1 AS REFNO1,
+	       X01_REFNO2 AS REFNO2,
+	       X01_ISSUE_DATE AS ISSUE_DATE,
+	       X01_DUE_DATE AS DUE_DATE,
+	       X01_BANK + ' ' + X01_BANKNM AS BANK,
+	       X01_QUANTITY AS QUANTITY,
+	       X01_ITEM_UNIT AS ITEM_UNIT,
+	       X01_PRICE AS PRICE,
+	       X01_ITEM AS ITEM,
+	       X01_FINA_CLASS AS FINA_CLASS,
+	       X01_WHOUT_TYPE AS WHOUT_TYPE,
+	       X01_PRIN_AMOUNT AS PRIN_AMOUNT,
+	       X01_RATE AS RATE,
+	       X01_REFNO5 AS A01_REFNO5,
+	       X01_ATTRIBUTE2 AS A01_ATTRIBUTE2,
+	       X01_REFNO3 AS REFNO3,
+	       X01_REFNO4 AS REFNO4,
+	       X01_APPROVE_STATUS AS APPROVE_STATUS,
+	       X01_APPROVE_EMPLOYEE AS APPROVE_EMPLOYEE,
+	       convert (CHAR(8),X01_APPROVE_DATE, 112 ) AS APPROVE_DATE,
+	       X01_ENTRY_DATE AS ENTRY_DATE,
+	       convert (CHAR(8),CREATE_DATE, 112 ) AS CREATE_DATE,
+	       X01_REFNO10 AS REFNO10,
+	       X01_EMPLOYEE AS EMPLOYEE,
+	       X01_STATUS AS A01_STATUS,
+	       X01_APPROVE_STATUS AS A01_APPROVE_STATUS,
+	       2 AS SEQ
+	  FROM ERPFM..TACCOUNT_HIS HS
+	 WHERE 1 = 1
+	   AND X01_ACCNO  = #ACCNO#
+	   AND X01_ACCSEQ = #ACCSEQ#
+	   AND X01_ACODE IN ( '1114805', '2112605')
+	</select>
+	
+</sqlMap>

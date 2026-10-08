@@ -1,0 +1,165 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//iBATIS.com//DTD SQL Map 2.0//EN"
+"http://www.ibatis.com/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="KepBudget">
+	<select id="selectbdgtList" resultClass="java.util.HashMap">
+		SELECT B.TEXT5 AS ACT_UNIT
+ 		, A.CODE1 AS DEPT
+ 		, A.CODE2 AS ACCOUNT_TYPE
+ 		, TO_CHAR(SYSDATE,'YYYYMM') AS TERM
+		FROM ICOMCOD3 A, ICOMCOD2 B
+		WHERE A.BUYER = 'KRJOSU0003' AND A.TYPE = 'DTOA' AND B.COMPANY_CODE = A.BUYER
+		AND B.TYPE = 'C001' AND B.TEXT5 IS NOT NULL
+		AND A.CODE1 = B.CODE
+		ORDER BY ACT_UNIT,DEPT,ACCOUNT_TYPE 
+	</select>
+	
+	<insert id="insertBdgt" parameterClass="java.util.HashMap">
+		INSERT INTO EAI.IF_BUYER_BDGT (
+		  KEP_SEQ, BUYER, YYYYMM, DEPT, ACCOUNT, CREATE_DATE, IF_FLAG, RESULT_FLAG, RESULT_MSG, AMT01, AMT02, AMT03
+		) VALUES (
+		  EAI.SEQ_IF_BUYER_BDGT.NEXTVAL, 
+		  'KRJOSU0003', 
+		  #IMK_DT#, 
+		  #IDEPT#,
+		  #IACC_CD#,
+		  sysdate,
+		  'N',
+		  #ORTN_VAL#,
+		  #ORTN_MSG#,
+		  #OEXE_AMT#,
+		  #OCTL_AMT#,
+		  #OVIR_AMT#
+		)	
+	</insert>
+	
+	<select id="selectbdgtSendList" resultClass="java.util.HashMap">
+	    SELECT BUYER
+		,PR_NO
+		,PR_SEQ
+		,STATUS
+		,RECV_FLAG
+		,ADD_DATE
+		,SUBSTR(ADD_DATE,1,6) AS IBGT_YM
+		,SUBSTR(PLANT,1,3) AS CCO
+		,SUBSTR(PLANT,4,6) AS CDIV
+		,BUYER_ITEM_NO
+		,DESCRIPTION
+		,SPECIFICATION
+		,UNIT_MEASURE
+		,ITEM_QTY
+		,UNIT_PRICE
+		,ITEM_AMT
+		,ADD_USER_ID
+		,ADD_LEGACY_USER_ID
+		,ADD_USER_DEPT
+		,PLANT
+		,BUDGET_DEPT
+		,ACCOUNT_TYPE
+		,CREATE_DATE
+		,IF_FLAG
+		,IF_DATE
+		,IF_MSG
+		,RESULT_FLAG
+		,RESULT_MSG
+		,AMT01
+		,AMT02
+		,AMT03
+		,IF_AF_FLAG
+		,IF_AF_DATE
+		FROM EAI.IF_JHTL_PRDT_SEND
+		WHERE IF_FLAG = 'N'
+        AND PR_NO = #PR_NO#
+        AND STATUS = #STATUS#
+		ORDER BY PR_SEQ 
+	</select>
+	
+	<select id="selectbdgtSendListHd" resultClass="java.util.HashMap">
+		SELECT
+		     MIN(KEP_SEQ) AS KEP_SEQ
+	        ,PR_NO
+	        ,STATUS
+        FROM EAI.IF_JHTL_PRDT_SEND
+        WHERE IF_FLAG = 'N'
+        GROUP BY PR_NO, STATUS
+		ORDER BY KEP_SEQ, STATUS
+	</select>
+	
+	<update id="updateIfFlag" parameterClass="java.util.HashMap">
+		UPDATE EAI.IF_JHTL_PRDT_SEND
+		   SET IF_FLAG = #IF_FLAG#
+		     , IF_MSG = #IF_MSG#
+		     , IF_DATE = SYSDATE
+		     , RESULT_FLAG = #RESULT_FLAG#
+		     , RESULT_MSG = #RESULT_MSG#
+		     , AMT01 = #AMT01#
+		     , AMT02 = #AMT02#
+		     , AMT03 = #AMT03#
+		 WHERE PR_NO = #PR_NO#
+		   AND PR_SEQ = #PR_SEQ#
+		   AND STATUS = #STATUS#
+	</update>
+	
+	<procedure id="PROC_JOSUN_BDGT" parameterClass="java.util.HashMap">
+		<![CDATA[
+		{ CALL KEP.PROC_IF_JHTL_BDGT() }
+		]]>
+	</procedure>
+	
+	<insert id="insertJosuErr" parameterClass="java.util.HashMap">
+		INSERT INTO ICOMTRXL(
+			DOC_NAME,TARGET,KEY_1,KEY_2,KEY_3,KEY_4,KEY_5,KEY_6,KEY_7,KEY_8,KEY_9,KEY_10
+		) VALUES (
+			'KEP_MAIL',
+			'KRJOSU0003',
+			#title#,
+			#content#||TO_CHAR(SYSDATE,'YYYY/MM/DD HH24:MI:SS'),
+			' ',
+			' ',
+			' ',
+			' ',
+			' ',
+			' ',
+			'N',
+			TO_CHAR(SYSDATE,'YYYY/MM/DD HH24:MI:SS')
+			)
+	</insert>
+	
+	<select id="selectFiClose" resultClass="java.util.HashMap">
+	    SELECT 
+			 (SELECT TEXT5 FROM ICOMCOD2
+			 WHERE COMPANY_CODE = PODT.BUYER
+			 AND TYPE = 'C001'
+			 AND CODE = PODT.CHANGE_USER_DEPT) ACT_UNIT
+			 , #ENTRY_DT# AS ENTRY_DT
+			 , '3003131' AS VDCODE
+			 , PODT.ACCOUNT_TYPE AS ACCNT_CD
+			 , '201030100' AS REL_ACCNT_CD
+			 , SUBSTR(MAX(PODT.DESCRIPTION),1,13) AS REMARK1
+             , DECODE(COUNT(*),1,'',COUNT(*)-1) AS REMARK2
+			 , MAX(PODT.DESCRIPTION)||' 외'||DECODE(COUNT(*),1,'',COUNT(*)-1||'건') AS REMARK
+			 , SUM(GRDT.ITEM_AMT) AS DEAL_AMT
+			 , SUM(TRUNC(GRDT.ITEM_AMT/10)) AS TAX_AMT
+			 , 0 AS EXCEPT_AMT
+			 , 0 AS EXCEPT_TAX
+			 , '2' AS RESOURCES_GB
+			 , '09' AS SETTLE_GB
+			 , 'N' AS PROOF_YN
+			 , 1 AS PROOF_GB
+			 , PODT.BUDGET_DEPT AS BGT_DEPT
+			 , 'N' AS DEAL_SLIP_YN
+			 , 'N' AS TAX_SLIP_YN
+			 , 'N' AS TAX_CONF_YN
+			 , 'N' AS SB_CRT_YN
+		FROM ICOMGRDT GRDT, ICOMPODT PODT
+		WHERE GRDT.BUYER = 'KRJOSU0003' AND GRDT.STATUS != 'D' 
+		AND GRDT.GR_DATE LIKE #GR_DATE#||'%' 
+		AND GRDT.BUYER = PODT.BUYER
+		AND GRDT.PO_NO = PODT.PO_NO
+		AND GRDT.PO_SEQ= PODT.PO_SEQ
+		AND PODT.STATUS != 'D' 
+		GROUP BY PODT.BUYER,PODT.CHANGE_USER_DEPT,PODT.ACCOUNT_TYPE,SUBSTR(GR_DATE,1,6),PODT.BUDGET_DEPT
+	</select>
+	
+</sqlMap>

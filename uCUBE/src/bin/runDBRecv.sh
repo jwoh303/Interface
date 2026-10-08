@@ -1,0 +1,1 @@
+runBroker.sh -f $UCUBE_HOME/service/db/config/cfg/UCUBE_DBRECV.xml

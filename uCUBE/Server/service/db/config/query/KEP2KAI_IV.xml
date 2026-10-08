@@ -1,0 +1,192 @@
+<?xml version="1.0" encoding="EUC-KR"?>
+<SQL>
+  <!-- *********************************************************************** -->
+  <SQL_DOC INTERFACE_ID="KEP2KAI_IV">
+    <V_SQL NAME='$G_RS' ISLOOP="TRUE" COMMIT_BY_RESULT="FALSE">
+           SELECT IVHD.BUYER
+                , IVHD.INV_NO
+                , MAX(PODT.PROCESS_TYPE) as PROCESS_TYPE
+           FROM  kep.ICOMIVHD IVHD, kep.ICOMIVDT IVDT, kep.ICOMPODT PODT
+           WHERE IVHD.BUYER= 'KRKORE0212'
+           AND ((ivhd.status != 'D' and IVHD.SND_CHK = 'N') or
+                (ivhd.status  = 'D' and ivhd.snd_chk = 'Y') or
+                (ivhd.status  = 'D' and ivhd.snd_chk = 'N' and trim(ivhd.snd_datm) is not null))
+           AND IVHD.ADD_DATE    >= '20180301'
+           AND IVHD.CHANGE_DATE >= '20180301'
+           AND IVHD.BUYER = IVDT.BUYER
+           AND IVHD.INV_NO= IVDT.INV_NO
+           AND IVDT.BUYER = PODT.BUYER
+           AND IVDT.PO_NO = PODT.PO_NO
+           AND IVDT.PO_SEQ= PODT.PO_SEQ
+           AND PODT.PROCESS_TYPE = '0'
+           AND TRIM(IVHD.LEGACY_IV_SERIAL) IS NOT NULL
+           AND NOT EXISTS (select 'x' from icomcod1
+                           where type = 'NTIV'
+                           and text1 = ivdt.buyer
+                           and text2 = ivdt.po_no
+                           and text3 = ivdt.po_seq)
+           GROUP BY IVHD.BUYER
+                  , IVHD.INV_NO
+           union all
+            SELECT IVDT.BUYER
+                , IVDT.INV_NO
+                , MAX(PODT.PROCESS_TYPE) as PROCESS_TYPE
+           FROM  kep.WMSIVDT IVDT, kep.ICOMPODT PODT
+           WHERE IVDT.BUYER= 'KRKORE0212'
+           AND ((IVDT.status != 'D' and IVDT.SND_CHK = 'N') or
+                (IVDT.status  = 'D' and IVDT.snd_chk = 'Y') or
+                (ivdt.status  = 'D' and ivdt.snd_chk = 'N' and trim(ivdt.snd_datm) is not null))
+           AND IVDT.ADD_DATE    >= '20180301'
+           AND IVDT.CHANGE_DATE >= '20180301'
+           AND IVDT.BUYER = PODT.BUYER
+           AND IVDT.PO_NO = PODT.PO_NO
+           AND IVDT.PO_SEQ= PODT.PO_SEQ
+           AND PODT.PROCESS_TYPE != '0'
+           AND TRIM(IVDT.LEGACY_IV_SERIAL) IS NOT NULL
+           AND NOT EXISTS (select 'x' from icomcod1
+                           where type = 'NTIV'
+                           and text1 = ivdt.buyer
+                           and text2 = ivdt.po_no
+                           and text3 = ivdt.po_seq)
+           GROUP BY IVDT.BUYER
+                  , IVDT.INV_NO
+           ORDER BY PROCESS_TYPE
+                  , BUYER
+                  , INV_NO
+    </V_SQL>
+    <P_SQL SEQ="1" TYPE="SELECT" POST_SQL="TRUE">
+    <![CDATA[
+       SELECT Y.LEGACY_INV_NO
+            , to_number(X.INV_SEQ) AS LEGACY_INV_SEQ
+            , X.BUYER_ITEM_NO AS ITEM_CD
+            , X.DESCRIPTION   AS ITEM_NM
+            , substrb(X.SPECIFICATION,1,100) AS SPEC
+            , substrb(F_SPLIT(PRDT.IV_COLUMN,'^',1),1,32) AS DIMESION
+            , X.UNIT_MEASURE  AS UNIT_CD
+            , X.INV_QTY       AS ITEM_QTY
+            , X.UNIT_PRICE    AS ITEM_PRICE
+                   , X.ITEM_AMT      AS ITEM_AMT
+            , PRDT.LEGACY_PO_NO
+            , to_number(PRDT.LEGACY_PO_SEQ) as LEGACY_PO_SEQ
+            , Y.INV_NAME      AS INV_NM
+            , Y.INV_DATE      AS INV_DATE
+            , Y.ADD_DATE      AS INV_CRE_DATE
+            , Y.CAR_PERSON_NAME AS TRANSFER_NM
+            , Y.CAR_NO          AS TRANS_TRUCK_NO
+            , Y.CAR_PERSON_TEL  AS TRANS_PHONE_NO
+            , to_number(Y.IV_MAX_SEQ)  AS MAX_INV_SEQ
+            , Y.STATUS          as DEL_YN
+       FROM ICOMIVDT X, ICOMPODT PODT, ICOMPRDT PRDT, (
+                       SELECT IVHD.BUYER
+                            , IVHD.INV_NO
+                            , IVHD.LEGACY_IV_SERIAL AS LEGACY_INV_NO
+                            , MAX(DECODE(IVDT.INV_SEQ,'000001',IVDT.DESCRIPTION,NULL))||
+                                     DECODE(COUNT(*),1,NULL,' 등'||COUNT(*)||'건') AS INV_NAME
+                            , MAX(IVHD.ADD_DATE)        AS ADD_DATE
+                            , MAX(IVHD.INV_DATE)        AS INV_DATE
+                            , MAX(IVHD.CAR_PERSON_NAME) AS CAR_PERSON_NAME
+                            , MAX(IVHD.CAR_NO)          AS CAR_NO
+                            , MAX(IVHD.CAR_PERSON_TEL)  AS CAR_PERSON_TEL
+                            , MAX(DECODE(IVHD.STATUS,'D','Y','N')) AS STATUS
+                            , MAX(IVDT.INV_SEQ) AS IV_MAX_SEQ
+                       FROM ICOMIVDT IVDT, ICOMIVHD IVHD
+                       WHERE IVDT.BUYER = '$G_RS.BUYER$'
+                       AND IVDT.INV_NO  = '$G_RS.INV_NO$'
+                       AND IVDT.BUYER   = IVHD.BUYER
+                       AND IVDT.INV_NO  = IVHD.INV_NO
+                       GROUP BY IVHD.BUYER,IVHD.INV_NO,IVHD.LEGACY_IV_SERIAL) Y
+       WHERE X.BUYER = Y.BUYER
+       AND X.INV_NO = Y.INV_NO
+       AND X.BUYER = PODT.BUYER
+       AND X.PO_NO = PODT.PO_NO
+       AND X.PO_SEQ= PODT.PO_SEQ
+       AND PODT.PROCESS_TYPE = '0'
+       AND PODT.BUYER = PRDT.BUYER
+       AND PODT.PR_NO = PRDT.PR_NO
+       AND PODT.PR_SEQ= PRDT.PR_SEQ
+       AND TRIM(Y.LEGACY_INV_NO) IS NOT NULL
+       UNION ALL
+       SELECT Y.LEGACY_INV_NO
+            , to_number(X.INV_SEQ) AS LEGACY_INV_SEQ
+            , X.BUYER_ITEM_NO AS ITEM_CD
+            , X.DESCRIPTION   AS ITEM_NM
+            , substrb(X.SPECIFICATION,1,100) AS SPEC
+            , substrb(F_SPLIT(PRDT.IV_COLUMN,'^',1),1,32) AS DIMESION
+            , X.UNIT_MEASURE  AS UNIT_CD
+            , X.INV_QTY       AS ITEM_QTY
+            , X.UNIT_PRICE    AS ITEM_PRICE
+            , X.UNIT_AMT      AS ITEM_AMT
+            , PRDT.LEGACY_PO_NO
+            , to_number(PRDT.LEGACY_PO_SEQ) as LEGACY_PO_SEQ
+            , Y.INV_NAME      AS INV_NM
+            , Y.INV_DATE      AS INV_DATE
+            , Y.ADD_DATE      AS INV_CRE_DATE
+            , Y.CAR_PERSON_NAME AS TRANSFER_NM
+            , Y.CAR_NO          AS TRANS_TRUCK_NO
+            , Y.CAR_PERSON_TEL  AS TRANS_PHONE_NO
+            , to_number(Y.IV_MAX_SEQ)  AS MAX_INV_SEQ
+            , Y.STATUS          as DEL_YN
+       FROM WMSIVDT X, ICOMPODT PODT, ICOMPRDT PRDT, (
+                       SELECT IVDT.BUYER
+                            , IVDT.INV_NO
+                            , IVDT.LEGACY_IV_SERIAL AS LEGACY_INV_NO
+                            , MAX(DECODE(IVDT.INV_SEQ,'000001',IVDT.DESCRIPTION,NULL))||
+                                     DECODE(COUNT(*),1,NULL,' 등'||COUNT(*)||'건') AS INV_NAME
+                            , MAX(IVDT.ADD_DATE)        AS ADD_DATE
+                            , MAX(IVDT.INV_DATE)        AS INV_DATE
+                            , MAX(IVDT.CAR_PERSON_NAME) AS CAR_PERSON_NAME
+                            , MAX(IVDT.CAR_NO)          AS CAR_NO
+                            , MAX(IVDT.CAR_PERSON_TEL)  AS CAR_PERSON_TEL
+                            , MAX(DECODE(IVDT.STATUS,'D','Y','N')) AS STATUS
+                            , MAX(IVDT.INV_SEQ) AS IV_MAX_SEQ
+                       FROM WMSIVDT IVDT
+                       WHERE IVDT.BUYER = '$G_RS.BUYER$'
+                       AND IVDT.INV_NO  = '$G_RS.INV_NO$'
+                       GROUP BY IVDT.BUYER,IVDT.INV_NO,IVDT.LEGACY_IV_SERIAL) Y
+       WHERE X.BUYER = Y.BUYER
+       AND X.INV_NO = Y.INV_NO
+       AND X.BUYER = PODT.BUYER
+       AND X.PO_NO = PODT.PO_NO
+       AND X.PO_SEQ= PODT.PO_SEQ
+       AND PODT.PROCESS_TYPE != '0'
+       AND PODT.BUYER = PRDT.BUYER
+       AND PODT.PR_NO = PRDT.PR_NO
+       AND PODT.PR_SEQ= PRDT.PR_SEQ
+       AND TRIM(Y.LEGACY_INV_NO) IS NOT NULL
+       ORDER BY LEGACY_INV_NO
+              , LEGACY_INV_SEQ
+    ]]>
+      <C_SQL TYPE="UPDATE" P_SQL_RESULT="TRUE">
+      <![CDATA[
+        DECLARE
+        BEGIN
+        IF '$G_RS.PROCESS_TYPE$' = '0' THEN
+           UPDATE kep.icomivhd
+              SET SND_CHK  = decode(SND_CHK,'N',decode(status,'D','T','Y'),'Y','T','X')
+                , SND_DATM = sysdate
+            WHERE BUYER = '$G_RS.BUYER$'
+            AND   INV_NO= '$G_RS.INV_NO$';
+         ELSE
+           UPDATE kep.wmsivdt
+              SET SND_CHK  = decode(SND_CHK,'N',decode(status,'D','T','Y'),'Y','T','X')
+                , SND_DATM = sysdate
+            WHERE BUYER = '$G_RS.BUYER$'
+            AND   INV_NO= '$G_RS.INV_NO$';
+         END IF;
+         END;
+      ]]>
+      </C_SQL>
+      <C_SQL TYPE="UPDATE" P_SQL_RESULT="FALSE">
+      <![CDATA[
+      ]]>
+      </C_SQL>
+    </P_SQL>
+  </SQL_DOC>
+  <RETRY_CODE>
+    <CODE>03113</CODE>
+    <CODE>03114</CODE>
+    <CODE>02154</CODE>
+    <CODE>02541</CODE>
+    <CODE>04068</CODE>
+  </RETRY_CODE>
+</SQL>

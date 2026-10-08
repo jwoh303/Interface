@@ -1,0 +1,474 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap      
+    PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN"
+    "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="OdpoPo">
+
+	<!-- 처리대상 조회 -->
+	<select id="selectOdpoPoEventList" resultClass="java.util.HashMap">
+	<![CDATA[
+  SELECT TARGET AS BUYER, KEY_1 AS PO_NO
+    FROM ICOMTRXL A
+   WHERE DOC_NAME = 'OFFICE'
+     AND KEY_2 = 'KRBEST0003'
+     AND NOT EXISTS (SELECT 'X' FROM ICOMTRXL
+                      WHERE DOC_NAME = 'MHUB_CHG'
+                        AND TARGET = A.TARGET
+                        AND KEY_1  = A.KEY_1
+                        AND KEY_9 = 'N')
+     AND NOT EXISTS (SELECT 'X' FROM ICOMCOD1
+                      WHERE TYPE = 'IF_B'
+                        AND CODE   = A.TARGET
+                        AND FLAG   = 'Y'
+                        AND A.KEY_10 > TO_CHAR(SYSDATE - VALUE1/60/24,'YYYYMMDDHH24MISS') )
+	]]>
+	</select>
+	<select id="setectOdpoCOMINFO" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+		SELECT NVL(MAX(TYPE), ' ') AS COM_INFO_TYPE
+		  FROM ICOMCOD4 
+		 WHERE BUYER = #BUYER#
+		   AND TYPE IN ('H001', 'D001') 
+		   AND FLAG = 'Y'
+	</select>
+	
+	<select id="setectOdpoCOMINFO2" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+		SELECT *
+		  FROM ICOMCOD4 A, ICOMPOHD B
+		 WHERE A.TYPE = #COM_INFO_TYPE#
+		   AND A.BUYER = #BUYER#
+		   AND CASE WHEN #COM_INFO_TYPE# = 'H001' THEN NVL(B.ADD_USER_ID, ' ') ELSE NVL(B.CHANGE_USER_DEPT, ' ') END = A.CODE2
+		   
+		   AND B.BUYER = A.BUYER
+           AND B.PO_NO = #PO_NO#
+	</select>
+<!-- 전송 데이터 조회 -->
+	<select id="setectOdpoPoDetail_1" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+    SELECT 
+           M.TYPE, M.COUNTRY, M.ADD_DATE, M.PO_NO, M.PO_SEQ, 
+           NVL(M.TEMP_COM_NAME,' ') AS COM_NAME, 
+           NVL((SELECT B.TEXT1
+                  FROM ICOMLUSR A, ICOMCOD2 B
+                 WHERE A.USER_ID = M.REQ_ID 
+                   AND B.TYPE = 'C001'
+                   AND B.COMPANY_CODE = A.COM_CODE
+                   AND B.CODE = A.DEPARTMENT), '') REQ_DEPT, 
+           M.BUYER_ITEM_NO, M.SELLER_ITEM_NO, 
+           M.DESCRIPTION, M.SPECIFICATION, M.UNIT_MEASURE, 
+           M.ITEM_QTY, M.AGENT_PRICE,
+           CASE
+             WHEN M.PROCESS_TYPE = '2' THEN
+               (SELECT nvl(trim(substrb(text2,1,7)),'') FROM ICOMCOD2 WHERE TYPE = 'C012' AND CODE = '001' AND COMPANY_CODE = M.WAREHOUSE_CODE )
+             ELSE
+                CASE WHEN IS_NUMBER(REPLACE(F_SPLIT(M.POHD_DELY_TO_LOCATION,' ',1),'-','')) = 0 THEN F_SPLIT(M.POHD_DELY_TO_LOCATION,' ',1)
+                ELSE '' END
+           END AS ADD_ZIP,
+           CASE
+             WHEN M.PROCESS_TYPE = '2' THEN
+               (SELECT NVL(SUBSTRB(TEXT2, 9 , LENGTHB(TEXT2) ), '') FROM ICOMCOD2 WHERE TYPE = 'C012' AND CODE = '001' AND COMPANY_CODE = M.WAREHOUSE_CODE )
+             ELSE
+                CASE WHEN IS_NUMBER(REPLACE(F_SPLIT(M.POHD_DELY_TO_LOCATION,' ',1),'-','')) = 0 THEN
+                     TRIM(SUBSTR(M.POHD_DELY_TO_LOCATION,LENGTH(F_SPLIT(M.POHD_DELY_TO_LOCATION,' ',1))+1,300))
+                ELSE SUBSTR(M.POHD_DELY_TO_LOCATION,1,300) END                 
+           END ADD_NAME,
+           M.TEMP_REQ_NAME AS REQ_NAME, M.TEMP_REQ_TEL AS REQ_TEL,
+           M.COL1, M.COL2, M.REMARK,
+           M.REF_PR_NO, M.COM_GUBUN, M.BUYER, M.STATUS, M.UNIT_PRICE, 
+           NVL( M.TEMP_COM_IRS_NO,' ') AS COM_IRS_NO, 
+           NVL( M.TEMP_COM_CEO,' ') AS COM_CEO, 
+           NVL( M.TEMP_COM_ZIP,' ') AS COM_ZIP, 
+           NVL( M.TEMP_COM_ADD,' ') AS COM_ADD, 
+           NVL( M.TEMP_COM_INDUSTRY,' ') AS COM_INDUSTRY, 
+           NVL( M.TEMP_COM_BUSINESS,' ') AS COM_BUSINESS,
+           M.PUR_ID, M.BUYER_CD, M.BUYER_NM, 
+           CASE
+             WHEN M.BUYER IN (SELECT BUYER FROM IF_ADMIN WHERE BUYER_ID = 'SSEC') THEN F_SPLIT(M.IV_COLUMN, '^', 15)
+             ELSE 
+               CASE
+                 WHEN M.PROCESS_TYPE = '2' AND M.WAREHOUSE_CODE = 'KRKORE0440' THEN 
+                    CASE WHEN IS_NUMBER(REPLACE(F_SPLIT(M.POHD_DELY_TO_LOCATION ,' ',1),'-','')) = 0 THEN
+                         TRIM(SUBSTR(M.POHD_DELY_TO_LOCATION, LENGTH(F_SPLIT(M.POHD_DELY_TO_LOCATION ,' ',1))+1,200))
+                         ELSE SUBSTR(M.POHD_DELY_TO_LOCATION ,1,200)
+                    END
+                 ELSE ''
+               END
+           END BUYER_ADD,
+           M.BUYER_IRS, M.BUYER_SITE, M.BUYER_LOCATION, M.BUYER_REQ_NAME, 
+           M.BUYER_REQ_PHONE, M.BUYER_PUR_NAME, M.BUYER_PUR_PHONE, M.BUYER_ACC_NAME, M.BUYER_ACC_PHONE, M.LEGACY_PO_NO, M.LEGACY_PO_SEQ, M.BUYER_CIS_CODE, M.MAKER_NAME
+      FROM (
+        SELECT 
+               'D' AS TYPE, 'KP' AS COUNTRY, 
+               NVL(B.ADD_DATE, ' ') AS ADD_DATE,
+               NVL(B.PO_NO, ' ') AS PO_NO,
+               NVL(TO_CHAR(B.PO_SEQ,'FM000') ,' ') AS PO_SEQ,
+               NVL(P.COM_NAME_LOC,' ') AS TEMP_COM_NAME,
+               ' ' AS TEMP_REQ_DEPT,
+               NVL(B.BUYER_ITEM_NO,' ') AS BUYER_ITEM_NO,
+               NVL(B.SELLER_ITEM_NO, ' ') AS SELLER_ITEM_NO,
+               NVL(REPLACE(REPLACE(B.DESCRIPTION, CHR(13),NULL),CHR(10),NULL),' ') AS DESCRIPTION,
+               NVL(REPLACE(REPLACE(B.SPECIFICATION, CHR(13),NULL),CHR(10),NULL),' ') AS SPECIFICATION,
+               NVL(B.UNIT_MEASURE, ' ') AS UNIT_MEASURE,
+               TO_CHAR(CASE 
+                         WHEN B.STATUS = 'D' THEN 0
+                         ELSE NVL(B.ITEM_QTY, 0)
+                       END) AS ITEM_QTY,
+               TO_CHAR(TO_NUMBER(TO_CHAR(NVL(B.AGENT_PRICE/KEP.F_GET_VATRATE_ITEM(B.BUYER, B.BUYER_ITEM_NO) , 0 ), '9999999999999.999999'))) AS AGENT_PRICE,
+               CASE
+                 WHEN B.PROCESS_TYPE = '2' THEN TRIM(REPLACE(P.COM_NAME_LOC,'코리아이플랫폼(주)',''))
+                 WHEN B.BUYER IN ('KRKOLO0118', 'KRDONG0838', 'KRHANW0038','KRSAMS0123','KRSYSR0001') THEN NVL(F_SPLIT(TRIM(C.REQ_USER_INFO),'/',1), NVL(D.CHANGE_USER_NAME,' '))
+                 ELSE NVL(D.CHANGE_USER_NAME, ' ')
+               END AS TEMP_REQ_NAME,                          
+               CASE
+                 WHEN B.PROCESS_TYPE = '2' THEN P.TEL_NO
+                 WHEN B.BUYER IN ('KRKOLO0118', 'KRDONG0838', 'KRHANW0038','KRSAMS0123','KRSYSR0001') THEN NVL(F_SPLIT(TRIM(C.REQ_USER_INFO),'/',3), NVL(D.CHANGE_USER_TEL,' '))
+                 WHEN SLG.COM_CODE IS NOT NULL AND L.USER_ID IS NOT NULL AND D.CHANGE_USER_ID != 'FTP' THEN NVL(L.MOBILE_PHONE, NVL(D.CHANGE_USER_TEL, ' '))
+                 ELSE NVL(D.CHANGE_USER_TEL, ' ')
+               END AS TEMP_REQ_TEL,                           
+               '1' AS COL1,
+               '1' AS COL2,
+               SUBSTRB(NVL(REPLACE(REPLACE(DECODE(B.PROCESS_TYPE,'2',F.COM_NAME_LOC||'.','')||DECODE(TRIM(A.PO_REMARK||' '||REPLACE(B.PO_REMARK,'^||^',' ')),NULL,NULL,TRIM(A.PO_REMARK||' '||REPLACE(B.PO_REMARK,'^||^',' '))),CHR(13),NULL),CHR(10),NULL),' '),1,100) AS REMARK,
+               SUBSTRB(NVL(TO_SINGLE_BYTE(DECODE(A.DOC_TYPE,'X',B.PR_NO,B.REF_PR_NO)),' '),1,49) AS REF_PR_NO,
+               'KEP' AS COM_GUBUN,
+               NVL(B.BUYER, ' ') AS BUYER,
+               NVL(B.STATUS, ' ') AS STATUS,
+               TO_CHAR(NVL(B.UNIT_PRICE, 0)) AS UNIT_PRICE,
+               NVL(P.IRS_NO,' ') AS TEMP_COM_IRS_NO,          
+               NVL(P.CEO_NAME_LOC,' ') AS TEMP_COM_CEO,       
+               NVL(P.ZIP_CODE,' ') AS TEMP_COM_ZIP,           
+               NVL(P.ADDRESS_LOC,' ') AS TEMP_COM_ADD,        
+               NVL(P.INDUSTRY_TYPE,' ') AS TEMP_COM_INDUSTRY, 
+               NVL(P.BUSINESS_ITEMS,' ') AS TEMP_COM_BUSINESS,
+               NVL(A.ADD_USER_ID, ' ') AS PUR_ID,
+               CASE WHEN A.BUYER IN (SELECT BUYER FROM IF_ADMIN WHERE BUYER_ID = 'SSEC') THEN 'C100' ELSE '' END AS BUYER_CD,
+               CASE
+                 WHEN A.BUYER IN (SELECT BUYER FROM IF_ADMIN WHERE BUYER_ID = 'SSEC') THEN '삼성전자(주)' 
+                 ELSE 
+                   CASE
+                     WHEN B.PROCESS_TYPE = '2' AND B.WAREHOUSE_CODE = 'KRKORE0440' THEN (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = B.BUYER) 
+                     ELSE ''
+                   END
+               END AS BUYER_NM,
+               CASE WHEN A.BUYER IN (SELECT BUYER FROM IF_ADMIN WHERE BUYER_ID = 'SSEC') THEN REPLACE(F.IRS_NO,'-','') ELSE '' END AS BUYER_IRS,
+               CASE WHEN A.BUYER IN (SELECT BUYER FROM IF_ADMIN WHERE BUYER_ID = 'SSEC') THEN F_SPLIT(C.IV_COLUMN, '^', 13) ELSE '' END AS BUYER_SITE,
+               CASE WHEN A.BUYER IN (SELECT BUYER FROM IF_ADMIN WHERE BUYER_ID = 'SSEC') THEN F_SPLIT(C.IV_COLUMN, '^', 16) ELSE '' END AS BUYER_LOCATION,
+               CASE WHEN A.BUYER IN (SELECT BUYER FROM IF_ADMIN WHERE BUYER_ID = 'SSEC') THEN F_SPLIT(C.IV_COLUMN, '^', 5) ELSE '' END AS BUYER_REQ_NAME,
+               CASE WHEN A.BUYER IN (SELECT BUYER FROM IF_ADMIN WHERE BUYER_ID = 'SSEC') THEN F_SPLIT(C.IV_COLUMN, '^', 6) ELSE '' END AS BUYER_REQ_PHONE,
+               CASE WHEN A.BUYER IN (SELECT BUYER FROM IF_ADMIN WHERE BUYER_ID = 'SSEC') THEN F_SPLIT(C.IV_COLUMN, '^', 7) ELSE '' END AS BUYER_PUR_NAME,
+               CASE WHEN A.BUYER IN (SELECT BUYER FROM IF_ADMIN WHERE BUYER_ID = 'SSEC') THEN F_SPLIT(C.IV_COLUMN, '^', 8) ELSE '' END AS BUYER_PUR_PHONE,
+               CASE WHEN A.BUYER IN (SELECT BUYER FROM IF_ADMIN WHERE BUYER_ID = 'SSEC') THEN F_SPLIT(C.IV_COLUMN, '^', 10) ELSE '' END AS BUYER_ACC_NAME,
+               CASE WHEN A.BUYER IN (SELECT BUYER FROM IF_ADMIN WHERE BUYER_ID = 'SSEC') THEN F_SPLIT(C.IV_COLUMN, '^', 11) ELSE '' END AS BUYER_ACC_PHONE,
+               NVL(B.LEGACY_PO_NO, '') AS LEGACY_PO_NO,
+               NVL(B.LEGACY_PO_SEQ, '') AS LEGACY_PO_SEQ,
+               CASE WHEN A.BUYER IN (SELECT BUYER FROM IF_ADMIN WHERE BUYER_ID = 'SSEC') THEN F_SPLIT(C.IV_COLUMN, '^', 2) ELSE '' END AS BUYER_CIS_CODE,
+               NVL(B.MAKER_NAME, ' ') AS MAKER_NAME,
+               (SELECT NVL(MAX(TYPE), ' ') FROM ICOMCOD4 WHERE BUYER = A.BUYER AND TYPE IN ('H001', 'D001') AND FLAG = 'Y') AS COM_INFO_TYPE,
+               NVL(REPLACE(REPLACE(A.DELY_TO_LOCATION, CHR(13),NULL),CHR(10),NULL),' ') AS POHD_DELY_TO_LOCATION,
+               NVL(B.DELY_TO_LOCATION   ,' ') AS PODT_DELY_TO_LOCATION,
+               B.WAREHOUSE_CODE, B.PROCESS_TYPE, C.IV_COLUMN,
+               C.REQ_USER_ID AS REQ_ID,
+               NVL(A.CHANGE_USER_DEPT, ' ') AS PUR_DEPT_CODE
+          FROM ICOMPOHD A, ICOMPODT B, ICOMPRDT C, ICOMPRHD D, ICOMCMPY F, BNTSLGIMP SLG, ICOMLUSR L, ICOMCMPY P
+         WHERE 1 = 1
+           AND A.BUYER = #BUYER#
+           AND A.PO_NO = #PO_NO#
+           AND A.STATUS != 'D'
+           AND B.BUYER = A.BUYER
+           AND B.PO_NO = A.PO_NO
+           AND B.STATUS != 'D'
+           AND C.BUYER = B.BUYER
+           AND C.PR_NO = B.PR_NO
+           AND C.PR_SEQ = B.PR_SEQ
+           AND C.STATUS != 'D'
+           AND D.BUYER = C.BUYER
+           AND D.PR_NO = C.PR_NO
+           AND D.STATUS != 'D'
+           AND F.COM_CODE = B.BUYER 
+           AND F.STATUS != 'D'
+           AND D.CHANGE_USER_ID = L.USER_ID(+)
+           AND 'P16-0000003' = SLG.SLG_ID(+)
+           AND B.BUYER = SLG.COM_CODE(+)
+      <![CDATA[
+           AND TO_CHAR(SYSDATE, 'YYYYMMDD') >= SLG.OPEN_DATE(+)
+           AND TO_CHAR(SYSDATE, 'YYYYMMDD') <= SLG.CLOSE_DATE(+)
+      ]]>
+           AND P.COM_CODE = DECODE(A.PROCESS_TYPE, '2', B.WAREHOUSE_CODE, B.BUYER)
+           AND P.STATUS != 'D'
+      ) M
+     ORDER BY M.BUYER, M.PO_NO, M.PO_SEQ  
+	</select>
+	<!-- 전송 데이터 조회 -->
+	<select id="setectOdpoPoDetail_2" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+    SELECT 
+           M.TYPE, M.COUNTRY, M.ADD_DATE, M.PO_NO, M.PO_SEQ, 
+           NVL(CD4.TEXT1, M.TEMP_COM_NAME) AS COM_NAME, 
+           NVL((SELECT B.TEXT1
+                  FROM ICOMLUSR A, ICOMCOD2 B
+                 WHERE A.USER_ID = M.REQ_ID 
+                   AND B.TYPE = 'C001'
+                   AND B.COMPANY_CODE = A.COM_CODE
+                   AND B.CODE = A.DEPARTMENT), '') REQ_DEPT, 
+           M.BUYER_ITEM_NO, M.SELLER_ITEM_NO, 
+           M.DESCRIPTION, M.SPECIFICATION, M.UNIT_MEASURE, 
+           M.ITEM_QTY, M.AGENT_PRICE,
+           CASE
+             WHEN M.PROCESS_TYPE = '2' THEN
+               (SELECT nvl(trim(substrb(text2,1,7)),'') FROM ICOMCOD2 WHERE TYPE = 'C012' AND CODE = '001' AND COMPANY_CODE = M.WAREHOUSE_CODE )
+             ELSE
+                CASE WHEN IS_NUMBER(REPLACE(F_SPLIT(M.POHD_DELY_TO_LOCATION,' ',1),'-','')) = 0 THEN F_SPLIT(M.POHD_DELY_TO_LOCATION,' ',1)
+                ELSE '' END
+           END AS ADD_ZIP,
+           CASE
+             WHEN M.PROCESS_TYPE = '2' THEN
+               (SELECT NVL(SUBSTRB(TEXT2, 9 , LENGTHB(TEXT2) ), '') FROM ICOMCOD2 WHERE TYPE = 'C012' AND CODE = '001' AND COMPANY_CODE = M.WAREHOUSE_CODE )
+             ELSE
+                CASE WHEN IS_NUMBER(REPLACE(F_SPLIT(M.POHD_DELY_TO_LOCATION,' ',1),'-','')) = 0 THEN
+                     TRIM(SUBSTR(M.POHD_DELY_TO_LOCATION,LENGTH(F_SPLIT(M.POHD_DELY_TO_LOCATION,' ',1))+1,300))
+                ELSE SUBSTR(M.POHD_DELY_TO_LOCATION,1,300) END                 
+           END ADD_NAME,
+           M.TEMP_REQ_NAME AS REQ_NAME, M.TEMP_REQ_TEL AS REQ_TEL,
+           M.COL1, M.COL2, M.REMARK,
+           M.REF_PR_NO, M.COM_GUBUN, M.BUYER, M.STATUS, M.UNIT_PRICE, 
+           NVL(CD4.CODE1, M.TEMP_COM_IRS_NO) AS COM_IRS_NO, 
+           NVL(CD4.TEXT2, M.TEMP_COM_CEO) AS COM_CEO, 
+           NVL(CD4.TEXT5, M.TEMP_COM_ZIP) AS COM_ZIP, 
+           NVL(CD4.TEXT6, M.TEMP_COM_ADD) AS COM_ADD, 
+           NVL(CD4.TEXT3, M.TEMP_COM_INDUSTRY) AS COM_INDUSTRY, 
+           NVL(CD4.TEXT4, M.TEMP_COM_BUSINESS) AS COM_BUSINESS,
+           M.PUR_ID, M.BUYER_CD, M.BUYER_NM, 
+           CASE
+             WHEN M.BUYER IN (SELECT BUYER FROM IF_ADMIN WHERE BUYER_ID = 'SSEC') THEN F_SPLIT(M.IV_COLUMN, '^', 15)
+             ELSE 
+               CASE
+                 WHEN M.PROCESS_TYPE = '2' AND M.WAREHOUSE_CODE = 'KRKORE0440' THEN 
+                    CASE WHEN IS_NUMBER(REPLACE(F_SPLIT(M.POHD_DELY_TO_LOCATION ,' ',1),'-','')) = 0 THEN
+                         TRIM(SUBSTR(M.POHD_DELY_TO_LOCATION, LENGTH(F_SPLIT(M.POHD_DELY_TO_LOCATION ,' ',1))+1,200))
+                         ELSE SUBSTR(M.POHD_DELY_TO_LOCATION ,1,200)
+                    END
+                 ELSE ''
+               END
+           END BUYER_ADD,
+           M.BUYER_IRS, M.BUYER_SITE, M.BUYER_LOCATION, M.BUYER_REQ_NAME, 
+           M.BUYER_REQ_PHONE, M.BUYER_PUR_NAME, M.BUYER_PUR_PHONE, M.BUYER_ACC_NAME, M.BUYER_ACC_PHONE, M.LEGACY_PO_NO, M.LEGACY_PO_SEQ, M.BUYER_CIS_CODE, M.MAKER_NAME
+      FROM (
+        SELECT 
+               'D' AS TYPE, 'KP' AS COUNTRY, 
+               NVL(B.ADD_DATE, ' ') AS ADD_DATE,
+               NVL(B.PO_NO, ' ') AS PO_NO,
+               NVL(TO_CHAR(B.PO_SEQ,'FM000') ,' ') AS PO_SEQ,
+               NVL(P.COM_NAME_LOC,' ') AS TEMP_COM_NAME,
+               ' ' AS TEMP_REQ_DEPT,
+               NVL(B.BUYER_ITEM_NO,' ') AS BUYER_ITEM_NO,
+               NVL(B.SELLER_ITEM_NO, ' ') AS SELLER_ITEM_NO,
+               NVL(REPLACE(REPLACE(B.DESCRIPTION, CHR(13),NULL),CHR(10),NULL),' ') AS DESCRIPTION,
+               NVL(REPLACE(REPLACE(B.SPECIFICATION, CHR(13),NULL),CHR(10),NULL),' ') AS SPECIFICATION,
+               NVL(B.UNIT_MEASURE, ' ') AS UNIT_MEASURE,
+               TO_CHAR(CASE 
+                         WHEN B.STATUS = 'D' THEN 0
+                         ELSE NVL(B.ITEM_QTY, 0)
+                       END) AS ITEM_QTY,
+               TO_CHAR(TO_NUMBER(TO_CHAR(NVL(B.AGENT_PRICE/KEP.F_GET_VATRATE_ITEM(B.BUYER, B.BUYER_ITEM_NO) , 0 ), '9999999999999.999999'))) AS AGENT_PRICE,
+               CASE
+                 WHEN B.PROCESS_TYPE = '2' THEN TRIM(REPLACE(P.COM_NAME_LOC,'코리아이플랫폼(주)',''))
+                 WHEN B.BUYER IN ('KRKOLO0118', 'KRDONG0838', 'KRHANW0038') THEN NVL(F_SPLIT(TRIM(C.REQ_USER_INFO),'/',1), NVL(D.CHANGE_USER_NAME,' '))
+                 ELSE NVL(D.CHANGE_USER_NAME, ' ')
+               END AS TEMP_REQ_NAME,                          
+               CASE
+                 WHEN B.PROCESS_TYPE = '2' THEN P.TEL_NO
+                 WHEN B.BUYER IN ('KRKOLO0118', 'KRDONG0838', 'KRHANW0038') THEN NVL(F_SPLIT(TRIM(C.REQ_USER_INFO),'/',3), NVL(D.CHANGE_USER_TEL,' '))
+                 WHEN SLG.COM_CODE IS NOT NULL AND L.USER_ID IS NOT NULL AND D.CHANGE_USER_ID != 'FTP' THEN NVL(L.MOBILE_PHONE, NVL(D.CHANGE_USER_TEL, ' '))
+                 ELSE NVL(D.CHANGE_USER_TEL, ' ')
+               END AS TEMP_REQ_TEL,                           
+               '1' AS COL1,
+               '1' AS COL2,
+               SUBSTRB(NVL(REPLACE(REPLACE(DECODE(B.PROCESS_TYPE,'2',F.COM_NAME_LOC||'.','')||DECODE(TRIM(A.PO_REMARK||' '||REPLACE(B.PO_REMARK,'^||^',' ')),NULL,NULL,TRIM(A.PO_REMARK||' '||REPLACE(B.PO_REMARK,'^||^',' '))),CHR(13),NULL),CHR(10),NULL),' '),1,100) AS REMARK,
+               NVL(TO_SINGLE_BYTE(DECODE(A.DOC_TYPE,'X',B.PR_NO,B.REF_PR_NO)),' ') AS REF_PR_NO,
+               'KEP' AS COM_GUBUN,
+               NVL(B.BUYER, ' ') AS BUYER,
+               NVL(B.STATUS, ' ') AS STATUS,
+               TO_CHAR(NVL(B.UNIT_PRICE, 0)) AS UNIT_PRICE,
+               NVL(P.IRS_NO,' ') AS TEMP_COM_IRS_NO,          
+               NVL(P.CEO_NAME_LOC,' ') AS TEMP_COM_CEO,       
+               NVL(P.ZIP_CODE,' ') AS TEMP_COM_ZIP,           
+               NVL(P.ADDRESS_LOC,' ') AS TEMP_COM_ADD,        
+               NVL(P.INDUSTRY_TYPE,' ') AS TEMP_COM_INDUSTRY, 
+               NVL(P.BUSINESS_ITEMS,' ') AS TEMP_COM_BUSINESS,
+               NVL(A.ADD_USER_ID, ' ') AS PUR_ID,
+               CASE WHEN A.BUYER IN (SELECT BUYER FROM IF_ADMIN WHERE BUYER_ID = 'SSEC') THEN 'C100' ELSE '' END AS BUYER_CD,
+               CASE
+                 WHEN A.BUYER IN (SELECT BUYER FROM IF_ADMIN WHERE BUYER_ID = 'SSEC') THEN '삼성전자(주)' 
+                 ELSE 
+                   CASE
+                     WHEN B.PROCESS_TYPE = '2' AND B.WAREHOUSE_CODE = 'KRKORE0440' THEN (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = B.BUYER) 
+                     ELSE ''
+                   END
+               END AS BUYER_NM,
+               CASE WHEN A.BUYER IN (SELECT BUYER FROM IF_ADMIN WHERE BUYER_ID = 'SSEC') THEN REPLACE(F.IRS_NO,'-','') ELSE '' END AS BUYER_IRS,
+               CASE WHEN A.BUYER IN (SELECT BUYER FROM IF_ADMIN WHERE BUYER_ID = 'SSEC') THEN F_SPLIT(C.IV_COLUMN, '^', 13) ELSE '' END AS BUYER_SITE,
+               CASE WHEN A.BUYER IN (SELECT BUYER FROM IF_ADMIN WHERE BUYER_ID = 'SSEC') THEN F_SPLIT(C.IV_COLUMN, '^', 16) ELSE '' END AS BUYER_LOCATION,
+               CASE WHEN A.BUYER IN (SELECT BUYER FROM IF_ADMIN WHERE BUYER_ID = 'SSEC') THEN F_SPLIT(C.IV_COLUMN, '^', 5) ELSE '' END AS BUYER_REQ_NAME,
+               CASE WHEN A.BUYER IN (SELECT BUYER FROM IF_ADMIN WHERE BUYER_ID = 'SSEC') THEN F_SPLIT(C.IV_COLUMN, '^', 6) ELSE '' END AS BUYER_REQ_PHONE,
+               CASE WHEN A.BUYER IN (SELECT BUYER FROM IF_ADMIN WHERE BUYER_ID = 'SSEC') THEN F_SPLIT(C.IV_COLUMN, '^', 7) ELSE '' END AS BUYER_PUR_NAME,
+               CASE WHEN A.BUYER IN (SELECT BUYER FROM IF_ADMIN WHERE BUYER_ID = 'SSEC') THEN F_SPLIT(C.IV_COLUMN, '^', 8) ELSE '' END AS BUYER_PUR_PHONE,
+               CASE WHEN A.BUYER IN (SELECT BUYER FROM IF_ADMIN WHERE BUYER_ID = 'SSEC') THEN F_SPLIT(C.IV_COLUMN, '^', 10) ELSE '' END AS BUYER_ACC_NAME,
+               CASE WHEN A.BUYER IN (SELECT BUYER FROM IF_ADMIN WHERE BUYER_ID = 'SSEC') THEN F_SPLIT(C.IV_COLUMN, '^', 11) ELSE '' END AS BUYER_ACC_PHONE,
+               NVL(B.LEGACY_PO_NO, '') AS LEGACY_PO_NO,
+               NVL(B.LEGACY_PO_SEQ, '') AS LEGACY_PO_SEQ,
+               CASE WHEN A.BUYER IN (SELECT BUYER FROM IF_ADMIN WHERE BUYER_ID = 'SSEC') THEN F_SPLIT(C.IV_COLUMN, '^', 2) ELSE '' END AS BUYER_CIS_CODE,
+               NVL(B.MAKER_NAME, ' ') AS MAKER_NAME,
+               (SELECT NVL(MAX(TYPE), ' ') FROM ICOMCOD4 WHERE BUYER = A.BUYER AND TYPE IN ('H001', 'D001') AND FLAG = 'Y') AS COM_INFO_TYPE,
+               NVL(REPLACE(REPLACE(A.DELY_TO_LOCATION, CHR(13),NULL),CHR(10),NULL),' ') AS POHD_DELY_TO_LOCATION,
+               NVL(B.DELY_TO_LOCATION   ,' ') AS PODT_DELY_TO_LOCATION,
+               B.WAREHOUSE_CODE, B.PROCESS_TYPE, C.IV_COLUMN,
+               C.REQ_USER_ID AS REQ_ID,
+               NVL(A.CHANGE_USER_DEPT, ' ') AS PUR_DEPT_CODE
+          FROM ICOMPOHD A, ICOMPODT B, ICOMPRDT C, ICOMPRHD D, ICOMCMPY F, BNTSLGIMP SLG, ICOMLUSR L, ICOMCMPY P
+         WHERE 1 = 1
+           AND A.BUYER = #BUYER#
+           AND A.PO_NO = #PO_NO#
+           AND A.STATUS != 'D'
+           AND B.BUYER = A.BUYER
+           AND B.PO_NO = A.PO_NO
+           AND B.STATUS != 'D'
+           AND C.BUYER = B.BUYER
+           AND C.PR_NO = B.PR_NO
+           AND C.PR_SEQ = B.PR_SEQ
+           AND C.STATUS != 'D'
+           AND D.BUYER = C.BUYER
+           AND D.PR_NO = C.PR_NO
+           AND D.STATUS != 'D'
+           AND F.COM_CODE = B.BUYER 
+           AND F.STATUS != 'D'
+           AND D.CHANGE_USER_ID = L.USER_ID(+)
+           AND 'P16-0000003' = SLG.SLG_ID(+)
+           AND B.BUYER = SLG.COM_CODE(+)
+      <![CDATA[
+           AND TO_CHAR(SYSDATE, 'YYYYMMDD') >= SLG.OPEN_DATE(+)
+           AND TO_CHAR(SYSDATE, 'YYYYMMDD') <= SLG.CLOSE_DATE(+)
+      ]]>
+           AND P.COM_CODE = DECODE(A.PROCESS_TYPE, '2', B.WAREHOUSE_CODE, B.BUYER)
+           AND P.STATUS != 'D'
+      ) M, ICOMCOD4 CD4
+     WHERE M.COM_INFO_TYPE = CD4.TYPE(+)
+       AND M.BUYER = CD4.BUYER(+)
+       AND CASE WHEN M.COM_INFO_TYPE = 'H001' THEN M.PUR_ID ELSE M.PUR_DEPT_CODE END = CD4.CODE2(+)
+     ORDER BY M.BUYER, M.PO_NO, M.PO_SEQ  
+	</select>
+	
+	<!-- 이벤트 삭제 -->
+	<delete id="deleteOdpoPoEvent" parameterClass="java.util.HashMap">
+		DELETE FROM ICOMTRXL
+		 WHERE DOC_NAME = 'OFFICE'
+		   AND TARGET = #BUYER#
+		   AND KEY_1 = #PO_NO#
+		   AND KEY_2 = 'KRBEST0003'
+	</delete>
+  
+  <!-- 발주 전송 시점을 POHD에 저장. -->
+  <update id="updateOdpoPohdSendInfo" parameterClass="java.util.HashMap">
+    UPDATE ICOMPOHD
+       SET SEND_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD'), SEND_TIME = TO_CHAR(SYSDATE, 'HH24MISS')
+     WHERE BUYER = #BUYER#
+       AND PO_NO = #PO_NO#  
+       AND STATUS != 'D'
+  </update>
+  
+  <select id="selectOdpoPorsCntChk" parameterClass="java.util.HashMap" resultClass="java.lang.Integer" >
+    SELECT COUNT(*) FROM ICOMPORS
+     WHERE BUYER = #BUYER#
+       AND PO_NO = #PO_NO#
+       AND STATUS != 'D'
+  </select>
+  
+  <insert id="insertOdpoPors" parameterClass="java.util.HashMap">
+		INSERT INTO ICOMPORS (
+		  BUYER, PO_NO, PO_SEQ
+		  , DS_SEQ, STATUS, SEND_DATE
+		  , SEND_TIME, ADD_DATE, ADD_TIME
+		  , CHANGE_DATE, CHANGE_TIME, CONFIRM_DATE
+		  , CONFIRM_TIME, SELLER, BUYER_ITEM_NO
+		  , SELLER_ITEM_NO, DESCRIPTION, SPECIFICATION
+		  , UNIT_MEASURE, CD_DATE, CD_QTY
+		  , DS_DATE, PO_CHECK_CODE, ACCOUNT_TYPE
+		  , ADD_USER_ID, CHANGE_USER_ID, COMPLETE_MARK
+		  , ADMIN_FLAG1, ADMIN_FLAG2, DS_REMARK
+		  , DE_REMARK, SEND_FLAG, AGENCY_USER_ID
+		  , BUYER_DS_DATE
+		)
+      SELECT
+             X.BUYER
+           , X.PO_NO
+           , X.PO_SEQ
+           , TO_CHAR(NVL(Y.DS_SEQ,1),'FM000000') AS DS_SEQ
+           , 'C' AS STATUS
+           , NULL AS SEND_DATE
+           , NULL AS SEND_TIME
+           , TO_CHAR(SYSDATE,'YYYYMMDD') AS ADD_DATE
+           , TO_CHAR(SYSDATE,'HH24MISS') AS ADD_TIME
+           , TO_CHAR(SYSDATE,'YYYYMMDD') AS CHANGE_DATE
+           , TO_CHAR(SYSDATE,'HH24MISS') AS CHANGE_TIME
+           , NULL AS CONFIRM_DATE
+           , NULL AS CONFIRM_TIME
+           , X.SELLER
+           , X.BUYER_ITEM_NO
+           , X.SELLER_ITEM_NO
+           , X.DESCRIPTION
+           , X.SPECIFICATION
+           , X.UNIT_MEASURE
+           , DECODE(X.PROCESS_TYPE,'2',TO_CHAR(TO_DATE(X.RD_DATE,'YYYYMMDD')-1,'YYYYMMDD'),X.RD_DATE) AS CD_DATE
+           , X.ITEM_QTY AS CD_QTY
+           , DECODE(X.PROCESS_TYPE,'2',TO_CHAR(TO_DATE(X.RD_DATE,'YYYYMMDD')-1,'YYYYMMDD'),X.RD_DATE) AS DS_DATE
+           , NULL AS PO_CHECK_CODE
+           , ACCOUNT_TYPE
+           , 'FTP' AS ADD_USER_ID
+           , NULL  AS CHANGE_USER_ID
+           , 'N'   AS COMPLETE_MARK
+           , 'N'   AS ADMIN_FLAG1
+           , 'N'   AS ADMIN_FLAG2
+           , NULL  AS DS_REMARK
+           , NULL  AS DE_REMARK
+           , 'N'   AS SEND_FLAG
+           , NULL AS AGENCY_USER_ID
+           , DECODE(X.PROCESS_TYPE,'0',X.RD_DATE,
+                                   '2',F_GET_WORKINGDAY(X.RD_DATE,2),NULL) AS BUYER_DS_DATE
+      FROM ICOMPODT X, (SELECT BUYER,PO_NO,PO_SEQ,TO_NUMBER(MAX(DS_SEQ))+1 AS DS_SEQ FROM ICOMPORS
+                        WHERE BUYER = #BUYER#
+                        AND PO_NO   = #PO_NO#
+                        GROUP BY BUYER,PO_NO,PO_SEQ) Y
+      WHERE X.BUYER = #BUYER#
+      AND X.PO_NO   = #PO_NO#
+      AND X.STATUS != 'D'
+      AND X.BUYER   = Y.BUYER(+)
+      AND X.PO_NO   = Y.PO_NO(+)
+      AND X.PO_SEQ  = Y.PO_SEQ(+)
+      AND NOT EXISTS (SELECT 'X' FROM ICOMPORS
+                      WHERE STATUS != 'D'
+                      AND BUYER = X.BUYER
+                      AND PO_NO = X.PO_NO
+                      AND PO_SEQ= X.PO_SEQ)  
+  </insert>
+  
+  <update id="updateOdpoPodtComplete" parameterClass="java.util.HashMap">
+    UPDATE ICOMPODT
+       SET DS_DATE = DECODE(PROCESS_TYPE,'2',TO_CHAR(TO_DATE(RD_DATE,'YYYYMMDD')-1,'YYYYMMDD'),RD_DATE)
+         , DS_FLAG = 'Y'
+         , DO_QTY = ITEM_QTY
+         , SEND_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD')
+         , SEND_TIME = TO_CHAR(SYSDATE, 'HH24MISS')
+     WHERE BUYER = #BUYER#
+       AND PO_NO = #PO_NO#
+       AND STATUS != 'D'
+  </update>
+  
+  <update id="updateOdpoPohdComplete" parameterClass="java.util.HashMap">
+    UPDATE ICOMPOHD
+       SET CONFIRM_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD')
+         , CONFIRM_TIME = TO_CHAR(SYSDATE, 'HH24MISS')
+         , CONFIRM_USER_ID = 'FTP'
+         , SEND_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD')
+         , SEND_TIME = TO_CHAR(SYSDATE, 'HH24MISS')
+     WHERE BUYER = #BUYER#
+       AND PO_NO = #PO_NO#
+       AND STATUS != 'D'
+  </update>
+
+</sqlMap>

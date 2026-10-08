@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="EUC-KR"?>
+<SQL>
+	<SQL_DOC INTERFACE_ID="KEP2DONGA_ITEM">
+		<P_SQL SEQ="1" TYPE="INSERT" POST_SQL="FALSE">
+		<![CDATA[  
+		DECLARE
+		V_CNT      NUMBER;
+		V_APP_DATE VARCHAR2(8);
+		V_IDX_NO   NUMBER; 
+		V_INST_FLAG VARCHAR2(1) DEFAULT 'Y';
+		BEGIN
+		   SELECT COUNT(*)
+		        , NVL(MAX(IDX_NO),0)
+		   INTO   V_CNT        
+		        , V_IDX_NO 
+		   FROM  ICOMMTAM 
+		   WHERE ITEM_CODE = $BUYER_ITEM_NO$
+		   AND   VENDOR_CODE = 'VC1290' ;
+		   
+		   IF V_CNT <> 0 THEN
+		      SELECT APP_DATE
+		      INTO   V_APP_DATE
+		      FROM   ICOMMTAM
+		      WHERE  ITEM_CODE = $BUYER_ITEM_NO$
+		      AND   VENDOR_CODE = 'VC1290'
+		      AND   IDX_NO = V_IDX_NO;
+		      
+		      IF V_APP_DATE >= $QUOTA_FROM_DATE$ THEN
+		         UPDATE ICOMMTAM
+		         SET    APP_DATE = $QUOTA_FROM_DATE$
+		            ,   LIMIT_DATE = $QUOTA_TO_DATE$  
+		            ,   ITEM_COST  = $UNIT_PRICE$
+		            ,   ADD_DATE   = TO_CHAR(SYSDATE,'YYYYMMDD')
+		            ,   ADD_TIME   = TO_CHAR(SYSDATE,'HH24MISS')
+		            ,   ADD_USER_ID= 'VC1290'
+		         WHERE  ITEM_CODE = $BUYER_ITEM_NO$
+		         AND   VENDOR_CODE = 'VC1290' 
+		         AND   IDX_NO = V_IDX_NO;  
+		         V_INST_FLAG := 'N';
+		      ELSE
+		         UPDATE ICOMMTAM
+		         SET    LIMIT_DATE = TO_CHAR(TO_DATE($QUOTA_FROM_DATE$,'YYYYMMDD')-1,'YYYYMMDD')
+		            ,   ADD_USER_ID= 'VC1290'
+		         WHERE  ITEM_CODE = $BUYER_ITEM_NO$
+		         AND   VENDOR_CODE = 'VC1290' 
+		         AND   IDX_NO = V_IDX_NO;    
+		      END IF;
+		   END IF;
+		   
+		   IF V_INST_FLAG = 'Y' THEN
+		      INSERT INTO ICOMMTAM
+		                ( ITEM_CODE
+		                , IDX_NO
+		                , VENDOR_CODE
+		                , ITEM_COST
+		                , APP_DATE
+		                , LIMIT_DATE
+		                , ADD_DATE
+		                , ADD_TIME
+		                , ADD_USER_ID )
+		      VALUES (    $BUYER_ITEM_NO$
+		                , V_IDX_NO +1
+		                , 'VC1290'
+		                , $UNIT_PRICE$
+		                , $QUOTA_FROM_DATE$
+		                , $QUOTA_TO_DATE$
+		                , TO_CHAR(SYSDATE,'YYYYMMDD')
+		                , TO_CHAR(SYSDATE,'HH24MISS')
+		                , 'VC1290'
+		      );
+		   END IF;
+		
+		END;           
+		]]>
+		<C_SQL TYPE="UPDATE" P_SQL_RESULT="TRUE">
+			<![CDATA[]]>
+		</C_SQL>
+		<C_SQL TYPE="UPDATE" P_SQL_RESULT="FALSE">
+			<![CDATA[]]>
+		</C_SQL>
+		</P_SQL>
+	</SQL_DOC>
+	<RETRY_CODE>
+	<CODE>3113</CODE>
+	<CODE>3114</CODE>
+	<CODE>2154</CODE>
+	<CODE>2541</CODE>
+	<CODE>4068</CODE>
+	</RETRY_CODE>
+</SQL>

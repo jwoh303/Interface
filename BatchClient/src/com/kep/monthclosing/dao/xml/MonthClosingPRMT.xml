@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="EUC-KR"?>
+<!DOCTYPE sqlMap      
+    PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN"
+    "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="khrmClosing">
+	<select id="prmtArCreateList" resultClass="java.util.HashMap">
+	<![CDATA[
+	SELECT *
+	  FROM ( 
+		SELECT
+		       A.TAX_BILL_NO                  AS INVOICE_NO,
+		       A.DEPT_CODE                    AS DEPT_CODE,
+		       TX01.TEXT1                     AS SAUPJ,
+		       TX06.TEXT1                     AS DEPARTCODE,
+		       A.ISSUE_DATE                   AS INVOICE_DATE,
+		       TRIM(REPLACE(A.IRS_NO,'-','')) AS CUSTOMER,
+		       A.SUPP_PRICE                   AS AMOUNT,
+		       A.TOT_SUPP_PRICE               AS TOT_AMOUNT,
+		       A.TAX_PRICE                    AS TAX_AMOUNT,
+		       A.TOT_TAX_PRICE                AS TOT_TAX_AMOUNT,
+		       A.TAX_TYPE                     AS TAX_CODE,
+		       1                              AS TAX_COUNT,
+		       A.REMARK_DESCRIPTION ||
+		       A.REMARK_SPECIFICATION         AS REMARK,
+		       A.ADD_USER_ID                  AS CREATE_EMPNO,
+		       A.ADD_DATE                     AS CREATE_DATE,
+		       A.SITE                         AS ATTRIBUTE1,
+		       DECODE(NVL(A.AR_TYPE,' '),'02','물류매출','상품매출') AS ATTRIBUTE3,
+		       A.EXP_CUR                      AS ATTRIBUTE9,
+		       NVL(A.EXP_CUR_PRICE,0)         AS DAMOUNT,
+		       NVL(A.EXP_FOR_ITEM_AMT,0)      AS TOT_DAMOUNT,
+		       A.EXP_GR_NO                    AS ATTRIBUTE7,
+		       A.EXP_DATE_OF_SHIPMENT         AS ATTRIBUTE8
+		  FROM EAI.IF_KEPTARDT A
+		       INNER JOIN ICOMCOD1 TX01 ON (1 = 1
+		         AND TX01.TYPE = 'TX01'
+		         AND TX01.CODE = A.KEP_IRS
+		       )
+		       INNER JOIN ICOMCOD1 TX06 ON (1 = 1
+		         AND TX06.TYPE = 'TX06'
+		         AND TX06.CODE = A.DEPT_CODE
+		       )
+		 WHERE 1 = 1
+		   AND ISSUE_DATE >= TO_CHAR(ADD_MONTHS(SYSDATE, -2))
+		   AND IF_SEND_FLAG = 'N'
+		   AND STATUS != 'D'
+		 ORDER BY A.TAX_BILL_NO, A.DEPT_CODE
+	  )
+	]]>
+	</select>
+	
+	<update id="prmtArUpdateResult" parameterClass="java.util.HashMap">
+		UPDATE EAI.IF_KEPTARDT A
+		   SET IF_SEND_FLAG = #IF_SEND_FLAG#
+		     , IF_SEND_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD')
+		     , IF_SEND_TIME = TO_CHAR(SYSDATE, 'HH24MISS')
+		 WHERE 1 = 1
+		   AND A.TAX_BILL_NO = #INVOICE_NO#
+		   AND A.DEPT_CODE   = #DEPT_CODE#
+	</update>
+
+	<select id="prmtApCreateList" resultClass="java.util.HashMap">
+	<![CDATA[
+		SELECT *
+		  FROM ( 
+			SELECT
+			       A.TAX_BILL_NO                  AS INVOICE_NO,
+			       A.DEPT_CODE                    AS DEPT_CODE,
+			       TX06.TEXT1                     AS DEPARTCODE,
+			       TX01.TEXT1                     AS SAUPJ,
+			       A.ISSUE_DATE                   AS INVOICE_DATE,
+			       TRIM(REPLACE(A.IRS_NO,'-','')) AS CUSTOMER,
+			       TRIM(REPLACE(B.IRS_NO,'-','')) AS SALE_CUSTOMER,
+			       A.BUYER_CODE                   AS SITE_NO,
+			       A.SUPP_PRICE                   AS AMOUNT,
+			       A.TOT_SUPP_PRICE               AS TOT_AMOUNT,
+			       A.TAX_PRICE                    AS TAX_AMOUNT,
+			       A.TOT_TAX_PRICE                AS TOT_TAX_AMOUNT,
+			       A.TAX_TYPE                     AS TAX_CODE,
+			       1                              AS TAX_COUNT,
+			       A.REMARK_DESCRIPTION           AS REMARK,
+			       A.ADD_USER_ID                  AS CREATE_EMPNO,
+			       A.ADD_DATE                     AS CREATE_DATE,
+			       NVL(A.NTS_SEND_FLAG,' ')       AS TRANSFER_FLAG,
+			       B.SYS_TYPE                     AS ATTRIBUTE1
+			  FROM EAI.IF_KEPTAPDT A
+			       INNER JOIN V_VOC_ICOMCMPY B ON (1 = 1
+			         AND B.BUSINESS_COND != 'S'
+			         AND A.BUYER_CODE     = B.COM_CODE
+			         AND A.SITE           = DECODE(B.COM_CODE,'KRKOLO0077',A.SITE,
+			                                                  'KRKOLO0116',A.SITE,
+			                                                  B.SYS_TYPE)
+			       )
+			       INNER JOIN ICOMCOD1 TX01 ON (1 = 1
+			         AND TX01.TYPE = 'TX01'
+			         AND TX01.CODE = A.KEP_IRS
+			       )
+			       INNER JOIN ICOMCOD1 TX06 ON (1 = 1
+			         AND TX06.TYPE = 'TX06'
+			         AND TX06.CODE = A.DEPT_CODE
+			       )
+			 WHERE A.IF_SEND_FLAG = 'N'
+			   AND A.STATUS      != 'D'
+			   AND A.ISSUE_DATE >= TO_CHAR(ADD_MONTHS(SYSDATE, -2))
+			 ORDER BY A.TAX_BILL_NO, A.DEPT_CODE
+		  )
+	]]>
+	</select>
+	
+	<update id="prmtApUpdateResult" parameterClass="java.util.HashMap">
+		UPDATE EAI.IF_KEPTAPDT A
+		   SET IF_SEND_FLAG = #IF_SEND_FLAG#
+		     , IF_SEND_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD')
+		     , IF_SEND_TIME = TO_CHAR(SYSDATE, 'HH24MISS')
+		 WHERE 1 = 1
+		   AND A.TAX_BILL_NO = #INVOICE_NO#
+		   AND A.DEPT_CODE   = #DEPT_CODE#
+	</update>
+	
+	<update id="prmtArUpdateCancel" parameterClass="java.util.HashMap">
+		UPDATE EAI.IF_KEPTARDT
+		   SET CONFIRM_FLAG    = 'N'
+		     , CONFIRM_DATE    = NULL
+		     , CONFIRM_TIME    = NULL
+		     , CONFIRM_USER_ID = NULL
+		     , SEND_DATE       = NULL
+		     , SEND_TIME       = NULL
+		     , SEND_USER_ID    = NULL
+		     , IF_SEND_DATE    = NULL
+		     , IF_SEND_TIME    = NULL
+		     , IF_SEND_FLAG    = 'N'
+		     , STATUS          = 'D'
+		     , CHANGE_USER_ID  = 'IF_USER'
+		     , CHANGE_DATE     = TO_CHAR(SYSDATE, 'YYYYMMDD')
+		     , CHANGE_TIME     = TO_CHAR(SYSDATE, 'HH24MISS')
+		 WHERE TAX_BILL_NO     = #INVOICE_NO#	
+	</update>
+	
+	<update id="prmtApUpdateCancel" parameterClass="java.util.HashMap">
+		UPDATE EAI.IF_KEPTAPDT
+		   SET IF_SEND_FLAG   = 'N'
+		     , IF_SEND_DATE   = NULL
+		     , IF_SEND_TIME   = NULL
+		     , SEND_USER_ID   = NULL
+		     , SEND_DATE      = NULL
+		     , SEND_TIME      = NULL
+		     , STATUS         = 'D'
+		     , CHANGE_USER_ID = 'IF_USER'
+		     , CHANGE_DATE    = TO_CHAR(SYSDATE, 'YYYYMMDD')
+		     , CHANGE_TIME    = TO_CHAR(SYSDATE, 'HH24MISS')
+		 WHERE TAX_BILL_NO    = #INVOICE_NO#
+	</update>
+	
+</sqlMap>

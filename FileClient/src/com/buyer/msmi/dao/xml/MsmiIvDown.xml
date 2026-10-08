@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap      
+    PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN"
+    "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="MsmiIvDown">
+
+    <select id="Msmi_DBDispatcher"  resultClass="java.lang.Integer">
+		 SELECT  count(*)
+		   FROM  ICOMTRXL
+              WHERE doc_name = 'IVDOWN'
+                AND target   = 'KRMISU0014'
+                AND key_9 = ' '
+                AND KEY_1 IN (
+                  SELECT DISTINCT A.INV_NO FROM WMSIVDT A WHERE A.BUYER = 'KRMISU0014' AND A.INV_NO = KEY_1 AND A.STATUS != 'D'
+                )
+	</select>
+	
+	<select id="Msmi_TRXL_Select"  resultClass="java.util.HashMap">
+		 SELECT  *
+		   FROM  ICOMTRXL
+              WHERE doc_name = 'IVDOWN'
+                AND target   = 'KRMISU0014'
+                AND key_9 = ' '
+                AND KEY_1 IN (
+                  SELECT DISTINCT A.INV_NO FROM WMSIVDT A WHERE A.BUYER = 'KRMISU0014' AND A.INV_NO = KEY_1 AND A.STATUS != 'D'
+                )
+	</select>
+
+	<select id="Msmi_IVDT_Select"  parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+		   SELECT    F_SPLIT(PRDT.IV_COLUMN,'^',1) AS VOUCHER_DIVISION 
+                   , PODT.LEGACY_PO_NO AS GLOBAL_NUMBER
+                   , PODT.RD_DATE AS MISUMI_RECEIVED_DATE
+                   , PODT.REF_IF_NO AS PRODUCT_CODE  
+                   , PODT.BUYER_ITEM_NO AS PRODUCT_CODE_FOR_PO
+                   , TO_CHAR(IVDT.INV_QTY) AS QTY
+                   , IVDT.INVOICE_DATE AS SUPPLIER_INVOICE_DATE
+                   , TO_CHAR(IVDT.UNIT_PRICE) AS PURCHASE_UNIT_PRICE
+                   , TO_CHAR(IVDT.ITEM_AMT) AS PURCHASE_AMOUNT
+                   , IVDT.INV_NO||IVDT.INV_SEQ AS SUPPLIER_INVOICE_NO
+                   , PRDT.ADD_USER_NAME AS DIRECT_SHIP_TO_NAME
+                   , F_SPLIT(POHD.DELY_TO_LOCATION,'^',1) AS ZIP_CODE
+                   , F_SPLIT(POHD.DELY_TO_LOCATION,'^',2) AS SHIP_TO_ADDRESS_1
+	                , F_SPLIT(POHD.DELY_TO_LOCATION,'^',3) AS SHIP_TO_ADDRESS_2
+	                , F_SPLIT(POHD.DELY_TO_LOCATION,'^',4) AS SHIP_TO_ADDRESS_3
+	                , F_SPLIT(POHD.DELY_TO_LOCATION,'^',5) AS SHIP_TO_ADDRESS_4
+                   , SUBSTR(PODT.REF_PR_NO,2,10) AS REF_PR_NO   
+             FROM   ICOMIVDT IVDT, ICOMPODT PODT, ICOMPOHD POHD, ICOMPRDT PRDT
+             WHERE  IVDT.BUYER  = #TARGET#
+             AND    IVDT.INV_NO = #KEY_1#
+             AND    IVDT.SND_CHK = 'N'
+             AND    IVDT.STATUS != 'D'
+             AND    IVDT.BUYER = POHD.BUYER
+             AND    IVDT.PO_NO = POHD.PO_NO
+             AND    IVDT.BUYER = PODT.BUYER
+             AND    IVDT.PO_NO = PODT.PO_NO
+             AND    IVDT.PO_SEQ= PODT.PO_SEQ
+             AND    PODT.BUYER = PRDT.BUYER
+             AND    PODT.PR_NO = PRDT.PR_NO
+             AND    PODT.PR_SEQ= PRDT.PR_SEQ
+          UNION ALL
+             SELECT  F_SPLIT(PRDT.IV_COLUMN,'^',1) AS VOUCHER_DIVISION
+                   , PODT.LEGACY_PO_NO AS GLOBAL_NUMBER
+                   , PODT.RD_DATE AS MISUMI_RECEIVED_DATE
+                   , PODT.REF_IF_NO AS PRODUCT_CODE
+                   , PODT.BUYER_ITEM_NO AS PRODUCT_CODE_FOR_PO
+                   , TO_CHAR(IVDT.INV_QTY) AS QTY
+                   , IVDT.INV_DATE AS SUPPLIER_INVOICE_DATE
+                   , TO_CHAR(IVDT.UNIT_PRICE) AS PURCHASE_UNIT_PRICE
+                   , TO_CHAR(IVDT.UNIT_AMT) AS PURCHASE_AMOUNT
+                   , IVDT.INV_NO||IVDT.INV_SEQ AS SUPPLIER_INVOICE_NO
+                   , PRDT.ADD_USER_NAME AS DIRECT_SHIP_TO_NAME
+                   , F_SPLIT(POHD.DELY_TO_LOCATION,'^',1) AS ZIP_CODE
+	                , F_SPLIT(POHD.DELY_TO_LOCATION,'^',2) AS SHIP_TO_ADDRESS_1
+	                , F_SPLIT(POHD.DELY_TO_LOCATION,'^',3) AS SHIP_TO_ADDRESS_2
+	                , F_SPLIT(POHD.DELY_TO_LOCATION,'^',4) AS SHIP_TO_ADDRESS_3
+	                , F_SPLIT(POHD.DELY_TO_LOCATION,'^',5) AS SHIP_TO_ADDRESS_4
+                   , SUBSTR(PODT.REF_PR_NO,2,10) AS REF_PR_NO
+             FROM   WMSIVDT IVDT, ICOMPODT PODT, ICOMPOHD POHD, ICOMPRDT PRDT
+             WHERE  IVDT.BUYER  = #TARGET#
+             AND    IVDT.INV_NO = #KEY_1#
+             AND    IVDT.SND_CHK = 'N'
+             AND    IVDT.STATUS != 'D'
+             AND    IVDT.BUYER = POHD.BUYER
+             AND    IVDT.PO_NO = POHD.PO_NO
+             AND    IVDT.BUYER = PODT.BUYER
+             AND    IVDT.PO_NO = PODT.PO_NO
+             AND    IVDT.PO_SEQ= PODT.PO_SEQ
+             AND    POHD.PROCESS_TYPE != '0'
+             AND    PODT.BUYER = PRDT.BUYER
+             AND    PODT.PR_NO = PRDT.PR_NO
+             AND    PODT.PR_SEQ= PRDT.PR_SEQ
+          ORDER BY  REF_PR_NO, SUPPLIER_INVOICE_NO
+	</select>
+	
+	<update id="Msmi_TRXL_Dequeue" parameterClass="java.util.HashMap">
+    UPDATE ICOMTRXL
+              SET   key_9    = 'Y'
+                 , key_10 = to_char(SYSDATE,'YYYYMMDDHH24MISS')
+               WHERE DOC_NAME = #DOC_NAME#
+                AND TARGET   = #TARGET#
+                AND KEY_1    = #KEY_1#
+                AND KEY_2    = #KEY_2#
+                AND KEY_3    = #KEY_3#
+                AND KEY_4    = #KEY_4#
+                AND KEY_5    = #KEY_5#
+  </update>
+</sqlMap>

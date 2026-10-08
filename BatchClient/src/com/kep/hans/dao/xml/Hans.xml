@@ -1,0 +1,202 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE sqlMap PUBLIC "-//iBATIS.com//DTD SQL Map 2.0//EN"
+"http://www.ibatis.com/dtd/sql-map-2.dtd">
+
+
+<sqlMap namespace="Hans">
+
+	<select id="selectHansPrTargetList" resultClass="java.util.HashMap">
+		SELECT * FROM 
+		(SELECT BUYER
+		        ,DOC_NO
+		FROM EAI.IF_UCUBE_PR_SEND
+		WHERE BUYER ='KRHANS0320'
+		AND IF_FLAG = 'N' 
+		    )
+		GROUP BY BUYER, DOC_NO
+		ORDER BY BUYER, DOC_NO
+	</select>
+
+
+	<select id="selectHansPrList" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+		SELECT
+		    BUYER AS BUYER
+		    ,DOC_NO AS ZDOC_NUM
+		    ,DOC_SEQ AS ZDOC_SEQ
+		    ,KEY_1 AS KEY
+		    ,BUYER_ITEM_NO AS MATNR
+		    ,DESCRIPTION AS TXZ01
+		    ,ITEM_QTY AS MENGE
+		    ,UNIT_MEASURE AS MEINS
+		    ,RD_DATE AS EEIND
+		    ,UNIT_PRICE AS NETPR
+		    ,CATEGORY1 AS MATKL 
+		    ,REQ_USER_NAME AS AFNAM
+		    ,BUDGET_DEPT AS BEDNR
+		    ,USER_ID
+		    ,PR_NO
+		    ,PR_SEQ
+		    , CASE 
+            	WHEN REGEXP_SUBSTR(KEY_1, '[^^]+', 1, 3) = 'K' THEN 'K'
+                WHEN REGEXP_SUBSTR(KEY_1, '[^^]+', 1, 3) = 'X' THEN 'K+포장비'
+                WHEN REGEXP_SUBSTR(KEY_1, '[^^]+', 1, 3) = 'Z' THEN '저장품'
+            END AS ACCTASSCAT
+            ,REGEXP_SUBSTR(KEY_1, '[^^]+', 1, 1) AS GL_ACCOUNT
+            ,REGEXP_SUBSTR(KEY_1, '[^^]+', 1, 2) AS COSTCENTER
+            ,(SELECT B.EMAIL FROM ICOMLUSR B WHERE B.USER_ID = A.USER_ID AND B.COM_CODE = A.BUYER) AS EMAIL
+            ,REQ_USER_NAME
+		FROM IF_UCUBE_PR_SEND A
+		WHERE A.BUYER = #BUYER# 
+		AND A.IF_FLAG = 'N'
+		AND A.DOC_NO = #DOC_NO#
+	</select>
+	
+	
+	<update id="updateHansResultData" parameterClass="java.util.HashMap">
+		UPDATE EAI.IF_UCUBE_PR_SEND
+		   SET IF_FLAG = #IF_FLAG#
+		     , KEY_10 = #IF_MSG#
+		     , IF_DATM = SYSDATE
+		      <isEqual property="IF_FLAG" compareValue="Y">
+		     , LEGACY_PO_NO = #LEGACY_PO_NO#
+		     , LEGACY_PO_SEQ = #LEGACY_PO_SEQ#
+		     </isEqual>
+	     WHERE BUYER ='KRHANS0320'
+	       AND DOC_NO = #DOC_NO#
+	       AND STATUS = 'C'
+	       AND IF_FLAG = 'N'
+	       <isEqual property="IF_FLAG" compareValue="Y">
+		   AND DOC_SEQ = #DOC_SEQ#
+		   </isEqual>
+	</update>
+	
+	
+	<update id="insertHansIfProgress" parameterClass="java.util.HashMap">
+		 INSERT INTO IF_PROGRESS (
+              BUYER,GUBUN,LEGACY_NO,REVISION,STATUS,
+              IF_FLAG,TOT_CNT,TOT_AMT,ERR_CNT,ERR_MSG,
+              REMARK,CHANGE_DATE,CHANGE_TIME,ADD_DATE,NO_CNT
+            ) VALUES (
+              #BUYER#,'XX',#DOC_NO#,'00','C',
+              'C',1,1,0,'작업중!!',
+              'BUDGET',TO_CHAR(SYSDATE,'YYYYMMDD'),TO_CHAR(SYSDATE,'HH24MISS'),TO_CHAR(SYSDATE,'YYYYMMDD'),0
+            )
+	</update>
+	
+	
+	<update id="updateHansLegecyPoInfo" parameterClass="java.util.HashMap">
+		UPDATE ICOMPRDT T
+		   SET T.LEGACY_PO_NO = #LEGACY_PO_NO#,
+		       T.LEGACY_PO_SEQ = #LEGACY_PO_SEQ#
+		 WHERE T.BUYER = #BUYER#
+		   AND T.REF_NO = #DOC_NO#
+		   AND T.REF_SEQ = #DOC_SEQ#
+		   AND T.RECV_FLAG = 'PS'
+	</update>
+	
+	<select id="selectHansGrList" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+		SELECT
+			BUYER
+			,LEGACY_PO_NO
+			,LEGACY_PO_SEQ
+			,KEY_1
+			,KEY_2
+			,GR_DATE
+			,BUYER_ITEM_NO
+			,GR_QTY
+			,UNIT_MEASURE
+			,KEY_8
+			,KEY_9
+			,KEY_10
+			,STATUS
+			,GR_NO
+			,GR_SEQ
+		FROM EAI.IF_UCUBE_GR_SEND
+		WHERE BUYER ='KRHANS0320'
+		AND IF_FLAG = 'N' 
+	</select>
+	
+	<select id="selectHansPoStatusList" resultClass="java.util.HashMap">
+		SELECT 
+			SEQ,
+			BUYER,
+	    	PO_NO,
+	  		PO_SEQ,
+		    LEGACY_PO_NO,
+		    LEGACY_PO_SEQ,
+		    ITEM_QTY,
+		    UNIT_MEASURE,
+		    RD_DATE,
+		    UNIT_PRICE,
+		    STATUS,
+		    KEY_1,
+		    KEY_2
+          FROM EAI.IF_UCUBE_PO_SEND
+          WHERE BUYER = 'KRHANS0320'
+          AND IF_FLAG = 'N'
+	</select>
+	
+	<update id="updateHansPoStatus"  parameterClass="java.util.Map">
+		UPDATE EAI.IF_UCUBE_PO_SEND
+		   SET IF_FLAG = #IF_FLAG#,
+               IF_DATE = SYSDATE,
+		   	   IF_MSG = NVL(#IF_MSG#,'')  
+		 WHERE BUYER = #BUYER#
+		   AND IF_FLAG = 'N'	
+		   AND PO_NO = #PO_NO#	   
+		   AND PO_SEQ = #PO_SEQ#	   
+		   AND STATUS = #STATUS#	   
+	</update>	
+	
+	<update id="updateHansGr"  parameterClass="java.util.Map">
+		UPDATE EAI.IF_UCUBE_GR_SEND
+		   SET IF_FLAG = #TYPE#,
+               IF_DATM = SYSDATE,
+		<isEqual property="TYPE" compareValue="Y">
+			<isEqual property="STATUS" compareValue="C">
+		   	   KEY_8 = #KEY_8#,  
+		   	   KEY_9 = #KEY_9#,  
+		   	   KEY_10 = #KEY_10#,  
+		   	 </isEqual>   
+		 </isEqual>
+		   	   IF_MSG = NVL(#MESSAGE#,'')  
+		 WHERE BUYER = #BUYER#
+		   AND IF_FLAG = 'N'	
+		   AND GR_NO = #GR_NO#	   
+		   AND GR_SEQ = #GR_SEQ#	   
+		   AND STATUS = #STATUS#	   
+	</update>	
+	<select id="selectHansMailInfo" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+		 <![CDATA[
+		  	SELECT
+			    TEXT1 AS NAME
+			    ,TEXT2 AS EMAIL
+			FROM KEP.ICOMCOD2
+			WHERE TYPE ='MAIL'
+			AND CODE ='PR_ERR'
+			AND COMPANY_CODE = #BUYER#
+		  	]]>
+	</select>
+	<insert id="insertHansMail" parameterClass="java.util.HashMap">
+		INSERT INTO KEP_MAIL
+                       ( SEQ,
+                         SEND_EMAIL,
+                         SEND_NAME,
+                         RECEIVE_EMAIL,
+                         RECEIVE_NAME,
+                         SUBJECT,
+                         CONTENTS,
+                         CREATE_DATE,
+                         JOB_FLAG)
+                 VALUES( SEQ_KEP_MAIL.NEXTVAL,
+                         'koreab2b@koreab2b.com',
+                         '운영자',
+                          #MAIL_EMAIL# ,
+                          #MAIL_NAME#,
+                         '[코리아이플랫폼](주)한솔홈데코 주문 결재 오류 알림의 건',
+                         '오류생성 일시 : '||TO_CHAR(SYSDATE,'YYYYMMDD HH24:MI:SS')||')'|| #MAIL_CONTENT#,
+                         SYSDATE,
+                         'N')
+	  </insert>
+</sqlMap>

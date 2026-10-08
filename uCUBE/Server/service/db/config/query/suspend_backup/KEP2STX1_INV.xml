@@ -1,0 +1,213 @@
+<?xml version="1.0" encoding="EUC-KR"?>
+<SQL>
+        <!-- *********************************************************************** -->
+        <SQL_DOC INTERFACE_ID="KEP2STX1_INV">
+                <V_SQL NAME='$G_RS' ISLOOP="TRUE" COMMIT_BY_RESULT="FALSE">
+                        SELECT 
+                               A.BUYER, A.INV_NO, '0' AS PROCESS_TYPE
+                          FROM ICOMIVHD A
+                         WHERE A.BUYER = 'KRSTX-0001'
+                           AND A.INV_TYPE = '0' 
+                           AND A.SND_CHK = 'N'
+                        UNION 
+                        SELECT
+                               B.BUYER, B.INV_NO, '2' AS PROCESS_TYPE
+                          FROM WMSIVDT B
+                         WHERE B.BUYER = 'KRSTX-0001'
+                           AND B.SND_CHK = 'N'
+                         GROUP BY B.BUYER, B.INV_NO
+                        ORDER BY BUYER, INV_NO
+                </V_SQL>
+                <P_SQL SEQ="1" TYPE="SELECT" POST_SQL="TRUE">
+                <![CDATA[
+                  SELECT 
+                         F_SPLIT(PRDT.IV_COLUMN,'^',1) AS COMPANY_CODE,
+                         F_SPLIT(PRDT.IV_COLUMN,'^',2) AS SYS_CODE,
+                         IVDT.INV_NO AS DELIV_NO,
+                         IVDT.INV_SEQ AS DELIV_SEQ,
+                         PODT.LEGACY_PO_NO AS PO_NO,
+                         PODT.LEGACY_PO_SEQ AS PO_SEQ,
+                         (SELECT COUNT(*)+1 FROM ICOMIVDT
+                           WHERE BUYER  = PODT.BUYER
+                             AND PO_NO  = PODT.PO_NO
+                             AND PO_SEQ = PODT.PO_SEQ) AS PO_DELIV_SEQ,
+                         POHD.CUR AS CURRENCY_CD,
+                         PODT.BUYER_ITEM_NO AS PART_CD,
+                         F_SPLIT(PRDT.IV_COLUMN,'^',3) AS PART_CLASS,
+                         IVDT.INV_QTY AS DELIV_QTY,
+                         PODT.UNIT_PRICE AS UNIT_PRICE,
+                         PODT.ITEM_QTY AS PO_QTY,
+                         PODT.IV_QTY - IVDT.INV_QTY AS PRE_DELIV_QTY,
+                         PODT.UNIT_MEASURE AS UNIT,
+                         PODT.ADD_DATE AS PO_DT,
+                         PODT.RD_DATE AS DELIV_DT,
+                         PORS.DS_DATE AS ACC_DUE_DT,
+                         IVDT.ITEM_AMT AS DELIV_AMT,
+                         IVDT.STATUS AS STATUS,
+                         'KEP' AS COMPANY_ID,
+                         '코리아이플랫폼' AS COMPANY_NM,
+                         'KOREAB2B' AS USER_ID,
+                         '이정철' AS USER_NM,
+                         F_SPLIT(PRDT.IV_COLUMN,'^',1) AS TOCOMPANY_ID,
+                         'STX조선해양' AS TOCOMPANY_NM,
+                         PRDT.PURCHASER_ID AS TOUSER_ID,
+                         (SELECT USER_NAME_LOC FROM ICOMLUSR
+                           WHERE USER_ID = PRDT.PURCHASER_ID) AS TOUSER_NM,
+                         F_SPLIT(F_SPLIT(PRDT.IV_COLUMN,'^',5),'~\\_',10) || '~\\_' ||
+                         F_SPLIT(F_SPLIT(PRDT.IV_COLUMN,'^',5),'~\\_',11) || '~\\_' ||
+                         F_SPLIT(F_SPLIT(PRDT.IV_COLUMN,'^',5),'~\\_',12) || '~\\_' ||
+                         F_SPLIT(F_SPLIT(PRDT.IV_COLUMN,'^',5),'~\\_',13) || '~\\_' ||
+                         F_SPLIT(F_SPLIT(PRDT.IV_COLUMN,'^',5),'~\\_',14) || '~\\_' ||
+                         F_SPLIT(F_SPLIT(PRDT.IV_COLUMN,'^',5),'~\\_',15) || '~\\_' ||
+                         F_SPLIT(F_SPLIT(PRDT.IV_COLUMN,'^',5),'~\\_',16) || '~\\_~\\_' AS ADD_FIELD1
+                    FROM ICOMIVDT IVDT
+                       , ICOMIVHD IVHD
+                       , ICOMPODT PODT
+                       , ICOMPOHD POHD
+                       , ICOMPRDT PRDT
+                       , ICOMPORS PORS
+                   WHERE IVHD.BUYER    = '$G_RS.BUYER$'
+                     AND IVHD.INV_NO   = '$G_RS.INV_NO$'
+                     AND IVHD.INV_TYPE = '$G_RS.PROCESS_TYPE$'
+                     AND IVDT.BUYER    = IVHD.BUYER
+                     AND IVDT.INV_NO   = IVHD.INV_NO
+                     AND PODT.BUYER    = IVDT.BUYER
+                     AND PODT.PO_NO    = IVDT.PO_NO
+                     AND PODT.PO_SEQ   = IVDT.PO_SEQ
+                     AND POHD.BUYER    = PODT.BUYER
+                     AND POHD.PO_NO    = PODT.PO_NO
+                     AND PRDT.BUYER    = PODT.BUYER
+                     AND PRDT.PR_NO    = PODT.PR_NO
+                     AND PRDT.PR_SEQ   = PODT.PR_SEQ
+                     AND PORS.BUYER    = PODT.BUYER
+                     AND PORS.PO_NO    = PODT.PO_NO
+                     AND PORS.PO_SEQ   = PODT.PO_SEQ
+                     AND PORS.BUYER    = IVDT.BUYER
+                     AND PORS.PO_NO    = IVDT.PO_NO
+                     AND PORS.PO_SEQ   = IVDT.PO_SEQ
+                     AND PORS.DS_DATE  = IVDT.DS_DATE
+  
+                  UNION 
+  
+                  SELECT 
+                         F_SPLIT(PRDT.IV_COLUMN,'^',1) AS COMPANY_CODE,
+                         F_SPLIT(PRDT.IV_COLUMN,'^',2) AS SYS_CODE,
+                         IVDT.INV_NO AS DELIV_NO,
+                         IVDT.INV_SEQ AS DELIV_SEQ,
+                         PODT.LEGACY_PO_NO AS PO_NO,
+                         PODT.LEGACY_PO_SEQ AS PO_SEQ,
+                         (SELECT COUNT(*) FROM WMSIVDT
+                           WHERE BUYER  = PODT.BUYER
+                             AND PO_NO  = PODT.PO_NO
+                             AND PO_SEQ = PODT.PO_SEQ) AS PO_DELIV_SEQ,
+                         POHD.CUR AS CURRENCY_CD,
+                         PODT.BUYER_ITEM_NO AS PART_CD,
+                         F_SPLIT(PRDT.IV_COLUMN,'^',3) AS PART_CLASS,
+                         IVDT.INV_QTY AS DELIV_QTY,
+                         PODT.UNIT_PRICE AS UNIT_PRICE,
+                         PODT.ITEM_QTY AS PO_QTY,
+                         PODT.IV_QTY - IVDT.INV_QTY AS PRE_DELIV_QTY,
+                         PODT.UNIT_MEASURE AS UNIT,
+                         PODT.ADD_DATE AS PO_DT,
+                         PODT.RD_DATE AS DELIV_DT,
+                         PORS.DS_DATE AS ACC_DUE_DT,
+                         IVDT.UNIT_AMT AS DELIV_AMT,
+                         IVDT.STATUS AS STATUS,
+                         'KEP' AS COMPANY_ID,
+                         '코리아이플랫폼' AS COMPANY_NM,
+                         'KOREAB2B' AS USER_ID,
+                         '이정철' AS USER_NM,
+                         F_SPLIT(PRDT.IV_COLUMN,'^',1) AS TOCOMPANY_ID,
+                         'STX조선해양' AS TOCOMPANY_NM,
+                         PRDT.PURCHASER_ID AS TOUSER_ID,
+                         (SELECT USER_NAME_LOC FROM ICOMLUSR
+                           WHERE USER_ID = PRDT.PURCHASER_ID) AS TOUSER_NM,
+                         F_SPLIT(F_SPLIT(PRDT.IV_COLUMN,'^',5),'~\\_',10) || '~\\_' ||
+                         F_SPLIT(F_SPLIT(PRDT.IV_COLUMN,'^',5),'~\\_',11) || '~\\_' ||
+                         F_SPLIT(F_SPLIT(PRDT.IV_COLUMN,'^',5),'~\\_',12) || '~\\_' ||
+                         F_SPLIT(F_SPLIT(PRDT.IV_COLUMN,'^',5),'~\\_',13) || '~\\_' ||
+                         F_SPLIT(F_SPLIT(PRDT.IV_COLUMN,'^',5),'~\\_',14) || '~\\_' ||
+                         F_SPLIT(F_SPLIT(PRDT.IV_COLUMN,'^',5),'~\\_',15) || '~\\_' ||
+                         F_SPLIT(F_SPLIT(PRDT.IV_COLUMN,'^',5),'~\\_',16) || '~\\_~\\_' AS ADD_FIELD1
+                    FROM WMSIVDT  IVDT
+                       , ICOMPODT PODT
+                       , ICOMPOHD POHD
+                       , ICOMPRDT PRDT
+                       , ICOMPORS PORS
+                       , ICOMIVDT S_IV
+                   WHERE IVDT.BUYER    = '$G_RS.BUYER$'
+                     AND IVDT.INV_NO   = '$G_RS.INV_NO$'
+                     AND PODT.BUYER    = IVDT.BUYER
+                     AND PODT.PO_NO    = PODT.PO_NO
+                     AND PODT.PO_SEQ   = IVDT.PO_SEQ
+                     AND POHD.BUYER    = PODT.BUYER
+                     AND POHD.PO_NO    = PODT.PO_NO
+                     AND PRDT.BUYER    = PODT.BUYER
+                     AND PRDT.PR_NO    = PODT.PR_NO
+                     AND PRDT.PR_SEQ   = PODT.PR_SEQ
+                     AND PORS.BUYER     = PODT.BUYER
+                     AND PORS.PO_NO     = PODT.PO_NO
+                     AND PORS.PO_SEQ    = PODT.PO_SEQ
+                     AND S_IV.BUYER     = PORS.BUYER
+                     AND S_IV.PO_NO     = PORS.PO_NO
+                     AND S_IV.PO_SEQ    = PORS.PO_SEQ
+                     AND S_IV.DS_DATE   = PORS.DS_DATE
+                     AND IVDT.BUYER     = S_IV.BUYER
+                     AND IVDT.PO_NO     = S_IV.PO_NO
+                     AND IVDT.PO_SEQ    = S_IV.PO_SEQ
+                     AND IVDT.S_INV_NO  = S_IV.INV_NO
+                     AND IVDT.S_INV_SEQ = S_IV.INV_SEQ
+                   ORDER BY DELIV_NO, DELIV_SEQ
+                   
+                ]]>
+                        <C_SQL TYPE="UPDATE" P_SQL_RESULT="TRUE">
+                        <![CDATA[
+                            BEGIN
+                              IF '$G_RS.PROCESS_TYPE$' = '0' THEN
+                                UPDATE ICOMIVHD SET
+                                       SND_CHK = 'Y',
+                                       SND_DATM = SYSDATE
+                                 WHERE BUYER            = '$G_RS.BUYER$'
+                                   AND INV_NO           = '$G_RS.INV_NO$';
+                              ELSE 
+                                UPDATE WMSIVDT SET
+                                       SND_CHK = 'Y',
+                                       SND_DATM = SYSDATE
+                                 WHERE BUYER            = '$G_RS.BUYER$'
+                                   AND INV_NO           = '$G_RS.INV_NO$';
+                              END IF;
+
+                            END;
+                        ]]>
+                        </C_SQL>
+                        <C_SQL TYPE="UPDATE" P_SQL_RESULT="FALSE">
+                        <![CDATA[
+                            BEGIN
+
+                              IF '$G_RS.PROCESS_TYPE$' = '0' THEN
+                                UPDATE ICOMIVHD SET
+                                       SND_CHK = 'E',
+                                       SND_DATM = SYSDATE
+                                 WHERE BUYER            = '$G_RS.BUYER$'
+                                   AND INV_NO           = '$G_RS.INV_NO$';
+                              ELSE 
+                                UPDATE WMSIVDT SET
+                                       SND_CHK = 'E',
+                                       SND_DATM = SYSDATE
+                                 WHERE BUYER            = '$G_RS.BUYER$'
+                                   AND INV_NO           = '$G_RS.INV_NO$';
+                              END IF;
+
+                            END;
+                        ]]>
+                        </C_SQL>
+                </P_SQL>
+        </SQL_DOC>
+        <RETRY_CODE>
+                <CODE>03113</CODE>
+                <CODE>03114</CODE>
+                <CODE>02154</CODE>
+                <CODE>02541</CODE>
+                <CODE>04068</CODE>
+        </RETRY_CODE>
+</SQL>

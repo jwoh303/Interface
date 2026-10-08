@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap      
+    PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN"
+    "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="Hugel">
+
+	<select id="selectHugelPrList" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+		SELECT BUYER
+			  , LEGACY_NO
+		FROM IF_PROGRESS IF
+		WHERE IF.BUYER = 'KRHUGE0001'
+		AND IF.GUBUN = 'XX'
+		AND IF.IF_FLAG = 'T'
+		AND IF.REMARK = 'BUDGET' 
+	</select>
+	
+	<select id="selectHugelPrHeader" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+		SELECT PRDT.PR_NO AS ZMROPO
+		      , 'NB' AS BSART
+		      , '1000' AS BUKRS
+		      , '1000' AS   EKORG
+		      , '800' AS   EKGRP
+		      , ' ' AS  LIFNR
+		      , 'KO' AS   LANGU
+		      , 'KRW'  WAERS
+		      , 1  WKURS
+		      , TO_CHAR(SYSDATE,'YYYYMMDD') AS  AEDAT
+		      , LUSR.LEGACY_USER_ID  ERNAM
+		      , TO_CHAR(SYSDATE,'YYYYMMDD') AS  BEDAT
+		FROM ICOMPRDT PRDT, ICOMLUSR LUSR
+		WHERE PRDT.BUYER = #BUYER#
+		AND PRDT.REF_NO = #LEGACY_NO#
+		AND PRDT.BUYER = LUSR.COM_CODE
+		AND PRDT.ADD_USER_ID = LUSR.USER_ID				
+		AND ROWNUM = 1
+	</select>
+	
+	<select id="selectHugelPrItemList" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+		SELECT substr(PR_SEQ,2,5) AS   ZMRO_ITEMNO
+		      , BUYER_ITEM_NO AS  MATNR
+		      , REF_PR_NO AS   WERKS
+		      , TARGET_QTY AS   MENGE
+		      , UNIT_MEASURE AS  MEINS
+		      , TARGET_PRICE AS   NETPR
+		      , 1 AS  PEINH
+		       , LUSR.LEGACY_USER_ID AS  AFNAM
+		      , PRDT.ADD_USER_DEPT  KOSTL		
+		FROM ICOMPRDT PRDT, ICOMLUSR LUSR
+		WHERE PRDT.BUYER = #BUYER#
+		AND PRDT.REF_NO = #LEGACY_NO#
+		AND PRDT.BUYER = LUSR.COM_CODE
+		AND PRDT.ADD_USER_ID = LUSR.USER_ID				
+	</select>
+	
+	<update id="updatePrData"  parameterClass="java.util.Map">
+		UPDATE ICOMPRDT SET LEGACY_PO_NO = #IT_POITEM.EBELN#
+		    , LEGACY_PO_SEQ = #IT_POITEM.EBELP#
+		    , CHANGE_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD')
+			, CHANGE_TIME = TO_CHAR(SYSDATE, 'HH24MISS')
+		WHERE BUYER = #BUYER#
+		  AND PR_NO = #ZMROPO#
+  		  AND PR_SEQ = LPAD(#IT_POITEM.ZMRO_ITEMNO#,6,'0')					  		  
+	</update>
+
+<!-- 	이미 PO가 생성되었거나, 전체의 경우는 SEQ 제외  구분 협의 필요 -->
+<!-- 	ZSTATUS = E, ZMRO_ITEMNO 없으면 모두처리 -->	
+	<update id="updatePrErrorData"  parameterClass="java.util.Map">		
+			UPDATE ICOMPRDT SET LEGACY_PO_NO = 'D'
+			    , LEGACY_PO_SEQ = TO_CHAR(SYSDATE, 'YYYY/MM/DD HH24:MI:SS')
+			WHERE BUYER = 'KRHUGE0001'
+			  AND PR_NO = #ZMROPO#
+<!-- 			  <isEqual property="ZSTATUS" compareValue="E"> -->
+<!-- 				  	<isNotNull property="ZMRO_ITEMNO"> -->
+<!-- 				  		AND PR_SEQ = #ZMRO_ITEMNO# -->
+<!-- 				  	</isNotNull> -->
+<!-- 			  </isEqual> -->
+	</update>
+	
+	<update  id="callProcSendPr" parameterClass="java.util.Map">
+		<![CDATA[			
+			CALL PROC_IF_DAT_JOBLOG_IN(SYSDATE, 'HUGEL_PR_SEND',SUBSTRB('오류:' || #ZMESSAGE#,1,250)||'=>V_BUYER:'||'KRHUGE0001'||':PR_NO:'||#ZMROPO#)		
+		]]>
+	</update>	
+	
+	<update id="updateProgress"  parameterClass="java.util.Map">
+			UPDATE IF_PROGRESS SET  
+				CHANGE_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD')
+				, CHANGE_TIME = TO_CHAR(SYSDATE, 'HH24MISS')
+				<isGreaterThan property="IS_SUCCESS" compareValue="0">
+					, IF_FLAG = 'C'	
+				</isGreaterThan>
+				<isEqual property="IS_SUCCESS" compareValue="-1">
+					, IF_FLAG = 'E'	
+				</isEqual>			
+			WHERE BUYER = #BUYER#
+			  AND LEGACY_NO = #LEGACY_NO#			  
+			  AND GUBUN = 'XX'
+			  AND IF_FLAG = 'T'
+			  AND REMARK = 'BUDGET'		
+	</update>	
+	
+	
+	<select id="selectHugelChgDelList" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+		SELECT A.TARGET AS BUYER
+		      ,B.LEGACY_PO_NO as EBELN
+		      ,B.LEGACY_PO_SEQ as EBELP
+		      ,CASE
+		          WHEN A.KEY_3 = 'DEL' THEN 'X'
+		            ELSE null
+		       END as LOEKZ
+		      ,A.KEY_4 as EX_MENGE
+		      ,A.KEY_5 as MENGE
+		      ,A.KEY_8 as ADD_DATE
+		      ,A.KEY_9 as IF_FLAG
+		      ,A.KEY_10 as IF_MSG
+		      ,B.BUYER_ITEM_NO AS MATNR
+		      ,B.UNIT_MEASURE AS MEINS
+		      ,B.TARGET_PRICE AS NETPR
+		      ,1 AS PEINH
+		      ,B.ADD_USER_ID AS AFNAM
+		      ,B.PR_NO AS PR_NO
+      		  ,B.PR_SEQ AS PR_SEQ
+		FROM ICOMTRXL A, ICOMPRDT B
+		WHERE DOC_NAME = 'PO_CHG'
+		  AND A.KEY_1 = B.PR_NO
+		  AND A.KEY_2 = B.PR_SEQ
+		  AND A.TARGET = 'KRHUGE0001'
+		  AND B.BUYER = 'KRHUGE0001'
+		  AND A.KEY_3 IN ('DEL','CHG')
+		  AND A.KEY_9 = 'N'
+	</select>
+	
+	<update  id="callProcHuglErr" parameterClass="java.util.Map">
+		<![CDATA[			
+			CALL PROC_IF_DAT_JOBLOG_IN(SYSDATE, 'HUGEL_CHG_DEL_SEND',SUBSTRB('오류:' || #ZMESSAGE#,1,250)||'=>V_BUYER:'||'KRHUGE0001'||':EBELN:'||#EBELN#)		
+		]]>
+	</update>
+	
+	<update  id="updateResultData" parameterClass="java.util.Map">
+		UPDATE ICOMTRXL SET KEY_9 = #ZSTATUS#
+		    , KEY_10 = #ZMESSAGE#
+		WHERE DOC_NAME = 'PO_CHG'
+		  AND KEY_1 = #IT_POITEM.PR_NO#
+  		  AND KEY_2 = #IT_POITEM.PR_SEQ#
+		  AND TARGET = 'KRHUGE0001'
+		  AND KEY_3 IN ('DEL','CHG')
+		  AND KEY_9 = 'N'	
+	</update>
+			
+	
+</sqlMap>    

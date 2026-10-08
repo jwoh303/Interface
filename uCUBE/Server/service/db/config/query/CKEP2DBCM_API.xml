@@ -1,0 +1,184 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<SQL>
+    <!-- *********************************************************************** -->
+    <SQL_DOC INTERFACE_ID="CKEP2DBCM_API">
+        <V_SQL NAME='$G_RS' ISLOOP="TRUE" COMMIT_BY_RESULT="FALSE">
+        <![CDATA[
+		SELECT
+		       CMCL03.PRCHS_TAX_BILL_NO
+		  FROM KEPCMCL03 CMCL03
+		 WHERE 1=1
+		   AND CMCL03.ERP_SND_STATE_CD = 'T'
+		   AND CMCL03.BILL_CNFRM_CHK = 'Y'
+		   AND (( CMCL03.ELCTR_TAX_BILL_PBLCTN_CHK='Y' AND CMCL03.ATTR_1='Y')
+		       OR
+		       ( CMCL03.ELCTR_TAX_BILL_PBLCTN_CHK IS NULL )
+		       OR
+		       ( CMCL03.ELCTR_TAX_BILL_PBLCTN_CHK = 'N' )
+		       )
+		  AND CMCL03.USE_CHK = 'Y'
+        ]]>
+        </V_SQL>
+        <P_SQL SEQ="1" TYPE="SELECT" POST_SQL="TRUE">
+        <![CDATA[
+		SELECT
+		       CMCL03.PRCHS_TAX_BILL_NO               AS V_INVOICE_NO,
+		       DECODE(
+		           GETALANCINFO(CMCL03.CMPNY_ALANC_ID,'BIZMN_REGST_NO')
+		           , '1078185880', 'SE'
+		           , '1138523209', 'GU'
+		           , '6158508913', 'CW'
+		           , ' '
+		       )                                      AS V_SAUPJ,
+		       CC03.ERP_DEPT_CD                       AS V_DEPARTCODE,
+		       CMCL03.TAX_BILL_PBLCTN_DATE            AS V_INVOICE_DATE,
+		       REPLACE(CMCL03.BIZMN_REGST_NO,'-','')  AS V_CUSTOMER,
+		       NVL(CMCL03.MDFY_PAY_CND_CD,CMCL03.PAY_CND_CD)    AS V_PAYMENT_TERM,
+		       ' '                                    AS V_RECEIPT_TERM,
+		       NVL(CMCL03.MDFY_PAY_FORM_CD,CMCL03.PAY_FORM_CD)  AS V_PAYMENT_TYPE,
+		       ''                                     AS V_SALE_CUSTOMER,
+		       CMCL03.TAX_BILL_PBLCTN_SITE_CD         AS V_SITE_NO,
+		       (
+		       /*+INDEX DESC (MPCL03 KEPMPCL03_PK)*/
+		       SELECT MPCL03.STCKAG_NO
+		       FROM   KEPMPCL03 MPCL03
+		       WHERE  MPCL03.PRCHS_TAX_BILL_NO = CMCL03.PRCHS_TAX_BILL_NO
+		       AND    MPCL03.USE_CHK = 'Y'
+		       AND    ROWNUM = 1
+		       )                                      AS V_KEP_PUR_NO,
+		       ''                                     AS V_KEP_WHIN_NO,
+		       'B01'                                  AS V_WHIN_TYPE,
+		       NVL
+		       ((
+		       /*+INDEX DESC (MPCL03 KEPMPCL03_PK)*/
+		       SELECT MPCL03.CURR_CD
+		       FROM   KEPMPCL03 MPCL03
+		       WHERE  MPCL03.PRCHS_TAX_BILL_NO = CMCL03.PRCHS_TAX_BILL_NO
+		       AND    MPCL03.USE_CHK = 'Y'
+		       AND    ROWNUM = 1
+		       ),'KRW')                               AS V_CURRENCY,
+		       NVL
+		       ((
+		       /*+INDEX DESC (MPCL03 KEPMPCL03_PK)*/
+		       SELECT DECODE(MPCL03.CURR_CD,'KRW',0, MPCL03.EXRATE)
+		       FROM   KEPMPCL03 MPCL03
+		       WHERE  MPCL03.PRCHS_TAX_BILL_NO = CMCL03.PRCHS_TAX_BILL_NO
+		       AND    MPCL03.USE_CHK = 'Y'
+		       AND    ROWNUM = 1
+		       ),0)                                   AS V_IEX_RATE,
+		       NVL
+		       ((
+		       SELECT SUM(DECODE(MPCL03.CURR_CD,'KRW',0,MPCL03.WON_CNVRS_PRCHS_AMT))
+		       FROM   KEPMPCL03 MPCL03
+		       WHERE  MPCL03.PRCHS_TAX_BILL_NO = CMCL03.PRCHS_TAX_BILL_NO
+		       AND    MPCL03.USE_CHK = 'Y'
+		       ),0)                                   AS V_DAMOUNT,
+		       0                                      AS V_TOT_DAMOUNT,
+		       NVL(CC03.PRCHS_AMT,0)                  AS V_AMOUNT,
+		       NVL(CMCL03.TOT_PRCHS_AMT,0)            AS V_TOT_AMOUNT,
+		       NVL(CC03.ADJUSTED_PRCHS_VAT,0)         AS V_TAX_AMOUNT,
+		       NVL(CC03.PRCHS_VAT,0)                  AS V_TOT_TAX_AMOUNT,
+		       CMCL03.TAX_CLSS_CD                     AS V_TAX_CODE,
+		       1                                      AS V_TAX_COUNT,
+		       (
+		        SELECT T.GDS_NM
+		        FROM   KEPCMCL02 T
+		        WHERE  T.TAX_BILL_NO = CMCL03.PRCHS_TAX_BILL_NO
+		        AND ROWNUM = 1
+		       )                                      AS V_REMARK,
+		       CMCL03.RESGTR_ID                       AS V_CREATE_EMPNO,
+		       CMCL03.FRST_REGST_DATM                 AS V_CREATE_DATE,
+		       'N'                                    AS V_CANCEL_FLAG,
+		       NULL                                   AS V_CANCEL_DATE,
+		       'N'                                    AS V_CLOSE_FLAG,
+		       CMCL03.RESGTR_ID                       AS V_INTERFACE_EMPNO,
+		       CMCL03.FRST_REGST_DATM                 AS V_INTERFACE_DATE,
+		       ' '                                    AS V_INTERFACE_FLAG,
+		       'Y'                                    AS V_TRANSFER_FLAG,
+		       DECODE(CMCL03.ALANC_CLSS_CD,
+		                   'C001','KA',
+		                   'C002','SA',
+		                   'C003','KW',
+		                   'C005','IT','')            AS V_ATTRIBUTE1,
+		       NVL(CMCL03.PAY_FORM_MDFY_CNSLT_NO,' ') AS V_ATTRIBUTE3,
+		       ''                                     AS V_ATTRIBUTE4,
+		       ''                                     AS V_ATTRIBUTE5,
+		       ''                                     AS V_ATTRIBUTE6,
+		       ''                                     AS V_ATTRIBUTE7,
+		       ''                                     AS V_ATTRIBUTE8,
+		       ''                                     AS V_ATTRIBUTE9,
+		       CMCL03.ELCTR_TAX_BILL_NO               AS V_ATTRIBUTE10
+		  FROM KEPCMCL03 CMCL03
+		     , VW_ERP_PRCHS_CMCL03 CC03
+		 WHERE 1=1
+		   AND CMCL03.PRCHS_TAX_BILL_NO = '$G_RS.PRCHS_TAX_BILL_NO$'
+		   AND CMCL03.BILL_CNFRM_CHK = 'Y'
+		   AND (( CMCL03.ELCTR_TAX_BILL_PBLCTN_CHK='Y' AND CMCL03.ATTR_1='Y')
+		       OR
+		       ( CMCL03.ELCTR_TAX_BILL_PBLCTN_CHK IS NULL )
+		       OR
+		       ( CMCL03.ELCTR_TAX_BILL_PBLCTN_CHK = 'N' )
+		       )
+		  AND CMCL03.USE_CHK = 'Y'
+		  AND CMCL03.PRCHS_TAX_BILL_NO = CC03.PRCHS_TAX_BILL_NO
+        ]]>
+            <C_SQL TYPE="UPDATE" P_SQL_RESULT="TRUE">
+            <![CDATA[
+			DECLARE
+				V_CNT	NUMBER;
+			BEGIN
+				SELECT COUNT(*)
+				  INTO V_CNT
+				  FROM KEPCMCL03 CMCL03
+				     , VW_ERP_PRCHS_CMCL03 CC03
+				 WHERE 1=1
+				   AND CMCL03.PRCHS_TAX_BILL_NO = '$G_RS.PRCHS_TAX_BILL_NO$'
+				   AND CMCL03.ERP_SND_STATE_CD = 'T'
+				   AND CMCL03.BILL_CNFRM_CHK = 'Y'
+				   AND (( CMCL03.ELCTR_TAX_BILL_PBLCTN_CHK='Y' AND CMCL03.ATTR_1='Y')
+				       OR
+				       ( CMCL03.ELCTR_TAX_BILL_PBLCTN_CHK IS NULL )
+				       OR
+				       ( CMCL03.ELCTR_TAX_BILL_PBLCTN_CHK = 'N' )
+				       )
+				  AND CMCL03.USE_CHK = 'Y'
+				  AND CMCL03.PRCHS_TAX_BILL_NO = CC03.PRCHS_TAX_BILL_NO;
+				
+				IF V_CNT > 0 THEN
+			        UPDATE KEPCMCL03
+			        SET    ERP_SND_STATE_CD = 'Y',
+			        	   ERP_SND_DATE = TO_CHAR(SYSDATE,'YYYYMMDD'),
+			               LST_MDFY_DATM = SYSDATE
+			        WHERE  PRCHS_TAX_BILL_NO = '$G_RS.PRCHS_TAX_BILL_NO$'
+			        AND    USE_CHK = 'Y';
+				ELSE
+			        UPDATE KEPCMCL03
+			        SET    ERP_SND_STATE_CD = 'E',
+			        	   ERP_SND_DATE = TO_CHAR(SYSDATE,'YYYYMMDD'),
+			               LST_MDFY_DATM = SYSDATE
+			        WHERE  PRCHS_TAX_BILL_NO = '$G_RS.PRCHS_TAX_BILL_NO$'
+			        AND    USE_CHK = 'Y';
+				END IF;
+			END;
+            ]]>
+            </C_SQL>
+            <C_SQL TYPE="UPDATE" P_SQL_RESULT="FALSE">
+            <![CDATA[
+	        UPDATE KEPCMCL03
+	        SET    ERP_SND_STATE_CD = 'E',
+	        	   ERP_SND_DATE = TO_CHAR(SYSDATE,'YYYYMMDD'),
+	               LST_MDFY_DATM = SYSDATE
+	        WHERE  PRCHS_TAX_BILL_NO = '$G_RS.PRCHS_TAX_BILL_NO$'
+	        AND    USE_CHK = 'Y'
+            ]]>
+            </C_SQL>
+        </P_SQL>
+    </SQL_DOC>
+    <RETRY_CODE>
+        <CODE>03113</CODE>
+        <CODE>03114</CODE>
+        <CODE>02154</CODE>
+        <CODE>02541</CODE>
+        <CODE>04068</CODE>
+    </RETRY_CODE>
+</SQL>

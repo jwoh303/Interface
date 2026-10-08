@@ -1,0 +1,385 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap      
+    PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN"
+    "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="khrmClosing">
+	
+	<select id="kepconArCreateList" resultClass="java.util.HashMap">
+	<![CDATA[
+	SELECT *
+	  FROM (
+		SELECT  CL01.SLS_TAX_BILL_NO                              AS INVOICE_NO,
+		        DECODE(
+		            GETALANCINFO(CL01.CMPNY_ALANC_ID,'BIZMN_REGST_NO')
+		            , '1078185880', 'SE'
+		            , '1138523209', 'GU'
+		            , '6158508913', 'CW'
+		            , ' '
+		        )                                                 AS SAUPJ,
+		        CC01.ERP_DEPT_CD                                  AS DEPARTCODE,
+		        CL01.TAX_BILL_PBLCTN_DATE                         AS INVOICE_DATE,
+		        REPLACE(CL01.BIZMN_REGST_NO,'-','')               AS CUSTOMER,
+		        ''                                                AS CUSTOMER_PONO,
+		        CL01.PAY_CND_CD                                   AS RECEIPT_TERM,
+		        ''                                                AS WHOUT_NO,
+		        'B01'                                             AS WHOUT_TYPE,
+		        NVL
+		        ((
+		        /*+INDEX DESC (MPCL02 KEPMPCL02_PK)*/
+		        SELECT MPCL02.CURR_CD
+		        FROM   KEPMPCL02 MPCL02
+		        WHERE  MPCL02.SLS_TAX_BILL_NO = CL01.SLS_TAX_BILL_NO
+		        AND    MPCL02.USE_CHK = 'Y'
+		        AND    ROWNUM = 1
+		        ),'KRW')                                          AS CURRENCY,
+		        NVL
+		        ((
+		        /*+INDEX DESC (MPCL02 KEPMPCL02_PK)*/
+		        SELECT DECODE(MPCL02.CURR_CD,'KRW',0, MPCL02.EXRATE)
+		        FROM   KEPMPCL02 MPCL02
+		        WHERE  MPCL02.SLS_TAX_BILL_NO = CL01.SLS_TAX_BILL_NO
+		        AND    MPCL02.USE_CHK = 'Y'
+		        AND    ROWNUM = 1
+		        ),0)                                              AS IEX_RATE,
+		        NVL
+		        ((
+		        SELECT SUM(DECODE(MPCL02.CURR_CD,'KRW',0, MPCL02.WON_CNVRS_SLS_AMT))
+		        FROM   KEPMPCL02 MPCL02
+		        WHERE  MPCL02.SLS_TAX_BILL_NO = CL01.SLS_TAX_BILL_NO
+		        AND    MPCL02.USE_CHK = 'Y'
+		        ),0)                                              AS DAMOUNT,
+		        0                                                 AS TOT_DAMOUNT,
+		        NVL(CC01.SLS_AMT,0)                               AS AMOUNT,
+		        NVL(CL01.TOT_SLS_AMT,0)                           AS TOT_AMOUNT,
+		        NVL(CC01.ADJUSTED_SLS_VAT,0)                      AS TAX_AMOUNT,
+		        NVL(CC01.SLS_VAT,0)                               AS TOT_TAX_AMOUNT,
+		        CL01.TAX_CLSS_CD                                  AS TAX_CODE,
+		        1                                                 AS TAX_COUNT,
+		        (
+		        SELECT T.GDS_NM
+		        FROM   KEPCMCL02 T
+		        WHERE  T.TAX_BILL_NO = CL01.SLS_TAX_BILL_NO
+		        AND T.PRCHS_SLS_CLSS_CD='SA'
+		        AND ROWNUM=1
+		        )                                                 AS REMARK,
+		        CL01.RESGTR_ID                                    AS CREATE_EMPNO,
+		        CL01.FRST_REGST_DATM                              AS CREATE_DATE,
+		        'N'                                               AS CANCEL_FLAG,
+		        ''                                                AS CANCEL_DATE,
+		        'N'                                               AS CLOSE_FLAG,
+		        CL01.RESGTR_ID                                    AS INTERFACE_EMPNO,
+		        CL01.FRST_REGST_DATM                              AS INTERFACE_DATE,
+		        ' '                                               AS INTERFACE_FLAG,
+		        DECODE(CL01.ALANC_CLSS_CD,
+		                   'C001','KA',
+		                   'C002','SA',
+		                   'C003','KW',
+		                   'C005','IT','')                        AS ATTRIBUTE1,
+		        '상품매출'                                          AS ATTRIBUTE3,
+		        ''                                                AS ATTRIBUTE4,
+		        ''                                                AS ATTRIBUTE5,
+		        ''                                                AS ATTRIBUTE6,
+		        ''                                                AS ATTRIBUTE7,
+		        ''                                                AS ATTRIBUTE8,
+		        ''                                                AS ATTRIBUTE9,
+		        ''                                                AS ATTRIBUTE10,
+		        DECODE(CL01.TAX_BILL_PBLCTN_SITE_CD,'02','Y','N') AS TRANSFER_FLAG
+		FROM   KEPCMCL01 CL01
+		    ,  VW_ERP_SLS_CMCL01 CC01
+		WHERE  1=1
+		AND    CL01.ERP_SND_STATE_CD ='T'
+		AND    (CL01.MILE_CHK = 'N' OR CL01.MILE_CHK IS NULL)
+		AND    CL01.BILL_CNFRM_CHK = 'Y'
+		AND    (( CL01.ELCTR_TAX_BILL_PBLCTN_CHK='Y' AND CL01.ATTR_1='Y')
+		        OR
+		        ( CL01.ELCTR_TAX_BILL_PBLCTN_CHK IS NULL )
+		        OR
+		        ( CL01.ELCTR_TAX_BILL_PBLCTN_CHK = 'N' )
+		       )
+		AND    CL01.USE_CHK = 'Y'
+		AND    CL01.SLS_TAX_BILL_NO = CC01.SLS_TAX_BILL_NO
+	  ORDER BY CL01.SLS_TAX_BILL_NO
+	  )
+   WHERE ROWNUM <= 100 
+	]]>
+	</select>
+	
+	<update id="kepconArUpdateResult" parameterClass="java.util.HashMap">
+		UPDATE KEPCMCL01
+		SET    ERP_SND_STATE_CD = #IF_SEND_FLAG#,
+		       ERP_SND_DATE = TO_CHAR(SYSDATE,'YYYYMMDD'),
+		       LST_MDFY_DATM = SYSDATE,
+		       MDFYR_ID = 'FTP'
+		WHERE  SLS_TAX_BILL_NO = #INVOICE_NO#
+		AND    USE_CHK = 'Y'	
+	</update>
+	
+	<select id="kepconApCreateList" resultClass="java.util.HashMap">
+	<![CDATA[
+	SELECT *
+	  FROM (
+    SELECT
+           CMCL03.PRCHS_TAX_BILL_NO               AS INVOICE_NO,
+           DECODE(
+               GETALANCINFO(CMCL03.CMPNY_ALANC_ID,'BIZMN_REGST_NO')
+               , '1078185880', 'SE'
+               , '1138523209', 'GU'
+               , '6158508913', 'CW'
+               , ' '
+           )                                      AS SAUPJ,
+           CC03.ERP_DEPT_CD                       AS DEPARTCODE,
+           CMCL03.TAX_BILL_PBLCTN_DATE            AS INVOICE_DATE,
+           REPLACE(CMCL03.BIZMN_REGST_NO,'-','')  AS CUSTOMER,
+           NVL(CMCL03.MDFY_PAY_CND_CD,CMCL03.PAY_CND_CD)    AS PAYMENT_TERM,
+           ' '                                    AS RECEIPT_TERM,
+           NVL(CMCL03.MDFY_PAY_FORM_CD,CMCL03.PAY_FORM_CD)  AS PAYMENT_TYPE,
+           ''                                     AS SALE_CUSTOMER,
+           CMCL03.TAX_BILL_PBLCTN_SITE_CD         AS SITE_NO,
+           (
+           /*+INDEX DESC (MPCL03 KEPMPCL03_PK)*/
+           SELECT MPCL03.STCKAG_NO
+           FROM   KEPMPCL03 MPCL03
+           WHERE  MPCL03.PRCHS_TAX_BILL_NO = CMCL03.PRCHS_TAX_BILL_NO
+           AND    MPCL03.USE_CHK = 'Y'
+           AND    ROWNUM = 1
+           )                                      AS KEP_PUR_NO,
+           ''                                     AS KEP_WHIN_NO,
+           'B01'                                  AS WHIN_TYPE,
+           NVL
+           ((
+           /*+INDEX DESC (MPCL03 KEPMPCL03_PK)*/
+           SELECT MPCL03.CURR_CD
+           FROM   KEPMPCL03 MPCL03
+           WHERE  MPCL03.PRCHS_TAX_BILL_NO = CMCL03.PRCHS_TAX_BILL_NO
+           AND    MPCL03.USE_CHK = 'Y'
+           AND    ROWNUM = 1
+           ),'KRW')                               AS CURRENCY,
+           NVL
+           ((
+           /*+INDEX DESC (MPCL03 KEPMPCL03_PK)*/
+           SELECT DECODE(MPCL03.CURR_CD,'KRW',0, MPCL03.EXRATE)
+           FROM   KEPMPCL03 MPCL03
+           WHERE  MPCL03.PRCHS_TAX_BILL_NO = CMCL03.PRCHS_TAX_BILL_NO
+           AND    MPCL03.USE_CHK = 'Y'
+           AND    ROWNUM = 1
+           ),0)                                   AS IEX_RATE,
+           NVL
+           ((
+           SELECT SUM(DECODE(MPCL03.CURR_CD,'KRW',0,MPCL03.WON_CNVRS_PRCHS_AMT))
+           FROM   KEPMPCL03 MPCL03
+           WHERE  MPCL03.PRCHS_TAX_BILL_NO = CMCL03.PRCHS_TAX_BILL_NO
+           AND    MPCL03.USE_CHK = 'Y'
+           ),0)                                   AS DAMOUNT,
+           0                                      AS TOT_DAMOUNT,
+           NVL(CC03.PRCHS_AMT,0)                  AS AMOUNT,
+           NVL(CMCL03.TOT_PRCHS_AMT,0)            AS TOT_AMOUNT,
+           NVL(CC03.ADJUSTED_PRCHS_VAT,0)         AS TAX_AMOUNT,
+           NVL(CC03.PRCHS_VAT,0)                  AS TOT_TAX_AMOUNT,
+           CMCL03.TAX_CLSS_CD                     AS TAX_CODE,
+           1                                      AS TAX_COUNT,
+           (
+            SELECT T.GDS_NM
+            FROM   KEPCMCL02 T
+            WHERE  T.TAX_BILL_NO = CMCL03.PRCHS_TAX_BILL_NO
+            AND ROWNUM = 1
+           )                                      AS REMARK,
+           CMCL03.RESGTR_ID                       AS CREATE_EMPNO,
+           CMCL03.FRST_REGST_DATM                 AS CREATE_DATE,
+           'N'                                    AS CANCEL_FLAG,
+           NULL                                   AS CANCEL_DATE,
+           'N'                                    AS CLOSE_FLAG,
+           CMCL03.RESGTR_ID                       AS INTERFACE_EMPNO,
+           CMCL03.FRST_REGST_DATM                 AS INTERFACE_DATE,
+           ' '                                    AS INTERFACE_FLAG,
+           'Y'                                    AS TRANSFER_FLAG,
+            DECODE(CMCL03.ALANC_CLSS_CD,
+                       'C001','KA',
+                       'C002','SA',
+                       'C003','KW',
+                       'C005','IT','')            AS ATTRIBUTE1,
+           NVL(CMCL03.PAY_FORM_MDFY_CNSLT_NO,' ') AS ATTRIBUTE3,
+           ''                                     AS ATTRIBUTE4,
+           ''                                     AS ATTRIBUTE5,
+           ''                                     AS ATTRIBUTE6,
+           ''                                     AS ATTRIBUTE7,
+           ''                                     AS ATTRIBUTE8,
+           ''                                     AS ATTRIBUTE9,
+           CMCL03.ELCTR_TAX_BILL_NO               AS ATTRIBUTE10
+      FROM KEPCMCL03 CMCL03
+         , VW_ERP_PRCHS_CMCL03 CC03
+     WHERE 1=1
+       AND CMCL03.ERP_SND_STATE_CD = 'T'
+       AND CMCL03.BILL_CNFRM_CHK = 'Y'
+       AND (( CMCL03.ELCTR_TAX_BILL_PBLCTN_CHK='Y' AND CMCL03.ATTR_1='Y')
+           OR
+           ( CMCL03.ELCTR_TAX_BILL_PBLCTN_CHK IS NULL )
+           OR
+           ( CMCL03.ELCTR_TAX_BILL_PBLCTN_CHK = 'N' )
+           )
+      AND CMCL03.USE_CHK = 'Y'
+      AND CMCL03.PRCHS_TAX_BILL_NO = CC03.PRCHS_TAX_BILL_NO
+     ORDER BY CMCL03.PRCHS_TAX_BILL_NO 
+	  )
+	 WHERE ROWNUM <= 100 
+	]]>
+	</select>
+	
+	<update id="kepconApUpdateResult" parameterClass="java.util.HashMap">
+		UPDATE KEPCMCL03
+		SET    ERP_SND_STATE_CD = #IF_SEND_FLAG#,
+		       ERP_SND_DATE = TO_CHAR(SYSDATE,'YYYYMMDD'),
+		       LST_MDFY_DATM = SYSDATE
+		WHERE  PRCHS_TAX_BILL_NO = #INVOICE_NO#
+		AND    USE_CHK = 'Y'	
+	</update>
+	
+	<update id="kepconArUpdateCancel" parameterClass="java.util.HashMap">
+		UPDATE KEPCMCL01
+		   SET ERP_SND_STATE_CD = 'C',
+		       ATTR_3           = TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+		 WHERE 1 = 1
+		   AND SLS_TAX_BILL_NO  = #INVOICE_NO#
+		   AND ERP_SND_STATE_CD = 'Y'	
+	</update>
+	
+	<update id="kepconApUpdateCancel" parameterClass="java.util.HashMap">
+		UPDATE KEPCMCL03
+		   SET ERP_SND_STATE_CD = 'C',
+		       ATTR_3           = TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+		 WHERE 1=1
+		   AND PRCHS_TAX_BILL_NO = #INVOICE_NO#
+		   AND ERP_SND_STATE_CD  = 'Y'
+	</update>
+	
+	<update id="kepconCodeMergeInfo" parameterClass="java.util.HashMap">
+		MERGE INTO ICOMCDDT A
+		USING (
+			SELECT
+			       #V_CODE# 	AS CODE,
+			       #CODE_NO#	AS CODE_NO,
+			       '100'		AS HOUSE_CODE,
+			       'KEPC'		AS COMPANY_CODE,
+			       '1'			AS USE_FLAG
+			  FROM DUAL
+		) B ON (1 = 1
+		  AND A.CODE			= B.CODE
+		  AND A.CODE_NO			= B.CODE_NO
+		  AND A.HOUSE_CODE		= B.HOUSE_CODE
+		  AND A.COMPANY_CODE	= B.COMPANY_CODE
+		  AND A.USE_FLAG		= B.USE_FLAG
+		)
+		WHEN NOT MATCHED THEN
+			INSERT (
+				HOUSE_CODE,		COMPANY_CODE,	CODE_NO,
+				CODE,			STATUS,			
+				ADD_DATE,		ADD_TIME,		ADD_USER_ID,
+				CHANGE_DATE,	CHANGE_TIME,	CHANGE_USER_ID,
+				TEXT1,			SORT_SEQ,		USE_FLAG			
+			) VALUES (
+				'100',			'KEPC',			#CODE_NO#,
+				#V_CODE#,		'C',
+				TO_CHAR(SYSDATE, 'YYYYMMDD'),	TO_CHAR(SYSDATE,'HH24MISS'),	'DBA',
+				TO_CHAR(SYSDATE, 'YYYYMMDD'),	TO_CHAR(SYSDATE,'HH24MISS'),	'DBA',
+				#V_TEXT#,		#V_SEQ#,		'1'
+			)
+		WHEN MATCHED THEN
+			UPDATE SET
+			       TEXT1        = #V_TEXT#,
+			       SORT_SEQ     = #V_SEQ#,
+			       CHANGE_DATE  = TO_CHAR(SYSDATE,'YYYYMMDD'),
+			       CHANGE_TIME  = TO_CHAR(SYSDATE,'HH24MISS')
+			WHERE  CODE         = #V_CODE#
+			AND    CODE_NO      = #CODE_NO#
+			AND    HOUSE_CODE   = '100'
+			AND    COMPANY_CODE = 'KEPC'
+			AND    USE_FLAG     = '1'
+	</update>
+	
+	<update id="kepconETMergeInfo" parameterClass="java.util.HashMap">
+		MERGE INTO KEPETIF01 A
+		USING (
+			SELECT
+				   NVL(#V_CSTMR_BIZMN_REGST_NO#,'-')	AS CSTMR_BIZMN_REGST_NO,
+				   NVL(#V_SPPLR_BIZMN_REGST_NO#,'-')	AS SPPLR_BIZMN_REGST_NO,
+				   NVL(#V_DEPT_CD#,'-')					AS DEPT_CD,
+				   NVL(#V_AMT_LIMT_CD#,'-')				AS AMT_LIMT_CD,
+				   NVL(#V_PAY_CND_CD#,'-')				AS PAY_CND_CD,
+				   NVL(#V_PAY_FORM_CD#,'-')				AS PAY_FORM_CD,
+				   NVL(#V_CLSN_STRT_DAY#,'-')			AS CLSN_STRT_DAY,
+				   NVL(#V_CLSN_FNSH_DAY#,'-')			AS CLSN_FNSH_DAY,
+				   NVL(#V_USE_STRT_DATE#,'-')			AS USE_STRT_DATE,
+				   NVL(#V_USE_FNSH_DATE#,'-')			AS USE_FNSH_DATE,
+				   NVL(#V_ALANC_TYP_CD#,'-')			AS ALANC_TYP_CD
+			  FROM DUAL
+		) B ON (1 = 1
+		)
+		WHEN NOT MATCHED THEN
+			INSERT (
+				CSTMR_BIZMN_REGST_NO,	SPPLR_BIZMN_REGST_NO,	DEPT_CD,
+				AMT_LIMT_CD,			PAY_CND_CD,				PAY_FORM_CD,
+				CLSN_STRT_DAY,			CLSN_FNSH_DAY,			USE_STRT_DATE,
+				USE_FNSH_DATE,			ALANC_TYP_CD,			SITE_NM,
+				CSTMR_NM,				SPPLR_NM,				DEPT_NM			
+			) VALUES (
+				NVL(#V_CSTMR_BIZMN_REGST_NO#,'-'),
+				NVL(TRIM(#V_SPPLR_BIZMN_REGST_NO#),'-'),
+				NVL(#V_DEPT_CD#,'-'),
+				NVL(#V_AMT_LIMT_CD#,'-'),
+				NVL(#V_PAY_CND_CD#,'-'),
+				NVL(#V_PAY_FORM_CD#,'-'),
+				NVL(#V_CLSN_STRT_DAY#,'-'),
+				NVL(#V_CLSN_FNSH_DAY#,'-'),
+				NVL(#V_USE_STRT_DATE#,'-'),
+				NVL(#V_USE_FNSH_DATE#,'-'),
+				NVL(#V_ALANC_TYP_CD#,'-'),
+				NVL(#V_SITE_NM#,'-'),
+				NVL(#V_CSTMR_NM#,'-'),
+				NVL(#V_SPPLR_NM#,'-'),
+				NVL(#V_DEPT_NM#,'-')			
+			)
+		WHEN MATCHED THEN
+			UPDATE SET
+			       SITE_NM  =             NVL(#V_SITE_NM#,'-'),
+			       CSTMR_NM =             NVL(#V_CSTMR_NM#,'-'),
+			       SPPLR_NM =             NVL(#V_SPPLR_NM#,'-'),
+			       DEPT_NM  =             NVL(#V_DEPT_NM#,'-')
+			WHERE  CSTMR_BIZMN_REGST_NO = NVL(#V_CSTMR_BIZMN_REGST_NO#,'-')
+			AND    SPPLR_BIZMN_REGST_NO = NVL(#V_SPPLR_BIZMN_REGST_NO#,'-')
+			AND    DEPT_CD              = NVL(#V_DEPT_CD#,'-')
+			AND    AMT_LIMT_CD          = NVL(#V_AMT_LIMT_CD#,'-')
+			AND    PAY_CND_CD           = NVL(#V_PAY_CND_CD#,'-')
+			AND    PAY_FORM_CD          = NVL(#V_PAY_FORM_CD#,'-')
+			AND    CLSN_STRT_DAY        = NVL(#V_CLSN_STRT_DAY#,'-')
+			AND    CLSN_FNSH_DAY        = NVL(#V_CLSN_FNSH_DAY#,'-')
+			AND    USE_STRT_DATE        = NVL(#V_USE_STRT_DATE#,'-')
+			AND    USE_FNSH_DATE        = NVL(#V_USE_FNSH_DATE#,'-')
+			AND    ALANC_TYP_CD         = NVL(#V_ALANC_TYP_CD#,'-')		
+	</update>
+	
+	<update id="kepconPRTNMergeInfo" parameterClass="java.util.HashMap">
+		UPDATE KEPMDCP08
+		SET    PAY_CND_CD  = NVL(TRIM(#V_PAYMENT_TERM#), PAY_CND_CD),
+		       PAY_FORM_CD = NVL(TRIM(#V_PAYMENT_TYPE#), PAY_FORM_CD),
+		       LST_MDFY_DATM = SYSDATE,
+		       MDFYR_ID = 'FTP'
+		WHERE  SPPLR_ID IN (
+		    SELECT  CP04.SPPLR_ID
+		    FROM    KEPMDCP01 CP01,
+		            KEPMDCP04 CP04
+		    WHERE   CP01.ALANC_ID = CP04.ALANC_ID
+		    AND     CP01.BIZMN_REGST_NO = #V_PARTNER_ID#
+		    AND     CP01.USE_CHK = 'Y'
+		    AND     CP04.USE_CHK = 'Y'
+		    UNION ALL
+		    SELECT  CP05.SPPLR_ID
+		    FROM    KEPMDCP01 CP01,
+		            KEPMDCP05 CP05
+		    WHERE   CP01.ALANC_ID = CP05.ALANC_ID
+		    AND     CP01.BIZMN_REGST_NO = #V_PARTNER_ID#
+		    AND     CP01.USE_CHK = 'Y'
+		    AND     CP05.USE_CHK = 'Y'
+		   )
+		 AND USE_CHK='Y'	
+	</update>
+</sqlMap>

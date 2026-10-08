@@ -1,0 +1,773 @@
+<queryMap desc="Glue project Query File">
+   
+   
+   <query id="login.select" desc="Distribute History List Select">
+        <![CDATA[
+            SELECT SYS_USER_TP 
+            FROM TB_S60_USER010 
+            WHERE USER_EMP_NO = ? 
+            AND EAI_USER_PASSWORD = ?
+        ]]>
+    </query>
+    
+    <query id="statHostVO.select" desc="Distribute History List Select">
+        <![CDATA[
+            SELECT code, src, src, tot, 
+            t00, t01, t02, t03, t04, t05, t06, t07, t08, t09, t10, t11, t12, t13, t14, t15, t16, t17, t18, t19, t20, t21, t22, t23
+            FROM (
+                SELECT  DECODE(GROUPING(EAI_SYSTEM_ID), 1, '합계' , NVL(EAI_SYSTEM_ID, 'OTHER' )) code ,
+                        DECODE(SEND_RECEIVE_CODE, 'S', '송신' , 'R', '수신' , 'D', '처리', 'E', '에러' , SEND_RECEIVE_CODE) src , SUM(DATA_COUNT ) tot ,                
+                        SUM(TIME_COUNT0 ) t00, SUM(TIME_COUNT1 ) t01, SUM(TIME_COUNT2 ) t02, SUM(TIME_COUNT3 ) t03, SUM(TIME_COUNT4 ) t04,
+                        SUM(TIME_COUNT5 ) t05, SUM(TIME_COUNT6 ) t06, SUM(TIME_COUNT7 ) t07, SUM(TIME_COUNT8 ) t08, SUM(TIME_COUNT9 ) t09,
+                        SUM(TIME_COUNT10) t10, SUM(TIME_COUNT11) t11, SUM(TIME_COUNT12) t12, SUM(TIME_COUNT13) t13, SUM(TIME_COUNT14) t14 ,
+                        SUM(TIME_COUNT15) t15, SUM(TIME_COUNT16) t16, SUM(TIME_COUNT17) t17, SUM(TIME_COUNT18) t18, SUM(TIME_COUNT19) t19,
+                        SUM(TIME_COUNT20) t20, SUM(TIME_COUNT21) t21, SUM(TIME_COUNT22) t22, SUM(TIME_COUNT23) t23
+                FROM TB_S60_SUMM010
+                WHERE EAI_SEND_DATE LIKE REPLACE(?, '-', '') || '%'
+                GROUP BY CUBE(EAI_SYSTEM_ID), SEND_RECEIVE_CODE ) Summ 
+            ORDER BY code, Summ.src
+        ]]>
+    </query>
+    
+    <query id="statServiceVO.select" desc="Distribute History List Select">
+        <![CDATA[
+            SELECT code, syst name, src, tot, 
+                t00, t01, t02, t03, t04, t05, t06, t07, t08, t09, t10, t11, t12, t13, t14, t15, t16, t17, t18, t19, t20, t21, t22, t23
+            FROM (
+                SELECT  DECODE(GROUPING(SERVICE_INST_ID), 1, '합계', NVL(SERVICE_INST_ID, 'OTHER')) code ,
+                        DECODE(SEND_RECEIVE_CODE, 'S', '송신', 'R', '수신', 'D', '처리', 'E', '에러', SEND_RECEIVE_CODE) src ,
+                        DECODE(SERVICE_INST_ID , '' , '' , MIN(EAI_SYSTEM_ID)) syst , SUM(DATA_COUNT ) tot ,
+                        SUM(TIME_COUNT0 ) t00, SUM(TIME_COUNT1 ) t01, SUM(TIME_COUNT2 ) t02, SUM(TIME_COUNT3 ) t03, SUM(TIME_COUNT4 ) t04,
+                        SUM(TIME_COUNT5 ) t05, SUM(TIME_COUNT6 ) t06, SUM(TIME_COUNT7 ) t07, SUM(TIME_COUNT8 ) t08, SUM(TIME_COUNT9 ) t09,
+                        SUM(TIME_COUNT10) t10, SUM(TIME_COUNT11) t11, SUM(TIME_COUNT12) t12, SUM(TIME_COUNT13) t13, SUM(TIME_COUNT14) t14 ,
+                        SUM(TIME_COUNT15) t15, SUM(TIME_COUNT16) t16, SUM(TIME_COUNT17) t17, SUM(TIME_COUNT18) t18, SUM(TIME_COUNT19) t19,
+                        SUM(TIME_COUNT20) t20, SUM(TIME_COUNT21) t21, SUM(TIME_COUNT22) t22, SUM(TIME_COUNT23) t23
+                FROM TB_S60_SUMM010
+                WHERE EAI_SEND_DATE LIKE REPLACE(? , '-', '') || '%'
+                GROUP BY CUBE(SERVICE_INST_ID), SEND_RECEIVE_CODE ) Summ 
+            ORDER BY code, Summ.src     
+        ]]>
+    </query>
+    
+    <query id="IFTotalCountVO.select" desc="Distribute History List Select">
+        <![CDATA[
+        SELECT /*+ S603 UI  시간별 송수신처리현황(ID별) 전체Count수  TCTotalCountVO 김동훈  */
+            NVL(COUNT(COUNT(EAI_INTERFACE_ID)),0) if_ID
+        FROM TB_S60_SUMM010 
+        WHERE EAI_SEND_DATE = REPLACE(?, '-', '') 
+            AND EAI_INTERFACE_ID LIKE ? || '%' 
+        GROUP BY EAI_INTERFACE_ID
+        ]]>
+    </query>
+    
+    <query id="timeLogCntVO.select" desc="Distribute History List Select">
+        <![CDATA[
+        SELECT /*+ S603 UI  시간별 송수신처리현황(ID별) TimeLogCntVO 황용길 */
+            ifd , DECODE(src, 'S', '송신', 'R', '수신', 'D', '처리','E', '에러', '차이') src , sc ,
+            sc ,
+        tot, t07, t08, t09, t10, t11, t12, t13, t14, t15, t16, t17, t18, t19, t20, t21, t22, t23, t00, t01, t02, t03, t04, t05, t06
+        FROM (
+            SELECT eai_interface_id ifd ,
+                send_receive_code src ,
+                UPPER(eai_system_id) sc ,
+                SUM(NVL(data_count , 0)) AS tot ,
+                SUM(NVL(time_count7 , 0)) AS t07 ,
+                SUM(NVL(time_count8 , 0)) AS t08 ,
+                SUM(NVL(time_count9 , 0)) AS t09 ,
+                SUM(NVL(time_count10, 0)) AS t10 ,
+                SUM(NVL(time_count11, 0)) AS t11 ,
+                SUM(NVL(time_count12, 0)) AS t12 ,
+                SUM(NVL(time_count13, 0)) AS t13 ,
+                SUM(NVL(time_count14, 0)) AS t14 ,
+                SUM(NVL(time_count15, 0)) AS t15 ,
+                SUM(NVL(time_count16, 0)) AS t16 ,
+                SUM(NVL(time_count17, 0)) AS t17 ,
+                SUM(NVL(time_count18, 0)) AS t18 ,
+                SUM(NVL(time_count19, 0)) AS t19 ,
+                SUM(NVL(time_count20, 0)) AS t20 ,
+                SUM(NVL(time_count21, 0)) AS t21 ,
+                SUM(NVL(time_count22, 0)) AS t22 ,
+                SUM(NVL(time_count23, 0)) AS t23 ,
+                SUM(NVL(time_count0 , 0)) AS t00 ,
+                SUM(NVL(time_count1 , 0)) AS t01 ,
+                SUM(NVL(time_count2 , 0)) AS t02 ,
+                SUM(NVL(time_count3 , 0)) AS t03 ,
+                SUM(NVL(time_count4 , 0)) AS t04 ,
+                SUM(NVL(time_count5 , 0)) AS t05 ,
+                SUM(NVL(time_count6 , 0)) AS t06
+            FROM TB_S60_SUMM010
+            WHERE EAI_SEND_DATE = REPLACE(?, '-', '')
+                AND EAI_INTERFACE_ID LIKE ? || '%'
+            GROUP BY eai_interface_id, send_receive_code, eai_system_id
+            UNION ALL
+            SELECT ifd ,
+                'C' src ,
+                '' sc ,
+                ABS(NVL(SUM(CASE WHEN sr='S' THEN tot ELSE tot*(-1) END), 0)) tot ,
+                ABS(NVL(SUM(CASE WHEN sr='S' THEN t07 ELSE t07*(-1) END), 0)) t07 ,
+                ABS(NVL(SUM(CASE WHEN sr='S' THEN t08 ELSE t08*(-1) END), 0)) t08 ,
+                ABS(NVL(SUM(CASE WHEN sr='S' THEN t09 ELSE t09*(-1) END), 0)) t09 ,
+                ABS(NVL(SUM(CASE WHEN sr='S' THEN t10 ELSE t10*(-1) END), 0)) t10 ,
+                ABS(NVL(SUM(CASE WHEN sr='S' THEN t11 ELSE t11*(-1) END), 0)) t11 ,
+                ABS(NVL(SUM(CASE WHEN sr='S' THEN t12 ELSE t12*(-1) END), 0)) t12 ,
+                ABS(NVL(SUM(CASE WHEN sr='S' THEN t13 ELSE t13*(-1) END), 0)) t13 ,
+                ABS(NVL(SUM(CASE WHEN sr='S' THEN t14 ELSE t14*(-1) END), 0)) t14 ,
+                ABS(NVL(SUM(CASE WHEN sr='S' THEN t15 ELSE t15*(-1) END), 0)) t15 ,
+                ABS(NVL(SUM(CASE WHEN sr='S' THEN t16 ELSE t16*(-1) END), 0)) t16 ,
+                ABS(NVL(SUM(CASE WHEN sr='S' THEN t17 ELSE t17*(-1) END), 0)) t17 ,
+                ABS(NVL(SUM(CASE WHEN sr='S' THEN t18 ELSE t18*(-1) END), 0)) t18 ,
+                ABS(NVL(SUM(CASE WHEN sr='S' THEN t19 ELSE t19*(-1) END), 0)) t19 ,
+                ABS(NVL(SUM(CASE WHEN sr='S' THEN t20 ELSE t20*(-1) END), 0)) t20 ,
+                ABS(NVL(SUM(CASE WHEN sr='S' THEN t21 ELSE t21*(-1) END), 0)) t21 ,
+                ABS(NVL(SUM(CASE WHEN sr='S' THEN t22 ELSE t22*(-1) END), 0)) t22 ,
+                ABS(NVL(SUM(CASE WHEN sr='S' THEN t23 ELSE t23*(-1) END), 0)) t23 ,
+                ABS(NVL(SUM(CASE WHEN sr='S' THEN t00 ELSE t00*(-1) END), 0)) t00 ,
+                ABS(NVL(SUM(CASE WHEN sr='S' THEN t01 ELSE t01*(-1) END), 0)) t01 ,
+                ABS(NVL(SUM(CASE WHEN sr='S' THEN t02 ELSE t02*(-1) END), 0)) t02 ,
+                ABS(NVL(SUM(CASE WHEN sr='S' THEN t03 ELSE t03*(-1) END), 0)) t03 ,
+                ABS(NVL(SUM(CASE WHEN sr='S' THEN t04 ELSE t04*(-1) END), 0)) t04 ,
+                ABS(NVL(SUM(CASE WHEN sr='S' THEN t05 ELSE t05*(-1) END), 0)) t05 ,
+                ABS(NVL(SUM(CASE WHEN sr='S' THEN t06 ELSE t06*(-1) END), 0)) t06
+            FROM (
+                SELECT EAI_INTERFACE_ID ifd ,
+                    UPPER(EAI_SYSTEM_ID) sys ,
+                    SEND_RECEIVE_CODE sr ,
+                    DATA_COUNT tot,
+                    TIME_COUNT0 t00,
+                    TIME_COUNT1 t01,
+                    TIME_COUNT2 t02,
+                    TIME_COUNT3 t03 ,
+                    TIME_COUNT4 t04,
+                    TIME_COUNT5 t05,
+                    TIME_COUNT6 t06,
+                    TIME_COUNT7 t07,
+                    TIME_COUNT8 t08 ,
+                    TIME_COUNT9 t09,
+                    TIME_COUNT10 t10,
+                    TIME_COUNT11 t11,
+                    TIME_COUNT12 t12,
+                    TIME_COUNT13 t13 ,
+                    TIME_COUNT14 t14,
+                    TIME_COUNT15 t15,
+                    TIME_COUNT16 t16,
+                    TIME_COUNT17 t17,
+                    TIME_COUNT18 t18 ,
+                    TIME_COUNT19 t19,
+                    TIME_COUNT20 t20,
+                    TIME_COUNT21 t21,
+                    TIME_COUNT22 t22,
+                    TIME_COUNT23 t23
+                FROM TB_S60_SUMM010
+                WHERE EAI_SEND_DATE = REPLACE(?, '-', '')
+                    AND EAI_INTERFACE_ID LIKE ? || '%' 
+                    AND SEND_RECEIVE_CODE != 'D'
+                    AND SEND_RECEIVE_CODE != 'E' ) Summ 
+            GROUP BY ifd )
+        ORDER BY ifd , src
+        ]]>
+    </query>
+        
+    <query id="TCTotalCountVO.select" desc="Distribute History List Select" fetchSize="10">
+        <![CDATA[
+            SELECT 
+    NVL(COUNT(COUNT(TRANSACTION_CODE)),0) tc_code
+FROM TB_S60_SUMM010 
+WHERE EAI_SEND_DATE = REPLACE(?, '-', '') 
+  AND EAI_INTERFACE_ID LIKE ? || '%' 
+  AND TRANSACTION_CODE LIKE ? || '%' 
+GROUP BY EAI_INTERFACE_ID
+        ]]>
+    </query>
+    
+    <query id="timeLogCntTCVO.select" desc="Distribute History List Select" fetchSize="10">
+        <![CDATA[
+        SELECT /*+ S603 UI  시간별 송수신처리현황(TC별) TimeLogCntTCVO 황용길 */
+              ifd ,
+              tc ,
+              tc ,
+              DECODE(src, 'S', '송신', 'R', '수신', 'D', '처리', 'E', '에러', '차이') src ,
+              sc ,
+              sc ,
+              tot,
+              t07 ,
+              t08 ,
+              t09 ,
+              t10 ,
+              t11 ,
+              t12 ,
+              t13 ,
+              t14 ,
+              t15 ,
+              t16 ,
+              t17 ,
+              t18 ,
+              t19 ,
+              t20 ,
+              t21 ,
+              t22 ,
+              t23 ,
+              t00 ,
+              t01 ,
+              t02 ,
+              t03 ,
+              t04 ,
+              t05 ,
+              t06
+            FROM (
+                SELECT EAI_INTERFACE_ID ifd ,
+                  TRIM(TRANSACTION_CODE) tc ,
+                  SEND_RECEIVE_CODE src ,
+                  UPPER(EAI_SYSTEM_ID) sc ,
+                  NVL(DATA_COUNT, 0) AS tot ,
+                  NVL(TIME_COUNT7, 0) AS t07 ,
+                  NVL(TIME_COUNT8, 0) AS t08 ,
+                  NVL(TIME_COUNT9, 0) AS t09 ,
+                  NVL(TIME_COUNT10, 0) AS t10 ,
+                  NVL(TIME_COUNT11, 0) AS t11 ,
+                  NVL(TIME_COUNT12, 0) AS t12 ,
+                  NVL(TIME_COUNT13, 0) AS t13 ,
+                  NVL(TIME_COUNT14, 0) AS t14 ,
+                  NVL(TIME_COUNT15, 0) AS t15 ,
+                  NVL(TIME_COUNT16, 0) AS t16 ,
+                  NVL(TIME_COUNT17, 0) AS t17 ,
+                  NVL(TIME_COUNT18, 0) AS t18 ,
+                  NVL(TIME_COUNT19, 0) AS t19 ,
+                  NVL(TIME_COUNT20, 0) AS t20 ,
+                  NVL(TIME_COUNT21, 0) AS t21 ,
+                  NVL(TIME_COUNT22, 0) AS t22 ,
+                  NVL(TIME_COUNT23, 0) AS t23 ,
+                  NVL(TIME_COUNT0, 0) AS t00 ,
+                  NVL(TIME_COUNT1, 0) AS t01 ,
+                  NVL(TIME_COUNT2, 0) AS t02 ,
+                  NVL(TIME_COUNT3, 0) AS t03 ,
+                  NVL(TIME_COUNT4, 0) AS t04 ,
+                  NVL(TIME_COUNT5, 0) AS t05 ,
+                  NVL(TIME_COUNT6, 0) AS t06
+                FROM TB_S60_SUMM010 Summ
+                WHERE EAI_SEND_DATE = REPLACE(?, '-', '')
+                  AND EAI_INTERFACE_ID LIKE ? || '%'
+                  AND TRANSACTION_CODE LIKE ? || '%'
+                UNION ALL
+                SELECT ifd ,
+                  tc ,
+                  'C' src ,
+                  '' sc ,
+                  ABS(NVL(SUM(CASE WHEN sr='S' THEN tot ELSE tot*(-1) END), 0)) tot ,
+                  ABS(NVL(SUM(CASE WHEN sr='S' THEN t07 ELSE t07*(-1) END), 0)) t07 ,
+                  ABS(NVL(SUM(CASE WHEN sr='S' THEN t08 ELSE t08*(-1) END), 0)) t08 ,
+                  ABS(NVL(SUM(CASE WHEN sr='S' THEN t09 ELSE t09*(-1) END), 0)) t09 ,
+                  ABS(NVL(SUM(CASE WHEN sr='S' THEN t10 ELSE t10*(-1) END), 0)) t10 ,
+                  ABS(NVL(SUM(CASE WHEN sr='S' THEN t11 ELSE t11*(-1) END), 0)) t11 ,
+                  ABS(NVL(SUM(CASE WHEN sr='S' THEN t12 ELSE t12*(-1) END), 0)) t12 ,
+                  ABS(NVL(SUM(CASE WHEN sr='S' THEN t13 ELSE t13*(-1) END), 0)) t13 ,
+                  ABS(NVL(SUM(CASE WHEN sr='S' THEN t14 ELSE t14*(-1) END), 0)) t14 ,
+                  ABS(NVL(SUM(CASE WHEN sr='S' THEN t15 ELSE t15*(-1) END), 0)) t15 ,
+                  ABS(NVL(SUM(CASE WHEN sr='S' THEN t16 ELSE t16*(-1) END), 0)) t16 ,
+                  ABS(NVL(SUM(CASE WHEN sr='S' THEN t17 ELSE t17*(-1) END), 0)) t17 ,
+                  ABS(NVL(SUM(CASE WHEN sr='S' THEN t18 ELSE t18*(-1) END), 0)) t18 ,
+                  ABS(NVL(SUM(CASE WHEN sr='S' THEN t19 ELSE t19*(-1) END), 0)) t19 ,
+                  ABS(NVL(SUM(CASE WHEN sr='S' THEN t20 ELSE t20*(-1) END), 0)) t20 ,
+                  ABS(NVL(SUM(CASE WHEN sr='S' THEN t21 ELSE t21*(-1) END), 0)) t21 ,
+                  ABS(NVL(SUM(CASE WHEN sr='S' THEN t22 ELSE t22*(-1) END), 0)) t22 ,
+                  ABS(NVL(SUM(CASE WHEN sr='S' THEN t23 ELSE t23*(-1) END), 0)) t23 ,
+                  ABS(NVL(SUM(CASE WHEN sr='S' THEN t00 ELSE t00*(-1) END), 0)) t00 ,
+                  ABS(NVL(SUM(CASE WHEN sr='S' THEN t01 ELSE t01*(-1) END), 0)) t01 ,
+                  ABS(NVL(SUM(CASE WHEN sr='S' THEN t02 ELSE t02*(-1) END), 0)) t02 ,
+                  ABS(NVL(SUM(CASE WHEN sr='S' THEN t03 ELSE t03*(-1) END), 0)) t03 ,
+                  ABS(NVL(SUM(CASE WHEN sr='S' THEN t04 ELSE t04*(-1) END), 0)) t04 ,
+                  ABS(NVL(SUM(CASE WHEN sr='S' THEN t05 ELSE t05*(-1) END), 0)) t05 ,
+                  ABS(NVL(SUM(CASE WHEN sr='S' THEN t06 ELSE t06*(-1) END), 0)) t06
+                FROM (
+                    SELECT Summ.EAI_INTERFACE_ID ifd ,
+                      TRIM(Summ.TRANSACTION_CODE) tc ,
+                      UPPER(Summ.EAI_SYSTEM_ID) sys ,
+                      Summ.SEND_RECEIVE_CODE sr,
+                      --ifmg.MULTI_RECV_COUNT mrc ,
+                      DATA_COUNT tot,
+                      TIME_COUNT0 t00,
+                      TIME_COUNT1 t01,
+                      TIME_COUNT2 t02,
+                      TIME_COUNT3 t03 ,
+                      TIME_COUNT4 t04,
+                      TIME_COUNT5 t05,
+                      TIME_COUNT6 t06,
+                      TIME_COUNT7 t07,
+                      TIME_COUNT8 t08 ,
+                      TIME_COUNT9 t09,
+                      TIME_COUNT10 t10,
+                      TIME_COUNT11 t11,
+                      TIME_COUNT12 t12,
+                      TIME_COUNT13 t13 ,
+                      TIME_COUNT14 t14,
+                      TIME_COUNT15 t15,
+                      TIME_COUNT16 t16,
+                      TIME_COUNT17 t17,
+                      TIME_COUNT18 t18 ,
+                      TIME_COUNT19 t19,
+                      TIME_COUNT20 t20,
+                      TIME_COUNT21 t21,
+                      TIME_COUNT22 t22,
+                      TIME_COUNT23 t23
+                    FROM TB_S60_SUMM010 Summ 
+                    WHERE 
+                      Summ.EAI_SEND_DATE = REPLACE(?, '-', '')
+                      AND Summ.EAI_INTERFACE_ID LIKE ? || '%'
+                      AND Summ.TRANSACTION_CODE LIKE ? || '%'
+                      AND Summ.SEND_RECEIVE_CODE != 'D'
+                      AND Summ.SEND_RECEIVE_CODE != 'E') Summ
+                GROUP BY ifd , tc ) Summ
+            ORDER BY Summ.ifd , Summ.tc , Summ.src desc
+            ]]>
+    </query>
+    
+    <query id="detailLogInfoVO.select" desc="Distribute History List Select" fetchSize="10">
+        <![CDATA[
+        SELECT data.* , 1 count FROM (
+
+            SELECT  a.*, count(*) over () as row_cnt, ceil(rownum/?) as page_no
+                    FROM 
+            (
+            SELECT * 
+            FROM (
+                SELECT /*+ S603 UI  인터페이스로그 상세처리현황 DetailLogInfoVO 황용길 */
+                  DISTINCT EAI_INTERFACE_ID ifd ,
+                  TRANSACTION_CODE tc ,
+                  UPPER(Uevent.LOCAL_HOST_NAME) sc ,
+                  ''
+                  ,
+                  Uevent.DESCRIPTION msg ,
+                  DECODE(Uevent.DATA_LOGGER_STATUS, 'EAI_110', '송신', 'EAI_108', '수신', 'EAI_126', '송신', 'EAI_292', '에러', Uevent.DATA_LOGGER_STATUS) code ,
+                  TO_CHAR(EAI_SEND_TIMESTAMP, 'yyyy-mm-dd hh24:mi:ss.ff') est ,
+                  TO_CHAR(Uevent.EAI_RECEIVE_TIMESTAMP, 'yyyy-mm-dd hh24:mi:ss.ff') ert ,
+                  SUBSTRB(TO_CHAR(Uevent.TEXT_DATA), 1, 3900) sdata ,
+                  DECODE(Uevent.DATA_LOGGER_STATUS, 'EAI_108', 'MES LOG', '') ml
+                FROM EAI_USER_EVENTS Uevent 
+                WHERE ? !='EAI_108'
+                  AND EAI_SEND_TIMESTAMP >= TO_TIMESTAMP(?, 'yyyy-mm-dd hh24:mi:ss.ff')
+                  AND EAI_SEND_TIMESTAMP <= TO_TIMESTAMP(?, 'yyyy-mm-dd hh24:mi:ss.ff')
+                  AND TRANSACTION_CODE LIKE CONCAT(?, '%')
+                  AND EAI_INTERFACE_ID LIKE CONCAT(?, '%')
+                  AND UPPER(Uevent.LOCAL_HOST_NAME) LIKE CONCAT(UPPER(?), '%')
+                  AND Uevent.DATA_LOGGER_STATUS LIKE CONCAT(?, '%')
+                UNION ALL
+                SELECT /*+ index(Uevent IX_EAIUSEVENT_N3) */
+                  DISTINCT EAI_INTERFACE_ID ifd ,
+                  TRANSACTION_CODE tc ,
+                  UPPER(Uevent.LOCAL_HOST_NAME) sc ,
+                  '',
+                  Uevent.DESCRIPTION msg ,
+                  'RECV' code ,
+                  TO_CHAR(EAI_SEND_TIMESTAMP, 'yyyy-mm-dd hh24:mi:ss.ff') est ,
+                  TO_CHAR(Uevent.EAI_RECEIVE_TIMESTAMP, 'yyyy-mm-dd hh24:mi:ss.ff') ert ,
+                  SUBSTRB(TO_CHAR(Uevent.TEXT_DATA), 1, 3900) sdata ,
+                  'MES LOG' ml
+                FROM EAI_USER_EVENTS Uevent
+                WHERE ? = 'EAI_108'
+                  AND Uevent.EAI_RECEIVE_TIMESTAMP >= TO_TIMESTAMP(?, 'yyyy-mm-dd hh24:mi:ss.ff')
+                  AND Uevent.EAI_RECEIVE_TIMESTAMP <= TO_TIMESTAMP(?, 'yyyy-mm-dd hh24:mi:ss.ff')
+                  AND TRANSACTION_CODE LIKE CONCAT(?, '%')
+                  AND EAI_INTERFACE_ID LIKE CONCAT(?, '%')
+                  AND UPPER(Uevent.LOCAL_HOST_NAME) LIKE CONCAT(UPPER(?), '%')
+                  AND Uevent.DATA_LOGGER_STATUS = 'EAI_108' )
+            ORDER BY DECODE(?, 'EAI_108', ert, est), code 
+            ) a
+            ) data
+            where page_no=? order by data.est, data.code
+
+        ]]>
+    </query>
+        
+        <query id="eaiQMonitorVO.select" desc="Distribute History List Select" fetchSize="10">
+        <![CDATA[
+        SELECT /*+ S603 UI  MES 수신 Queue 모니터 EaiMonitorVO 황용길 */
+  QMON.serverName serverName ,
+  QMON.qname qname ,
+  '' as qdesc ,
+  QMON.dcnt dcnt ,
+  TO_CHAR(QMON.gdate, 'mm-dd hh24:mi') gdate ,
+  ddate ,
+  UERR.sysid sysid ,
+  UERR.ifid ifid ,
+  UERR.tcode tcode ,
+  UERR.ecode ecode ,
+  TO_CHAR(UERR.stime, 'yyyy-mm-dd hh24:mi:ss.ff') stime ,
+  TO_CHAR(UERR.rtime, 'yyyy-mm-dd hh24:mi:ss.ff') rtime ,
+  '',
+  ''
+FROM (
+    SELECT TQmon.CREATED_OBJECT_ID serverName ,
+      TQmon.LOCAL_QUEUE_NAME qname ,
+      TQmon.DATA_COUNT dcnt ,
+      TQmon.GENERATION_DATE gdate ,
+      trunc((sysdate-to_date(to_char(TQmon.DATA_END_TIMESTAMP, 'Rrrr-mm-dd Hh24:Mi:Ss'), 'Rrrr-mm-dd Hh24:Mi:Ss'))*24*60) ddate
+    FROM TB_S60_QMON010 TQmon,
+    (
+        SELECT LOCAL_QUEUE_NAME ,
+          MAX(GENERATION_DATE) gdate
+        FROM TB_S60_QMON010
+        /** Query 추가하세요 
+        WHERE GENERATION_DATE >= ( SYSDATE - 3/(24*60) ) */
+        GROUP BY LOCAL_QUEUE_NAME ) Qlist
+        WHERE TQmon.GENERATION_DATE = Qlist.gdate
+      AND TQmon.LOCAL_QUEUE_NAME = Qlist.LOCAL_QUEUE_NAME) QMON  ,
+  (
+    SELECT LOCAL_QUEUE_NAME qname ,
+      TRANSACTION_CODE tcode ,
+      EAI_SEND_TIMESTAMP stime ,
+      EAI_RECEIVE_TIMESTAMP rtime ,
+      EAI_SYSTEM_ID sysid ,
+      EAI_INTERFACE_ID ifid ,
+      ERROR_RETURN_VALUE ecode
+    FROM TB_S60_UERR010 Tuerr ,
+      (
+        SELECT LOCAL_QUEUE_NAME queue ,
+          MAX(EAI_RECEIVE_TIMESTAMP) rtime
+        FROM TB_S60_UERR010
+        WHERE EAI_RECEIVE_TIMESTAMP >= ( SYSDATE - 2/(24*60) )
+        GROUP BY LOCAL_QUEUE_NAME ) Muerr
+    WHERE Tuerr.LOCAL_QUEUE_NAME = Muerr.queue
+      AND Tuerr.EAI_RECEIVE_TIMESTAMP = Muerr.rtime ) UERR
+WHERE 
+  QMON.qname = UERR.qname(+)
+  AND QMON.qname LIKE CONCAT('%',CONCAT(?,'%'))
+  AND QMON.dcnt > TO_NUMBER(?) -1
+  AND (QMON.serverName like CONCAT('%',CONCAT(?,'%')) OR QMON.serverName is NULL)
+  AND ddate >= TO_NUMBER(?)
+ORDER BY ddate desc , gdate , qname
+            ]]>
+    </query>
+        
+        <query id="getSection.select" desc="Distribute History List Select" fetchSize="10">
+        <![CDATA[
+        SELECT SUBSTR(INTERFACE_SECTION,0,3) substr FROM TB_S60_IFMG020 group by SUBSTR(INTERFACE_SECTION,0,3)
+            ]]>
+    </query>
+        
+        <query id="xxx.select" desc="Distribute History List Select" fetchSize="10">
+        <![CDATA[
+        
+            ]]>
+    </query>
+    
+    <query id="delService.delete" desc="Distribute History List Select" fetchSize="10">
+        <![CDATA[
+        DELETE FROM TB_S60_STAT020 WHERE SERVICE_NAME = ( SELECT SERVICE_NAME FROM TB_S60_STAT020 WHERE STATUS_SEQ_ID = ? )
+            ]]>
+    </query>
+    
+    <query id="stopServiceStatusMonitorVO.select" desc="Distribute History List Select" fetchSize="10">
+    <![CDATA[   
+        SELECT DISTINCT EAI_SYSTEM_ID,
+                    SERVICE_NAME,
+                    SERVICE_LINK_NAME,
+                    (
+                       CASE
+                         WHEN STAT.BL_STATUS = 'ERROR'
+        AND    STAT.LAST_UPDATE_TIMESTAMP > ( SYSDATE - 3/(24*60) ) THEN (SELECT CONCAT(EAI_INTERFACE_ID, '<p>') || CONCAT(DESCRIPTION, '<p>') || NVL(TEXT_DATA,'')
+                FROM   TB_S60_UERR010
+                WHERE  EAI_SYSTEM_ID = STAT.EAI_SYSTEM_ID
+                AND    LOCAL_QUEUE_NAME = STAT.SERVICE_LINK_NAME
+                AND    EAI_SEND_TIMESTAMP = (SELECT MAX(EAI_SEND_TIMESTAMP)
+                        FROM   TB_S60_UERR010
+                        WHERE  EAI_SYSTEM_ID = STAT.EAI_SYSTEM_ID
+                        AND    LOCAL_QUEUE_NAME = STAT.SERVICE_LINK_NAME) )
+                         ELSE ''
+                       END) AS Q_DESCRIPTION,
+                    BL_STATUS,
+                    TO_CHAR(LAST_UPDATE_TIMESTAMP, 'YYYY/MM/DD HH24:MI:SS') LAST_UPDATE_TIMESTAMP,
+                    STATUS_SEQ_ID,
+                    DESCRIPTION
+                   FROM TB_S60_STAT020 STAT
+          WHERE LAST_UPDATE_TIMESTAMP IS NOT NULL
+          AND EAI_SYSTEM_ID LIKE CONCAT('%',CONCAT(?,'%'))
+          AND SERVICE_NAME LIKE CONCAT('%',CONCAT(?,'%'))
+          AND SERVICE_LINK_NAME LIKE CONCAT(?, '%')
+          AND (SYSDATE - LAST_UPDATE_TIMESTAMP > INTERVAL '0 00:01:40.0000' DAY TO SECOND OR BL_STATUS = 'ERROR')
+          ORDER BY EAI_SYSTEM_ID, SERVICE_NAME, BL_STATUS 
+  ]]>
+    </query>
+    
+    <query id="allServiceStatusMonitorVO.select" desc="Distribute History List Select" fetchSize="10">
+        <![CDATA[
+            SELECT DISTINCT EAI_SYSTEM_ID,
+              SERVICE_NAME,
+              SERVICE_LINK_NAME,
+              (
+                       CASE
+                         WHEN STAT.BL_STATUS = 'ERROR'
+        AND    STAT.LAST_UPDATE_TIMESTAMP > ( SYSDATE - 3/(24*60) ) THEN (SELECT CONCAT(EAI_INTERFACE_ID, '<p>') || CONCAT(DESCRIPTION, '<p>') || NVL(TEXT_DATA,'')
+                FROM   TB_S60_UERR010
+                WHERE  EAI_SYSTEM_ID = STAT.EAI_SYSTEM_ID
+                AND    LOCAL_QUEUE_NAME = STAT.SERVICE_LINK_NAME
+                AND    EAI_SEND_TIMESTAMP = (SELECT MAX(EAI_SEND_TIMESTAMP)
+                        FROM   TB_S60_UERR010
+                        WHERE  EAI_SYSTEM_ID = STAT.EAI_SYSTEM_ID
+                        AND    LOCAL_QUEUE_NAME = STAT.SERVICE_LINK_NAME) )
+                         ELSE ''
+                       END) AS Q_DESCRIPTION,
+              BL_STATUS,
+              TO_CHAR(LAST_UPDATE_TIMESTAMP, 'YYYY/MM/DD HH24:MI:SS') LAST_UPDATE_TIMESTAMP,
+              STATUS_SEQ_ID,
+              DESCRIPTION, 
+              TO_CHAR(CREATION_TIMESTAMP, 'YYYY/MM/DD HH24:MI:SS') CREATION_TIMESTAMP
+            FROM TB_S60_STAT020 STAT
+            WHERE EAI_SYSTEM_ID LIKE CONCAT('%',CONCAT(?,'%'))
+              AND SERVICE_NAME LIKE CONCAT('%',CONCAT(?,'%'))
+              AND SERVICE_LINK_NAME LIKE CONCAT('%',CONCAT(?,'%'))
+              AND LAST_UPDATE_TIMESTAMP IS NOT NULL 
+              ORDER BY EAI_SYSTEM_ID, BL_STATUS, LAST_UPDATE_TIMESTAMP
+            ]]>
+    </query>
+    
+    <query id="serviceStatusMonitorVO.select" desc="Distribute History List Select" fetchSize="10">
+        <![CDATA[
+        SELECT DISTINCT EAI_SYSTEM_ID,
+  SERVICE_NAME,
+  SERVICE_LINK_NAME,
+  (
+    SELECT QUEUE_DESCRIPTION
+    FROM TB_S60_QNAM010
+    WHERE SERVICE_LINK_NAME = LOCAL_QUEUE_NAME ) Q_DESCRIPTION,
+  BL_STATUS,
+  TO_CHAR(LAST_UPDATE_TIMESTAMP, 'YYYY/MM/DD HH24:MI:SS') LAST_UPDATE_TIMESTAMP,
+  STATUS_SEQ_ID,
+  DESCRIPTION
+FROM (
+    SELECT IFMG.INTERFACE_SECTION,
+      SMLS.EAI_SYSTEM_ID,
+      SMLS.SERVICE_NAME,
+      SMLS.SERVICE_LINK_NAME,
+      SMLS.BL_STATUS,
+      SMLS.LAST_UPDATE_TIMESTAMP,
+      SMLS.STATUS_SEQ_ID,
+      SMLS.DESCRIPTION
+    FROM TB_S60_STAT020 SMLS,
+      TB_S60_IFMG020 IFMG
+    WHERE SMLS.EAI_SYSTEM_ID = IFMG.SEND_EAI_SYSTEM_ID
+      AND SMLS.SERVICE_NAME = IFMG.SEND_APP_NAME
+      AND SMLS.SERVICE_LINK_NAME = IFMG.SEND_LINK_NAME
+    UNION ALL
+    SELECT IFMG.INTERFACE_SECTION,
+      SMLS.EAI_SYSTEM_ID,
+      SMLS.SERVICE_NAME,
+      SMLS.SERVICE_LINK_NAME,
+      SMLS.BL_STATUS,
+      SMLS.LAST_UPDATE_TIMESTAMP,
+      SMLS.STATUS_SEQ_ID,
+      SMLS.DESCRIPTION
+    FROM TB_S60_STAT020 SMLS,
+      TB_S60_IFMG020 IFMG
+    WHERE SMLS.EAI_SYSTEM_ID = IFMG.RECV_EAI_SYSTEM_ID
+      AND SMLS.SERVICE_NAME = IFMG.RECV_APP_NAME
+      AND SMLS.SERVICE_LINK_NAME = IFMG.RECV_LINK_NAME )
+WHERE INTERFACE_SECTION LIKE CONCAT('%',CONCAT(?,'%'))
+  AND EAI_SYSTEM_ID LIKE CONCAT('%',CONCAT(?,'%'))
+  AND SERVICE_NAME LIKE CONCAT('%',CONCAT(?,'%'))
+  AND SERVICE_LINK_NAME LIKE CONCAT('%',CONCAT(?,'%'))
+  AND LAST_UPDATE_TIMESTAMP IS NOT NULL 
+  ORDER BY BL_STATUS, SERVICE_NAME, LAST_UPDATE_TIMESTAMP
+            ]]>
+    </query>
+    
+    <query id="interfaceListSeq.select" desc="Distribute History List Select" fetchSize="10">
+        <![CDATA[
+        SELECT INTERFACE_SECTION ,
+  EAI_INTERFACE_ID ,
+  SEND_EAI_SYSTEM_ID ,
+  SEND_IP_ADDRESS ,
+  SEND_SERVICE_SECTION ,
+  SEND_PROCESS_CHAIN ,
+  SEND_PROCESS ,
+  SEND_AREA ,
+  SEND_DATA_TYPE ,
+  RECV_EAI_SYSTEM_ID ,
+  RECV_IP_ADDRESS ,
+  RECV_SERVICE_SECTION ,
+  RECV_PROCESS_CHAIN ,
+  RECV_PROCESS ,
+  RECV_AREA ,
+  RECV_DATA_TYPE ,
+  MULTI_RECV_COUNT ,
+  SYNCH_COMM_YN ,
+  BUFFERING_YN ,
+  POCESS_SEQUENCE_YN
+FROM TB_S60_IFTD020
+WHERE SEQ_ID = ?
+            ]]>
+    </query>
+    
+    <query id="checkInterfaceList.select" desc="Distribute History List Select" fetchSize="10">
+        <![CDATA[
+        SELECT COUNT(*) CNT
+FROM TB_S60_IFTD020
+WHERE INTERFACE_SECTION = ?
+  AND EAI_INTERFACE_ID = ?
+  AND SEND_EAI_SYSTEM_ID = ?
+  AND SEND_IP_ADDRESS = ?
+  AND SEND_SERVICE_SECTION = ?
+  AND SEND_PROCESS_CHAIN = ?
+  AND SEND_PROCESS = ?
+  AND SEND_AREA = ?
+  AND SEND_DATA_TYPE = ?
+  AND RECV_EAI_SYSTEM_ID = ?
+  AND RECV_IP_ADDRESS = ?
+  AND RECV_SERVICE_SECTION = ?
+  AND RECV_PROCESS_CHAIN = ?
+  AND RECV_PROCESS = ?
+  AND RECV_AREA = ?
+  AND RECV_DATA_TYPE = ?
+  AND MULTI_RECV_COUNT = ?
+  AND SYNCH_COMM_YN = ?
+  AND BUFFERING_YN = ?
+  AND POCESS_SEQUENCE_YN = ? 
+        
+            ]]>
+    </query>
+        
+        <query id="deleteInterfaceLis.deletet" desc="Distribute History List Select" fetchSize="10">
+        <![CDATA[
+        DELETE
+FROM TB_S60_IFTD020
+WHERE SEQ_ID = ? 
+            ]]>
+    </query>
+    
+    <query id="deleteInterfaceIfmg.delete" desc="Distribute History List Select" fetchSize="10">
+        <![CDATA[
+        DELETE
+FROM TB_S60_IFMG020
+WHERE INTERFACE_SECTION = ?
+  AND EAI_INTERFACE_ID = ?
+  AND SEND_EAI_SYSTEM_ID = ?
+  AND SEND_IP_ADDRESS = ?
+  AND SEND_SERVICE_SECTION = ?
+  AND SEND_PROCESS_CHAIN = ?
+  AND SEND_PROCESS = ?
+  AND SEND_AREA = ?
+  AND SEND_DATA_TYPE = ?
+  AND RECV_EAI_SYSTEM_ID = ?
+  AND RECV_IP_ADDRESS = ?
+  AND RECV_SERVICE_SECTION = ?
+  AND RECV_PROCESS_CHAIN = ?
+  AND RECV_PROCESS = ?
+  AND RECV_AREA = ?
+  AND RECV_DATA_TYPE = ?
+  AND MULTI_RECV_COUNT = ?
+  AND SYNCH_COMM_YN = ?
+  AND BUFFERING_YN = ?
+  AND POCESS_SEQUENCE_YN = ?        
+            ]]>
+    </query>
+    
+    <query id="interfaceListVO.select" desc="Distribute History List Select" fetchSize="10">
+        <![CDATA[
+        SELECT SEQ_ID,
+  EAI_INTERFACE_ID,
+  TC_NAME,
+  TC_NAME_KOR,
+  SEND_SERVICE_SECTION,
+  SEND_PROCESS_CHAIN,
+  SEND_PROCESS,
+  SEND_EAI_SYSTEM_ID,
+  SEND_IP_ADDRESS,
+  SEND_DATA_TYPE,
+  RECV_SERVICE_SECTION,
+  RECV_PROCESS_CHAIN,
+  RECV_PROCESS,
+  RECV_EAI_SYSTEM_ID,
+  RECV_IP_ADDRESS,
+  RECV_DATA_TYPE,
+  MULTI_RECV_COUNT,
+  BUFFERING_YN,
+  POCESS_SEQUENCE_YN
+FROM TB_S60_IFTD020
+WHERE EAI_INTERFACE_ID like CONCAT(?, '%')
+  AND TC_NAME like CONCAT(?, '%')
+  AND SEND_EAI_SYSTEM_ID LIKE CONCAT('%',CONCAT(?,'%'))
+  AND RECV_EAI_SYSTEM_ID LIKE CONCAT('%',CONCAT(?,'%'))
+ORDER BY EAI_INTERFACE_ID
+        
+            ]]>
+    </query>
+    
+    <query id="editInterfaceList.update" desc="Distribute History List Select" fetchSize="10">
+        <![CDATA[
+        UPDATE TB_S60_IFTD020 SET EAI_INTERFACE_ID = ? WHERE SEQ_ID = ?
+            ]]>
+    </query>
+    
+    <query id="generateInterfaceList.select" desc="Distribute History List Select" fetchSize="10">
+        <![CDATA[
+        SELECT INTERFACE_SECTION,
+  EAI_INTERFACE_ID,
+  SEND_EAI_SYSTEM_ID,
+  SEND_IP_ADDRESS,
+  SEND_SERVICE_SECTION,
+  SEND_PROCESS_CHAIN,
+  SEND_PROCESS,
+  SEND_AREA,
+  SEND_DATA_TYPE,
+  RECV_EAI_SYSTEM_ID,
+  RECV_IP_ADDRESS,
+  RECV_SERVICE_SECTION,
+  RECV_PROCESS_CHAIN,
+  RECV_PROCESS,
+  RECV_AREA,
+  RECV_DATA_TYPE,
+  MULTI_RECV_COUNT,
+  SYNCH_COMM_YN,
+  BUFFERING_YN,
+  POCESS_SEQUENCE_YN,
+  IFD_SEQUENCE,
+  SEND_APP_NAME,
+  SEND_LINK_NAME,
+  SEND_APP_TYPE,
+  RECV_APP_NAME,
+  RECV_LINK_NAME,
+  RECV_APP_TYPE,
+  CONNECTION_SERVER,
+  CONNECTION_SERVER1,
+  QUEUE_NAME
+FROM TB_S60_IFMG020
+WHERE EAI_INTERFACE_ID = ?
+        
+            ]]>
+    </query>
+    <query id="interfaceTempList.select" desc="Distribute History List Select" fetchSize="10">
+        <![CDATA[
+        SELECT SEQ_ID,
+  EAI_INTERFACE_ID,
+  TC_NAME,
+  TC_DESCRIPTION,
+  SEND_SERVICE_SECTION,
+  SEND_PROCESS_CHAIN,
+  SEND_PROCESS,
+  SEND_EAI_SYSTEM_ID,
+  SEND_IP_ADDRESS,
+  SEND_DATA_TYPE,
+  RECV_SERVICE_SECTION,
+  RECV_PROCESS_CHAIN,
+  RECV_PROCESS,
+  RECV_EAI_SYSTEM_ID,
+  RECV_IP_ADDRESS,
+  RECV_DATA_TYPE,
+  BUFFERING_YN,
+  POCESS_SEQUENCE_YN
+FROM TB_S60_IFTM020
+            ]]>
+    </query>
+    <query id="xxx.select" desc="Distribute History List Select" fetchSize="10">
+        <![CDATA[
+        
+            ]]>
+    </query>
+    <query id="xxx.select" desc="Distribute History List Select" fetchSize="10">
+        <![CDATA[
+        
+            ]]>
+    </query>
+        
+
+        
+</queryMap>
+        

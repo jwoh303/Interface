@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="EUC-KR"?>
+<SQL>
+        <!-- *********************************************************************** -->
+        <SQL_DOC INTERFACE_ID="KEP2SMT2_RT">
+                <V_SQL NAME='$G_RS' ISLOOP="TRUE" COMMIT_BY_RESULT="FALSE">
+                       SELECT RQDT.BUYER
+                            , RQDT.QUOTATION_NO
+                            , RQDT.QUOTATION_SEQ
+                            , RQDT.REVISION
+                       FROM   KEPRQDT RQDT
+                       WHERE RQDT.BUYER = 'KRSSAN0028'
+                       AND   RQDT.SND_CHK = 'N'
+                       AND  (RQDT.ATOB_SEND_FLAG = 'Y' OR RQDT.RECV_FLAG = 'GD')
+                       ORDER BY RQDT.BUYER
+                              , RQDT.QUOTATION_NO
+                              , RQDT.QUOTATION_SEQ
+                </V_SQL>
+                <P_SQL SEQ="1" TYPE="SELECT" POST_SQL="TRUE">
+                <![CDATA[
+                       SELECT RQDT.QUOTATION_NO
+                            , RQDT.REVISION
+                            , RQDT.BUYER_ITEM_NO
+                            , (SELECT COM_NAME_LOC FROM ICOMCMPY
+                               WHERE   COM_CODE = QTDT.AGENT)    AS AGENT_NAME
+                            , QTDT.ATOB_UNIT_PRICE  AS UNIT_PRICE
+                            , QTDT.BID_SUCCESS_FLAG
+                       FROM   KEPRQDT RQDT, KEPQTDT QTDT
+                       WHERE RQDT.BUYER = '$G_RS.BUYER$'
+                       AND   RQDT.QUOTATION_NO = '$G_RS.QUOTATION_NO$'
+                       AND   RQDT.QUOTATION_SEQ= '$G_RS.QUOTATION_SEQ$'
+                       AND   RQDT.REVISION = $G_RS.REVISION$
+                       AND   RQDT.BUYER = QTDT.BUYER
+                       AND   RQDT.QUOTATION_NO = QTDT.QUOTATION_NO
+                       AND   RQDT.QUOTATION_SEQ= QTDT.QUOTATION_SEQ
+                       AND   RQDT.REVISION     = QTDT.REVISION
+                       AND   QTDT.STATUS = 'C'
+                       AND   QTDT.ATOB_UNIT_PRICE <> 0
+                       ORDER BY RQDT.QUOTATION_NO
+                              , RQDT.BUYER_ITEM_NO
+                              , QTDT.BID_SUCCESS_FLAG DESC
+                              , AGENT_NAME
+                ]]>
+                        <C_SQL TYPE="UPDATE" P_SQL_RESULT="TRUE">
+                        <![CDATA[
+                                UPDATE KEPRQDT
+                                SET SND_CHK = 'Y', SND_DATM = SYSDATE
+                                WHERE BUYER = '$G_RS.BUYER$'
+                                AND   QUOTATION_NO = '$G_RS.QUOTATION_NO$'
+                                AND   QUOTATION_SEQ= '$G_RS.QUOTATION_SEQ$'
+                                AND   REVISION = $G_RS.REVISION$
+                        ]]>
+                        </C_SQL>
+                        <C_SQL TYPE="UPDATE" P_SQL_RESULT="FALSE">
+                        <![CDATA[
+                        ]]>
+                        </C_SQL>
+                </P_SQL>
+        </SQL_DOC>
+        <RETRY_CODE>
+                <CODE>03113</CODE>
+                <CODE>03114</CODE>
+                <CODE>02154</CODE>
+                <CODE>02541</CODE>
+                <CODE>04068</CODE>
+        </RETRY_CODE>
+</SQL>

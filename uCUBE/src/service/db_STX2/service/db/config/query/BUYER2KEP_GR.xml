@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="EUC-KR"?>
+<SQL>
+	<!-- *********************************************************************** -->
+	<SQL_DOC INTERFACE_ID="BUYER2KEP_GR">
+		<V_SQL NAME='$G_RS' ISLOOP="TRUE" COMMIT_BY_RESULT="FALSE">
+                <![CDATA[
+                  SELECT A.TRANSACTION_ID AS TRANSACTION_ID
+                    FROM PHACPDT A
+                   WHERE 1 = 1
+                     AND A.SEND_YN = 'N'
+                     AND A.TOCOMPANY_ID = 'KEP'
+                     AND TO_CHAR(A.ACP_DT,'YYYYMMDD') >= '20130301'
+                     AND ROWNUM < 51
+                ]]>
+		</V_SQL> 
+		<P_SQL SEQ="1" TYPE="SELECT" POST_SQL="TRUE">
+		<![CDATA[
+                  SELECT 
+                         'KA'             AS SITE,
+                         'STX2'           AS BUYER,
+                         CASE
+                           WHEN A.LEGACY_FLAG = 'A' THEN 'C'
+                           WHEN A.LEGACY_FLAG = 'C' THEN 'R'
+                           WHEN A.LEGACY_FLAG = 'D' THEN 'D'
+                         END              AS STATUS,
+                         A.PO_NO          AS LEGACY_PO_NO,
+                         (SELECT MAX(PO_SEQ) FROM PFPODMROT_KEP
+                           WHERE PO_NO      = A.PO_NO
+                             AND ITEM_NO    = A.PART_CD
+                             AND ITEM_CLASS = A.PART_CLASS) AS LEGACY_PO_SEQ,
+                         A.PART_CD        AS BUYER_ITEM_NO,
+                         A.CURRENCY_CD    AS CURRENCY_CODE,
+                         A.UNIT_PRICE     AS UNIT_PRICE,
+                         A.ACP_QTY        AS GR_QTY,
+                         A.ACP_AMOUNT     AS GR_AMT,
+                         TO_CHAR(A.ACP_DT,'YYYYMMDD') AS GR_DATE,
+                         A.ASN_NO         AS LEGACY_GR_NO,
+                         A.TRANSACTION_ID AS LEGACY_GR_SEQ
+                    FROM PHACPDT A
+                   WHERE 1 = 1
+                     AND A.TRANSACTION_ID = '$G_RS.TRANSACTION_ID$'
+		]]>
+			<C_SQL TYPE="UPDATE" P_SQL_RESULT="TRUE">
+			<![CDATA[
+                         UPDATE PHACPDT A SET
+                                SEND_YN  = 'Y',
+                                SYS_DATE = SYSDATE
+                          WHERE 1 = 1
+                            AND A.TRANSACTION_ID = '$G_RS.TRANSACTION_ID$'
+			]]>
+			</C_SQL>
+			<C_SQL TYPE="UPDATE" P_SQL_RESULT="FALSE">
+			<![CDATA[]]>
+			</C_SQL>
+		</P_SQL>
+	</SQL_DOC>
+	<RETRY_CODE>
+		<CODE>03113</CODE>
+		<CODE>03114</CODE>
+		<CODE>02154</CODE>
+		<CODE>02541</CODE>
+		<CODE>04068</CODE>
+	</RETRY_CODE>
+</SQL>

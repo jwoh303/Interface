@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="EUC-KR"?>
+<SQL>
+  <!-- *********************************************************************** -->
+  <SQL_DOC INTERFACE_ID="KEP2BNGG_DS">
+    <V_SQL NAME='$G_RS' ISLOOP="TRUE" COMMIT_BY_RESULT="FALSE">
+    <![CDATA[
+    SELECT *
+      FROM (
+        SELECT COMPANY, LEGACY_PO_NO, LEGACY_PO_SEQ, LEGACY_PO_CNT, DS_SEQ
+          FROM EAI.IF_UCUBE_DS_SEND
+         WHERE IF_FLAG = 'N'
+           AND COMPANY = 'BNGG'
+         ORDER BY LEGACY_PO_NO, LEGACY_PO_SEQ
+      )
+      WHERE ROWNUM <= 100
+    ]]>
+    </V_SQL>
+    <P_SQL SEQ="1" TYPE="SELECT" POST_SQL="TRUE">
+    <![CDATA[
+      SELECT
+             A.LEGACY_PO_NO AS PO_NUMBER,
+             A.LEGACY_PO_SEQ AS PO_SEQ,
+             '1' AS PO_COUNT,
+             CASE
+               WHEN A.STATUS = 'C' THEN 'Y'
+               ELSE 'R'
+             END AS CONFIRM_FLAG,
+             A.KEY_01 AS CONFIRM_USERID,
+             A.KEY_02 AS CONFIRM_USERNAME,
+             A.KEY_03 AS CONFIRM_TIME,
+             A.KEY_10 AS REMARK,
+             B.BUYER_ITEM_NO AS ITEM_CODE,
+             B.DESCRIPTION AS ITEM_NAME,
+             B.UNIT_PRICE AS ITEM_PRICE,
+             A.DS_DATE AS CD_DATE,
+             A.DS_QTY AS CD_QTY,
+             A.PLANT AS ORG_CODE,
+             A.COMPANY ||'^'|| A.LEGACY_PO_NO ||'^'|| A.LEGACY_PO_SEQ ||'^'|| A.LEGACY_PO_CNT ||'^'|| A.DS_SEQ AS KEP_KEY
+        FROM EAI.IF_UCUBE_DS_SEND A
+           , ICOMPODT B
+       WHERE A.COMPANY = '$G_RS.COMPANY$'
+         AND A.LEGACY_PO_NO = '$G_RS.LEGACY_PO_NO$'
+         AND A.LEGACY_PO_SEQ = '$G_RS.LEGACY_PO_SEQ$'
+         AND A.LEGACY_PO_CNT = '$G_RS.LEGACY_PO_CNT$'
+         AND A.DS_SEQ = '$G_RS.DS_SEQ$'
+         AND B.BUYER = A.BUYER
+         AND B.PO_NO = A.PO_NO
+         AND B.PO_SEQ = A.PO_SEQ
+    ]]>
+      <C_SQL TYPE="UPDATE" P_SQL_RESULT="TRUE">
+      <![CDATA[
+        UPDATE EAI.IF_UCUBE_DS_SEND A
+           SET IF_FLAG = 'Y'
+             , IF_DATE = TO_CHAR(SYSDATE,'YYYYMMDD')
+             , IF_TIME = TO_CHAR(SYSDATE,'HH24MISS')
+         WHERE A.COMPANY = '$G_RS.COMPANY$'
+           AND A.LEGACY_PO_NO = '$G_RS.LEGACY_PO_NO$'
+           AND A.LEGACY_PO_SEQ = '$G_RS.LEGACY_PO_SEQ$'
+           AND A.LEGACY_PO_CNT = '$G_RS.LEGACY_PO_CNT$'
+           AND A.DS_SEQ = '$G_RS.DS_SEQ$'
+      ]]>
+      </C_SQL>
+      <C_SQL TYPE="UPDATE" P_SQL_RESULT="FALSE">
+      <![CDATA[
+        UPDATE EAI.IF_UCUBE_DS_SEND A
+           SET IF_FLAG = 'E'
+             , IF_DATE = TO_CHAR(SYSDATE,'YYYYMMDD')
+             , IF_TIME = TO_CHAR(SYSDATE,'HH24MISS')
+         WHERE A.COMPANY = '$G_RS.COMPANY$'
+           AND A.LEGACY_PO_NO = '$G_RS.LEGACY_PO_NO$'
+           AND A.LEGACY_PO_SEQ = '$G_RS.LEGACY_PO_SEQ$'
+           AND A.LEGACY_PO_CNT = '$G_RS.LEGACY_PO_CNT$'
+           AND A.DS_SEQ = '$G_RS.DS_SEQ$'
+      ]]>
+      </C_SQL>
+    </P_SQL>
+  </SQL_DOC>
+  <RETRY_CODE>
+      <CODE>03113</CODE>
+      <CODE>03114</CODE>
+      <CODE>02154</CODE>
+      <CODE>02541</CODE>
+      <CODE>04068</CODE>
+  </RETRY_CODE>
+</SQL>

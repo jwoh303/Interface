@@ -1,0 +1,54 @@
+package com.esp.grpeccmm.fiber;
+
+public class SI_GRP_MM1460_SOProxy implements com.esp.grpeccmm.fiber.SI_GRP_MM1460_SO {
+  private String _endpoint = null;
+  private com.esp.grpeccmm.fiber.SI_GRP_MM1460_SO sI_GRP_MM1460_SO = null;
+  
+  public SI_GRP_MM1460_SOProxy() {
+    _initSI_GRP_MM1460_SOProxy();
+  }
+  
+  public SI_GRP_MM1460_SOProxy(String endpoint) {
+    _endpoint = endpoint;
+    _initSI_GRP_MM1460_SOProxy();
+  }
+  
+  private void _initSI_GRP_MM1460_SOProxy() {
+    try {
+      sI_GRP_MM1460_SO = (new com.esp.grpeccmm.fiber.SI_GRP_MM1460_SOServiceLocator()).getHTTPS_Port();
+      if (sI_GRP_MM1460_SO != null) {
+        if (_endpoint != null)
+          ((javax.xml.rpc.Stub)sI_GRP_MM1460_SO)._setProperty("javax.xml.rpc.service.endpoint.address", _endpoint);
+        else
+          _endpoint = (String)((javax.xml.rpc.Stub)sI_GRP_MM1460_SO)._getProperty("javax.xml.rpc.service.endpoint.address");
+      }
+      
+    }
+    catch (javax.xml.rpc.ServiceException serviceException) {}
+  }
+  
+  public String getEndpoint() {
+    return _endpoint;
+  }
+  
+  public void setEndpoint(String endpoint) {
+    _endpoint = endpoint;
+    if (sI_GRP_MM1460_SO != null)
+      ((javax.xml.rpc.Stub)sI_GRP_MM1460_SO)._setProperty("javax.xml.rpc.service.endpoint.address", _endpoint);
+    
+  }
+  
+  public com.esp.grpeccmm.fiber.SI_GRP_MM1460_SO getSI_GRP_MM1460_SO() {
+    if (sI_GRP_MM1460_SO == null)
+      _initSI_GRP_MM1460_SOProxy();
+    return sI_GRP_MM1460_SO;
+  }
+  
+  public com.esp.grpeccmm.fiber.DT_GRP_MM1460_Con_response SI_GRP_MM1460_SO(com.esp.grpeccmm.fiber.DT_GRP_MM1460_Con MT_GRP_MM1460_Con) throws java.rmi.RemoteException{
+    if (sI_GRP_MM1460_SO == null)
+      _initSI_GRP_MM1460_SOProxy();
+    return sI_GRP_MM1460_SO.SI_GRP_MM1460_SO(MT_GRP_MM1460_Con);
+  }
+  
+  
+}

@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap      
+    PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN"
+    "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="DaedPr">
+  
+  <select id="DAED_selectDBDispatcher" resultClass="java.util.HashMap" >
+      SELECT *
+		  
+      FROM ICOMTRXL
+      WHERE DOC_NAME = 'APPROVAL'
+        AND TARGET = 'KRDAED0079'
+        AND KEY_9 = 'N'
+  </select>
+  
+  <select id="DAED_PRDT_SELECT" parameterClass="java.util.HashMap" resultClass="java.util.HashMap" >
+      SELECT a.buyer as BUYER,
+                    nvl(a.add_user_name,' ') AS REQ_USER_NAME,
+                    a.buyer_item_no||'-'||
+                    replace(replace(a.description,'''',''),'"','') AS DESCRIPTION,
+                    a.target_qty AS ITEM_QTY,
+                    'EA' AS UNIT_MEASURE,
+                    a.rd_date AS RD_DATE,
+                    a.target_price AS UNIT_PRICE,
+                    a.ref_pr_no AS REF_PR_NO,
+                    f_split(a.dely_to_location,'-',1) as PLANT,
+                    f_split(a.dely_to_location,'-',2) as DELY_TO_LOCATION,
+                    a.budget_dept AS BUDGET_DEPT,
+                    a.account_type AS ACCOUNT_TYPE,
+                    a.pr_no||'-'||a.pr_seq AS PR_NO,
+                    a.pr_no  AS PRDT_PR_NO,
+                    a.pr_seq AS PR_SEQ,
+                    a.ref_no AS REF_NO,
+                    b.change_user_name AS REV_USER_NAME,
+                    a.purchaser_dept AS PURCHASER_DEPT,
+                    (SELECT CODE FROM ICOMCOD2 WHERE COMPANY_CODE = a.buyer AND TYPE = 'M014' AND TEXT1 = a.REF_PR_NO AND ROWNUM =1) AS ITEM_GROUP,
+                    (SELECT NVL(TEXT1, 'D10') FROM ICOMCOD2 WHERE COMPANY_CODE = a.BUYER AND TYPE = 'C004' AND CODE = a.PURCHASER_DEPT) AS PUR_GROUP
+                    
+               FROM icomprdt a,icomprhd b
+              WHERE a.buyer   = #TARGET#
+                AND a.ref_no  = #KEY_1#
+                AND a.status != 'D'
+                AND a.buyer   = b.buyer
+                AND a.pr_no   = b.pr_no 
+                AND b.status != 'D'
+                AND a.recv_flag = 'PS'
+                AND a.save_flag = 'PX'
+              ORDER BY a.buyer, a.pr_no, a.pr_seq
+  </select>
+    <update id="DAED_TRXL_Dequeue" parameterClass="java.util.HashMap">
+    UPDATE ICOMTRXL
+       SET KEY_9 = 'T'
+         , KEY_10 = TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+      WHERE DOC_NAME = #DOC_NAME#
+        AND TARGET = #TARGET#
+        AND KEY_1 = #KEY_1#
+        AND KEY_2 = #KEY_2#
+        AND KEY_3 = #KEY_3#
+        AND KEY_4 = #KEY_4#
+        AND KEY_5 = #KEY_5#
+        AND KEY_6 = #KEY_6#
+        AND KEY_7 = #KEY_7#
+        AND KEY_8 = #KEY_8#
+        AND KEY_9 = #KEY_9#
+        AND KEY_10 = #KEY_10#
+           
+  </update>
+  
+  <update id="DaedPRDT_D" parameterClass="java.util.HashMap">
+    UPDATE ICOMPRDT
+	   SET RECV_FLAG = 'PR' 
+	     , CHANGE_DATE = TO_CHAR(SYSDATE,'YYYYMMDD')
+ 		 , CHANGE_TIME = TO_CHAR(SYSDATE,'HH24MISS')
+	 WHERE BUYER = #BUYER#
+	   AND   PR_NO = #PR_NO#
+	   AND   PR_SEQ = #PR_SEQ#
+	   AND   RECV_FLAG = 'PS'
+	   AND   SAVE_FLAG = 'PX'
+           
+  </update>
+  
+  <update id="DaedPRDT_F" parameterClass="java.util.HashMap">
+    UPDATE ICOMPRDT
+	   SET RECV_FLAG = 'PD' 
+	     , CHANGE_DATE = TO_CHAR(SYSDATE,'YYYYMMDD')
+ 		 , CHANGE_TIME = TO_CHAR(SYSDATE,'HH24MISS')
+	 WHERE BUYER = #BUYER#
+	   AND   PR_NO = #PR_NO#
+	   AND   PR_SEQ = #PR_SEQ#
+	   AND   RECV_FLAG = 'PS'
+	   AND   SAVE_FLAG = 'PX'
+           
+  </update>
+  
+</sqlMap>

@@ -1,0 +1,1 @@
+java -Dlog4j.configuration=file:/D:/KolonSap/Consumer/log4j.properties -jar -Xms64m -Xmx128m D:/KolonSap/Consumer/kep_ws_demon.jar %1 %2

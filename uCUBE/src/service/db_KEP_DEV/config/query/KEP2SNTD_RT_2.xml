@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="EUC-KR"?>
+<SQL>
+	<!-- *********************************************************************** -->
+	<SQL_DOC INTERFACE_ID="KEP2SNTD_RT_2">
+		<V_SQL NAME='$G_RS' ISLOOP="TRUE" COMMIT_BY_RESULT="FALSE"> 
+			SELECT TARGET AS BUYER, KEY_1 AS QUOTATION_NO, KEY_2 AS QUOTATION_SEQ, KEY_3 AS REVISION
+			FROM ICOMTRXL
+			WHERE  DOC_NAME = 'QTHDDOWN'
+			AND TARGET   IN ('KRSNTD0001','KRSNTD0003')
+            AND KEY_10 = 'X'
+			GROUP BY TARGET, KEY_1, KEY_2, KEY_3
+		</V_SQL> 
+		<P_SQL SEQ="1" TYPE="SELECT" POST_SQL="TRUE">
+		<![CDATA[
+			
+			SELECT 
+                   A.REF_NO AS PLANT,
+                   A.QUOTATION_NO AS RE_NO,
+                   A.QUOTATION_SEQ AS RE_SEQ,
+                   A.REVISION,
+                   DECODE(B.BID_SUCCESS_FLAG,'Y','3494',B.AGENT) AS AGENT_CODE,
+                   DECODE(B.BID_SUCCESS_FLAG,'Y','코리아이플랫폼(주)',C.COM_NAME_LOC) AS AGENT_NAME,
+                   B.STATUS,
+                   A.BUYER_ITEM_NO,
+                   B.ATOB_UNIT_PRICE AS T_PRICE,
+                   DECODE(B.BID_SUCCESS_FLAG,'Y','1','0') AS IFDECIS,
+				   TO_CHAR(SYSDATE,'YYYYMMDD') AS IFDATE,
+				   TO_CHAR(SYSDATE,'HH24MISS') AS IFTIME
+              FROM KEPRQDT A, KEPQTDT B, ICOMCMPY C, ICOMTRXL D
+             WHERE D.DOC_NAME = 'QTHDDOWN'
+               AND D.TARGET IN ('KRSNTD0001','KRSNTD0003')
+               AND D.KEY_10 = 'X'
+               AND D.TARGET = A.BUYER
+               AND D.KEY_1  = A.QUOTATION_NO
+               AND D.KEY_2  = A.QUOTATION_SEQ
+               AND D.KEY_3  = A.REVISION
+               AND A.BUYER  = B.BUYER
+               AND A.QUOTATION_NO = B.QUOTATION_NO
+               AND A.QUOTATION_SEQ= B.QUOTATION_SEQ
+               AND A.REVISION = B.REVISION
+               AND B.STATUS = 'C'
+               AND B.AGENT = C.COM_CODE(+)
+               AND B.BID_SUCCESS_FLAG = 'Y'
+			    AND D.TARGET      = '$G_RS.BUYER$'
+				AND D.KEY_1       = '$G_RS.QUOTATION_NO$'
+				AND D.KEY_2       = '$G_RS.QUOTATION_SEQ$'
+				AND D.KEY_3       = '$G_RS.REVISION$'
+		]]>
+			<C_SQL TYPE="UPDATE" P_SQL_RESULT="TRUE">
+			<![CDATA[
+				
+				DECLARE
+
+					V_SEND_DATE		KEPRQDT.SEND_DATE%TYPE;
+					V_SEND_TIME		KEPRQDT.SEND_TIME%TYPE;
+					V_SEND_DATETIME	ICOMTRXL.KEY_8%TYPE;
+
+				BEGIN
+					
+					SELECT
+					TO_CHAR(SYSDATE,'YYYYMMDD'), TO_CHAR(SYSDATE,'HH24MISS'), TO_CHAR(SYSDATE,'YYYYMMDD HH24MISS')
+					INTO V_SEND_DATE, V_SEND_TIME, V_SEND_DATETIME
+					FROM DUAL;
+
+					UPDATE ICOMTRXL
+					SET KEY_10 = 'Y', KEY_9 = TO_CHAR(SYSDATE,'YYYYMMDD HH24MISS')
+					WHERE  DOC_NAME = 'QTHDDOWN'
+					AND TARGET       = '$G_RS.BUYER$'
+					AND KEY_1       = '$G_RS.QUOTATION_NO$'
+					AND KEY_2       = '$G_RS.QUOTATION_SEQ$'
+					AND KEY_3       = '$G_RS.REVISION$'
+					AND KEY_10 = 'X'
+					;
+
+					UPDATE KEPRQDT SET
+						   SEND_DATE = TO_CHAR(SYSDATE,'YYYYMMDD'),
+						   SEND_TIME = TO_CHAR(SYSDATE,'HH24MISS')
+					WHERE BUYER = '$G_RS.BUYER$'
+					  AND QUOTATION_NO = '$G_RS.QUOTATION_NO$'
+					  AND QUOTATION_SEQ= '$G_RS.QUOTATION_SEQ$'
+					  AND REVISION = '$G_RS.REVISION$'
+					  ;
+
+				END;
+
+			]]>
+			</C_SQL>
+			<C_SQL TYPE="UPDATE" P_SQL_RESULT="FALSE">
+			<![CDATA[
+				UPDATE ICOMTRXL
+				SET KEY_10 = 'E', KEY_9 = TO_CHAR(SYSDATE,'YYYYMMDD HH24MISS')
+				WHERE  DOC_NAME = 'QTHDDOWN'
+				AND TARGET       = '$G_RS.BUYER$'
+				AND KEY_1       = '$G_RS.QUOTATION_NO$'
+				AND KEY_2       = '$G_RS.QUOTATION_SEQ$'
+				AND KEY_3       = '$G_RS.REVISION$'
+				AND KEY_10 = 'X'
+			]]>
+			</C_SQL>
+		</P_SQL>
+	</SQL_DOC>
+	<RETRY_CODE>
+		<CODE>03113</CODE>
+		<CODE>03114</CODE>
+		<CODE>02154</CODE>
+		<CODE>02541</CODE>
+		<CODE>04068</CODE>
+	</RETRY_CODE>
+</SQL>

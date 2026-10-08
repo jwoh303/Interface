@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap      
+    PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN"
+    "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="YhkbPrDown">
+
+    <select id="YhkbPrDown_DBDispatcher"  resultClass="java.lang.Integer">
+		 SELECT  count(*)
+		   FROM ICOMTRXL
+		  WHERE DOC_NAME = 'KIM_PR'
+		    AND TARGET IN ('KRYUHA0013','KRUHAN0002','KRYUHA0010','KRYUHA0011','KRYUHA0012','KRUHAN0003','KRUHAN0004')
+		    AND KEY_9 = 'N'
+	</select>
+	
+	<select id="YhkbPrDown_PRDT_Select" resultClass="java.util.HashMap">
+		 SELECT     TARGET AS BUYER
+                  , KEY_1 AS GUBUN
+                  , KEY_2 AS ITEM_NO
+                  , KEY_3 AS ITEM_QTY
+                  , KEY_4 AS UNIT_PRICE
+                  , NVL(F_SPLIT(KEY_10,'+',1),' ') AS PLANT
+                  , NVL(F_SPLIT(KEY_10,'+',2),' ') AS RD_DATE
+                  , NVL(F_SPLIT(KEY_10,'+',3),' ') AS USER_ID1
+                  , NVL( (SELECT LEGACY_USER_ID FROM ICOMLUSR
+                      WHERE USER_ID = NVL(F_SPLIT(KEY_10,'+',4),' ')
+                    ) ,' ')AS USER_ID2
+                  , NVL(F_SPLIT(KEY_10,'+',5),' ') AS ACCOUNT_TYPE
+                  , NVL(F_SPLIT(KEY_10,'+',6),' ') AS P_UNIT_PRICE
+                  , NVL(F_SPLIT(KEY_10,'+',7),' ') AS ACCOUNT_CODE
+                  , NVL(F_SPLIT(KEY_10,'+',8),' ') AS PRCTR
+                  , NVL(F_SPLIT(KEY_10,'+',9),' ') AS PRSEG
+                  , NVL(F_SPLIT(KEY_10,'+',10),' ') AS COCTR
+                  , TO_CHAR(SYSDATE,'YYYYMMDD') AS ADD_DATE
+                  , TO_CHAR(SYSDATE,'HH24MISS') AS ADD_TIME
+                  , KEY_8 AS ADD_DATM
+             FROM ICOMTRXL
+             WHERE TARGET IN ('KRYUHA0013','KRUHAN0002','KRYUHA0010','KRYUHA0011','KRYUHA0012','KRUHAN0003','KRUHAN0004')
+             AND DOC_NAME = 'KIM_PR'
+             AND KEY_9    = 'N'
+             ORDER BY TARGET,KEY_8
+	</select>
+	
+  <update id="YhkbPrDown_TRXL_Dequeue" parameterClass="java.util.HashMap">
+    UPDATE ICOMTRXL
+             SET   KEY_9 = 'Y'
+             WHERE DOC_NAME = 'KIM_PR'
+             AND TARGET   = #BUYER#
+             AND KEY_1    = #GUBUN#
+             AND KEY_2    = #ITEM_NO#
+             AND KEY_8    = #ADD_DATM#
+             AND KEY_9    = 'N'
+  </update>
+  
+  <update id="YhkbConfirmUser_update" parameterClass="java.util.HashMap">
+  UPDATE ICOMLUSR SET
+     LAST_LOGIN_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD'),
+     LAST_LOGIN_TIME = TO_CHAR(SYSDATE, 'HH24MISS')
+   WHERE LEGACY_USER_ID = (SELECT LEGACY_USER_ID FROM ICOMLUSR WHERE COM_CODE = #TARGET# AND ( USER_ID = #USER_ID2# OR LEGACY_USER_ID = #USER_ID2# ))
+     AND COM_CODE IN ('KRYUHA0013','KRUHAN0002','KRYUHA0010','KRYUHA0011','KRYUHA0012','KRUHAN0003','KRUHAN0004')
+  </update>
+  
+</sqlMap>

@@ -1,0 +1,1 @@
+java -Dlog4j.configuration=file:/D:/SFTPClient/bin_sftp/log4j.properties -jar -Xms64m -Xmx128m SFTPClient.jar %1 %2

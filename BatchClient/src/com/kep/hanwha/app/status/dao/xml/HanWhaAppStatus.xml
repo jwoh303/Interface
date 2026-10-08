@@ -1,0 +1,205 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap      
+    PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN"
+    "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="HanWhaAppStatus">
+
+	<select id="selectHanWhaAppStatusIdList" resultClass="java.util.HashMap">
+	<![CDATA[
+    SELECT DISTINCT A.BUYER, A.DOC_NO, A.KEY_1 AS APPR_ID, A.KEP_2 AS SYSTEM_ID,
+           CASE
+             WHEN A.BUYER IN ('KRHANW0100') THEN (
+                  SELECT MAX(CD2.TEXT4) FROM ICOMCOD2 CD1, ICOMCOD2 CD2
+                   WHERE CD1.TYPE = 'C001' 
+                     AND CD1.COMPANY_CODE = A.BUYER
+                     AND CD1.CODE = (SELECT MAX(ADD_USER_DEPT) FROM ICOMPRDT WHERE BUYER = A.BUYER AND PR_NO = A.KEP_4)
+                     AND CD2.TYPE = 'PLNT'
+                     AND CD2.COMPANY_CODE = 'KRHANWG002'
+                     AND CD2.CODE = CD1.TEXT5
+                )
+             ELSE (SELECT MAX(TEXT4) FROM ICOMCOD2 WHERE TYPE = 'PLNT' AND COMPANY_CODE = 'KRHANWG002' AND TEXT1 = A.BUYER) 
+           END AS COMPANYID,
+           A.KEP_4 AS PR_NO,
+           A.BUYER,
+           A.KEY_5 AS INSTANSID
+	  FROM EAI.IF_APM_SEND A
+	 WHERE A.BUYER IN (SELECT TEXT1 FROM ICOMCOD2 WHERE TYPE = 'PLNT' AND COMPANY_CODE = 'KRHANWG002')
+	   AND A.KEY_9 IS NULL
+	   AND A.KEY_1 IS NOT NULL
+	   AND A.IF_FLAG NOT IN ('E','N')
+	   
+	   AND A.KEP_3 = 'PR'
+	   
+	   AND A.CREATE_DATM > TRUNC(SYSDATE - 60)
+	   AND ROWNUM <= 100
+	]]>
+	</select>
+	
+	<select id="HanWhagetAppInfo" resultClass="java.util.HashMap">
+	<![CDATA[
+    SELECT DISTINCT
+	       B.COMPANY,
+	       B.DOCU_NO,
+	       B.PASS_STATUS,
+	       B.EXTIF_TP,
+	       B.EXTIF_NO,
+	       B.EXTIF_COUNT,
+	       B.CUR_ORDER_NO,
+	       (SELECT LEGACY_USER_ID FROM ICOMLUSR WHERE COM_CODE = C.COMPANY AND USER_ID = C.USER_ID) AS USER_ID
+	  FROM EAI.IF_APM_SEND A
+	     , ICOGDOCU B
+	     , ICOGPASSLN C
+	 WHERE 1 = 1
+	   AND A.KEY_1  = #APPR_ID#
+	   AND A.BUYER  = B.COMPANY
+	   AND A.DOC_NO = B.DOCU_NO
+     
+	   AND C.COMPANY = B.COMPANY
+	   AND C.DOCU_NO = B.DOCU_NO
+       AND (SELECT LEGACY_USER_ID FROM ICOMLUSR WHERE COM_CODE = C.COMPANY AND USER_ID = C.USER_ID) = #USERID#
+	]]>
+	</select>
+	
+	<update id="HanWhamodifyICOGPASSLN" parameterClass="java.util.Map">
+	UPDATE ICOGPASSLN A
+	   SET A.PASS_DATE = TO_DATE(#PASS_DATE#, 'YYYYMMDDHH24MISS')
+	     , A.REFER_DATE= TO_DATE(#PASS_DATE#, 'YYYYMMDDHH24MISS')
+	     , A.PASS_KN   = #PASS_KN#
+	     , A.PASS_ADD  = #PASS_ADD# 
+	 WHERE A.COMPANY   = #COMPANY#
+	   AND A.DOCU_NO   = #DOCU_NO#
+	   AND (SELECT LEGACY_USER_ID FROM ICOMLUSR WHERE COM_CODE = A.COMPANY AND USER_ID = A.USER_ID)  = #USER_ID#
+	</update>
+	
+	<select id="HanWhagetICOGPASSLNOrderNo" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+	SELECT
+	       TO_CHAR(ORDER_NO) AS ORDER_NO
+	  FROM ICOGPASSLN
+	WHERE 1 = 1
+	  AND COMPANY = #COMPANY#
+	  AND DOCU_NO = #DOCU_NO#
+	  AND PASS_TP = #PASS_TP#
+	  AND PASS_KN IS NULL
+	 ORDER BY TO_NUMBER(ORDER_NO)
+	</select>
+	
+	<select id="HanWhaselectPrCancelInfoList" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+	
+	SELECT DISTINCT
+	       C.BUYER, C.PR_NO
+	  FROM EAI.IF_APM_SEND A
+	     , ICOMTRGW B
+	     , ICOMPRDT C
+	 WHERE A.KEY_1 = #APPR_ID#
+	   
+	   AND A.BUYER = B.COM_CODE
+	   AND A.DOC_NO = B.TARGET
+	   
+	   AND B.COM_CODE = C.BUYER
+	   AND B.KEY_1 = C.REF_NO
+	
+	</select>
+	
+	<update id="HanWhaupdatePrCancel" parameterClass="java.util.Map">
+	UPDATE ICOMPRDT
+	   SET RECV_FLAG = #RECV_FLAG#
+	     , CHANGE_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD')
+	     , CHANGE_TIME = TO_CHAR(SYSDATE, 'HH24MISS')
+
+	 WHERE BUYER = #BUYER#
+	   AND PR_NO = #PR_NO#
+	</update>
+	
+	<update id="HanWhamodifyICOGDOCU2" parameterClass="java.util.Map">
+	UPDATE ICOGDOCU 
+	   SET CUR_ORDER_NO = #CUR_ORDER_NO#
+	     , PASS_STATUS = #PASS_STATUS#
+	 WHERE COMPANY = #COMPANY#
+	   AND DOCU_NO = #DOCU_NO#
+	   AND PASS_STATUS != #PASS_STATUS#
+	</update>
+	<update id="HanWhamodifyAPL" parameterClass="java.util.Map">
+	UPDATE EAI.IF_APL_SEND 
+	   SET KEY_3 = #APPRLINESTATUSCD#
+	     , KEY_4 = #COMMENT#
+	 WHERE BUYER = #COMPANY#
+	   AND DOC_NO = #DOCU_NO#
+	   AND USER_ID = #USER_ID#
+	</update>
+	<update id="HanWhaupdateHwinAppStatus" parameterClass="java.util.Map">
+	UPDATE EAI.IF_APM_SEND
+	   SET KEY_8 = #RTN_MSG#
+	     , KEY_9 = #RTN_FLAG#
+	     , KEY_10 = TO_CHAR(SYSDATE, 'YYYY/MM/DD HH24:MI:SS')
+	 WHERE KEY_1 = #APPR_ID#
+	</update>
+	
+	<update id="HanWhaupdateAppFinal2" parameterClass="java.util.Map">
+	UPDATE ICOGDOCU
+	   SET PASS_STATUS = #PASS_STATUS#
+	     , END_DATE = #END_DATE#
+	 WHERE (COMPANY, DOCU_NO) IN (
+		   SELECT BUYER, DOC_NO FROM EAI.IF_APM_SEND
+		    WHERE KEY_1 = #APPR_ID#
+		      AND CREATE_DATM > TO_DATE('20220320', 'YYYYMMDD')
+	   )
+	   AND PASS_STATUS NOT IN ('1','3')
+	</update>
+	
+	<update id="HanWhamodifyICOGDOCU_PASSSTATUS" parameterClass="java.util.Map">
+	UPDATE ICOGDOCU
+	   SET PASS_STATUS='4'
+	     , END_DATE = #END_DATE#
+	 WHERE (COMPANY,DOCU_NO) IN (
+	         SELECT BUYER, DOC_NO FROM EAI.IF_APM_SEND
+	          WHERE KEY_1 = #APPR_ID# )
+	</update>
+	
+	<update id="HanWhamodifyICOGPASSLN_PASSKN" parameterClass="java.util.Map">
+	UPDATE ICOGPASSLN
+	   SET PASS_KN='4'
+	     , PASS_ADD=#PASS_ADD#
+	     
+	 WHERE (COMPANY,DOCU_NO) IN (
+	         SELECT BUYER, DOC_NO FROM EAI.IF_APM_SEND
+	          WHERE KEY_1 = #APPR_ID# )
+	</update>
+	
+	<update id="HanWhaupdateReturnPrBudget" parameterClass="java.util.Map">
+    UPDATE ICOMBDGT A SET                                                                   
+            A.TEMP_AMT = A.TEMP_AMT -                                                       
+                         (SELECT                                                            
+                                NVL(SUM(TARGET_QTY * TARGET_PRICE),0)                       
+                            FROM ICOMPRDT                                                   
+                            WHERE BUYER = A.BUYER                                           
+                              AND PR_NO = #PR_NO# 
+                              AND BUDGET_DEPT||ACCOUNT_TYPE = A.DEPT||A.ACCOUNT_TYPE        
+                              AND PLAN_AMT_FLAG = 'Y'                                       
+                            GROUP BY BUDGET_DEPT , ACCOUNT_TYPE )                           
+    WHERE BUYER = #BUYER#                         
+      AND DEPT||ACCOUNT_TYPE IN (                                                           
+                             SELECT                                                         
+                                BUDGET_DEPT||ACCOUNT_TYPE                                   
+                            FROM ICOMPRDT                                                   
+                            WHERE BUYER = A.BUYER                                           
+                              AND PR_NO = #PR_NO# 
+                              AND PLAN_AMT_FLAG = 'Y'                                       
+                            GROUP BY BUDGET_DEPT , ACCOUNT_TYPE                             
+                            )                                                               
+      AND (SELECT MAX(ADD_DATE) FROM ICOMPRDT WHERE BUYER = #BUYER#  AND PR_NO = #PR_NO#  ) BETWEEN A.FROM_DATE AND A.TO_DATE  
+	</update>
+	
+	<update id="updateAppStatus_ChangeLine" parameterClass="java.util.Map">
+	UPDATE ICOGPASSLN A
+	   SET A.PASS_KN   = #PASS_KN#
+	 WHERE A.COMPANY   = #BUYER#
+	   AND A.DOCU_NO   = #DOC_NO#
+	   AND A.ORDER_NO  = (SELECT MAX(B.ORDER_NO) FROM ICOGPASSLN B WHERE A.COMPANY = B.COMPANY AND A.DOCU_NO = B.DOCU_NO AND B.PASS_TP != '2')
+	</update>
+	
+	<insert id="HanWhaAppInsertTrxl" parameterClass="java.util.Map">
+   		INSERT INTO ICOMTRXL (DOC_NAME, TARGET, KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6, KEY_7, KEY_8, KEY_9, KEY_10)
+   		              VALUES ('HNWH_PO',#BUYER#,#PR_NO#,FUN_MAX_SEQ_MNG('HNWH_PO', 'YY'), 'R', #STATUS2#, ' ', #INSTANSID#, ' ' ,TO_CHAR(SYSDATE, 'YYYY/MM/DD HH24:MI:SS'), 'N',' ' )	
+	</insert>
+</sqlMap>    

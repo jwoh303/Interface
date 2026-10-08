@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="EUC-KR"?>
+<SQL>
+	<!-- *********************************************************************** -->
+	<SQL_DOC INTERFACE_ID="KEP2MOTR_PO">
+		<V_SQL NAME='$G_RS' ISLOOP="TRUE" COMMIT_BY_RESULT="FALSE"> 
+			SELECT TARGET AS BUYER, TO_CHAR(KEY_1) AS PO_NO, TO_CHAR(KEY_2) AS PO_SEQ,  TO_CHAR(KEY_3) AS DS_SEQ
+			FROM ICOMTRXL
+			WHERE  DOC_NAME = 'DSDOWN'
+			AND TARGET = 'KRDOOS0035'
+			AND TRIM(KEY_9) IS NULL
+			GROUP BY TARGET, KEY_1, KEY_2, KEY_3
+
+		</V_SQL> 
+		<P_SQL SEQ="1" TYPE="SELECT" POST_SQL="TRUE">
+		<![CDATA[
+			SELECT NVL(B.STATUS             ,' ') AS STATUS,
+                    NVL(B.BUYER              ,' ') AS BUYER,
+                    NVL(B.PO_NO              ,' ') AS PO_NO,
+                    NVL(B.PO_SEQ             ,' ') AS PO_SEQ,
+                    NVL(B.LEGACY_PO_NO       ,' ') AS LEGACY_PO_NO,
+                    NVL(SUBSTRB(B.LEGACY_PO_SEQ,INSTRB(B.LEGACY_PO_SEQ,'-',1,1)+1,10),' ') AS LOC_ID,
+                    NVL(B.BUYER_ITEM_NO      ,' ') AS BUYER_ITEM_NO,
+                    NVL(B.DS_DATE            ,' ') AS NAPPUM_DATE,
+                    NVL(B.ITEM_QTY           ,  0) AS ITEM_QTY
+               FROM  ICOMPORS A, ICOMPODT B
+              WHERE A.BUYER    = '$G_RS.BUYER$'
+                AND A.PO_NO    = '$G_RS.PO_NO$'
+                AND A.PO_SEQ   = '$G_RS.PO_SEQ$'
+                AND A.DS_SEQ   = '$G_RS.DS_SEQ$'
+                AND A.BUYER = B.BUYER
+                AND A.PO_NO = B.PO_NO
+                AND A.PO_SEQ= B.PO_SEQ
+                ORDER BY B.BUYER,B.PO_NO, B.PO_SEQ
+		]]>
+			<C_SQL TYPE="UPDATE" P_SQL_RESULT="TRUE">
+			<![CDATA[
+
+				DECLARE
+
+					V_SEND_DATE		ICOMPORS.SEND_DATE%TYPE;
+					V_SEND_TIME		ICOMPORS.SEND_TIME%TYPE;
+					V_SEND_DATETIME	ICOMTRXL.KEY_8%TYPE;
+
+				BEGIN
+					
+					SELECT
+					TO_CHAR(SYSDATE,'YYYYMMDD'), TO_CHAR(SYSDATE,'HH24MISS'), TO_CHAR(SYSDATE,'YYYYMMDD HH24MISS')
+					INTO V_SEND_DATE, V_SEND_TIME, V_SEND_DATETIME
+					FROM DUAL;
+
+					UPDATE ICOMPORS
+					SET SEND_DATE = V_SEND_DATE,	SEND_TIME = V_SEND_TIME
+					WHERE BUYER    = '$G_RS.BUYER$'
+					AND PO_NO    = '$G_RS.PO_NO$'
+					AND PO_SEQ   = '$G_RS.PO_SEQ$'
+					AND DS_SEQ   = '$G_RS.DS_SEQ$'
+					AND TRIM(SEND_DATE) IS NULL
+					;
+
+					UPDATE ICOMTRXL
+					SET KEY_9 = 'D', KEY_8 = V_SEND_DATETIME
+					WHERE  DOC_NAME = 'DSDOWN'
+					AND TARGET      = '$G_RS.BUYER$'
+					AND KEY_1       = '$G_RS.PO_NO$'
+					AND KEY_2       = '$G_RS.PO_SEQ$'
+					AND KEY_3       = '$G_RS.DS_SEQ$'
+					AND TRIM(KEY_9) IS NULL
+					;
+
+				END;
+
+			]]>
+			</C_SQL>
+			<C_SQL TYPE="UPDATE" P_SQL_RESULT="FALSE">
+			<![CDATA[
+				UPDATE ICOMTRXL
+				SET KEY_9 = 'E', KEY_8 = TO_CHAR(SYSDATE,'YYYYMMDD HH24MISS')
+				WHERE  DOC_NAME = 'DSDOWN'
+				AND TARGET      = '$G_RS.BUYER$'
+				AND KEY_1       = '$G_RS.PO_NO$'
+				AND KEY_2       = '$G_RS.PO_SEQ$'
+				AND KEY_3       = '$G_RS.DS_SEQ$'
+				AND TRIM(KEY_9) IS NULL
+			]]>
+			</C_SQL>
+		</P_SQL>
+	</SQL_DOC>
+	<RETRY_CODE>
+		<CODE>03113</CODE>
+		<CODE>03114</CODE>
+		<CODE>02154</CODE>
+		<CODE>02541</CODE>
+		<CODE>04068</CODE>
+	</RETRY_CODE>
+</SQL>

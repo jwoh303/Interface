@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap      
+    PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN"
+    "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="ErrorLogMng">
+
+	<select id="selectErrLog" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+		SELECT ERR_CNT
+		  FROM IF_PGM_DT
+		 WHERE PGM_ID = #PGM_ID#
+		   AND ERR_TITLE = #PGM_NAME#
+		   AND ERR_TYPE = 'A'
+		   AND STATUS != 'C'
+	</select>
+			
+	<update id="mergeErrLogHd" parameterClass="java.util.HashMap">
+		MERGE INTO IF_PGM_HD A
+		USING (
+		   SELECT #PGM_ID# PGM_ID
+		     FROM DUAL
+		) B ON (1 = 1
+		  AND A.PGM_ID = B.PGM_ID
+	      AND A.PGM_TYPE = 'E'	      
+	      AND A.E_DATE IS NULL
+		)
+		WHEN MATCHED THEN 
+		   UPDATE SET
+		       B_DATE = TO_CHAR(SYSDATE, 'YY/MM/DD')
+		WHEN NOT MATCHED THEN
+		   INSERT (
+		       PGM_ID, PGM_NAME, PGM_TYPE, CREATE_DATE
+		   ) VALUES (
+		       #PGM_ID#, #PGM_NAME#, 'E', TO_CHAR(SYSDATE,'YYYYMMDD')
+		   )
+	</update>
+	
+	<update id="mergeErrLogDt" parameterClass="java.util.HashMap">
+		MERGE INTO IF_PGM_DT A
+		USING (
+		   SELECT #PGM_ID# PGM_ID, #PGM_NAME# ERR_TITLE
+		     FROM DUAL
+		) B ON (1 = 1
+		  AND A.PGM_ID = B.PGM_ID
+	      AND A.ERR_TITLE = B.ERR_TITLE
+	      AND A.ERR_TYPE = 'A'	       
+	      AND A.STATUS != 'C' 	      
+		)
+		WHEN MATCHED THEN 
+		   UPDATE SET
+		       ERR_DATE = TO_CHAR(SYSDATE, 'YY/MM/DD'),
+		       ERR_CNT = #ERR_CNT#
+		WHEN NOT MATCHED THEN
+		   INSERT (
+		       SEQ, PGM_ID, CREATE_DATE, CREATE_TIME, ERR_TITLE, ERR_NOTE, ERR_TYPE, STATUS, ERR_CNT, ERR_DATE
+		   ) VALUES (
+		       KEP.SEQ_IF_PGM_DT.NEXTVAL, #PGM_ID#, TO_CHAR(SYSDATE,'YYYYMMDD'), TO_CHAR(SYSDATE,'HH24MISS'), #PGM_NAME#, SUBSTRB(NVL(#ERR_NOTE#,' '),1,4000),
+		       'A', 'E', 1, TO_CHAR(SYSDATE, 'YY/MM/DD')
+		   )
+	</update>
+	
+</sqlMap>    

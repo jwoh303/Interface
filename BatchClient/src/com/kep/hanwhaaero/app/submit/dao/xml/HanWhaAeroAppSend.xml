@@ -1,0 +1,538 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap      
+    PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN"
+    "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+<sqlMap namespace="HanWhaAeroAppSend">
+
+    <select id="selectHanWhaAeroIFTargetList" resultClass="java.util.HashMap">
+	<![CDATA[  
+   		SELECT TARGET AS BUYER,
+	       KEY_1  AS PR_NO
+	  	FROM ICOMTRXL
+	 	WHERE DOC_NAME = 'HAERO_APP'
+	   	AND TARGET IN ('KRHANH0008','KRHANH0009','KRHANW0082')
+	   	AND KEY_9    = ' '
+	 	ORDER BY TARGET, KEY_1  
+	 ]]>
+	</select>
+	
+    
+    <select id="selectHanWhaAeroIFAppPrList" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+	SELECT
+	       A.BUYER,
+	       B.COM_NAME_LOC,
+	       A.PR_NO,
+	       A.PR_SEQ,
+	       A.BUYER_ITEM_NO,
+	       SUBSTRB(A.DESCRIPTION,1,100) AS DESCRIPTION,
+	       NVL(A.SPECIFICATION,' ') AS SPECIFICATION,
+	       'KRW' AS CUR,
+	       A.UNIT_MEASURE,
+	       NVL((SELECT NVL(TEXT1,' ') FROM ICOMCOD2 WHERE COMPANY_CODE = A.BUYER AND TYPE = 'C001' AND CODE = A.BUDGET_DEPT), ' ') AS BUDGET_DEPT,
+	       NVL((SELECT NVL(TEXT1,' ') FROM ICOMCOD2 WHERE COMPANY_CODE = A.BUYER AND TYPE = 'Z014' AND CODE = A.ACCOUNT_TYPE), ' ') AS ACCOUNT_TYPE,
+	       TO_CHAR(TO_DATE(A.ADD_DATE,'YYYYMMDD'),'YYYY-MM-DD') AS ADD_DATE,
+	       TO_CHAR(TO_DATE(A.RD_DATE,'YYYYMMDD'),'YYYY-MM-DD') AS RD_DATE,
+	       (SELECT COM_NAME_LOC FROM ICOMCMPY
+	         WHERE COM_CODE = 
+	               CASE
+	                 WHEN B.AGENT_OPEN_FLAG = 'Y' THEN A.AGENT
+	                 ELSE 'KRKORE0001'
+	               END ) AS AGENT_NAME,
+	       TRIM(TO_CHAR(A.TARGET_QTY,'999,999,999,999,999')) AS TARGET_QTY,
+	       TRIM(TO_CHAR(A.TARGET_PRICE,'999,999,999,999,999')) AS PRICE,
+	       TRIM(TO_CHAR((A.TARGET_QTY * A.TARGET_PRICE) ,'999,999,999,999,999')) AS AMT,
+	       NVL(A.LEGACY_PO_NO , ' ') AS LEGACY_PO_NO ,
+	       NVL(C.USER_NAME_LOC,' ') AS USER_NAME_LOC ,
+	       NVL(F_SPLIT(D.DESCRIPT,'^',1), ' ') AS ERP_ITEM_NO,
+	       TRIM(TO_CHAR(SUM(A.TARGET_QTY * A.TARGET_PRICE) OVER() ,'999,999,999,999,999'))  AS AMT_TOTAL
+	  FROM ICOMPRDT A
+	     , ICOMCMPY B
+	     , ICOMLUSR C
+	     , ICOMBYCA D
+	 WHERE 1 = 1
+	   AND A.BUYER = #BUYER#
+	   AND A.PR_NO = #PR_NO#
+	   
+	   AND A.BUYER = B.COM_CODE	
+	   
+	   AND C.COM_CODE = A.BUYER
+	   AND C.USER_ID = A.PURCHASER_ID
+	   
+	   AND D.COM_CODE = A.BYIT_COMORG_CODE
+       AND D.STD_CATEG_ID = A.CATEG_ID
+       
+	</select>
+	
+	
+	<select id="selectHanWhaAeroIFAppInfo" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+	<![CDATA[ 
+	SELECT 
+	    COMPANY,
+	    DOCU_NO,
+	    DOCU_TITLE,
+	    REPLACE(REPLACE(NVL(DOCU_CONT, ' '), CHR(13), ''), CHR(10), '<br>') AS DOCU_CONT,
+	    USER_ID,
+	    USER_NM,
+	    TO_CHAR(START_DATE,'YYYYMMDD') AS APP_DATE,
+	    GET_CSTMR_DEAL_STTMN_NO(#BUYER#) AS APPR_ID,
+	    IMAGE_KEY,
+	    #PR_NO# AS PR_NO
+	  FROM ICOGDOCU
+	 WHERE (COMPANY, DOCU_NO) IN (
+	    SELECT COM_CODE, TARGET
+	      FROM ICOMTRGW
+	     WHERE DOC_NAME = 'PX'
+	       AND (COM_CODE, KEY_1) IN (
+	        SELECT A.BUYER, A.REF_NO
+	          FROM ICOMPRDT A
+	         WHERE 1 = 1
+	           AND A.BUYER = #BUYER#
+	           AND A.PR_NO = #PR_NO# ) )	
+	 ]]>           
+	</select>
+	
+	
+	<insert id="insertHanWhaAeroIfAplSend" parameterClass="java.util.HashMap">
+	INSERT INTO EAI.IF_APL_SEND (
+	  BUYER,
+	  DOC_NO,
+	  APP_SEQ,
+	  USER_ID,
+	  USER_NAME,
+	  KEY_1,
+	  KEY_2,
+	  KEY_3,
+	  KEY_4,
+	  KEY_5,
+	  KEY_6,
+	  KEY_7,
+	  KEY_8,
+	  KEY_9,
+	  KEY_10
+	)
+	SELECT 
+	  A.COMPANY,
+	  A.DOCU_NO,
+	  A.ORDER_NO,
+	  (SELECT NVL(LEGACY_USER_ID,A.USER_ID) FROM ICOMLUSR WHERE COM_CODE = #COMPANY# AND USER_ID = A.USER_ID) AS USER_ID,
+	  A.USER_NM,
+	  #APPR_ID# AS KEY_1,
+	  CASE
+	  	WHEN TO_CHAR(A.PASS_TP) = '2' THEN '9' 
+	  	WHEN TO_CHAR(A.PASS_TP) = '3' THEN '2'
+	  	ELSE TO_CHAR(A.PASS_TP)
+	  END AS KEY_2	 
+	  	,
+	  '' AS KEY_3,
+	  '' AS KEY_4,
+	  '' AS KEY_5,
+	  '' AS KEY_6,
+	  '' AS KEY_7,
+	  '' AS KEY_8,
+	  '' AS KEY_9,
+	  '' AS KEY_10
+	  FROM ICOGPASSLN A
+	 WHERE 1 = 1
+	   AND A.COMPANY = #COMPANY#
+	   AND A.DOCU_NO = #DOCU_NO#
+	   
+	</insert>
+	
+	
+	<insert id="insertHanWhaAeroIfApmSend" parameterClass="java.util.HashMap">
+	INSERT INTO EAI.IF_APM_SEND (
+	    BUYER,
+	    DOC_NO,
+	    SUBJECT,
+	    CONTENTS,
+	    APP_USER_ID,
+	    APP_USER_NAME,
+	    APP_DATE,
+	    KEY_1,
+	    KEP_2,
+	    KEP_3,
+	    KEP_4,
+	    KEY_5,
+	    KEY_6,
+	    KEY_7,
+	    KEY_8,
+	    KEY_9,
+	    KEY_10,
+	    CREATE_DATM,
+	    IF_FLAG
+	) VALUES (
+	    #COMPANY#,
+	    #DOCU_NO#,
+	    #DOCU_TITLE#,
+	    #CONTENTS:CLOB#,
+	    #USER_ID#,
+	    #USER_NM#,
+	    #APP_DATE#,
+	    #APPR_ID#,
+	    '506EQ0001',
+	    'PR',
+	    #PR_NO#,
+	    '',
+	    '',
+	    '',
+	    '',
+	    '',
+	    '',
+	    SYSDATE,
+	    'N'
+	)	
+	</insert>
+	
+	
+	<select id="selectHanWhaAeroAppSendList" resultClass="java.util.HashMap">
+	SELECT A.BUYER, A.DOC_NO, KEY_1 AS APPRID, B.LEGACY_USER_ID, A.SUBJECT, A.CONTENTS,
+	       TO_CHAR(C.START_DATE, 'YYYYMMDDHH24MISS') AS ADD_DATE,
+	       KEP_2 AS SYSTEMID,
+           CASE
+             WHEN A.BUYER IN ('KRHANW0100') THEN 
+               (  SELECT MAX(CD2.TEXT4) FROM ICOMCOD2 CD1, ICOMCOD2 CD2
+                   WHERE CD1.TYPE = 'C001' 
+                     AND CD1.COMPANY_CODE = A.BUYER
+                     AND CD1.CODE = B.DEPARTMENT
+                     AND CD2.TYPE = 'PLNT'
+                     AND CD2.COMPANY_CODE = 'KRHANHG001'
+                     AND CD2.CODE = CD1.TEXT5 )
+             ELSE (SELECT MAX(TEXT4) FROM ICOMCOD2 WHERE TYPE = 'PLNT' AND COMPANY_CODE = 'KRHANHG001' AND TEXT1 = A.BUYER) 
+           END AS COMPANYID,
+           CASE
+             WHEN A.BUYER IN ('KRHANW0100') THEN 
+               (  SELECT MAX(CD2.TEXT3) FROM ICOMCOD2 CD1, ICOMCOD2 CD2
+                   WHERE CD1.TYPE = 'C001' 
+                     AND CD1.COMPANY_CODE = A.BUYER
+                     AND CD1.CODE = B.DEPARTMENT
+                     AND CD2.TYPE = 'PLNT'
+                     AND CD2.COMPANY_CODE = 'KRHANHG001'
+                     AND CD2.CODE = CD1.TEXT5 )
+             ELSE (SELECT MAX(TEXT3) FROM ICOMCOD2 WHERE TYPE = 'PLNT' AND COMPANY_CODE = 'KRHANHG001' AND TEXT1 = A.BUYER) 
+           END AS FORMCODE,
+	       KEP_4 AS PR_NO
+	       	
+	  FROM EAI.IF_APM_SEND A
+	     , ICOMLUSR B
+	     , ICOGDOCU C
+	 WHERE A.BUYER = #COMPANY#
+	   AND A.DOC_NO = #DOCU_NO#
+	   AND A.KEY_9 IS NULL
+	   AND A.KEY_1 IS NOT NULL
+	   AND A.IF_FLAG = 'N'
+	   
+	   AND B.USER_ID = A.APP_USER_ID
+	   
+	   AND C.COMPANY = A.BUYER
+	   AND C.DOCU_NO = A.DOC_NO
+
+	   AND ROWNUM = 1
+	</select>
+	
+	
+	<select id="selectHanWhaAeroPassln" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+	SELECT
+	       A.KEY_1 AS APPRID,
+	       TO_CHAR(A.APP_SEQ - 1) AS APPRSEQ,
+	       TO_CHAR(A.KEY_2) AS APPRACTIONCD,
+	        NVL(C.LEGACY_USER_ID,A.USER_ID)  AS USER_ID	
+	  FROM EAI.IF_APL_SEND A
+	     , ICOGPASSLN B
+	     , ICOMLUSR C
+	 WHERE A.BUYER = #BUYER#
+	   AND A.DOC_NO = #DOC_NO#
+	   AND A.APP_SEQ = B.ORDER_NO
+	    AND A.KEY_2 != '9'
+	    
+	   AND B.COMPANY = A.BUYER
+	   AND B.DOCU_NO = A.DOC_NO
+	   AND B.USER_ID = C.USER_ID
+       
+	   AND C.COM_CODE = A.BUYER
+	   AND C.LEGACY_USER_ID = A.USER_ID
+	   
+	</select>
+	
+	<select id="selectHanWhaAeroPassln_refer" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+	SELECT
+	       A.KEY_1 AS APPRID,
+	       TO_CHAR(A.APP_SEQ - 1) AS APPRSEQ,
+	       TO_CHAR(A.KEY_2) AS APPRACTIONCD,
+	        NVL(C.LEGACY_USER_ID,A.USER_ID)  AS USER_ID	
+	  FROM EAI.IF_APL_SEND A
+	     , ICOGPASSLN B
+	     , ICOMLUSR C
+	 WHERE A.BUYER = #BUYER#
+	   AND A.DOC_NO = #DOC_NO#
+	   AND A.APP_SEQ = B.ORDER_NO
+	    AND A.KEY_2 = '9'
+	    
+	   AND B.COMPANY = A.BUYER
+	   AND B.DOCU_NO = A.DOC_NO
+	   AND B.USER_ID = C.USER_ID
+       
+	   AND C.COM_CODE = A.BUYER
+	   AND C.LEGACY_USER_ID = A.USER_ID
+	   
+	</select>
+	
+	
+	<update id="updateHanWhaAeroSubmitResult" parameterClass="java.util.Map">
+	UPDATE EAI.IF_APM_SEND A
+	   SET KEY_7 = #RTN_MSG#
+	     , IF_FLAG = #RTN_FLAG#
+	     , IF_DATM = SYSDATE
+   WHERE A.BUYER = #BUYER#
+     AND A.DOC_NO = #DOC_NO#
+	</update>
+	
+	<update id="updateAeroAppSubmitTrxlResult" parameterClass="java.util.Map">
+	UPDATE ICOMTRXL A
+	   SET KEY_9 = #RTN_FLAG#
+	     , KEY_10 = SYSDATE
+   WHERE A.TARGET = #BUYER#
+     AND A.KEY_1 = #PR_NO#
+	</update>
+	
+	
+	<select id="HanWhaAerogetIcomatch"   parameterClass="java.util.Map"   resultClass="java.util.HashMap">
+			<![CDATA[        
+				SELECT
+				     DOC_NO
+					,DOC_SEQ
+					,TYPE
+					,DES_FILE_NAME
+					,SRC_FILE_NAME
+					,FILE_SIZE / 1000 FILE_SIZE
+					,ADD_DATE
+					,ADD_TIME
+					,CHANGE_DATE
+					,CHANGE_TIME
+					,ADD_USER_ID
+					,ADD_USER_NAME
+					,DES_FILE_DIR
+				FROM ICOMATCH
+				WHERE DOC_NO = #IMAGE_KEY#
+			]]>
+	</select>	
+	
+	<update id="updateHanWhaAeroIfApmSend" parameterClass="java.util.Map">
+	UPDATE EAI.IF_APM_SEND A
+	   SET KEY_5 = #instanceId#
+   WHERE A.BUYER = #BUYER#
+     AND A.DOC_NO = #DOC_NO#
+	</update>
+	
+	<insert id="HanWhaAeroAppMailSend" parameterClass="java.util.HashMap">
+		INSERT INTO KEP_MAIL
+                       ( SEQ,
+                         SEND_EMAIL,
+                         SEND_NAME,
+                         RECEIVE_EMAIL,
+                         RECEIVE_NAME,
+                         SUBJECT,
+                         CONTENTS,
+                         CREATE_DATE,
+                         JOB_FLAG)
+                 VALUES( SEQ_KEP_MAIL.NEXTVAL,
+                         'koreab2b@koreab2b.com',
+                         '운영자',
+                         'comanche@koreab2b.com;coolkim@koreab2b.com;jwoh@koreab2b.com;',
+                         '김승우;김시원;오지원;',
+                         '(주)한화 주문 결재 오류',
+                         '오류생성 일시 : '||TO_CHAR(SYSDATE,'YYYYMMDD HH24:MI:SS')||')'|| #MAIL_CONTENT#,
+                         SYSDATE,
+                         'N')
+  </insert>
+  
+  
+  
+  
+  
+  
+  	<select id="selectHanWhaAeroAppStatusIdList" resultClass="java.util.HashMap">
+	<![CDATA[
+    SELECT DISTINCT A.BUYER, A.DOC_NO, A.KEY_1 AS APPR_ID, A.KEP_2 AS SYSTEM_ID,
+         (SELECT MAX(TEXT4) FROM ICOMCOD2 WHERE TYPE = 'PLNT' AND TEXT1 = A.BUYER) AS COMPANYID,
+           A.KEP_4 AS PR_NO,
+           A.BUYER,
+           A.KEY_5 AS INSTANSID
+	  FROM EAI.IF_APM_SEND A
+	 WHERE A.BUYER IN ('KRHANH0008','KRHANH0009','KRHANW0082')
+	   AND A.KEY_9 IS NULL
+	   AND A.KEY_1 IS NOT NULL
+	   AND A.IF_FLAG NOT IN ('E','N')
+	   
+	   AND A.KEP_3 = 'PR'
+	   
+	   AND A.CREATE_DATM > TRUNC(SYSDATE - 60)
+	   AND ROWNUM <= 100
+	]]>
+	</select>
+  
+  <select id="HanWhaAerogetAppInfo" resultClass="java.util.HashMap">
+	<![CDATA[
+    SELECT DISTINCT
+	       B.COMPANY,
+	       B.DOCU_NO,
+	       B.PASS_STATUS,
+	       B.EXTIF_TP,
+	       B.EXTIF_NO,
+	       B.EXTIF_COUNT,
+	       B.CUR_ORDER_NO,
+	       (SELECT LEGACY_USER_ID FROM ICOMLUSR WHERE COM_CODE = C.COMPANY AND USER_ID = C.USER_ID) AS USER_ID
+	  FROM EAI.IF_APM_SEND A
+	     , ICOGDOCU B
+	     , ICOGPASSLN C
+	 WHERE 1 = 1
+	   AND A.KEY_1  = #APPR_ID#
+	   AND A.BUYER  = B.COMPANY
+	   AND A.DOC_NO = B.DOCU_NO
+     
+	   AND C.COMPANY = B.COMPANY
+	   AND C.DOCU_NO = B.DOCU_NO
+       AND (SELECT LEGACY_USER_ID FROM ICOMLUSR WHERE COM_CODE = C.COMPANY AND USER_ID = C.USER_ID) = #USERID#
+	]]>
+	</select>
+  
+  
+  	<update id="HanWhaAeromodifyICOGPASSLN" parameterClass="java.util.Map">
+	UPDATE ICOGPASSLN A
+	   SET A.PASS_DATE = TO_DATE(#PASS_DATE#, 'YYYYMMDDHH24MISS')
+	     , A.REFER_DATE= TO_DATE(#PASS_DATE#, 'YYYYMMDDHH24MISS')
+	     , A.PASS_KN   = #PASS_KN#
+	     , A.PASS_ADD  = #PASS_ADD# 
+	 WHERE A.COMPANY   = #COMPANY#
+	   AND A.DOCU_NO   = #DOCU_NO#
+	   AND (SELECT LEGACY_USER_ID FROM ICOMLUSR WHERE COM_CODE = A.COMPANY AND USER_ID = A.USER_ID)  = #USER_ID#
+	</update>
+	
+	<select id="HanWhaAerogetICOGPASSLNOrderNo" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+	SELECT
+	       TO_CHAR(ORDER_NO) AS ORDER_NO
+	  FROM ICOGPASSLN
+	WHERE 1 = 1
+	  AND COMPANY = #COMPANY#
+	  AND DOCU_NO = #DOCU_NO#
+	  AND PASS_TP = #PASS_TP#
+	  AND PASS_KN IS NULL
+	 ORDER BY TO_NUMBER(ORDER_NO)
+	</select>
+	
+	<select id="HanWhaAeroselectPrCancelInfoList" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+	
+	SELECT DISTINCT
+	       C.BUYER, C.PR_NO
+	  FROM EAI.IF_APM_SEND A
+	     , ICOMTRGW B
+	     , ICOMPRDT C
+	 WHERE A.KEY_1 = #APPR_ID#
+	   
+	   AND A.BUYER = B.COM_CODE
+	   AND A.DOC_NO = B.TARGET
+	   
+	   AND B.COM_CODE = C.BUYER
+	   AND B.KEY_1 = C.REF_NO
+	
+	</select>
+	
+	<update id="HanWhaAeroupdatePrCancel" parameterClass="java.util.Map">
+	UPDATE ICOMPRDT
+	   SET RECV_FLAG = #RECV_FLAG#
+	     , CHANGE_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD')
+	     , CHANGE_TIME = TO_CHAR(SYSDATE, 'HH24MISS')
+
+	 WHERE BUYER = #BUYER#
+	   AND PR_NO = #PR_NO#
+	</update>
+	
+	<update id="HanWhaAeromodifyICOGDOCU2" parameterClass="java.util.Map">
+	UPDATE ICOGDOCU 
+	   SET CUR_ORDER_NO = #CUR_ORDER_NO#
+	     , PASS_STATUS = #PASS_STATUS#
+	 WHERE COMPANY = #COMPANY#
+	   AND DOCU_NO = #DOCU_NO#
+	   AND PASS_STATUS != #PASS_STATUS#
+	</update>
+	<update id="HanWhaAeromodifyAPL" parameterClass="java.util.Map">
+	UPDATE EAI.IF_APL_SEND 
+	   SET KEY_3 = #APPRLINESTATUSCD#
+	     , KEY_4 = #COMMENT#
+	 WHERE BUYER = #COMPANY#
+	   AND DOC_NO = #DOCU_NO#
+	   AND USER_ID = #USER_ID#
+	</update>
+	<update id="HanWhaAeroupdateHwinAppStatus" parameterClass="java.util.Map">
+	UPDATE EAI.IF_APM_SEND
+	   SET KEY_8 = #RTN_MSG#
+	     , KEY_9 = #RTN_FLAG#
+	     , KEY_10 = TO_CHAR(SYSDATE, 'YYYY/MM/DD HH24:MI:SS')
+	 WHERE KEY_1 = #APPR_ID#
+	</update>
+	
+	<update id="HanWhaAeroupdateAppFinal2" parameterClass="java.util.Map">
+	UPDATE ICOGDOCU
+	   SET PASS_STATUS = #PASS_STATUS#
+	     , END_DATE = #END_DATE#
+	 WHERE (COMPANY, DOCU_NO) IN (
+		   SELECT BUYER, DOC_NO FROM EAI.IF_APM_SEND
+		    WHERE KEY_1 = #APPR_ID#
+		      AND CREATE_DATM > TO_DATE('20220320', 'YYYYMMDD')
+	   )
+	   AND PASS_STATUS NOT IN ('1','3')
+	</update>
+	
+	<update id="HanWhaAeromodifyICOGDOCU_PASSSTATUS" parameterClass="java.util.Map">
+	UPDATE ICOGDOCU
+	   SET PASS_STATUS='4'
+	     , END_DATE = #END_DATE#
+	 WHERE (COMPANY,DOCU_NO) IN (
+	         SELECT BUYER, DOC_NO FROM EAI.IF_APM_SEND
+	          WHERE KEY_1 = #APPR_ID# )
+	</update>
+	
+	<update id="HanWhaAeromodifyICOGPASSLN_PASSKN" parameterClass="java.util.Map">
+	UPDATE ICOGPASSLN
+	   SET PASS_KN='4'
+	     , PASS_ADD=#PASS_ADD#
+	     
+	 WHERE (COMPANY,DOCU_NO) IN (
+	         SELECT BUYER, DOC_NO FROM EAI.IF_APM_SEND
+	          WHERE KEY_1 = #APPR_ID# )
+	</update>
+	
+	<update id="HanWhaAeroupdateReturnPrBudget" parameterClass="java.util.Map">
+    UPDATE ICOMBDGT A SET                                                                   
+            A.TEMP_AMT = A.TEMP_AMT -                                                       
+                         (SELECT                                                            
+                                NVL(SUM(TARGET_QTY * TARGET_PRICE),0)                       
+                            FROM ICOMPRDT                                                   
+                            WHERE BUYER = A.BUYER                                           
+                              AND PR_NO = #PR_NO# 
+                              AND BUDGET_DEPT||ACCOUNT_TYPE = A.DEPT||A.ACCOUNT_TYPE        
+                              AND PLAN_AMT_FLAG = 'Y'                                       
+                            GROUP BY BUDGET_DEPT , ACCOUNT_TYPE )                           
+    WHERE BUYER = #BUYER#                         
+      AND DEPT||ACCOUNT_TYPE IN (                                                           
+                             SELECT                                                         
+                                BUDGET_DEPT||ACCOUNT_TYPE                                   
+                            FROM ICOMPRDT                                                   
+                            WHERE BUYER = A.BUYER                                           
+                              AND PR_NO = #PR_NO# 
+                              AND PLAN_AMT_FLAG = 'Y'                                       
+                            GROUP BY BUDGET_DEPT , ACCOUNT_TYPE                             
+                            )                                                               
+      AND (SELECT MAX(ADD_DATE) FROM ICOMPRDT WHERE BUYER = #BUYER#  AND PR_NO = #PR_NO#  ) BETWEEN A.FROM_DATE AND A.TO_DATE  
+	</update>
+	
+	<update id="updateAeroAppStatus_ChangeLine" parameterClass="java.util.Map">
+	UPDATE ICOGPASSLN A
+	   SET A.PASS_KN   = #PASS_KN#
+	 WHERE A.COMPANY   = #BUYER#
+	   AND A.DOCU_NO   = #DOC_NO#
+	   AND A.ORDER_NO  = (SELECT MAX(B.ORDER_NO) FROM ICOGPASSLN B WHERE A.COMPANY = B.COMPANY AND A.DOCU_NO = B.DOCU_NO AND B.PASS_TP != '2')
+	</update>
+	
+  
+  
+</sqlMap>

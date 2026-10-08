@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap      
+    PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN"
+    "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="HanWhaNegoStatus">
+
+	<select id="selectHanWhaNegoAppStatusIdList" resultClass="java.util.HashMap">
+	<![CDATA[
+    SELECT DISTINCT KEY_1 AS APPR_ID, KEP_2 AS SYSTEM_ID,
+    (SELECT TEXT4 FROM ICOMCOD2 WHERE TYPE = 'PLNT' AND TEXT1 = BUYER) AS COMPANYID
+	  FROM EAI.IF_APM_SEND
+	 WHERE BUYER IN (SELECT TEXT1 FROM ICOMCOD2 WHERE TYPE = 'PLNT' AND COMPANY_CODE = 'KRHANWG002')
+	   AND KEY_9 IS NULL
+	   AND KEY_1 IS NOT NULL
+	   AND KEP_3 = 'NEGO'
+	   
+	   AND CREATE_DATM > TRUNC(SYSDATE - 60)
+	   AND ROWNUM <= 20
+	]]>
+	</select>
+	
+	<select id="HanWhaNegogetAppInfo" resultClass="java.util.HashMap">
+	<![CDATA[
+    SELECT DISTINCT
+	       B.COMPANY,
+	       B.DOCU_NO,
+	       B.PASS_STATUS,
+	       B.EXTIF_TP,
+	       B.EXTIF_NO,
+	       B.EXTIF_COUNT,
+	       B.CUR_ORDER_NO,
+	       (SELECT LEGACY_USER_ID FROM ICOMLUSR WHERE COM_CODE = C.COMPANY AND USER_ID = C.USER_ID) AS USER_ID
+	  FROM EAI.IF_APM_SEND A
+	     , ICOGDOCU B
+	     , ICOGPASSLN C
+	 WHERE 1 = 1
+	   AND A.KEY_1  = #APPR_ID#
+	   AND A.BUYER  = B.COMPANY
+	   AND A.DOC_NO = B.DOCU_NO
+     
+	   AND C.COMPANY = B.COMPANY
+	   AND C.DOCU_NO = B.DOCU_NO
+       AND (SELECT LEGACY_USER_ID FROM ICOMLUSR WHERE COM_CODE = C.COMPANY AND USER_ID = C.USER_ID) = #USERID#
+	]]>
+	</select>
+	
+	<update id="HanWhaNegomodifyICOGPASSLN" parameterClass="java.util.Map">
+	UPDATE ICOGPASSLN A
+	   SET A.PASS_DATE = TO_DATE(#PASS_DATE#, 'YYYYMMDDHH24MISS')
+	     , A.REFER_DATE= TO_DATE(#PASS_DATE#, 'YYYYMMDDHH24MISS')
+	     , A.PASS_KN   = #PASS_KN#
+	     , A.PASS_ADD  = #PASS_ADD# 
+	 WHERE A.COMPANY   = #COMPANY#
+	   AND A.DOCU_NO   = #DOCU_NO#
+	   AND (SELECT LEGACY_USER_ID FROM ICOMLUSR WHERE COM_CODE = A.COMPANY AND USER_ID = A.USER_ID)   = #USER_ID#
+	</update>
+	
+	<select id="HanWhaNegogetICOGPASSLNOrderNo" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+	SELECT
+	       TO_CHAR(ORDER_NO) AS ORDER_NO
+	  FROM ICOGPASSLN
+	WHERE 1 = 1
+	  AND COMPANY = #COMPANY#
+	  AND DOCU_NO = #DOCU_NO#
+	  AND PASS_TP = #PASS_TP#
+	  AND PASS_KN IS NULL
+	 ORDER BY TO_NUMBER(ORDER_NO)
+	</select>
+	
+	<select id="HanWhaselectNegoCancelInfoList" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+	
+	SELECT  C.BUYER, C.QUOTATION_NO, C.QUOTATION_SEQ, C.BUYER_ITEM_NO
+	  FROM EAI.IF_APM_SEND A
+	     , ICOMTRGW B
+	     , KEPRQDT C
+	 WHERE A.KEY_1 = #APPR_ID#
+	   
+	   AND A.BUYER IN (SELECT TEXT1 FROM ICOMCOD2 WHERE TYPE = 'PLNT' AND COMPANY_CODE = 'KRHANWG002')
+	   AND A.DOC_NO = B.TARGET
+	   
+	   AND B.COM_CODE IN (SELECT TEXT1 FROM ICOMCOD2 WHERE TYPE = 'PLNT' AND COMPANY_CODE = 'KRHANWG002')
+	   AND B.KEY_1 = C.GW_NO
+	   AND C.BUYER IN (SELECT TEXT1 FROM ICOMCOD2 WHERE TYPE = 'PLNT' AND COMPANY_CODE = 'KRHANWG002')
+	
+	ORDER BY C.BUYER, C.QUOTATION_NO, C.QUOTATION_SEQ
+	</select>
+	
+	<update id="HanWhaNegoupdateCancel" parameterClass="java.util.Map">
+	UPDATE KEPRQDT
+	   SET RECV_FLAG = #RECV_FLAG#
+	     , CONFIRM_DATE = NULL
+	     , SND_DATM = SYSDATE
+		 , SND_CHK = 'Y'
+	 WHERE BUYER = #BUYER#
+	   AND QUOTATION_NO = #QUOTATION_NO#
+	   AND QUOTATION_SEQ = #QUOTATION_SEQ#
+	</update>
+	
+	<update id="HanWhaNegomodifyICOGDOCU2" parameterClass="java.util.Map">
+	UPDATE ICOGDOCU 
+	   SET CUR_ORDER_NO = #CUR_ORDER_NO#
+	     , PASS_STATUS = #PASS_STATUS#
+	 WHERE COMPANY = #COMPANY#
+	   AND DOCU_NO = #DOCU_NO#
+	   AND PASS_STATUS != #PASS_STATUS#
+	</update>
+	<update id="HanWhaNegomodifyAPL" parameterClass="java.util.Map">
+	UPDATE EAI.IF_APL_SEND 
+	   SET KEY_3 = #APPRLINESTATUSCD#
+	     , KEY_4 = #COMMENT#
+	 WHERE BUYER = #COMPANY#
+	   AND DOC_NO = #DOCU_NO#
+	   AND USER_ID = #USER_ID#
+	</update>
+	<update id="HanWhaNegoupdateHwinAppStatus" parameterClass="java.util.Map">
+	UPDATE EAI.IF_APM_SEND
+	   SET KEY_8 = #RTN_MSG#
+	     , KEY_9 = #RTN_FLAG#
+	     , KEY_10 = TO_CHAR(SYSDATE, 'YYYY/MM/DD HH24:MI:SS')
+	 WHERE KEY_1 = #APPR_ID#
+	</update>
+	
+	<update id="HanWhaNegoupdateAppFinal2" parameterClass="java.util.Map">
+	UPDATE ICOGDOCU
+	   SET PASS_STATUS = #PASS_STATUS#
+	     , END_DATE = #END_DATE#
+	 WHERE (COMPANY, DOCU_NO) IN (
+		   SELECT BUYER, DOC_NO FROM EAI.IF_APM_SEND
+		    WHERE KEY_1 = #APPR_ID#
+		      AND CREATE_DATM > TO_DATE('20220320', 'YYYYMMDD')
+	   )
+	   AND PASS_STATUS NOT IN ('1','3')
+	</update>
+	
+	<update id="HanWhaNegomodifyICOGDOCU_PASSSTATUS" parameterClass="java.util.Map">
+	UPDATE ICOGDOCU
+	   SET PASS_STATUS='4'
+	   , END_DATE = #END_DATE#
+	 WHERE (COMPANY,DOCU_NO) IN (
+	         SELECT BUYER, DOC_NO FROM EAI.IF_APM_SEND
+	          WHERE KEY_1 = #APPR_ID# )
+	</update>
+	
+	<update id="HanWhaNegomodifyICOGPASSLN_PASSKN" parameterClass="java.util.Map">
+	UPDATE ICOGPASSLN
+	   SET PASS_KN='4'
+	     , PASS_ADD=#PASS_ADD#
+	 WHERE (COMPANY,DOCU_NO) IN (
+	         SELECT BUYER, DOC_NO FROM EAI.IF_APM_SEND
+	          WHERE KEY_1 = #APPR_ID# )
+	</update>
+	
+	<procedure id="HANHWA_RQDT_CONFIRM" parameterClass="java.util.HashMap">
+		<![CDATA[
+		{ CALL PKG_COMMON.RQDT_CONFIRM(#BUYER#, #QUOTATION_NO#, #QUOTATION_SEQ#, 1) }
+		]]>
+	</procedure>
+	<procedure id="HANHWA_RQDT_NEGO" parameterClass="java.util.HashMap">
+		<![CDATA[
+		{ CALL PKG_COMMON.RQDT_NEGO(#BUYER#, #QUOTATION_NO#, #QUOTATION_SEQ#) }
+		]]>
+	</procedure>
+	<update id="updateNegoStatus_ChangeLine" parameterClass="java.util.Map">
+	UPDATE ICOGPASSLN A
+	   SET A.PASS_KN   = #PASS_KN#
+	 WHERE A.COMPANY   = #BUYER#
+	   AND A.DOCU_NO   = #DOC_NO#
+	   AND A.ORDER_NO  = (SELECT MAX(B.ORDER_NO) FROM ICOGPASSLN B WHERE A.COMPANY = B.COMPANY AND A.DOCU_NO = B.DOCU_NO AND B.PASS_TP != '2')
+	</update>
+</sqlMap>    

@@ -1,0 +1,167 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap      
+    PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN"
+    "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="ExchangeRate">
+
+	<select id="selectCURCodeList" resultClass="java.util.HashMap">
+		SELECT DISTINCT 
+		       SUBSTR(TEXT2,1,3) AS EXP_CUR
+		  FROM ICOMCOD2
+		 WHERE TYPE = 'CRCY'
+		   AND FLAG = 'Y'
+		 ORDER BY EXP_CUR
+	</select>
+
+	<select id="selectCURInfoList" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+		SELECT *
+		  FROM (
+		    SELECT DISTINCT A.EXP_CODE, 
+		           A.EXP_CUR_PRICE, B.EXP_TTB_PRICE, B.EXP_DATE,
+		           CASE
+		             WHEN ABS(A.EXP_CUR_PRICE - B.EXP_TTB_PRICE) * 100 / A.EXP_CUR_PRICE > 3 THEN 'Y'
+		             ELSE 'N'
+		           END AS WORK_FLAG,
+		           RANK() OVER(PARTITION BY EXP_CODE ORDER BY EXP_DATE DESC) AS RANK,
+		           C.TEXT1 AS BUYER,
+                   (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = C.TEXT1) AS COM_NAME_LOC
+		      FROM KEP_CURRENCY_HD A
+		         , KEP_CURRENCY_IF_LIST B
+		         , ICOMCOD2 C
+		     WHERE 1 = 1
+	           AND C.TYPE = 'CRCY' 
+	           AND C.FLAG = 'Y' 
+	           AND C.TEXT2 LIKE #EXP_CUR#||'%'
+	           AND C.TEXT1 NOT IN ('KRKEPB0004')
+		       AND A.EXP_CODE = C.TEXT2
+		       AND B.EXP_CUR = A.EXP_CUR
+		  )
+		 WHERE RANK = 1 
+	</select>
+
+	<update id="mergeExchangeRateInfo" parameterClass="java.util.HashMap">
+		MERGE INTO KEP_CURRENCY_IF_LIST A
+		USING (
+		  SELECT
+		         TO_CHAR(SYSDATE, 'YYYYMMDD') AS EXP_DATE,
+		         #EXP_CUR# AS EXP_CUR
+		    FROM DUAL
+		) B ON (1 = 1
+		  AND A.EXP_DATE = B.EXP_DATE
+		  AND B.EXP_CUR = B.EXP_CUR
+		) 
+		WHEN MATCHED THEN
+		  UPDATE SET 
+			EXP_BUY_PRICE = #EXP_BUY_PRICE#,
+			EXP_SEL_PRICE = #EXP_SEL_PRICE#,
+			EXP_TTS_PRICE = #EXP_TTS_PRICE#,
+			EXP_TTB_PRICE = #EXP_TTB_PRICE#,
+			STD_RATE = #STD_RATE#,
+			LAST_UPDATE_DATE = SYSDATE
+		WHEN NOT MATCHED THEN
+		  INSERT (
+			EXP_DATE,
+			EXP_CUR,
+			EXP_BUY_PRICE,
+			EXP_SEL_PRICE,
+			EXP_TTS_PRICE,
+			EXP_TTB_PRICE,
+			STD_RATE,
+			CREATE_DATE,
+			LAST_UPDATE_DATE
+		  ) VALUES (
+			TO_CHAR(SYSDATE,'YYYYMMDD'),
+			#EXP_CUR#,
+			#EXP_BUY_PRICE#,
+			#EXP_SEL_PRICE#,
+			#EXP_TTS_PRICE#,
+			#EXP_TTB_PRICE#,
+			#STD_RATE#,
+			SYSDATE,
+			SYSDATE
+		  )
+	</update>
+	
+	
+	<update id="mergeExchangeRateInfo2" parameterClass="java.util.HashMap">
+			MERGE INTO KEP_CURRENCY_IF_LIST A
+		USING (
+		  SELECT
+		         TO_CHAR(SYSDATE-1, 'YYYYMMDD') AS EXP_DATE,
+		         #EXP_CUR# AS EXP_CUR
+		    FROM DUAL
+		) B ON (1 = 1
+		  AND A.EXP_DATE = B.EXP_DATE
+		  AND B.EXP_CUR = B.EXP_CUR
+		) 
+		WHEN MATCHED THEN
+		  UPDATE SET 
+			EXP_BUY_PRICE = #EXP_BUY_PRICE#,
+			EXP_SEL_PRICE = #EXP_SEL_PRICE#,
+			EXP_TTS_PRICE = #EXP_TTS_PRICE#,
+			EXP_TTB_PRICE = #EXP_TTB_PRICE#,
+			STD_RATE = #STD_RATE#,
+			LAST_UPDATE_DATE = SYSDATE
+		WHEN NOT MATCHED THEN
+		  INSERT (
+			EXP_DATE,
+			EXP_CUR,
+			EXP_BUY_PRICE,
+			EXP_SEL_PRICE,
+			EXP_TTS_PRICE,
+			EXP_TTB_PRICE,
+			STD_RATE,
+			CREATE_DATE,
+			LAST_UPDATE_DATE
+		  ) VALUES (
+			TO_CHAR(SYSDATE-1,'YYYYMMDD'),
+			#EXP_CUR#,
+			#EXP_BUY_PRICE#,
+			#EXP_SEL_PRICE#,
+			#EXP_TTS_PRICE#,
+			#EXP_TTB_PRICE#,
+			#STD_RATE#,
+			SYSDATE,
+			SYSDATE
+		  )
+	</update>
+	
+	
+	
+	<update id="updateExchangeRateHD" parameterClass="java.util.HashMap">
+		UPDATE KEP_CURRENCY_HD
+		   SET EXP_CUR_PRICE = #EXP_TTB_PRICE#
+		     , CHANGE_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD')
+		     , CHANGE_TIME = TO_CHAR(SYSDATE, 'HH24MISS')
+		 WHERE EXP_CODE = #EXP_CODE#
+	</update>
+	
+	<select id="selectSendMailUser" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+		SELECT
+		  SUBSTR(
+		    XMLAGG(
+		      XMLELEMENT( COL, ';' , USER_NAME_LOC) ).EXTRACT('//text()'
+		      ).GETSTRINGVAL()
+		      , 2) AS USER_NAME_LOC,
+		  SUBSTR(
+		    XMLAGG(
+		      XMLELEMENT( COL, ';' , EMAIL) ).EXTRACT('//text()'
+		      ).GETSTRINGVAL()
+		      , 2) AS EMAIL
+		  FROM (
+	          SELECT DISTINCT USER_NAME_LOC, EMAIL
+	            FROM ICOMLUSR
+	           WHERE USER_ID IN (
+	            SELECT CODE FROM ICOMCOD1 WHERE TYPE = 'CR_MAIL' AND FLAG = 'Y' AND TEXT2 LIKE '%'||#BUYER#||'%' )
+	           AND STATUS IN ('C','R') 
+	           ORDER BY USER_NAME_LOC 
+		) A	
+	</select>
+	
+	<procedure id="sendMail" parameterClass="java.util.HashMap">
+		<![CDATA[
+		{ CALL PKG_ADMIN_MAIL_SEND.MAIL_INSERT(#H_RECEIVE_EMAIL#,#H_RECEIVE_NAME#,#H_MAIL_SUBJECT#,#H_MAIL_CONTENTS#) }
+		]]>
+	</procedure>
+</sqlMap>

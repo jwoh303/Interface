@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap      
+    PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN"
+    "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="LsatPo">
+
+	<!-- 발주 -->
+	<insert id="insertPodtLSAT" parameterClass="java.util.Map">
+		INSERT INTO IF_PODT_UC (
+			KEP_SEQ, 			    SITE,	 	 	        BUYER,
+			STATUS,				    REVISION, 	 	        CURRENCY_CODE,
+			LEGACY_PO_NO,  		    LEGACY_PO_SEQ, 	        UNIT_PRICE,
+			ITEM_QTY,      		    ITEM_AMT,  		        DESCRIPTION,            
+			SPECIFICATION,          UNIT_MEASURE,			PLANT, 			
+            REQ_USER_INFO,			PURCHASER_USER_ID,      REMARK,    		        
+            LOAD_DATE,				LOAD_TIME, 	   		    BUYER_ITEM_NO,  		
+            IV_COLUMN,				ADD_DATE
+		) VALUES (
+			SEQ_IF_PODT_UC.NEXTVAL,		   'KA', 			        		'LSAT',
+			#PROCTYPE#,					   '1',  			        		'KRW',
+			#BANFN#,  					   #BNFPO#,    			   			#PREIS#,
+			#MENGE#,					   #MENGE#*#PREIS#,					#MATNR_T#,			
+			#GROES#,      		 		   #MEINS#,							#WERKS#,			
+            #AFNAM#,					   #BEDNR#,        					#ZTXZ01#,                
+            TO_CHAR(SYSDATE, 'YYYYMMDD'),  TO_CHAR(SYSDATE, 'HH24MISS'), 	#MATNR#,        	
+            #GUBUN#||'^'||#SAKTO#||'^'||#KOSTL#,	#BADAT#
+		)
+	</insert>
+  
+	<insert id="LsatMailSend" parameterClass="java.util.HashMap">
+		INSERT INTO kep_mail
+                       ( SEQ,
+                         SEND_EMAIL,
+                         SEND_NAME,
+                         RECEIVE_EMAIL,
+                         RECEIVE_NAME,
+                         SUBJECT,
+                         CONTENTS,
+                         CREATE_DATE,
+                         JOB_FLAG)
+                 VALUES( SEQ_KEP_MAIL.NEXTVAL,
+                         'koreab2b@koreab2b.com',
+                         '운영자',
+                         #MAIL_RECEIVE_EMAIL#,
+                         #MAIL_RECEIVE_NAME#,
+                         'LSAT 발주 매핑 오류',
+                         '오류생성 일시 : '||TO_CHAR(SYSDATE,'YYYY/MM/DD HH24:MI:SS')||')'||
+                         #BR#|| #MAIL_CONTENTS# ,
+                         SYSDATE,
+                         'N')
+	</insert>
+	
+	<select id="setectLsatPoList" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+		SELECT DT.LEGACY_PO_NO AS BANFN,
+               DT.LEGACY_PO_SEQ AS BNFPO,
+               DT.PO_NO AS SUBNO,
+               DT.PO_SEQ AS SUBIT,
+               NULL AS ODEST
+		  FROM ICOMPOHD HD, ICOMPODT DT
+		 WHERE HD.BUYER = 'KRLS-A0001'
+		   AND HD.BUYER = DT.BUYER
+		   AND HD.STATUS != 'D'
+           AND HD.PO_NO = DT.PO_NO
+		   AND TRIM(HD.SEND_DATE) IS NULL		   
+	</select>    
+	
+	<update id="updateLsatPohd" parameterClass="java.util.HashMap">
+		UPDATE ICOMPOHD
+           SET SEND_DATE = TO_CHAR(SYSDATE,'YYYYMMDD'),
+               SEND_TIME = TO_CHAR(SYSDATE,'HH24MMSS')
+         WHERE BUYER         = 'KRLS-A0001'
+           AND PO_NO         = #SUBNO#
+	</update>
+  
+</sqlMap>

@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap      
+    PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN"
+    "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="Aeky">
+
+	<select id="selectAekyArSendHd" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+		SELECT '1000' AS BUKRS
+		      , APRV_NO AS ZISSID
+		      , (SELECT MAX(ISSUE_DATE) FROM KEPTARDT WHERE TAX_BILL_NO = A.TAX_BILL_NO) AS ZMKDT
+		      , NULL AS ZISSNO
+		      , 'KRW' AS HWAER
+		      , TO_CHAR(MAX(TOT_SUPP_PRICE) * DECODE(TAX_BILL_TYPE,'D',-1,1)) AS HWBAS
+		      , TO_CHAR(MAX(TOT_TAX_PRICE) * DECODE(TAX_BILL_TYPE,'D',-1,1)) AS HWSTE
+		      , TO_CHAR(MAX(TOT_AMT) * DECODE(TAX_BILL_TYPE,'D',-1,1))       AS ZTTAT
+		      , ORIGIN_APRV_NO AS ZORG_ID
+		      , TAX_BILL_NO
+		FROM EAI.IF_UCUBE_AR_SEND A
+		WHERE BUYER = 'KRAEKY0006'
+		AND IF_FLAG = 'N'
+		GROUP BY APRV_NO,ORIGIN_APRV_NO,TAX_BILL_TYPE,TAX_BILL_NO
+	</select>
+	
+	<select id="selectAekyArSend" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+		SELECT BUKRS
+		     , ZISSID
+		     , NULL AS ZISSNO
+		     , TO_CHAR(RANK() OVER(PARTITION BY ZISSID ORDER BY ZISSID,BUDGET_DEPT,ACCOUNT_TYPE)) AS ZISSLN
+		     , (SELECT MAX(ISSUE_DATE) FROM KEPTARDT WHERE TAX_BILL_NO = X.TAX_BILL_NO) AS ZMKDT
+		     , BUDGET_DEPT AS KOSTL
+		     , ACCOUNT_TYPE AS HKONT
+		     , ITEM_AMT AS HWBAS
+		     , TAX_AMT AS HWSTE
+		     , T_AMT AS ZTTAT
+		     , TAX_BILL_NO
+		FROM (SELECT '1000' AS BUKRS
+		             , APRV_NO AS ZISSID
+		             , KEY_1 AS BUDGET_DEPT
+		             , KEY_2 AS ACCOUNT_TYPE
+		             , TO_CHAR(SUM(GR_AMT) * DECODE(TAX_BILL_TYPE,'D',-1,1)) ITEM_AMT
+		             , TO_CHAR(TRUNC(SUM(GR_AMT)/10,0) * DECODE(TAX_BILL_TYPE,'D',-1,1)) TAX_AMT
+		             , TO_CHAR((SUM(GR_AMT) + TRUNC(SUM(GR_AMT)/10,0)) * DECODE(TAX_BILL_TYPE,'D',-1,1)) AS T_AMT
+		             , TAX_BILL_NO
+		       FROM EAI.IF_UCUBE_AR_SEND A
+		       WHERE BUYER = 'KRAEKY0006'
+		       AND APRV_NO = #ZISSID#
+		       AND IF_FLAG = 'N'
+		       GROUP BY APRV_NO,KEY_1,KEY_2 ,TAX_BILL_TYPE, TAX_BILL_NO
+       ) X
+	</select>
+		
+	<select id="selectParamKey" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+		SELECT 'KEP'|| LPAD(TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'),32,'0') AS PARAM_KEY FROM DUAL
+	</select>
+	
+	<select id="selectParamMroKey" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+		SELECT 'MRO'|| LPAD(TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'),32,'0') AS PARAM_KEY FROM DUAL
+	</select>
+
+	<update  id="updateAekyArSend" parameterClass="java.util.Map">
+		UPDATE EAI.IF_UCUBE_AR_SEND
+		SET IF_DATE = #IF_DATE#
+		  , IF_TIME = #IF_TIME#
+		  , IF_FLAG = #TYPE#
+		WHERE BUYER = 'KRAEKY0006'
+		AND IF_FLAG = 'N'
+		AND APRV_NO = #ZISSID#	
+	</update>	
+	
+	<insert id="insertAekyBdgt" parameterClass="java.util.Map">
+		INSERT INTO EAI.IF_AEKY_BDGT (
+            KEP_SEQ, BUYER, DEPT, DEPT_NM, ACCOUNT, ACCOUNT_NM, TERM_TYPE,
+            TERM, PLAN_AMT, RESULT_AMT, BUYER_DATE, IF_FLAG, IF_DATE			
+		) VALUES (
+			EAI.SEQ_IF_AEKY_BDGT.NEXTVAL, 'KRAEKY0006', #KOSTL#, #KOSTL_T#, #KSTAR#, #KSTAR_T#, #CTYPE#,
+            #BGTERM#, #BGAMT#, #ATAMT#, #CRDAT#, 'N', SYSDATE
+		)		
+	</insert>	
+	
+	
+</sqlMap>    

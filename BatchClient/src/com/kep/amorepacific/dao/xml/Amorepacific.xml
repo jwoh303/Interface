@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap      
+    PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN"
+    "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="Amorepacific">
+	
+	<select id="selectAmorepacificCheckParam" resultClass="java.util.HashMap">
+		SELECT KEY_1 AS BUKRS,
+		       KEY_2 AS ORDDT,
+		       KEY_3 AS AMT01,
+		       KEY_4 AS MEASURE,
+		       KEY_5 AS KOSTL,
+		       KEY_6 AS FISTL,
+		       KEY_7 AS HKONT
+		  FROM ICOMTRXL
+		 WHERE DOC_NAME = 'TEST'
+		   AND TARGET = 'KRAMOR0003'
+	</select>
+	
+	<select id="selectAmorepacificPrList" resultClass="java.util.HashMap">
+		SELECT DISTINCT PR_NO
+            FROM EAI.IF_UCUBE_PR_SEND
+           WHERE BUYER IN (SELECT TEXT1
+                          FROM ICOMCOD2 
+                         WHERE TYPE = 'PLNT'
+                           AND company_code = 'KRAMORG001'
+                           AND FLAG = 'Y')
+             AND IF_FLAG = 'N'
+	</select>
+	
+	<select id="selectAmorepacificOrderParam" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+		SELECT 
+		      BUYER
+			, STATUS AS GUBUN
+			, PLANT  AS BUKRS
+			, ADD_DATE AS ORDDT
+			, DOC_NO AS PX_NO
+			, DOC_SEQ AS PX_SEQ
+			, PR_NO AS ORD01
+			, PR_SEQ AS ORD02
+			, BUYER_ITEM_NO AS ITEMC
+			, DESCRIPTION AS ZITEMCT
+			, SPECIFICATION AS ZSPEC
+			, 'KRW' AS WAERS
+			, ROUND(ITEM_QTY) AS POQTY
+			, ROUND(UNIT_PRICE) AS PRICE
+			, ROUND(ITEM_AMT) AS SALAMT
+			, LEGACY_USER_ID AS ORDNM
+			, REQ_USER_NAME  AS ORDNMN
+			, NULL       AS TAKNM
+			, RECVER_NAME AS TAKNMN
+			, KEY_1 AS LIFNR
+			, KEY_2 AS LIFNRT
+			, KEY_3 AS DEPT2
+			, BUDGET_DEPT AS KOSTL
+			, HI_DEPT_CODE AS FISTL
+			, ACCOUNT_TYPE AS HKONT
+			, USER_ID AS LOGID
+		 FROM EAI.IF_UCUBE_PR_SEND
+		WHERE BUYER IN (SELECT TEXT1
+                          FROM ICOMCOD2 
+                         WHERE TYPE = 'PLNT'
+                           AND company_code = 'KRAMORG001'
+                           AND FLAG = 'Y')
+          AND PR_NO = #PR_NO#                           		  
+          AND IF_FLAG = 'N'
+	</select>
+			
+	<update id="updateAmorepacificOrderParam"  parameterClass="java.util.Map">
+		UPDATE EAI.IF_UCUBE_PR_SEND 
+		   SET IF_FLAG = #IFRESULT#,
+		       IF_DATM = SYSDATE,
+		       REMARK = #RESULT_MSG#
+		 WHERE BUYER = #BUYER#
+  	       AND PR_NO = #ORD01#
+	       AND PR_SEQ = #ORD02#
+		   AND IF_FLAG = 'N'
+	</update>	
+	
+	<insert id="insertAmorepacificOrderProgress" parameterClass="java.util.Map">
+		INSERT INTO IF_PROGRESS( 
+		  	      BUYER,         GUBUN,          LEGACY_NO,
+	              REVISION,      STATUS,         IF_FLAG,
+	              TOT_CNT,       TOT_AMT,        ERR_CNT,
+	              ERR_MSG,       REMARK,         CHANGE_DATE,
+	              CHANGE_TIME,   ADD_DATE,       NO_CNT
+	    ) VALUES (
+	              #BUYER#,              'XX',            #PX_NO#,
+	              '00',                 'C',             'C',
+	              1,  	                1,               0,
+	              '작업실행중!!',          'BUDGET',        TO_CHAR(SYSDATE,'YYYYMMDD'),
+	              TO_CHAR(SYSDATE,'HH24MISS'),  TO_CHAR(SYSDATE,'YYYYMMDD'),  0
+	    )
+	</insert>
+	
+	<update id="updateAmorepacificOrderPrdt"  parameterClass="java.util.Map">
+		 UPDATE ICOMPRDT 
+	        SET RECV_FLAG = 'PR', 
+	            CANCEL_REMARK = #ERR_MSG#
+	      WHERE BUYER = #BUYER#
+  	        AND PR_NO = 'PR' || SUBSTR(#ORD01#,3,8)
+	        AND PR_SEQ = #ORD02#
+	</update>
+	
+	<update id="updateAmorepacificError"  parameterClass="java.util.Map">
+		UPDATE EAI.IF_UCUBE_PR_SEND 
+		   SET IF_FLAG = 'E',
+		   	   IF_DATM = SYSDATE,
+		       REMARK = #IFMSG#
+		 WHERE BUYER IN (SELECT TEXT1
+                          FROM ICOMCOD2 
+                         WHERE TYPE = 'PLNT'
+                           AND company_code = 'KRAMORG001'
+                           AND FLAG = 'Y')
+           AND IF_FLAG = 'N'
+	</update>
+	
+	<select id="selectAmorepacificCheckPx" parameterClass="java.util.Map" resultClass="java.util.HashMap">
+		SELECT 'X' 
+		  FROM IF_PROGRESS 
+		 WHERE BUYER = #BUYER#
+		   AND GUBUN = 'XX'
+		   AND LEGACY_NO = #PX_NO#
+	</select>		
+	
+</sqlMap>    

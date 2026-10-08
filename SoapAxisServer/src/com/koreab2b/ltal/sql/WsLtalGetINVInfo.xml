@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap      
+    PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN"
+    "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="WsLtalGetINVInfo">
+	
+	<select id="getInvoiceList" resultClass="java.util.HashMap">
+	<![CDATA[
+	  SELECT DISTINCT BUYER, INV_NO, STATUS, SEQ
+		FROM EAI.IF_UCUBE_INV_SEND
+	   WHERE BUYER IN ( SELECT BUYER FROM IF_ADMIN WHERE BUYER_ID = 'LTAL2')
+		 AND IF_FLAG = 'N'
+		 AND ROWNUM <= 30
+		 AND LEGACY_IV_NO IS NOT NULL
+	   ORDER BY BUYER, INV_NO, STATUS
+	]]>
+	</select>
+
+
+	<select id="getInvoiceHeader" parameterClass="java.util.HashMap" resultClass="com.koreab2b.ltal.vo.InvoiceHeaderVO">
+	<![CDATA[
+		  	 SELECT MAX(A.SEQ) AS IF_NUMBER
+			      , MAX(A.STATUS) AS STATUS
+			      , TO_CHAR(SYSDATE,'YYYYMMDD') AS IF_DATE
+			      , TO_CHAR(SYSDATE,'HH24MISS') AS IF_TIME
+			      , MAX(A.LEGACY_IV_NO) AS LEGACY_IV_NO
+			      , MAX(A.INV_DATE) AS INVOICE_DATE
+			      , MAX(TO_CHAR(A.REG_DATE,'YYYYMMDD')) AS ADD_DATE
+			      , MAX(TO_CHAR(A.REG_DATE,'HH24MISS')) AS ADD_TIME
+			   FROM EAI.IF_UCUBE_INV_SEND A
+			  WHERE A.BUYER = #BUYER#
+			    AND A.INV_NO = #INV_NO#
+			    AND A.STATUS = #STATUS#
+			    AND A.SEQ = #SEQ#
+			    AND A.IF_FLAG = 'N'
+	          GROUP BY A.BUYER, A.INV_NO, A.INV_DATE, A.STATUS
+	]]>
+	</select>
+	
+	<select id="getInvoiceDataList" parameterClass="java.util.HashMap" resultClass="com.koreab2b.ltal.vo.InvoiceItemVO">
+	<![CDATA[
+		SELECT 	A.LEGACY_IV_NO AS LEGACY_IV_NO
+		      , A.LEGACY_IV_SEQ AS LEGACY_IV_SEQ
+		      , A.STATUS AS STATUS
+		      , A.LEGACY_PO_NO AS LEGACY_PO_NO
+		      , A.LEGACY_PO_SEQ AS LEGACY_PO_SEQ
+		      , A.BUYER_ITEM_NO AS BUYER_ITEM_NO
+		      , A.PLANT AS PLANT
+		      , A.ATTR_02 AS DELY_TO_LOCATION
+		      , A.ITEM_QTY AS INV_QTY
+		      , A.ATTR_01 AS UNIT_MEASURE
+		FROM EAI.IF_UCUBE_INV_SEND A
+		WHERE A.BUYER = #BUYER#
+		  AND A.INV_NO = #INV_NO#
+		  AND A.STATUS = #STATUS#
+		  AND A.SEQ = #SEQ#
+		  AND A.IF_FLAG = 'N'
+		ORDER BY LEGACY_IV_NO, LEGACY_IV_SEQ, STATUS		
+	]]>
+	</select>
+	
+	<update id="updateInvoiceList" parameterClass="java.util.HashMap">
+	<![CDATA[
+		UPDATE EAI.IF_UCUBE_INV_SEND
+		   SET IF_FLAG = 'Y'
+		     , IF_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD')
+		     , IF_TIME = TO_CHAR(SYSDATE, 'HH24MISS')
+		    WHERE BUYER = #BUYER#
+		      AND INV_NO = #INV_NO#
+		      AND SEQ = #SEQ#
+		      AND IF_FLAG = 'N'
+		      AND STATUS = #STATUS#
+	]]>
+	</update>
+	
+</sqlMap>

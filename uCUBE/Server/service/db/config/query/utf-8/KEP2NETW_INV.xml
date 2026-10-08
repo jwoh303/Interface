@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="EUC-KR"?>
+<SQL>
+	<!-- *********************************************************************** -->
+	<SQL_DOC INTERFACE_ID="KEP2BNGS_INV">
+		<V_SQL NAME='$G_RS' ISLOOP="TRUE" COMMIT_BY_RESULT="FALSE"> 
+                       SELECT sv01.cstmr_id
+                            , sv02.deal_sttmn_no
+                            , sv02.deal_sttmn_seq
+                            , sv02.ordr_no
+                            , sv02.ordr_seq
+                            , DECODE(ROW_NUMBER() OVER (PARTITION BY sv01.cstmr_id,sv02.deal_sttmn_no ORDER BY sv01.cstmr_id,sv02.deal_sttmn_no,sv02.deal_sttmn_seq desc),1,'Y','N')  as IS_HEAD
+                       FROM   KEPCON.KEPMPSV01 SV01, KEPCON.KEPMPSV02 SV02
+                       WHERE  SV01.CSTMR_ID = 'KRHWAS0031C001'
+                       AND    SV01.DEAL_STTMN_NO = SV02.DEAL_STTMN_NO
+                       AND    SV01.SND_CHK = 'N'
+                       order by sv01.cstmr_id, sv02.deal_sttmn_no, sv02.deal_sttmn_seq
+		</V_SQL> 
+		<P_SQL SEQ="1" TYPE="SELECT" POST_SQL="TRUE">
+		<![CDATA[
+                      SELECT substr(SV01.CSTMR_ID,1,10) AS  BUYER
+                           , REPLACE(SV02.DEAL_STTMN_NO,SV01.CSTMR_ID)||TO_CHAR(SV02.DEAL_STTMN_SEQ,'FM000000')  AS DN_NO_SUPP
+                           , ' ' AS GR_DATE
+                           , F_SPLIT(SO04.MNG_NO,'^',1)   AS CUST_PO_NO
+                           , F_SPLIT(SO04.MNG_NO,'^',2)   AS CUST_PO_SEQ
+                           , SO04.IF_ORDR_MNG_NO          AS CUST_ITEM_CD
+                           , SO04.GDS_NM   AS CUST_ITEM_NM
+                           , SO04.UNIT_CD  AS ITEM_UNIT
+                           , SUBSTRB(SO04.STND_NM,1,50)  AS SPEC
+                           , GETMNFATREINFO(SO04.MNFATRE_CD,'MNFATRE_NM')  AS MAKER
+                           , SO04.MDEL_NO_NM AS MODEL
+                           , SV02.DLVRY_QTY AS  QTY
+                           , 0 AS DELIVERY_QTY
+                           , SO06.SLS_UNTPRC
+                           , ROUND(SV02.DLVRY_QTY* SO06.SLS_UNTPRC,0) AS AMT
+                           , DECODE(SV02.USE_CHK,'N','Y','N') AS DEL_FLAG
+                           , F_GET_ORDER_TRACKING(so06.cstmr_id,so06.ordr_no,so06.ordr_seq,'PO_QTY')   AS KEP_PO_QTY
+                           , F_GET_ORDER_TRACKING(so06.cstmr_id,so06.ordr_no,so06.ordr_seq,'IV_QTY')   AS KEP_IV_QTY
+                           , F_GET_ORDER_TRACKING(so06.cstmr_id,so06.ordr_no,so06.ordr_seq,'GR_QTY')   AS KEP_GR_QTY
+                           , F_GET_ORDER_TRACKING(so06.cstmr_id,so06.ordr_no,so06.ordr_seq,'DI_QTY')   AS KEP_DI_QTY
+                           , SO06.IF_ORDR_NO  AS LEGACY_PO_NO
+                           , SO06.IF_ORDR_SEQ AS LEGACY_PO_SEQ
+                           , decode(F_GET_ORDER_TRACKING(so06.cstmr_id,so06.ordr_no,so06.ordr_seq,'STATUS'),
+                                    '입고완료','06','부분입고','05','배송완료','04','부분배송','04','03') AS ORD_STATUS
+                      FROM  KEPMPSV01 SV01, KEPMPSV02 SV02, KEPMPSO06 SO06, KEPMPSO04 SO04
+                      WHERE SV01.CSTMR_ID = '$G_RS.cstmr_id$'
+                      AND   SV02.DEAL_STTMN_NO = '$G_RS.deal_sttmn_no$'
+                      AND   SV02.DEAL_STTMN_SEQ=  $G_RS.deal_sttmn_seq$
+                      AND   SV02.DEAL_STTMN_NO = SV01.DEAL_STTMN_NO
+                      AND   SV02.ORDR_NO = SO06.ORDR_NO
+                      AND   SV02.ORDR_SEQ= SO06.ORDR_SEQ
+                      AND   SO06.USE_CHK = 'Y'
+                      AND   SO06.CSTMR_ID   = SO04.CSTMR_ID
+                      AND   SO06.ORDR_RE_NO = SO04.ORDR_RE_NO
+                      AND   SO06.ORDR_RE_SEQ= SO04.ORDR_RE_SEQ
+
+		]]>
+			<C_SQL TYPE="UPDATE" P_SQL_RESULT="TRUE">
+			<![CDATA[
+                          DECLARE
+                          BEGIN
+                             UPDATE KEPMPSV02
+                             SET    SND_CHK = 'Z'
+                                  , SND_DATM= SYSDATE
+                             WHERE DEAL_STTMN_NO = '$G_RS.DEAL_STTMN_NO$'
+                             AND   DEAL_STTMN_SEQ= $G_RS.DEAL_STTMN_SEQ$;
+
+                             IF '$G_RS.IS_HEAD$' = 'Y' THEN
+                                UPDATE KEPMPSV01
+                                SET    SND_CHK = 'Z'
+                                     , SND_DATM= SYSDATE
+                                WHERE DEAL_STTMN_NO = '$G_RS.DEAL_STTMN_NO$';
+                             END IF;
+                           END;
+			]]>
+			</C_SQL>
+			<C_SQL TYPE="UPDATE" P_SQL_RESULT="FALSE">
+			<![CDATA[
+                           UPDATE KEPMPSV02
+                           SET    SND_CHK = 'E'
+                                , SND_DATM= sysdate
+                           WHERE deal_sttmn_no = '$G_RS.deal_sttmn_no$'
+                           AND   deal_sttmn_seq= $G_RS.deal_sttmn_seq$
+			]]>
+			</C_SQL>
+		</P_SQL>
+	</SQL_DOC>
+	<RETRY_CODE>
+		<CODE>03113</CODE>
+		<CODE>03114</CODE>
+		<CODE>02154</CODE>
+		<CODE>02541</CODE>
+		<CODE>04068</CODE>
+	</RETRY_CODE>
+</SQL>

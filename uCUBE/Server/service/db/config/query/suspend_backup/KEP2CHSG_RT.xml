@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="EUC-KR"?>
+<SQL>
+  <!-- *********************************************************************** -->
+  <SQL_DOC INTERFACE_ID="KEP2CHSG_RT">
+    <V_SQL NAME='$G_RS' ISLOOP="TRUE" COMMIT_BY_RESULT="FALSE">
+       SELECT BUYER
+            , QUOTATION_NO
+            , QUOTATION_SEQ
+            , REVISION
+         FROM KEPRQDT
+        WHERE BUYER IN (SELECT BUYER FROM IF_ADMIN WHERE BUYER_ID = 'CHSG')
+          AND SND_CHK        = 'N'
+          AND ATOB_SEND_FLAG = 'Y'
+          AND SO_CA_FLAG     = 'SO'
+          AND ATOB_UNIT_PRICE != 0
+          AND STATUS IN ('C','R')
+          AND QUOTATION_NO NOT LIKE 'RE%'
+        ORDER BY BUYER
+               , QUOTATION_NO
+               , QUOTATION_SEQ
+    </V_SQL>
+    <P_SQL SEQ="1" TYPE="SELECT" POST_SQL="TRUE">
+    <![CDATA[
+      SELECT RQDT.PLANT
+           , RQDT.QUOTATION_NO    AS QUOTATION_NO
+           , RQDT.QUOTATION_SEQ   AS QUOTATION_SEQ
+           , RQDT.REVISION        AS REVISION_NO
+           , RQDT.BUYER_ITEM_NO
+           , RQDT.ATOB_UNIT_PRICE AS UNIT_PRICE01
+           , CMPY.COM_NAME_LOC    AS REMARK
+           , TO_CHAR(SYSDATE,'YYYYMMDD') AS IF_DATE
+           , TO_CHAR(SYSDATE,'HH24MISS') AS IF_TIME
+        FROM KEPRQDT RQDT,
+             KEPQTDT QTDT,
+             ICOMCMPY CMPY
+       WHERE RQDT.BUYER         = '$G_RS.BUYER$'
+         AND RQDT.QUOTATION_NO  = '$G_RS.QUOTATION_NO$'
+         AND RQDT.QUOTATION_SEQ = '$G_RS.QUOTATION_SEQ$'
+         AND RQDT.REVISION      = '$G_RS.REVISION$'
+         AND RQDT.BUYER         = QTDT.BUYER
+         AND RQDT.QUOTATION_NO  = QTDT.QUOTATION_NO
+         AND RQDT.QUOTATION_SEQ = QTDT.QUOTATION_SEQ
+         AND RQDT.REVISION      = QTDT.REVISION
+         AND QTDT.AGENT         = CMPY.COM_CODE
+         AND QTDT.STATUS        = 'C'
+         AND QTDT.BID_SUCCESS_FLAG = 'Y'
+    ]]>
+      <C_SQL TYPE="UPDATE" P_SQL_RESULT="TRUE">
+      <![CDATA[
+        UPDATE KEPRQDT
+           SET SND_CHK  = 'Y'
+             , SND_DATM = sysdate
+         WHERE BUYER = '$G_RS.BUYER$'
+           AND QUOTATION_NO  = '$G_RS.QUOTATION_NO$'
+           AND QUOTATION_SEQ = '$G_RS.QUOTATION_SEQ$'
+           AND REVISION      = '$G_RS.REVISION$'
+      ]]>
+      </C_SQL>
+      <C_SQL TYPE="UPDATE" P_SQL_RESULT="FALSE">
+      <![CDATA[
+        UPDATE KEPRQDT
+           SET SND_CHK  = 'E'
+             , SND_DATM = sysdate
+         WHERE BUYER = '$G_RS.BUYER$'
+           AND QUOTATION_NO  = '$G_RS.QUOTATION_NO$'
+           AND QUOTATION_SEQ = '$G_RS.QUOTATION_SEQ$'
+           AND REVISION      = '$G_RS.REVISION$'
+      ]]>
+      </C_SQL>
+    </P_SQL>
+  </SQL_DOC>
+  <RETRY_CODE>
+    <CODE>03113</CODE>
+    <CODE>03114</CODE>
+    <CODE>02154</CODE>
+    <CODE>02541</CODE>
+    <CODE>04068</CODE>
+  </RETRY_CODE>
+</SQL>

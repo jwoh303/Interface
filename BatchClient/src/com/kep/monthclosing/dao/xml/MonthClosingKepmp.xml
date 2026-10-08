@@ -1,0 +1,252 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap      
+    PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN"
+    "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="khrmClosing">
+
+	<select id="kepmpArCreateList" resultClass="java.util.HashMap">
+	<![CDATA[
+	SELECT *
+	  FROM ( 
+		SELECT
+		       A.TAX_BILL_NO                  AS INVOICE_NO,
+		       A.DEPT_CODE                    AS DEPT_CODE,
+		       TX01.TEXT1                     AS SAUPJ,
+		       TX06.TEXT1                     AS DEPARTCODE,
+		       A.ISSUE_DATE                   AS INVOICE_DATE,
+		       TRIM(REPLACE(A.IRS_NO,'-','')) AS CUSTOMER,
+		       A.SUPP_PRICE                   AS AMOUNT,
+		       A.TOT_SUPP_PRICE               AS TOT_AMOUNT,
+		       A.TAX_PRICE                    AS TAX_AMOUNT,
+		       A.TOT_TAX_PRICE                AS TOT_TAX_AMOUNT,
+		       A.TAX_TYPE                     AS TAX_CODE,
+		       1                              AS TAX_COUNT,
+		       A.REMARK_DESCRIPTION ||
+		       A.REMARK_SPECIFICATION         AS REMARK,
+		       A.ADD_USER_ID                  AS CREATE_EMPNO,
+		       A.ADD_DATE                     AS CREATE_DATE,
+		       A.SITE                         AS ATTRIBUTE1,
+		       DECODE(NVL(A.AR_TYPE,' '),'02','물류매출','상품매출') AS ATTRIBUTE3,
+		       A.EXP_CUR                      AS ATTRIBUTE9,
+		       NVL(A.EXP_CUR_PRICE,0)         AS DAMOUNT,
+		       NVL(A.EXP_FOR_ITEM_AMT,0)      AS TOT_DAMOUNT,
+		       A.EXP_GR_NO                    AS ATTRIBUTE7,
+		       A.EXP_DATE_OF_SHIPMENT         AS ATTRIBUTE8,
+		       '미등록'						  AS RECEIPT_TERM
+		  FROM KEPTARDT A
+		       INNER JOIN ICOMCOD1 TX01 ON (1 = 1
+		         AND TX01.TYPE = 'TX01'
+		         AND TX01.CODE = A.KEP_IRS
+		       )
+		       INNER JOIN ICOMCOD1 TX06 ON (1 = 1
+		         AND TX06.TYPE = 'TX06'
+		         AND TX06.CODE = A.DEPT_CODE
+		       )
+		 WHERE 1 = 1
+		   AND ISSUE_DATE >= TO_CHAR(ADD_MONTHS(SYSDATE, -2),'YYYYMMDD')
+		   AND IF_SEND_FLAG = 'N'
+		   AND STATUS != 'D'
+		 ORDER BY A.TAX_BILL_NO, A.DEPT_CODE
+	  )
+	 WHERE ROWNUM <= 100
+	]]>
+	</select>
+	
+	<update id="kepmpArUpdateResult" parameterClass="java.util.HashMap">
+		UPDATE KEPTARDT A
+		   SET IF_SEND_FLAG = #IF_SEND_FLAG#
+		     , IF_SEND_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD')
+		     , IF_SEND_TIME = TO_CHAR(SYSDATE, 'HH24MISS')
+		 WHERE 1 = 1
+		   AND A.TAX_BILL_NO = #INVOICE_NO#
+		   AND A.DEPT_CODE   = #DEPT_CODE#
+	</update>
+
+	<select id="kepmpApCreateList" resultClass="java.util.HashMap">
+	<![CDATA[
+		SELECT *
+		  FROM ( 
+			SELECT
+			       A.TAX_BILL_NO                  AS INVOICE_NO,
+			       A.DEPT_CODE                    AS DEPT_CODE,
+			       TX06.TEXT1                     AS DEPARTCODE,
+			       TX01.TEXT1                     AS SAUPJ,
+			       A.ISSUE_DATE                   AS INVOICE_DATE,
+			       TRIM(REPLACE(A.IRS_NO,'-','')) AS CUSTOMER,
+			       TRIM(REPLACE(B.IRS_NO,'-','')) AS SALE_CUSTOMER,
+			       A.BUYER_CODE                   AS SITE_NO,
+			       A.SUPP_PRICE                   AS AMOUNT,
+			       A.TOT_SUPP_PRICE               AS TOT_AMOUNT,
+			       A.TAX_PRICE                    AS TAX_AMOUNT,
+			       A.TOT_TAX_PRICE                AS TOT_TAX_AMOUNT,
+			       A.TAX_TYPE                     AS TAX_CODE,
+			       1                              AS TAX_COUNT,
+			       A.REMARK_DESCRIPTION           AS REMARK,
+			       A.ADD_USER_ID                  AS CREATE_EMPNO,
+			       A.ADD_DATE                     AS CREATE_DATE,
+			       NVL(A.NTS_SEND_FLAG,' ')       AS TRANSFER_FLAG,
+			       'KA'                           AS ATTRIBUTE1,
+			       '익월25일기준60일어음' AS PAYMENT_TERM,
+			       '어음' AS PAYMENT_TYPE		  	
+			  FROM KEPTAPDT A
+             INNER JOIN ICOMCMPY B ON (1 = 1
+               AND B.BUSINESS_COND != 'S'
+               AND A.BUYER_CODE     = B.COM_CODE
+               AND A.SITE           = 'KA'
+			       )
+			       INNER JOIN ICOMCOD1 TX01 ON (1 = 1
+			         AND TX01.TYPE = 'TX01'
+			         AND TX01.CODE = A.KEP_IRS
+			       )
+			       INNER JOIN ICOMCOD1 TX06 ON (1 = 1
+			         AND TX06.TYPE = 'TX06'
+			         AND TX06.CODE = A.DEPT_CODE
+			       )
+			 WHERE A.IF_SEND_FLAG = 'N'
+			   AND A.STATUS      != 'D'	
+			   AND A.ISSUE_DATE >= TO_CHAR(ADD_MONTHS(SYSDATE, -2),'YYYYMMDD')
+			 ORDER BY A.TAX_BILL_NO, A.DEPT_CODE
+		  )
+     WHERE ROWNUM <= 100
+	]]>
+	</select>
+	
+	<update id="kepmpApUpdateResult" parameterClass="java.util.HashMap">
+		UPDATE KEPTAPDT A
+		   SET IF_SEND_FLAG = #IF_SEND_FLAG#
+		     , IF_SEND_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD')
+		     , IF_SEND_TIME = TO_CHAR(SYSDATE, 'HH24MISS')
+		 WHERE 1 = 1
+		   AND A.TAX_BILL_NO = #INVOICE_NO#
+		   AND A.DEPT_CODE   = #DEPT_CODE#
+	</update>
+	
+	<update id="kepmpArUpdateCancel" parameterClass="java.util.HashMap">
+		UPDATE KEPTARDT
+		   SET CONFIRM_FLAG    = 'N'
+		     , CONFIRM_DATE    = NULL
+		     , CONFIRM_TIME    = NULL
+		     , CONFIRM_USER_ID = NULL
+		     , SEND_DATE       = NULL
+		     , SEND_TIME       = NULL
+		     , SEND_USER_ID    = NULL
+		     , IF_SEND_DATE    = NULL
+		     , IF_SEND_TIME    = NULL
+		     , IF_SEND_FLAG    = NULL
+		     , CHANGE_USER_ID  = 'IF_USER'
+		     , CHANGE_DATE     = TO_CHAR(SYSDATE, 'YYYYMMDD')
+		     , CHANGE_TIME     = TO_CHAR(SYSDATE, 'HH24MISS')
+		 WHERE TAX_BILL_NO     = #INVOICE_NO#	
+	</update>
+	
+	<update id="kepmpApUpdateCancel" parameterClass="java.util.HashMap">
+		UPDATE KEPTAPDT
+		   SET IF_SEND_FLAG   = NULL
+		     , IF_SEND_DATE   = NULL
+		     , IF_SEND_TIME   = NULL
+		     , SEND_USER_ID   = NULL
+		     , SEND_DATE      = NULL
+		     , SEND_TIME      = NULL
+		     , CHANGE_USER_ID = 'IF_USER'
+		     , CHANGE_DATE    = TO_CHAR(SYSDATE, 'YYYYMMDD')
+		     , CHANGE_TIME    = TO_CHAR(SYSDATE, 'HH24MISS')
+		 WHERE TAX_BILL_NO     = #INVOICE_NO#
+	</update>
+	
+	<insert id="kepmpTAccountHis1Insert" parameterClass="java.util.HashMap">
+		INSERT INTO TACCOUNT_HIS_IF (
+		    HIS_ID,				ACCOUNT_NO,			INVOICE_NO,
+		    GUBUN,				SAUPJ,				CUSTOMER,
+		    DEPARTCODE,			CHECK_DATE,			DUE_DATE,
+		    BILL_DUE_DATE,		AMOUNT,				PAYMENT_SRC,
+		    CHECK_EMPLOYEE,		CREATE_USERID,		CREATE_DATE,
+		    IF_FLAG,			IF_DATE,			ATTRIBUTE1,
+		    ATTRIBUTE2,			ATTRIBUTE3,			ATTRIBUTE4
+		) VALUES (
+		    #HIS_ID#,			#ACCOUNT_NO#,		#INVOICE_NO#,
+		    #GUBUN#,			#SAUPJ#,			#CUSTOMER#,
+		    #DEPARTCODE#,		#CHECK_DATE#,		#DUE_DATE#,
+		    #BILL_DUE_DATE#,	#AMOUNT#,			#PAYMENT_SRC#,
+		    #CHECK_EMPLOYEE#,	#CREATE_USERID#,	#CREATE_DATE#,
+		    #IF_FLAG#,			#IF_DATE#,			CASE WHEN #INVOICE_NO# LIKE 'AR%' THEN 'KA' ELSE #ATTRIBUTE1# END,
+		    #ATTRIBUTE2#,		#ATTRIBUTE3#,		#ATTRIBUTE4#
+		)
+	</insert>
+	
+	<insert id="kepmpTAccountHis2Insert" parameterClass="java.util.HashMap">
+		INSERT INTO TACCOUNT_HIS_IF2 (
+		    HIS_ID,					ACCOUNT_NO,			INVOICE_NO,
+		    GUBUN,					SAUPJ,				CUSTOMER,
+		    DEPARTCODE,				CHECK_DATE,			DUE_DATE,
+		    BILL_DUE_DATE,			AMOUNT,				PAYMENT_SRC,
+		    CHECK_EMPLOYEE,			CREATE_USERID,		CREATE_DATE,
+		    IF_FLAG,				IF_DATE,			ATTRIBUTE1,
+		    ATTRIBUTE2,				ATTRIBUTE3,			ATTRIBUTE4,
+		    ACCOUNT_TITLE,			CP_ACCOUNT_TITLE,	ACCOUNT_TYPE,
+		    CP_ACCOUNT_ACCSEQ,		ACCOUNT_ACCSEQ
+		) VALUES (
+		    #HIS_ID#,				#ACCOUNT_NO#,					#INVOICE_NO#,
+		    #GUBUN#,				#SAUPJ#,						#CUSTOMER#,
+		    #DEPARTCODE#,			NVL(TRIM(#CHECK_DATE#),' '),	NVL(TRIM(#DUE_DATE#),' '),
+		    #BILL_DUE_DATE#,		#AMOUNT#,						#PAYMENT_SRC#,
+		    #CHECK_EMPLOYEE#,		#CREATE_USERID#,				#CREATE_DATE#,
+		    #IF_FLAG#,				#IF_DATE#,						CASE WHEN #INVOICE_NO# LIKE 'AR%' THEN 'KA' ELSE #ATTRIBUTE1# END,
+		    #ATTRIBUTE2#,			#ATTRIBUTE3#,					#ATTRIBUTE4#,
+		    #ACCOUNT_TITLE#,		#CP_ACCOUNT_TITLE#,				#ACCOUNT_TYPE#,
+		    #CP_ACCOUNT_ACCSEQ#,	#ACCOUNT_ACCSEQ#
+		)	
+	</insert>
+	
+	<insert id="kepmpTBillHis1Insert" parameterClass="java.util.HashMap">
+		INSERT INTO TBILL_HIS_IF (
+		    HIS_ID,				ORIGINAL_ACCOUNT_NO,	ACCOUNT_NO,
+		    BANK_NM,			B2B_TYPE,				CUSTOMER_NM,
+		    STATEMENT_DATE,		DUE_DATE,				AMOUNT,
+		    REMARK,				BILL_NO,				CUSTOMER_SITE,
+		    BANK_ACCT_NO,		CUSTOMER_NAME,			REG_NO,
+		    BILL_TYPE,			ACCOUNT_AMT,			BILL_TYPE2,
+		    BUSEO_CODE,			CREATE_USERID,			ERP_FLAG,
+		    ERP_DATE,			IF_FLAG,				IF_DATE,
+		    IF_ERROR
+		) VALUES (
+		    #HIS_ID#,			#ORIGINAL_ACCOUNT_NO#,	#ACCOUNT_NO#,
+		    #BANK_NM#,			#B2B_TYPE#,				#CUSTOMER_NM#,
+		    #STATEMENT_DATE#,	#DUE_DATE#,				#AMOUNT#,
+		    #REMARK#,			#BILL_NO#,				#CUSTOMER_SITE#,
+		    #BANK_ACCT_NO#,		#CUSTOMER_NAME#,		#REG_NO#,
+		    #BILL_TYPE#,		#ACCOUNT_AMT#,			#BILL_TYPE2#,
+		    #BUSEO_CODE#,		#CREATE_USERID#,		#ERP_FLAG#,
+		    #ERP_DATE#,			'N',					SYSDATE,
+		    #IF_ERROR#
+		)	
+	</insert>
+	
+	<insert id="kepmpTBillHis2Insert" parameterClass="java.util.HashMap">
+		INSERT INTO TBILL_HIS_IF2 (
+		    HIS_ID,				ORIGINAL_ACCOUNT_NO,	ACCOUNT_NO,
+		    BANK_NM,			B2B_TYPE,				CUSTOMER_NM,
+		    STATEMENT_DATE,		DUE_DATE,				AMOUNT,
+		    REMARK,				BILL_NO,				CUSTOMER_SITE,
+		    BANK_ACCT_NO,		CUSTOMER_NAME,			REG_NO,
+		    BILL_TYPE,			ACCOUNT_AMT,			BILL_TYPE2,
+		    BUSEO_CODE,			CREATE_USERID,			ERP_FLAG,
+		    ERP_DATE,			IF_FLAG,				IF_DATE,
+		    IF_ERROR,			ACCOUNT_TITLE,			ACCOUNT_TYPE,
+		    BILL_ISSUE_COM,		BILL_ISSUE_BIZ_NO,		BILL_ISSUE_REP_NM,
+		    BILL_ISSUE_BANK
+		) VALUES (	
+		    #HIS_ID#,			#ORIGINAL_ACCOUNT_NO#,	#ACCOUNT_NO#,
+		    #BANK_NM#,			#B2B_TYPE#,				#CUSTOMER_NM#,
+		    #STATEMENT_DATE#,	#DUE_DATE#,				#AMOUNT#,
+		    #REMARK#,			#BILL_NO#,				#CUSTOMER_SITE#,
+		    #BANK_ACCT_NO#,		#CUSTOMER_NAME#,		#REG_NO#,
+		    #BILL_TYPE#,		#ACCOUNT_AMT#,			#BILL_TYPE2#,
+		    #BUSEO_CODE#,		#CREATE_USERID#,		#ERP_FLAG#,
+		    #ERP_DATE#,			'N',					SYSDATE,
+		    #IF_ERROR#,			#ACCOUNT_TITLE#,		#ACCOUNT_TYPE#,
+		    #BILL_ISSUE_COM#,	#BILL_ISSUE_BIZ_NO#,    #BILL_ISSUE_REP_NM#,
+		    #BILL_ISSUE_BANK#
+		)
+	</insert>	
+</sqlMap>

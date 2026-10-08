@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap      
+    PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN"
+    "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="DaewIvDown">
+
+    <select id="DaewIvDown_DBDispatcher"  resultClass="java.lang.Integer">
+		 SELECT  count(*)
+		   FROM ICOMTRXL
+		  WHERE DOC_NAME = 'DAEWIV'
+		    AND TARGET = 'KRDAEW0016'
+		    AND NVL(KEY_9,' ') !=  'D'
+	</select>
+	<select id="DaewIvDown_DBDispatcherList"  resultClass="java.util.HashMap">
+		 SELECT  *
+		   FROM ICOMTRXL
+		  WHERE DOC_NAME = 'DAEWIV'
+		    AND TARGET = 'KRDAEW0016'
+		    AND NVL(KEY_9,' ') !=  'D'
+	</select>
+	<select id="SEND_Check1" parameterClass="java.util.HashMap" resultClass="java.lang.Integer">
+		 SELECT count(*)
+              FROM icomivdt a, icompodt b, icomcod1 c
+             WHERE a.buyer = #TARGET#
+               and a.inv_no  = #KEY_1#
+               and a.buyer = b.buyer
+               and a.po_no = b.po_no
+               and a.po_seq= b.po_seq
+               and c.type = 'DWIV'
+               and ((c.text1 = b.buyer and
+                     c.text2 = a.inv_no) or
+                    (c.text1 = b.buyer and
+                     c.text2 = b.legacy_po_no  and
+                     c.text3 = b.legacy_po_seq))
+               and c.flag = 'Y'
+	</select>
+	
+	<select id="SEND_Check2" parameterClass="java.util.HashMap" resultClass="java.lang.Integer">
+		 SELECT count(*)
+              FROM wmsivdt a, icomcod1 c
+             WHERE a.buyer = #TARGET#
+               and a.inv_no = #KEY_1#
+               and c.type = 'DWIV'
+               and ((c.text1 = a.buyer and
+                     c.text2 = a.inv_no) or
+                    (c.text1 = a.buyer and
+                     c.text2 = a.legacy_po_no  and
+                     c.text3 = a.legacy_po_seq))
+               and c.flag = 'Y'
+	</select>
+	
+	<update id="DaewIvDown_TrxlUpdate" parameterClass="java.util.HashMap">
+		 UPDATE icomtrxl
+	       SET key_9 = 'D',
+	           key_10= to_char(sysdate,'YYYYMMDD HH24MISS')
+	     WHERE doc_name = #DOC_NAME#
+	       AND target = #TARGET#
+	       AND key_1 = #KEY_1#
+	       AND key_2 = #KEY_2#
+	       AND nvl(key_9,' ') != 'D'
+  </update>
+	<select id="DaewIvDown_IVDT_Select" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+		 SELECT nvl(decode(b.status,'R','C',b.status),' ') AS STATUS,
+                   nvl(a.legacy_po_no,' ') AS LEGACY_PO_NO,
+                    nvl(to_char(a.legacy_po_seq,'FM00000'),' ') AS LEGACY_PO_SEQ,
+                    nvl(trim(c.LEGACY_IV_SERIAL),'000') AS LEGACY_IV_SERIAL,
+                    nvl(trim(a.ref_if_no||a.buyer_item_no),' ') AS BUYER_ITEM_NO,
+                    nvl(b.invoice_date,' ') AS INVOICE_DATE,
+                    nvl(b.inv_qty,0) AS INV_QTY,
+                    nvl(a.po_no,' ') AS PO_NO,
+                    nvl(b.inv_no,' ') AS INV_NO,
+                    nvl(to_number(b.inv_seq), 0) AS INV_SEQ,
+                    nvl(a.process_type,' ') AS PROCESS_TYPE,
+                    nvl(c.car_no,' ') AS CAR_NO,
+                    nvl(c.car_person_name,' ') AS CAR_PERSON_NAME
+              FROM icompodt a, icomivdt b, icomivhd c
+             WHERE b.buyer = #TARGET#
+               AND b.inv_no = #KEY_1#
+               AND b.buyer = a.buyer
+               AND b.po_no = a.po_no
+               AND b.po_seq= a.po_seq
+               AND a.status != 'D'
+               AND a.process_type = '0'
+               AND b.buyer = c.buyer
+               AND b.inv_no = c.inv_no
+           union all
+            SELECT nvl(decode(b.status,'R','C',b.status),' ') AS STATUS,
+                   nvl(a.legacy_po_no,' ') AS LEGACY_PO_NO,
+                    nvl(to_char(a.legacy_po_seq,'FM00000'),' ') AS LEGACY_PO_SEQ,
+                    nvl(trim(b.LEGACY_IV_SERIAL),'000') AS LEGACY_IV_SERIAL,
+                    nvl(trim(a.ref_if_no||a.buyer_item_no),' ') AS BUYER_ITEM_NO,
+                    nvl(b.inv_date,' ') AS INVOICE_DATE,
+                    nvl(b.inv_qty,0) AS INV_QTY,
+                    nvl(a.po_no,' ') AS PO_NO,
+                    nvl(b.inv_no,' ') AS INV_NO,
+                    nvl(to_number(b.inv_seq), 0) AS INV_SEQ,
+                    nvl(a.process_type,' ') AS PROCESS_TYPE,
+                    nvl(b.car_no,' ') AS CAR_NO,
+                    nvl(b.car_person_name,' ') AS CAR_PERSON_NAME
+              FROM icompodt a, wmsivdt b
+             WHERE b.buyer = #TARGET#
+               AND b.inv_no = #KEY_1#
+               AND b.buyer = a.buyer
+               AND b.po_no = a.po_no
+               AND b.po_seq= a.po_seq
+               AND a.status != 'D'
+               AND a.process_type != '0'
+	</select>
+	
+  <update id="IVHD_Update1" parameterClass="java.util.HashMap">
+		 UPDATE wmsivdt
+                     SET  legacy_iv_serial = nvl(rtrim(#LEGACY_IV_SERIAL#),' '),
+                          send_date = to_char(sysdate,'YYYYMMDD'),
+                          send_time = to_char(sysdate,'HH24MISS')
+                   WHERE  buyer = 'KRDAEW0016'
+                     and  inv_no = nvl(rtrim(#INV_NO#),' ')
+  </update>
+  <update id="IVHD_Update2" parameterClass="java.util.HashMap">
+		 UPDATE icomivhd
+                     SET  legacy_iv_serial = nvl(rtrim(#LEGACY_IV_SERIAL#),' '),
+                          send_date = to_char(sysdate,'YYYYMMDD'),
+                          send_time = to_char(sysdate,'HH24MISS')
+                   WHERE  buyer = 'KRDAEW0016'
+                     and  inv_no = nvl(rtrim(#INV_NO#),' ')
+  </update>
+  <delete id="DaewIvDown_TRXL_Dequeue" parameterClass="java.util.HashMap">
+		      DELETE FROM ICOMTRXL
+              WHERE DOC_NAME = #DOC_NAME#
+                AND TARGET   = #TARGET#
+                AND KEY_1    = #KEY_1#
+                AND KEY_2    = #KEY_2#
+                AND KEY_3    = #KEY_3#
+                AND KEY_4    = #KEY_4#
+                AND KEY_5    = #KEY_5#
+                AND KEY_6    = #KEY_6#
+                AND KEY_7    = #KEY_7#
+                AND KEY_8    = #KEY_8#
+                AND KEY_9    = #KEY_9#
+                AND KEY_10   = #KEY_10#
+  </delete>	
+  	<select id="IV_SERIAL"  resultClass="java.util.HashMap">
+		 SELECT TO_CHAR(GET_CSTMR_DEAL_STTMN_NO('KRDAEW0016')) as TEMP_LEGACY_IV_SERIAL
+             FROM dual
+	</select>
+</sqlMap>

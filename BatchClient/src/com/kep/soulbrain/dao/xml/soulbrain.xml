@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//iBATIS.com//DTD SQL Map 2.0//EN"
+"http://www.ibatis.com/dtd/sql-map-2.dtd">
+
+
+<sqlMap namespace="soulbrain">
+
+	<select id="selectSoulTargetList" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+	 <![CDATA[
+		SELECT
+		    BUYER
+		    ,QUOTATION_NO
+		    ,QUOTATION_SEQ
+		    ,KEY_3 AS MSDS_NO
+		    ,ADD_USER_NAME AS BTOA_USER_NAME
+		    ,KEY_1 AS BTOA_USER_DEPT
+		    ,KEY_2 AS BTOA_DATE
+		    ,KEY_4 AS MSDS_NM
+		    ,KEY_5 AS MAKER_NAME
+		    ,KEY_6 AS MSDS_URL
+		    ,KEY_7 AS COMP_CD
+		FROM EAI.IF_UCUBE_RE_SEND
+		WHERE BUYER IN (SELECT TEXT1 FROM KEP.ICOMCOD2 WHERE TYPE ='PLNT' AND COMPANY_CODE ='KRSOLBG001' AND TEXT5 IS NOT NULL)
+		AND IF_FLAG ='N'
+	  	]]>
+	</select>
+
+	<update id="updateMsdsResult" parameterClass="java.util.HashMap">
+		UPDATE KEPRQDT
+			SET SND_CHK = 'T'
+			, SND_DATM = SYSDATE
+		WHERE BUYER =  #BUYER#
+		AND MSDS_YN = 'Y'
+		AND MSDS_STATUS ='C'
+		AND MSDS_NO IS NOT NULL
+		AND QUOTATION_NO = #QUOTATION_NO#
+		AND QUOTATION_SEQ = #QUOTATION_SEQ#
+	</update>
+	
+	<update id="updateReSendList" parameterClass="java.util.HashMap">
+		UPDATE EAI.IF_UCUBE_RE_SEND
+			SET IF_FLAG = #IF_FLAG#
+			, IF_DATE = SYSDATE
+		WHERE BUYER =  #BUYER#
+		AND IF_FLAG ='N'
+		AND QUOTATION_NO = #QUOTATION_NO#
+		AND QUOTATION_SEQ = #QUOTATION_SEQ#
+	</update>
+	
+	<select id="selectTargetHdList" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+	 <![CDATA[
+	  SELECT * FROM 
+      (SELECT 
+      BUYER, INV_NO
+      FROM EAI.IF_UCUBE_INV_SEND
+      WHERE BUYER IN (SELECT TEXT1 FROM KEP.ICOMCOD2 WHERE TYPE ='PLNT' AND COMPANY_CODE ='KRSOLBG001' AND TEXT3 IS NOT NULL)
+      AND IF_FLAG = 'N' 
+      AND ROWNUM <= 10
+      )
+      GROUP BY BUYER, INV_NO
+      ORDER BY BUYER, INV_NO
+	  	]]>
+	</select>
+
+	<select id="selectTargetDtList" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+	 <![CDATA[
+		SELECT
+		    BUYER
+		    ,INV_NO
+		    ,INV_SEQ
+		    ,LEGACY_PO_NO
+		    ,LEGACY_PO_SEQ
+		    ,ITEM_QTY
+		    ,INV_DATE
+		FROM EAI.IF_UCUBE_INV_SEND
+		WHERE BUYER = #BUYER#
+		AND INV_NO = #INV_NO#
+		AND IF_FLAG ='N'
+	  	]]>
+	</select>
+
+	<update id="updateIvResult" parameterClass="java.util.HashMap">
+		UPDATE EAI.IF_UCUBE_INV_SEND
+		    SET IF_FLAG = #FLAG#
+		     , IF_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD')
+		     , IF_TIME = TO_CHAR(SYSDATE, 'HH24MISS')
+		    WHERE BUYER = #BUYER#
+		      AND INV_NO = #INV_NO#
+		      AND IF_FLAG = 'N'
+	</update>
+
+	<insert id="saveIvResult" parameterClass="java.util.Map">
+		INSERT INTO IF_FILE_UC(
+		 		  KEP_SEQ
+		 		, DOC_TYPE
+		 		, BUYER
+		 		, KEY_NO
+		 		, DATA01
+		 		, IF_FLAG
+		 		, IF_DATE
+		 		, IF_TIME
+		 ) VALUES (
+		 		SEQ_IF_FILE_UC.NEXTVAL
+		 		, 'INV_R'
+		 		, #BUYER#
+		 		, #INV_NO#
+		 		, #sInvcCd#
+		 		, 'N'
+                , TO_CHAR(SYSDATE,'YYYYMMDD')
+                , TO_CHAR(SYSDATE,'HH24MISS')
+		 )
+	</insert>
+	
+	<insert id="insertErrLog" parameterClass="java.util.Map">
+		INSERT INTO IF_WS_LOG(
+			SEQ,
+			INTERFACE_ID,
+			CONTENTS,
+			FLAG,
+			ERROR_MSG,
+			CREATE_DATE,
+			CHANGE_DATE
+		) VALUES (
+			SEQ_IF_WS_LOG.NEXTVAL,
+			#INTERFACE_ID#,
+			#CONTENTS:CLOB#,
+			#FLAG#,
+			#ERROR_MSG#,
+			SYSDATE,
+			SYSDATE
+		)
+	</insert>
+</sqlMap>

@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="EUC-KR"?>
+<SQL>
+	<!-- *********************************************************************** -->
+	<SQL_DOC INTERFACE_ID="KEP2CHSG_ITEM">
+		<V_SQL NAME='$G_RS' ISLOOP="TRUE" COMMIT_BY_RESULT="FALSE"> 
+                <![CDATA[
+                       SELECT DECODE(KEY_9,' ',TO_CHAR(SYSDATE,'YYYYMMDD'),SUBSTR(KEY_9,1,8))  AS SEND_DATE
+                            , DECODE(KEY_9,' ',TO_CHAR(SYSDATE,'HH24MISS'),SUBSTR(KEY_9,10,6)) AS SEND_TIME
+                            , TRXL.KEY_1                  AS BUYER_ITEM_NO
+                            , TRXL.KEY_2                  AS UNIT_PRICE
+                       FROM  ICOMTRXL TRXL, ICOMBYIT BYIT
+                       WHERE TRXL.DOC_NAME = 'ATOB_PRICE'
+                       AND   TRXL.TARGET = 'KRCHANG001'
+                       AND   TRXL.KEY_10 = 'N'
+                       AND   TRXL.TARGET = BYIT.BUYER
+                       AND   TRXL.KEY_1  = BYIT.BUYER_ITEM_NO
+                       AND   BYIT.PRODUCT_CLOSE_FLAG IN ('T','N')
+                       AND   BYIT.STATUS <> 'D'
+                       GROUP BY TRXL.KEY_1
+                              , TRXL.KEY_2
+                              , TRXL.KEY_9
+                ]]>
+		</V_SQL> 
+		<P_SQL SEQ="1" TYPE="SELECT" POST_SQL="TRUE">
+		<![CDATA[ 
+                        SELECT '$G_RS.SEND_DATE$'     as RECV_DATE
+                             , '$G_RS.SEND_TIME$'     as RECV_TIME
+                             , '$G_RS.BUYER_ITEM_NO$' as BUYER_ITEM_NO
+                             ,  $G_RS.UNIT_PRICE$     as UNIT_PRICE 
+                        FROM DUAL
+		]]>
+			<C_SQL TYPE="UPDATE" P_SQL_RESULT="TRUE">
+			<![CDATA[
+				UPDATE ICOMTRXL
+				SET KEY_9  = $G_RS.SEND_DATE$||' '||$G_RS.SEND_TIME$
+                                  , KEY_10 = 'Y'
+				WHERE DOC_NAME = 'ATOB_PRICE'
+                                AND   TARGET = 'KRCHANG001'
+                                AND   KEY_10 = 'N'
+				AND   KEY_1  = '$G_RS.BUYER_ITEM_NO$'
+                                AND   KEY_2  =  $G_RS.UNIT_PRICE$
+			]]>
+			</C_SQL>
+			<C_SQL TYPE="UPDATE" P_SQL_RESULT="FALSE">
+			<![CDATA[
+                                UPDATE ICOMTRXL
+                                SET KEY_9  = $G_RS.SEND_DATE$||' '||$G_RS.SEND_TIME$
+                                  , KEY_10 = 'E'
+                                WHERE DOC_NAME = 'ATOB_PRICE'
+                                AND   TARGET = 'KRCHANG001'
+                                AND   KEY_10 = 'N'
+                                AND   KEY_1  = '$G_RS.BUYER_ITEM_NO$'
+                                AND   KEY_2  =  $G_RS.UNIT_PRICE$
+			]]>
+			</C_SQL>
+		</P_SQL>
+	</SQL_DOC>
+	<RETRY_CODE>
+		<CODE>03113</CODE>
+		<CODE>03114</CODE>
+		<CODE>02154</CODE>
+		<CODE>02541</CODE>
+		<CODE>04068</CODE>
+	</RETRY_CODE>
+</SQL>

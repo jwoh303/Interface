@@ -1,0 +1,1 @@
+java -Dlog4j.configuration=file:/D:/BatchClient_dev/Client/log4j_dev.properties -jar -Xms64m -Xmx128m D:/BatchClient_dev/Client/BatchClient.jar %1 %2 %3 %4

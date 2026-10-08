@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="EUC-KR"?>
+<SQL>
+        <!-- *********************************************************************** -->
+        <SQL_DOC INTERFACE_ID="KEP2DRBW_INV">
+                <V_SQL NAME='$G_RS' ISLOOP="TRUE" COMMIT_BY_RESULT="FALSE">
+                      SELECT GR01.CSTMR_ID ,  GR01.CSTMR_STCKAG_NO
+                      FROM   KEPCON.KEPMPGR01 GR01, KEPCON.KEPMPGR02 GR02
+                      WHERE  GR01.CSTMR_ID = 'KRDONG0595C001'
+                      AND    GR01.SND_CHK = 'N'
+                      AND    GR01.USE_CHK = 'Y'
+                      AND    GR01.CSTMR_STCKAG_NO = GR02.CSTMR_STCKAG_NO
+                </V_SQL>
+                <P_SQL SEQ="1" TYPE="SELECT" POST_SQL="TRUE">
+                <![CDATA[
+                      SELECT NVL(TRIM(SO04.IF_ORDR_BIZNPLC_CD),'100') AS MANDT
+                           , SO06.IF_ORDR_NO  AS EBELN
+                           , SO06.IF_ORDR_SEQ AS EBELP
+                           , REPLACE(SV02.DEAL_STTMN_NO,GR02.CSTMR_ID,'')  AS INV_NO
+                           , to_char(SV02.DEAL_STTMN_SEQ,'FM000000')       AS INV_SEQ
+                           , (SELECT COUNT(*) from KEPCON.KEPMPSV02
+                              WHERE  USE_CHK = 'Y'
+                              AND    ORDR_NO = SO06.ORDR_NO
+                              AND    ORDR_SEQ= SO06.ORDR_SEQ
+                              AND    FRST_REGST_DATM <= SV02.FRST_REGST_DATM) AS PARTIAL_NO
+                           , TO_CHAR(TO_DATE(SV01.DLVRY_DATE,'YYYYMMDD'),'YYYY-MM-DD')  AS DEL_DATE
+                           , GR02.GDS_CD      AS MATNR
+                           , GR02.STCKAG_QTY  AS MENGE
+                           , SUBSTRB(SO04.UNIT_CD,1,3)     AS MEINS
+                           , SO06.SLS_UNTPRC  AS NETPR
+                           , DECODE(SO06.ORDR_QTY,GR02.STCKAG_QTY,'N','Y') AS PARTIAL_DEL
+                           , GR02.STCKAG_QTY  AS DEL_QTY
+                           , (SELECT MAX(SO06.ORDR_QTY)-SUM(DLVRY_QTY) FROM KEPMPSV02
+                              WHERE  ORDR_NO = SV02.ORDR_NO
+                              AND    ORDR_SEQ= SV02.ORDR_SEQ
+                              AND    USE_CHK = 'Y')     AS REMAIN_QTY
+                           , 0 AS GR_QTY
+                           , 'C' AS STATUS
+                      FROM   KEPCON.KEPMPGR01 GR01, KEPCON.KEPMPGR02 GR02,
+                             KEPCON.KEPMPCL01 CL01, KEPCON.KEPMPSV02 SV02,
+                             KEPCON.KEPMPSV01 SV01,
+                             KEPCON.KEPMPSO06 SO06, KEPCON.KEPMPSO04 SO04
+                      WHERE  GR01.CSTMR_ID        = '$G_RS.CSTMR_ID$'
+                      AND    GR01.CSTMR_STCKAG_NO = '$G_RS.CSTMR_STCKAG_NO$'
+                      AND    GR01.SND_CHK = 'N'
+                      AND    GR01.USE_CHK = 'Y'
+                      AND    GR02.USE_CHK = 'Y'
+                      AND    GR01.CSTMR_STCKAG_NO = GR02.CSTMR_STCKAG_NO
+                      AND    GR02.CSTMR_STCKAG_NO = CL01.CSTMR_STCKAG_NO
+                      AND    GR02.CSTMR_STCKAG_SEQ= CL01.CSTMR_STCKAG_SEQ
+                      AND    CL01.DEAL_STTMN_NO   = SV02.DEAL_STTMN_NO
+                      AND    CL01.DEAL_STTMN_SEQ  = SV02.DEAL_STTMN_SEQ
+                      AND    CL01.DEAL_STTMN_NO   = SV01.DEAL_STTMN_NO
+                      AND    GR02.ORDR_NO         = SO06.ORDR_NO
+                      AND    GR02.ORDR_SEQ        = SO06.ORDR_SEQ
+                      AND    SO06.ORDR_RE_NO      = SO04.ORDR_RE_NO
+                      AND    SO06.ORDR_RE_SEQ     = SO04.ORDR_RE_SEQ
+                      ORDER BY INV_NO, INV_SEQ
+                ]]>
+                        <C_SQL TYPE="UPDATE" P_SQL_RESULT="TRUE">
+                        <![CDATA[
+                        declare
+                        begin
+                            UPDATE KEPCON.KEPMPGR01
+                               SET SND_CHK = 'Y'
+                                 , SND_DATM= SYSDATE
+                            WHERE  CSTMR_ID       = '$G_RS.CSTMR_ID$'
+                            AND    CSTMR_STCKAG_NO= '$G_RS.CSTMR_STCKAG_NO$';
+
+                            UPDATE KEPCON.KEPMPGR02
+                               SET SND_CHK = 'Y'
+                                 , SND_DATM= SYSDATE
+                            WHERE  CSTMR_ID       = '$G_RS.CSTMR_ID$'
+                            AND    CSTMR_STCKAG_NO= '$G_RS.CSTMR_STCKAG_NO$'
+                            AND    snd_chk = 'N';
+
+                        end;
+                        ]]>
+                        </C_SQL>
+                        <C_SQL TYPE="UPDATE" P_SQL_RESULT="FALSE">
+                        <![CDATA[
+                            UPDATE KEPCON.KEPMPGR01
+                               SET SND_CHK = 'E'
+                                 , SND_DATM= SYSDATE
+                            WHERE  CSTMR_ID       = '$G_RS.CSTMR_ID$'
+                            AND    CSTMR_STCKAG_NO= '$G_RS.CSTMR_STCKAG_NO$'
+                        ]]>
+                        </C_SQL>
+                </P_SQL>
+        </SQL_DOC>
+        <RETRY_CODE>
+                <CODE>03113</CODE>
+                <CODE>03114</CODE>
+                <CODE>02154</CODE>
+                <CODE>02541</CODE>
+                <CODE>04068</CODE>
+        </RETRY_CODE>
+</SQL>

@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="EUC-KR"?>
+<SQL>
+	<!-- *********************************************************************** -->
+	<SQL_DOC INTERFACE_ID="KEP2NETW_RT">
+		<V_SQL NAME='$G_RS' ISLOOP="TRUE" COMMIT_BY_RESULT="FALSE"> 
+			SELECT DOC_NAME AS DOC_NAME, TARGET AS BUYER, KEY_1 AS QUOTATION_NO, KEY_2 AS QUOTATION_SEQ, KEY_3 AS REVISION
+			FROM ICOMTRXL
+			WHERE DOC_NAME = 'QTHDDOWN' 
+			AND TARGET IN ( 'KRXPR00796' )
+			AND KEY_9 IN ('E')
+			GROUP BY DOC_NAME, TARGET, KEY_1, KEY_2, KEY_3
+		</V_SQL> 
+		<P_SQL SEQ="1" TYPE="SELECT" POST_SQL="TRUE">
+		<![CDATA[
+			
+			SELECT '01' AS PLANT,
+                    NVL(A.QUOTATION_NO       ,' ') AS QUOTATION_NO,
+                    NVL(A.QUOTATION_SEQ      ,' ') AS QUOTATION_SEQ,
+                    NVL(A.REVISION           ,  0) AS REVISION_NO,
+                    NVL(A.STATUS             ,' ') AS STATUS,
+                    NVL(A.BUYER_ITEM_NO      ,' ') AS BUYER_ITEM_NO,
+                    NVL(A.DESCRIPTION        ,' ') AS DESCRIPTION,
+                    NVL(A.SPECIFICATION      ,' ') AS SPECIFICATION,
+                    NVL(A.UNIT_MEASURE       ,' ') AS UNIT_MEASURE,
+                    NVL(A.MAKER_NAME         ,' ') AS MAKER_NAME,
+                    NVL(A.ATOB_UNIT_PRICE    ,  0) AS UNIT_PRICE,
+                    (SELECT NVL(T.BUYER_ITEM_NO,' ')
+					   FROM XPROCQSP T
+					  WHERE T.BUYER = A.BUYER
+						AND T.STDCATLG_ID = A.BUYER_ITEM_NO) AS ITEM_NO,
+                    '1' AS IF_FLAG,
+                    NVL(ATOB_DATE,TO_CHAR(SYSDATE,'YYYYMMDD')) AS IF_DATE,
+                    NVL(ATOB_TIME,TO_CHAR(SYSDATE,'HH24MISS')) AS IF_TIME
+               FROM KEPRQDT A
+              WHERE A.BUYER         = '$G_RS.BUYER$'
+                AND A.QUOTATION_NO  = '$G_RS.QUOTATION_NO$'
+                AND A.QUOTATION_SEQ = '$G_RS.QUOTATION_SEQ$'
+                AND A.REVISION      = '$G_RS.REVISION$'
+
+		]]>
+			<C_SQL TYPE="UPDATE" P_SQL_RESULT="TRUE">
+			<![CDATA[
+				UPDATE ICOMTRXL
+				SET KEY_9 = 'Y', KEY_10 = TO_CHAR(SYSDATE,'YYYYMMDD HH24MISS')
+				WHERE  DOC_NAME = '$G_RS.DOC_NAME$'
+				AND TARGET       = '$G_RS.BUYER$'
+				AND KEY_1       = '$G_RS.QUOTATION_NO$'
+				AND KEY_2       = '$G_RS.QUOTATION_SEQ$'
+				AND KEY_3      = '$G_RS.REVISION$'
+				AND KEY_9 IN ('E')
+			]]>
+			</C_SQL>
+			<C_SQL TYPE="UPDATE" P_SQL_RESULT="FALSE">
+			<![CDATA[
+				UPDATE ICOMTRXL
+				SET KEY_9 = 'D', KEY_10 = TO_CHAR(SYSDATE,'YYYYMMDD HH24MISS')
+				WHERE  DOC_NAME = '$G_RS.DOC_NAME$'
+				AND TARGET       = '$G_RS.BUYER$'
+				AND KEY_1       = '$G_RS.QUOTATION_NO$'
+				AND KEY_2       = '$G_RS.QUOTATION_SEQ$'
+				AND KEY_3      = '$G_RS.REVISION$'
+				AND KEY_9 IN ('E')
+			]]>
+			</C_SQL>
+		</P_SQL>
+	</SQL_DOC>
+	<RETRY_CODE>
+		<CODE>03113</CODE>
+		<CODE>03114</CODE>
+		<CODE>02154</CODE>
+		<CODE>02541</CODE>
+		<CODE>04068</CODE>
+	</RETRY_CODE>
+</SQL>

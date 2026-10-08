@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<SQL>
+    <!-- *********************************************************************** -->
+    <SQL_DOC INTERFACE_ID="BUYER2CKEP_PC">
+        <V_SQL NAME='$G_RS' ISLOOP="TRUE" COMMIT_BY_RESULT="FALSE">
+        <![CDATA[
+        SELECT DISTINCT CL01.SLS_TAX_BILL_NO AS V_INVOICE_NO
+        FROM   KEPCMCL01 CL01
+            ,  VW_ERP_SLS_CMCL01 CC01
+        WHERE  1=1
+        AND    CL01.ERP_SND_STATE_CD = 'N'
+        AND    (CL01.MILE_CHK = 'N' OR CL01.MILE_CHK IS NULL)
+        AND    CL01.BILL_CNFRM_CHK = 'Y'
+        AND    (( CL01.ELCTR_TAX_BILL_PBLCTN_CHK='Y' AND CL01.ATTR_1='Y')
+                OR
+                ( CL01.ELCTR_TAX_BILL_PBLCTN_CHK IS NULL )
+                OR
+                ( CL01.ELCTR_TAX_BILL_PBLCTN_CHK = 'N' )
+               )
+        AND    CL01.USE_CHK = 'Y'
+        AND    CL01.SLS_TAX_BILL_NO = CC01.SLS_TAX_BILL_NO
+        ]]>
+        </V_SQL>
+        <P_SQL SEQ="1" TYPE="SELECT" POST_SQL="TRUE">
+        <![CDATA[
+
+        SELECT  CL01.SLS_TAX_BILL_NO                              AS V_INVOICE_NO     ,
+                DECODE(
+                    GETALANCINFO(CL01.CMPNY_ALANC_ID,'BIZMN_REGST_NO')
+                    , '1078185880', 'SE'  /* 서울본사 */
+                    , '1138523209', 'GU'  /* 구로 */
+                    , '6158508913', 'CW'  /* 창원 */
+                    , ' '
+                )                                                 AS V_SAUPJ          ,
+                CC01.ERP_DEPT_CD                                  AS V_DEPARTCODE     ,
+                CL01.TAX_BILL_PBLCTN_DATE                         AS V_INVOICE_DATE   ,
+                REPLACE(CL01.BIZMN_REGST_NO,'-','')               AS V_CUSTOMER       ,
+                ''                                                AS V_CUSTOMER_PONO  ,
+                CL01.PAY_CND_CD                                   AS V_PAYMENT_TERM   ,
+                ''                                                AS V_WHOUT_NO       ,
+                'B01'                                             AS V_WHOUT_TYPE     ,
+                NVL
+                ((
+                /*+INDEX DESC (MPCL02 KEPMPCL02_PK)*/
+                SELECT MPCL02.CURR_CD
+                FROM   KEPMPCL02 MPCL02
+                WHERE  MPCL02.SLS_TAX_BILL_NO = CL01.SLS_TAX_BILL_NO
+                AND    MPCL02.USE_CHK = 'Y'
+                AND    ROWNUM = 1
+                ),'KRW')                                          AS V_CURRENCY       ,
+                NVL
+                ((
+                /*+INDEX DESC (MPCL02 KEPMPCL02_PK)*/
+                SELECT DECODE(MPCL02.CURR_CD,'KRW',0, MPCL02.EXRATE)
+                FROM   KEPMPCL02 MPCL02  /*매출마감대상*/
+                WHERE  MPCL02.SLS_TAX_BILL_NO = CL01.SLS_TAX_BILL_NO
+                AND    MPCL02.USE_CHK = 'Y'
+                AND    ROWNUM = 1
+                ),0)                                              AS V_IEX_RATE       ,
+                NVL
+                ((
+                SELECT SUM(DECODE(MPCL02.CURR_CD,'KRW',0, MPCL02.WON_CNVRS_SLS_AMT))
+                FROM   KEPMPCL02 MPCL02  /*매출마감대상*/
+                WHERE  MPCL02.SLS_TAX_BILL_NO = CL01.SLS_TAX_BILL_NO
+                AND    MPCL02.USE_CHK = 'Y'
+                ),0)                                              AS V_DAMOUNT        ,
+                0                                                 AS V_TOT_DAMOUNT    ,
+                NVL(CC01.SLS_AMT,0)                               AS V_AMOUNT         ,
+                NVL(CL01.TOT_SLS_AMT,0)                           AS V_TOT_AMOUNT     ,
+                NVL(CC01.ADJUSTED_SLS_VAT,0)                      AS V_TAX_AMOUNT     ,
+                NVL(CC01.SLS_VAT,0)                               AS V_TOT_TAX_AMOUNT ,
+                CL01.TAX_CLSS_CD                                  AS V_TAX_CODE       ,
+                1                                                 AS V_TAX_COUNT      ,
+                (
+                SELECT T.GDS_NM
+                FROM   KEPCMCL02 T
+                WHERE  T.TAX_BILL_NO = CL01.SLS_TAX_BILL_NO
+                AND T.PRCHS_SLS_CLSS_CD='SA'
+                AND ROWNUM=1
+                )                                                 AS V_REMARK         ,
+                CL01.RESGTR_ID                                    AS V_CREATE_EMPNO   ,
+                CL01.FRST_REGST_DATM                              AS V_CREATE_DATE    ,
+                'N'                                               AS V_CANCEL_FLAG    ,
+                ''                                                AS V_CANCEL_DATE    ,
+                'N'                                               AS V_CLOSE_FLAG     ,
+                CL01.RESGTR_ID                                    AS V_INTERFACE_EMPNO,
+                CL01.FRST_REGST_DATM                              AS V_INTERFACE_DATE ,
+                ' '                                               AS V_INTERFACE_FLAG ,
+                DECODE(CL01.ALANC_CLSS_CD,'C001','KA','C002','SA','C003','KW','')  AS V_ATTRIBUTE1     ,
+                '상품매출'                                        AS V_ATTRIBUTE3     ,
+                ''                                                AS V_ATTRIBUTE4     ,
+                ''                                                AS V_ATTRIBUTE5     ,
+                ''                                                AS V_ATTRIBUTE6     ,
+                ''                                                AS V_ATTRIBUTE7     ,
+                ''                                                AS V_ATTRIBUTE8     ,
+                ''                                                AS V_ATTRIBUTE9     ,
+                ''                            AS V_ATTRIBUTE10    ,/*스마트빌 세금계산서번호*/
+                DECODE(CL01.TAX_BILL_PBLCTN_SITE_CD,'02','Y','N') AS V_TRANSFER_FLAG
+        FROM   KEPCMCL01 CL01
+            ,  VW_ERP_SLS_CMCL01 CC01
+        WHERE  1=1
+        AND    CL01.SLS_TAX_BILL_NO  = '$G_RS.V_INVOICE_NO$'
+        AND    CL01.ERP_SND_STATE_CD = 'N'
+        AND    (CL01.MILE_CHK = 'N' OR CL01.MILE_CHK IS NULL)
+        AND    CL01.BILL_CNFRM_CHK = 'Y'
+        AND    (( CL01.ELCTR_TAX_BILL_PBLCTN_CHK='Y' AND CL01.ATTR_1='Y')
+                OR
+                ( CL01.ELCTR_TAX_BILL_PBLCTN_CHK IS NULL )
+                OR
+                ( CL01.ELCTR_TAX_BILL_PBLCTN_CHK = 'N' )
+               )
+        AND    CL01.USE_CHK = 'Y'
+        AND    CL01.SLS_TAX_BILL_NO = CC01.SLS_TAX_BILL_NO
+        ]]>
+            <C_SQL TYPE="UPDATE" P_SQL_RESULT="TRUE">
+            <![CDATA[
+            UPDATE KEPCMCL01
+            SET    ERP_SND_STATE_CD = 'Y',
+                   ERP_SND_DATE     = TO_CHAR(SYSDATE,'YYYYMMDD'),
+                   LST_MDFY_DATM    = SYSDATE,
+                   MDFYR_ID         = 'FTP'
+            WHERE  ERP_SND_STATE_CD = 'N'
+            AND    SLS_TAX_BILL_NO  = '$G_RS.V_INVOICE_NO$'
+            AND    USE_CHK          = 'Y'
+            ]]>
+            </C_SQL>
+            <C_SQL TYPE="UPDATE" P_SQL_RESULT="FALSE">
+            <![CDATA[]]>
+            </C_SQL>
+        </P_SQL>
+    </SQL_DOC>
+    <RETRY_CODE>
+        <CODE>03113</CODE>
+        <CODE>03114</CODE>
+        <CODE>02154</CODE>
+        <CODE>02541</CODE>
+        <CODE>04068</CODE>
+    </RETRY_CODE>
+</SQL>

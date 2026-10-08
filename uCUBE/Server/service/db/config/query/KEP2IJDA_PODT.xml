@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="EUC-KR"?>
+<SQL>
+  <!-- *********************************************************************** -->
+  <SQL_DOC INTERFACE_ID="KEP2IJDA_PODT">
+    <V_SQL NAME='$G_RS' ISLOOP="TRUE" COMMIT_BY_RESULT="FALSE">
+    <![CDATA[
+    SELECT DISTINCT 
+           BUYER, PO_NO
+      FROM ICOMPODT A
+     WHERE (BUYER, PO_NO) IN (
+        SELECT
+               TARGET AS BUYER,
+               KEY_1  AS PO_NO
+          FROM ICOMTRXL A
+         WHERE DOC_NAME = 'PO_DOWN'
+           AND TARGET   = 'KRILJI0001'
+           AND KEY_9    = ' '
+       )
+       AND STATUS IN ('C','R')
+       AND NOT EXISTS (
+         SELECT 'X'
+           FROM ICOMPODT 
+          WHERE BUYER  = A.BUYER
+            AND PR_NO  = A.PR_NO
+            AND PR_SEQ = A.PR_SEQ
+            AND PO_NO != A.PO_NO
+       )
+     ORDER BY BUYER, PO_NO
+    ]]>
+    </V_SQL>
+    <P_SQL SEQ="1" TYPE="SELECT" POST_SQL="TRUE">
+    <![CDATA[
+    SELECT
+           A.BUYER,
+           A.PO_NO,
+           A.PO_SEQ,
+           A.STATUS,
+           A.ADD_DATE,
+           A.ADD_TIME,
+           A.BUYER_ITEM_NO,
+           A.DESCRIPTION,
+           A.SPECIFICATION,
+           A.UNIT_MEASURE,
+           A.ITEM_QTY,
+           A.UNIT_PRICE,
+           A.ITEM_AMT,
+           A.RD_DATE,
+           A.MAKER_CODE,
+           A.MAKER_NAME,
+           A.DELY_TO_LOCATION,
+           A.PR_NO,
+           A.PR_SEQ,
+           A.REF_PR_NO,
+           A.PO_REMARK,
+           A.REF_IF_NO,
+           A.PLANT,
+           A.REF_PR_NO AS PRODUCT_CODE,
+           B.REQ_DEPT AS BUDGET_DEPT,
+           B.ACCOUNT_TYPE,
+           C.LEGACY_USER_ID AS EMPLOYEE_NUMBER
+      FROM ICOMPODT A
+           INNER JOIN ICOMPRDT B ON (1 = 1
+             AND B.BUYER  = A.BUYER
+             AND B.PR_NO  = A.PR_NO
+             AND B.PR_SEQ = A.PR_SEQ
+           )
+           INNER JOIN ICOMLUSR C ON (1 = 1
+             AND C.USER_ID = B.REQ_USER_ID
+           )
+     WHERE A.BUYER = '$G_RS.BUYER$'
+       AND A.PO_NO = '$G_RS.PO_NO$'
+    ]]>
+      <C_SQL TYPE="UPDATE" P_SQL_RESULT="TRUE">
+      <![CDATA[
+      UPDATE ICOMTRXL
+         SET KEY_9  = 'T',
+             KEY_10 = TO_CHAR(SYSDATE, 'YYYY/MM/DD HH24:MI:SS')
+       WHERE DOC_NAME = 'PO_DOWN'
+         AND TARGET   = '$G_RS.BUYER$'
+         AND KEY_1    = '$G_RS.PO_NO$'
+         AND KEY_9    = ' '
+      ]]>
+      </C_SQL>
+      <C_SQL TYPE="UPDATE" P_SQL_RESULT="FALSE">
+      <![CDATA[
+      UPDATE ICOMTRXL
+         SET KEY_9  = 'E',
+             KEY_10 = 'PODT ERROR'
+       WHERE DOC_NAME = 'PO_DOWN'
+         AND TARGET   = '$G_RS.BUYER$'
+         AND KEY_1    = '$G_RS.PO_NO$'
+         AND KEY_9    = ' '
+      ]]>
+      </C_SQL>
+    </P_SQL>
+  </SQL_DOC>
+  <RETRY_CODE>
+    <CODE>03113</CODE>
+    <CODE>03114</CODE>
+    <CODE>02154</CODE>
+    <CODE>02541</CODE>
+    <CODE>04068</CODE>
+  </RETRY_CODE>
+</SQL>
+

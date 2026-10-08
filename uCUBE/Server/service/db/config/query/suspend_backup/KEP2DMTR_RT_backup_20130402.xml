@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="EUC-KR"?>
+<SQL>
+	<!-- *********************************************************************** -->
+	<SQL_DOC INTERFACE_ID="KEP2DMTR_RT">
+		<V_SQL NAME='$G_RS' ISLOOP="TRUE" COMMIT_BY_RESULT="FALSE"> 
+                <![CDATA[
+                SELECT RQDT.BUYER
+                     , RQDT.QUOTATION_NO
+                     , RQDT.QUOTATION_SEQ
+                     , RQDT.REVISION
+                FROM  KEPRQDT RQDT
+                      INNER JOIN KEPQTDT QTDT ON (1 = 1
+                        AND QTDT.BUYER            = RQDT.BUYER
+                        AND QTDT.QUOTATION_NO     = RQDT.QUOTATION_NO
+                        AND QTDT.QUOTATION_SEQ    = RQDT.QUOTATION_SEQ
+                        AND QTDT.REVISION         = RQDT.REVISION
+                        AND QTDT.BID_SUCCESS_FLAG = 'Y'
+                      )
+                WHERE RQDT.BUYER = 'KRDOOS0035'
+                AND   RQDT.SND_CHK = 'N'
+                AND   RQDT.ATOB_SEND_FLAG = 'Y'
+                AND   RQDT.STATUS IN ('C','R')
+                AND   RQDT.QUOTATION_NO LIKE 'DM%'
+                AND   0  = (SELECT count(*)  FROM KEPRQDT
+                            WHERE BUYER = RQDT.BUYER
+                            AND   QUOTATION_NO = RQDT.QUOTATION_NO
+                            AND   REVISION     = RQDT.REVISION
+                            AND   STATUS IN ('C','R') 
+                            AND   RECV_FLAG <> 'GD'
+                            AND   ATOB_SEND_FLAG <> 'Y')
+                AND  RQDT.RECV_FLAG <> 'GD'
+                ORDER BY RQDT.BUYER
+                       , RQDT.QUOTATION_NO
+                       , TO_NUMBER(RQDT.QUOTATION_SEQ)
+                       , RQDT.REVISION
+                ]]>
+		</V_SQL> 
+		<P_SQL SEQ="1" TYPE="SELECT" POST_SQL="TRUE">
+		<![CDATA[
+                        SELECT 
+                                 RQDT.PLANT   AS PLANT
+                                 , RQDT.QUOTATION_NO
+                                 , RQDT.QUOTATION_SEQ
+                                 , RQDT.REVISION
+                                 , RQDT.BUYER_ITEM_NO
+                                 , RQDT.UNIT_MEASURE
+                                 , RQDT.ATOB_UNIT_PRICE  AS UNIT_PRICE
+                                 , (SELECT MAX(SUBSTR(SYS_CONNECT_BY_PATH(AGENT ||':'|| TO_CHAR(UNIT_PRICE,'FM999,999,999,999,999.00') ||':'|| MAKER_NAME ||':'|| LEAD_TIME, '^||^'),5))
+                                      FROM (
+                                          SELECT QT.BUYER,
+                                                 QT.QUOTATION_NO,
+                                                 QT.QUOTATION_SEQ,
+                                                 CP.COM_NAME_LOC AGENT,
+                                                 QT.ATOB_UNIT_PRICE AS UNIT_PRICE,
+                                                 QT.BID_SUCCESS_FLAG,
+                                                 QT.MAKER_NAME,
+                                                 QT.LEAD_TIME, 
+                                                 RANK() OVER(ORDER BY QT.ATOB_UNIT_PRICE) RK
+                                            FROM KEPQTDT QT
+                                                 INNER JOIN ICOMCMPY CP ON (1 = 1
+                                                   AND CP.COM_CODE = QT.AGENT
+                                                 )
+                                           WHERE 1 = 1
+                                             AND BUYER         = '$G_RS.BUYER$'
+                                             AND QUOTATION_NO  = '$G_RS.QUOTATION_NO$'
+                                             AND QUOTATION_SEQ = '$G_RS.QUOTATION_SEQ$'
+                                             AND REVISION      = '$G_RS.REVISION$'
+                                             AND NVL(QT.ATOB_UNIT_PRICE,0) > 0
+                                             AND ROWNUM < 4
+                                           ORDER BY QT.BID_SUCCESS_FLAG DESC, QT.ATOB_UNIT_PRICE
+                                        ) Z
+                                     START WITH Z.RK = 1
+                                     CONNECT BY PRIOR Z.RK = ( Z.RK -1 )
+                                   )  AS REMARK
+                                 , DECODE(RQDT.RECV_FLAG,'GD','D','C') STATUS
+                                 , QTDT.LEAD_TIME
+                                 , RQDT.ITEM_QTY  
+                        FROM   KEPRQDT RQDT
+                               INNER JOIN KEPQTDT QTDT ON (1 = 1
+                                 AND QTDT.BUYER            = RQDT.BUYER
+                                 AND QTDT.QUOTATION_NO     = RQDT.QUOTATION_NO
+                                 AND QTDT.QUOTATION_SEQ    = RQDT.QUOTATION_SEQ
+                                 AND QTDT.REVISION         = RQDT.REVISION
+                                 AND QTDT.BID_SUCCESS_FLAG = 'Y'
+                               )
+                        WHERE 1 = 1
+                          AND RQDT.BUYER         = '$G_RS.BUYER$'
+                          AND RQDT.QUOTATION_NO  = '$G_RS.QUOTATION_NO$'
+                          AND RQDT.QUOTATION_SEQ = '$G_RS.QUOTATION_SEQ$'
+                          AND RQDT.REVISION      = '$G_RS.REVISION$'
+
+
+		]]>
+			<C_SQL TYPE="UPDATE" P_SQL_RESULT="TRUE">
+			<![CDATA[
+				
+				DECLARE
+
+					V_SEND_DATE		ICOMPORS.SEND_DATE%TYPE;
+					V_SEND_TIME		ICOMPORS.SEND_TIME%TYPE;
+					V_SEND_DATETIME	ICOMTRXL.KEY_8%TYPE;
+
+				BEGIN
+					
+					SELECT
+					TO_CHAR(SYSDATE,'YYYYMMDD'), TO_CHAR(SYSDATE,'HH24MISS'), TO_CHAR(SYSDATE,'YYYYMMDD HH24MISS')
+					INTO V_SEND_DATE, V_SEND_TIME, V_SEND_DATETIME
+					FROM DUAL;
+
+					 UPDATE KEPRQDT
+						SET SND_CHK  = 'Y', 
+							SND_DATM = SYSDATE
+					  WHERE BUYER         = '$G_RS.BUYER$'
+						AND QUOTATION_NO  = '$G_RS.QUOTATION_NO$'
+						AND QUOTATION_SEQ = '$G_RS.QUOTATION_SEQ$'
+						AND REVISION      = '$G_RS.REVISION$'
+					;
+
+				END;
+
+			]]>
+			</C_SQL>
+			<C_SQL TYPE="UPDATE" P_SQL_RESULT="FALSE">
+			<![CDATA[
+					 UPDATE KEPRQDT
+						SET SND_CHK  = 'E',
+							SND_DATM = SYSDATE
+					  WHERE BUYER         = '$G_RS.BUYER$'
+						AND QUOTATION_NO  = '$G_RS.QUOTATION_NO$'
+						AND QUOTATION_SEQ = '$G_RS.QUOTATION_SEQ$'
+						AND REVISION      = '$G_RS.REVISION$'
+			]]>
+			</C_SQL>
+		</P_SQL>
+	</SQL_DOC>
+	<RETRY_CODE>
+		<CODE>03113</CODE>
+		<CODE>03114</CODE>
+		<CODE>02154</CODE>
+		<CODE>02541</CODE>
+		<CODE>04068</CODE>
+	</RETRY_CODE>
+</SQL>

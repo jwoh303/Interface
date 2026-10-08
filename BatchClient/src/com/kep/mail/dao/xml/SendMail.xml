@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap      
+    PUBLIC "-//ibatis.apache.org//DTD SQL Map 2.0//EN"
+    "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="SendMail">
+
+	<select id="selectMailTargetList" resultClass="java.util.HashMap">
+	<![CDATA[
+	SELECT DISTINCT KEY_1 AS TAX_BILL_NO, KEY_2 AS TO_MAIL, KEY_3 AS TO_NAME, B.ISSUE_ID, B.ISSUE_ID||'.xlsx' AS SRC_FILE_NAME,
+	       '[코리아이플랫폼]'||SUBSTR(C.Ar_Close_Month,1,4)||'년 '||SUBSTR(C.Ar_Close_Month,5)||'월 계산서 상세내용 입니다.' AS SUBJECT,
+	       '* 입고기간 : '||(SELECT TO_CHAR(TO_DATE(MIN(GR_DATE),'YYYYMMDD'),'MM/DD') FROM ICOMGRDT WHERE BUYER = A.TARGET AND AR_TAX_BILL_NO = A.KEY_1 AND STATUS != 'D')||' ~ '||
+	                     (SELECT TO_CHAR(TO_DATE(MAX(GR_DATE),'YYYYMMDD'),'MM/DD') FROM ICOMGRDT WHERE BUYER = A.TARGET AND AR_TAX_BILL_NO = A.KEY_1 AND STATUS != 'D') AS GR_TERM,
+	       '* KEP 담당자 : ' || D.USER_NAME_LOC ||'/'||D.Phone_Number AS KEP_USER_INFO
+	  FROM ICOMTRXL A
+	     , XXSB_DTI_MAIN B
+	     , KEPTARDT C
+	     , ICOMLUSR D
+	 WHERE A.DOC_NAME = 'AREX'
+	   AND A.TARGET = 'KRSAMS0123'
+	   AND A.KEY_9 = ' '
+	   AND A.KEY_1 = B.Seq_Id
+	   AND A.KEY_1 = C.TAX_BILL_NO
+	   AND C.ADD_USER_ID = D.USER_ID
+	]]>   
+	</select>
+	
+	<select id="selectArDataList" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+	SELECT B.PLANT, B.LEGACY_PO_NO, B.LEGACY_PO_SEQ, C.PO_CREATE_DATE,
+	       B.BUYER_ITEM_NO, B.DESCRIPTION, B.SPECIFICATION, B.UNIT_MEASURE,
+	       (SELECT MAX(REQUESTER_NAME) FROM EAI.IF_SEC_PURCHASE_ORDER WHERE PO_NO = B.LEGACY_PO_NO AND PO_SEQ = B.LEGACY_PO_SEQ) AS REQUESTER,
+	       (SELECT MAX(PO_CREATOR_NAME) FROM EAI.IF_SEC_PURCHASE_ORDER WHERE PO_NO = B.LEGACY_PO_NO AND PO_SEQ = B.LEGACY_PO_SEQ) AS PURCHASER,
+	       B.BUDGET_DEPT, D.TEXT1 AS BUDGET_NAME, 
+	       A.LEGACY_GR_NO, A.GR_DATE, A.ITEM_QTY, A.ITEM_AMT
+	  FROM ICOMGRDT A
+	     , ICOMPODT B
+	     , ICOMPOHD C
+	     , ICOMCOD2 D
+	 WHERE A.BUYER = 'KRSAMS0123'
+	   AND A.STATUS != 'D'
+	   AND A.AR_TAX_BILL_NO = #TAX_BILL_NO#
+	   AND B.BUYER = A.BUYER
+	   AND B.PO_NO = A.PO_NO
+	   AND B.PO_SEQ = A.PO_SEQ
+	   AND B.STATUS != 'D'
+	   AND C.BUYER = B.BUYER
+	   AND C.PO_NO = B.PO_NO
+	   AND C.STATUS != 'D'
+	   AND D.TYPE = 'C001'
+	   AND D.CODE = B.BUDGET_DEPT
+	   AND D.COMPANY_CODE = B.BUYER
+	 ORDER BY 1  
+	</select>
+	
+	<update id="updateEvent" parameterClass="java.util.HashMap">
+	UPDATE ICOMTRXL
+	   SET KEY_8 = #RTN_MSG#
+	     , KEY_9 = #RTN_FLG#
+	     , KEY_10 = TO_CHAR(SYSDATE, 'YYYY/MM/DD HH24:MI:SS')
+	 WHERE DOC_NAME = 'AREX'
+	   AND TARGET = 'KRSAMS0123'
+	   AND KEY_1  = #TAX_BILL_NO#
+	</update>
+	
+	<select id="selectCowayScrapList" parameterClass="java.util.HashMap" resultClass="java.util.HashMap">
+	SELECT BC.COM_NAME_LOC BUYER_NAME, SC.COM_NAME_LOC SELLER_NAME, A.BUYER_ITEM_NO, A.LEGACY_PO_NO ||'_'|| A.LEGACY_PO_SEQ REF_IF_NO, B.ADD_DATE, B.ADD_DATE AS GR_DATE, A.DESCRIPTION, A.SPECIFICATION, A.MAKER_NAME,
+	       A.UNIT_MEASURE, TO_NUMBER(B.MENGE_R) AS PO_QTY, TO_NUMBER(B.MENGE_R) AS GR_QTY,
+	       DP.TEXT1 AS PURCHASER_DEPT, C.PURCHASER_NAME,
+	       RDP.TEXT1 AS REQ_USER_DEPT, RQ.USER_NAME_LOC AS REQ_USER_NAME
+	  FROM ICOMPODT A, COWAY_PO_RETURN B, ICOMPOHD C, ICOMCMPY BC, ICOMCMPY SC, ICOMPRDT D, ICOMCOD2 DP, ICOMLUSR RQ, ICOMCOD2 RDP
+	 WHERE 1 = 1
+	   AND B.REMARK = '보상반납_폐기'
+	   AND B.ADD_DATE <![CDATA[>]]> #FROM_DT#
+	   AND B.ADD_DATE <![CDATA[<=]]> #TO_DT#
+	   AND A.BUYER IN ('KRCOWA0002', 'KRCOWA0003', 'KRCOWA0007', 'KRCOWA0008')
+	   AND B.EBELN = A.LEGACY_PO_NO
+	   AND B.EBELP = A.LEGACY_PO_SEQ
+	   AND A.BUYER = C.BUYER
+	   AND A.PO_NO = C.PO_NO
+	   
+	   AND BC.COM_CODE = C.BUYER
+	   AND SC.COM_CODE = C.AGENT
+	   
+	   AND D.BUYER = A.BUYER
+	   AND D.PR_NO = A.PR_NO
+	   AND D.PR_SEQ = A.PR_SEQ
+	   
+	   AND DP.TYPE = 'C001'
+	   AND DP.COMPANY_CODE = D.BUYER
+	   AND DP.CODE = D.PURCHASER_DEPT
+	   
+	   AND RDP.TYPE = 'C001'
+	   AND RDP.COMPANY_CODE = RQ.COM_CODE
+	   AND RDP.CODE = RQ.DEPARTMENT
+	   
+	   AND RQ.USER_ID = D.REQ_USER_ID	
+	</select>
+	
+	<select id="selectCowayScrapRecvMailList" resultClass="java.util.HashMap">
+	SELECT TEXT1 AS TO_NAME, TEXT2 AS TO_MAIL
+	  FROM ICOMCOD1
+	 WHERE TYPE = 'I006'
+	   AND FLAG = 'Y'
+	</select>
+</sqlMap>

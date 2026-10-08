@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="EUC-KR"?>
+<SQL>
+        <!-- *********************************************************************** -->
+        <SQL_DOC INTERFACE_ID="KEP2SDSM_INV">
+                <V_SQL NAME='$G_RS' ISLOOP="TRUE" COMMIT_BY_RESULT="FALSE">
+                       SELECT DISTINCT
+                              SV01.CSTMR_ID
+                            , SV01.DEAL_STTMN_NO
+                       FROM   KEPCON.KEPMPSV01 SV01, KEPCON.KEPMPSV02 SV02
+                       WHERE  SV01.CSTMR_ID = 'KRSUNG0254C001'
+                       AND    SV01.DEAL_STTMN_NO = SV02.DEAL_STTMN_NO
+                       AND    SV01.SND_CHK = 'N'
+                       AND    SV02.SND_CHK = 'N'
+                </V_SQL>
+                <P_SQL SEQ="1" TYPE="SELECT" POST_SQL="TRUE">
+                <![CDATA[
+                   SELECT NVL(SO04.IF_ORDR_BIZNPLC_CD,'SDSM')   AS PLANT
+                        , SV01.CSTMR_DEAL_STTMN_NO   AS DLVY_NO
+                        , SO06.IF_ORDR_NO     AS PO_NO
+                        , SO06.IF_ORDR_SEQ    AS PO_LNNO
+                        , DECODE(SV02.USE_CHK,'N','D','C') AS STATUS
+                        , SV01.DLVRY_DATE     AS DLVY_DUE_DATE
+                        , SO06.SLS_UNTPRC     AS PRCH_UNT_PR
+                        , SV02.DLVRY_QTY      AS DLVY_DUE_QTY
+                        , SO06.SLS_UNTPRC*SV02.DLVRY_QTY  AS DLVY_AMT
+                        , F_SPLIT(SO04.MNG_NO,'-',1) AS POR_NO
+                        , F_SPLIT(SO04.MNG_NO,'-',2) AS POR_LNNO
+                        , ''                  AS REMARK
+                        , TO_CHAR(SYSDATE,'YYYYMMDD') AS IF_DATE
+                        , 'N'    AS IF_FLAG
+                   FROM  KEPCON.KEPMPSV01 SV01, KEPCON.KEPMPSV02 SV02, KEPCON.KEPMPSO06 SO06,
+                         KEPCON.KEPMPSO04 SO04
+                   WHERE SV01.CSTMR_ID = '$G_RS.CSTMR_ID$'
+                   AND   SV01.DEAL_STTMN_NO = '$G_RS.DEAL_STTMN_NO$'
+                   AND   SV01.SND_CHK = 'N'
+                   AND   SV01.DEAL_STTMN_NO = SV02.DEAL_STTMN_NO
+                   AND   SV02.SND_CHK = 'N'
+                   AND   SV02.ORDR_NO = SO06.ORDR_NO
+                   AND   SV02.ORDR_SEQ= SO06.ORDR_SEQ
+                   AND   SO06.CSTMR_ID   = SO04.CSTMR_ID
+                   AND   SO06.ORDR_RE_NO = SO04.ORDR_RE_NO
+                   AND   SO06.ORDR_RE_SEQ= SO04.ORDR_RE_SEQ
+
+                ]]>
+                        <C_SQL TYPE="UPDATE" P_SQL_RESULT="TRUE">
+                        <![CDATA[
+                            UPDATE KEPCON.KEPMPSV01
+                            SET    SND_CHK = 'Y' 
+                                 , SND_DATM = SYSDATE
+                            WHERE DEAL_STTMN_NO = '$G_RS.DEAL_STTMN_NO$'
+                            AND   SND_CHK = 'N'
+                        ]]>
+                        </C_SQL>
+                        <C_SQL TYPE="UPDATE" P_SQL_RESULT="FALSE">
+                        <![CDATA[
+                            UPDATE KEPCON.KEPMPSV01
+                               SET SND_CHK = 'E'
+                                 , SND_DATM = SYSDATE
+                            WHERE  DEAL_STTMN_NO = '$G_RS.DEAL_STTMN_NO$'
+                              AND  SND_CHK = 'N'
+                        ]]>
+                        </C_SQL>
+                </P_SQL>
+        </SQL_DOC>
+        <RETRY_CODE>
+                <CODE>03113</CODE>
+                <CODE>03114</CODE>
+                <CODE>02154</CODE>
+                <CODE>02541</CODE>
+                <CODE>04068</CODE>
+        </RETRY_CODE>
+</SQL>

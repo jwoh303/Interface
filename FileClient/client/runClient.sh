@@ -1,0 +1,1 @@
+/usr/java/jdk1.6.0_45/bin/java -jar -Xms64m -Xmx128m -Dlog4j.configuration=file:/EAI/B2B/java/kepmp/file/client/log4j.properties /EAI/B2B/java/kepmp/file/client/FileClient.jar $1 $2 $3

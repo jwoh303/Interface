@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="EUC-KR"?>
+<SQL>
+	<!-- *********************************************************************** -->
+	<SQL_DOC INTERFACE_ID="BUYER2KEP_GR">
+		<V_SQL NAME='$G_RS' ISLOOP="TRUE" COMMIT_BY_RESULT="FALSE"> 
+                   SELECT DOC_NAME
+				        , TARGET AS TARGET
+                        , KEY_1  AS LEGACY_PO_NO
+                        , KEY_2  AS LEGACY_PO_SEQ
+                        , KEY_3  AS LEGACY_GR_NO
+                        , KEY_4  AS LEGACY_GR_SEQ
+                    FROM KEPTRXL
+                   WHERE DOC_NAME IN ('GR','GRD')
+                   AND   IF_FLAG = 'N'
+                   ORDER BY DOC_NAME, KEY_1, KEY_2  
+		</V_SQL> 
+		<P_SQL SEQ="1" TYPE="SELECT" POST_SQL="TRUE">
+		<![CDATA[
+                   SELECT 'SMT1' AS	BUYER
+                        , 'KA'   AS SITE
+                        , PLANT  AS PLANT
+                        , PO_NO        AS LEGACY_PO_NO
+                        , PO_ITEM_NO   AS LEGACY_PO_SEQ
+                        , PRODUCT_CODE AS BUYER_ITEM_NO
+                        , RECEIPT_NO   AS LEGACY_GR_NO
+                        , RECEIPT_ITEM_NO AS LEGACY_GR_SEQ  
+                        , 'C'          AS STATUS
+                        , CURRENCY_CODE   AS CURRENCY_CODE
+                        , to_char(RECEIPT_DATE,'YYYYMMDD') AS GR_DATE
+                        , PRODUCT_QUANTITY  AS GR_QTY
+                        , UNIT_CODE    AS UNIT_MEASURE
+                        , UNIT_PRICE   AS UNIT_PRICE
+                        , to_char(DLVR_DATE,'YYYYMMDD') as DLVR_DATE
+                        , IPHA_NO
+                        , RECEIPT_LOCATION_CODE
+                   FROM  V_STEPS_GR
+                   WHERE PO_NO = '$G_RS.LEGACY_PO_NO$'
+                   AND   PO_ITEM_NO = $G_RS.LEGACY_PO_SEQ$
+                   AND   RECEIPT_NO = '$G_RS.LEGACY_GR_NO$'
+                   AND   RECEIPT_ITEM_NO = $G_RS.LEGACY_GR_SEQ$
+				   AND   PO_NO = DECODE('$G_RS.DOC_NAME$','GRD',' ',PO_NO)
+				   UNION ALL
+                   SELECT 'SMT1' AS	BUYER
+                        , 'KA'   AS SITE
+                        , TARGET AS PLANT
+                        , KEY_1  AS LEGACY_PO_NO
+                        , to_number(KEY_2)  AS LEGACY_PO_SEQ
+                        , '.' AS BUYER_ITEM_NO
+                        , KEY_3  AS LEGACY_GR_NO
+                        , to_number(KEY_4)  AS LEGACY_GR_SEQ  
+                        , 'D'    AS STATUS
+                        , 'KRW'  AS CURRENCY_CODE
+                        , TO_CHAR(SYSDATE,'YYYYMMDD') AS  GR_DATE
+                        , 0      AS GR_QTY
+                        , '.'    AS UNIT_MEASURE
+                        , 0      AS UNIT_PRICE
+                        , TO_CHAR(SYSDATE,'YYYYMMDD') AS DLVR_DATE
+                        , '.'    AS IPHA_NO
+                        , '.'    AS RECEIPT_LOCATION_CODE
+                   FROM  KEPTRXL
+				   WHERE DOC_NAME = 'GRD'
+				   AND   TARGET   = '$G_RS.TARGET$'
+				   AND   KEY_1    = '$G_RS.LEGACY_PO_NO$'
+				   AND   KEY_2    = '$G_RS.LEGACY_PO_SEQ$'
+				   AND   KEY_3    = '$G_RS.LEGACY_GR_NO$'
+				   AND   KEY_4    = '$G_RS.LEGACY_GR_SEQ$'
+				   AND   IF_FLAG  = 'N'
+                   ORDER BY LEGACY_GR_NO, LEGACY_GR_SEQ, LEGACY_PO_NO, LEGACY_PO_SEQ
+		]]>
+			<C_SQL TYPE="UPDATE" P_SQL_RESULT="TRUE">
+			<![CDATA[
+                   UPDATE KEPTRXL
+                   SET    KEY_6 = to_char(SYSDATE,'YYYYMMDD HH24MISS')
+                        , IF_FLAG = 'Y'
+                   WHERE DOC_NAME = '$G_RS.DOC_NAME$'
+				   AND   TARGET   = '$G_RS.TARGET$'
+                   AND   KEY_1    = '$G_RS.LEGACY_PO_NO$'
+                   AND   KEY_2    = '$G_RS.LEGACY_PO_SEQ$'     
+                   AND   KEY_3    = '$G_RS.LEGACY_GR_NO$'
+                   AND   KEY_4    = '$G_RS.LEGACY_GR_SEQ$'
+                   AND   IF_FLAG  = 'N'
+			]]>
+			</C_SQL>
+			<C_SQL TYPE="UPDATE" P_SQL_RESULT="FALSE">
+                   UPDATE KEPTRXL
+                   SET    KEY_6 = to_char(SYSDATE,'YYYYMMDD HH24MISS')
+                        , IF_FLAG = 'E'
+                   WHERE DOC_NAME = '$G_RS.DOC_NAME$'
+				   AND   TARGET   = '$G_RS.TARGET$'
+                   AND   KEY_1    = '$G_RS.LEGACY_PO_NO$'
+                   AND   KEY_2    = '$G_RS.LEGACY_PO_SEQ$'     
+                   AND   KEY_3    = '$G_RS.LEGACY_GR_NO$'
+                   AND   KEY_4    = '$G_RS.LEGACY_GR_SEQ$'
+                   AND   IF_FLAG  = 'N'
+			<![CDATA[]]>
+			</C_SQL>
+		</P_SQL>
+	</SQL_DOC>
+	<RETRY_CODE>
+		<CODE>03113</CODE>
+		<CODE>03114</CODE>
+		<CODE>02154</CODE>
+		<CODE>02541</CODE>
+		<CODE>04068</CODE>
+	</RETRY_CODE>
+</SQL>
