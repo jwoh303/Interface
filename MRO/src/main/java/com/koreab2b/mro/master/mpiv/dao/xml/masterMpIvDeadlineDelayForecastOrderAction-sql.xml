@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mpiv">
+	<!-- 조회 -->
+	<select id="selectMasterMpIvDeadlineDelayForecastOrderActionList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/*selectMasterMpIvDeadlineDelayForecastOrderActionList*/
+			SELECT /* LEADING (C, B) */
+				  (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE=B.BUYER) AS BUYER_NAME
+				, B.REF_PR_NO
+				, D.REF_NO AS REF_NO
+				, B.BUYER
+				, B.PO_NO
+				, B.PO_SEQ
+				, C.GUBUN
+				, B.BUYER_ITEM_NO
+				, DECODE(B.SCM_REMARK,NULL,'-','SCM') AS SCM_REMARK
+				, B.DESCRIPTION
+				, B.SPECIFICATION
+				, B.PO_REMARK
+				, B.UNIT_MEASURE
+				, B.ITEM_QTY
+				, NVL(B.UNIT_PRICE,0) AS UNIT_PRICE
+				, B.RD_DATE
+				, A.PO_CREATE_DATE AS PO_DATE    --발주일
+				, A.AGENT
+				, (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE=A.AGENT) AS AGENT_NAME --협력사
+				, (SELECT TEXT1 FROM ICOMCOD2 WHERE COMPANY_CODE = A.BUYER AND TYPE= 'C001' AND CODE = D.CHANGE_USER_DEPT) AS REQ_DEPT_NAME    --요청부서
+				
+				, D.CHANGE_USER_ID AS REQ_USER_ID --요청자ID
+				, D.CHANGE_USER_NAME AS REQ_USER_NAME --요청자명
+				, A.PURCHASER_ID    -- 발주자ID
+				, A.PURCHASER_NAME--발주자명
+				, B.DS_DATE--납품예정일
+				, R.APPROVAL_RD_DATE--최근합의일
+				, R.REASON_CODE_REMARK--최근합의내역
+				, R.REASON_REMARK--최근합의사유
+				, B.BYIT_COMORG_CODE
+				, D.CONTRACT_NO
+				, D.CONTRACT_SEQ
+				, B.DS_DELAY_REASON
+				, A.SELLER
+				, (SELECT MAX(ADD_USER_ID) FROM ICOMPORS WHERE BUYER = B.BUYER AND PO_NO = B.PO_NO AND PO_SEQ = B.PO_SEQ) AS ADD_USER_ID
+			FROM ICOMPOHD A, ICOMPODT B, KEP_PM_PA_LIST C, ICOMPRDT D
+				, (	SELECT
+						  BUYER
+						, PO_NO
+						, PO_SEQ
+						, APPROVAL_RD_DATE
+						, (SELECT TEXT2 FROM ICOMCOD1 WHERE TYPE='M065' AND CODE=S.REASON_CODE) AS REASON_CODE_REMARK
+						, REASON_REMARK
+					FROM KEP_PO_DELY_MNG S
+					WHERE 
+		]]>
+						<!-- 고객사 -->
+						<if test="st_buyer_code.size() > 0">
+							S.BUYER IN 
+							<foreach item="item" collection="st_buyer_code" open="(" separator="," close=")">
+						 		#{item}
+							</foreach>
+							</if>
+		<![CDATA[
+						AND S.SEQ = (	SELECT MAX(SEQ)
+										FROM KEP_PO_DELY_MNG
+										WHERE 	BUYER=S.BUYER
+											AND PO_NO=S.PO_NO
+											AND PO_SEQ=S.PO_SEQ
+					)
+				) R
+			WHERE	1=1
+				AND A.BUYER=B.BUYER
+				AND A.PO_NO=B.PO_NO
+				
+				AND B.BUYER=C.BUYER
+				AND B.PO_NO=C.KEY1
+				AND B.PO_SEQ=C.KEY2
+				/*AND B.ITEM_GROUP=C.KEY4*/
+				
+				AND B.BUYER = R.BUYER(+)
+				AND B.PO_NO = R.PO_NO(+)
+				AND B.PO_SEQ = R.PO_SEQ(+)
+				
+				AND B.BUYER = D.BUYER
+				AND B.PR_NO = D.PR_NO
+				AND B.PR_SEQ = D.PR_SEQ
+				AND D.STATUS <> 'D'
+				
+				AND C.GUBUN = #{st_iv_delay_gubun}   -- 조회기준 (지연예상 :  IV_EXPECT_DELAY 납기지연 : IV_DELAY, 장기지역 : IV_LONG_EXPECT_DELAY,  악성지연 : IV_BAD_DELAYY,  예정일지연 : IV_DS_DELAY)     
+				AND C.BUYER IN  (	SELECT DISTINCT BUYER 
+									FROM MIS_BUYER_MNG 
+									WHERE 	YEAR = TO_CHAR(SYSDATE,'YYYY') 
+										AND KEP_DEPT = #{st_user_dept_cd}	-- 담당부서
+		]]>
+									<!-- 고객사 -->
+									<if test="st_buyer_code.size() > 0">
+										AND BUYER IN 
+										<foreach item="item" collection="st_buyer_code" open="(" separator="," close=")">
+									 		#{item}
+										</foreach>
+									</if>
+		<![CDATA[ 
+				)
+		]]>
+
+		<!-- 발주번호 -->
+		<if test="st_po_no != null and st_po_no != ''">
+			AND A.PO_NO = #{st_po_no}
+		</if>
+
+		<!-- 품목코드 -->
+		<if test="st_buyer_item_no != null and st_buyer_item_no != ''">
+			AND B.BUYER_ITEM_NO LIKE '%'||#{st_buyer_item_no}||'%'
+		</if>
+
+		<!-- 협력사 -->
+		<if test="st_agent_code != null and st_agent_code != ''">
+			AND A.AGENT = #{st_agent_code}
+		</if>
+		
+		<!-- 담당자여부 Y/N -->
+		<if test="st_kep_confirm != null and st_kep_confirm != ''">
+			AND (	SELECT X.ADMIN_FLAG1
+					FROM ICOMPORS X
+					WHERE	X.BUYER = C.BUYER 
+						AND X.PO_NO = C.KEY1
+						AND X.PO_SEQ = C.KEY2
+						AND ROWNUM = 1
+				) = #{st_kep_confirm}		-- 담당자 확인 여부 'Y'/'N'
+		</if>
+		
+		<![CDATA[
+			ORDER BY A.PO_NO
+		]]>
+	</select>
+
+</mapper>   
+   

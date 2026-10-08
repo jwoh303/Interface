@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<!--
+	표준DB 기준가 인하 결재 (DOC_TYPE = BP 단건 / BPM 일괄)
+	설계 근거 : 표준DB화면설계v9_상품정보_0831.pptx slide 16~17 (= v9 s11·s12·s20)
+
+	결재 프레임워크 계약 : KEY_1 = PM_NO, KEY_2 = BUYER(회사코드), KEY_3 = 상신자 USER_ID.
+	  상신    → /common/approval/MdCmBasePriceCommonRequest.do
+	  승인/반려 → /common/approval/MdCmBasePriceCommonApproval.do  (공통 approval() 이 pass_status 를 돌려준다)
+	  취소    → /common/approval/MdCmBasePriceCommonCancel.do
+	STATUS : C=결재중(상신) / A=승인 / B=반려 / D=취소  (KEPMGPHD 기존 도메인)
+-->
+<mapper namespace="commonMdCmBasePriceApproval">
+
+	<!-- 결재대상 조회 (s12 그리드 12열 + 하단 '전체 N 건').
+	     인하율(%) = (기존기준가 - 변경기준가) / 기존기준가 * 100, 소수점 한자리 반올림(설계서 slide 17 [3]).
+	     ⚠ 금액·율은 NUMBER 라 전부 TO_CHAR 로 문자열화한다(Map<String,String> CCE 방지). -->
+	<select id="selectBasePriceApprList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/*commonMdCmBasePriceApproval.selectBasePriceApprList*/
+			SELECT
+			  TO_CHAR(ROWNUM) AS NO
+			 ,A.CMS_CATLG_ID
+			 ,A.DESCRIPTION_LOC
+			 ,A.MODEL_INFO
+			 ,A.SPECIFICATION
+			 ,A.MAKER_NAME
+			 ,A.ORDER_MEASURE
+			 ,A.RE_BASE_PRICE_VIEW
+			 ,A.CH_BASE_PRICE_VIEW
+			 ,A.CH_BASE_PRICE_TYPE_NM
+			 ,A.DOWN_RATE
+			 ,A.CHANGE_REASON
+			  FROM (
+				SELECT
+				  D.CMS_CATLG_ID
+				 ,C.DESCRIPTION_LOC
+				 ,C.MODEL_INFO
+				 ,C.SPECIFICATION
+				 ,(SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'M104' AND CODE = C.MAKER_CODE) AS MAKER_NAME
+				 ,C.ORDER_MEASURE
+				 ,TRIM(TO_CHAR(D.RE_BASE_PRICE, 'FM999,999,999,990')) AS RE_BASE_PRICE_VIEW
+				 ,TRIM(TO_CHAR(D.CH_BASE_PRICE, 'FM999,999,999,990')) AS CH_BASE_PRICE_VIEW
+				 ,(SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'M183' AND CODE = D.CH_BASE_PRICE_TYPE) AS CH_BASE_PRICE_TYPE_NM
+				 ,CASE WHEN NVL(D.RE_BASE_PRICE,0) = 0 THEN ''
+				       ELSE TRIM(TO_CHAR(ROUND((D.RE_BASE_PRICE - D.CH_BASE_PRICE) / D.RE_BASE_PRICE * 100, 1), 'FM990.0')) || '%'
+				  END AS DOWN_RATE
+				 ,(SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'M184' AND CODE = D.BASE_PRICE_CHANGE_REASON) AS CHANGE_REASON
+				 ,D.PM_SEQ
+				  FROM KEPMGPDT D, CMSCATLG C
+				 WHERE D.CMS_CATLG_ID = C.CMS_CATLG_ID
+				   AND D.BUYER = #{KEY_2}
+				   AND D.PM_NO = #{DOCU_NO}
+				 ORDER BY D.PM_SEQ
+			  ) A
+		]]>
+	</select>
+
+	<!-- 신청 헤더/디테일 상태 갱신 (승인 A / 반려 B / 취소 D) -->
+	<update id="updateBasePriceReqHdStatus" parameterType="java.util.Map">
+		<![CDATA[
+			/*commonMdCmBasePriceApproval.updateBasePriceReqHdStatus*/
+			UPDATE KEPMGPHD
+			   SET STATUS          = #{STATUS}
+			     , CONFIRM_DATE    = SYSDATE
+			     , CONFIRM_USER_ID = #{USER_ID}
+			     , CHANGE_DATE     = SYSDATE
+			 WHERE BUYER = #{KEY_2}
+			   AND PM_NO = #{KEY_1}
+			   AND STATUS = 'C'
+		]]>
+	</update>
+
+	<update id="updateBasePriceReqDtStatus" parameterType="java.util.Map">
+		<![CDATA[
+			/*commonMdCmBasePriceApproval.updateBasePriceReqDtStatus*/
+			UPDATE KEPMGPDT
+			   SET STATUS          = #{STATUS}
+			     , CONFIRM_DATE    = SYSDATE
+			     , CONFIRM_USER_ID = #{USER_ID}
+			     , CHANGE_DATE     = SYSDATE
+			 WHERE BUYER = #{KEY_2}
+			   AND PM_NO = #{KEY_1}
+		]]>
+	</update>
+
+	<!-- 승인 반영 대상 : 이 신청에 달린 디테일 전건(단건이면 1행, 일괄이면 N행) -->
+	<select id="selectBasePriceReqDtList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/*commonMdCmBasePriceApproval.selectBasePriceReqDtList*/
+			SELECT
+			  D.CMS_CATLG_ID
+			 ,TRIM(TO_CHAR(D.CH_BASE_PRICE)) AS CH_BASE_PRICE
+			 ,D.CH_BASE_PRICE_TYPE
+			 ,(SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'M183' AND CODE = D.CH_BASE_PRICE_TYPE) AS CH_BASE_PRICE_TYPE_NM
+			 ,D.BASE_PRICE_CHANGE_REASON
+			  FROM KEPMGPDT D
+			 WHERE D.BUYER = #{KEY_2}
+			   AND D.PM_NO = #{KEY_1}
+			 ORDER BY D.PM_SEQ
+		]]>
+	</select>
+
+	<!-- 승인 확정분을 CMSCATLG 에 반영. 이력은 SET 절의 F_HST_CMSCATLG 가 남긴다.
+	     상신 시점에는 이력을 남기지 않는다 — 반려된 건이 이력에 섞이면 안 되기 때문이다. -->
+	<update id="updateBasePriceApply" parameterType="java.util.Map">
+		<![CDATA[
+			/*commonMdCmBasePriceApproval.updateBasePriceApply*/
+			UPDATE CMSCATLG
+			   SET BASE_PRICE      = TO_NUMBER(F_HST_CMSCATLG(CMS_CATLG_ID
+			                                                , 'BASE_PRICE'
+			                                                , #{CH_BASE_PRICE}
+			                                                , #{USER_ID}
+			                                                , #{BASE_PRICE_CHANGE_REASON}
+			                                                , #{CH_BASE_PRICE_TYPE_NM}
+			                                                , NULL))
+			     , BASE_PRICE_TYPE = #{CH_BASE_PRICE_TYPE}
+			     , CHANGE_USER_ID  = #{USER_ID}
+			     , CHANGE_DATE     = TO_CHAR(SYSDATE,'YYYYMMDD')
+			     , CHANGE_TIME     = TO_CHAR(SYSDATE,'HH24MISS')
+			 WHERE CMS_CATLG_ID = #{CMS_CATLG_ID}
+		]]>
+	</update>
+
+</mapper>

@@ -1,0 +1,353 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="common.mprq">
+
+
+	<select id="selectMasterMpRqSellerChoicePopList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		SELECT * FROM ( 
+		SELECT /*selectMasterMpRqSellerChoicePopList*/                            
+						/*+ RULE*/    
+			            S.COM_CODE AS AGENT, 
+ 			            S.COM_NAME_LOC ||'('||S.COM_CODE||')' AS AGENT_NAME, 
+			            (SELECT ITMG1_NM FROM SUPLITMG WHERE SUPPLIER=S.COM_CODE) AS ITMG1_NM,  
+			            S.ZIP_CODE,                                                                                                     
+			            (SELECT MAX(SIDO||' '||GUGUN) FROM ICOMZIPC WHERE ZIPCODE = S.ZIP_CODE) AS AREA,                                
+			            (SELECT 
+			                     (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE=A.KEP_BUYER1 AND STATUS <> 'D')||' '||   
+			                     (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE=A.KEP_BUYER2 AND STATUS <> 'D')||' '||   
+			                     (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE=A.KEP_BUYER3 AND STATUS <> 'D')||' '||   
+			                     (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE=A.KEP_BUYER4 AND STATUS <> 'D')  
+			                FROM SUPLITMG A WHERE SUPPLIER=S.COM_CODE) AS MAJOR_COM,   
+			            (SELECT COUNT(*) FROM ICOMPOHD WHERE AGENT=S.COM_CODE AND ADD_DATE BETWEEN TO_CHAR(SYSDATE-90,'YYYYMMDD') AND TO_CHAR(SYSDATE, 'YYYYMMDD')) AS TCNT,    
+			                    NVL((SELECT SUM(PO_TTL_AMT) FROM ICOMPOHD WHERE AGENT=S.COM_CODE    
+			                                                            AND ADD_DATE BETWEEN TO_CHAR(SYSDATE-90,'YYYYMMDD') AND TO_CHAR(SYSDATE, 'YYYYMMDD')),0) AS TAMT
+				]]>  
+				<if test="st_quotation_seq != null and st_quotation_seq != ''">
+				<![CDATA[			                                                            
+			            , NVL((SELECT NVL(A.ATOB_UNIT_PRICE,0) FROM KEPQTDT A WHERE A.BUYER=#{st_buyer_code} AND A.QUOTATION_NO=#{st_quotation_no} AND A.QUOTATION_SEQ=#{st_quotation_seq} AND A.REVISION=#{st_revision} AND A.STATUS='C' AND A.AGENT=S.COM_CODE),0) AS ATOB_UNIT_PRICE
+            			, NVL((SELECT NVL(A.STOA_LIST_PRICE,0) FROM KEPQTDT A WHERE A.BUYER=#{st_buyer_code} AND A.QUOTATION_NO=#{st_quotation_no} AND A.QUOTATION_SEQ=#{st_quotation_seq} AND A.REVISION=#{st_revision} AND A.STATUS='C' AND A.AGENT=S.COM_CODE),0) AS STOA_LIST_PRICE
+            			, (SELECT STOA_REMARK FROM KEPQTDT A WHERE A.BUYER=#{st_buyer_code} AND A.QUOTATION_NO=#{st_quotation_no} AND A.QUOTATION_SEQ=#{st_quotation_seq} AND A.REVISION=#{st_revision} AND A.STATUS='C' AND A.AGENT=S.COM_CODE) AS STOA_REMARK
+            			, f_get_dss_chk(#{st_buyer_code},S.COM_CODE,0)  AS DSS_YN       
+    					, f_get_dss_chk(#{st_buyer_code},S.COM_CODE,1)  AS DSS_MSG 
+    					, NVL((SELECT MIN(STOA_LIST_PRICE) FROM KEPQTDT A WHERE A.BUYER=#{st_buyer_code} AND A.QUOTATION_NO=#{st_quotation_no} AND A.QUOTATION_SEQ=#{st_quotation_seq} AND A.REVISION=#{st_revision} AND A.STATUS='C' AND NVL(STOA_LIST_PRICE,0) <> 0),0) AS MIN_PRICE
+    					, (SELECT NVL(A.DSS_CHOICE ,A.DSS_FLAG) FROM KEPQTDT A WHERE A.BUYER=#{st_buyer_code} AND A.QUOTATION_NO=#{st_quotation_no} AND A.QUOTATION_SEQ=#{st_quotation_seq} AND A.REVISION=#{st_revision} AND A.STATUS='C' AND A.STATUS <> 'O' AND A.AGENT = S.COM_CODE) AS DSS_CHOICE
+			    ]]>
+			    </if>
+			    <![CDATA[
+			             FROM ICOMCMPY S    
+			            WHERE S.BUSINESS_COND='S'   
+			              AND S.STATUS IN('C','R')  
+                    		
+				]]>
+				<if test="st_agent_listArr != null and st_agent_listArr != '' ">
+					AND S.COM_CODE IN
+					<foreach item="item" collection="st_agent_listArr" open="(" separator="," close=")">
+				 	  #{item} 
+					</foreach>
+				</if>
+				<if test="st_agent_list == null or st_agent_list == '' ">		
+				<![CDATA[		                        		
+                   AND S.COM_CODE IN  (SELECT AGENT 
+									                     FROM KEPRQDT A, KEPQTDT B
+									                             WHERE A.BUYER=#{st_buyer_code}
+									                                   AND A.QUOTATION_NO=#{st_quotation_no}          
+									                                   AND A.QUOTATION_SEQ=#{st_quotation_seq}
+									                                   AND A.REVISION=#{st_revision}                   
+									                                   AND B.BUYER=A.BUYER                    
+									                                   AND B.QUOTATION_NO=A.QUOTATION_NO    
+									                                   AND B.QUOTATION_SEQ=A.QUOTATION_SEQ    
+									                                   AND B.REVISION=A.REVISION            
+									                                   AND B.STATUS <> 'O'                    
+									                                   AND A.RECV_FLAG <> 'GD'                
+									                                   AND A.STATUS <> 'D' 
+                    									)
+				]]>
+				</if>	
+				<![CDATA[								                                   
+			                ) TOT       
+			   ORDER BY DECODE(NVL(TOT.STOA_LIST_PRICE,0), 0, 999999999999,TOT.STOA_LIST_PRICE) ASC
+               ]]>	           					 
+	</select>
+	
+	<select id="selectMasterMpRqSellerChoiceRemarkPopList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*selectMasterMpRqSellerChoiceRemarkPopList*/
+		SELECT	A.ATOS_REMARK,
+				(SELECT DECODE(COUNT(*), 0, 'Y', 'N') FROM KEP_NEGO_ITEM_MD_REQ
+				WHERE BUYER = A.BUYER
+				AND QUOTATION_NO = A.QUOTATION_NO
+				AND QUOTATION_SEQ = A.QUOTATION_SEQ
+				AND REVISION = A.REVISION
+				AND ITEM_MD_STATUS = 'C'
+				AND ITEM_MD_USER_ID IS NULL) AS NEGO_ITEM_MD_COMPLETE,
+				A.IMAGE_KEY,
+				A.SELLER_IMAGE_KEY,
+				A.IMAGE_PASS_FLAG
+		FROM	KEPRQDT A
+		WHERE	A.BUYER = #{st_buyer}
+		AND		A.QUOTATION_NO=#{st_quotation_no}
+		AND		A.QUOTATION_SEQ=#{st_quotation_seq}
+		AND		A.REVISION=#{st_revision}
+		AND		A.RECV_FLAG <> 'GD'
+		AND		A.STATUS <> 'D'    
+		]]>
+	</select>
+								
+	<select id="selectRevision" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			SELECT/*selectRevision*/							
+					NVL(MAX(AGENT_REVISION)+1,0) AS AGENT_REVISION
+					, NVL(MAX(AGENT_REVISION)+1,0) -1 AS PRE_AGENT_REVISION
+			  FROM KEPQTDT					
+			 WHERE BUYER=#{st_buyer_code} 					
+				AND QUOTATION_NO=#{st_quotation_no}		
+				AND QUOTATION_SEQ=#{st_quotation_seq}				
+				AND REVISION=#{st_revision}     			
+				AND STATUS IN ('C','R','O')
+               ]]>	           					 
+	</select>
+	<select id="selectChkFlag" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			SELECT /*selectChkFlag*/							
+					       CASE	
+			         WHEN QTDT_CLOSE_FLAG = 'Y' THEN 'Y'		
+			         ELSE										
+			           CASE										
+			             WHEN BID_FLAG = 'Y' THEN 'Y'			
+			             ELSE 'N'								
+			           END										
+			       END CHK_FLAG									
+			  FROM (		
+			    SELECT 		
+			           MIN(QTDT_CLOSE_FLAG) AS QTDT_CLOSE_FLAG,	
+			           MIN(BID_FLAG) AS BID_FLAG				
+			      FROM (										
+			        SELECT 										
+			               CASE									
+			                 WHEN SYSDATE >= TO_DATE(A.ATOS_END_DATE||A.ATOS_END_TIME,'YYYYMMDDHH24MISS') THEN 'Y'
+			                 ELSE 'N'							
+			               END QTDT_CLOSE_FLAG,					
+			               CASE 								
+			                 WHEN A.STOA_DATE IS NULL THEN 'N'	
+			                 ELSE 'Y'							
+			               END BID_FLAG							
+			          FROM KEPQTDT A							
+			         WHERE 1 = 1								
+			           AND A.BUYER          = #{st_buyer_code}			
+			           AND A.QUOTATION_NO   = #{st_quotation_no}					
+			           AND A.QUOTATION_SEQ  = #{st_quotation_seq}					
+			           AND A.REVISION       = #{st_revision}					
+			           AND A.AGENT_REVISION = #{PRE_AGENT_REVISION}					
+			      ) A1	
+			  ) A2	
+               ]]>	           					 
+	</select>
+	
+	<update id="updateChkFlag" parameterType="java.util.Map" >
+		<![CDATA[
+			UPDATE KEPQTDT	/*updateChkFlag*/				
+			   SET STATUS='O'  
+		    WHERE BUYER=#{st_buyer_code}   
+		      AND QUOTATION_NO=#{st_quotation_no}   
+		      AND QUOTATION_SEQ=#{st_quotation_seq}     
+		      AND REVISION=#{st_revision}       
+		      AND STATUS IN ('C','R')				
+		]]>
+	</update>
+	<update id="insertAgentRound" parameterType="java.util.Map" >
+		<![CDATA[
+			INSERT INTO KEPQTDT /*insertAgentRound*/                                   
+			(                
+			    BUYER,                                            
+			    QUOTATION_NO,                                    
+			    QUOTATION_SEQ,                                    
+			    REVISION,                                        
+			    AGENT,                                            
+			    AGENT_REVISION,                                    
+			    STATUS,                                            
+			    BUYER_ITEM_NO,                                    
+			    DESCRIPTION,                                    
+			    SPECIFICATION,                                    
+			    UNIT_MEASURE,                                    
+			    MAKER_NAME,                                        
+			    ORIGIN_NAME,                                    
+			    ATOS_DATE,                                        
+			    ATOS_END_DATE,                                    
+			    ATOS_END_TIME,                                    
+			    ITEM_QTY,                                        
+			    IMAGE_KEY,                                        
+			    DSS_FLAG,                                        
+			    DSS_CHOICE,
+				STOA_LIST_PRICE,
+				LEAD_TIME,
+				SEL_USER_ID,
+				SEL_USER_NAME,
+				SEL_USER_TEL,
+				STOA_DATE,
+				STOA_TIME,
+				ADD_USER_ID	                                        
+			)                                                    
+			(                                                    
+			 SELECT                                                
+			        #{st_buyer_code},                                            
+			        #{st_quotation_no},                                            
+			        #{st_quotation_seq},                                            
+			        #{st_revision},                                            
+			        #{AGENT},                                            
+			        #{AGENT_REVISION},                                            
+			        'C',                                        
+			        BUYER_ITEM_NO,                                
+			        DESCRIPTION,                                
+			        SPECIFICATION,                                
+			        UNIT_MEASURE,                                
+			        MAKER_NAME,                                    
+			        ORIGIN_CODE,                                
+			        TO_CHAR(SYSDATE, 'YYYYMMDD')AS ATOS_DATE,    
+			        #{st_atos_end_date},                                            
+			        #{st_atos_end_time},                                            
+			        ITEM_QTY,                                    
+			        DECODE(#{st_image_key_pass_flag}, 'Y', #{st_image_key}, #{st_seller_image_key}) AS IMAGE_KEY,
+			        #{DSS_FLAG},                                           
+			        #{DSS_CHOICE},
+					#{STOA_LIST_PRICE},
+					#{LEAD_TIME},
+					#{SEL_USER_ID},
+					#{SEL_USER_NAME},
+					#{SEL_USER_TEL},
+					DECODE(#{DSS_CHOICE},'G',TO_CHAR(SYSDATE,'YYYYMMDD'),''),
+					DECODE(#{DSS_CHOICE},'G',TO_CHAR(SYSDATE,'HH24MISS'),''),
+					#{USER_ID}	                                            
+			   FROM KEPRQDT                                        
+			  WHERE BUYER=#{st_buyer_code}                                        
+			    AND QUOTATION_NO=#{st_quotation_no}                                
+			    AND QUOTATION_SEQ=#{st_quotation_seq}                               
+			    AND REVISION=#{st_revision}                                    
+			    AND RECV_FLAG <> 'GD'                            
+			    AND STATUS IN ('C','R')                            
+			)
+		]]>
+	</update>
+	<update id="insertAgentRound2" parameterType="java.util.Map" >
+		<![CDATA[
+			INSERT INTO KEPQTDT /*insertAgentRound2*/                                   
+			(                
+			    BUYER,                                            
+			    QUOTATION_NO,                                    
+			    QUOTATION_SEQ,                                    
+			    REVISION,                                        
+			    AGENT,                                            
+			    AGENT_REVISION,                                    
+			    STATUS,                                            
+			    BUYER_ITEM_NO,                                    
+			    DESCRIPTION,                                    
+			    SPECIFICATION,                                    
+			    UNIT_MEASURE,                                    
+			    MAKER_NAME,                                        
+			    ORIGIN_NAME,                                    
+			    ATOS_DATE,                                        
+			    ATOS_END_DATE,                                    
+			    ATOS_END_TIME,                                    
+			    ITEM_QTY,                                        
+			    IMAGE_KEY,                                        
+			    DSS_FLAG,                                        
+			    DSS_CHOICE,
+				STOA_LIST_PRICE,
+				LEAD_TIME,
+				SEL_USER_ID,
+				SEL_USER_NAME,
+				SEL_USER_TEL,
+				STOA_DATE,
+				STOA_TIME,
+				ADD_USER_ID	                                        
+			)                                                    
+			(                                                    
+			 SELECT                                                
+			        #{st_buyer_code},                                            
+			        #{st_quotation_no},                                            
+			        #{st_quotation_seq},                                            
+			        #{st_revision},                                            
+			        #{AGENT},                                            
+			        #{AGENT_REVISION2},                                            
+			        'C',                                        
+			        BUYER_ITEM_NO,                                
+			        DESCRIPTION,                                
+			        SPECIFICATION,                                
+			        UNIT_MEASURE,                                
+			        MAKER_NAME,                                    
+			        ORIGIN_CODE,                                
+			        TO_CHAR(SYSDATE, 'YYYYMMDD')AS ATOS_DATE,    
+			        #{st_atos_end_date},                                            
+			        #{st_atos_end_time},                                            
+			        ITEM_QTY,                                    
+			        IMAGE_KEY,                                    
+			        #{DSS_FLAG},                                           
+			        #{DSS_CHOICE},                                            
+					#{STOA_LIST_PRICE},
+					#{LEAD_TIME},
+					#{SEL_USER_ID},
+					#{SEL_USER_NAME},
+					#{SEL_USER_TEL},
+					DECODE(#{DSS_CHOICE},'G',TO_CHAR(SYSDATE,'YYYYMMDD'),''),
+					DECODE(#{DSS_CHOICE},'G',TO_CHAR(SYSDATE,'HH24MISS'),''),
+					#{USER_ID}	 
+			   FROM KEPRQDT                                        
+			  WHERE BUYER=#{st_buyer_code}                                        
+			    AND QUOTATION_NO=#{st_quotation_no}                                
+			    AND QUOTATION_SEQ=#{st_quotation_seq}                               
+			    AND REVISION=#{st_revision}                                    
+			    AND RECV_FLAG <> 'GD'                            
+			    AND STATUS IN ('C','R')                            
+			)
+		]]>
+	</update>
+	<update id="updateRqdt" parameterType="java.util.Map" >
+		<![CDATA[
+			UPDATE KEPRQDT   /*updateRqdt*/             
+		      SET ATOB_SEND_FLAG='N',    
+		          ATOS_REMARK=#{st_atos_remark},
+		          ATOS_REMARK2=ATOS_REMARK2||#{AGENT_REVISION}||'차: '||#{st_atos_remark}||',',
+		          KEP_USER_ID=#{USER_ID},
+		          SELLER_IMAGE_KEY = #{st_seller_image_key}
+		    WHERE BUYER=#{st_buyer_code}     
+		      AND QUOTATION_NO=#{st_quotation_no} 
+		      AND QUOTATION_SEQ=#{st_quotation_seq} 
+		      AND REVISION=#{st_revision}
+		      AND STATUS <> 'D'
+		]]>
+	</update>
+	<update id="updateRqdt2" parameterType="java.util.Map" >
+		<![CDATA[
+			UPDATE KEPRQDT   /*updateRqdt2*/             
+		      SET ATOB_SEND_FLAG='N',    
+		          ATOS_REMARK=#{st_atos_remark},
+		          ATOS_REMARK2=ATOS_REMARK2||#{AGENT_REVISION2}||'차: '||#{st_atos_remark}||',',
+		          KEP_USER_ID=#{USER_ID},
+		          MSDS_NO = '',
+		          MSDS_USER_ID = ''
+		    WHERE BUYER=#{st_buyer_code}     
+		      AND QUOTATION_NO=#{st_quotation_no} 
+		      AND QUOTATION_SEQ=#{st_quotation_seq} 
+		      AND REVISION=#{st_revision}
+		      AND STATUS <> 'D'
+		]]>
+	</update>
+	<select id="selectQtdtAgentInfo" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*selectQtdtAgentInfo*/
+			SELECT
+			 TO_CHAR(QTDT.STOA_LIST_PRICE) AS STOA_LIST_PRICE
+			 ,TO_CHAR(QTDT.LEAD_TIME) AS LEAD_TIME
+			 ,QTDT.SEL_USER_ID
+			 ,QTDT.SEL_USER_NAME
+			 ,TO_CHAR(QTDT.SEL_USER_TEL) AS SEL_USER_TEL
+			FROM KEPQTDT QTDT
+			WHERE QTDT.BUYER = #{st_buyer_code}
+			AND QTDT.QUOTATION_NO = #{st_quotation_no}
+			AND QTDT.QUOTATION_SEQ = #{st_quotation_seq}
+			AND QTDT.AGENT_REVISION = #{PRE_AGENT_REVISION}
+			AND QTDT.AGENT = #{AGENT}
+			AND ROWNUM =1
+               ]]>	           					 
+	</select>
+</mapper>

@@ -1,0 +1,1102 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mprq">
+	<!-- 조회 -->
+	<select id="selectMasterMpRqDssSellerSelList1" parameterType="java.util.Map" resultType="java.util.Map">
+		
+			<![CDATA[
+		    	SELECT /*selectMasterMpRqDssSellerSelList1*/                            
+					ROWNUM AS RANK,
+					X.COM_NAME_LOC AS AGENT_NAME,     
+					X.ITEM_AMT,          
+					X.AGENT_AMT,         
+					X.COM_CODE AS AGENT,          
+					X.SG_ID,          
+					DECODE(X.ITM_MK1,'','',X.ITM_MK1) || DECODE(X.ITM_MK2,'','',DECODE(X.ITM_MK1,'',X.ITM_MK2,', ' || X.ITM_MK2)) 
+					                  || DECODE(X.AGENCY_REMARK,'','',CASE WHEN X.ITM_MK1 IS NULL AND X.ITM_MK2 IS NULL THEN X.AGENCY_REMARK ELSE ' // ' || X.AGENCY_REMARK END) AS REF_MAKER,
+					X.AVL_FLAG,          
+					X.CREATE_DATE ,         
+					f_get_dss_chk(#{st_buyer_code},X.COM_CODE,0)  AS DSS_YN ,       
+					f_get_dss_chk(#{st_buyer_code},X.COM_CODE,1)  AS DSS_MSG,
+					TYPE_BEFORE_ONE      
+					FROM (           
+						SELECT          
+							0 AS K_RANK,       
+							B.COM_CODE,        
+							B.COM_NAME_LOC,       
+							0 ITEM_AMT,        
+							A.SG_ID,        
+							0 AGENT_AMT,       
+							(SELECT (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE ='M104' AND CODE = ITM_MK1) FROM SUPLINFO2 WHERE SUPPLIER =  B.COM_CODE) AS ITM_MK1,    
+							(SELECT (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE ='M104' AND CODE = ITM_MK2) FROM SUPLINFO2 WHERE SUPPLIER =  B.COM_CODE) AS ITM_MK2,    
+							(SELECT AGENCY_REMARK FROM SUPLINFO2 WHERE SUPPLIER =  B.COM_CODE) AS AGENCY_REMARK,               
+							B.AVL_FLAG,                                  
+							TO_CHAR(A.CREATE_DATE,'YYYY/MM/DD') AS CREATE_DATE,
+							(SELECT (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'M202' AND CODE = TYPE_BEFORE_ONE) FROM SUPLINFO2 WHERE SUPPLIER = A.AGENT) AS  TYPE_BEFORE_ONE                        
+						FROM DSS_S_BUYER_RESULT A, ICOMCMPY B                            
+						WHERE A.BUYER = #{st_buyer_code}        
+						AND A.AGENT = B.COM_CODE   
+						AND B.STATUS != 'D'        
+						AND A.SG_ID = #{st_sg_id}          
+						AND A.STATUS = 'C'         
+						AND A.APPROVAL_FLAG = 'Y'  
+						AND A.MAKER_CODE IN 
+						]]>							      
+			      		<foreach item="item" collection="st_maker_code" open="(" separator="," close=")">
+				 			#{item}
+						</foreach>
+						<![CDATA[   
+						UNION ALL                  
+							SELECT                     
+								0 AS K_RANK,              
+								A.COM_CODE,               
+								A.COM_NAME_LOC,           
+								0 ITEM_AMT,               
+								#{st_sg_id},                      
+								0 AGENT_AMT,              
+								(SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE ='M104' AND CODE = B.ITM_MK1) AS ITM_MK1,                
+								(SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE ='M104' AND CODE = B.ITM_MK2) AS ITM_MK2,          
+								B.AGENCY_REMARK AS AGENCY_REMARK,                            
+								A.AVL_FLAG,                                  
+								TO_CHAR(A.AVL_CREATE_DATE,'YYYY/MM/DD') AS CREATE_DATE,
+								(SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'M202' AND CODE = TYPE_BEFORE_ONE) AS TYPE_BEFORE_ONE                 
+							FROM ICOMCMPY A, SUPLINFO2 B                              
+							WHERE A.AVL_FLAG = 'Y'                                
+								AND A.COM_CODE = B.SUPPLIER                               
+								AND A.STATUS IN ('C','R')                               
+								AND A.BUSINESS_COND ='S'                               
+								AND NVL(A.AG_ID,' ') = (SELECT NVL(AG_ID,' ') FROM ICOMCMPY WHERE COM_CODE = #{st_buyer_code})                 
+								AND (	B.ITMG1_CD = #{st_sg_id}                                
+						        	OR B.ITMG2_CD = #{st_sg_id}                               
+							        OR B.ITMG3_CD = #{st_sg_id}                               
+							        OR B.ITMG4_CD = #{st_sg_id}                               
+							        OR B.ITMG5_CD = #{st_sg_id}                               
+								)                                     
+					)X                                       
+				    ORDER BY X.AVL_FLAG DESC, X.CREATE_DATE										
+				]]>
+		
+	</select>
+
+	<select id="selectMasterMpRqDssSellerSelList2" parameterType="java.util.Map" resultType="java.util.Map">
+			<![CDATA[
+			SELECT    /*selectMasterMpRqDssSellerSelList2*/               
+			     ROWNUM AS RANK,                     
+			     Y.*        
+			FROM (     
+		    	SELECT                             
+					  X.COM_NAME_LOC AS AGENT_NAME,               
+					  X.ITEM_AMT,                	 
+					  X.AGENT_AMT,                 
+					  X.COM_CODE AS AGENT,                	 
+					  X.SG_ID,                	 
+					  DECODE(X.ITM_MK1,'','',X.ITM_MK1) || DECODE(X.ITM_MK2,'','',DECODE(X.ITM_MK1,'',X.ITM_MK2,', ' || X.ITM_MK2)) 
+                            || DECODE(X.AGENCY_REMARK,'','',CASE WHEN X.ITM_MK1 IS NULL AND X.ITM_MK2 IS NULL THEN X.AGENCY_REMARK ELSE ' // ' || X.AGENCY_REMARK END) AS REF_MAKER, 
+					  X.AVL_FLAG,                	 
+					  X.CREATE_DATE,                 
+			          f_get_dss_chk(#{st_buyer_code},X.COM_CODE,0)  AS DSS_YN  ,                                                                                                 
+			          f_get_dss_chk(#{st_buyer_code},X.COM_CODE,1)  AS DSS_MSG ,
+			          TYPE_BEFORE_ONE                                                                                                  
+					  FROM (                  
+					  	SELECT                	 
+						   0 AS K_RANK,                
+						   B.COM_CODE,               	 
+						   B.COM_NAME_LOC,                
+						   0 ITEM_AMT,               	 
+						   A.SG_ID,               	 
+						   0 AGENT_AMT,                
+						   (SELECT (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE ='M104' AND CODE = ITM_MK1) FROM SUPLINFO2 WHERE SUPPLIER =  B.COM_CODE) AS ITM_MK1,	 
+						   (SELECT (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE ='M104' AND CODE = ITM_MK2) FROM SUPLINFO2 WHERE SUPPLIER =  B.COM_CODE) AS ITM_MK2,	 
+						   (SELECT AGENCY_REMARK FROM SUPLINFO2 WHERE SUPPLIER =  B.COM_CODE) AS AGENCY_REMARK,       
+						   B.AVL_FLAG,               	 
+						   TO_CHAR(A.CREATE_DATE,'YYYY/MM/DD') AS CREATE_DATE,
+	   				       (SELECT  (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'M202' AND CODE = TYPE_BEFORE_ONE) FROM SUPLINFO2 WHERE SUPPLIER = B.COM_CODE) AS  TYPE_BEFORE_ONE          	 
+					  	FROM DSS_S_BUYER_RESULT A, ICOMCMPY B            	 
+					  	WHERE A.BUYER = #{st_buyer_code}                
+						  	AND A.AGENT = B.COM_CODE               
+						  	AND A.SG_ID = #{st_sg_id}               
+						  	AND B.STATUS != 'D'              	 
+						  	AND A.STATUS = 'C'                
+						  	AND A.APPROVAL_FLAG = 'Y'                
+					  )X                 	  
+					ORDER BY X.AVL_FLAG DESC, X.CREATE_DATE             
+				) Y
+				]]>
+	</select>
+
+	<select id="selectMasterMpRqDssSellerSelList3" parameterType="java.util.Map" resultType="java.util.Map">
+			<![CDATA[
+		    	SELECT /*selectMasterMpRqDssSellerSelList3*/                            
+					RANK() OVER (PARTITION BY SG_ID ORDER BY AGNET_AMT DESC) AS RANK ,  
+					(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = AGENT) AS AGENT_NAME ,  
+					AGNET_AMT AS ITEM_AMT ,  
+					AGNET_AMT ,  
+					AGENT ,  
+					SG_ID ,  
+					DECODE(ITM_MK1,'','',ITM_MK1) || DECODE(ITM_MK2,'','',DECODE(ITM_MK1,'',ITM_MK2,', ' || ITM_MK2)) 
+					       || DECODE(AGENCY_REMARK,'','',CASE WHEN ITM_MK1 IS NULL AND ITM_MK2 IS NULL THEN AGENCY_REMARK ELSE ' // ' || AGENCY_REMARK END) AS REF_MAKER, 
+					null as AVL_FLAG ,  
+					null as CREATE_DATE ,  
+					f_get_dss_chk(#{st_buyer_code},AGENT,0)  AS DSS_YN  ,  
+					f_get_dss_chk(#{st_buyer_code},AGENT,1)  AS DSS_MSG ,
+					TYPE_BEFORE_ONE 
+					 FROM  
+					   (SELECT AGENT ,  
+					     SG_ID ,  
+					     SUM(ITEM_AMT) AS AGNET_AMT ,  
+					     (SELECT (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE ='M104' AND CODE = ITM_MK1) FROM SUPLINFO2 WHERE SUPPLIER = A.AGENT) AS ITM_MK1 ,  
+					     (SELECT (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE ='M104' AND CODE = ITM_MK2) FROM SUPLINFO2 WHERE SUPPLIER = A.AGENT) AS ITM_MK2 ,  
+					     (SELECT AGENCY_REMARK FROM SUPLINFO2 WHERE SUPPLIER = A.AGENT) AS AGENCY_REMARK ,
+				      	 (SELECT (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'M202' AND CODE = TYPE_BEFORE_ONE)  FROM SUPLINFO2 WHERE SUPPLIER = A.AGENT) AS TYPE_BEFORE_ONE 
+					   FROM DSS_BUYER_RESULT A  
+					   WHERE A.BUYER     = #{st_buyer_code} 
+					   AND A.SG_ID       = #{st_sg_id}  
+					   AND A.MAKER_CODE IN 
+					   ]]>							      
+			      		<foreach item="item" collection="st_maker_code" open="(" separator="," close=")">
+				 			#{item}
+						</foreach>
+						<![CDATA[ 
+					   AND exists (select 'x' from icomcmpy where com_code = a.agent and status ^= 'D')  
+					   GROUP BY AGENT,SG_ID )  
+				]]>
+	</select>
+	
+	<select id="selectMasterMpRqDssSellerSelList4" parameterType="java.util.Map" resultType="java.util.Map">
+			<![CDATA[
+		    	SELECT /*selectMasterMpRqDssSellerSelList4*/                            
+						RANK() OVER (PARTITION BY SG_ID ORDER BY AGNET_AMT DESC) AS RANK ,  
+						   (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = AGENT) AS AGENT_NAME ,  
+						   AGNET_AMT AS ITEM_AMT ,  
+						   AGNET_AMT ,  
+						   AGENT ,  
+						   SG_ID ,  
+						   DECODE(ITM_MK1,'','',ITM_MK1) || DECODE(ITM_MK2,'','',DECODE(ITM_MK1,'',ITM_MK2,', ' || ITM_MK2)) 
+                             || DECODE(AGENCY_REMARK,'','',CASE WHEN ITM_MK1 IS NULL AND ITM_MK2 IS NULL THEN AGENCY_REMARK ELSE ' // ' || AGENCY_REMARK END) AS REF_MAKER, 
+						   null as AVL_FLAG ,  
+						   null as CREATE_DATE ,  
+						   f_get_dss_chk(#{st_buyer_code},AGENT,0)  AS DSS_YN  ,  
+						   f_get_dss_chk(#{st_buyer_code},AGENT,1)  AS DSS_MSG   
+						   ,TYPE_BEFORE_ONE 
+						 FROM  
+						   (SELECT AGENT ,  
+						     SG_ID ,  
+						     SUM(ITEM_AMT) AS AGNET_AMT ,  
+						     (SELECT (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE ='M104' AND CODE = ITM_MK1) FROM SUPLINFO2 WHERE SUPPLIER = A.AGENT) AS ITM_MK1 ,  
+						     (SELECT (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE ='M104' AND CODE = ITM_MK2) FROM SUPLINFO2 WHERE SUPPLIER = A.AGENT) AS ITM_MK2 ,  
+						     (SELECT AGENCY_REMARK FROM SUPLINFO2 WHERE SUPPLIER = A.AGENT) AS AGENCY_REMARK ,
+						     (SELECT (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'M202' AND CODE = TYPE_BEFORE_ONE) FROM SUPLINFO2 WHERE SUPPLIER = A.AGENT) AS TYPE_BEFORE_ONE     
+						   FROM DSS_BUYER_RESULT A  
+						   WHERE BUYER      = #{st_buyer_code} 
+						   AND SG_ID        = #{st_sg_id}  
+						   AND A.AGENT NOT IN  
+						     (SELECT X.AGENT  
+						     FROM DSS_BUYER_RESULT X  
+						     WHERE X.BUYER     = #{st_buyer_code}  
+						     AND X.SG_ID       = #{st_sg_id}  
+						     AND X.MAKER_CODE IN 
+						     ]]>							      
+				      		<foreach item="item" collection="st_maker_code" open="(" separator="," close=")">
+					 			#{item}
+							</foreach>
+							<![CDATA[ 
+						     )  
+						   AND exists (select 'x' from icomcmpy where com_code = a.agent and status ^= 'D')  
+						   GROUP BY AGENT,  
+						     SG_ID
+						    )  
+				]]>
+	</select>
+	
+	<select id="selectMasterMpRqDssSellerSelList5" parameterType="java.util.Map" resultType="java.util.Map">
+		
+			<![CDATA[
+			/*selectMasterMpRqDssSellerSelList5*/
+		    	SELECT   /*+INDEX(A SYS_C0040524)*/                          
+						RANK() OVER (PARTITION BY SG_ID ORDER BY AGENT_AMT DESC) AS RANK ,  
+					   (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = AGENT  
+					   ) AS AGENT_NAME ,  
+					   AGENT_AMT AS ITEM_AMT ,  
+					   AGENT_AMT ,  
+					   AGENT ,  
+					   SG_ID ,  
+					  DECODE(ITM_MK1,'','',ITM_MK1) || DECODE(ITM_MK2,'','',DECODE(ITM_MK1,'',ITM_MK2,', ' || ITM_MK2)) 
+                             || DECODE(AGENCY_REMARK,'','',CASE WHEN ITM_MK1 IS NULL AND ITM_MK2 IS NULL THEN AGENCY_REMARK ELSE ' // ' || AGENCY_REMARK END) AS REF_MAKER, 
+					   null as AVL_FLAG ,  
+					   null as CREATE_DATE ,  
+					   f_get_dss_chk(#{st_buyer_code},AGENT,0)  AS DSS_YN  ,  
+					   f_get_dss_chk(#{st_buyer_code},AGENT,1)  AS DSS_MSG  
+					   ,TYPE_BEFORE_ONE  
+					 FROM  
+					   (SELECT AGENT ,  
+					     A.SG_ID ,  
+					     SUM(ITEM_AMT) AS AGENT_AMT ,  
+					     (SELECT (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE ='M104' AND CODE = ITM_MK1) FROM SUPLINFO2 WHERE SUPPLIER = A.AGENT) AS ITM_MK1 ,  
+					     (SELECT (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE ='M104' AND CODE = ITM_MK2) FROM SUPLINFO2 WHERE SUPPLIER = A.AGENT) AS ITM_MK2 ,  
+					     (SELECT AGENCY_REMARK FROM SUPLINFO2 WHERE SUPPLIER = A.AGENT) AS AGENCY_REMARK ,
+					     (SELECT (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'M202' AND CODE = TYPE_BEFORE_ONE) FROM SUPLINFO2 WHERE SUPPLIER = A.AGENT) AS  TYPE_BEFORE_ONE  
+					   FROM DSS_BUYER_RESULT A,  
+					     ICOMCMPY B,  
+					     ICOMCMPY C  
+					   WHERE B.COM_CODE = #{st_buyer_code}
+					   AND A.SG_ID      = #{st_sg_id}  
+					   AND A.MAKER_CODE = #{st_maker_code}
+					   AND B.AG_ID      = C.AG_ID  
+					   AND A.AGENT      = C.COM_CODE  
+					   AND B.STATUS != 'D'  
+					   GROUP BY AGENT,  
+					     A.SG_ID  
+					   )  
+										
+				]]>
+	</select>
+	
+	<select id="selectMasterMpRqDssSellerSelList6" parameterType="java.util.Map" resultType="java.util.Map">
+		
+			<![CDATA[
+			/*selectMasterMpRqDssSellerSelList6*/  
+		    	SELECT   /*+INDEX(A SYS_C0040524) INDEX(C ICOMCMPY_PK)*/
+						RANK() OVER (PARTITION BY SG_ID ORDER BY AGENT_AMT DESC) AS RANK ,  
+					   (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = AGENT ) AS AGENT_NAME ,  
+					   AGENT_AMT AS ITEM_AMT ,  
+					   AGENT_AMT ,  
+					   AGENT ,  
+					   SG_ID ,  
+					   DECODE(ITM_MK1,'','',ITM_MK1) || DECODE(ITM_MK2,'','',DECODE(ITM_MK1,'',ITM_MK2,', ' || ITM_MK2)) 
+                             || DECODE(AGENCY_REMARK,'','',CASE WHEN ITM_MK1 IS NULL AND ITM_MK2 IS NULL THEN AGENCY_REMARK ELSE ' // ' || AGENCY_REMARK END) AS REF_MAKER, 
+					   null as AVL_FLAG ,  
+					   null as CREATE_DATE ,  
+					   f_get_dss_chk(#{st_buyer_code},AGENT,0)  AS DSS_YN  ,  
+					   f_get_dss_chk(#{st_buyer_code},AGENT,1)  AS DSS_MSG   ,
+					   TYPE_BEFORE_ONE 
+					 FROM  
+					   (SELECT AGENT ,  
+					     A.SG_ID ,  
+					     SUM(ITEM_AMT) AS AGENT_AMT ,  
+					     (SELECT (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE ='M104' AND CODE = ITM_MK1) FROM SUPLINFO2 WHERE SUPPLIER = A.AGENT) AS ITM_MK1 ,  
+					     (SELECT (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE ='M104' AND CODE = ITM_MK2) FROM SUPLINFO2 WHERE SUPPLIER = A.AGENT) AS ITM_MK2 ,  
+					     (SELECT AGENCY_REMARK FROM SUPLINFO2 WHERE SUPPLIER = A.AGENT) AS AGENCY_REMARK  ,
+					     (SELECT (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'M202' AND CODE = TYPE_BEFORE_ONE)  FROM SUPLINFO2 WHERE SUPPLIER = A.AGENT) AS  TYPE_BEFORE_ONE
+					   FROM DSS_BUYER_RESULT A, ICOMCMPY B, ICOMCMPY C  
+					   WHERE B.COM_CODE = #{st_buyer_code} 
+						   AND A.SG_ID      = #{st_sg_id} 
+						   AND B.AG_ID      = C.AG_ID  
+						   AND A.AGENT      = C.COM_CODE  
+						   AND A.AGENT NOT IN  
+						     (SELECT X.AGENT  
+						     	FROM DSS_BUYER_RESULT X  
+						     	WHERE X.SG_ID     = #{st_sg_id}  
+						     		AND X.MAKER_CODE IN
+					     ]]>							      
+				      		<foreach item="item" collection="st_maker_code" open="(" separator="," close=")">
+					 			#{item}
+							</foreach>
+							<![CDATA[ 
+					     	 )  
+					   AND B.STATUS != 'D'  
+					   GROUP BY AGENT, A.SG_ID  
+					   )  
+										
+				]]>
+	</select>
+	
+	<select id="selectMasterMpRqDssSellerSelList7" parameterType="java.util.Map" resultType="java.util.Map">
+		
+			<![CDATA[
+			/*selectMasterMpRqDssSellerSelList7*/
+		    	SELECT   /*+INDEX(A SYS_C0040524)*/                          
+						RANK() OVER (PARTITION BY SG_ID ORDER BY AGENT_AMT DESC) AS RANK ,  
+					   (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = AGENT) AS AGENT_NAME ,  
+					   AGENT_AMT as ITEM_AMT ,  
+					   AGENT_AMT ,  
+					   AGENT ,  
+					   SG_ID ,  
+					   DECODE(ITM_MK1,'','',ITM_MK1) || DECODE(ITM_MK2,'','',DECODE(ITM_MK1,'',ITM_MK2,', ' || ITM_MK2)) 
+                             || DECODE(AGENCY_REMARK,'','',CASE WHEN ITM_MK1 IS NULL AND ITM_MK2 IS NULL THEN AGENCY_REMARK ELSE ' // ' || AGENCY_REMARK END) AS REF_MAKER, 
+					   null as AVL_FLAG ,  
+					   null as CREATE_DATE ,  
+					   f_get_dss_chk(#{st_buyer_code},AGENT,0)  AS DSS_YN  ,  
+					   f_get_dss_chk(#{st_buyer_code},AGENT,1)  AS DSS_MSG   ,
+					   TYPE_BEFORE_ONE 
+					 FROM  
+					   (SELECT AGENT ,  
+					     SG_ID ,  
+					     0             AS ITEM_AMT ,  
+					     SUM(ITEM_AMT) AS AGENT_AMT ,  
+					     (SELECT (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE ='M104' AND CODE = ITM_MK1) FROM SUPLINFO2 WHERE SUPPLIER = A.AGENT) AS ITM_MK1 ,  
+					     (SELECT (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE ='M104' AND CODE = ITM_MK2) FROM SUPLINFO2 WHERE SUPPLIER = A.AGENT) AS ITM_MK2 ,  
+					     (SELECT AGENCY_REMARK FROM SUPLINFO2 WHERE SUPPLIER = A.AGENT) AS AGENCY_REMARK,
+					     (SELECT (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'M202' AND CODE = TYPE_BEFORE_ONE) FROM SUPLINFO2 WHERE SUPPLIER = A.AGENT) AS TYPE_BEFORE_ONE  
+					   FROM DSS_BUYER_RESULT A  
+					   WHERE SG_ID    = #{st_sg_id}
+					   	AND MAKER_CODE IN 
+					   ]]>							      
+			      		<foreach item="item" collection="st_maker_code" open="(" separator="," close=")">
+				 			#{item}
+						</foreach>
+						<![CDATA[ 
+					   AND exists (select 'x' from icomcmpy where com_code = a.agent and status ^= 'D')  
+					   GROUP BY AGENT,  
+					     SG_ID  
+					   )  
+				]]>
+	</select>
+	
+	<select id="selectMasterMpRqDssSellerSelList8" parameterType="java.util.Map" resultType="java.util.Map">
+		
+			<![CDATA[
+		    	SELECT /*selectMasterMpRqDssSellerSelList8*/                            
+						RANK() OVER (PARTITION BY SG_ID ORDER BY AGENT_AMT DESC) AS RANK ,  
+					   (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = AGENT) AS AGENT_NAME ,  
+					   AGENT_AMT as ITEM_AMT ,  
+					   AGENT_AMT ,  
+					   AGENT ,  
+					   SG_ID ,  
+					   DECODE(ITM_MK1,'','',ITM_MK1) || DECODE(ITM_MK2,'','',DECODE(ITM_MK1,'',ITM_MK2,', ' || ITM_MK2)) 
+                             || DECODE(AGENCY_REMARK,'','',CASE WHEN ITM_MK1 IS NULL AND ITM_MK2 IS NULL THEN AGENCY_REMARK ELSE ' // ' || AGENCY_REMARK END) AS REF_MAKER, 
+					   null as AVL_FLAG ,  
+					   null as CREATE_DATE ,  
+					   f_get_dss_chk(#{st_buyer_code},AGENT,0)  AS DSS_YN  ,  
+					   f_get_dss_chk(#{st_buyer_code},AGENT,1)  AS DSS_MSG    ,
+					   TYPE_BEFORE_ONE  
+					 FROM  
+					   (SELECT AGENT ,  
+					     SG_ID ,  
+					     0             AS ITEM_AMT ,  
+					     SUM(ITEM_AMT) AS AGENT_AMT ,  
+					     (SELECT (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE ='M104' AND CODE = ITM_MK1) FROM SUPLINFO2 WHERE SUPPLIER = A.AGENT) AS ITM_MK1 ,  
+					     (SELECT (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE ='M104' AND CODE = ITM_MK2) FROM SUPLINFO2 WHERE SUPPLIER = A.AGENT) AS ITM_MK2 ,  
+					     (SELECT AGENCY_REMARK FROM SUPLINFO2 WHERE SUPPLIER = A.AGENT) AS AGENCY_REMARK ,
+					     (SELECT (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'M202' AND CODE = TYPE_BEFORE_ONE)  FROM SUPLINFO2 WHERE SUPPLIER = A.AGENT) AS  TYPE_BEFORE_ONE
+					   FROM DSS_BUYER_RESULT A  
+					   WHERE SG_ID      = #{st_sg_id}
+					   AND A.AGENT NOT IN  
+					     (SELECT X.AGENT  
+					     FROM DSS_BUYER_RESULT X  
+					     WHERE X.SG_ID     = #{st_sg_id}  
+					     AND X.MAKER_CODE IN 
+					     ]]>							      
+			      		<foreach item="item" collection="st_maker_code" open="(" separator="," close=")">
+				 			#{item}
+						</foreach>
+						<![CDATA[ 
+					     )  
+					   AND exists (select 'x' from icomcmpy where com_code = a.agent and status ^= 'D')  
+					   GROUP BY AGENT,  
+					     SG_ID
+					   )  
+				]]>
+	</select>
+	
+	<select id="selectMasterMpRqDssSellerSelList9" parameterType="java.util.Map" resultType="java.util.Map">
+			<![CDATA[
+				SELECT /*selectMasterMpRqDssSellerSelList9*/                            
+				    /*+INDEX(S ICOMCMPY_T01) INDEX(P SYS_C0052983)*/
+				    S.COM_CODE AS AGENT,                      
+				    S.COM_NAME_LOC ||'('||S.COM_CODE||')' AS AGENT_NAME,       
+				    (SELECT ITMG1_NM FROM SUPLITMG WHERE SUPPLIER = S.COM_CODE) AS ITMG1_NM,       
+					S.ZIP_CODE,		 
+					(SELECT MAX(SIDO||' '||GUGUN) FROM ICOMZIPC WHERE ZIPCODE = S.ZIP_CODE) AS AREA,	 
+					(SELECT MAJOR_COM FROM SUPLINFO2 A WHERE SUPPLIER=S.COM_CODE) AS MAJOR_COM,         
+				    (SELECT  /*+INDEX(S ICOMCMPY_PK) USE_NL(S ICOMPOHD)*/ COUNT(*) FROM ICOMPOHD WHERE AGENT=S.COM_CODE AND ADD_DATE BETWEEN TO_CHAR(SYSDATE-90,'YYYYMMDD') AND TO_CHAR(SYSDATE, 'YYYYMMDD')) AS TCNT, 
+				    NVL((SELECT /*+INDEX(S ICOMCMPY_PK) USE_NL(S ICOMPOHD)*/ SUM(PO_TTL_AMT) FROM ICOMPOHD WHERE AGENT = S.COM_CODE AND ADD_DATE BETWEEN TO_CHAR(SYSDATE-90,'YYYYMMDD') AND TO_CHAR(SYSDATE, 'YYYYMMDD'))
+				     	,0) AS TAMT,
+					f_get_dss_chk(#{st_buyer_code},COM_CODE,0)  AS DSS_YN,  
+				    f_get_dss_chk(#{st_buyer_code},COM_CODE,1)  AS DSS_MSG, 
+				    (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'M202' AND CODE = TYPE_BEFORE_ONE) AS TYPE_BEFORE_ONE
+				FROM ICOMCMPY S, SUPLINFO2 P			 
+				WHERE S.BUSINESS_COND='S'				 
+					AND S.STATUS IN('C','R')
+			]]>  
+			<if test="st_agent_name != null and st_agent_name != ''">
+				<![CDATA[
+					AND S.COM_NAME_LOC LIKE '%'||#{st_agent_name}||'%'	
+				]]>	
+			</if>
+		 	<![CDATA[   						   				 
+						 	  AND S.CONFIRM_DATE IS NOT NULL		 
+						 	  AND S.ZIP_CODE IS NOT NULL			 
+			]]>  
+			<if test="st_loc_dept2 != null and st_loc_dept2 != ''">
+				<![CDATA[
+					AND SUBSTR(S.ZIP_CODE,1,1) IN (#{st_loc_dept2})	
+				]]>	
+			</if>
+		 	<![CDATA[   						   				 
+						 	  AND S.COM_CODE=P.SUPPLIER	(+)			 
+			]]>  
+			<if test="st_maker_code2 != null and st_maker_code2 != ''">
+				<![CDATA[
+					AND (P.ITM_MK1 = #{st_maker_code2}		 
+					 	   OR   P.ITM_MK2 = #{st_maker_code2} 
+					 	   OR   P.ITM_MK3 = #{st_maker_code2}	 
+					 	   OR   P.ITM_MK4 = #{st_maker_code2}	 
+					 	   OR   P.ITM_MK5 = #{st_maker_code2})
+				]]>	
+			</if>
+			<if test="st_item_code != null and st_item_code != ''">
+				<![CDATA[
+					AND (P.ITMG1_CD = #{st_item_code}	 
+					 	   OR   P.ITMG2_CD = #{st_item_code}		 
+					 	   OR   P.ITMG3_CD = #{st_item_code}		 
+					 	   OR   P.ITMG4_CD = #{st_item_code}		 
+					 	   OR   P.ITMG5_CD = #{st_item_code})
+				]]>
+			</if>	
+	</select>
+	
+	<select id="selectMasterMpRqDssSellerSelList10" parameterType="java.util.Map" resultType="java.util.Map">
+			<![CDATA[
+		    	SELECT /*selectMasterMpRqDssSellerSelList10*/                            
+						/*+ RULE*/    
+			            S.COM_CODE AS AGENT, 
+ 			            S.COM_NAME_LOC ||'('||S.COM_CODE||')' AS AGENT_NAME, 
+			            (SELECT ITMG1_NM FROM SUPLITMG WHERE SUPPLIER=S.COM_CODE) AS ITMG1_NM,  
+			            S.ZIP_CODE,                                                                                                     
+			            S.CEO_NAME_LOC,
+			            S.TEL_NO,
+			            S.FAX_NO,
+			            (SELECT MAX(SIDO||' '||GUGUN) FROM ICOMZIPC WHERE ZIPCODE = S.ZIP_CODE) AS AREA,                                
+			            (SELECT 
+			                     (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE=A.KEP_BUYER1 AND STATUS <> 'D')||' '||   
+			                     (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE=A.KEP_BUYER2 AND STATUS <> 'D')||' '||   
+			                     (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE=A.KEP_BUYER3 AND STATUS <> 'D')||' '||   
+			                     (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE=A.KEP_BUYER4 AND STATUS <> 'D')  
+			                FROM SUPLITMG A WHERE SUPPLIER=S.COM_CODE) AS MAJOR_COM,   
+			            (SELECT COUNT(*) FROM ICOMPOHD WHERE AGENT=S.COM_CODE AND ADD_DATE BETWEEN TO_CHAR(SYSDATE-90,'YYYYMMDD') AND TO_CHAR(SYSDATE, 'YYYYMMDD')) AS TCNT,    
+			                    NVL((SELECT SUM(PO_TTL_AMT) FROM ICOMPOHD WHERE AGENT=S.COM_CODE    
+			                                                            AND ADD_DATE BETWEEN TO_CHAR(SYSDATE-90,'YYYYMMDD') AND TO_CHAR(SYSDATE, 'YYYYMMDD')),0) AS TAMT,
+			            (SELECT (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'M202' AND CODE = TYPE_BEFORE_ONE)  FROM SUPLINFO2 WHERE SUPPLIER = S.COM_CODE) AS TYPE_BEFORE_ONE
+				]]>  
+				<if test="st_quotation_seq != null and st_quotation_seq != ''">
+				<![CDATA[			                                                            
+			            , NVL((SELECT NVL(A.ATOB_UNIT_PRICE,0) FROM KEPQTDT A WHERE A.BUYER=#{st_buyer_code} AND A.QUOTATION_NO=#{st_quotation_no} AND A.QUOTATION_SEQ=#{st_quotation_seq} AND A.REVISION=#{st_revision} AND A.STATUS='C' AND A.AGENT=S.COM_CODE),0) AS ATOB_UNIT_PRICE
+            			, NVL((SELECT NVL(A.STOA_LIST_PRICE,0) FROM KEPQTDT A WHERE A.BUYER=#{st_buyer_code} AND A.QUOTATION_NO=#{st_quotation_no} AND A.QUOTATION_SEQ=#{st_quotation_seq} AND A.REVISION=#{st_revision} AND A.STATUS='C' AND A.AGENT=S.COM_CODE),0) AS STOA_LIST_PRICE 
+			    ]]>
+			    </if>
+						, A_LIS.DSS_CHOICE
+						, A_LIS.GPL_LIST_PRICE
+						, A_LIS.GPL_DLVRY_LT
+						, A_LIS.GPL_TAX_TYPE
+						, A_LIS.GPL_MIN_ORDER_QTY
+						, A_LIS.GPL_PUR_UNIT_QTY
+						, A_LIS.GPL_SELLER_AREA
+						, A_LIS.GPL_SELLER_ITEM_NO
+			             FROM ICOMCMPY S    
+									${st_multi_agent_dss}
+			   <![CDATA[
+			            WHERE S.BUSINESS_COND='S'   
+			              AND S.STATUS IN('C','R')
+						  AND S.COM_CODE = A_LIS.AGENT_ROW
+			]]>  
+	</select>
+	
+	<select id="selectMasterMpRqDssSellerSelList11" parameterType="java.util.Map" resultType="java.util.Map">
+			<![CDATA[
+		    	SELECT /*selectMasterMpRqDssSellerSelList11*/                            
+					AGENT                         
+				FROM (SELECT MAX(B.RANK) AS K_RANK,                      
+							B.AGENT                      
+						FROM DSS_BUYER_RESULT A, DSS_AGENT_EVALUATION B
+						WHERE A.AGENT = B.AGENT                            
+							AND A.SG_ID = B.SG_ID                            
+							AND exists (select 'x' from icomcmpy where com_code = A.agent and status ^= 'D')         
+							AND A.BUYER = #{st_buyer_code}   
+							AND A.SG_ID = #{st_sg_id}    
+							AND A.MAKER_CODE IN (#{st_maker_code})
+						GROUP BY B.AGENT,B.SG_ID    
+						ORDER BY 1)                
+				WHERE ROWNUM = 1
+			]]>  
+	</select>
+	<select id="selectMasterMpRqDssSellerSelList12" parameterType="java.util.Map" resultType="java.util.Map">
+		
+			<![CDATA[
+			/*selectMasterMpRqDssSellerSelList12*/
+				    	SELECT
+						     S.COM_CODE AS AGENT,
+						     S.CEO_NAME_LOC,
+						     S.COM_NAME_LOC  AS AGENT_NAME,
+						 	 S.ZIP_CODE,
+						 	(SELECT MAX(SIDO||' '||GUGUN) FROM ICOMZIPC WHERE ZIPCODE = S.ZIP_CODE) AS AREA,
+                          	CQDT.LIST_PRICE,
+                          	CQDT.DELIVERY_LT,
+                      		f_get_dss_chk(#{st_buyer_code} ,CQDT.AGENT,0)  AS DSS_YN  ,                                                                                                 
+				          	f_get_dss_chk(#{st_buyer_code} ,CQDT.AGENT,1)  AS DSS_MSG  ,
+				          	(SELECT CMPY.COM_NAME_LOC FROM ICOMCMPY CMPY WHERE CMPY.COM_CODE = CQDT.BUYER) AS BUYER   ,
+				          	CQDT.BUY_CLOSE_DATE AS TO_DATE ,
+				          	BYIT.TAX_TYPE ,
+				          	CQDT.MIN_ORDER_QTY,
+				          	CQDT.PUR_UNIT_QTY,
+				          	'' AS SELLER_AREA,
+				          	CQDT.SELLER_ITEM_NO,
+				          	P.TYPE_BEFORE_ONE AS TYPE_BEFORE_ONE
+						  FROM ICOMCQDT CQDT, ICOMCMPY S, SUPLINFO2 P, ICOMBYIT BYIT
+						 WHERE BYIT.BUYER = CQDT.BUYER
+						  AND BYIT.BUYER_ITEM_NO = CQDT.BUYER_ITEM_NO
+						  AND S.BUSINESS_COND='S'
+						  AND S.STATUS IN('C','R')
+						  AND CQDT.AGENT = S.COM_CODE
+						  AND S.COM_CODE=P.SUPPLIER(+)
+						  AND CQDT.BUYER = 'KRGPLK0001'
+						  AND CQDT.BUYER_ITEM_NO =#{st_cms_caltlg_id}
+						  AND BYIT.STATUS !='D' 
+						  AND CQDT.STATUS !='D'
+						  AND CQDT.LIST_PRICE IS NOT NULL
+						  AND CQDT.DELIVERY_LT IS NOT NULL
+						  AND CQDT.BUY_CLOSE_DATE >= TO_CHAR(SYSDATE,'YYYYMMDD')
+						  UNION ALL
+				    	SELECT
+						     S.COM_CODE AS AGENT,
+						     S.CEO_NAME_LOC,
+						     S.COM_NAME_LOC  AS AGENT_NAME,
+						 	 S.ZIP_CODE,
+						 	(SELECT MAX(SIDO||' '||GUGUN) FROM ICOMZIPC WHERE ZIPCODE = S.ZIP_CODE) AS AREA,
+                          	CQDT.LIST_PRICE,
+                          	CQDT.DELIVERY_LT,
+                      		f_get_dss_chk(#{st_buyer_code} ,CQDT.AGENT,0)  AS DSS_YN  ,                                                                                                 
+				          	f_get_dss_chk(#{st_buyer_code} ,CQDT.AGENT,1)  AS DSS_MSG  ,
+				          	(SELECT CMPY.COM_NAME_LOC FROM ICOMCMPY CMPY WHERE CMPY.COM_CODE = CQDT.BUYER) AS BUYER  ,
+				          	CQDT.SELL_CLOSE_DATE AS TO_DATE ,
+				          	BYIT.TAX_TYPE ,
+				          	CQDT.MIN_ORDER_QTY,
+				          	CQDT.PUR_UNIT_QTY,
+				          	'' AS SELLER_AREA,
+				          	CQDT.SELLER_ITEM_NO,
+				          	(SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'M202' AND CODE = TYPE_BEFORE_ONE) AS TYPE_BEFORE_ONE
+						  FROM ICOMCQDT CQDT, ICOMCMPY S, SUPLINFO2 P, ICOMBYIT BYIT
+						 WHERE BYIT.BUYER = CQDT.BUYER
+						  AND BYIT.BUYER_ITEM_NO = CQDT.BUYER_ITEM_NO
+						  AND S.BUSINESS_COND='S'
+						  AND S.STATUS IN('C','R')
+						  AND CQDT.AGENT = S.COM_CODE
+						  AND S.COM_CODE=P.SUPPLIER(+)
+						  AND CQDT.BUYER IN (SELECT COD3.CODE1 FROM ICOMCOD3 COD3
+												WHERE COD3.TYPE = 'GPL'
+												AND COD3.CODE2 = #{st_buyer_code}
+												AND COD3.FLAG = 'Y'
+												)
+						  AND BYIT.CMS_CATLG_ID =#{st_cms_caltlg_id} 
+						  AND BYIT.STATUS !='D'
+						  AND CQDT.STATUS !='D'
+						  AND CQDT.LIST_PRICE IS NOT NULL
+						  AND CQDT.DELIVERY_LT IS NOT NULL
+						  AND CQDT.SELL_CLOSE_DATE >= TO_CHAR(SYSDATE,'YYYYMMDD')
+				]]>
+	</select>
+	<select id="selectMasterMpRqDssSellerSelList13" parameterType="java.util.Map" resultType="java.util.Map">
+		
+			<![CDATA[
+			/*selectMasterMpRqDssSellerSelList13*/  
+		    	SELECT   /*+INDEX(A SYS_C0040524) INDEX(C ICOMCMPY_PK)*/
+						RANK() OVER (PARTITION BY SG_ID ORDER BY  RN,AGENT_AMT  DESC) AS RANK ,
+						DECODE(RN,1,'총판',2,'총판',3,'대리점',4,'대리점') AS SUP_TYPE,
+					   (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = AGENT) AS AGENT_NAME ,
+					   AGENT_AMT AS ITEM_AMT ,
+					   AGENT_AMT ,
+					   AGENT ,
+					   SG_ID AS SG_ID ,
+					   '' AS REF_MAKER,
+					   NULL as AVL_FLAG ,
+					   NULL as CREATE_DATE ,
+					   F_GET_DSS_CHK( #{st_buyer_code} ,AGENT,0)  AS DSS_YN  ,
+					   F_GET_DSS_CHK( #{st_buyer_code} ,AGENT,1)  AS DSS_MSG ,
+					   TYPE_BEFORE_ONE
+					 FROM
+					   (
+						   SELECT '1' AS RN,
+						     AGENT ,
+						     A.SG_ID ,
+						     SUM(ITEM_AMT) AS AGENT_AMT ,
+						     (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'M202' AND CODE = TYPE_BEFORE_ONE) AS TYPE_BEFORE_ONE
+						   FROM DSS_BUYER_RESULT A, ICOMCMPY B, ICOMCMPY C, SUPLINFO2 D
+						   WHERE B.COM_CODE =  #{st_buyer_code}
+						    AND A.SG_ID      =  #{st_sg_id}
+						    AND A.MAKER_CODE = #{st_maker_code}
+						    AND A.AGENT      = C.COM_CODE
+						    AND A.AGENT = D.SUPPLIER
+						    AND B.STATUS IN( 'C','R')
+						    AND C.STATUS IN( 'C','R')
+							AND ((D.ITM_MK1_AGENCY_YN = 'B' AND D.ITMG1_CD = #{st_sg_id} AND D.ITM_MK1 = #{st_maker_code})
+						     OR  (D.ITM_MK2_AGENCY_YN = 'B' AND D.ITMG2_CD = #{st_sg_id} AND D.ITM_MK2 = #{st_maker_code})
+						     OR  (D.ITM_MK3_AGENCY_YN = 'B' AND D.ITMG3_CD = #{st_sg_id} AND D.ITM_MK3 = #{st_maker_code})
+						     OR  (D.ITM_MK4_AGENCY_YN = 'B' AND D.ITMG4_CD = #{st_sg_id} AND D.ITM_MK4 = #{st_maker_code})
+						     OR  (D.ITM_MK5_AGENCY_YN = 'B' AND D.ITMG5_CD = #{st_sg_id} AND D.ITM_MK5 = #{st_maker_code})
+						     OR  (D.ITM_MK6_AGENCY_YN = 'B' AND D.ITMG6_CD = #{st_sg_id} AND D.ITM_MK6 = #{st_maker_code})
+						     OR  (D.ITM_MK7_AGENCY_YN = 'B' AND D.ITMG7_CD = #{st_sg_id} AND D.ITM_MK7 = #{st_maker_code})
+						     OR  (D.ITM_MK8_AGENCY_YN = 'B' AND D.ITMG8_CD = #{st_sg_id}  AND D.ITM_MK8 = #{st_maker_code})
+						     OR  (D.ITM_MK9_AGENCY_YN = 'B' AND D.ITMG9_CD = #{st_sg_id}  AND D.ITM_MK9 = #{st_maker_code})
+						     OR  (D.ITM_MK10_AGENCY_YN = 'B' AND D.ITMG10_CD = #{st_sg_id}  AND D.ITM_MK10 = #{st_maker_code}))
+						   GROUP BY AGENT,
+						     A.SG_ID,
+						     TYPE_BEFORE_ONE
+						    UNION ALL
+						   SELECT
+							 '2' AS RN
+							 , A.COM_CODE AS AGENT
+							 , #{st_sg_id} AS SG_ID
+							 , 0 AGENT_AMT
+							 , (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'M202' AND CODE = TYPE_BEFORE_ONE) AS TYPE_BEFORE_ONE
+							FROM ICOMCMPY A, SUPLINFO2 B
+							WHERE A.COM_CODE = B.SUPPLIER
+							AND NOT EXISTS (
+							SELECT 1 FROM DSS_BUYER_RESULT C
+							WHERE C.AGENT = A.COM_CODE
+							AND C.AGENT = B.SUPPLIER
+							AND C.SG_ID     =  #{st_sg_id}
+						    AND C.MAKER_CODE = #{st_maker_code}
+							)
+							AND A.STATUS IN( 'C','R')
+							AND ((B.ITM_MK1_AGENCY_YN = 'B' AND B.ITMG1_CD = #{st_sg_id} AND B.ITM_MK1 = #{st_maker_code})
+						     OR  (B.ITM_MK2_AGENCY_YN = 'B' AND B.ITMG2_CD = #{st_sg_id} AND B.ITM_MK2 = #{st_maker_code})
+						     OR  (B.ITM_MK3_AGENCY_YN = 'B' AND B.ITMG3_CD = #{st_sg_id} AND B.ITM_MK3 = #{st_maker_code})
+						     OR  (B.ITM_MK4_AGENCY_YN = 'B' AND B.ITMG4_CD = #{st_sg_id} AND B.ITM_MK4 = #{st_maker_code})
+						     OR  (B.ITM_MK5_AGENCY_YN = 'B' AND B.ITMG5_CD = #{st_sg_id} AND B.ITM_MK5 = #{st_maker_code})
+						     OR  (B.ITM_MK6_AGENCY_YN = 'B' AND B.ITMG6_CD = #{st_sg_id} AND B.ITM_MK6 = #{st_maker_code})
+						     OR  (B.ITM_MK7_AGENCY_YN = 'B' AND B.ITMG7_CD = #{st_sg_id} AND B.ITM_MK7 = #{st_maker_code})
+						     OR  (B.ITM_MK8_AGENCY_YN = 'B' AND B.ITMG8_CD = #{st_sg_id} AND B.ITM_MK8 = #{st_maker_code})
+						     OR  (B.ITM_MK9_AGENCY_YN = 'B' AND B.ITMG9_CD = #{st_sg_id} AND B.ITM_MK9 = #{st_maker_code})
+						     OR  (B.ITM_MK10_AGENCY_YN = 'B' AND B.ITMG10_CD = #{st_sg_id} AND B.ITM_MK10 = #{st_maker_code}))
+						     UNION ALL
+						   SELECT '3' AS RN,
+						     AGENT ,
+						     A.SG_ID ,
+						     SUM(ITEM_AMT) AS AGENT_AMT ,
+						     (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'M202' AND CODE = TYPE_BEFORE_ONE) AS TYPE_BEFORE_ONE
+						   FROM DSS_BUYER_RESULT A,
+						     ICOMCMPY B,
+						     ICOMCMPY C,
+						     SUPLINFO2 D
+						   WHERE B.COM_CODE =  #{st_buyer_code}
+						    AND A.SG_ID      =  #{st_sg_id}
+						    AND A.MAKER_CODE = #{st_maker_code}
+						    AND A.AGENT      = C.COM_CODE
+						    AND A.AGENT = D.SUPPLIER
+						    AND B.STATUS IN( 'C','R')
+						    AND C.STATUS IN( 'C','R')
+							AND ((D.ITM_MK1_AGENCY_YN = 'C' AND D.ITMG1_CD = #{st_sg_id} AND D.ITM_MK1 = #{st_maker_code})
+						     OR  (D.ITM_MK2_AGENCY_YN = 'C' AND D.ITMG2_CD = #{st_sg_id} AND D.ITM_MK2 = #{st_maker_code})
+						     OR  (D.ITM_MK3_AGENCY_YN = 'C' AND D.ITMG3_CD = #{st_sg_id} AND D.ITM_MK3 = #{st_maker_code})
+						     OR  (D.ITM_MK4_AGENCY_YN = 'C' AND D.ITMG4_CD = #{st_sg_id} AND D.ITM_MK4 = #{st_maker_code})
+						     OR  (D.ITM_MK5_AGENCY_YN = 'C' AND D.ITMG5_CD = #{st_sg_id} AND D.ITM_MK5 = #{st_maker_code})
+						     OR  (D.ITM_MK6_AGENCY_YN = 'C' AND D.ITMG6_CD = #{st_sg_id} AND D.ITM_MK6 = #{st_maker_code})
+						     OR  (D.ITM_MK7_AGENCY_YN = 'C' AND D.ITMG7_CD = #{st_sg_id} AND D.ITM_MK7 = #{st_maker_code})
+						     OR  (D.ITM_MK8_AGENCY_YN = 'C' AND D.ITMG8_CD = #{st_sg_id} AND D.ITM_MK8 = #{st_maker_code})
+						     OR  (D.ITM_MK9_AGENCY_YN = 'C' AND D.ITMG9_CD = #{st_sg_id} AND D.ITM_MK9 = #{st_maker_code})
+						     OR  (D.ITM_MK10_AGENCY_YN = 'C' AND D.ITMG10_CD = #{st_sg_id} AND D.ITM_MK10 = #{st_maker_code}))
+						   GROUP BY AGENT,
+						     A.SG_ID,
+						     TYPE_BEFORE_ONE
+						    UNION ALL
+						   SELECT
+							 '4' AS RN
+							 , A.COM_CODE AS AGENT
+							 , #{st_sg_id} AS SG_ID
+							 , 0 AGENT_AMT
+							 , (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'M202' AND CODE = TYPE_BEFORE_ONE) AS TYPE_BEFORE_ONE
+							FROM ICOMCMPY A, SUPLINFO2 B
+							WHERE A.COM_CODE = B.SUPPLIER
+							AND NOT EXISTS (
+							SELECT 1 FROM DSS_BUYER_RESULT C
+							WHERE C.AGENT = A.COM_CODE
+							AND C.AGENT = B.SUPPLIER
+							AND C.SG_ID     =  #{st_sg_id}
+						    AND C.MAKER_CODE = #{st_maker_code}
+							)
+							AND A.STATUS IN( 'C','R')
+							AND ((B.ITM_MK1_AGENCY_YN = 'C' AND B.ITMG1_CD = #{st_sg_id} AND B.ITM_MK1 = #{st_maker_code})
+						     OR  (B.ITM_MK2_AGENCY_YN = 'C' AND B.ITMG2_CD = #{st_sg_id} AND B.ITM_MK2 = #{st_maker_code})
+						     OR  (B.ITM_MK3_AGENCY_YN = 'C' AND B.ITMG3_CD = #{st_sg_id} AND B.ITM_MK3 = #{st_maker_code})
+						     OR  (B.ITM_MK4_AGENCY_YN = 'C' AND B.ITMG4_CD = #{st_sg_id} AND B.ITM_MK4 = #{st_maker_code})
+						     OR  (B.ITM_MK5_AGENCY_YN = 'C' AND B.ITMG5_CD = #{st_sg_id} AND B.ITM_MK5 = #{st_maker_code})
+						     OR  (B.ITM_MK6_AGENCY_YN = 'C' AND B.ITMG6_CD = #{st_sg_id} AND B.ITM_MK6 = #{st_maker_code})
+						     OR  (B.ITM_MK7_AGENCY_YN = 'C' AND B.ITMG7_CD = #{st_sg_id} AND B.ITM_MK7 = #{st_maker_code})
+						     OR  (B.ITM_MK8_AGENCY_YN = 'C' AND B.ITMG8_CD = #{st_sg_id} AND B.ITM_MK8 = #{st_maker_code})
+						     OR  (B.ITM_MK9_AGENCY_YN = 'C' AND B.ITMG9_CD = #{st_sg_id} AND B.ITM_MK9 = #{st_maker_code})
+						     OR  (B.ITM_MK10_AGENCY_YN = 'C' AND B.ITMG10_CD = #{st_sg_id} AND B.ITM_MK10 = #{st_maker_code}))
+					   )
+				]]>
+	</select>
+	<select id="selectMasterMpRqDssSellerSelList14" parameterType="java.util.Map" resultType="java.util.Map">
+			<![CDATA[
+			/*selectMasterMpRqDssSellerSelList14*/  
+		    	SELECT   /*+INDEX(A SYS_C0040524) INDEX(C ICOMCMPY_PK)*/
+						RANK() OVER (PARTITION BY SG_ID ORDER BY  RN,AGENT_AMT  DESC) AS RANK ,
+						DECODE(RN,1,'총판',2,'총판',3,'대리점',4,'대리점') AS SUP_TYPE,
+					   (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = AGENT) AS AGENT_NAME ,
+					   AGENT_AMT AS ITEM_AMT ,
+					   AGENT_AMT ,
+					   AGENT ,
+					   SG_ID AS SG_ID ,
+					   '' AS REF_MAKER,
+					   NULL as AVL_FLAG ,
+					   NULL as CREATE_DATE ,
+					   F_GET_DSS_CHK(#{st_buyer_code}, AGENT, 0)  AS DSS_YN,
+					   F_GET_DSS_CHK(#{st_buyer_code}, AGENT, 1)  AS DSS_MSG,
+					   TYPE_BEFORE_ONE
+					 FROM
+					   (
+						   SELECT '1' AS RN,
+						     AGENT ,
+						     A.SG_ID ,
+						     SUM(ITEM_AMT) AS AGENT_AMT ,
+						     (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'M202' AND CODE = TYPE_BEFORE_ONE) AS TYPE_BEFORE_ONE
+						   FROM DSS_BUYER_RESULT A,
+						     ICOMCMPY B,
+						     ICOMCMPY C,
+						     SUPLINFO2 D
+						   WHERE B.COM_CODE =  #{st_buyer_code}
+						    AND A.SG_ID      =  #{st_sg_id}
+						    AND A.AGENT      = C.COM_CODE
+						    AND A.AGENT = D.SUPPLIER
+						    AND B.STATUS IN( 'C','R')
+						    AND C.STATUS IN( 'C','R')
+							AND ((D.ITM_MK1_AGENCY_YN = 'B' AND D.ITMG1_CD = #{st_sg_id})
+						     OR  (D.ITM_MK2_AGENCY_YN = 'B' AND D.ITMG2_CD = #{st_sg_id})
+						     OR  (D.ITM_MK3_AGENCY_YN = 'B' AND D.ITMG3_CD = #{st_sg_id})
+						     OR  (D.ITM_MK4_AGENCY_YN = 'B' AND D.ITMG4_CD = #{st_sg_id})
+						     OR  (D.ITM_MK5_AGENCY_YN = 'B' AND D.ITMG5_CD = #{st_sg_id})
+						     OR  (D.ITM_MK6_AGENCY_YN = 'B' AND D.ITMG6_CD = #{st_sg_id})
+						     OR  (D.ITM_MK7_AGENCY_YN = 'B' AND D.ITMG7_CD = #{st_sg_id})
+						     OR  (D.ITM_MK8_AGENCY_YN = 'B' AND D.ITMG8_CD = #{st_sg_id})
+						     OR  (D.ITM_MK9_AGENCY_YN = 'B' AND D.ITMG9_CD = #{st_sg_id})
+						     OR  (D.ITM_MK10_AGENCY_YN = 'B' AND D.ITMG10_CD = #{st_sg_id}))
+						   GROUP BY AGENT,
+						     A.SG_ID
+						     ,TYPE_BEFORE_ONE
+						    UNION ALL
+						   SELECT
+							 '2' AS RN
+							 , A.COM_CODE AS AGENT
+							 , #{st_sg_id} AS SG_ID
+							 , 0 AGENT_AMT
+							 , (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'M202' AND CODE = TYPE_BEFORE_ONE) AS TYPE_BEFORE_ONE
+							FROM ICOMCMPY A, SUPLINFO2 B
+							WHERE A.COM_CODE = B.SUPPLIER
+							AND NOT EXISTS (
+							SELECT 1 FROM DSS_BUYER_RESULT C
+							WHERE C.AGENT = A.COM_CODE
+							AND C.AGENT = B.SUPPLIER
+							AND C.SG_ID      =  #{st_sg_id}
+							)
+							AND A.STATUS IN( 'C','R')
+							AND ((B.ITM_MK1_AGENCY_YN = 'B' AND B.ITMG1_CD = #{st_sg_id})
+						     OR  (B.ITM_MK2_AGENCY_YN = 'B' AND B.ITMG2_CD = #{st_sg_id})
+						     OR  (B.ITM_MK3_AGENCY_YN = 'B' AND B.ITMG3_CD = #{st_sg_id})
+						     OR  (B.ITM_MK4_AGENCY_YN = 'B' AND B.ITMG4_CD = #{st_sg_id})
+						     OR  (B.ITM_MK5_AGENCY_YN = 'B' AND B.ITMG5_CD = #{st_sg_id})
+						     OR  (B.ITM_MK6_AGENCY_YN = 'B' AND B.ITMG6_CD = #{st_sg_id})
+						     OR  (B.ITM_MK7_AGENCY_YN = 'B' AND B.ITMG7_CD = #{st_sg_id})
+						     OR  (B.ITM_MK8_AGENCY_YN = 'B' AND B.ITMG8_CD = #{st_sg_id})
+						     OR  (B.ITM_MK9_AGENCY_YN = 'B' AND B.ITMG9_CD = #{st_sg_id})
+						     OR  (B.ITM_MK10_AGENCY_YN = 'B' AND B.ITMG10_CD = #{st_sg_id}))
+						     UNION ALL
+						   SELECT '3' AS RN,
+						     AGENT ,
+						     A.SG_ID ,
+						     SUM(ITEM_AMT) AS AGENT_AMT ,
+						     (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'M202' AND CODE = TYPE_BEFORE_ONE) AS TYPE_BEFORE_ONE
+						   FROM DSS_BUYER_RESULT A,
+						     ICOMCMPY B,
+						     ICOMCMPY C,
+						     SUPLINFO2 D
+						   WHERE B.COM_CODE =  #{st_buyer_code}
+						    AND A.SG_ID      =  #{st_sg_id}
+						    AND A.AGENT      = C.COM_CODE
+						    AND A.AGENT = D.SUPPLIER
+						    AND B.STATUS IN( 'C','R')
+						    AND C.STATUS IN( 'C','R')
+							AND ((D.ITM_MK1_AGENCY_YN = 'C' AND D.ITMG1_CD = #{st_sg_id})
+						     OR  (D.ITM_MK2_AGENCY_YN = 'C' AND D.ITMG2_CD = #{st_sg_id})
+						     OR  (D.ITM_MK3_AGENCY_YN = 'C' AND D.ITMG3_CD = #{st_sg_id})
+						     OR  (D.ITM_MK4_AGENCY_YN = 'C' AND D.ITMG4_CD = #{st_sg_id})
+						     OR  (D.ITM_MK5_AGENCY_YN = 'C' AND D.ITMG5_CD = #{st_sg_id})
+						     OR  (D.ITM_MK6_AGENCY_YN = 'C' AND D.ITMG6_CD = #{st_sg_id})
+						     OR  (D.ITM_MK7_AGENCY_YN = 'C' AND D.ITMG7_CD = #{st_sg_id})
+						     OR  (D.ITM_MK8_AGENCY_YN = 'C' AND D.ITMG8_CD = #{st_sg_id})
+						     OR  (D.ITM_MK9_AGENCY_YN = 'C' AND D.ITMG9_CD = #{st_sg_id})
+						     OR  (D.ITM_MK10_AGENCY_YN = 'C' AND D.ITMG10_CD = #{st_sg_id}))
+						   GROUP BY AGENT,
+						     A.SG_ID
+						     ,TYPE_BEFORE_ONE
+						    UNION ALL
+						   SELECT
+							 '4' AS RN
+							 , A.COM_CODE AS AGENT
+							 , #{st_sg_id} AS SG_ID
+							 , 0 AGENT_AMT
+							 , (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'M202' AND CODE = TYPE_BEFORE_ONE) AS TYPE_BEFORE_ONE
+							FROM ICOMCMPY A, SUPLINFO2 B
+							WHERE A.COM_CODE = B.SUPPLIER
+							AND NOT EXISTS (
+							SELECT 1 FROM DSS_BUYER_RESULT C
+							WHERE C.AGENT = A.COM_CODE
+							AND C.AGENT = B.SUPPLIER
+							AND C.SG_ID      =  #{st_sg_id}
+							)
+							AND A.STATUS IN( 'C','R')
+							AND ((B.ITM_MK1_AGENCY_YN = 'C' AND B.ITMG1_CD = #{st_sg_id})
+						     OR  (B.ITM_MK2_AGENCY_YN = 'C' AND B.ITMG2_CD = #{st_sg_id})
+						     OR  (B.ITM_MK3_AGENCY_YN = 'C' AND B.ITMG3_CD = #{st_sg_id})
+						     OR  (B.ITM_MK4_AGENCY_YN = 'C' AND B.ITMG4_CD = #{st_sg_id})
+						     OR  (B.ITM_MK5_AGENCY_YN = 'C' AND B.ITMG5_CD = #{st_sg_id})
+						     OR  (B.ITM_MK6_AGENCY_YN = 'C' AND B.ITMG6_CD = #{st_sg_id})
+						     OR  (B.ITM_MK7_AGENCY_YN = 'C' AND B.ITMG7_CD = #{st_sg_id})
+						     OR  (B.ITM_MK8_AGENCY_YN = 'C' AND B.ITMG8_CD = #{st_sg_id})
+						     OR  (B.ITM_MK9_AGENCY_YN = 'C' AND B.ITMG9_CD = #{st_sg_id})
+						     OR  (B.ITM_MK10_AGENCY_YN = 'C' AND B.ITMG10_CD = #{st_sg_id}))
+					   )
+				]]>
+	</select>
+	<select id="selectMasterMpRqDssSellerSelList15" parameterType="java.util.Map" resultType="java.util.Map">
+		
+			<![CDATA[
+			/*selectMasterMpRqDssSellerSelList15*/
+				SELECT
+					CQDT.BELOW_COMORG_CODE AS BUYER
+				 	, (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = CQDT.BELOW_COMORG_CODE) AS BUYER_NAME
+				 	, CQDT.AGENT AS AGENT
+				 	, (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = CQDT.AGENT) AS AGENT_NAME
+				 	, CQDT.LIST_PRICE AS LIST_PRICE
+				 	, F_GET_SELLER_AREA_TEXT(CQDT.BELOW_COMORG_CODE, CQDT.SELLER_AREA) AS SELLER_AREA
+				 	, CQDT.DELIVERY_LT AS DELIVERY_LT
+				 	, F_GET_DSS_CHK(#{st_buyer_code} ,CQDT.AGENT,0)  AS DSS_YN                                                                                                 
+				    , F_GET_DSS_CHK(#{st_buyer_code} ,CQDT.AGENT,1)  AS DSS_MSG
+				    , (SELECT (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'M202' AND CODE = TYPE_BEFORE_ONE) FROM SUPLINFO2 WHERE SUPPLIER = CQDT.AGENT) AS TYPE_BEFORE_ONE
+				FROM ICOMCQDT CQDT , ICOMBYIT BYIT
+				WHERE BYIT.CMS_CATLG_ID = #{st_cms_caltlg_id}
+				AND BYIT.BUYER = CQDT.BUYER
+				AND BYIT.BUYER_ITEM_NO = CQDT.BUYER_ITEM_NO
+				AND BYIT.PRODUCT_CLOSE_FLAG = 'N'
+				AND BYIT.STATUS != 'D'
+				AND CQDT.STATUS != 'D'
+				ORDER BY 4			       	
+			]]>
+	</select>
+	<select id="selectMasterMpRqDssSellerSelList16" parameterType="java.util.Map" resultType="java.util.Map">
+		
+			<![CDATA[
+			/*selectMasterMpRqDssSellerSelList16*/
+				SELECT
+					CMPY.COM_CODE AS AGENT
+					,CMPY.COM_NAME_LOC AS AGENT_NAME
+					,DSS.AGENT_AMT AS AGENT_AMT
+					,DSS.AGENT_AMT_RATE AS AGENT_AMT_RATE
+					,CMPY.CEO_NAME_LOC AS CEO_NAME_LOC
+					,CMPY.ADDRESS_LOC AS ADDRESS_LOC
+					,CMPY.TEL_NO AS TEL_NO
+					,F_GET_DSS_CHK(#{st_buyer_code} ,DSS.AGENT,0)  AS DSS_YN                                                                                                 
+				    ,F_GET_DSS_CHK(#{st_buyer_code} ,DSS.AGENT,1)  AS DSS_MSG
+				FROM DSS_AGENT_BEST DSS, ICOMCMPY CMPY
+				WHERE DSS.SG_ID = #{st_sg_id}
+				AND DSS.AGENT = CMPY.COM_CODE
+				AND CMPY.STATUS != 'D'
+				ORDER BY 3 DESC
+							       	
+			]]>
+	</select>
+	<select id="selectMasterMpRqDssSellerSelList17" parameterType="java.util.Map" resultType="java.util.Map">
+		
+			<![CDATA[
+			/*selectMasterMpRqDssSellerSelList17*/
+				SELECT 1 FROM DUAL		       	
+			]]>
+	</select>
+	<select id="selectMasterMpRqDssSellerSelList18" parameterType="java.util.Map" resultType="java.util.Map">
+		
+			<![CDATA[
+			/*selectMasterMpRqDssSellerSelList18*/		
+			SELECT 
+ 				B.COM_CODE AS AGENT
+ 				,(SELECT CMPY.COM_NAME_LOC 
+				 FROM ICOMCMPY CMPY WHERE CMPY.COM_CODE = B.COM_CODE) AS AGENT_NAME
+ 				, A.DELY_LEVEL_CODE AS DELY_LEVEL_CODE
+ 				, (SELECT COD.TEXT1
+ 				FROM ICOMCOD1 COD 
+				 WHERE COD.TYPE ='M072'AND COD.CODE = A.DELY_LEVEL_CODE) AS DELY_LEVEL_NAME
+ 				, A.CREDIT_AMOUNT AS CREDIT_AMOUNT
+ 				, A.KEP_AMOUNT AS KEP_AMOUNT
+ 				, A.KEP_AMOUNT AS AGENT_AMT
+ 				, B.DELY_AREA AS DELY_AREA
+ 				, F_GET_DSS_CHK(#{st_buyer_code} ,A.AGENT,0)  AS DSS_YN                                                                                                 
+				, F_GET_DSS_CHK(#{st_buyer_code} ,A.AGENT,1)  AS DSS_MSG
+				, (SELECT  (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'M202' AND CODE = TYPE_BEFORE_ONE) FROM SUPLINFO2 WHERE SUPPLIER = A.AGENT) AS  TYPE_BEFORE_ONE
+			FROM DSS_SMART_QUOTATION A, ICOMCMPY B
+			WHERE A.AGENT = B.COM_CODE
+			AND A.REP_MAKER_TYPE = 'NO' 
+			AND A.REP_MAKER_CODE IN (
+ 				SELECT D.TEXT8 FROM ICOMCOD1 C, ICOMCOD1 D
+				WHERE C.TYPE ='M104'AND D.TYPE ='M104'AND C.TEXT8 = D.TEXT8
+				AND C.CODE in 
+			]]>
+			<foreach item="item" collection="st_maker_code" open="(" separator="," close=")">
+				 #{item}
+			</foreach>
+			<![CDATA[ 
+			)
+			 
+			UNION ALL
+			
+			SELECT 
+				B.COM_CODE AS AGENT
+ 				,(SELECT CMPY.COM_NAME_LOC 
+ 				FROM ICOMCMPY CMPY WHERE CMPY.COM_CODE = B.COM_CODE) AS AGENT_NAME
+ 				, A.DELY_LEVEL_CODE AS DELY_LEVEL_CODE
+ 				, (SELECT COD.TEXT1 
+ 				FROM ICOMCOD1 COD 
+ 				WHERE COD.TYPE ='M072'AND COD.CODE = A.DELY_LEVEL_CODE) AS DELY_LEVEL_NAME
+ 				, A.CREDIT_AMOUNT AS CREDIT_AMOUNT
+ 				, A.KEP_AMOUNT AS KEP_AMOUNT
+ 				, A.KEP_AMOUNT AS AGENT_AMT
+ 				, B.DELY_AREA AS DELY_AREA
+ 				, F_GET_DSS_CHK(#{st_buyer_code} ,A.AGENT,0)  AS DSS_YN                                                                                                 
+				, F_GET_DSS_CHK(#{st_buyer_code} ,A.AGENT,1)  AS DSS_MSG
+				, (SELECT  (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'M202' AND CODE = TYPE_BEFORE_ONE) FROM SUPLINFO2 WHERE SUPPLIER = A.AGENT) AS  TYPE_BEFORE_ONE
+			FROM DSS_SMART_QUOTATION A, ICOMCMPY B
+			WHERE A.AGENT = B.COM_CODE
+			AND A.REP_MAKER_TYPE = 'SG' 
+			AND A.REP_MAKER_CODE IN (
+ 				SELECT D.TEXT8 FROM ICOMCOD1 C, ICOMCOD1 D
+				WHERE C.TYPE ='M104'AND D.TYPE ='M104'AND C.TEXT8 = D.TEXT8
+				AND C.CODE in 
+			]]>
+			<foreach item="item" collection="st_maker_code" open="(" separator="," close=")">
+				 #{item}
+			</foreach>
+			<![CDATA[ 
+			) 
+			AND A.SG_ID IN (
+ 				SELECT CATEG.SG_ID FROM CMSCATEG CATEG
+ 				WHERE CATEG.CMS_CATEG_ID =#{st_cms_categ_id}
+			)
+			
+			ORDER BY KEP_AMOUNT DESC
+      	
+			]]>
+	</select>
+	<update  id="insertMasterMpRqDssSellerSel" parameterType="java.util.Map" >
+		<![CDATA[
+				INSERT INTO	KEPQTDT					
+				(									
+					BUYER,							
+					QUOTATION_NO,					
+					QUOTATION_SEQ,					
+					REVISION,						
+					AGENT,							
+					AGENT_REVISION,					
+					STATUS,							
+					BUYER_ITEM_NO,					
+					DESCRIPTION,					
+					SPECIFICATION,					
+					UNIT_MEASURE,					
+					MAKER_NAME,						
+					ORIGIN_NAME,					
+					ATOS_DATE,						
+					ATOS_END_DATE,					
+					ATOS_END_TIME,					
+					ITEM_QTY,						
+					IMAGE_KEY,						
+					DSS_FLAG,						
+					DSS_CHOICE						
+				)									
+				(									
+				SELECT								
+					#{BUYER},									/* 1 : BUYER */
+					#{QUOTATION_NO},							/* 2 : QUOTATION_NO */
+					#{QUOTATION_SEQ},							/* 3 : QUOTATION_SEQ */
+					#{REVISION},								/* 4 : REVISION */
+					#{AGENT},									/* 5 : AGENT */
+					#{AGENT_REVISION},							/* 6 : AGENT_REVISION */
+					'C',						
+					BUYER_ITEM_NO,				
+					DESCRIPTION,				
+					SPECIFICATION,				
+					UNIT_MEASURE,				
+					MAKER_NAME,					
+					ORIGIN_CODE,				
+					TO_CHAR(SYSDATE, 'YYYYMMDD')AS ATOS_DATE,
+					#{ATOS_END_DATE},							/* 7 : ATOS_END_DATE */
+					#{ATOS_END_TIME},							/* 8 : ATOS_END_TIME */
+					ITEM_QTY,					
+					IMAGE_KEY,					
+					#{DSS_FLAG},								/*  9 : DSS_FLAG   if(chk_str[1].equals("A") || chk_str[1].equals("B") || chk_str[1].equals("C")|| chk_str[1].equals("S")) : Y , 기타  : N   */
+					#{DSS_CHOICE}								/* 10 : DSS_CHOICE */
+				   FROM KEPRQDT						
+				  WHERE BUYER=#{BUYER}							/* 11 : BUYER */           
+					AND QUOTATION_NO=#{QUOTATION_NO}			/* 12 : QUOTATION_NO     */
+					AND QUOTATION_SEQ=#{QUOTATION_SEQ}			/* 13 : QUOTATION_SEQ    */
+					AND REVISION=#{REVISION}					/* 14 : REVISION  */       
+					AND RECV_FLAG <> 'GD'			
+					AND STATUS IN ('C','R')			
+				)									
+
+		]]>
+							   <!-- /* CMS_USER_ID = 'TEMPUSER', */ -->
+		
+	</update>
+
+
+<!-- 삭제 -->
+	<update id="deleteMasterMpRqDssSellerSel"  parameterType="java.util.Map">
+		<![CDATA[
+				UPDATE KEPRQDT					
+				   SET RECV_FLAG      = 'GD' 	
+				     , CANCEL_USER_ID = #{USR_ID}    			/*CANCEL_USER_ID*/
+				     , CANCEL_DATE    = SYSDATE	
+				     , CANCEL_REMARK  = #{CANCEL_REMARK}    	/*CANCEL_REMARK*/
+				 WHERE BUYER          = #{BUYER}				/*BUYER*/
+				   AND QUOTATION_NO   = #{QUOTATION_NO}	 		/*QUOTATION_NO*/
+				   AND QUOTATION_SEQ  = #{QUOTATION_SEQ}		/*QUOTATION_SEQ*/
+				   AND REVISION       = #{REVISION}				/*REVISION*/
+				   AND STATUS IN ('C','R')
+		]]>
+	</update>
+	
+	<select id="selectMasterMpRqDssMisumiCheckoutResult" parameterType="java.util.Map" resultType="java.lang.String">
+	/*master.mprq.selectMasterMpRqDssMisumiCheckoutResult*/
+		SELECT 
+		       'KRMISU0004G^'||
+		       STOA_LIST_PRICE||'^'|| 
+		       LEAD_TIME ||'^'|| 
+		       CASE WHEN TAX_RATE != 0 THEN '11' ELSE '13' END ||'^'|| 
+		       MOQ ||'^'|| 
+		       PUR_UNIT_QTY ||'^'|| 
+		       F_GET_SELLER_AREA_ALL(A.BUYER) ||'^'||
+		       A.SELLER_ITEM_NO
+		  FROM MSM_QTDT A
+		 WHERE A.BUYER = #{st_buyer_code}
+		   AND A.QUOTATION_NO = #{st_quotation_no}
+		   AND A.QUOTATION_SEQ = #{st_quotation_seq}
+		   AND A.REVISION = #{st_revision}
+		   AND A.RFQ_KEP_USER = #{st_user_id}
+	</select>
+	
+	<select id="selectMasterMpRqDssSellerSelList19" parameterType="java.util.Map" resultType="java.util.Map">
+		
+			<![CDATA[
+			/*selectMasterMpRqDssSellerSelList19*/
+				SELECT	MNG.BUYER,
+						MNG.QUOTATION_NO,
+					 	MNG.QUOTATION_SEQ,
+					 	MNG.REVISION,
+					 	MNG.ADD_USER_ID,
+					 	(SELECT USR.USER_NAME_LOC FROM ICOMLUSR USR WHERE USR.USER_ID = MNG.ADD_USER_ID) AS ADD_USER_NM,
+					 	TO_CHAR(MNG.ADD_DATE,'YYYY/MM/DD HH24:MI') AS  ADD_DATE,
+					 	MNG.ADD_NOTE,
+					 	(SELECT USR.USER_NAME_LOC FROM ICOMLUSR USR WHERE USR.USER_ID = MNG.CHANGE_USER_ID) AS CHANGE_USER_NM,
+					 	TO_CHAR(MNG.CHANGE_DATE,'YYYY/MM/DD HH24:MI') AS  CHANGE_DATE,		
+					 	MNG.SEQ,
+					 	MNG.IMAGE_KEY,
+					 	DECODE(MNG.IMAGE_KEY,'',2,3) AS IMAGE_KEY_IMG
+				FROM	KEP_RQDT_NOTE_MNG MNG
+				WHERE	1=1
+				AND		MNG.BUYER = #{st_buyer_code}
+				AND		MNG.QUOTATION_NO = #{st_quotation_no}
+				AND		MNG.QUOTATION_SEQ = #{st_quotation_seq}
+				AND		MNG.REVISION = #{st_revision}
+				AND		MNG.STATUS != 'D'
+				ORDER BY MNG.ADD_DATE DESC
+			]]>
+	</select>
+
+</mapper>

@@ -1,0 +1,397 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="common.wmdl">
+
+
+	<select id="selectMasterWmDlInvoiceNoPopList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*selectMasterWmDlInvoiceNoPopList*/
+              SELECT                                                                                                                            
+                     WIDT.PO_NO AS PO_NO,                                                                                                       
+                     WIDT.CMS_CATLG_ID AS STDCATLG_ID,                                                                                          
+                     WIDT.DESCRIPTION AS DESCRIPTION,                                                                                           
+                     WIDT.UNIT_MEASURE AS UNIT_MEASURE,                                                                                         
+                     WIDT.PO_QTY AS PO_QTY,                                                                                                     
+                     WIDT.UNIT_PRICE AS UNIT_PRICE,                                                                                             
+                     PODT.PO_REMARK AS PO_REMARK,                                                                                               
+                     WIDT.LEGACY_PO_NO AS LEGACY_PO_NO,                                                                                         
+                     WIDT.BUYER_ITEM_NO AS BUYER_ITEM_NO,                                                                                       
+                     WIDT.SPECIFICATION AS SPECIFICATION,                                                                                       
+                     WIDT.INV_QTY AS INV_QTY,                                                                                                   
+                     WIDT.UNIT_AMT AS UNIT_AMT,                                                                                                 
+                     PODT.BYIT_COMORG_CODE AS BYIT_COMORG_CODE,                                                                                 
+                     PODT.CONTRACT_NO AS CONTRACT_NO,                                                                                           
+                     PODT.CONTRACT_SEQ AS CONTRACT_SEQ,                                                                                         
+                     WIDT.WAREHOUSE_CODE AS WAREHOUSE_CODE,                                                                                     
+                     WIDT.BUYER AS BUYER,                                                                                                       
+                     WIDT.INV_NO AS IK_NO,                                                                                                      
+                     WIDT.INV_SEQ AS IK_SEQ,                                                                                                    
+                     WIDT.PO_SEQ AS PO_SEQ,                                                                                                     
+                     WIDT.S_INV_NO AS S_INV_NO,                                                                                                 
+                     WIDT.S_INV_SEQ AS S_INV_SEQ,                                                                                               
+                       (SELECT MAX(DOC_TYPE) FROM ICOMPOHD                                                                                      
+                                WHERE BUYER = PODT.BUYER                                                                                        
+                                  AND PO_NO = PODT.PO_NO) AS DOC_TYPE,                                                                          
+                       SUBSTR(PODT.BUYER_ITEM_NO,1,7) AS MASTER_ITEM,                                                                           
+                       DECODE((SELECT MAX(DOC_TYPE) FROM ICOMPOHD                                                                               
+                                WHERE BUYER = PODT.BUYER                                                                                        
+                                  AND PO_NO = PODT.PO_NO),                                                                                      
+                              'X',(SELECT NVL(TRIM(IMG_NO),'0') FROM ITEMMAST                                                                   
+                                    WHERE STDCATLG_ID = SUBSTR(PODT.BUYER_ITEM_NO,1,7)),'') AS IMG_NO,   
+ 				      DECODE(WIDT.PROCESS_TYPE,'2','TR','1','재고','3','VMI')||DECODE(POHD.DOC_TYPE,'S','(선입고)','X','(KEPMRO)','(일반)') AS PROCESS_TEXT,			     
+					  WIDT.PROCESS_TYPE AS PROCESS_TYPE,
+					  (SELECT NVL(BUYER.AUTO_GR_FLAG,'N') FROM KEP_BUYER_FLAG BUYER WHERE BUYER.COM_CODE = WIDT.BUYER) AS AUTO_GR_FLAG                                                                                                 
+     FROM WMSIVDT WIDT, ICOMPODT PODT , ICOMPOHD POHD                                                                                           
+    WHERE WIDT.WAREHOUSE_CODE = #{st_warehouse_code}                                                                                                             
+      AND WIDT.BUYER = #{st_buyer}                                                                                                                 
+      AND WIDT.INV_NO =#{st_ik_no}                                                                                                          
+      AND WIDT.BUYER = PODT.BUYER                                                                                                               
+      AND WIDT.PO_NO = PODT.PO_NO                                                                                                               
+      AND WIDT.PO_SEQ = PODT.PO_SEQ                                                                                                             
+AND POHD.BUYER = PODT.BUYER                                                                                                                     
+      AND POHD.PO_NO = PODT.PO_NO                                                                                                               
+      AND WIDT.INV_QTY <> WIDT.DELIVERY_QTY                                                                                                     
+      AND WIDT.STATUS <> 'D'                                                                                                                    
+      AND PODT.STATUS <> 'D'                                                                                                                    
+   ORDER BY WIDT.BUYER, WIDT.INV_NO, WIDT.INV_SEQ                                                                                               
+                                                                           
+						 
+		]]>
+
+		
+	</select>
+	
+		<update id="insertMasterWmDlInvoiceNoPop1" parameterType="java.util.Map">
+		<![CDATA[
+				/*insertMasterWmDlInvoiceNoPop1*/
+              UPDATE WMSIVDT WIDT                                                                  
+                 SET WIDT.STATUS = 'R',                                                            
+                     WIDT.DELIVERY_DATE = #{st_delivery_date},                                                        
+                     WIDT.DELIVERY_USER_ID =  #{st_user_id},                                                    
+                     WIDT.DELIVERY_QTY = NVL(WIDT.INV_QTY,0),                                      
+                     WIDT.DELIVERY_COMPANY = #{st_delivery_company},                                                    
+                     WIDT.DELIVERY_NO = #{st_delivery_no},                                                         
+					 WIDT.CHANGE_DATE = TO_CHAR(SYSDATE,'YYYYMMDD'),	                                       
+					 WIDT.CHANGE_TIME = TO_CHAR(SYSDATE,'HH24MMSS'),	                                       
+                     WIDT.DELIVERY_ADD_DATE = SYSDATE, 
+       				 WIDT.DELIVERY_ADD_USER_ID = #{st_user_id}                                                                              
+               WHERE WIDT.WAREHOUSE_CODE = #{st_warehouse_code}                                                        
+                 AND WIDT.BUYER = #{st_buyer}                                                                
+                 AND WIDT.INV_NO = #{st_ik_no}                                                             
+                 AND WIDT.STATUS <> 'D'                                                            
+						 
+		]]>
+	</update>		
+		
+		<update id="insertMasterWmDlInvoiceNoPop2" parameterType="java.util.Map">
+		<![CDATA[	
+			/*insertMasterWmDlInvoiceNoPop2*/
+      UPDATE ICOMIVDT A SET                                                                                                                                                                                
+	A.CHANGE_DATE = TO_CHAR(SYSDATE,'YYYYMMDD'),	                                                                                                                                                          
+	A.CHANGE_TIME = TO_CHAR(SYSDATE,'HH24MMSS'),	                                                                                                                                                          
+                A.GR_QTY = NVL((SELECT SUM(B.INV_QTY) FROM WMSIVDT B                                                                                                                                       
+                              WHERE B.WAREHOUSE_CODE =#{st_warehouse_code}                                                                                                                                                   
+                                AND A.BUYER = B.BUYER                                                                                                                                                      
+                                AND A.INV_NO = B.S_INV_NO                                                                                                                                                  
+                                AND A.INV_SEQ = B.S_INV_SEQ                                                                                                                                                
+                                AND B.STATUS <> 'D'),0),                                                                                                                                                   
+       A.DELIVERY_QTY = CASE WHEN (SELECT PROCESS_TYPE FROM ICOMPODT WHERE BUYER = A.BUYER AND PO_NO=A.PO_NO AND PO_SEQ = A.PO_SEQ) IN ('1','3') THEN NVL((SELECT SUM(B.DELIVERY_QTY) FROM WMSIVDT B       
+                              WHERE B.WAREHOUSE_CODE = #{st_warehouse_code}                                                                                                                                                   
+                                AND A.BUYER = B.BUYER                                                                                                                                                      
+                                AND A.INV_NO = B.S_INV_NO                                                                                                                                                  
+                                AND A.INV_SEQ = B.S_INV_SEQ                                                                                                                                                
+                                AND B.STATUS <> 'D'),0) ELSE A.DELIVERY_QTY END,                                                                                                                           
+       A.DELIVERY_DATE = CASE WHEN (SELECT PROCESS_TYPE FROM ICOMPODT WHERE BUYER = A.BUYER AND PO_NO=A.PO_NO AND PO_SEQ = A.PO_SEQ) IN ('1','3') THEN TO_CHAR(SYSDATE,'YYYYMMDD') ELSE A.DELIVERY_DATE END,
+       A.DELIVERY_ADD_DATE = CASE WHEN (SELECT PROCESS_TYPE FROM ICOMPODT WHERE BUYER = A.BUYER AND PO_NO=A.PO_NO AND PO_SEQ = A.PO_SEQ) IN ('1','3') THEN SYSDATE ELSE A.DELIVERY_ADD_DATE END,
+       A.DELIVERY_ADD_USER_ID = CASE WHEN (SELECT PROCESS_TYPE FROM ICOMPODT WHERE BUYER = A.BUYER AND PO_NO=A.PO_NO AND PO_SEQ = A.PO_SEQ) IN ('1','3') THEN #{st_user_id} ELSE A.DELIVERY_ADD_USER_ID END                                                                                                                                                                                                    
+       WHERE A.BUYER = #{st_buyer}                                                                                                                                                                               
+         AND (A.INV_NO,A.INV_SEQ) IN (SELECT S_INV_NO, S_INV_SEQ FROM WMSIVDT                                                                                                                              
+                                     WHERE WAREHOUSE_CODE = #{st_warehouse_code}                                                                                                                                                
+                                       AND BUYER =#{st_buyer}                                                                                                                                                     
+                                       AND INV_NO =#{st_ik_no}                                                                                                                                                         
+                                       AND STATUS <> 'D')                                                                                                                                                  
+		
+				]]>
+	   </update>	
+	
+		<update id="insertMasterWmDlInvoiceNoPop3" parameterType="java.util.Map">
+					/*insertMasterWmDlInvoiceNoPop3*/
+		<![CDATA[	
+		
+     UPDATE ICOMPODT A SET                                                     
+	A.CHANGE_DATE = TO_CHAR(SYSDATE,'YYYYMMDD'),	                              
+	A.CHANGE_TIME = TO_CHAR(SYSDATE,'HH24MMSS'),	                              
+               A.DI_QTY = NVL((SELECT SUM(B.DELIVERY_QTY) FROM WMSIVDT B       
+                             WHERE B.WAREHOUSE_CODE =  #{st_warehouse_code}                       
+                               AND A.BUYER = B.BUYER                           
+                               AND A.PO_NO = B.PO_NO                           
+                               AND A.PO_SEQ = B.PO_SEQ                         
+                               AND B.STATUS <> 'D'),0)                         
+      WHERE A.BUYER = #{st_buyer}                                                        
+        AND (A.PO_NO,A.PO_SEQ) IN (SELECT PO_NO, PO_SEQ FROM WMSIVDT           
+                                    WHERE WAREHOUSE_CODE = #{st_warehouse_code}                        
+                                      AND BUYER =#{st_buyer}                          
+                                      AND INV_NO =#{st_ik_no}                            
+                                      AND STATUS <> 'D')			                  
+		
+				]]>
+	   </update>	
+	   
+	   		<update id="insertMasterWmDlInvoiceNoPop4" parameterType="java.util.Map">
+	   			/*insertMasterWmDlInvoiceNoPop4*/
+		<![CDATA[	
+  UPDATE WMSSTCK SET TOT_QTY = TOT_QTY - (#{INV_QTY}),                                                                                             
+  					  ALLOC_QTY = ALLOC_QTY - (#{INV_QTY}),                                                                                                
+  					  CHANGE_DATE = TO_CHAR(SYSDATE,'YYYYMMDD'),                                                                                
+  					  CHANGE_USER =  #{st_user_id}                                                                                                          
+  WHERE WAREHOUSE_CODE = #{st_warehouse_code}                                                                                                                
+    AND STDCATLG_ID = #{CMS_CATLG_ID}	                                                                                                                
+    AND AGENT    = DECODE(#{PROCESS_TYPE},'1','KRKORE0001',(SELECT WAREHOUSE_CODE FROM ICOMPODT WHERE BUYER = #{BUYER}  AND PO_NO = #{PO_NO} AND PO_SEQ = #{PO_SEQ}))        
+				]]>
+	   </update>
+	   
+	 <select id="selectMasterWmDlInvoiceNoPopGrList"  parameterType="java.util.Map" resultType="java.util.Map">
+				<![CDATA[
+			/*selectMasterWmDlInvoiceNoPopGrList*/
+			SELECT											
+				WIDT.BUYER AS KEY_BUYER,
+				WIDT.INV_NO AS KEY_INV_NO,
+				TO_CHAR(WIDT.INV_SEQ) AS KEY_INV_SEQ,
+				TO_CHAR(WIDT.INV_QTY) AS KEY_INV_QTY,
+				WIDT.PO_NO AS KEY_PO_NO,
+				TO_CHAR(WIDT.PO_SEQ) AS KEY_PO_SEQ									
+			FROM WMSIVDT WIDT, ICOMPODT PODT				
+			WHERE WIDT.WAREHOUSE_CODE = #{st_warehouse_code}    				
+			  AND WIDT.BUYER = #{BUYER}     					
+			  AND WIDT.INV_NO = #{IK_NO}     							
+			  AND PODT.BUYER = WIDT.BUYER                  
+			  AND PODT.PO_NO = WIDT.PO_NO                  
+			  AND PODT.PO_SEQ = WIDT.PO_SEQ
+			  AND PODT.STATUS <> 'D'						
+			  AND WIDT.STATUS <> 'D'	
+					]]>  	
+	</select>
+	
+	<select id="selectMasterWmDlInvoiceNoPopGrQtyCheck" parameterType="java.util.Map" resultType="java.lang.String">
+		<![CDATA[
+			/*selectMasterWmDlInvoiceNoPopGrQtyCheck*/
+			SELECT
+				(#{KEY_INV_QTY} + NVL(GR_QTY,0)) - NVL(ITEM_QTY,0) AS GR_QTY
+			FROM (
+				SELECT		 
+					  NVL(B.GR_QTY,0) AS GR_QTY	-- 기입고수량
+				    , B.ITEM_QTY 
+					, DECODE(B.PROCESS_TYPE,'0',NVL(C.INV_QTY,0),NVL(D.INV_QTY,0)) AS INV_QTY		-- 송장수량
+				FROM ICOMPODT B, ICOMIVDT C, WMSIVDT D
+				WHERE 
+						B.BUYER  = #{KEY_BUYER}
+					AND B.PO_NO  = #{KEY_PO_NO}
+					AND B.PO_SEQ = #{KEY_PO_SEQ}
+					AND DECODE(B.PROCESS_TYPE,'0',C.INV_NO,D.INV_NO) = #{KEY_INV_NO}
+					AND DECODE(B.PROCESS_TYPE,'0',C.INV_SEQ,D.INV_SEQ) = #{KEY_INV_SEQ}
+					AND B.BUYER  = C.BUYER
+					AND B.PO_NO  = C.PO_NO
+					AND B.PO_SEQ = C.PO_SEQ
+					AND C.BUYER  = D.BUYER(+)
+					AND C.INV_NO = D.S_INV_NO(+)
+					AND C.INV_SEQ = D.S_INV_SEQ(+)
+					AND D.STATUS(+) <> 'D'
+					AND B.STATUS <> 'D'
+					AND C.STATUS <> 'D'
+			) S
+		]]>
+	</select>
+	
+	<update  id="insertMasterWmDlInvoiceNoPopProcGrdt" parameterType="java.util.Map" >
+		<![CDATA[
+			/*insertMasterWmDlInvoiceNoPopProcGrdt*/
+			INSERT INTO ICOMGRDT(
+				  BUYER
+				, GR_NO
+				, GR_SEQ
+				, STATUS
+				, SEND_DATE
+				, SEND_TIME
+				, ADD_DATE
+				, ADD_TIME
+				, CHANGE_DATE
+				, CHANGE_TIME
+				, CONFIRM_DATE
+				, CONFIRM_TIME
+				, SELLER
+				, GR_DATE
+				, PAY_TERMS
+				, USANCE_DAYS
+				, BUYER_ITEM_NO
+				, SELLER_ITEM_NO
+				, DESCRIPTION
+				, SPECIFICATION
+				, CUR
+				, UNIT_MEASURE
+				, ITEM_QTY
+				, UNIT_PRICE
+				, ITEM_AMT
+				, INV_NO
+				, INV_SEQ
+				, PO_NO
+				, PO_SEQ
+				, DO_NO
+				, DO_SEQ
+				, EXCHANGE_RATE
+				, GR_LOC_AMT
+				, LC_NO
+				, AP_NO
+				, PROCESS_TYPE
+				, RO_QTY
+				, ADD_USER_ID
+				, NOTIFY
+				, PAYER
+				, PAYEE
+				, GR_BAL_QTY
+				, AGENT
+				, AGENT_PRICE
+				, CLOSE_DATE   
+				, CHANGE_USER_ID
+				, AGENT_ITEM_AMT
+				, LEGACY_PO_NO
+				, LEGACY_PO_SEQ
+				, BYIT_COMORG_CODE 
+			) (
+				SELECT
+					  B.BUYER
+					, #{GR_NO}
+					, TO_CHAR( #{GR_SEQ}, 'FM000000')
+					, 'C'
+					, ' '
+					, ' '
+					, TO_CHAR(SYSDATE,'YYYYMMDD')
+					, TO_CHAR(SYSDATE,'HH24MISS')
+					, TO_CHAR(SYSDATE,'YYYYMMDD')
+					, TO_CHAR(SYSDATE,'HH24MISS')
+					, ' '
+					, ' '
+					, B.SELLER
+					, #{GR_DATE}
+					, A.PAY_TERMS
+					, A.USANCE_DAYS
+					, B.BUYER_ITEM_NO
+					, B.SELLER_ITEM_NO
+					, B.DESCRIPTION
+					, B.SPECIFICATION
+					, A.CUR
+					, B.UNIT_MEASURE
+					, #{GR_QTY}
+					, B.UNIT_PRICE
+					, ROUND(B.UNIT_PRICE * #{GR_QTY})
+					, C.INV_NO
+					, C.INV_SEQ
+					, B.PO_NO
+					, B.PO_SEQ
+					, ''
+					, ''
+					, '12'
+					, '1'
+					, B.LC_NO
+					, ''
+					, A.PROCESS_TYPE
+					, '0'
+					, 'FTP'
+					, A.NOTIFY
+					, A.PAYER
+					, A.PAYEE
+					, #{GR_QTY}
+					, A.AGENT
+					, B.AGENT_PRICE
+					, TO_CHAR(SYSDATE,'YYYYMMDD')
+					, 'FTP'
+					, ROUND(B.AGENT_PRICE * #{GR_QTY})
+					, B.LEGACY_PO_NO
+					, B.LEGACY_PO_SEQ
+					, B.BYIT_COMORG_CODE
+				FROM ICOMPOHD A, ICOMPODT B, WMSIVDT C
+				WHERE
+						B.BUYER = #{BUYER}
+					AND B.PO_NO = #{PO_NO}
+					AND B.PO_SEQ = #{PO_SEQ}
+					AND A.BUYER = B.BUYER
+					AND A.PO_NO = B.PO_NO
+					AND B.BUYER = C.BUYER
+					AND B.PO_NO  = C.PO_NO
+					AND B.PO_SEQ = C.PO_SEQ
+					AND C.BUYER = #{BUYER} 
+					AND C.INV_NO = #{INV_NO}
+					AND C.INV_SEQ = #{INV_SEQ}
+					AND A.STATUS <> 'D'
+					AND B.STATUS <> 'D'
+			)
+		]]>
+	</update>
+	<update id="updateMasterWmDlInvoiceNoPopProcPodt" parameterType="java.util.Map">
+		<![CDATA[
+			/*updateMasterWmDlInvoiceNoPopProcPodt*/
+			UPDATE ICOMPODT
+			SET
+				GR_QTY = NVL(GR_QTY,0) + #{GR_QTY}
+			WHERE
+					BUYER 	= #{BUYER}
+				AND SELLER  = 'KRKORE0001'
+				AND PO_NO   = #{PO_NO}
+				AND PO_SEQ  = #{PO_SEQ}
+				AND STATUS != 'D'
+		]]>
+	</update>
+	<update id="updateMasterWmDlInvoiceNoPopProcWmsIvdt" parameterType="java.util.Map">
+		<![CDATA[
+			/*updateMasterWmDlInvoiceNoPopProcWmsIvdt*/
+			UPDATE WMSIVDT A 
+			SET
+				  A.BUYER_GR_QTY = NVL(BUYER_GR_QTY,0) + ${GR_QTY}
+				, CHANGE_DATE = TO_CHAR(SYSDATE,'YYYYMMDD')
+				, CHANGE_TIME = TO_CHAR(SYSDATE,'HH24MISS')
+			WHERE 
+					A.BUYER  = #{BUYER}
+				AND A.SELLER   = 'KRKORE0001'
+				AND A.INV_NO   = #{INV_NO}
+				AND A.INV_SEQ  = #{INV_SEQ}
+				AND A.STATUS  != 'D'
+		]]>
+	</update>
+
+	<select id="selectMasterWmDlInvoiceNoPopListSave" parameterType="java.util.Map" resultType="java.util.Map">
+			/*selectMasterWmDlInvoiceNoPopListSave*/
+		<![CDATA[
+		  SELECT                                                
+  	WIDT.INV_QTY ,                                      
+  	WIDT.CMS_CATLG_ID,                                  
+  	PODT.PROCESS_TYPE,                                  
+  	PODT.BUYER,									                        
+  	PODT.PO_NO,									                        
+  	PODT.PO_SEQ									                        
+  FROM WMSIVDT WIDT, ICOMPODT PODT				              
+  WHERE WIDT.WAREHOUSE_CODE =#{st_warehouse_code}    				                
+    AND WIDT.BUYER = #{st_buyer} 							                    
+    AND WIDT.INV_NO =#{st_ik_no}      						                    
+    AND PODT.BUYER = WIDT.BUYER                         
+    AND PODT.PO_NO = WIDT.PO_NO                         
+    AND PODT.PO_SEQ = WIDT.PO_SEQ                       
+    AND PODT.PROCESS_TYPE IN ('1','3')			            
+    AND PODT.STATUS <> 'D'						                  
+    AND WIDT.STATUS <> 'D'						                  
+		
+        ]]>
+    </select>   
+    
+    <update  id="updateMasterWmDlDlvryCenterPop" parameterType="java.util.Map" >
+		<![CDATA[
+			/*updateMasterWmDlDlvryCenterPop*/
+			UPDATE WMSIVDT
+     			SET DELIVERY_COMPANY = #{st_delivery_company}
+                    , DELIVERY_NO = #{st_delivery_no}
+                    , PARCEL_ADD_DATE = SYSDATE
+                    , PARCEL_ADD_USER_ID = #{st_user_id}
+           WHERE WAREHOUSE_CODE =#{st_warehouse_code}    	
+               AND INV_NO = #{IK_NO}
+               AND BUYER = #{BUYER}  
+		]]>
+	</update> 	   								
+</mapper>

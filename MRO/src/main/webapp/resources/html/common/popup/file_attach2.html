@@ -1,0 +1,266 @@
+
+<style>
+.Uploader.drag-over {
+    background-color: #e3f2fd !important;
+    border: 2px dashed #2196f3 !important;
+    transform: scale(1.02);
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 12px rgba(33, 150, 243, 0.3);
+}
+.Uploader.drag-over .Title {
+    color: #2196f3 !important;
+    font-weight: bold;
+}
+.UploaderList {
+    display: flex;
+    flex-wrap: wrap;
+    column-gap: 15px;
+    row-gap: 10px;
+    justify-content: flex-start;
+    align-items: flex-start;
+    padding-left: 10px;
+    padding-right: 10px;
+    box-sizing: border-box;
+}
+.UploaderList .UploaderListImg {
+    flex: 0 0 calc((100% - 30px) / 3);
+    max-width: calc((100% - 30px) / 3);
+    box-sizing: border-box;
+}
+.wrapPopup .PopupTit { position:relative; height:35px; font-size:20px; font-weight:700; letter-spacing:-0.5px; color:#090A10; vertical-align:top; }
+.wrapPopup .PopupTit span { position:absolute; right:0; }
+.wrapPopup .PopupTit span img { width:24px; height:24px; }
+/* 기존 업로드 파일 리스트 스타일 */
+.existingFileList { margin-top:10px; }
+.existingFileItem {
+    display:flex; align-items:center; gap:8px; padding:8px 12px;
+    background:#f8f9fa; border:1px solid #e2e8f0; border-radius:6px; margin-bottom:6px;
+}
+.existingFileItem .fileName { flex:1; font-size:14px; color:#404046; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.existingFileItem .fileIcon { width:20px; height:20px; }
+</style>
+
+<div class="DIVpopup-overlay" id="DIVpopupOverlay"></div>
+<div class="DIVpopup" id="DIVpopup" style="width:610px;">
+  <div class="wrapPopup" style="padding:30px 20px;">
+    <div class="PopupTit">파일첨부<span><a href="#" id="DIVclosePopup"><img src="/resources/imgs/Icon_close.png" /></a></span></div>
+    <div class="h15"></div>
+    <div class="Importance_Popup_row2" style="width:560px; height:30px; line-height:22px">
+      · &nbsp; 허용 확장자: JPG, PNG, PDF, HWP, DOC, DOCX, XLS, XLSX (최대 10MB)
+    </div>
+    <div class="h15"></div>
+
+    <!-- 기존 파일 목록 영역 -->
+    <div id="existingFileArea" style="display:none; width:560px;"></div>
+
+    <!-- 드롭존 -->
+    <div id="fileDropZone" class="Uploader" style="width:560px; height:100px">
+      <p class="Title">
+        <img src="/resources/imgs/Icon_Drop.png" /><br/>
+        파일을 끌어다 넣으시거나 [파일찾기] 버튼을 통해 등록가능합니다.
+      </p>
+    </div>
+
+    <!-- 파일 리스트 -->
+    <div id="fileListContainer" class="UploaderList" style="display:none; width:560px; min-height:80px;"></div>
+
+    <div class="PopupTitSubSmall" style="position:relative; width:560px;">
+      <button class="ButDarkGray_Medium" id="fileSearchBtn" style="position:absolute; right:0; top:5px">파일찾기</button>
+    </div>
+    <div class="h15"></div>
+    <div class="PopupListBtnBox_Center" style="width:560px;">
+      <button class="ButQuaternary_large" id="cancelBtn">취소</button>
+      <button class="ButPrimary_large" id="confirmBtn">확인</button>
+    </div>
+  </div>
+</div>
+
+<!-- DragDropUploader -->
+<script src="/resources/js/DragDropUploader.js"></script>
+
+<script type="text/javascript">
+window.createPopupAPI = function(overlayId, containerId) {
+    var $overlay = $('#' + overlayId);
+    var $container = $('#' + containerId);
+    var confirmCallback = null;
+    var uploader = null;
+    var existingDocNo = '';
+    var deferUpload = false;
+
+    var api = {};
+
+    function close() {
+        if (uploader) { uploader.destroy(); uploader = null; }
+        $overlay.remove();
+        $container.remove();
+        if ($('[id^="popup-overlay-"]').length === 0) {
+            var scrollY = $('body').data('scrollY') || 0;
+            $('body').css({ 'position':'', 'top':'', 'left':'', 'right':'', 'overflow-y':'' });
+            window.scrollTo(0, scrollY);
+        }
+    }
+
+    function onConfirm(callback) {
+        confirmCallback = callback;
+        return api;
+    }
+
+    /**
+     * 기존 DOC_NO로 서버 파일 목록 로드
+     */
+    function loadExistingDoc(docNo) {
+        if (!docNo) return;
+        existingDocNo = docNo;
+
+        $.ajax({
+            url: '/common/getFileList_v2.do',
+            type: 'POST',
+            data: { DOC_NO: docNo },
+            dataType: 'json',
+            success: function(list) {
+                if (!list || list.length === 0) return;
+                var $area = $container.find('#existingFileArea');
+                var html = '<div class="PopupTxt mb02" style="font-size:14px; font-weight:600; color:#404046;">기존 첨부파일</div>';
+                html += '<div class="existingFileList">';
+                for (var i = 0; i < list.length; i++) {
+                    var f = list[i];
+                    html += '<div class="existingFileItem">';
+                    html += '  <img class="fileIcon" src="/resources/imgs/icon_file.png" onerror="this.style.display=\'none\'" />';
+                    html += '  <span class="fileName">' + (f.SRC_FILE_NAME || f.src_file_name || '') + '</span>';
+                    html += '  <span style="font-size:12px; color:#999;">' + (f.FILE_SIZE || '') + 'KB</span>';
+                    html += '</div>';
+                }
+                html += '</div><div class="h10"></div>';
+                $area.html(html).show();
+            }
+        });
+    }
+
+    function initUploader() {
+        uploader = new DragDropUploader({
+            dropZoneId: 'fileDropZone',
+            fileListId: 'fileListContainer',
+            uploadButtonSelector: '#fileSearchBtn',
+            maxFiles: 1,
+            maxFileSize: 10 * 1024 * 1024,
+            allowedExtensions: [],  // 빈 배열 = 모든 확장자 허용 (테스트용)
+            container: $container,
+            onFileAdded: function(file) {
+                console.log('[파일첨부 팝업] 파일 추가:', file.name);
+            },
+            onFileRemoved: function(filename) {
+                console.log('[파일첨부 팝업] 파일 삭제:', filename);
+            },
+            onFileCountChange: function(count) {
+                if (count > 0) {
+                    $container.find('#fileListContainer').show();
+                    $container.find('#fileDropZone').hide();
+                } else {
+                    $container.find('#fileListContainer').hide();
+                    $container.find('#fileDropZone').show();
+                }
+            }
+        });
+    }
+
+    /**
+     * 서버에 파일 업로드 후 DOC_NO 반환
+     */
+    function uploadFiles(files, callback) {
+        if (!files || files.length === 0) {
+            // 새 파일 없으면 기존 DOC_NO 반환
+            callback(existingDocNo, '');
+            return;
+        }
+
+        var formData = new FormData();
+        for (var i = 0; i < files.length; i++) {
+            formData.append('files', files[i].file || files[i]);
+        }
+        if (existingDocNo) {
+            formData.append('DOC_NO', existingDocNo);
+        }
+        formData.append('TYPE', 'REG');
+
+        $.ajax({
+            url: '/common/fileUploadAjax_v2.do',
+            type: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            dataType: 'json',
+            success: function(res) {
+                if (res.result === 'U') {
+                    var fileNames = [];
+                    for (var i = 0; i < files.length; i++) {
+                        fileNames.push(files[i].name || files[i].file.name);
+                    }
+                    callback(res.docNo, fileNames.join(', '));
+                } else {
+                    alert(res.message || '파일 업로드에 실패했습니다.');
+                }
+            },
+            error: function() {
+                alert('파일 업로드 중 오류가 발생했습니다.');
+            }
+        });
+    }
+
+    function bindEvents() {
+        $container.find('#DIVclosePopup').on('click', function(e) { e.preventDefault(); close(); });
+        $overlay.on('click', close);
+        $container.find('#cancelBtn').on('click', close);
+
+        $container.find('#confirmBtn').on('click', function() {
+            var uploadedFiles = uploader ? uploader.getUploadedFiles() : [];
+
+            if (uploadedFiles.length === 0 && existingDocNo) {
+                // 새 파일 없이 기존 파일만 → 기존 DOC_NO 유지
+                if (confirmCallback) {
+                    confirmCallback({ docNo: existingDocNo, fileNames: '' });
+                }
+                close();
+                return;
+            }
+
+            if (uploadedFiles.length === 0) {
+                alert('첨부할 파일을 선택해 주세요.');
+                return;
+            }
+
+            // deferUpload 모드: 서버 업로드 없이 File 객체만 반환
+            if (deferUpload) {
+                var fileNames = [];
+                for (var i = 0; i < uploadedFiles.length; i++) {
+                    fileNames.push(uploadedFiles[i].name);
+                }
+                if (confirmCallback) {
+                    confirmCallback({ files: uploadedFiles, fileNames: fileNames.join(', ') });
+                }
+                close();
+                return;
+            }
+
+            // 서버 업로드
+            uploadFiles(uploadedFiles, function(docNo, fileNames) {
+                if (confirmCallback) {
+                    confirmCallback({ docNo: docNo, fileNames: fileNames });
+                }
+                close();
+            });
+        });
+    }
+
+    api.close = close;
+    api.onConfirm = onConfirm;
+    api.loadExistingDoc = loadExistingDoc;
+    api.setDeferUpload = function(val) { deferUpload = val; return api; };
+    api.$overlay = $overlay;
+    api.$container = $container;
+
+    bindEvents();
+    initUploader();
+
+    return api;
+};
+</script>

@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="common.mpiv">
+
+	<select id="selectSellerMpIvPrewarhsngOrderDetailPopList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*selectSellerMpIvPrewarhsngOrderDetailPopList*/
+			SELECT B.INV_NO
+				      , TO_CHAR(TO_DATE(A.BEFORE_GR_DATE, 'YYYYMMDD'), 'YYYY/MM/DD') AS BEFORE_GR_DATE
+				      , A.BUYER
+				      , (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE=A.BUYER) AS BUYER_NAME
+				      , C.INV_AMT AS TOT_INV_AMT
+				      , A.REQ_USER_ID AS PURCHASER_ID
+				      , A.REQ_USER_NAME AS PURCHASER_NAME
+				      , A.REQ_USER_DEPT_CODE AS PURCHASER_DEPT
+				      , ( SELECT TEXT1 FROM ICOMCOD2 WHERE COMPANY_CODE = C.BUYER AND CODE = A.REQ_USER_DEPT_CODE AND TYPE = 'C001' ) AS PURCHASER_DEPT_NAME
+				      , A.REQ_USER_TEL_NO
+				      , DECODE((SELECT COUNT(*) 
+				                  FROM ICOMCOD2 
+				                 WHERE COMPANY_CODE = DECODE(A.PROCESS_TYPE,'2',A.WAREHOUSE_CODE,C.BUYER)    --TR이면 물류센터가고객사
+				                   AND CODE         = DECODE(A.PROCESS_TYPE,'2','001',A.DELY_TO_LOCATION)    --TR이면 물류센터의 배송지 정보
+				                   AND TYPE         = 'C012'   --해당 고객사의 배송지 코드
+				               ), 0, A.DELY_TO_LOCATION
+				                   , (SELECT TEXT2 
+				                        FROM ICOMCOD2 
+				                       WHERE COMPANY_CODE = DECODE(A.PROCESS_TYPE,'2',A.WAREHOUSE_CODE,C.BUYER)         
+				                         AND CODE         = DECODE(A.PROCESS_TYPE,'2','001',A.DELY_TO_LOCATION)
+				                         AND TYPE         = 'C012' 
+				                     )    
+				              ) AS DELY_TO_LOCATION
+				      , A.BUYER_ITEM_NO
+				      , A.DESCRIPTION
+				      , A.SPECIFICATION
+				      , A.UNIT_MEASURE 
+				      , A.ITEM_QTY
+				      , DECODE(A.PROCESS_TYPE,'2',A.AGENT_PRICE, A.UNIT_PRICE) AS UNIT_PRICE
+				      , (DECODE(A.PROCESS_TYPE,'2',A.AGENT_PRICE, A.UNIT_PRICE) * A.ITEM_QTY ) AS INV_AMT
+				      , A.MAKER_CODE
+				      , A.MAKER_NAME AS MAKER_NAME
+				      , A.ORIGIN_CODE
+				      , A.ORIGIN_NAME AS ORIGIN_NAME
+				      , A.REMARK
+				      , A.PROCESS_TYPE
+      				  , A.WAREHOUSE_CODE
+			   FROM KEP_BEFORE_STOCKED_MNG A
+			      , KEP_BEFORE_STOCKED_IVDT B
+			      , KEP_BEFORE_STOCKED_IVHD C
+			  WHERE A.BUYER  = B.BUYER
+			    AND A.BS_NO  = B.BS_NO
+			    AND B.SELLER = C.SELLER
+			    AND B.INV_NO = C.INV_NO
+			    AND B.BUYER  = C.BUYER 
+			    AND A.AGENT_CODE = #{st_com_code} -- 세션 COM_CODE
+			    AND A.BUYER  = #{st_buyer_code}  --파라메터
+			    AND B.INV_NO = #{st_inv_no}   --파라메터
+		]]>
+	</select>
+	
+	<update  id="updateSellerMpIvPrewarhsngOrderDetailPop" parameterType="java.util.Map" >
+		<![CDATA[
+			UPDATE KEP_BEFORE_STOCKED_MNG    
+			   SET DELIVERY_FLAG = 'P'   -- N:초기값 I:송장생성 P:납품예정 Y:납품확정
+			     , CHANGE_DATE  = TO_CHAR(SYSDATE,'YYYYMMDD')    
+			     , CHANGE_TIME  = TO_CHAR(SYSDATE,'HH24MISS')    
+			 WHERE (BUYER, BS_NO ) IN (
+			                            SELECT BUYER, BS_NO
+			                              FROM KEP_BEFORE_STOCKED_IVHD
+			                             WHERE INV_NO = #{st_inv_no}
+			                               AND BUYER  = #{st_buyer_code}
+			                           )                      
+			   AND DELIVERY_FLAG = 'N'
+		]]>
+	</update>
+								
+</mapper>

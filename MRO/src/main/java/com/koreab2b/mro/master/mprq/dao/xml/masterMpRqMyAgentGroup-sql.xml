@@ -1,0 +1,214 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mprq">
+
+	<sql id="masterMpRqMyAgentGroupAgentInfo">
+		<![CDATA[
+			SELECT C.COM_CODE AS AGENT_CODE
+			     , C.COM_NAME_LOC AS AGENT_NAME
+			     , (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'M110' AND CODE = S.BIZ_TYPE) AS DIST_LEVEL_NM
+			     , C.CEO_NAME_LOC
+			     , C.TEL_NO
+			     , C.ADDRESS_LOC
+			     , C.IRS_NO
+			     , CASE WHEN C.STATUS IN ('C','R') THEN 'Y' ELSE 'N' END AS ACTIVE_YN
+			     , CASE WHEN C.MDM_CONFIRM_TYPE = 'F'
+			              OR EXISTS (SELECT 1
+			                           FROM ICOMCOD3 N
+			                          WHERE N.BUYER = 'KRKORE0001'
+			                            AND N.TYPE = 'BNOT'
+			                            AND N.CODE1 IN (#{st_buyer}, 'ALL')
+			                            AND N.CODE2 = C.COM_CODE
+			                            AND N.FLAG = 'P')
+			            THEN 'Y' ELSE 'N' END AS SANCTION_YN
+			     , NVL(T.PO_CNT, 0) AS PO_CNT
+			     , NVL(T.PO_AMT, 0) AS PO_AMT
+			     , (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = T.TOP_BUYER) AS TOP_BUYER_NAME
+			  FROM A
+			     , ICOMCMPY C
+			     , SUPLINFO2 S
+			     , (SELECT P.AGENT
+			             , SUM(P.CNT) AS PO_CNT
+			             , SUM(P.AMT) AS PO_AMT
+			             , MAX(P.BUYER) KEEP (DENSE_RANK LAST ORDER BY P.AMT, P.CNT) AS TOP_BUYER
+			          FROM (SELECT HD.AGENT
+			                     , HD.BUYER
+			                     , COUNT(*) AS CNT
+			                     , SUM(NVL(HD.AGENT_PO_TTL_AMT, 0)) AS AMT
+			                  FROM ICOMPOHD HD
+			                 WHERE HD.AGENT IN (SELECT AGENT FROM A)
+			                   AND HD.ADD_DATE >= TO_CHAR(ADD_MONTHS(SYSDATE, -3), 'YYYYMMDD')
+			                   AND HD.STATUS <> 'D'
+			                 GROUP BY HD.AGENT, HD.BUYER) P
+			         GROUP BY P.AGENT) T
+			 WHERE C.COM_CODE = A.AGENT
+			   AND S.SUPPLIER(+) = C.COM_CODE
+			   AND T.AGENT(+) = C.COM_CODE
+		]]>
+	</sql>
+
+	<select id="selectMasterMpRqMyAgentGroupList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*selectMasterMpRqMyAgentGroupList*/
+			SELECT G.CODE2 AS GROUP_CODE
+			     , G.TEXT1 AS GROUP_NAME
+			     , (SELECT COUNT(*)
+			          FROM ICOMCOD3 D
+			         WHERE D.BUYER = 'KRKORE0001'
+			           AND D.TYPE = 'MYAGGRPD'
+			           AND D.CODE1 = G.CODE2
+			           AND D.ADD_USER_ID = G.CODE1) AS AGENT_CNT
+			  FROM ICOMCOD3 G
+			 WHERE G.BUYER = 'KRKORE0001'
+			   AND G.TYPE = 'MYAGGRP'
+			   AND G.CODE1 = #{st_user_id}
+			 ORDER BY G.TEXT1, G.CODE2
+		]]>
+	</select>
+
+	<select id="selectMasterMpRqMyAgentGroupAgentList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*selectMasterMpRqMyAgentGroupAgentList*/
+			WITH A AS (
+				SELECT D.CODE2 AS AGENT
+				     , D.VALUE1 AS SEQ
+				  FROM ICOMCOD3 D
+				 WHERE D.BUYER = 'KRKORE0001'
+				   AND D.TYPE = 'MYAGGRPD'
+				   AND D.CODE1 = #{GROUP_CODE}
+				   AND D.ADD_USER_ID = #{st_user_id}
+			)
+		]]>
+		<include refid="masterMpRqMyAgentGroupAgentInfo"/>
+		<![CDATA[
+			 ORDER BY A.SEQ, C.COM_NAME_LOC
+		]]>
+	</select>
+
+	<select id="selectMasterMpRqMyAgentGroupSearchAgentList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*selectMasterMpRqMyAgentGroupSearchAgentList*/
+			WITH A AS (
+				SELECT COM_CODE AS AGENT
+				  FROM (SELECT COM_CODE
+				          FROM ICOMCMPY
+				         WHERE BUSINESS_COND = 'S'
+				           AND STATUS IN ('C','R')
+				           AND (COM_NAME_LOC LIKE '%'||#{st_agent_name}||'%' OR COM_CODE = UPPER(#{st_agent_name}))
+				         ORDER BY COM_NAME_LOC)
+				 WHERE ROWNUM <= 200
+			)
+		]]>
+		<include refid="masterMpRqMyAgentGroupAgentInfo"/>
+		<![CDATA[
+			 ORDER BY PO_AMT DESC, PO_CNT DESC, C.COM_NAME_LOC
+		]]>
+	</select>
+
+	<select id="selectMasterMpRqMyAgentGroupCnt" parameterType="java.util.Map" resultType="int">
+		<![CDATA[
+		/*selectMasterMpRqMyAgentGroupCnt*/
+			SELECT COUNT(*)
+			  FROM ICOMCOD3
+			 WHERE BUYER = 'KRKORE0001'
+			   AND TYPE = 'MYAGGRP'
+			   AND CODE1 = #{st_user_id}
+		]]>
+	</select>
+
+	<select id="selectMasterMpRqMyAgentGroupOwnCnt" parameterType="java.util.Map" resultType="int">
+		<![CDATA[
+		/*selectMasterMpRqMyAgentGroupOwnCnt*/
+			SELECT COUNT(*)
+			  FROM ICOMCOD3
+			 WHERE BUYER = 'KRKORE0001'
+			   AND TYPE = 'MYAGGRP'
+			   AND CODE1 = #{st_user_id}
+			   AND CODE2 = #{GROUP_CODE}
+		]]>
+	</select>
+
+	<select id="selectMasterMpRqMyAgentGroupCodeByName" parameterType="java.util.Map" resultType="String">
+		<![CDATA[
+		/*selectMasterMpRqMyAgentGroupCodeByName*/
+			SELECT MIN(CODE2)
+			  FROM ICOMCOD3
+			 WHERE BUYER = 'KRKORE0001'
+			   AND TYPE = 'MYAGGRP'
+			   AND CODE1 = #{st_user_id}
+			   AND TEXT1 = #{GROUP_NAME}
+		]]>
+	</select>
+
+	<select id="selectMasterMpRqMyAgentGroupNewCode" parameterType="java.util.Map" resultType="String">
+		<![CDATA[
+		/*selectMasterMpRqMyAgentGroupNewCode*/
+			SELECT 'MA'||TO_CHAR(NVL(MAX(TO_NUMBER(SUBSTR(CODE2, 3))), 0) + 1, 'FM00000')
+			  FROM ICOMCOD3
+			 WHERE BUYER = 'KRKORE0001'
+			   AND TYPE = 'MYAGGRP'
+			   AND REGEXP_LIKE(CODE2, '^MA[0-9]+$')
+		]]>
+	</select>
+
+	<select id="selectMasterMpRqMyAgentGroupAgentCodeList" parameterType="java.util.Map" resultType="String">
+		<![CDATA[
+		/*selectMasterMpRqMyAgentGroupAgentCodeList*/
+			SELECT CODE2
+			  FROM ICOMCOD3
+			 WHERE BUYER = 'KRKORE0001'
+			   AND TYPE = 'MYAGGRPD'
+			   AND CODE1 = #{GROUP_CODE}
+			   AND ADD_USER_ID = #{st_user_id}
+			 ORDER BY VALUE1
+		]]>
+	</select>
+
+	<update id="insertMasterMpRqMyAgentGroup" parameterType="java.util.Map">
+		<![CDATA[
+		/*insertMasterMpRqMyAgentGroup*/
+			INSERT INTO ICOMCOD3 (BUYER, TYPE, CODE1, CODE2, TEXT1, FLAG, ADD_USER_ID, ADD_DATE)
+			VALUES ('KRKORE0001', 'MYAGGRP', #{st_user_id}, #{GROUP_CODE}, #{GROUP_NAME}, 'Y', #{st_user_id}, TO_CHAR(SYSDATE, 'YYYYMMDD'))
+		]]>
+	</update>
+
+	<update id="insertMasterMpRqMyAgentGroupAgent" parameterType="java.util.Map">
+		<![CDATA[
+		/*insertMasterMpRqMyAgentGroupAgent*/
+			INSERT INTO ICOMCOD3 (BUYER, TYPE, CODE1, CODE2, VALUE1, FLAG, ADD_USER_ID, ADD_DATE)
+			SELECT 'KRKORE0001', 'MYAGGRPD', #{GROUP_CODE}, C.COM_CODE, #{SEQ}, 'Y', #{st_user_id}, TO_CHAR(SYSDATE, 'YYYYMMDD')
+			  FROM ICOMCMPY C
+			 WHERE C.COM_CODE = #{AGENT_CODE}
+			   AND C.BUSINESS_COND = 'S'
+			   AND NOT EXISTS (SELECT 1
+			                     FROM ICOMCOD3 D
+			                    WHERE D.BUYER = 'KRKORE0001'
+			                      AND D.TYPE = 'MYAGGRPD'
+			                      AND D.CODE1 = #{GROUP_CODE}
+			                      AND D.CODE2 = C.COM_CODE)
+		]]>
+	</update>
+
+	<update id="deleteMasterMpRqMyAgentGroupAgentAll" parameterType="java.util.Map">
+		<![CDATA[
+		/*deleteMasterMpRqMyAgentGroupAgentAll*/
+			DELETE FROM ICOMCOD3
+			 WHERE BUYER = 'KRKORE0001'
+			   AND TYPE = 'MYAGGRPD'
+			   AND CODE1 = #{GROUP_CODE}
+			   AND ADD_USER_ID = #{st_user_id}
+		]]>
+	</update>
+
+	<update id="deleteMasterMpRqMyAgentGroup" parameterType="java.util.Map">
+		<![CDATA[
+		/*deleteMasterMpRqMyAgentGroup*/
+			DELETE FROM ICOMCOD3
+			 WHERE BUYER = 'KRKORE0001'
+			   AND TYPE = 'MYAGGRP'
+			   AND CODE1 = #{st_user_id}
+			   AND CODE2 = #{GROUP_CODE}
+		]]>
+	</update>
+
+</mapper>

@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="buyer.mdcm">
+	<select id="selectBuyerMdCmExcelCartPunchoutSearch" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.jsppagestart"/>
+		<![CDATA[
+		/*selectBuyerMdCmExcelCartPunchoutSearch*/
+				  SELECT  
+			          A.BUYER_ITEM_NO AS BUYER_ITEM_NO,  
+				        C.DESCRIPTION AS DESCRIPTION,  
+				        C.SPECIFICATION AS SPECIFICATION,  
+			  				(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = C.AGENT) AS AGENT_NAME,	
+				        NVL(A.CART_QTY,1) AS CART_QTY,  
+				        DECODE(C.BUYER_ITEM_NO,NULL,'품목코드미등록')||DECODE(B.PRODUCT_CLOSE_FLAG,'Y','단종')||DECODE(C.STATUS,'D','삭제') AS  ITEM_REMARK,				
+				        A.CONTRACT_NO,			
+				        A.CONTRACT_SEQ,			
+				        A.USE_FLAG,					
+				        A.BUYER,					
+				        '' ITEM_TEXT	
+				   FROM DOOSCART_ADD A, ICOMBYIT B, ICOMCQDT C  
+			       WHERE A.BUYER = #{st_buyer}
+			        AND A.USER_ID = #{st_user_id}
+			        AND A.USE_FLAG = 'C'  
+			        AND A.BYIT_COMORG_CODE = B.BUYER(+)  
+			        AND A.BUYER_ITEM_NO = B.BUYER_ITEM_NO(+)  
+			        AND A.BYIT_COMORG_CODE = C.BUYER(+)  
+			        AND A.BUYER_ITEM_NO = C.BUYER_ITEM_NO(+)  
+			        AND A.CONTRACT_NO = C.CONTRACT_NO(+)  
+			        AND A.CONTRACT_SEQ = C.CONTRACT_SEQ(+)  
+			        ORDER BY A.BUYER_ITEM_NO 
+      ]]> 
+		<include refid="common.ibsheet.xml.jsppageend"/>	
+	</select>
+	<update id="insertMdCmExcelCart" parameterType="java.util.Map">
+		<![CDATA[
+		/*insertMdCmExcelCart*/
+		INSERT INTO DOOSCART_ADD (  
+			 BUYER                    
+			,USER_ID                  
+			,CONTRACT_NO              
+			,CONTRACT_SEQ             
+			,ITEM_SEQ                 
+			,USE_FLAG                 
+			,BUYER_ITEM_NO            
+			,SEQ                      
+			,DESCRIPTION              
+			,SPECIFICATION            
+			,AGENT                    
+			,CART_QTY                 
+			,REG_DATE                 
+			,BYIT_COMORG_CODE         
+			,REF_PR_NO                
+			,LIST_PRICE               
+			,UNIT_PRICE               
+			,REG_TIME                 
+			,ITEM_REMARK              
+			)				                  
+		SELECT                      
+			#{st_buyer},           
+			#{st_user_id},            
+			A.CONTRACT_NO,              
+			A.CONTRACT_SEQ,             
+			'F0',                     
+			'C',                      		
+			A.BUYER_ITEM_NO,            
+			'1',                      
+			A.DESCRIPTION,              
+			A.SPECIFICATION,            
+			A.AGENT,                    
+			NVL(#{CART_QTY},1),               
+			TO_CHAR(SYSDATE,'YYYYMMDD') AS REG_DATE,  
+			#{st_buyer},            
+			'EX' AS REF_PR_NO,          
+			A.LIST_PRICE,               
+			A.UNIT_PRICE,               
+			TO_CHAR(SYSDATE,'HH24MISS') AS REG_TIME,  
+			'' AS ITEM_REMARK         
+		FROM ICOMCQDT A, ICOMBYIT B   
+		WHERE A.BUYER =#{st_buyer}
+		  AND A.BUYER_ITEM_NO = UPPER(#{BUYER_ITEM_NO})     
+		  AND A.STATUS <> 'D'         
+		  AND B.STATUS <> 'D'         
+		  AND A.BUYER = B.BUYER        
+		  AND A.BUYER_ITEM_NO = B.BUYER_ITEM_NO    
+		  AND B.PRODUCT_CLOSE_FLAG IN ('N','A')  
+		]]>
+	</update>
+</mapper>

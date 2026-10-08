@@ -1,0 +1,19 @@
+package com.koreab2b.mro.master.clmg.dao;
+
+import java.util.List;
+import java.util.Map;
+
+public interface MasterClMgBasicCreditRegDao {
+	
+	// 리스트 조회
+		public List<Map<String,String>> selectList(Map<String,Object> param);
+
+		// 저장
+		public String insertSelectedData(Map<String, String> formData, List<Object> gridData);
+
+		// 삭제
+		public String deleteSelectedData(Map<String,String>  formData, List<Object> gridData);
+		
+		// 품의상신
+		public String apprMasterClMgBasicCreditReg(Map<String,String>  formData, List<Object> gridData);
+}

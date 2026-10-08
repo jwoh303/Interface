@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mpso">
+	<!-- 조회 -->
+	<select id="selectMasterMpSoBuyerGrLockPopList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/* selectMasterMpSoBuyerGrLockPopList */
+		SELECT	A.CODE AS GR_MONTH,
+				A.COMPANY_CODE AS BUYER,
+				(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = A.COMPANY_CODE) AS BUYER_NAME,
+				A.TEXT1 AS CHANGE_USER_ID,
+				(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = A.TEXT1) AS CHANGE_USER_NAME,
+				A.FLAG AS LOCK_YN,
+				TO_CHAR(TO_DATE(A.ADD_DATE, 'YYYYMMDD'), 'YYYY/MM/DD') AS CHANGE_DATE
+		FROM	ICOMCOD2 A
+		WHERE	1=1
+		AND		A.TYPE = 'NOGR'
+		]]>
+		<if test="st_p_close_month != null and st_p_close_month != ''">
+	    	<![CDATA[
+			AND		A.CODE IN
+	    	]]>
+	    	<foreach item="month" collection="st_p_close_month"
+	    		open="(" separator="," close=")">
+				#{month}
+			</foreach>
+	    </if>
+		<if test="st_buyer_code != null and st_buyer_code != ''">
+	    	<![CDATA[
+			AND		A.COMPANY_CODE IN
+	    	]]>
+	    	<foreach item="buyer" collection="st_buyer_codeList"
+	    		open="(" separator="," close=")">
+				#{buyer}
+			</foreach>
+	    </if>
+	    <![CDATA[
+	    ORDER BY A.FLAG DESC, A.ADD_DATE DESC, A.COMPANY_CODE
+	    ]]>
+	</select>
+	
+	<!-- 고객사코드 체크 -->
+	<select id="selectMasterMpSoBuyerGrLockCheck" parameterType="java.util.Map" resultType="String">
+		<![CDATA[
+		/* selectMasterMpSoBuyerGrLockCheck */
+		SELECT	COUNT(COM_CODE) AS CNT
+		FROM	ICOMCMPY
+		WHERE	1=1
+		AND		BUSINESS_COND = 'B'
+		AND		STATUS IN ('C', 'R')
+		AND		COM_CODE = #{st_buyer_single}
+		]]>
+	</select>
+	
+	<!-- 등록내역 확인 -->
+	<select id="selectMasterMpSoBuyerGrLockCnt" parameterType="java.util.Map" resultType="String">
+		<![CDATA[
+		/* selectMasterMpSoBuyerGrLockCnt */
+		SELECT	COUNT(CODE) AS CNT
+		FROM	ICOMCOD2 A
+		WHERE	1=1
+		AND		A.TYPE = 'NOGR'
+		AND		A.CODE = #{st_sub_close_month}
+		AND		A.COMPANY_CODE = #{st_buyer_single}
+		]]>
+	</select>
+	
+	<!-- 입고잠금 수정 -->
+	<update  id="updateMasterMpSoBuyerGrLock" parameterType="java.util.Map" >
+		<![CDATA[
+		/* updateMasterMpSoBuyerGrLock */
+		UPDATE	ICOMCOD2
+		SET		TEXT1 = #{st_user_id},
+				FLAG = #{GR_FLAG},
+				ADD_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD')
+		WHERE	1=1
+		AND		TYPE = 'NOGR'
+		AND		CODE = #{st_sub_close_month}
+		AND		COMPANY_CODE = #{st_buyer_single}
+		]]>
+	</update>
+	
+	<!-- 입고잠금 삽입 -->
+	<update  id="insertMasterMpSoBuyerGrLock" parameterType="java.util.Map" >
+		<![CDATA[	
+		/* insertMasterMpSoBuyerGrLock */
+		INSERT INTO ICOMCOD2 (			
+			TYPE,
+			CODE,
+			COMPANY_CODE,
+			TEXT1,
+			FLAG,
+			ADD_DATE
+		) VALUES (
+			'NOGR',
+			#{st_sub_close_month},
+			#{st_buyer_single},
+			#{st_user_id},
+			#{GR_FLAG},
+			TO_CHAR(SYSDATE, 'YYYYMMDD')		
+		)
+		]]>
+	</update>
+</mapper>

@@ -1,0 +1,481 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="buyer.mdcm">
+	<select id="selectBuyerMdCmHistoryGoodsSearchList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.jsppagestart"/>
+		<![CDATA[
+		/*selectBuyerMdCmHistoryGoodsSearchList*/
+		
+			SELECT  DISTINCT 
+		 S.IMGFILE_NAME,       --[01]
+		 S.IMGFILE_DIR,        --[02]
+		 S.BUYER_ITEM_NO,      --[03]
+		 S.DESCRIPTION,        --[04]
+		 S.SPECIFICATION,      --[05]
+		 S.ORIGIN_TEXT,        --[06]
+		 S.MAKER_NAME,         --[07]
+		 S.TARGET_QTY,         --[08]
+		 S.UNIT_MEASURE,       --[09]
+		 S.UNIT_PRICE,         --[10]
+		 S.PR_QTY,             --[11]
+		 S.PR_SUM,             --[12]
+		 S.PR_SEQ,             --[13]
+		 S.BUYER,              --[14]
+		 S.PR_NO,              --[15]
+		 S.ORIGIN_CODE,        --[16]
+		 S.CHANGE_DATE,        --[17]
+		 S.CATEG_ID,           --[18]
+		 DECODE((SELECT MAX(AGENT_OPEN_FLAG) FROM ICOMCMPY  
+			  WHERE COM_CODE = #{st_com_code}),'N','코리아이플랫폼(주)', S.AGENT_NAME)  AGENT_NAME,   --[19]
+		 S.AGENT,              --[20]
+		 S.CONTRACT_NO,        --[21]
+		 S.CONTRACT_SEQ,       --[22]
+		 S.BYIT_COMORG_CODE,   --[23]
+		 DECODE((SELECT MAX(AGENT_OPEN_FLAG) FROM ICOMCMPY  
+			  WHERE COM_CODE = #{st_com_code}),'N','KRKORE0001', S.AGENT) AGENT3,   --[24]
+		 S.OVER_SHORT_FLAG,   --[25]
+		 S.HS_NO              --[26]
+		
+		FROM (  
+		SELECT  
+		 ROWNUM NUM,          
+		 A.IMGFILE_NAME,      
+		 A.IMGFILE_DIR,       
+		 A.BUYER_ITEM_NO,     
+		 A.DESCRIPTION,       
+		 A.SPECIFICATION,     
+		 A.ORIGIN_TEXT,       
+		 A.MAKER_NAME,        
+		 A.TARGET_QTY,        
+		 A.UNIT_MEASURE,      
+		 A.UNIT_PRICE,        
+		 A.PR_QTY,            
+		 A.PR_SUM,            
+		 A.PR_SEQ,            
+		 A.BUYER,             
+		 A.PR_NO,             
+		 A.ORIGIN_CODE,       
+		 A.CHANGE_DATE,       
+		 A.CATEG_ID,          
+		 A.AGENT_NAME,        
+		 A.AGENT,             
+		 A.CONTRACT_NO,       
+		 A.CONTRACT_SEQ,       
+		 A.BYIT_COMORG_CODE,       
+		 A.OVER_SHORT_FLAG,     
+		 A.HS_NO       
+
+FROM (  
+   SELECT    
+   
+		/*+USE_NL(P C) INDEX(P ICOMPRDT_02) INDEX(P ICOMPRDT_09)*/
+
+	  MAX(DECODE(TRIM(B.IMGFILE_NAME), NULL,	
+			      (SELECT IMG_NAME FROM CMSIMGES WHERE IMG_NO=D.IMG_NO),B.IMGFILE_NAME)) AS IMGFILE_NAME,	
+
+	  MAX(DECODE(TRIM(B.IMGFILE_DIR), NULL,	
+			      (SELECT IMG_DIR FROM CMSIMGES WHERE IMG_NO=D.IMG_NO),B.IMGFILE_DIR)) AS IMGFILE_DIR,	
+
+	  P.BUYER_ITEM_NO BUYER_ITEM_NO,  
+	  MAX(C.DESCRIPTION) DESCRIPTION,  
+	  MAX(C.SPECIFICATION) SPECIFICATION,  
+	  MAX((SELECT TEXT2 FROM ICOMCOD1 WHERE TYPE = 'M001' AND CODE = C.ORIGIN_CODE)) ORIGIN_TEXT,  
+	  MAX(C.MAKER_NAME) MAKER_NAME,  
+	  SUM(NVL(P.TARGET_QTY,0)) TARGET_QTY,  
+	  MAX(C.UNIT_MEASURE) UNIT_MEASURE,  
+	  MAX(C.UNIT_PRICE) UNIT_PRICE,  
+	  0 PR_QTY,  
+	  SUM(NVL(P.TARGET_PRICE,0) * P.TARGET_QTY) PR_SUM,  
+	  COUNT(P.PR_SEQ) PR_SEQ,  
+	  MAX(P.BUYER) BUYER,  
+	  MAX(P.PR_NO) PR_NO,  
+	  MAX(C.ORIGIN_CODE) ORIGIN_CODE,  
+	  MAX(P.CHANGE_DATE) AS CHANGE_DATE,  
+	  MAX(B.CATEGORY_NO) CATEG_ID,  
+	  MAX((SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = C.AGENT)) AGENT_NAME,  
+	  C.AGENT AGENT,  
+	  C.CONTRACT_NO CONTRACT_NO,  
+	  C.CONTRACT_SEQ CONTRACT_SEQ,  
+	  MAX(P.BYIT_COMORG_CODE) BYIT_COMORG_CODE,  
+	  MAX(NVL(TRIM(B.OVER_SHORT_FLAG),'N')) AS OVER_SHORT_FLAG,  
+	  MAX(TRIM(B.HS_NO)) AS HS_NO  
+
+
+     FROM ICOMPRDT P, ICOMCQDT C, ICOMBYIT B, CMSCATLG D  
+    WHERE P.BUYER = #{st_com_code}
+      AND P.ADD_USER_ID = #{st_user_id} 
+      AND P.STATUS != 'D'
+      AND P.ADD_DATE >= TO_CHAR(ADD_MONTHS(SYSDATE,-12),'YYYYMMDD')
+      AND (	(P.BUYER_ITEM_NO NOT IN (SELECT CODE1 FROM ICOMCOD3 WHERE TYPE = 'HIST_D' AND CODE2 = P.ADD_USER_ID)) -- 삭제된 품목에 없음
+      	OR	(P.ADD_DATE > (SELECT ADD_DATE FROM  ICOMCOD3 WHERE TYPE = 'HIST_D' AND CODE2 = P.ADD_USER_ID AND CODE1 = P.BUYER_ITEM_NO)) ) -- 삭제한 날짜 이후 주문 건
+      ]]> 
+		<if test="st_buyer_item_no !=''">
+		<![CDATA[
+ 					AND P.BUYER_ITEM_NO LIKE '%'||UPPER(#{st_buyer_item_no})||'%'
+ 		]]>	 
+ 		</if>
+		<if test="st_description !=''">
+		<![CDATA[
+ 					AND UPPER(P.DESCRIPTION) LIKE   '%'||#{st_description}||'%'
+ 		]]>	 
+ 		</if> 	
+		<if test="st_specification !=''">
+		<![CDATA[
+ 					AND UPPER(P.SPECIFICATION) LIKE   '%'||#{st_specification}||'%'
+ 		]]>	 
+ 		</if>
+		<if test="st_desc_spec !=''">
+		<![CDATA[
+ 					AND (UPPER(P.SPECIFICATION) LIKE   '%'||#{st_desc_spec}||'%' OR  UPPER(P.DESCRIPTION) LIKE   '%'||#{st_desc_spec}||'%') 
+ 		]]>	 
+ 		</if>  		 			
+		<if test="st_maker_name !=''">
+		<![CDATA[
+ 					AND UPPER(P.MAKER_NAME) LIKE   '%'||#{st_maker_name}||'%'
+ 		]]>	 
+ 		</if> 	 		
+	<![CDATA[ 
+      AND P.BYIT_COMORG_CODE = C.BUYER  
+      AND P.BUYER_ITEM_NO = C.BUYER_ITEM_NO  
+      AND B.CMS_CATLG_ID = D.CMS_CATLG_ID(+)	
+      AND D.STD_FLAG(+)='Y'	
+      AND C.STATUS != 'D'  
+      AND C.BELOW_COMORG_CODE = P.BUYER -- 하위 조직코드 추가
+      AND P.BYIT_COMORG_CODE = B.BUYER  
+      AND P.BUYER_ITEM_NO = B.BUYER_ITEM_NO  
+      AND B.PRODUCT_CLOSE_FLAG = 'N'  
+      AND B.STATUS != 'D'   
+    GROUP BY P.BUYER_ITEM_NO , C.CONTRACT_NO, C.CONTRACT_SEQ , C.AGENT  
+
+                 ORDER BY 
+               ]]> 
+						 <if test="st_sort_gubun =='BUYER_ITEM_NO'">
+							<![CDATA[
+					 			BUYER_ITEM_NO
+					 		]]>	 
+						</if>
+						 <if test="st_sort_gubun =='DESCRIPTION'">
+							<![CDATA[
+					 			DESCRIPTION
+					 		]]>	 
+						</if> 
+						 <if test="st_sort_gubun =='MAKER_NAME'">
+							<![CDATA[
+					 			MAKER_NAME
+					 		]]>	 
+						</if>		
+						 <if test="st_sort_gubun ==''">
+							<![CDATA[
+					 			PR_SEQ DESC, PR_SUM 
+					 		]]>	 
+						</if>		
+						 <if test="st_sort_change == 0 or st_sort_change == '' ">
+							<![CDATA[
+					 			DESC
+					 		]]>	 
+						</if>	
+						 <if test="st_sort_change == 1">
+							<![CDATA[
+					 			ASC
+					 		]]>	 
+						</if>		
+							<![CDATA[
+
+    )A ) S  
+ 		]]>   
+		
+		<include refid="common.ibsheet.xml.jsppageend"/>	
+	</select>
+	<select id="selectBuyerMdCmHistoryGoodsSearchList_v2" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.jsppagestart"/>
+		<![CDATA[
+		/*selectBuyerMdCmHistoryGoodsSearchList_v2*/
+	SELECT ROWNUM AS RNUM, D.*
+	 FROM
+	( 	
+			SELECT  DISTINCT 
+		 S.IMGFILE_NAME,       --[01]
+		 S.IMGFILE_DIR,        --[02]
+		 S.BUYER_ITEM_NO,      --[03]
+		 S.DESCRIPTION,        --[04]
+		 S.SPECIFICATION,      --[05]
+		 S.ORIGIN_TEXT,        --[06]
+		 S.MAKER_NAME,         --[07]
+		 S.TARGET_QTY,         --[08]
+		 S.UNIT_MEASURE,       --[09]
+		 S.UNIT_PRICE,         --[10]
+		 S.PR_QTY,             --[11]
+		 S.PR_SUM,             --[12]
+		 S.PR_SEQ,             --[13]
+		 S.BUYER,              --[14]
+		 S.PR_NO,              --[15]
+		 S.ORIGIN_CODE,        --[16]
+		 S.CHANGE_DATE,        --[17]
+		 S.CATEG_ID,           --[18]
+		 S.STDCATLG_ID,
+		 S.STDCATEG_ID,
+		 S.PRODUCT_CLOSE_FLAG,
+		 DECODE((SELECT MAX(AGENT_OPEN_FLAG) FROM ICOMCMPY  
+			  WHERE COM_CODE = #{st_com_code}),'N','코리아이플랫폼(주)', S.AGENT_NAME)  AGENT_NAME,   --[19]
+		 S.AGENT,              --[20]
+		 S.CONTRACT_NO,        --[21]
+		 S.CONTRACT_SEQ,       --[22]
+		 S.BYIT_COMORG_CODE,   --[23]
+		 DECODE((SELECT MAX(AGENT_OPEN_FLAG) FROM ICOMCMPY  
+			  WHERE COM_CODE = #{st_com_code}),'N','KRKORE0001', S.AGENT) AGENT3,   --[24]
+		 S.OVER_SHORT_FLAG,   --[25]
+		 S.HS_NO,              --[26]
+		 S.ADD_DATE,
+		 S.MIN_ORDER_QTY,
+		 S.PUR_UNIT_QTY,
+		 S.MY_ITEM_YN
+		
+		FROM (  
+		SELECT  
+		 ROWNUM NUM,          
+		 A.IMGFILE_NAME,      
+		 A.IMGFILE_DIR,       
+		 A.BUYER_ITEM_NO,     
+		 A.DESCRIPTION,       
+		 A.SPECIFICATION,     
+		 A.ORIGIN_TEXT,       
+		 A.MAKER_NAME,        
+		 A.TARGET_QTY,        
+		 A.UNIT_MEASURE,      
+		 A.UNIT_PRICE,        
+		 A.PR_QTY,            
+		 A.PR_SUM,            
+		 A.PR_SEQ,            
+		 A.BUYER,             
+		 A.PR_NO,             
+		 A.ORIGIN_CODE,       
+		 A.CHANGE_DATE,       
+		 A.CATEG_ID,
+		 A.STDCATLG_ID,
+		 A.STDCATEG_ID,
+		 A.PRODUCT_CLOSE_FLAG,
+		 A.AGENT_NAME,        
+		 A.AGENT,             
+		 A.CONTRACT_NO,       
+		 A.CONTRACT_SEQ,       
+		 A.BYIT_COMORG_CODE,       
+		 A.OVER_SHORT_FLAG,     
+		 A.HS_NO,
+		 A.ADD_DATE,
+		 A.MIN_ORDER_QTY,
+		 A.PUR_UNIT_QTY,
+		 (SELECT DECODE(COUNT(*),0,'N','Y') FROM ICOMCART WHERE BUYER = #{st_com_code} AND BUYER_ITEM_NO = A.BUYER_ITEM_NO AND BYIT_COMORG_CODE = A.BYIT_COMORG_CODE AND USE_FLAG = 'R' AND USER_ID = #{st_user_id}) AS MY_ITEM_YN     
+
+FROM (  
+   SELECT    
+   
+		/*+USE_NL(P C) INDEX(P ICOMPRDT_02) INDEX(P ICOMPRDT_09)*/
+
+	  MAX(DECODE(TRIM(B.IMGFILE_NAME), NULL,	
+			      (SELECT IMG_NAME FROM CMSIMGES WHERE IMG_NO=D.IMG_NO),B.IMGFILE_NAME)) AS IMGFILE_NAME,	
+
+	  MAX(DECODE(TRIM(B.IMGFILE_DIR), NULL,	
+			      (SELECT IMG_DIR FROM CMSIMGES WHERE IMG_NO=D.IMG_NO),B.IMGFILE_DIR)) AS IMGFILE_DIR,	
+
+	  P.BUYER_ITEM_NO BUYER_ITEM_NO,  
+	  MAX(C.DESCRIPTION) DESCRIPTION,  
+	  MAX(C.SPECIFICATION) SPECIFICATION,  
+	  MAX((SELECT TEXT2 FROM ICOMCOD1 WHERE TYPE = 'M001' AND CODE = C.ORIGIN_CODE)) ORIGIN_TEXT,  
+	  MAX(C.MAKER_NAME) MAKER_NAME,  
+	  SUM(NVL(P.TARGET_QTY,0)) TARGET_QTY,  
+	  MAX(C.UNIT_MEASURE) UNIT_MEASURE,  
+	  MAX(C.UNIT_PRICE) UNIT_PRICE,  
+	  0 PR_QTY,  
+	  SUM(NVL(P.TARGET_PRICE,0) * P.TARGET_QTY) PR_SUM,  
+	  COUNT(P.PR_SEQ) PR_SEQ,  
+	  MAX(P.BUYER) BUYER,  
+	  MAX(P.PR_NO) PR_NO,  
+	  MAX(C.ORIGIN_CODE) ORIGIN_CODE,  
+	  MAX(P.CHANGE_DATE) AS CHANGE_DATE,  
+	  MAX(B.CATEGORY_NO) CATEG_ID,
+	  MAX(B.STDCATLG_ID) AS STDCATLG_ID,
+	  MAX(B.STDCATEG_ID) AS STDCATEG_ID,
+	  MAX(B.PRODUCT_CLOSE_FLAG) AS PRODUCT_CLOSE_FLAG,
+	  MAX((SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = C.AGENT)) AGENT_NAME,  
+	  C.AGENT AGENT,  
+	  C.CONTRACT_NO CONTRACT_NO,  
+	  C.CONTRACT_SEQ CONTRACT_SEQ,  
+	  MAX(P.BYIT_COMORG_CODE) BYIT_COMORG_CODE,  
+	  MAX(NVL(TRIM(B.OVER_SHORT_FLAG),'N')) AS OVER_SHORT_FLAG,  
+	  MAX(TRIM(B.HS_NO)) AS HS_NO,
+	  MAX(P.ADD_DATE) AS ADD_DATE,
+	  MAX(C.MIN_ORDER_QTY) AS MIN_ORDER_QTY,
+	  MAX(NVL(C.PUR_UNIT_QTY,1)) AS PUR_UNIT_QTY
+
+     FROM ICOMPRDT P, ICOMCQDT C, ICOMBYIT B, CMSCATLG D  
+    WHERE P.BUYER = #{st_com_code}
+      AND P.ADD_USER_ID = #{st_user_id} 
+      AND P.STATUS != 'D'
+      ]]>
+      <choose>
+ 			<when test='(st_order_flag == "MAIN" or st_order_flag == "MY_PAGE") or (st_from_date == "" or st_from_date == null)'>
+ 			<![CDATA[ 
+ 				AND P.ADD_DATE >= TO_CHAR(ADD_MONTHS(SYSDATE,-3),'YYYYMMDD')
+	 		]]>
+ 			</when>
+ 			<otherwise>
+ 			<![CDATA[
+ 				AND P.ADD_DATE BETWEEN #{st_from_date} AND #{st_to_date}
+    		]]>
+ 			</otherwise>
+ 		</choose>
+      <![CDATA[
+      AND (	(P.BUYER_ITEM_NO NOT IN (SELECT CODE1 FROM ICOMCOD3 WHERE TYPE = 'HIST_D' AND CODE2 = P.ADD_USER_ID)) -- 삭제된 품목에 없음
+      	OR	(P.ADD_DATE > (SELECT ADD_DATE FROM  ICOMCOD3 WHERE TYPE = 'HIST_D' AND CODE2 = P.ADD_USER_ID AND CODE1 = P.BUYER_ITEM_NO)) ) -- 삭제한 날짜 이후 주문 건
+      ]]>
+      <if test = 'st_keyword != null and st_keyword != ""'> 
+		<if test='keyword_sel == "BUYER_ITEM_NO"'>
+		<![CDATA[
+ 					AND P.BUYER_ITEM_NO LIKE '%'||UPPER(#{st_keyword})||'%'
+ 		]]>	 
+ 		</if>
+		<if test='keyword_sel == "DESCRIPTION"'>
+		<![CDATA[
+ 					AND UPPER(P.DESCRIPTION) LIKE   '%'||#{st_keyword}||'%'
+ 		]]>	 
+ 		</if> 	
+		<if test='keyword_sel == "SPECIFICATION"'>
+		<![CDATA[
+ 					AND UPPER(P.SPECIFICATION) LIKE   '%'||#{st_keyword}||'%'
+ 		]]>	 
+ 		</if>
+		<if test='keyword_sel == "MAKER_NAME"'>
+		<![CDATA[
+ 					AND UPPER(P.MAKER_NAME) LIKE   '%'||#{st_keyword}||'%'
+ 		]]>	 
+ 		</if> 
+ 		<if test='keyword_sel == "ALL"'>
+ 		<![CDATA[
+ 			AND (P.BUYER_ITEM_NO LIKE '%'||UPPER(#{st_keyword})||'%' OR
+ 			 UPPER(P.DESCRIPTION) LIKE   '%'||UPPER(#{st_keyword})||'%' OR
+ 			 UPPER(P.SPECIFICATION) LIKE   '%'||UPPER(#{st_keyword})||'%' OR
+ 			 UPPER(P.MAKER_NAME) LIKE   '%'||UPPER(#{st_keyword})||'%')
+ 			
+ 		]]>
+ 		</if>
+ 	</if>	 		
+	<![CDATA[ 
+      AND P.BYIT_COMORG_CODE = C.BUYER  
+      AND P.BUYER_ITEM_NO = C.BUYER_ITEM_NO  
+      AND B.CMS_CATLG_ID = D.CMS_CATLG_ID(+)	
+      AND D.STD_FLAG(+)='Y'	
+      AND C.STATUS != 'D'  
+      AND C.BELOW_COMORG_CODE = P.BUYER -- 하위 조직코드 추가
+      AND P.BYIT_COMORG_CODE = B.BUYER  
+      AND P.BUYER_ITEM_NO = B.BUYER_ITEM_NO  
+      AND B.PRODUCT_CLOSE_FLAG = 'N'  
+      AND B.STATUS != 'D'   
+    GROUP BY P.BUYER_ITEM_NO , C.CONTRACT_NO, C.CONTRACT_SEQ , C.AGENT  
+    )A ) S 
+ 		]]>
+ 		<choose>
+ 			<when test='st_order_flag == "MAIN"'>
+ 			<![CDATA[ 
+ 				ORDER BY S.ADD_DATE DESC
+    		)D
+	 			WHERE ROWNUM <= 5
+	 		]]>
+ 			</when>
+ 			<when test='st_order_flag == "MY_PAGE"'>
+ 			<![CDATA[ 
+ 				ORDER BY S.PR_SEQ DESC
+    		)D
+	 			WHERE ROWNUM <= 5
+	 		]]>
+ 			</when>
+ 			<otherwise>
+ 				<if test='searchSort == "" or searchSort == null'>
+ 						ORDER BY S.ADD_DATE DESC
+ 				</if>
+ 				<if test='searchSort == "BUY_TERM_UP"'>
+ 					<![CDATA[
+ 						ORDER BY S.PR_SEQ
+    				]]>
+ 				</if>
+ 				<if test='searchSort == "BUY_TERM_DOWN"'>
+ 					<![CDATA[
+ 						ORDER BY S.PR_SEQ DESC
+    				]]>
+ 				</if>
+ 				<if test='searchSort == "DESCRIPTION_UP"'>
+ 					<![CDATA[
+ 						ORDER BY S.DESCRIPTION
+    				]]>
+ 				</if>
+ 				<if test='searchSort == "DESCRIPTION_DOWN"'>
+ 					<![CDATA[
+ 						ORDER BY S.DESCRIPTION DESC
+    				]]>
+ 				</if>
+ 				<if test='searchSort == "SPECIFICATION_UP"'>
+ 					<![CDATA[
+ 						ORDER BY S.SPECIFICATION
+    				]]>
+ 				</if>
+ 				<if test='searchSort == "SPECIFICATION_DOWN"'>
+ 					<![CDATA[
+ 						ORDER BY S.SPECIFICATION DESC
+    				]]>
+ 				</if>
+ 				<if test='searchSort == "MAKER_NAME_UP"'>
+ 					<![CDATA[
+ 						ORDER BY S.MAKER_NAME
+    				]]>
+ 				</if>
+ 				<if test='searchSort == "MAKER_NAME_DOWN"'>
+ 					<![CDATA[
+ 						ORDER BY S.MAKER_NAME DESC
+    				]]>
+ 				</if>
+ 				<if test='searchSort == "UNIT_PRICE_UP"'>
+ 					<![CDATA[
+ 						ORDER BY S.UNIT_PRICE
+    				]]>
+ 				</if>
+ 				<if test='searchSort == "UNIT_PRICE_DOWN"'>
+ 					<![CDATA[
+ 						ORDER BY S.UNIT_PRICE DESC
+    				]]>
+ 				</if>
+    		)D
+ 			</otherwise>
+ 		</choose>
+ 		<include refid="common.ibsheet.xml.jsppageend"/>
+	</select> 
+	 
+	 <update id="deleteBuyerMdCmhistoryGoodsItem" parameterType="java.util.Map">
+	 	DELETE ICOMCOD3
+	 	WHERE	TYPE = 'HIST_D'
+	 	AND		BUYER = (SELECT BYCA_COMORG_CODE FROM ICOMCMPY WHERE COM_CODE = #{BUYER})
+	 	AND		CODE1 = #{BUYER_ITEM_NO}
+	 	AND		CODE2 = #{USER_ID}
+	 </update>
+	 
+	 <update id="insertBuyerMdCmhistoryGoodsItem" parameterType="java.util.Map">
+	<![CDATA[
+			/*insertBuyerMdCmhistoryGoodsItem*/
+ 			INSERT INTO ICOMCOD3 (
+				BUYER,
+ 				TYPE,
+				CODE1,
+				CODE2,
+				FLAG,
+				ADD_USER_ID,
+				ADD_DATE
+			) VALUES (
+				(SELECT BYCA_COMORG_CODE FROM ICOMCMPY WHERE COM_CODE = #{BUYER}),
+				'HIST_D',
+				#{BUYER_ITEM_NO},
+	 			#{USER_ID},
+				'Y',
+				#{USER_ID},
+				TO_CHAR(SYSDATE,'YYYYMMDD')
+			)
+		]]>
+	</update>
+</mapper>

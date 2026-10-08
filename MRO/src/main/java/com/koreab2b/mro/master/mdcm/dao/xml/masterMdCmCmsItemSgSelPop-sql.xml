@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mdcm">
+
+	<!--
+		상품정보 조회 및 관리 - 카테고리(KEPSGMG, 구 SG) 선택 팝업 목록.
+		※ 공용 팝업(commonPopupMprq.selectMasterMpRqSgChoicePop)과 달리 페이징이 없다.
+		   전량(dev 실측 152건)을 한 번에 내려주고 화면에서 체크박스로 복수 선택한다.
+	-->
+	<!--
+		★ 구매팀명·구매담당자명 2열이 목록에 붙고, 같은 두 축으로 검색한다.
+		   표시  = 정담당(CMSM · CODE2='1') 1명 — 목록 화면 그리드 `KEP_USER_NAME` 과 같은 규약.
+		   검색  = 정·부담당(CMSM·CMDSM) 모두 인정 — 목록 화면 조회조건 [10] 과 같은 규약.
+		   ⚠ 담당자 미배정 SG 는 두 열이 공란으로 내려온다(2026-09-03 현재 미적재, 정상).
+	-->
+	<select id="selectMasterMdCmCmsItemSgSelPopList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			SELECT /*selectMasterMdCmCmsItemSgSelPopList*/
+			       SG.SG_ID
+			     , SG.SG_NAME
+			     /* 구매담당자(정담당 SM 이름) */
+			     ,(SELECT MD.TEXT4
+			         FROM ICOMCOD3 MD
+			        WHERE MD.BUYER = 'KRKORE0001'
+			          AND MD.TYPE = 'CMSM'
+			          AND MD.CODE2 = '1'
+			          AND MD.FLAG = 'Y'
+			          AND MD.CODE1 = SG.SG_ID) AS KEP_USER_NAME
+			     /* 구매팀명 : 정담당의 소속 부서(SOURDEPT) 명칭 */
+			     ,(SELECT D.TEXT1
+			         FROM ICOMCOD3 MD, ICOMLUSR U, ICOMCOD1 D
+			        WHERE MD.BUYER = 'KRKORE0001'
+			          AND MD.TYPE = 'CMSM'
+			          AND MD.CODE2 = '1'
+			          AND MD.FLAG = 'Y'
+			          AND MD.CODE1 = SG.SG_ID
+			          AND U.USER_ID = TRIM(MD.TEXT1)
+			          AND D.TYPE = 'SOURDEPT'
+			          AND D.FLAG = 'Y'
+			          AND D.CODE = U.DEPARTMENT) AS KEP_DEPT_NAME
+			  FROM KEPSGMG SG
+			 WHERE SG.STATUS != 'D'
+		]]>
+		<if test="st_sg_id != null and st_sg_id != ''">
+			<![CDATA[	AND UPPER(SG.SG_ID) LIKE '%' || UPPER(#{st_sg_id}) || '%'	]]>
+		</if>
+		<if test="st_sg_nm != null and st_sg_nm != ''">
+			<![CDATA[	AND SG.SG_NAME LIKE '%' || #{st_sg_nm} || '%'	]]>
+		</if>
+		<!-- 구매팀명 드롭다운 : 그 팀 소속 담당자(정·부)가 붙어 있는 카테고리만 -->
+		<if test="st_kep_dept != null and st_kep_dept != ''">
+			<![CDATA[
+			AND EXISTS (SELECT 1
+			              FROM ICOMCOD3 MD, ICOMLUSR U
+			             WHERE MD.BUYER = 'KRKORE0001'
+			               AND MD.TYPE IN ('CMSM','CMDSM')
+			               AND MD.FLAG = 'Y'
+			               AND MD.CODE1 = SG.SG_ID
+			               AND U.USER_ID = TRIM(MD.TEXT1)
+			               AND U.DEPARTMENT = #{st_kep_dept})
+			]]>
+		</if>
+		<!-- 구매담당자명 : 그 담당자(정·부)가 붙어 있는 카테고리만 -->
+		<if test="st_kep_user_name != null and st_kep_user_name != ''">
+			<![CDATA[
+			AND EXISTS (SELECT 1
+			              FROM ICOMCOD3 MD
+			             WHERE MD.BUYER = 'KRKORE0001'
+			               AND MD.TYPE IN ('CMSM','CMDSM')
+			               AND MD.FLAG = 'Y'
+			               AND MD.CODE1 = SG.SG_ID
+			               AND UPPER(MD.TEXT4) LIKE '%' || UPPER(#{st_kep_user_name}) || '%')
+			]]>
+		</if>
+		<if test="st_my_user_id != null and st_my_user_id != ''">
+			<![CDATA[
+			AND EXISTS (SELECT 1
+			              FROM ICOMCOD3 MD
+			             WHERE MD.BUYER = 'KRKORE0001'
+			               AND MD.TYPE IN ('CMSM','CMDSM')
+			               AND MD.FLAG = 'Y'
+			               AND MD.CODE1 = SG.SG_ID
+			               AND TRIM(MD.TEXT1) = #{st_my_user_id})
+			]]>
+		</if>
+		<![CDATA[
+			 ORDER BY SG.SG_ID
+		]]>
+	</select>
+
+</mapper>

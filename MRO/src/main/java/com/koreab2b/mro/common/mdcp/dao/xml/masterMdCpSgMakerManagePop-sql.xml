@@ -1,0 +1,286 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="common.mdcp">
+
+	<!-- 회원사 정보 -->
+	<select id="selectMasterMdCpSgMakerManagePopIcomCod3List" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/* selectMasterMdCpSgMakerManagePopIcomCod3List */
+			SELECT
+			    (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = #{st_buyer_code}) AS BUYER_NAME,
+			    (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = #{st_agent_code}) AS AGENT_NAME,
+			    (SELECT TEXT1 FROM ICOMCOD3 WHERE BUYER = 'KRKORE0001' AND TYPE = 'SA01' AND CODE1 = #{st_buyer_code} AND CODE2 = #{st_agent_code}) AS TEXT1,
+			    (SELECT DECODE(COUNT(*),0,'NO','OK') FROM ICOMCOD3 WHERE BUYER ='KRKORE0001' AND TYPE = 'K001' AND FLAG = 'Y' AND CODE1 = #{st_user_id}) AS USER_ROLE
+			FROM DUAL
+		]]>
+	</select>	
+	
+	<!-- 회원사 정보 -->
+	<select id="selectMasterMdCpSgMakerManagePopKepSgList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/* selectMasterMdCpSgMakerManagePopKepSgList */
+		SELECT
+			X.BUYER
+			,X.AGENT
+			,X.SG_ID
+			,X.SG_NAME
+			,X.SG_ID
+			,X.APPROVAL_FLAG
+			,DECODE(X.APPROVAL_FLAG, 'Y', '품의완료', '품의대상') AS APPROVAL_TEXT
+			,X.TNT
+			,X.SIN_CON
+			,X.DEL_CON
+		FROM (
+		        SELECT
+		                S.BUYER AS BUYER
+		                ,S.AGENT AS AGENT
+		                ,S.SG_ID AS SG_ID
+		                ,MAX(SG.SG_NAME) AS SG_NAME
+		                ,MIN(S.APPROVAL_FLAG) AS APPROVAL_FLAG
+		                ,COUNT(*) AS TNT
+		                ,SUM(DECODE(S.STATUS, 'T', 1, 0)) AS SIN_CON
+		                ,SUM(DECODE(S.STATUS, 'D', 1, 0)) AS DEL_CON
+		        FROM DSS_S_BUYER_RESULT S, KEPSGMG SG
+		        WHERE S.BUYER = #{st_buyer_code}
+		        AND S.AGENT = #{st_agent_code}
+		        AND S.SG_ID = SG.SG_ID
+		        AND S.STATUS <> 'S'
+		        GROUP BY  S.BUYER, S.AGENT, S.SG_ID
+		) X
+		]]>
+		<if test="st_sg_status != null and st_sg_status != ''">
+		WHERE X.APPROVAL_FLAG = #{st_sg_status}
+		</if>
+		ORDER BY 3
+	</select>
+	
+	<select id="selectMasterMdCpSgMakerManagePopKepMkList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/* selectMasterMdCpSgMakerManagePopKepMgList */
+		SELECT
+			X.BUYER
+			,X.AGENT
+			,X.SG_ID
+			,X.MAKER_CODE
+			,X.MAKER_NAME
+			,X.STATUS
+			,X.APPROVAL_FLAG AS APPROVAL_FLAG
+			,DECODE(X.APPROVAL_FLAG, 'Y', '품의완료', '품의대상') AS APPROVAL_TEXT
+			,X.USER_NAME
+			,X.CREATE_USER_ID
+			,X.CREATE_DATE
+		FROM (
+			SELECT
+				S.BUYER AS BUYER
+				,S.AGENT AS AGENT
+				,S.SG_ID AS SG_ID
+				,M.CODE AS MAKER_CODE
+				,M.TEXT1 AS MAKER_NAME
+				,S.STATUS AS STATUS
+				,S.APPROVAL_FLAG AS APPROVAL_FLAG
+				,(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = S.CREATE_USER_ID) AS USER_NAME
+				,S.CREATE_USER_ID
+				,TO_CHAR(CREATE_DATE, 'YYYY/MM/DD HH24:MI:SS') AS CREATE_DATE
+			FROM DSS_S_BUYER_RESULT S, ICOMCOD1 M
+			WHERE S.BUYER = #{st_buyer_code}
+			AND S.AGENT = #{st_agent_code}
+			AND S.MAKER_CODE = M.CODE
+			AND M.TYPE = 'M104'
+			AND M.FLAG = 'Y'
+			AND S.STATUS <> 'S'
+			AND S.SG_ID = #{st_sg_id}
+		) X
+		]]>
+		<if test="st_mk_status != null and st_mk_status != ''">
+		WHERE X.APPROVAL_FLAG = #{st_mk_status}
+		</if>
+		ORDER BY 8,9
+	</select> 
+	
+	<select id="selectMasterMdCpSgMakerManagePopRemarkCheck" parameterType="java.util.Map" resultType="String">
+		<![CDATA[
+			SELECT
+				DECODE(COUNT(*),0,'NO','OK')
+			FROM ICOMCOD3
+			WHERE BUYER ='KRKORE0001'
+			AND TYPE  ='SA01'
+			AND CODE1 = #{st_buyer_code}
+			AND CODE2 = #{st_agent_code}
+		]]>
+	</select>
+	
+	<update id="updateMasterMdCpSgMakerManagePopRemark" parameterType="java.util.Map">
+		<![CDATA[
+			UPDATE ICOMCOD3 SET
+				TEXT1				= #{st_s_remark}
+				,ADD_USER_ID	= #{st_user_id}
+				,ADD_DATE		= TO_CHAR(SYSDATE, 'YYYYMMDD')
+				,FLAG				= 'Y'
+			WHERE BUYER = 'KRKORE0001'
+			AND TYPE = 'SA01'
+			AND CODE1 = #{st_buyer_code}
+			AND CODE2 = #{st_agent_code}
+		]]>
+	</update>		
+	
+	<update id="insertMasterMdCpSgMakerManagePopRemark" parameterType="java.util.Map">
+		<![CDATA[
+			INSERT INTO ICOMCOD3 (
+				BUYER
+				,TYPE
+				,CODE1
+				,CODE2
+				,TEXT1
+				,FLAG
+				,ADD_USER_ID
+				,ADD_DATE
+			) VALUES (
+				'KRKORE0001'
+				,'SA01'
+				,#{st_buyer_code}
+				,#{st_agent_code}
+				,#{st_s_remark}
+				,'Y'
+				,#{st_user_id}
+				,TO_CHAR(SYSDATE,'YYYYMMDD')
+			)
+		]]>
+	</update>
+	
+	<update id="insertMasterMdCpSgMakerManagePopKepMkList" parameterType="java.util.Map">
+		<![CDATA[
+			INSERT INTO DSS_S_BUYER_RESULT
+			(
+				BUYER
+				,AGENT
+				,SG_ID
+				,MAKER_CODE
+				,F_DATE
+				,T_DATE
+				,CREATE_DATE
+				,STATUS
+				,CREATE_USER_ID
+				,APPROVAL_FLAG
+			) VALUES (
+				#{st_buyer_code}
+				,#{st_agent_code}
+				,#{st_sg_id}
+				,#{MAKER_CODE}
+				,TO_CHAR(SYSDATE,'YYYYMMDD')
+				,'29991231'
+				,SYSDATE
+				,'T'
+				,#{st_user_id}
+				,'N'
+			)
+		]]>
+	</update>
+	
+	<update id="deleteMasterMdCpSgMakerManagePopKepSgList" parameterType="java.util.Map">
+		<![CDATA[
+			DELETE FROM DSS_S_BUYER_RESULT
+			WHERE BUYER = #{st_buyer_code}
+			AND AGENT = #{st_agent_code}
+			AND STATUS ='T'
+			AND APPROVAL_FLAG = 'N'
+			AND SG_ID IN
+		]]>	 
+		<foreach collection="sg_id_array" item="item" index="i" open="(" separator=","  close=")" >
+			#{item}
+		</foreach>
+	</update>
+	
+	<update id="updateMasterMdCpSgMakerManagePopKepSgList" parameterType="java.util.Map">
+		<![CDATA[
+			UPDATE DSS_S_BUYER_RESULT SET
+				STATUS		= 'D'
+				,APPROVAL_FLAG	= 'N'
+				,CREATE_USER_ID	= #{st_user_id}
+				,CREATE_DATE    = SYSDATE
+			WHERE BUYER = #{st_buyer_code}
+			AND AGENT = #{st_agent_code}
+			AND STATUS ='C'
+			AND APPROVAL_FLAG = 'Y'
+			AND SG_ID IN
+		]]>	 
+		<foreach collection="sg_id_array" item="item" index="i" open="(" separator=","  close=")" >
+			#{item}
+		</foreach>
+	</update>
+	
+	<update id="deleteMasterMdCpSgMakerManagePopKepMkList" parameterType="java.util.Map">
+		<![CDATA[
+			DELETE FROM DSS_S_BUYER_RESULT
+			WHERE BUYER = #{st_buyer_code}
+			AND AGENT = #{st_agent_code}
+			AND SG_ID = #{st_sg_id}
+			AND STATUS ='T'
+			AND APPROVAL_FLAG = 'N'
+			AND MAKER_CODE IN
+		]]>	 
+		<foreach collection="maker_code_array" item="item" index="i" open="(" separator=","  close=")" >
+			#{item}
+		</foreach>
+	</update>
+	
+	<update id="updateMasterMdCpSgMakerManagePopKepMkList" parameterType="java.util.Map">
+		<![CDATA[
+			UPDATE DSS_S_BUYER_RESULT SET
+				 STATUS		= 'D'
+				,APPROVAL_FLAG	= 'N'
+				,CREATE_USER_ID	= #{st_user_id}
+				,CREATE_DATE	= SYSDATE
+			WHERE BUYER = #{st_buyer_code}
+			AND AGENT = #{st_agent_code}
+			AND SG_ID = #{st_sg_id}
+			AND STATUS ='C'
+			AND APPROVAL_FLAG = 'Y'
+			AND MAKER_CODE IN
+		]]>	 
+		<foreach collection="maker_code_array" item="item" index="i" open="(" separator=","  close=")" >
+			#{item}
+		</foreach>
+	</update>
+	
+	<update id="updateMasterMdCpSgMakerManagePopModMkList" parameterType="java.util.Map">
+		<![CDATA[
+			UPDATE DSS_S_BUYER_RESULT SET
+				 STATUS		= 'C'
+				,APPROVAL_FLAG	= 'Y'
+				,CREATE_USER_ID	= #{st_user_id}
+				,CREATE_DATE	= SYSDATE
+			WHERE BUYER = #{st_buyer_code}
+			AND AGENT = #{st_agent_code}
+			AND SG_ID = #{st_sg_id}
+			AND STATUS ='D'
+			AND APPROVAL_FLAG = 'N'
+			AND MAKER_CODE IN
+		]]>
+		<foreach collection="maker_code_array" item="item" index="i" open="(" separator=","  close=")" >
+			#{item}
+		</foreach>
+	</update>
+	
+	<update id="updateMasterMdCpSgMakerManagePopConfMkList" parameterType="java.util.Map">
+		<![CDATA[
+			UPDATE DSS_S_BUYER_RESULT SET
+				 STATUS					= DECODE(STATUS,'T','C','D','S')
+				,APPROVAL_FLAG		= 'Y'
+				,APPROVAL_DATE		= SYSDATE
+				,APPROVAL_USER_ID	= #{st_user_id}
+			WHERE BUYER = #{st_buyer_code}
+			AND AGENT = #{st_agent_code}
+			AND SG_ID = #{st_sg_id}
+			AND STATUS <> 'S'
+			AND APPROVAL_FLAG = 'N'
+			AND MAKER_CODE IN
+		]]>
+		<foreach collection="maker_code_array" item="item" index="i" open="(" separator=","  close=")" >
+			#{item}
+		</foreach>
+	</update>
+	
+	
+	
+	
+</mapper>

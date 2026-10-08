@@ -1,0 +1,247 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.wmpg">
+
+	<!-- 조회 -->
+	<select id="selectMasterWmPgPrewarhsngDlvryRegList" parameterType="java.util.Map" resultType="java.util.Map">
+	/*selectMasterWmPgPrewarhsngDlvryRegList*/
+		<![CDATA[
+			SELECT
+			    X.STATUS_TEXT
+			  , X.PROCESS_TEXT
+			  , X.BS_NO /* 선입고 요청번호 */
+			  , X.INV_NO /* 송장번호 */
+			  , X.BEFORE_GR_DATE /* 요청일자 */
+			  , X.WMS_IVK_DATE AS IVK_DATE /* 출고일자 */
+			  , X.BUYER_NAME
+			  , X.AGENT_NAME || '(' || X.AGENT_TEL_NO || ')' AS AGENT_INFO
+			  , X.AGENT_NAME
+			  , X.AGENT_TEL_NO
+			  , X.MAKER_NAME
+			  , X.BUYER_ITEM_NO
+			  , X.DESCRIPTION
+			  , X.SPECIFICATION
+			  , X.ITEM_QTY
+			  , X.WMS_IVK_QTY AS IVK_QTY /* 출고지시수량 */
+			  , X.INV_QTY AS DELIVERY_QTY /* 출고수량 */
+			  , X.UNIT_MEASURE
+			  , X.UNIT_PRICE
+			  , X.INV_QTY * X.UNIT_PRICE AS UNIT_AMT
+			  , X.DELY_TO_LOCATION
+			  , X.REQ_USER_NAME || '(' || X.REQ_USER_TEL_NO || ')' AS REQ_USER_INFO
+			  , X.REQ_USER_NAME
+			  , X.REQ_USER_TEL_NO
+			  , X.DELIVERY_COMPANY
+			  , X.DELIVERY_NO
+			  , X.INV_NO AS IK_NO /* 송장번호 */
+			  , X.BUYER_CODE /* 히든필드 */
+			  , X.BUYER /* 히든필드 */
+			  , X.AGENT_CODE /* 히든필드 */
+			  , X.WAREHOUSE_CODE /* 히든필드 */
+			  , X.INV_SEQ /* 히든필드 */
+			  , X.CONTRACT_NO /* 히든필드 */
+			  , X.CONTRACT_SEQ /* 히든필드 */
+			FROM
+			(
+			    SELECT
+			        (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE=A.BUYER) AS BUYER_NAME
+			      , A.BEFORE_GR_DATE AS BEFORE_GR_DATE
+			      , A.PO_NO AS PO_NO
+			      , A.BUYER_ITEM_NO AS BUYER_ITEM_NO
+			      , A.DESCRIPTION AS DESCRIPTION
+			      , A.MAKER_NAME AS MAKER_NAME
+			      , A.UNIT_PRICE AS UNIT_PRICE
+			      , A.ITEM_QTY
+			      , A.REQ_USER_NAME
+			      , A.REQ_USER_DEPT_NAME
+			      , A.REQ_USER_TEL_NO
+			      , A.AGENT_NAME
+			      , A.AGENT_USER_NAME
+			      , A.AGENT_TEL_NO
+			      , A.KEP_USER_NAME
+			      , A.SPECIFICATION
+			      , A.ORIGIN_NAME
+			      , A.AGENT_PRICE
+			      , A.UNIT_MEASURE
+			      , A.BS_NO
+			      , A.BUYER AS BUYER_CODE
+			      , A.BUYER
+			      , A.CLOSE_ITEM_QTY
+			      , A.DELIVERY_FLAG
+			      , A.PROCESS_TYPE
+			      , A.DELY_TO_LOCATION
+			      , A.REQ_USER_ID
+			      , A.REQ_USER_DEPT_CODE
+			      , A.MAKER_CODE
+			      , A.ORIGIN_CODE
+			      , A.AGENT_CODE
+			      , A.AGENT_USER_ID
+			      , A.KEP_USER_ID
+			      , CASE 
+			            WHEN A.STATUS = 'D'        THEN 'BS99' /* 선입고취소 */
+			            WHEN A.DELIVERY_FLAG = 'Y' THEN 'BS40' /* 납품확정 */
+			            WHEN A.DELIVERY_FLAG = 'P' THEN 'BS30' /* 납품예정 */
+			            WHEN B.INV_NO IS NOT NULL  THEN 'BS20' /* 입고예정 */
+			            WHEN B.INV_NO IS NULL      THEN 'BS10' /* 요청 */
+			            ELSE NULL
+			        END AS STATUS
+			      , DECODE(B.INV_QTY,0,'입고예정',B.DELIVERY_QTY,'배송','배송예정') AS STATUS_TEXT
+			      , DECODE(A.PROCESS_TYPE,'2','TR','1','재고','3','VMI') AS PROCESS_TEXT
+			      , B.INV_QTY
+			      , C.WMS_GR_QTY
+			      , C.WMS_GR_DATE
+			      , C.WMS_IVK_QTY
+			      , C.WMS_IVK_DATE
+			      , C.ADD_DATE
+			      , A.WAREHOUSE_CODE
+			      , B.INV_NO
+			      , B.INV_SEQ
+			      , A.CONTRACT_NO
+			      , A.CONTRACT_SEQ
+			      , B.DELIVERY_COMPANY
+			      , B.DELIVERY_NO
+			    FROM
+			        KEP_BEFORE_STOCKED_MNG A /* 선입고관리 */
+			      , KEP_BEFORE_STOCKED_WMSIVDT B /* 선입고 물류센터 송장테이블 */
+			      , KEP_BEFORE_STOCKED_IVDT C /* 선입고송장상세 */
+			    WHERE 1=1
+			    AND A.BUYER = B.BUYER
+			    AND A.BS_NO = B.BS_NO
+			    AND A.BUYER = C.BUYER
+			    AND A.BS_NO = C.BS_NO
+		]]>
+		<if test="st_date_type == 'rd_date' ">
+		<![CDATA[
+			    AND A.BEFORE_GR_DATE >= #{st_from_date} /* 요청일FROM */
+			    AND A.BEFORE_GR_DATE <= #{st_to_date} /* 요청일TO */
+		]]>
+		</if>
+		<if test="st_date_type == 'sc_date' ">
+		<![CDATA[
+			    AND C.WMS_IVK_DATE >= #{st_from_date} /* 출고일FROM */
+			    AND C.WMS_IVK_DATE <= #{st_to_date} /* 출고일TO */
+		]]>
+		</if>
+		<if test="buyer_code_array != null and buyer_code_array != '' ">
+			    AND A.BUYER IN
+			<foreach item="item" index="index" collection="buyer_code_array" open="(" separator="," close=")">
+			        #{item}
+			</foreach>
+		</if>
+		<if test="st_warehouse_code != null and st_warehouse_code != '' ">
+			    AND A.WAREHOUSE_CODE = #{st_warehouse_code}
+		</if>
+		<if test="st_bs_no != null and st_bs_no != '' ">
+			    AND A.BS_NO LIKE '%' || #{st_bs_no} || '%'
+		</if>
+		<if test="st_buyer_item_no != null and st_buyer_item_no != '' ">
+			    AND A.BUYER_ITEM_NO LIKE '%' || #{st_buyer_item_no} || '%'
+		</if>
+		<if test="st_buyer_item_name != null and st_buyer_item_name != '' ">
+			    AND A.DESCRIPTION LIKE '%' || #{st_buyer_item_name} || '%'
+		</if>
+		<if test="st_job_type == 'A0' ">
+			    AND A.PROCESS_TYPE IN('1', '2', '3') /* 전체 */
+		</if>
+		<if test="st_job_type == 'A1' ">
+			    AND A.PROCESS_TYPE = '2' /* TR일 경우 */
+		</if>
+		<if test="st_job_type == 'A2' ">
+			    AND A.PROCESS_TYPE IN ('1', '3') /* 재고/VMI일 경우 */
+		</if>
+		<if test="st_inv_no != null and st_inv_no != '' ">
+			    AND B.INV_NO LIKE '%' || #{st_inv_no} || '%'
+		</if>
+		<![CDATA[
+			    AND B.INV_QTY <> 0
+			    AND B.DELIVERY_QTY = 0
+			    ORDER BY 
+			        A.BUYER
+			      , A.BS_NO DESC
+			) X
+		]]>
+	</select>
+	
+	<select id="selectMasterWmPgPrewarhsngDlvryRegList_Check_Yn" parameterType="java.util.Map" resultType="java.lang.String">
+	/*selectMasterWmPgPrewarhsngDlvryRegList_Check_Yn*/
+		<![CDATA[
+			SELECT
+			    DECODE(COUNT(*), 0, 'Y', 'N') AS CHECK_CNT
+			FROM
+			    KEP_BEFORE_STOCKED_WMSIVDT /* 선입고 물류센터 송장테이블 */
+			WHERE 1=1
+			AND INV_NO = #{INV_NO}
+			AND INV_SEQ = #{INV_SEQ}
+			AND BUYER = #{BUYER_CODE}
+			AND BS_NO = #{BS_NO}
+			AND STATUS <> 'D'
+			AND DELIVERY_QTY  <> 0 /* 배송이 진행된 경우 */
+		]]>
+	</select>
+
+
+	<!-- 저장(배송확정) -->
+	<update  id="updateMasterWmPgPrewarhsngDlvryReg_KEP_BEFORE_STOCKED_WMSIVDT" parameterType="java.util.Map" >
+		<![CDATA[
+			UPDATE KEP_BEFORE_STOCKED_WMSIVDT WIDT /* 선입고 물류센터 송장테이블 */
+			SET WIDT.STATUS = 'R'
+			  , WIDT.DELIVERY_DATE = #{st_ivk_date} /* DELIVERY_DATE */
+			  , WIDT.DELIVERY_USER_ID = #{st_user_id} /* DELIVERY_USER_ID */
+			  , WIDT.DELIVERY_QTY = NVL(WIDT.INV_QTY,0)
+			  , WIDT.DELIVERY_COMPANY = #{st_delivery_company} /* DELIVERY_COMPANY */
+			  , WIDT.DELIVERY_NO = #{st_delivery_no} /* DELIVERY_NO */
+			  , WIDT.CHANGE_DATE = TO_CHAR(SYSDATE,'YYYYMMDD')
+			  , WIDT.CHANGE_TIME = TO_CHAR(SYSDATE,'HH24MMSS')
+			WHERE 1=1
+			AND WIDT.WAREHOUSE_CODE = #{WAREHOUSE_CODE}
+			AND WIDT.BUYER = #{BUYER_CODE}
+			AND WIDT.INV_NO = #{INV_NO}
+			AND WIDT.INV_SEQ = #{INV_SEQ}
+			AND WIDT.STATUS <> 'D'
+		]]>
+	</update>
+
+	<update  id="updateMasterWmPgPrewarhsngDlvryReg_KEP_BEFORE_STOCKED_IVDT" parameterType="java.util.Map" >
+	/*updateMasterWmPgPrewarhsngDlvryReg_KEP_BEFORE_STOCKED_IVDT*/
+		<![CDATA[
+			UPDATE KEP_BEFORE_STOCKED_IVDT A /* 선입고송장상세 */
+			SET CHANGE_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD')
+			  , CHANGE_TIME = TO_CHAR(SYSDATE,'HH24MMSS')
+			  , GR_QTY = NVL((SELECT SUM(B.INV_QTY)
+			                    FROM WMSIVDT B
+			                   WHERE B.WAREHOUSE_CODE = #{WAREHOUSE_CODE}
+			                     AND A.BUYER = B.BUYER
+			                     AND A.INV_NO = B.S_INV_NO
+			                     AND A.INV_SEQ = B.S_INV_SEQ
+			                     AND B.STATUS <> 'D') ,0)
+			
+			  , DELIVERY_QTY = NVL(INV_QTY, 0) /* 물류센터배송수량 */
+			  , DELIVERY_USER_ID = #{st_user_id} /* 물류센터배송입력자 */
+			  , DELIVERY_DATE = TO_CHAR(SYSDATE,'YYYYMMDD')
+			WHERE 1=1
+			AND BUYER = #{BUYER_CODE}
+			AND BS_NO = #{BS_NO}
+		]]>
+	</update>
+
+	<update  id="updateMasterWmPgPrewarhsngDlvryReg_KEP_BEFORE_STOCKED_MNG" parameterType="java.util.Map" >
+	/*updateMasterWmPgPrewarhsngDlvryReg_KEP_BEFORE_STOCKED_MNG*/
+		<![CDATA[
+			UPDATE KEP_BEFORE_STOCKED_MNG A /* 선입고관리 */
+			SET A.CHANGE_DATE = TO_CHAR(SYSDATE,'YYYYMMDD')
+			  , A.CHANGE_TIME = TO_CHAR(SYSDATE,'HH24MMSS')
+			  , A.DI_QTY = NVL((SELECT SUM(B.DELIVERY_QTY)
+			                      FROM KEP_BEFORE_STOCKED_WMSIVDT B
+			                     WHERE B.WAREHOUSE_CODE = #{WAREHOUSE_CODE}
+			                       AND A.BUYER = B.BUYER
+			                       AND A.BS_NO = B.BS_NO
+			                       AND B.STATUS <> 'D'),0)
+			
+			WHERE 1=1
+			AND A.BUYER = #{BUYER_CODE}
+			AND A.BS_NO = #{BS_NO}
+		]]>
+	</update>
+
+</mapper>   
+   

@@ -1,0 +1,169 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.cmcl">
+	<!-- 조회 -->
+	<select id="selectMasterCmClSalesTaxsheetRemarkUploadList" parameterType="java.util.Map" resultType="java.util.Map">
+	<![CDATA[
+		SELECT	/* selectMasterCmClSalesTaxsheetRemarkUploadList */
+				X.DOC_NAME,
+				X.TARGET,
+				X.KEY_1,
+				X.KEY_2,
+				X.KEY_3,
+				X.KEY_4,
+				X.KEY_5,
+				X.KEY_6,
+				X.KEY_7,
+				X.KEY_8,
+				X.KEY_9,
+				X.KEY_10,
+				X.KEY_11,
+				X.KEY_12,
+				X.SUPP_PRICE AS AR_SUPP_PRICE,
+				X.TAX_PRICE AS AR_TAX_PRICE,
+				X.BILL_SEND_ERR_CHK,
+				X.CONFIRM_ERR_CHK,
+				X.USER_ERR_CHK,
+				X.TOT_SUPP_PRICE_ERR_CHK,
+				X.TOT_TAX_PRICE_ERR_CHK,
+				CASE	WHEN X.USER_ERR_CHK = 'Y' THEN '매출세금계산서 발행자 미일치'
+					    WHEN X.BILL_SEND_ERR_CHK = 'Y' THEN '매출세금계산서 발행'
+					    WHEN X.CONFIRM_ERR_CHK = 'Y' THEN '매출세금계산서 확정'
+					    WHEN X.TOT_SUPP_PRICE_ERR_CHK = 'Y' THEN '공급가액 미일치'
+					    WHEN X.TOT_TAX_PRICE_ERR_CHK = 'Y' THEN '세액 미일치'
+					    ELSE '정상'
+				END AS STATUS
+		FROM	(
+				SELECT	A.DOC_NAME,
+						A.TARGET,
+						A.KEY_1,
+						A.KEY_2,
+						A.KEY_3,
+						A.KEY_4,
+						A.KEY_5,
+						A.KEY_6,
+						A.KEY_7,
+						A.KEY_8,
+						A.KEY_9,
+						A.KEY_10,
+						A.KEY_11,
+						A.KEY_12,
+						DECODE((SELECT COUNT(*) FROM XXSB_DTI_MAIN WHERE SEQ_ID = A.TARGET), 0, 'N', 'Y') AS BILL_SEND_ERR_CHK,
+						DECODE((SELECT COUNT(*) FROM KEPTARDT WHERE TAX_BILL_NO = A.TARGET AND CONFIRM_FLAG = 'Y'), 0, 'N', 'Y') AS CONFIRM_ERR_CHK,
+						DECODE((SELECT COUNT(*) FROM KEPTARDT WHERE TAX_BILL_NO = A.TARGET AND ADD_USER_ID = A.KEY_9), 0, 'Y', 'N') AS USER_ERR_CHK,
+						B.SUPP_PRICE,
+						B.TAX_PRICE,
+						DECODE((SELECT DISTINCT TOT_SUPP_PRICE FROM KEPTARDT WHERE TAX_BILL_NO = B.TARGET), B.SUPP_PRICE, 'N', 'Y') AS TOT_SUPP_PRICE_ERR_CHK,
+						DECODE((SELECT DISTINCT TOT_TAX_PRICE FROM KEPTARDT WHERE TAX_BILL_NO = B.TARGET), B.TAX_PRICE, 'N', 'Y') AS TOT_TAX_PRICE_ERR_CHK
+				FROM	BNTTRXL A,
+				(
+					SELECT	TARGET,
+							SUM(KEY_6) AS SUPP_PRICE,
+							SUM(KEY_7) AS TAX_PRICE
+					FROM	BNTTRXL
+					WHERE	1=1
+					AND		DOC_NAME = 'AR_REMARK'
+					AND		KEY_9 = #{st_user_id}
+					GROUP BY TARGET
+				) B
+				WHERE	1=1
+				AND		A.DOC_NAME = 'AR_REMARK'
+				AND		A.KEY_9 =  #{st_user_id}
+				AND		A.TARGET = B.TARGET
+		) X
+		ORDER BY TO_NUMBER(KEY_12)
+	]]>
+	</select>
+	
+	<update id="setBnttrxlUploadDel" parameterType="java.util.Map" >
+		<![CDATA[
+		/*setBnttrxlUploadDel*/
+		DELETE FROM	BNTTRXL
+		WHERE		1=1
+		AND			DOC_NAME = #{DOC_NAME}
+		AND			KEY_9 = #{ST_USER_ID}
+		]]> 
+	</update>
+	
+	<update id="setBnttrxlUploadReg" parameterType="java.util.Map" >
+		<![CDATA[
+		/*setBnttrxlUploadReg*/
+		INSERT INTO BNTTRXL	(
+			DOC_NAME,
+			TARGET,
+			KEY_1,
+			KEY_2,
+			KEY_3,
+			KEY_4,
+			KEY_5,
+			KEY_6,
+			KEY_7,
+			KEY_8,
+			KEY_9,
+			KEY_10,
+			KEY_11,
+			KEY_12,
+			KEY_13,
+			KEY_14,
+			KEY_15
+		) VALUES(
+			#{DOC_NAME},
+			#{TARGET},
+			(SELECT LPAD(NVL(MAX(KEY_1), 0)+1, 6, 0)  FROM BNTTRXL WHERE DOC_NAME = #{DOC_NAME} AND TARGET = #{TARGET} AND KEY_9 = #{ST_USER_ID}),
+			DECODE(TRIM(#{KEY_2}), '', ' ', #{KEY_2}),
+			DECODE(TRIM(#{KEY_3}), '', ' ', #{KEY_3}),
+			DECODE(TRIM(#{KEY_4}), '', ' ', #{KEY_4}),
+			DECODE(TRIM(#{KEY_5}), '', ' ', #{KEY_5}),
+			DECODE(TRIM(#{KEY_6}), '', ' ', #{KEY_6}),
+			DECODE(TRIM(#{KEY_7}), '', ' ', #{KEY_7}),
+			DECODE(TRIM(#{KEY_8}), '', ' ', #{KEY_8}),
+			#{ST_USER_ID},
+			TO_CHAR(SYSDATE, 'YYYYMMDD'),
+			TO_CHAR(SYSDATE, 'HH24MISS'),
+			(SELECT TO_NUMBER(NVL(MAX(KEY_1), 0))+1 FROM BNTTRXL WHERE DOC_NAME = #{DOC_NAME} AND KEY_9 = #{ST_USER_ID}),
+			' ',
+			' ',
+			' '	
+		)          
+		]]> 
+	</update>
+	
+	<update id="setKeptitemUploadDel" parameterType="java.util.Map" >
+		<![CDATA[
+		/*setKeptitemUploadDel*/
+		DELETE FROM	KEPTITEM
+		WHERE		1=1
+		AND			TAX_BILL_NO IN (SELECT TAX_BILL_NO FROM KEPTARDT WHERE TAX_BILL_NO = #{TARGET} AND ADD_USER_ID = #{ST_USER_ID})
+		]]> 
+	</update>
+	
+	<update id="setKeptitemUploadReg" parameterType="java.util.Map" >
+		<![CDATA[
+		/*setKeptitemUploadReg*/
+		INSERT INTO KEPTITEM	(
+			TAX_BILL_NO,
+			ITEM_SEQ,
+			REMARK_DESCRIPTION,
+			REMARK_SPECIFICATION,
+			REMARK_QTY,
+			REMARK_PRICE,
+			SUPP_PRICE,
+			TAX_PRICE,
+			REMARK_DATE,
+			REMARK
+		) VALUES(
+			#{TARGET},
+			(SELECT LPAD(NVL(MAX(ITEM_SEQ), 0)+1, 6, 0)  FROM KEPTITEM WHERE TAX_BILL_NO = #{TARGET}),
+			#{KEY_2},
+			#{KEY_3},
+			#{KEY_4},
+			TRUNC(#{KEY_5}),
+			TRUNC(#{KEY_6}),
+			TRUNC(#{KEY_7}),
+			TO_CHAR(SYSDATE, 'YYYYMMDD'),
+			#{KEY_8}
+		)          
+		]]> 
+	</update>
+</mapper>   
+   

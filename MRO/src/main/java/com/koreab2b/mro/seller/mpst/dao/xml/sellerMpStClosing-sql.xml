@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="seller.mpst">
+	
+	<!-- 조회 -->
+	<select id="selectSellerMpStClosingList" parameterType="java.util.Map" resultType="java.util.Map">
+	/*selectSellerMpStClosingList*/
+		<include refid="common.ibsheet.xml.jsppagestart"/>
+		<![CDATA[
+			SELECT
+			    A.PO_NO /* 발주번호 */
+			  , A.GR_NO /* 출고번호 */
+			  , A.DESCRIPTION /* 품목명 */
+			  , A.SPECIFICATION /* 규격 */
+			  , A.ITEM_QTY /* 출고수량 */
+			  , A.AGENT_PRICE /* 단가 */
+			  , A.AGENT_ITEM_AMT /* 총금액 */
+			  , A.GR_DATE /* 출고일자 */
+			  , #{st_buyer_code} AS BUYER_CODE /* 고객사코드 */
+			  , #{st_buyer_name} AS BUYER_NAME /* 고객사명 */
+			FROM 
+			    ICOMGRDT A /* 구매사별 입고정보 */
+			  , ICOMPODT C /* 발주 제품정보 */
+			WHERE 1=1
+			AND A.BUYER = C.BUYER
+			AND A.PO_NO = C.PO_NO
+			AND A.PO_SEQ = C.PO_SEQ
+			AND A.STATUS <> 'D'
+			AND C.WAREHOUSE_CODE = #{st_com_code}
+			AND A.BUYER = #{st_buyer_code}
+			AND C.PROCESS_TYPE = '3'
+			AND A.GR_DATE BETWEEN #{st_from_date} AND #{st_to_date}
+			ORDER BY
+			    PO_NO
+ 		]]>  
+		<include refid="common.ibsheet.xml.jsppageend"/>	
+	</select>
+
+	<!-- 조회_v2 (향상된 마감 내역 조회) -->
+	<select id="selectSellerMpStClosingList_v2" parameterType="java.util.Map" resultType="java.util.Map">
+	/*selectSellerMpStClosingList_v2*/
+		<include refid="common.ibsheet.xml.jsppagestart"/>
+		<![CDATA[
+			SELECT
+			    X.AP_CLOSE_MONTH /* 마감월 */
+			  , (SELECT COM_NAME_LOC FROM ICOMCMPY
+			     WHERE COM_CODE = X.BUYER) AS BUYER_NM /* 고객사명 */
+			  , X.PO_NO /* 발주번호 */
+			  , X.BUYER_ITEM_NO /* 고객사품번 */
+			  , X.DESCRIPTION /* 품목명 */
+			  , X.SPECIFICATION /* 규격 */
+			  , X.ITEM_QTY /* 수량 */
+			  , X.AGENT_PRICE /* 단가 */
+			  , X.AGENT_ITEM_AMT /* 총금액 */
+			  , X.GR_DATE /* 출고일자 */
+			  , X.DELIVERY_DATE /* 납품일자 */
+			  , (SELECT USER_NAME_LOC FROM ICOMLUSR
+			     WHERE USER_ID = X.ADD_USER_ID) AS KEP_USER_NM /* 담당자명 */
+			  , (SELECT PHONE_NUMBER FROM ICOMLUSR
+			     WHERE USER_ID = X.ADD_USER_ID) AS PHONE_NUMBER /* 연락처 */
+			  , X.AP_TAX_BILL_NO /* 세금계산서번호 */
+			  , X.BUYER /* 고객사코드 */
+			FROM (
+			    -- 일반 출고 데이터
+			    SELECT
+			        GRDT.AP_CLOSE_MONTH
+			      , GRDT.BUYER
+			      , GRDT.PO_NO
+			      , GRDT.BUYER_ITEM_NO
+			      , GRDT.DESCRIPTION
+			      , GRDT.SPECIFICATION
+			      , SUM(GRDT.ITEM_QTY) AS ITEM_QTY
+			      , GRDT.AGENT_PRICE
+			      , SUM(GRDT.AGENT_ITEM_AMT) AS AGENT_ITEM_AMT
+			      , GRDT.GR_DATE
+			      , MAX((SELECT MAX(DELIVERY_DATE) FROM ICOMIVDT
+			             WHERE BUYER = GRDT.BUYER
+			             AND PO_NO = GRDT.PO_NO
+			             AND PO_SEQ = GRDT.PO_SEQ
+			             AND STATUS != 'D'
+			             AND DELIVERY_DATE IS NOT NULL)) AS DELIVERY_DATE
+			      , GRDT.AP_TAX_BILL_NO
+			      , (SELECT MAX(ADD_USER_ID) FROM KEPTAPDT
+			         WHERE TAX_BILL_NO = GRDT.AP_TAX_BILL_NO) AS ADD_USER_ID
+			    FROM ICOMGRDT GRDT
+			    WHERE GRDT.AGENT = #{st_agent} /* 공급사코드 */
+			    AND GRDT.AP_CLOSE_MONTH = #{st_close_month} /* 마감월 */
+			    AND GRDT.PROCESS_TYPE != '3' /* HUB 거래가 아닌 일반 거래 */
+			    GROUP BY
+			        GRDT.AP_CLOSE_MONTH
+			      , GRDT.BUYER
+			      , GRDT.PO_NO
+			      , GRDT.BUYER_ITEM_NO
+			      , GRDT.DESCRIPTION
+			      , GRDT.SPECIFICATION
+			      , GRDT.AGENT_PRICE
+			      , GRDT.GR_DATE
+			      , GRDT.AP_TAX_BILL_NO
+
+			    UNION
+
+			    -- HUB 거래 출고 데이터
+			    SELECT
+			        GRDT.AP_CLOSE_MONTH
+			      , GRDT.BUYER
+			      , GRDT.PO_NO
+			      , GRDT.BUYER_ITEM_NO
+			      , GRDT.DESCRIPTION
+			      , GRDT.SPECIFICATION
+			      , SUM(GRDT.ITEM_QTY) AS ITEM_QTY
+			      , GRDT.AGENT_PRICE
+			      , SUM(GRDT.AGENT_ITEM_AMT) AS AGENT_ITEM_AMT
+			      , GRDT.GR_DATE
+			      , MAX((SELECT MAX(DELIVERY_DATE) FROM ICOMIVDT
+			             WHERE BUYER = GRDT.BUYER
+			             AND PO_NO = GRDT.PO_NO
+			             AND PO_SEQ = GRDT.PO_SEQ
+			             AND STATUS != 'D'
+			             AND DELIVERY_DATE IS NOT NULL)) AS DELIVERY_DATE
+			      , GRDT.AP_TAX_BILL_NO
+			      , (SELECT MAX(ADD_USER_ID) FROM KEPTAPDT
+			         WHERE TAX_BILL_NO = GRDT.AP_TAX_BILL_NO) AS ADD_USER_ID
+			    FROM ICOMGRDT GRDT
+			       , WMSIVDT IVDT
+			    WHERE 1=1
+			    AND GRDT.AGENT IN (SELECT CODE FROM ICOMCOD1 WHERE TYPE = 'HUB') /* HUB 공급사 */
+			    AND GRDT.AP_CLOSE_MONTH = #{st_close_month} /* 마감월 */
+			    AND GRDT.PROCESS_TYPE = '3' /* HUB 거래 */
+			    AND GRDT.BUYER = IVDT.BUYER
+			    AND GRDT.PO_NO = IVDT.PO_NO
+			    AND GRDT.PO_SEQ = IVDT.PO_SEQ
+			    AND GRDT.INV_NO = IVDT.INV_NO
+			    AND GRDT.INV_SEQ = IVDT.INV_SEQ
+			    AND IVDT.AGENT = #{st_agent} /* 실제 공급사코드 */
+			    GROUP BY
+			        GRDT.AP_CLOSE_MONTH
+			      , GRDT.BUYER
+			      , GRDT.PO_NO
+			      , GRDT.BUYER_ITEM_NO
+			      , GRDT.DESCRIPTION
+			      , GRDT.SPECIFICATION
+			      , GRDT.AGENT_PRICE
+			      , GRDT.GR_DATE
+			      , GRDT.AP_TAX_BILL_NO
+			) X
+			ORDER BY
+			    X.BUYER
+			  , X.PO_NO
+ 		]]>
+		<include refid="common.ibsheet.xml.jsppageend"/>
+	</select>
+
+</mapper>

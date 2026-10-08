@@ -1,0 +1,304 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="common.mpiv">
+
+	<select id="selectMasterMpIvQuotationSendDelayPopList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.pagestart"/>	
+		<![CDATA[
+			/*selectMasterMpIvQuotationSendDelayPopList*/
+			SELECT  MAX((SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE=A.BUYER)) AS BUYER_NAME,
+				        A.QUOTATION_NO,
+				        MAX(A.BUYER_ITEM_NO) AS BUYER_ITEM_NO,
+				        MAX(A.DESCRIPTION) AS DESCRIPTION,
+				        MAX(A.MAKER_NAME) AS MAKER_NAME,
+				        MAX(A.UNIT_MEASURE) AS UNIT_MEASURE,
+				        MAX(A.BTOA_DATE) AS BTOA_DATE,
+				        MAX(A.BTOA_USER_NAME) AS BTOA_USER_NAME,
+				        MAX(NVL((SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID=A.KEP_USER_ID),'')) AS KEP_USER_NAME,
+				        MAX(TRUNC(TO_DATE(TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'),'YYYYMMDDHH24MISS')-TO_DATE(A.BTOA_END_DATE,'YYYYMMDDHH24MISS'))) AS DELAY_DAY,
+				        CASE WHEN MAX(A.RECV_FLAG)='GD' THEN '견적취소'
+				            ELSE CASE WHEN MAX(A.RECV_FLAG) = 'GS' THEN '결재진행중'
+				            ELSE CASE WHEN MAX(A.RECV_FLAG) = 'GR' THEN '결재반려'
+				            ELSE CASE WHEN MAX(A.RECV_FLAG)='PM' THEN '내부품의및카탈로그등록중'
+				            ELSE CASE WHEN MAX(A.RECV_FLAG)='CC' THEN '장바구니'
+				            ELSE CASE WHEN MAX(A.RECV_FLAG)='CM' THEN '합의완료'
+				            ELSE CASE WHEN MAX(A.RECV_FLAG)='PC' THEN '발주'
+				            ELSE CASE WHEN MAX(A.RECV_FLAG)='NW' THEN 'CMS매핑의뢰'
+				            ELSE CASE WHEN MAX(A.RECV_FLAG)='CR' THEN 'CMS매핑중'
+				            ELSE CASE WHEN MAX(A.RECV_FLAG)='RJ' THEN 'CMS재요청'
+				            ELSE CASE WHEN MAX(A.KEP_USER_ID) IS NULL THEN '구매사견적의뢰'
+				            ELSE CASE WHEN MAX(B.AGENT_REVISION)=1 AND MAX(A.ATOB_UNIT_PRICE)=0 AND MAX(A.ATOB_SEND_FLAG)='N' AND MAX(B.BID_SUCCESS_FLAG)<>'Y' THEN '공급사견적요청'
+				            ELSE CASE WHEN MAX(B.AGENT_REVISION)<>1 AND MAX(A.ATOB_UNIT_PRICE)=0 AND MAX(A.ATOB_SEND_FLAG)='N' THEN '공급사재견적요청'
+				            ELSE CASE WHEN MAX(A.ATOB_UNIT_PRICE)=0 AND MAX(A.ATOB_SEND_FLAG)='N' AND MAX(B.BID_SUCCESS_FLAG)='Y' THEN '공급사선정완료'
+				            ELSE CASE WHEN MAX(A.BTOA_NEGO_PRICE)=0 AND MAX(A.ATOB_UNIT_PRICE)<>0 AND MAX(A.ATOB_SEND_FLAG)='Y' THEN '구매사견적제시'
+				            ELSE CASE WHEN MAX(A.BTOA_NEGO_PRICE)<>0 AND MAX(A.ATOB_UNIT_PRICE)=0 AND MAX(A.ATOB_SEND_FLAG)='Y' THEN '구매사NEGO의뢰'
+				            ELSE CASE WHEN MAX(A.BTOA_NEGO_PRICE)<>0 AND MAX(A.ATOB_UNIT_PRICE)<>0 AND MAX(A.ATOB_SEND_FLAG)='Y' THEN '구매사NEGO견적제출'
+				        END END END END END END END END END END END END END END END END END AS SOURCING_STATUS,
+				        MAX(A.SPECIFICATION) AS SPECIFICATION,
+				        MAX((SELECT TEXT2 FROM ICOMCOD1 WHERE TYPE='M001' AND CODE=A.ORIGIN_CODE)) AS ORIGIN_NAME,
+				        MAX(A.ITEM_QTY) AS ITEM_QTY,
+				        MAX(A.BTOA_END_DATE) AS BTOA_END_DATE,
+				        MAX(A.BTOA_USER_TEL) AS BTOA_USER_TEL,
+				        MAX(B.ATOS_END_DATE) AS ATOS_END_DATE,
+				        MAX(A.BUYER) AS BUYER,
+				        MAX(A.QUOTATION_SEQ) AS QUOTATION_SEQ,
+				        MAX(A.REVISION) AS REVISION,
+				        DECODE(MAX(A.DELAY_REASON_CODE),'','0','1') AS DELAY_REASON_IMG,
+				        MAX(A.DELAY_REASON_CODE) AS DELAY_REASON_CODE,
+				        MAX(A.DELAY_RESION_NOTE) AS DELAY_RESION_NOTE,
+				        MAX(A.DELAY_SEND_MAIL_FLAG) AS DELAY_SEND_MAIL_FLAG
+			  FROM  KEPRQDT A
+				      , KEPQTDT B
+				      , KEP_PM_PA_LIST C
+			 WHERE  A.BUYER=#{st_buyer}
+			    AND A.BTOA_DATE>='20090101'
+			    AND A.BUYER=C.BUYER
+			    AND A.QUOTATION_NO=C.KEY1
+			    AND A.QUOTATION_SEQ=C.KEY2
+			    AND A.REVISION=C.KEY3
+			    AND A.ITEM_GROUP=C.KEY4
+			    AND A.ITEM_GROUP=#{st_item_group}
+			    AND C.GUBUN='QT_DELAY'
+			    AND A.STATUS ^='D'
+			    AND A.RECV_FLAG='GA'
+			    AND A.SO_CA_FLAG='SO'
+			    AND A.ATOB_SEND_FLAG='N'
+			    AND TO_CHAR(TO_DATE(A.BTOA_END_DATE,'YYYYMMDD')+1,'YYYYMMDD')<=TO_CHAR(SYSDATE,'YYYYMMDD')
+			    AND TO_CHAR(TO_DATE(A.BTOA_END_DATE,'YYYYMMDD')+7,'YYYYMMDD')>TO_CHAR(SYSDATE,'YYYYMMDD')
+			    AND A.BUYER=B.BUYER(+)
+			    AND A.QUOTATION_NO=B.QUOTATION_NO(+)
+			    AND A.QUOTATION_SEQ=B.QUOTATION_SEQ(+)
+			    AND A.REVISION=B.REVISION(+)
+			    AND B.STATUS(+)='C'
+			  GROUP BY A.BUYER, A.QUOTATION_NO, A.QUOTATION_SEQ, A.REVISION
+		]]>
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+
+	<select id="selectMasterMpIvQuotationSendLngtermDelayPopList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.pagestart"/>	
+		<![CDATA[
+			/*selectMasterMpIvQuotationSendLngtermDelayPopList*/
+			SELECT  MAX((SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE=A.BUYER)) AS BUYER_NAME,
+				        A.QUOTATION_NO,
+				        MAX(A.BUYER_ITEM_NO) AS BUYER_ITEM_NO,
+				        MAX(A.DESCRIPTION) AS DESCRIPTION,
+				        MAX(A.MAKER_NAME) AS MAKER_NAME,
+				        MAX(A.UNIT_MEASURE) AS UNIT_MEASURE,
+				        MAX(A.BTOA_DATE) AS BTOA_DATE,
+				        MAX(A.BTOA_USER_NAME) AS BTOA_USER_NAME,
+				        MAX(NVL((SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID=A.KEP_USER_ID),'')) AS KEP_USER_NAME,
+				        MAX(TRUNC(TO_DATE(TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'),'YYYYMMDDHH24MISS')-TO_DATE(A.BTOA_END_DATE,'YYYYMMDDHH24MISS'))) AS DELAY_DAY,
+				        CASE WHEN MAX(A.RECV_FLAG)='GD' THEN '견적취소'
+				            ELSE CASE WHEN MAX(A.RECV_FLAG) = 'GS' THEN '결재진행중'
+				            ELSE CASE WHEN MAX(A.RECV_FLAG) = 'GR' THEN '결재반려'
+				            ELSE CASE WHEN MAX(A.RECV_FLAG)='PM' THEN '내부품의및카탈로그등록중'
+				            ELSE CASE WHEN MAX(A.RECV_FLAG)='CC' THEN '장바구니'
+				            ELSE CASE WHEN MAX(A.RECV_FLAG)='CM' THEN '합의완료'
+				            ELSE CASE WHEN MAX(A.RECV_FLAG)='PC' THEN '발주'
+				            ELSE CASE WHEN MAX(A.RECV_FLAG)='NW' THEN 'CMS매핑의뢰'
+				            ELSE CASE WHEN MAX(A.RECV_FLAG)='CR' THEN 'CMS매핑중'
+				            ELSE CASE WHEN MAX(A.RECV_FLAG)='RJ' THEN 'CMS재요청'
+				            ELSE CASE WHEN MAX(A.KEP_USER_ID) IS NULL THEN '구매사견적의뢰'
+				            ELSE CASE WHEN MAX(B.AGENT_REVISION)=1 AND MAX(A.ATOB_UNIT_PRICE)=0 AND MAX(A.ATOB_SEND_FLAG)='N' AND MAX(B.BID_SUCCESS_FLAG)<>'Y' THEN '공급사견적요청'
+				            ELSE CASE WHEN MAX(B.AGENT_REVISION)<>1 AND MAX(A.ATOB_UNIT_PRICE)=0 AND MAX(A.ATOB_SEND_FLAG)='N' THEN '공급사재견적요청'
+				            ELSE CASE WHEN MAX(A.ATOB_UNIT_PRICE)=0 AND MAX(A.ATOB_SEND_FLAG)='N' AND MAX(B.BID_SUCCESS_FLAG)='Y' THEN '공급사선정완료'
+				            ELSE CASE WHEN MAX(A.BTOA_NEGO_PRICE)=0 AND MAX(A.ATOB_UNIT_PRICE)<>0 AND MAX(A.ATOB_SEND_FLAG)='Y' THEN '구매사견적제시'
+				            ELSE CASE WHEN MAX(A.BTOA_NEGO_PRICE)<>0 AND MAX(A.ATOB_UNIT_PRICE)=0 AND MAX(A.ATOB_SEND_FLAG)='Y' THEN '구매사NEGO의뢰'
+				            ELSE CASE WHEN MAX(A.BTOA_NEGO_PRICE)<>0 AND MAX(A.ATOB_UNIT_PRICE)<>0 AND MAX(A.ATOB_SEND_FLAG)='Y' THEN '구매사NEGO견적제출'
+				        END END END END END END END END END END END END END END END END END AS SOURCING_STATUS,
+				        MAX(A.SPECIFICATION) AS SPECIFICATION,
+				        MAX((SELECT TEXT2 FROM ICOMCOD1 WHERE TYPE='M001' AND CODE=A.ORIGIN_CODE)) AS ORIGIN_NAME,
+				        MAX(A.ITEM_QTY) AS ITEM_QTY,
+				        MAX(A.BTOA_END_DATE) AS BTOA_END_DATE,
+				        MAX(A.BTOA_USER_TEL) AS BTOA_USER_TEL,
+				        MAX(B.ATOS_END_DATE) AS ATOS_END_DATE,
+				        MAX(A.BUYER) AS BUYER,
+				        MAX(A.QUOTATION_SEQ) AS QUOTATION_SEQ,
+				        MAX(A.REVISION) AS REVISION,
+				        DECODE(MAX(A.DELAY_REASON_CODE),'','0','1') AS DELAY_REASON_IMG,
+				        MAX(A.DELAY_REASON_CODE) AS DELAY_REASON_CODE,
+				        MAX(A.DELAY_RESION_NOTE) AS DELAY_RESION_NOTE,
+				        MAX(A.DELAY_SEND_MAIL_FLAG) AS DELAY_SEND_MAIL_FLAG
+			  FROM  KEPRQDT A, KEPQTDT B, KEP_PM_PA_LIST C
+			 WHERE  A.BUYER = #{st_buyer}
+			    AND A.BTOA_DATE>='20090101'
+			    AND A.BUYER=C.BUYER
+			    AND A.QUOTATION_NO=C.KEY1
+			    AND A.QUOTATION_SEQ=C.KEY2
+			    AND A.REVISION=C.KEY3
+			    AND A.ITEM_GROUP = C.KEY4
+			    AND A.ITEM_GROUP = #{st_item_group}
+			    AND C.GUBUN='QT_LONG_DELAY'
+			    AND A.STATUS ^='D'
+			    AND A.RECV_FLAG='GA'
+			    AND A.SO_CA_FLAG='SO'
+			    AND A.ATOB_SEND_FLAG='N'
+			    AND TO_CHAR(TO_DATE(A.BTOA_END_DATE,'YYYYMMDD')+7,'YYYYMMDD')<=TO_CHAR(SYSDATE,'YYYYMMDD')
+			    AND A.BUYER=B.BUYER(+)
+			    AND A.QUOTATION_NO=B.QUOTATION_NO(+)
+			    AND A.QUOTATION_SEQ=B.QUOTATION_SEQ(+)
+			    AND A.REVISION=B.REVISION(+)
+			    AND B.STATUS(+)='C'
+			  GROUP BY A.BUYER, A.QUOTATION_NO, A.QUOTATION_SEQ, A.REVISION
+		]]>
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+	
+	<update id="insertMasterMpIvQuotationSendDelayReasonPop" parameterType="java.util.Map" >
+		<![CDATA[
+			/*insertMasterMpIvQuotationSendDelayReasonPop*/
+			INSERT INTO KEP_RFQ_DELY_MNG (
+			    BUYER,
+			    QUOTATION_NO,
+			    QUOTATION_SEQ,
+			    REVISION,
+			    SEQ,
+			    KEP_USER_ID,
+			    SUPPLIER_USER_NAME,
+			    CREATE_DATE,
+			    REASON_CODE,
+			    REASON_REMARK
+			) VALUES (
+			    #{st_buyer},
+			    #{st_quotation_no},
+			    #{st_quotation_seq},
+			    #{st_revision},
+			    ( SELECT  NVL(MAX(SEQ),0)+1 
+			        FROM  KEP_RFQ_DELY_MNG 
+			       WHERE  BUYER=#{st_buyer}
+			          AND QUOTATION_NO=#{st_quotation_no}
+			          AND QUOTATION_SEQ=#{st_quotation_seq}
+			          AND REVISION=#{st_revision} ),
+			    #{st_kep_user_id},
+			    #{st_supplier_user_name},
+			    SYSDATE,    
+			    #{st_reason_code},
+			    #{st_reason_remark}
+			)
+		]]>
+	</update>
+	<select id="selectRqdtDelayReasonPopList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*common.mpiv.selectRqdtDelayReasonPopList*/
+		SELECT
+			RQDT.QUOTATION_NO
+			,RQDT.DELAY_REASON_CODE
+			,RQDT.DELAY_RESION_NOTE
+			,RQDT.DELAY_SEND_MAIL_FLAG
+			,RQDT.DELAY_USER_ID
+			,RQDT.DELAY_DATE
+			FROM KEPRQDT RQDT
+		WHERE RQDT.BUYER = #{st_buyer}
+		AND RQDT.QUOTATION_NO = #{st_quotation_no}
+		AND RQDT.QUOTATION_SEQ = #{st_quotation_seq}
+		AND RQDT.REVISION = #{st_revision}
+		]]>
+	</select>
+	<update id="updateMasterMpIvQuotationSendDelayReasonPop" parameterType="java.util.Map" >
+		<![CDATA[
+			/*updateMasterMpIvQuotationSendDelayReasonPop*/
+			UPDATE KEPRQDT RQDT
+				SET DELAY_REASON_CODE =#{st_reason_code}
+				, DELAY_RESION_NOTE = #{st_reason_remark}
+				, DELAY_SEND_MAIL_FLAG =#{st_mail_yn}
+				, DELAY_USER_ID = #{st_kep_user_id}
+				, DELAY_DATE = SYSDATE
+			WHERE RQDT.BUYER = #{st_buyer}
+			AND RQDT.QUOTATION_NO = #{st_quotation_no}
+			AND RQDT.QUOTATION_SEQ = #{st_quotation_seq}
+			AND RQDT.REVISION = #{st_revision}
+		]]>
+	</update>
+	<update id="updateRcApprovalConfirmMail" parameterType="java.util.Map" >
+		<![CDATA[
+			INSERT INTO MAILSEND         /*updateRcApprovalConfirmMail*/   
+           (	
+                MAILFORM_ID,			
+                SEND_COM_TYPE,		
+                RECV_COM_TYPE,		
+                SEND_COM_CODE,		
+                SEND_USER_ID,		
+                KEY1,				
+                KEY2,				
+                KEY3,				
+                KEY4,				
+                KEY5,				
+                KEY6,	
+                CRE_DATE				
+            ) VALUES (				
+                'RFQ_DELIVERY_MB',		
+                'M' ,				
+                'B',					
+                'KRKORE0001',		
+                'KOREAB2B',			
+                #{st_buyer},					
+                #{st_quotation_no},					
+                #{st_quotation_seq},					
+                #{st_revision},					
+                ' ',					
+                ' ',					
+                SYSDATE				
+            )
+		]]>
+	</update>
+	<select id="selectRqdtDelayDetailPop" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*common.mpiv.selectRqdtDelayDetailPop*/
+		SELECT	CASE	WHEN	RECV_FLAG = 'NW'
+						THEN	CASE	WHEN	ITEM_CHG_REQ_DATE IS NOT NULL AND ITEM_MD_DATE IS NULL
+										THEN	(SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'DM04' AND CODE = ITEM_MD_REQ_TYPE) ||' 확인 진행중'
+										ELSE    '품목정보 및 취급 협력사 확인 진행중'
+								END
+						WHEN	RECV_FLAG = 'GA'
+						THEN	CASE	WHEN	AFTER_ITEM_CHG_REQ_DATE IS NOT NULL AND AFTER_ITEM_MD_DATE IS NULL
+										THEN	(SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'DM04' AND CODE = AFTER_ITEM_MD_REQ_TYPE) ||' 확인 진행중'
+										ELSE	CASE	WHEN	NEGO_ITEM_CHG_REQ_DATE IS NOT NULL AND NEGO_ITEM_MD_DATE IS NULL
+														THEN	(SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'DM04' AND CODE = NEGO_ITEM_MD_REQ_TYPE) ||' 확인 진행중'
+										    			ELSE	CASE	WHEN	BID_SUCCESS_FLAG = 'N'
+																		THEN	CASE	WHEN	AGENT_REVISION = 1
+																						THEN	'견적 접수 지연'
+																						WHEN	AGENT_REVISION > 1
+																						THEN	AGENT_REVISION || '차 견적 진행중'
+																				END
+																		WHEN	BID_SUCCESS_FLAG = 'Y'
+																		THEN	CASE	WHEN	ATOB_SEND_FLAG = 'N'
+																						THEN	'견적 검증 진행중'
+																						WHEN	ATOB_SEND_FLAG = 'Y' AND ATOB_UNIT_PRICE <> 0
+																						THEN	'제출완료'
+																						ELSE	'견적 접수 지연'
+																				END
+																END
+												END
+								END
+						WHEN	RECV_FLAG = 'PM'
+						THEN	'견적 제출 준비중'
+						ELSE	''
+				END		RETURN_VALUE
+		FROM	(
+		
+				SELECT	A.RECV_FLAG,
+						A.ATOB_UNIT_PRICE,
+						A.ATOB_SEND_FLAG,
+						(SELECT ITEM_MD_REQ_DATE FROM KEP_ITEM_MD_REQ WHERE BUYER = A.BUYER AND QUOTATION_NO = A.QUOTATION_NO AND QUOTATION_SEQ = A.QUOTATION_SEQ AND REVISION = A.REVISION AND ITEM_MD_STATUS = 'C') AS ITEM_CHG_REQ_DATE,
+						(SELECT ITEM_MD_DATE FROM KEP_ITEM_MD_REQ WHERE BUYER = A.BUYER AND QUOTATION_NO = A.QUOTATION_NO AND QUOTATION_SEQ = A.QUOTATION_SEQ AND REVISION = A.REVISION AND ITEM_MD_STATUS = 'C' AND ITEM_MD_REVISION = (SELECT MAX(ITEM_MD_REVISION) FROM KEP_ITEM_MD_REQ WHERE BUYER = A.BUYER AND QUOTATION_NO = A.QUOTATION_NO AND QUOTATION_SEQ = A.QUOTATION_SEQ AND REVISION = A.REVISION AND ITEM_MD_STATUS = 'C')) AS ITEM_MD_DATE,
+						(SELECT ITEM_MD_REQ_TYPE FROM KEP_ITEM_MD_REQ WHERE BUYER = A.BUYER AND QUOTATION_NO = A.QUOTATION_NO AND QUOTATION_SEQ = A.QUOTATION_SEQ AND REVISION = A.REVISION AND ITEM_MD_STATUS = 'C') AS ITEM_MD_REQ_TYPE,
+						(SELECT ITEM_MD_REQ_DATE FROM KEP_AFTER_ITEM_MD_REQ WHERE BUYER = A.BUYER AND QUOTATION_NO = A.QUOTATION_NO AND QUOTATION_SEQ = A.QUOTATION_SEQ AND REVISION = A.REVISION AND ITEM_MD_STATUS = 'C') AS AFTER_ITEM_CHG_REQ_DATE,
+						(SELECT ITEM_MD_DATE FROM KEP_AFTER_ITEM_MD_REQ WHERE BUYER = A.BUYER AND QUOTATION_NO = A.QUOTATION_NO AND QUOTATION_SEQ = A.QUOTATION_SEQ AND REVISION = A.REVISION AND ITEM_MD_STATUS = 'C' AND ITEM_MD_REVISION = (SELECT MAX(ITEM_MD_REVISION) FROM KEP_AFTER_ITEM_MD_REQ WHERE BUYER = A.BUYER AND QUOTATION_NO = A.QUOTATION_NO AND QUOTATION_SEQ = A.QUOTATION_SEQ AND REVISION = A.REVISION AND ITEM_MD_STATUS = 'C')) AS AFTER_ITEM_MD_DATE,
+						(SELECT ITEM_MD_REQ_TYPE FROM KEP_AFTER_ITEM_MD_REQ WHERE BUYER = A.BUYER AND QUOTATION_NO = A.QUOTATION_NO AND QUOTATION_SEQ = A.QUOTATION_SEQ AND REVISION = A.REVISION AND ITEM_MD_STATUS = 'C') AS AFTER_ITEM_MD_REQ_TYPE,
+						(SELECT ITEM_MD_REQ_DATE FROM KEP_NEGO_ITEM_MD_REQ WHERE BUYER = A.BUYER AND QUOTATION_NO = A.QUOTATION_NO AND QUOTATION_SEQ = A.QUOTATION_SEQ AND REVISION = A.REVISION AND ITEM_MD_STATUS = 'C') AS NEGO_ITEM_CHG_REQ_DATE,
+						(SELECT ITEM_MD_DATE FROM KEP_NEGO_ITEM_MD_REQ WHERE BUYER = A.BUYER AND QUOTATION_NO = A.QUOTATION_NO AND QUOTATION_SEQ = A.QUOTATION_SEQ AND REVISION = A.REVISION AND ITEM_MD_STATUS = 'C' AND ITEM_MD_REVISION = (SELECT MAX(ITEM_MD_REVISION) FROM KEP_NEGO_ITEM_MD_REQ WHERE BUYER = A.BUYER AND QUOTATION_NO = A.QUOTATION_NO AND QUOTATION_SEQ = A.QUOTATION_SEQ AND REVISION = A.REVISION AND ITEM_MD_STATUS = 'C')) AS NEGO_ITEM_MD_DATE,
+						(SELECT ITEM_MD_REQ_TYPE FROM KEP_NEGO_ITEM_MD_REQ WHERE BUYER = A.BUYER AND QUOTATION_NO = A.QUOTATION_NO AND QUOTATION_SEQ = A.QUOTATION_SEQ AND REVISION = A.REVISION AND ITEM_MD_STATUS = 'C') AS NEGO_ITEM_MD_REQ_TYPE,
+						(SELECT DECODE(COUNT(*), 0, 'N', 'Y') FROM KEPQTDT WHERE BUYER = A.BUYER AND QUOTATION_NO = A.QUOTATION_NO AND QUOTATION_SEQ = A.QUOTATION_SEQ AND REVISION = A.REVISION AND STATUS = 'C' AND BID_SUCCESS_FLAG = 'Y') AS BID_SUCCESS_FLAG,
+						(SELECT MAX(AGENT_REVISION) FROM KEPQTDT WHERE BUYER = A.BUYER AND QUOTATION_NO = A.QUOTATION_NO AND QUOTATION_SEQ = A.QUOTATION_SEQ AND REVISION = A.REVISION AND STATUS = 'C') AS AGENT_REVISION
+				FROM	KEPRQDT A
+				WHERE	1=1
+				AND		A.BUYER = #{st_buyer}
+				AND		A.QUOTATION_NO = #{st_quotation_no}
+				AND		A.QUOTATION_SEQ = #{st_quotation_seq}
+				AND		A.REVISION = #{st_revision}
+		
+		)
+		]]>
+	</select>
+</mapper>

@@ -1,0 +1,196 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mprq">
+	<!-- 조회 -->
+	<select id="selectMasterMpRqBulkQuotationProjectList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*selectMasterMpRqBulkQuotationProjectList*/
+		SELECT *
+		FROM ( 
+			SELECT
+				TO_CHAR(ADD_DATE, 'YYYYMMDD') AS ADD_DATE,
+				PROJECT_START_DATE,
+				PROJECT_END_DATE,
+				(SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'BURQ01' AND CODE = PROJECT_TYPE AND FLAG = 'Y') AS PROJECT_TYPE,
+				BURQ_NO,
+				PROJECT_NAME,
+				(SELECT TEXT1 FROM ICOMCOD2 WHERE TYPE = 'C001' AND COMPANY_CODE = 'KRKORE0001' AND CODE = KEP_DEPT AND FLAG = 'Y') AS KEP_DEPT,
+				TOTAL_ITEM_CNT,
+				TOTAL_AMT,
+				(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = PROJECT_MNG_USER) AS PM_NAME,
+				(SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'BURQ02' AND CODE = PROJECT_STATUS) AS PROJECT_STATUS,
+				PROJECT_STATUS AS PROJECT_STATUS_CODE,
+				TO_CHAR(SG_START_DATE,'YYYY/MM/DD') AS  SG_START_DATE,
+				TO_CHAR(RFQ_START_DATE,'YYYY/MM/DD') AS RFQ_START_DATE,
+				TO_CHAR(RFQ_END_DATE,'YYYY/MM/DD') AS RFQ_END_DATE,
+				TO_CHAR(RFQ_MERGE_DATE,'YYYY/MM/DD') AS RFQ_MERGE_DATE,
+				TO_CHAR(RFQ_SUBMIT_DATE,'YYYY/MM/DD') AS RFQ_SUBMIT_DATE,
+				TO_CHAR(RFQ_APPROVAL_DATE,'YYYY/MM/DD') AS RFQ_APPROVAL_DATE,
+				SG_START_SCHD_DATE AS SG_START_DATE_SCHD,
+				RFQ_START_SCHD_DATE AS RFQ_START_DATE_SCHD,
+				RFQ_END_SCHD_DATE AS RFQ_END_DATE_SCHD,
+				RFQ_MERGE_SCHD_DATE AS RFQ_MERGE_DATE_SCHD,
+				RFQ_SUBMIT_SCHD_DATE AS RFQ_SUBMIT_DATE_SCHD,
+				RFQ_APPROVAL_SCHD_DATE  AS RFQ_APPROVAL_DATE_SCHD
+			FROM KEP_BURQ_MNG
+			WHERE 1=1
+		]]>
+		<!-- 벌크소싱 기간 -->
+		<if test="st_date_type == 'ADD'"> <!-- 등록일 -->
+			<![CDATA[
+				AND TO_CHAR(ADD_DATE,'YYYYMMDD') BETWEEN #{st_from_date} AND #{st_to_date}         
+			]]>	
+		</if>
+		<if test="st_date_type == 'OPEN'"> <!-- 시작일 -->
+			<![CDATA[
+				AND PROJECT_START_DATE BETWEEN #{st_from_date} AND #{st_to_date}         
+			]]>	
+		</if>
+		<if test="st_date_type == 'CLOSE'"> <!-- 종료일 -->
+			<![CDATA[
+				AND PROJECT_END_DATE BETWEEN #{st_from_date} AND #{st_to_date}         
+			]]>	
+		</if>
+		<![CDATA[
+		)
+		WHERE 1=1				
+		 ]]>
+		<!-- 프로젝트 -->
+		<if test="st_project_input != null and st_project_input != ''">
+			<if test="st_project_info == 'NAME'">
+			<![CDATA[
+				AND UPPER(PROJECT_NAME) LIKE UPPER('%'||#{st_project_input}||'%')         
+			]]>
+			</if>
+			<if test="st_project_info == 'CODE'">
+			<![CDATA[
+				AND BURQ_NO = #{st_project_input}         
+			]]>	
+			</if>
+		</if>
+		<!-- 사업부서 -->
+		<if test="st_kep_dept != null and st_kep_dept != ''">
+				<![CDATA[ 
+    				AND KEP_DEPT IN (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'BURQ06' AND CODE IN 
+    				]]>
+				<foreach item="dept" collection="st_kep_dept_all" open="(" separator="," close=")">
+				 	#{dept}
+				</foreach>
+				<![CDATA[
+    				 AND FLAG = 'Y')
+    			]]>
+        </if>	
+		 <!-- 프로젝트 유형 -->
+		<if test="st_project_type != null and st_project_type !=''"> <!-- 등록일 -->
+			<![CDATA[
+				AND PROJECT_TYPE = #{st_project_type}
+			]]>	
+		</if>
+		<!-- 담당 PM -->
+		<if test="st_project_mng_user != null and st_project_mng_user !=''">
+			<![CDATA[
+				AND UPPER(PM_NAME) LIKE UPPER('%'||#{st_project_mng_user}||'%')
+			]]>		
+		</if>			
+		<!-- 진행상태 -->
+		<choose>
+			<when test="st_project_status != null and st_project_status != ''">
+				<![CDATA[ 
+   				AND PROJECT_STATUS IN (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'BURQ02' AND CODE IN 
+   				]]>
+				<foreach item="status" collection="st_project_status_all" open="(" separator="," close=")">
+			 		#{status}
+				</foreach>
+				<![CDATA[
+   					AND FLAG = 'Y')
+   				]]>
+			</when>
+			<otherwise>
+				<![CDATA[ 
+   				AND PROJECT_STATUS IN (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'BURQ02' AND FLAG = 'Y' AND TEXT4 = 'Y')
+   				]]>
+			</otherwise>
+		</choose>
+        <![CDATA[
+		ORDER BY PROJECT_START_DATE
+		]]>
+
+	</select>
+	<!--중단 -->
+	<update id="abortBulkQuotation" parameterType="java.util.Map" >
+		<![CDATA[
+			/* abortBulkQuotation */
+			UPDATE KEP_BURQ_MNG
+			SET PROJECT_STATUS = 'G',
+				ABORT_DATE = SYSDATE,
+				ABORT_REASON = #{st_abort_reason},
+				CHANGE_DATE = SYSDATE,
+				CHANGE_USER_ID = #{st_user_id}
+			WHERE BURQ_NO = #{st_burq_no}
+			AND PROJECT_STATUS <> 'G'
+		]]>
+	</update>
+	<!--중단2-->
+	<update id="abortBulkQuotationRFQ" parameterType="java.util.Map" >
+		<![CDATA[
+			/* abortBulkQuotationRFQ */
+			UPDATE KEP_BURQ_RFQ
+			SET STATUS = 'K4',
+				CHANGE_DATE = SYSDATE,
+				CHANGE_USER_ID = #{st_user_id}
+			WHERE BURQ_NO = #{st_burq_no}
+		]]>
+	</update>
+	<!-- 업데이트 필요한 지 확인 -->
+	<select id="selectMasterMpRqBulkQuotationProjectCnt" parameterType="java.util.Map" resultType="Integer">
+		<![CDATA[
+		/*selectMasterMpRqBulkQuotationProjectCnt*/
+		SELECT COUNT(*)
+		FROM KEP_BURQ_MNG
+		WHERE RFQ_END_DATE < SYSDATE
+		]]>	
+		<!-- 벌크소싱 기간 -->
+		<if test="st_date_type == 'ADD'"> <!-- 등록일 -->
+			<![CDATA[
+				AND TO_CHAR(ADD_DATE,'YYYYMMDD') BETWEEN #{st_from_date} AND #{st_to_date}         
+			]]>	
+		</if>
+		<if test="st_date_type == 'OPEN'"> <!-- 시작일 -->
+			<![CDATA[
+				AND PROJECT_START_DATE BETWEEN #{st_from_date} AND #{st_to_date}         
+			]]>	
+		</if>
+		<if test="st_date_type == 'CLOSE'"> <!-- 종료일 -->
+			<![CDATA[
+				AND PROJECT_END_DATE BETWEEN #{st_from_date} AND #{st_to_date}         
+			]]>	
+		</if>
+	</select>
+	<!-- 프로젝트 상태 update -->
+	<update id="updateMasterMpRqBulkQuotationProjectStatus" parameterType="java.util.Map" >
+		<![CDATA[
+			/* updateMasterMpRqBulkQuotationProjectStatus*/
+			UPDATE KEP_BURQ_MNG
+			SET PROJECT_STATUS = 'C'
+			WHERE RFQ_END_DATE < SYSDATE
+		]]>	
+		<!-- 벌크소싱 기간 -->
+		<if test="st_date_type == 'ADD'"> <!-- 등록일 -->
+			<![CDATA[
+				AND TO_CHAR(ADD_DATE,'YYYYMMDD') BETWEEN #{st_from_date} AND #{st_to_date}         
+			]]>	
+		</if>
+		<if test="st_date_type == 'OPEN'"> <!-- 시작일 -->
+			<![CDATA[
+				AND PROJECT_START_DATE BETWEEN #{st_from_date} AND #{st_to_date}         
+			]]>	
+		</if>
+		<if test="st_date_type == 'CLOSE'"> <!-- 종료일 -->
+			<![CDATA[
+				AND PROJECT_END_DATE BETWEEN #{st_from_date} AND #{st_to_date}         
+			]]>	
+		</if>
+	</update>
+		
+</mapper>   
+   

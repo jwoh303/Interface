@@ -1,0 +1,231 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mprq">
+	<!-- 조회 -->
+	<select id="selectMasterMpRqQuotationReceiptSendLisList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.pagestart"/>	
+			<![CDATA[
+		    	SELECT /*selectMasterMpRqQuotationReceiptSendLisList*/                            
+					   Z.BUYER_NAME,   
+					   Z.BUYER_CODE AS BUYER,     
+					   Z.QUOTATION_NO,      
+					   Z.QUOTATION_SEQ,     
+					   Z.REVISION,          
+					   Z.BUYER_ITEM_NO,     
+					   TO_CHAR(TO_DATE(Z.ATOS_END_DATE),'YYYY/MM/DD') || ' ' || Z.ATOS_END_TIME_TEXT AS ATOS_END_DATE,     
+                       Z.ATOS_END_TIME,     
+                       TO_CHAR(TO_DATE(Z.BTOA_END_DATE),'YYYY/MM/DD') || ' ' || Z.BTOA_END_TIME_TEXT AS BTOA_END_DATE,     
+					   Z.BTOA_END_TIME,     
+					   Z.PICKED_UP_AGENT,   
+					   Z.BIDDING_COUNT,     
+					   Z.KEP_USER_NAME,     
+					   Z.KEP_USER_ID,       
+					   Z.ROWSPAN,           
+					   Z.BTOA_END_TIME_TEXT,
+					   Z.ATOS_END_TIME_TEXT,
+					   Z.QUOTATION_STATUS,  
+					   Z.ATOS_END_FLAG,     
+					   Z.BTOA_END_FLAG      
+					   FROM (                           
+					   SELECT                           
+					       ROWNUM NUM,                   
+					       Y.BUYER_NAME,               
+					       Y.BUYER_CODE,               
+					       Y.QUOTATION_NO,               
+					       Y.QUOTATION_SEQ,           
+					       Y.REVISION,                   
+					       Y.BUYER_ITEM_NO,           
+					       Y.ATOS_END_DATE,           
+					       Y.ATOS_END_TIME,           
+					       Y.BTOA_END_DATE,           
+					       Y.BTOA_END_TIME,           
+					       Y.PICKED_UP_AGENT,           
+					       Y.BIDDING_COUNT,           
+					       Y.KEP_USER_NAME,           
+					       Y.KEP_USER_ID,               
+					       Y.ROWSPAN,                   
+					       Y.BTOA_END_TIME_TEXT,       
+					       Y.ATOS_END_TIME_TEXT,       
+					       Y.QUOTATION_STATUS,           
+					       Y.ATOS_END_FLAG,           
+					       Y.BTOA_END_FLAG               
+					   FROM (                           
+					   SELECT                           
+					   MAX((SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE=B.BUYER AND STATUS<>'D')) BUYER_NAME,   
+					   B.BUYER BUYER_CODE,                       
+					   B.QUOTATION_NO QUOTATION_NO,           
+					   B.QUOTATION_SEQ QUOTATION_SEQ,           
+					   B.REVISION REVISION,                   
+					   MAX(B.BUYER_ITEM_NO) BUYER_ITEM_NO,       
+					   MAX(B.ATOS_END_DATE) ATOS_END_DATE,       
+					   MAX(B.ATOS_END_TIME) ATOS_END_TIME,       
+					   MAX(A.BTOA_END_DATE) BTOA_END_DATE,       
+					   MAX(A.BTOA_END_TIME) BTOA_END_TIME,       
+					   MAX(DECODE((SELECT NVL(QTDT.BID_SUCCESS_FLAG,'N')FROM KEPQTDT QTDT                               
+					               WHERE QTDT.BUYER=A.BUYER                       
+					                 AND QTDT.QUOTATION_NO=A.QUOTATION_NO           
+					                 AND QTDT.QUOTATION_SEQ=A.QUOTATION_SEQ       
+					                 AND QTDT.REVISION=A.REVISION                   
+					                 AND QTDT.STATUS IN ('C','R')                   
+					                 AND QTDT.BID_SUCCESS_FLAG='Y'                   
+					                 AND QTDT.SEL_USER_ID IS NOT NULL), 'N', '미선정','Y','선정','미선정')) PICKED_UP_AGENT,       
+					   MAX(NVL((SELECT                                       
+					           COUNT(B.AGENT)                               
+					            FROM KEPQTDT B                               
+					           WHERE B.BUYER=A.BUYER                       
+					             AND B.QUOTATION_NO=A.QUOTATION_NO           
+					             AND B.QUOTATION_SEQ=A.QUOTATION_SEQ       
+					             AND B.REVISION=A.REVISION                   
+					             AND B.SEL_USER_ID IS NOT NULL               
+					             AND B.STATUS IN ('C','R')                   
+					           GROUP BY B.BUYER, B.QUOTATION_NO, B.QUOTATION_SEQ, B.REVISION),0)||'/'||       
+					       (SELECT            
+					           COUNT(QT.AGENT)                        
+					          FROM KEPQTDT QT                        
+					         WHERE QT.BUYER=A.BUYER                
+					           AND QT.QUOTATION_NO=A.QUOTATION_NO    
+					           AND QT.QUOTATION_SEQ=A.QUOTATION_SEQ
+					           AND QT.REVISION=A.REVISION            
+					           AND QT.STATUS IN ('C','R')            
+					         GROUP BY QT.BUYER, QT.QUOTATION_NO, QT.QUOTATION_SEQ, QT.REVISION)) AS BIDDING_COUNT,                   
+					   MAX((SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID=A.KEP_USER_ID AND STATUS<>'D')) KEP_USER_NAME,       
+					   MAX(A.KEP_USER_ID) KEP_USER_ID,                
+					   MAX((SELECT                                    
+					           COUNT(DISTINCT QTDT.QUOTATION_SEQ)        
+					          FROM KEPQTDT QTDT                        
+					         WHERE QTDT.BUYER=A.BUYER                    
+					           AND QTDT.QUOTATION_NO=A.QUOTATION_NO    
+					           AND QTDT.REVISION=A.REVISION            
+					           AND QTDT.STATUS IN ('C','R'))) ROWSPAN,    
+					   MAX((SUBSTR(A.BTOA_END_TIME,0,2)||':'||SUBSTR(A.BTOA_END_TIME,3,2))) AS BTOA_END_TIME_TEXT,       
+					   MAX((SUBSTR(B.ATOS_END_TIME,0,2)||':'||SUBSTR(B.ATOS_END_TIME,3,2))) AS ATOS_END_TIME_TEXT,       
+					   MAX(DECODE(               
+					   (SELECT COUNT(*) FROM KEPRQDT       
+					   WHERE BUYER=B.BUYER       
+					   AND QUOTATION_NO=B.QUOTATION_NO       
+					   AND REVISION=B.REVISION       
+					   AND STATUS IN ('C','R'))                
+					   -       
+					   (SELECT COUNT(*) FROM KEPRQDT       
+					   WHERE BUYER=B.BUYER       
+					   AND QUOTATION_NO=B.QUOTATION_NO       
+					   AND REVISION=B.REVISION       
+					   AND BID_SUCCESS_FLAG='Y'       
+					   AND STATUS IN ('C','R')), 0, '견적완료','견적미완료')) AS QUOTATION_STATUS,       
+					   MAX(CASE WHEN B.ATOS_END_DATE||B.ATOS_END_TIME<=TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS') THEN 'Y' ELSE 'N' END) AS ATOS_END_FLAG,       
+					   MAX(CASE WHEN A.BTOA_END_DATE||A.BTOA_END_TIME<=TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS') THEN 'Y' ELSE 'N' END) AS BTOA_END_FLAG       
+					   FROM KEPRQDT A, KEPQTDT B            
+					   WHERE A.BUYER=B.BUYER                
+					   AND A.QUOTATION_NO=B.QUOTATION_NO    
+					   AND A.QUOTATION_SEQ=B.QUOTATION_SEQ    
+					   AND A.REVISION=B.REVISION            
+					   AND A.ATOB_SEND_FLAG='N'                
+					   AND A.ATOB_UNIT_PRICE=0                
+					   AND A.STATUS<>'D'                    
+					   AND A.RECV_FLAG NOT IN ('GD','PM','GS')    
+					   AND B.STATUS IN ('C','R')      
+					   AND A.BTOA_END_DATE BETWEEN #{st_from_date} AND #{st_to_date}  									
+				]]>
+				<if test="st_buyerArr != null and st_buyerArr != ''">
+					AND A.BUYER IN
+					<foreach item="item" collection="st_buyerArr" open="(" separator="," close=")">
+				 	#{item}
+					</foreach>
+				</if>   
+		        <if test="st_kep_user_id != null and st_kep_user_id != '' and st_kep_user_id != 'ALL'">
+		    				 AND A.KEP_USER_ID=#{st_kep_user_id}	
+		        </if>
+		        <if test="st_quotation_no != null and st_quotation_no != ''">
+		    				 AND A.QUOTATION_NO = #{st_quotation_no}
+		        </if>
+		    <![CDATA[
+				GROUP BY B.BUYER, B.QUOTATION_NO, B.QUOTATION_SEQ, B.REVISION ORDER BY B.BUYER, B.QUOTATION_NO, B.QUOTATION_SEQ, B.REVISION) Y
+			]]>
+				<if test="st_status != null and st_status != ''">
+    				 WHERE Y.QUOTATION_STATUS LIKE '%'||#{st_status}||'%'
+		        </if>		        
+		       ) Z
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+
+
+	<update  id="insertMasterMpRqQuotationReceiptSendLis" parameterType="java.util.Map" >
+		<![CDATA[
+				INSERT INTO	KEPQTDT					
+				(									
+					BUYER,							
+					QUOTATION_NO,					
+					QUOTATION_SEQ,					
+					REVISION,						
+					AGENT,							
+					AGENT_REVISION,					
+					STATUS,							
+					BUYER_ITEM_NO,					
+					DESCRIPTION,					
+					SPECIFICATION,					
+					UNIT_MEASURE,					
+					MAKER_NAME,						
+					ORIGIN_NAME,					
+					ATOS_DATE,						
+					ATOS_END_DATE,					
+					ATOS_END_TIME,					
+					ITEM_QTY,						
+					IMAGE_KEY,						
+					DSS_FLAG,						
+					DSS_CHOICE						
+				)									
+				(									
+				SELECT								
+					#{BUYER},									/* 1 : BUYER */
+					#{QUOTATION_NO},									/* 2 : QUOTATION_NO */
+					#{QUOTATION_SEQ},									/* 3 : QUOTATION_SEQ */
+					#{REVISION},									/* 4 : REVISION */
+					#{AGENT},									/* 5 : AGENT */
+					#{AGENT_REVISION},								/* 6 : AGENT_REVISION */
+					'C',						
+					BUYER_ITEM_NO,				
+					DESCRIPTION,				
+					SPECIFICATION,				
+					UNIT_MEASURE,				
+					MAKER_NAME,					
+					ORIGIN_CODE,				
+					TO_CHAR(SYSDATE, 'YYYYMMDD')AS ATOS_DATE,
+					#{ATOS_END_DATE},								/* 7 : ATOS_END_DATE */
+					#{ATOS_END_TIME},								/* 8 : ATOS_END_TIME */
+					ITEM_QTY,					
+					IMAGE_KEY,					
+					#{DSS_FLAG},								/*  9 : DSS_FLAG   if(chk_str[1].equals("A") || chk_str[1].equals("B") || chk_str[1].equals("C")|| chk_str[1].equals("S")) : Y , 기타  : N   */
+					#{DSS_CHOICE}								/*    10 : DSS_CHOICE */
+				   FROM KEPRQDT						
+				  WHERE BUYER=#{BUYER}							/* 11 : BUYER */           
+					AND QUOTATION_NO=#{QUOTATION_NO}					/* 12 : QUOTATION_NO     */
+					AND QUOTATION_SEQ=#{QUOTATION_SEQ}					/* 13 : QUOTATION_SEQ    */
+					AND REVISION=#{REVISION}						/* 14 : REVISION  */       
+					AND RECV_FLAG <> 'GD'			
+					AND STATUS IN ('C','R')			
+				)									
+
+		]]>
+							   <!-- /* CMS_USER_ID = 'TEMPUSER', */ -->
+		
+	</update>
+
+
+<!-- 삭제 -->
+	<update id="deleteMasterMpRqQuotationReceiptSendLis"  parameterType="java.util.Map">
+		<![CDATA[
+				UPDATE KEPRQDT					
+				   SET RECV_FLAG      = 'GD' 	
+				     , CANCEL_USER_ID = #{USR_ID}    		/*CANCEL_USER_ID*/
+				     , CANCEL_DATE    = SYSDATE	
+				     , CANCEL_REMARK  = #{CANCEL_REMARK}    		/*CANCEL_REMARK*/
+				 WHERE BUYER          = #{BUYER}			/*BUYER*/
+				   AND QUOTATION_NO   = #{QUOTATION_NO}	 		/*QUOTATION_NO*/
+				   AND QUOTATION_SEQ  = #{QUOTATION_SEQ}			/*QUOTATION_SEQ*/
+				   AND REVISION       = #{REVISION}			/*REVISION*/
+				   AND STATUS IN ('C','R')
+		]]>
+	</update>
+
+</mapper>   
+   

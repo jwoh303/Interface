@@ -1,0 +1,790 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="common.mpif">
+
+
+	<select id="selectMasterMpIfRequestNoPopList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.pagestart"/>
+		<![CDATA[
+		/*selectMasterMpIfRequestNoPopList*/
+			SELECT										        
+         		A.BUYER,                      --str[0]
+                 A.PR_NO,                      --str[1]
+                 A.STATUS,                     --str[2]
+                 A.ADD_DATE,                   --str[3]
+                 A.ADD_TIME,                   --str[4]
+                 A.CHANGE_DATE,                --str[5]
+                 A.CHANGE_TIME,                --str[6]
+                 A.NOTIFY,                     --str[7]
+                 A.PR_SUBJECT,                 --str[8]
+                 A.PURCHASER_DEPT,             --str[9]
+                 DECODE(A.RECV_FLAG,'TS', '임시저장', 'GA','구매대행진행중', 'GS','결재진행중', 'GR', '결재반려'),  --str[10]
+                 A.RETURN_REASON,              --str[11]
+                 A.ACCOUNT_TYPE,               --str[12]
+                 A.INVESTMENT_NO,              --str[13]
+                 A.SAMPLE_FLAG,                --str[14]
+                 (SELECT C.TEXT2 FROM ICOMCOD2 C WHERE C.TYPE='C012' AND C.COMPANY_CODE =#{st_buyer}  AND CODE IN(A.DELY_TO_LOCATION)),  --str[15]
+                 A.REMARK,                     --str[16]
+                 A.ADD_USER_ID,                --str[17]
+                 A.ADD_USER_NAME,              --str[18]
+                 A.ADD_USER_TEL,               --str[19]
+                 A.ADD_USER_DEPT,              --str[20]
+                 A.CHANGE_USER_ID,             --str[21]
+                 A.CHANGE_USER_NAME,           --str[22]
+                 A.CHANGE_USER_TEL,            --str[23]
+                 A.CHANGE_USER_DEPT,           --str[24]
+                 A.SIGN_DATE,                  --str[25]
+                 A.SIGN_PERSON_ID,             --str[26]
+                 A.SAVE_FLAG,                  --str[27]
+                 (SELECT TEXT1 FROM ICOMCOD2  WHERE TYPE='C001' AND CODE = A.ADD_USER_DEPT AND COMPANY_CODE = A.BUYER) ADD_USER_DEPT_TEXT, --str[28]
+                 (SELECT C.CODE FROM ICOMCOD2 C WHERE C.TYPE='C012' AND C.COMPANY_CODE =#{st_buyer}  AND CODE IN(A.DELY_TO_LOCATION) ),            --str[29]
+                 (SELECT SUM(TARGET_PRICE * TARGET_QTY) FROM ICOMPRDT WHERE BUYER = A.BUYER AND PR_NO = A.PR_NO AND STATUS ^= 'D') AS PRICE,       --str[30]
+                 (SELECT MAX(DOCU_NO)
+					FROM KEPMGPDT E, ICOMTRGW B, ICOGDOCU C
+					WHERE E.BUYER = B.KEY_2
+					AND E.PM_NO = B.KEY_1
+					AND B.TARGET  = C.DOCU_NO
+					AND C.COMPANY =  'KRKORE0001'
+					AND B.COM_CODE = 'KRKORE0001'
+					AND B.DOC_NAME  = 'IF'
+					AND E.BUYER = A.BUYER
+					AND E.QUOTATION_NO = A.PR_NO
+					AND C.EXTIF_TP = 'IF'
+					AND C.PASS_STATUS = '0') AS DOCU_STATUS         --str[31]
+            FROM ICOMPRHD A                    
+           WHERE PR_NO = #{st_pr_no}
+             AND BUYER = #{st_buyer}                   
+             AND STATUS !='D'                  
+             AND SAVE_FLAG='PX'                
+             AND RECV_FLAG = 'AT'
+		]]>
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+
+
+
+	<select id="selectMasterMpIfRequestNoDetailPopList" parameterType="java.util.Map" resultType="java.util.Map">
+	<include refid="common.ibsheet.xml.pagestart"/>
+		<![CDATA[
+		/*selectMasterMpIfRequestNoDetailPopList*/
+			SELECT										        
+                   X.DOC_TYPE_TEXT,      --[01]
+                   X.BUYER_ITEM_NO,      --[02]
+                   X.REF_PR_NO,          --[03]
+                   X.DESCRIPTION,        --[04]
+                   X.SPECIFICATION,      --[05]
+                   X.UNIT_MEASURE,       --[06]
+                   X.CTL_TARGET_PRICE,   --[07]
+                   X.TARGET_PRICE,       --[08]
+                   X.LIST_PRICE AS LIST_PRICE,         --[09]
+                   X.LIST_PRICE AS LIST_PRICE_HIDDEN,         --[09]
+                   TRUNC(DECODE(NVL(TRIM(X.TARGET_PRICE),0),0,0,DECODE(NVL(TRIM(X.LIST_PRICE),0),0,0,                         
+                         ROUND(100-ROUND(((X.TARGET_PRICE - X.LIST_PRICE)/X.TARGET_PRICE)*100,1),0)))/100,2) AS PRICE_RATE,   --[10]
+                   X.AGENT_NAME,         --[11]
+                   X.REMARK,             --[12]
+                   X.TARGET_QTY,         --[13]
+                   X.A,                  --[14]
+                   X.REQ_USER_NAME,      --[15]
+                   X.RD_DATE,            --[16]
+                   X.DELY_TO_LOCATION,   --[17]
+                   X.CUR,                --[18]
+                   X.SELLER_ITEM_NO,     --[19]
+                   X.SELLER,             --[20]
+                   X.MAKER_NAME,         --[21]
+                   X.PR_NO,              --[22]
+                   X.PR_SEQ,             --[23]
+                   X.LEGACY_PO_NO,       --[24]
+                   X.LEGACY_PO_SEQ,      --[25]
+                   X.REF_ADD_USER_ID,    --[26]
+                   X.REQ_USER_ID,        --[27]
+                   X.REQ_DEPT,           --[28]
+                   X.AGENT,              --[29]
+                   X.CONTRACT_NO,        --[30]
+                   X.CONTRACT_SEQ,       --[31]
+                   X.REMARK2,            --[32]
+                   X.PRODUCT_CLOSE_FLAG, --[33]
+                   X.BUYER,              --[34]
+                   X.DOC_TYPE,           --[35]
+                   X.ITEM_AMT,           --[36]
+                   X.REQ_USER_INFO,      --[37]
+                   X.ADD_USER_TEL ,       --[38]
+		           X.CMS_CATLG_ID ,       --[39]
+		           X.CMS_CATEG_ID        --[40]
+		           ,X.PROCESS_TYPE        --[41]
+  		           ,( SELECT TEXT2 FROM ICOMCOD1 WHERE TYPE='M034' AND CODE= X.PROCESS_TYPE ) AS PROCESS_TEXT      --[42]		 
+   		           ,x.WAREHOUSE_CODE      --[43]		 
+   		           ,(SELECT CM.COM_NAME_LOC FROM ICOMCMPY CM WHERE CM.COM_CODE = x.WAREHOUSE_CODE) WAREHOUSE_NAME      --[44]
+   		           ,NVL(CTL_LIST_PRICE,0)  CTL_LIST_PRICE --[45]
+   		           ,X.DELY_TO_LOCATION_TEXT
+              FROM (                     
+                     SELECT DECODE(NVL(A.DOC_TYPE,'N'),'N','일반','S','선조치',A.DOC_TYPE) AS DOC_TYPE_TEXT,         
+                            A.BUYER_ITEM_NO BUYER_ITEM_NO,                                                           
+                            A.REF_PR_NO REF_PR_NO,                                                                   
+                            DECODE(A.DESCRIPTION,NULL,D.DESCRIPTION,A.DESCRIPTION) DESCRIPTION,                      
+                            DECODE(A.SPECIFICATION,'.',D.SPECIFICATION,A.SPECIFICATION) SPECIFICATION,               
+                            DECODE(A.UNIT_MEASURE,NULL,D.UNIT_MEASURE,A.UNIT_MEASURE) UNIT_MEASURE,                  
+                            (SELECT TARGET_PRICE FROM ICOMCQDT WHERE BUYER = A.BYIT_COMORG_CODE                      
+                                AND BUYER_ITEM_NO = A.BUYER_ITEM_NO AND CONTRACT_NO = A.CONTRACT_NO                  
+                                AND CONTRACT_SEQ = A.CONTRACT_SEQ AND STATUS IN ('C','R','Z')) CTL_TARGET_PRICE,                                 
+                            DECODE(A.TARGET_PRICE,NULL,0,A.TARGET_PRICE) TARGET_PRICE,                               
+                            DECODE(D.STOA_LIST_PRICE,0,A.LIST_PRICE,NULL,A.LIST_PRICE,D.STOA_LIST_PRICE) LIST_PRICE, 
+                            (SELECT C.COM_NAME_LOC FROM ICOMCMPY C WHERE C.COM_CODE = A.AGENT) AGENT_NAME,           
+                            A.REMARK REMARK,                                                                         
+                            DECODE(D.ITEM_QTY,0,A.TARGET_QTY,NULL,A.TARGET_QTY,D.ITEM_QTY) TARGET_QTY,               
+                            '' AS A,                                                                                 
+                            (SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = A.REQ_USER_ID) AS REQ_USER_NAME,     
+                            A.RD_DATE RD_DATE,                                         
+                            A.DELY_TO_LOCATION DELY_TO_LOCATION,                       
+                            A.CUR CUR,                                                 
+                            A.SELLER_ITEM_NO SELLER_ITEM_NO,                           
+                            A.SELLER SELLER,                                           
+                            A.MAKER_NAME MAKER_NAME,                                   
+                            A.PR_NO PR_NO,                                             
+                            A.PR_SEQ PR_SEQ,                                           
+                            A.LEGACY_PO_NO LEGACY_PO_NO,                               
+                            A.LEGACY_PO_SEQ LEGACY_PO_SEQ,                             
+                            A.REF_ADD_USER_ID REF_ADD_USER_ID,                         
+                            A.REQ_USER_ID REQ_USER_ID,                                 
+                            A.REQ_DEPT REQ_DEPT,                                       
+                            A.AGENT AGENT,                                             
+                            A.CONTRACT_NO CONTRACT_NO,                                 
+                            A.CONTRACT_SEQ CONTRACT_SEQ,                                         
+		                   A.PLANT||A.REMARK||(SELECT MAX(DESCRIPTION||SPECIFICATION) FROM IF_PODT										 
+		                           WHERE BUYER = A.BUYER																															
+		                              AND LEGACY_PO_NO = A.LEGACY_PO_NO																								
+		                              AND LEGACY_PO_SEQ= A.LEGACY_PO_SEQ																							 
+		                              AND BUYER_ITEM_NO = A.BUYER_ITEM_NO																							 
+		                             AND LEGACY_PR_NO  =A.REF_PR_NO)  REMARK2,																					 
+                            C.PRODUCT_CLOSE_FLAG PRODUCT_CLOSE_FLAG,                   
+                            A.BUYER BUYER,                                             
+                            A.DOC_TYPE DOC_TYPE,                                       
+                            NVL(A.TARGET_QTY, 0) * NVL(A.TARGET_PRICE, 0) AS ITEM_AMT, 
+                            A.REQ_USER_INFO,                                           
+                            A.ADD_USER_TEL,                                             
+		                    NVL(A.CMS_CATLG_ID, ' ') CMS_CATLG_ID,                                             
+		                    NVL(A.CMS_CATEG_ID ,' ') CMS_CATEG_ID                                            
+		                    ,A.PROCESS_TYPE				                               
+		                    ,NVL(A.WAREHOUSE_CODE, (SELECT ORIGIN_AGENT FROM ICOMCQDT           
+		                                          WHERE BUYER = A.BYIT_COMORG_CODE              
+		                                            AND CONTRACT_NO = A.CONTRACT_NO             
+		                                            AND CONTRACT_SEQ = A.CONTRACT_SEQ)) WAREHOUSE_CODE     
+		                    ,NVL((SELECT Z.LIST_PRICE
+						      FROM ICOMCQDT Z
+						      WHERE Z.BUYER      = A.BYIT_COMORG_CODE
+						      AND Z.CONTRACT_NO  = A.CONTRACT_NO
+						      AND Z.CONTRACT_SEQ = A.CONTRACT_SEQ
+						      AND Z.STATUS IN ('C','R','Z')
+						      ) ,0)    CTL_LIST_PRICE ,   
+						       A.DELY_TO_LOCATION_TEXT                         
+                       FROM ICOMPRDT A, ICOMBYIT C, (                                  
+                            SELECT X.BUYER, X.PR_NO, X.PR_SEQ , Y.ITEM_QTY,            
+                                   Z.STOA_LIST_PRICE,Y.ATOB_UNIT_PRICE,                
+                                   Y.UNIT_MEASURE, Y.SPECIFICATION, Y.DESCRIPTION      
+                              FROM ICOMPRDT X, KEPRQDT Y, KEPQTDT Z                    
+                             WHERE X.BUYER = #{st_buyer_code}                                       
+                               AND X.PR_NO = #{st_pr_no}                                       
+                               AND X.STATUS ^= 'D'                                     
+                               AND X.BUYER = Y.BUYER                                   
+                               AND X.BUYER_ITEM_NO = Y.BUYER_ITEM_NO                   
+                               AND X.LEGACY_PO_NO = Y.QUOTATION_NO                     
+                               AND X.LEGACY_PO_SEQ= Y.QUOTATION_SEQ                    
+                               AND Y.STATUS IN ('C','R')                               
+                               AND Y.BUYER = Z.BUYER                                   
+                               AND Y.QUOTATION_NO = Z.QUOTATION_NO                     
+                               AND Y.QUOTATION_SEQ= Z.QUOTATION_SEQ                    
+                               AND Y.REVISION = Z.REVISION                             
+                               AND Z.STATUS IN ('C','R')                               
+                               AND Z.BID_SUCCESS_FLAG = 'Y') D                         
+                      WHERE A.BUYER = #{st_buyer_code}                                              
+                        AND A.PR_NO = #{st_pr_no}                                              
+                        AND A.STATUS != 'D'                                            
+                        AND A.BUYER         = D.BUYER(+)                               
+                        AND A.PR_NO  = D.PR_NO(+)                                      
+                        AND A.PR_SEQ = D.PR_SEQ(+)                                     
+                        AND A.BYIT_COMORG_CODE = C.BUYER                               
+                        AND A.BUYER_ITEM_NO = C.BUYER_ITEM_NO(+)                       
+                        AND A.RECV_FLAG = 'AT'                                         
+                        AND A.SAVE_FLAG = 'PX'                                         
+                      ORDER BY A.PR_NO,A.PR_SEQ DESC     ) X
+		]]>
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+	
+	<update  id="updateMasterMpIfRequestNoPop" parameterType="java.util.Map" >
+		<![CDATA[
+	         UPDATE ICOMPRDT A                    
+	           SET  DESCRIPTION   = #{DESCRIPTION},          --1
+	                SPECIFICATION = #{SPECIFICATION},          --2
+	                UNIT_MEASURE  = #{UNIT_MEASURE},          --3
+	                RECV_FLAG     = #{st_recv_flag},          --6
+	                AGENT         = #{AGENT},          --7
+	                DOC_TYPE      = #{DOC_TYPE},          --8
+	                CMS_CATLG_ID  = #{CMS_CATLG_ID},          --9
+	                CMS_CATEG_ID  = #{CMS_CATEG_ID},           --10
+	                PROCESS_TYPE    = #{PROCESS_TYPE},          --11
+	                WAREHOUSE_CODE  = DECODE(#{PROCESS_TYPE}, '2', NVL(#{WAREHOUSE_CODE}, (SELECT ORIGIN_AGENT FROM ICOMCQDT           
+			                                        WHERE BUYER = A.BYIT_COMORG_CODE              
+			                                          AND CONTRACT_NO = A.CONTRACT_NO             
+			                                          AND CONTRACT_SEQ = A.CONTRACT_SEQ           
+			                                          AND STATUS <> 'D')),'')           --12
+	          WHERE BUYER         = #{BUYER}            --13
+	           AND  PR_NO         = #{PR_NO}            --14
+	           AND  PR_SEQ        = #{PR_SEQ}
+		]]>
+	</update>	
+
+	<update  id="InsertPriceDataKEPMGPHD" parameterType="java.util.Map" >
+		<![CDATA[
+					INSERT INTO KEPMGPHD (  /*InsertPriceDataKEPMGPHD*/ 
+				                                 BUYER,              
+				                                 PM_NO,              
+				                                 STATUS,             
+				                                 REG_DATE,           
+				                                 CHANGE_DATE,        
+				                                 REFER_DATE,         
+				                                 CONFIRM_DATE,       
+				                                 REG_USER_ID,        
+				                                 REG_USER_DEPT,      
+				                                 CONFIRM_USER_ID,    
+				                                 CONFIRM_USER_DEPT,  
+				                                 GUBUN,              
+				                                 CA_FLAG,            
+				                                 SUBJECT,            
+				                                 REMARK,             
+				                                 CON_REMARK,         
+				                                 CONFIRM_CODE        
+				                               ) VALUES (  
+				                                          #{BUYER},
+				                                          #{PM_NO},
+				                                          'C',
+				                                          SYSDATE,
+				                                          SYSDATE,
+				                                          '',
+				                                          '',
+				                                          #{USER_ID},
+				                                          '',
+				                                          '',
+				                                          '',
+				                                          'IF',
+				                                          'N',
+				                                          '',
+				                                          '',
+				                                          '',
+				                                          '' 
+				                                        ) 
+		]]>
+	</update>	
+
+	<update id="InsertPriceDataKEPMGPDT" parameterType="java.util.Map" >
+		<![CDATA[
+				INSERT INTO KEPMGPDT (  /*InsertPriceDataKEPMGPDT*/
+                                 BUYER,             
+                                 PM_NO,             
+                                 PM_SEQ,            
+                                 STATUS,            
+                                 REG_DATE,          
+                                 CHANGE_DATE,       
+                                 CONFIRM_DATE,      
+                                 REG_USER_ID,       
+                                 CONFIRM_USER_ID,   
+                                 BUYER_ITEM_NO,     
+                                 AGENT, 
+                                 RE_AGENT,            
+                                 RE_UNIT_PRICE,     
+                                 CH_UNIT_PRICE,     
+                                 RE_LIST_PRICE,     
+                                 CH_LIST_PRICE,     
+                                 RE_PRICE_RATE,     
+                                 CH_PRICE_RATE,
+                                 QUOTATION_NO,
+                                 QUOTATION_SEQ  ,
+                                 RE_DESCRIPTION,
+                                 CH_DESCRIPTION,
+                                 RE_SPECIFICATION, 
+                                 CH_SPECIFICATION,  
+                                 RE_UNIT_MEASURE,
+                                 CH_UNIT_MEASURE,
+                                 RE_ORIGIN_CODE,
+                                 CH_ORIGIN_CODE,
+                                 RE_MAKER_NAME,
+                                 CH_MAKER_NAME,
+                                 BELOW_TEXT                                 
+                               ) VALUES (  
+                                          #{st_buyer_code},                          
+                                          #{PM_NO},                         
+                                          TO_CHAR(#{PM_SEQ},'FM000000'),
+                                          'C', 
+                                          SYSDATE,                   
+                                          SYSDATE,                   
+                                          '',                         
+                                          #{USER_ID},                         
+                                          '',                     
+                                          #{BUYER_ITEM_NO},
+                                          #{AGENT},
+                                          #{AGENT},
+                                          #{TARGET_PRICE},
+                                          #{TARGET_PRICE},
+                                          #{LIST_PRICE_HIDDEN},
+                                          #{LIST_PRICE},
+                                          ROUND((TO_NUMBER(#{TARGET_PRICE})-TO_NUMBER(#{LIST_PRICE_HIDDEN}))/TO_NUMBER(#{TARGET_PRICE})*100,1) ,
+                                          ROUND((TO_NUMBER(#{TARGET_PRICE})-TO_NUMBER(#{LIST_PRICE}))/TO_NUMBER(#{TARGET_PRICE})*100,1) ,
+                                          #{PR_NO},
+                                          #{PR_SEQ},
+                                          #{DESCRIPTION},
+                                          #{DESCRIPTION},
+                                          #{SPECIFICATION},
+                                          #{SPECIFICATION},
+                                          #{UNIT_MEASURE},
+                                          #{UNIT_MEASURE},
+                                          ' ',
+                                          ' ',
+                                          ' ',
+                                          ' ',
+                                          ' '                      
+                                        )
+		]]>
+	</update>
+
+	<select id="selectNewBuyerCreatePO" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*selectNewBuyerCreatePO*/
+    SELECT                             
+           A.BUYER                 ,   --1
+           A.SELLER                ,   --2
+           A.STATUS                ,   --3
+           A.BUYER_ITEM_NO         ,   --4
+           A.SELLER_ITEM_NO        ,   --5
+           A.DESCRIPTION           ,   --6
+           A.SPECIFICATION         ,   --7
+           A.UNIT_MEASURE          ,   --8
+           A.PO_QTY                ,   --9
+           A.TARGET_PRICE          ,   --10
+           A.RD_DATE               ,   --11
+           A.MAKER_NAME            ,   --12
+           NVL(A.DELY_TO_LOCATION, ' ') DELY_TO_LOCATION      ,   --13
+           A.PR_NO                 ,   --14
+           A.PR_SEQ                ,   --15
+           A.REF_PR_NO             ,   --16
+           A.CONTRACT_NO           ,   --17
+           A.CONTRACT_SEQ          ,   --18
+           A.CHANGE_USER_ID        ,   --19
+           A.CHANGE_USER_DEPT      ,   --20
+           A.LIST_PRICE            ,   --21
+           NVL(A.LEGACY_PO_NO ,' ') AS LEGACY_PO_NO,   --22
+           NVL(A.LEGACY_PO_SEQ,' ') AS LEGACY_PO_SEQ,   --23
+           A.AGENT                 ,   --24
+           A.REF_ADD_USER_ID       ,   --25
+           A.REF_IF_NO             ,   --26
+           NVL(A.REMARK,' ') AS REMARK,   --27
+           NVL(A.DOC_TYPE,'N') AS DOC_TYPE    ,   --28
+           A.BYIT_COMORG_CODE      ,   --29
+           A.PROCESS_TYPE          ,   --30
+           A.REQ_USER_INFO        ,     --31
+           A.ADD_USER_ID USER_ID,
+           NVL(B.REMARK,' ') AS HD_REMARK
+      FROM ICOMPRDT A , ICOMPRHD B     
+     WHERE A.BUYER      = #{st_buyer_code}             
+       AND A.PR_NO      = #{st_pr_no}            
+       AND A.BUYER    = B.BUYER        
+       AND A.PR_NO    = B.PR_NO        
+       AND A.STATUS <> 'D'             
+       AND B.STATUS <> 'D'             
+       AND A.RECV_FLAG  = 'IF'         
+     ORDER BY A.BUYER,A.DELY_TO_LOCATION,A.SELLER,A.AGENT ,A.LEGACY_PO_NO,   
+              A.REQ_USER_INFO , A.DOC_TYPE, A.PROCESS_TYPE , A.LEGACY_PO_SEQ 
+		]]>
+	</select>
+
+	<select id="selectNewBuyerCreatePOSub" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*selectNewBuyerCreatePOSub*/
+	    SELECT                                           
+	            B.PO_NO,                                 
+	            TO_CHAR(COUNT(*)) as TOTNO                           
+	      FROM  ICOMPODT A, ICOMPOHD B
+	     WHERE  A.BUYER             = #{BUYER}                   -- 1
+	       AND  A.BUYER             = B.BUYER            
+	       AND  A.PO_NO             = B.PO_NO
+	     ]]>            
+        <if test="DELY_TO_LOCATION != null and DELY_TO_LOCATION != ''">
+	       AND  A.DELY_TO_LOCATION  = #{DELY_TO_LOCATION}                    -- 2
+        </if>
+        <if test="LEGACY_PO_NO != null and LEGACY_PO_NO != ''">
+	       AND  A.LEGACY_PO_NO      = #{LEGACY_PO_NO}                  -- 3
+        </if>
+        <if test="LEGACY_PO_SEQ != null and LEGACY_PO_SEQ != ''">
+	       AND  NVL(A.LEGACY_PO_SEQ,' ')    = NVL(#{LEGACY_PO_SEQ},' ') -- 4
+        </if>
+        <if test="AGENT != null and AGENT != ''">
+	       AND  B.AGENT            = #{AGENT}                    -- 5
+        </if>
+        <if test="REF_ADD_USER_ID != null and REF_ADD_USER_ID != ''">
+	       AND  B.ADD_USER_ID      =  #{REF_ADD_USER_ID}                    -- 6
+        </if>
+        <if test="BUYER_ITEM_NO != null and BUYER_ITEM_NO != ''">
+	       AND  A.BUYER_ITEM_NO    = #{BUYER_ITEM_NO}                   -- 7
+        </if>
+		<![CDATA[
+	       AND  A.STATUS <> 'D'                          
+	       AND  B.STATUS <> 'D'                          
+	     GROUP  BY  B.PO_NO                                                                                                 
+		]]>
+	</select>	
+
+	<update  id="insertNewBuyerCreatePO_PODT" parameterType="java.util.Map" >
+		<![CDATA[
+			/*insertNewBuyerCreatePO_PODT*/
+		    INSERT INTO ICOMPODT   (                          
+		        BUYER                 , PO_NO              ,  
+		        PO_SEQ                , SELLER             ,  
+		        STATUS                , ADD_DATE           ,  
+		        ADD_TIME              , CHANGE_DATE        ,  
+		        CHANGE_TIME           , BUYER_ITEM_NO      ,  
+		        SELLER_ITEM_NO        , DESCRIPTION        ,  
+		        SPECIFICATION         , UNIT_MEASURE       ,  
+		        ITEM_QTY              , UNIT_PRICE         ,  
+		        UNIT_TAX              , ITEM_AMT           ,  
+		        RD_DATE               , DOM_EXP_FLAG       ,  
+		        DELY_TO_LOCATION      , COMPLETE_MARK      ,  
+		        PR_NO                 , PR_SEQ             ,  
+		        REF_PR_NO             , CONTRACT_NO        ,  
+		        CONTRACT_SEQ          , PROXY_BUY_FLAG     ,  
+		        AGENT_PRICE           , AGENT_ITEM_AMT     ,  
+		        CHANGE_USER_DEPT      , LEGACY_PO_NO       ,  
+		        CHANGE_USER_ID        , LEGACY_PO_SEQ      ,  
+		        REF_IF_NO             , DS_FLAG            ,  
+		        PO_REMARK             , BYIT_COMORG_CODE   ,  
+		        PROCESS_TYPE          , WAREHOUSE_CODE     ,  
+		        CATEG_ID              , CMS_CATEG_ID       ,  
+		        CMS_CATLG_ID          , ITEM_GROUP         ,  
+		        MAKER_NAME            , MAKER_CODE         ,  
+		        ORIGIN_CODE           , KEP_PRICE          ,  
+		        PLANT 					  , ST_DATE				,
+		        ITEM_MAKE_TYPE			, DELIVERY_LT                                         
+		    ) (                                               
+		     SELECT                                                                                        
+		            A.BUYER                               , #{st_po_no}                                           ,  --1: PO_NO
+		            TO_CHAR(${st_cnt} ,'FM000000')                , A.SELLER                                    ,  --2: PO_SEQ
+		            A.STATUS                              , TO_CHAR(SYSDATE,'YYYYMMDD')                 ,  --STATUS                , ADD_DATE           ,
+		            TO_CHAR(SYSDATE,'HH24MISS')           , TO_CHAR(SYSDATE,'YYYYMMDD')                 ,  --ADD_TIME              , CHANGE_DATE        ,
+		            TO_CHAR(SYSDATE,'HH24MISS')           , A.BUYER_ITEM_NO                             ,  --CHANGE_TIME           , BUYER_ITEM_NO      ,
+		            NVL(A.SELLER_ITEM_NO,A.BUYER_ITEM_NO) , A.DESCRIPTION                               ,  --SELLER_ITEM_NO        , DESCRIPTION        ,
+		            A.SPECIFICATION                       , A.UNIT_MEASURE                              ,  --SPECIFICATION         , UNIT_MEASURE       ,
+		            A.TARGET_QTY                          , A.TARGET_PRICE                              ,  --ITEM_QTY              , UNIT_PRICE         ,
+		            C.TAX_PRICE                           , A.TARGET_QTY * A.TARGET_PRICE               ,  --UNIT_TAX              , ITEM_AMT           ,
+		            A.RD_DATE                             , 'DO'                                        ,  --RD_DATE               , DOM_EXP_FLAG       ,
+		            A.DELY_TO_LOCATION                    , 'N'                                         ,  --DELY_TO_LOCATION      , COMPLETE_MARK      ,
+		            A.PR_NO                               , A.PR_SEQ                                    ,  --PR_NO                 , PR_SEQ             ,
+		            A.REF_PR_NO                           , A.CONTRACT_NO                               ,  --REF_PR_NO             , CONTRACT_NO        ,
+		            A.CONTRACT_SEQ                        , 'PX'                                        ,  --CONTRACT_SEQ          , PROXY_BUY_FLAG     ,
+		            A.LIST_PRICE                          , A.TARGET_QTY * A.LIST_PRICE                 ,  --AGENT_PRICE           , AGENT_ITEM_AMT     ,
+		            A.CHANGE_USER_DEPT                    , A.LEGACY_PO_NO                              ,  --CHANGE_USER_DEPT      , LEGACY_PO_NO       ,
+		            A.CHANGE_USER_ID                      , A.LEGACY_PO_SEQ                             ,  --CHANGE_USER_ID        , LEGACY_PO_SEQ      ,
+		            A.REF_IF_NO                           , 'N'                                         ,  --REF_IF_NO             , DS_FLAG            ,
+		            A.REMARK                              , A.BYIT_COMORG_CODE                          ,  --PO_REMARK             , BYIT_COMORG_CODE   ,
+		            A.PROCESS_TYPE                        , DECODE(A.PROCESS_TYPE,0,'',NVL(TRIM(A.WAREHOUSE_CODE),C.ORIGIN_AGENT))  ,  --PROCESS_TYPE          , WAREHOUSE_CODE     ,
+		            A.CATEG_ID                            , A.CMS_CATEG_ID                              ,  --CATEG_ID              , CMS_CATEG_ID       ,
+		            A.CMS_CATLG_ID                        , A.ITEM_GROUP                                ,  --CMS_CATLG_ID          , ITEM_GROUP         ,
+		            A.MAKER_NAME                          , A.MAKER_CODE                                ,  --MAKER_NAME            , MAKER_CODE         ,
+		            C.ORIGIN_CODE                         , NVL(C.KEP_PRICE,0)                          ,  --ORIGIN_CODE           , KEP_PRICE          ,
+		            A.PLANT                                   ,
+		            F_GET_DELIVERY_INFO(A.BUYER, A.CONTRACT_NO, A.CONTRACT_SEQ, A.RD_DATE, 'D') ,
+		            F_GET_DELIVERY_INFO(A.BUYER, A.CONTRACT_NO, A.CONTRACT_SEQ, A.RD_DATE, 'P')	,
+		            NVL((SELECT DELIVERY_LT FROM ICOMCQDT WHERE BELOW_COMORG_CODE = A.BUYER AND CONTRACT_NO = A.CONTRACT_NO AND CONTRACT_SEQ = A.CONTRACT_SEQ AND STATUS != 'D'), 15)    
+		       FROM ICOMPRDT A                                 
+		            INNER JOIN ICOMPRHD B ON (1 = 1            
+		              AND B.BUYER = A.BUYER                    
+		              AND B.PR_NO = A.PR_NO                    
+		              AND B.STATUS IN ('C','R')                
+		            )                                          
+		            LEFT OUTER JOIN ICOMCQDT C ON (1 = 1       
+		              AND C.BUYER        = A.BYIT_COMORG_CODE  
+		              AND C.CONTRACT_NO  = A.CONTRACT_NO       
+		              AND C.CONTRACT_SEQ = A.CONTRACT_SEQ      
+		              AND C.STATUS IN ('C','R')                
+		            )                                          
+		      WHERE A.BUYER  = #{st_buyer_code}                               --3: BUYER
+		        AND A.PR_NO  = #{st_pr_no}                               --4: PR_NO
+		        AND A.PR_SEQ = #{st_pr_seq}                               --5: PR_SEQ
+		        AND A.STATUS IN ('C','R')                      
+		    )                                                  
+		]]>
+	</update>		
+
+
+	<update  id="insertNewBuyerCreatePO_POHD" parameterType="java.util.Map" >
+		<![CDATA[
+          INSERT INTO ICOMPOHD                                                                                            
+                 ( BUYER               , PO_NO             ,                                                              
+                   STATUS              , ADD_DATE          ,                                                              
+                   ADD_TIME            , CHANGE_DATE       ,                                                              
+                   CHANGE_TIME         , PO_CREATE_DATE    ,                                                              
+                   BUYER_GROUP         , AGENT             ,                                                              
+                   PAYER               , NOTIFY            ,                                                              
+                   SELLER              , PAYEE             ,                                                              
+                   PAY_TERMS           , USANCE_DAYS       ,                                                              
+                   DELY_TERMS          , CUR               ,                                                              
+                   PO_TTL_AMT          , PO_TAX_TTL_AMT    ,                                                              
+                   PURCHASER_ID        ,                                                                                  
+                   PURCHASER_NAME      ,                                                                                  
+                   PROCESS_TYPE        , ACCOUNT_TYPE      ,                                                              
+                   SHIPPER_TYPE        , PO_REMARK         ,                                                              
+                   VERSION             , EMAIL_FLAG        ,                                                              
+                   ADD_USER_ID         , CHANGE_USER_ID    ,                                                              
+                   DELY_TO_LOCATION    ,                                                                                  
+                   CHANGE_USER_DEPT    ,                                                                                  
+                   PR_TYPE             , AGENT_PO_TTL_AMT  ,                                                              
+                   LEGACY_AGENT_CODE   ,                                                                                  
+                   PO_SUBJECT          ,                                                                                  
+                   DOC_TYPE                                )                                                              
+          ( SELECT BUYER               , PO_NO,                                                                           
+                  'C'                  , MAX(ADD_DATE),                                                                   
+                   MAX(ADD_TIME)       , MAX(CHANGE_DATE),                                                                
+                   MAX(CHANGE_TIME)    , MAX((SELECT ADD_DATE FROM ICOMPRDT WHERE BUYER = A.BUYER AND PR_NO = A.PR_NO AND PR_SEQ = A.PR_SEQ)),  
+                   BUYER               , #{TmpAgent}    ,                                                                            -- 1: AGENT
+                   BUYER               , BUYER,                                                                           
+                   SELLER              , SELLER,                                                                          
+                   'AP'                , 0,                                                                               
+                   'OST'               , 'KRW',                                                                           
+                   SUM(ITEM_AMT)       , SUM(ITEM_AMT),                                                                   
+                   CHANGE_USER_ID      ,                                                                                  
+                   MAX((SELECT USER_NAME_LOC FROM ICOMLUSR WHERE COM_CODE = BUYER AND USER_ID = CHANGE_USER_ID)),         
+                   PROCESS_TYPE        , 'M',                                                                             
+                   ' '                 , #{TmpReqUserInfo}||'발주번호:'||LEGACY_PO_NO|| ' ' || #{TmpHdRemark},                    -- 2: Doc_Type   ==> Req_User_Info
+                   '1'                 , 'N',                                                                             
+                   CHANGE_USER_ID      , CHANGE_USER_ID,                                                                  
+                   DECODE(MAX(TRIM((SELECT D.DELY_TO_LOCATION_TEXT FROM ICOMPRDT D WHERE D.BUYER = A.BUYER AND D.PR_NO = A.PR_NO AND D.PR_SEQ = A.PR_SEQ)))
+                   			, ''
+ 	 	                 	,MAX(TRIM((SELECT DELY_TO_LOCATION FROM ICOMPRHD WHERE BUYER = A.BUYER AND PR_NO = A.PR_NO)))
+        		           	,MAX(TRIM((SELECT D.DELY_TO_LOCATION_TEXT FROM ICOMPRDT D WHERE D.BUYER = A.BUYER AND D.PR_NO = A.PR_NO AND D.PR_SEQ = A.PR_SEQ)))) ,
+                   CHANGE_USER_DEPT,                                                                                      
+                   'PX'                , SUM(AGENT_ITEM_AMT),                                                             
+                   ' ',                                                                                                   
+                   SUBSTRB(REPLACE(REPLACE(REPLACE(MAX(DESCRIPTION),'#',' '),'''',' '),'\"',' '),1,40),                   
+                   #{TmpDocType}                                                                                                       -- 3: Doc_Type
+             FROM  ICOMPODT A                                                                                             
+            WHERE  BUYER            = #{TmpBuyer}                                                                                    -- 4: BUYER
+              AND  PO_NO            = #{PoNo}                                                                                    -- 5: PO_NO
+              AND  STATUS          != 'D'                                                                                 
+           GROUP BY  BUYER,PO_NO,SELLER,CHANGE_USER_ID,                                                                   
+                     DELY_TO_LOCATION,CHANGE_USER_DEPT,LEGACY_PO_NO ,PROCESS_TYPE                                     )   	
+
+		]]>
+	</update>		
+
+
+	<update  id="updateNewBuyerCreatePO_PRHD" parameterType="java.util.Map" >
+		<![CDATA[
+          UPDATE ICOMPRHD A                                                                                               
+             SET A.RECV_FLAG = (SELECT DECODE(COUNT(*),0,'GA','AT') FROM ICOMPRDT B                                       
+                                WHERE  A.BUYER = #{st_buyer_code}                                                                        
+                                AND    A.BUYER = B.BUYER                                                                  
+                                AND    A.PR_NO = B.PR_NO                                                                  
+                                AND    A.PR_NO = #{st_pr_no}                                                                        
+                                AND    B.RECV_FLAG = 'AT'                                                                 
+                                AND    B.STATUS ^= 'D')                                                                   
+           WHERE BUYER  = #{st_buyer_code}                                                                                               
+             AND PR_NO  = #{st_pr_no}                                                                                               
+             AND STATUS <> 'D'                                                                                            
+		]]>
+	</update>		
+
+
+	<update  id="updateNewBuyerCreatePO_PRDT" parameterType="java.util.Map" >
+		<![CDATA[
+          UPDATE ICOMPRDT                                                                                                 
+             SET RECV_FLAG = 'PC'                                                                                         
+           WHERE BUYER  = #{st_buyer_code}                                                                                               
+             AND PR_NO  = #{st_pr_no}                                                                                                
+             AND PR_SEQ = #{st_pr_seq}                                                                                               
+             AND STATUS <> 'D'                                                                                            
+		]]>
+	</update>		
+
+
+
+	<select id="selectNewBuyerCreatePOKolon" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*selectNewBuyerCreatePOKolon*/
+			SELECT										        
+                  A.BUYER             ,                                                   --1
+                 A.SELLER            ,                                                   --2
+                 A.STATUS            ,                                                   --3
+                 A.BUYER_ITEM_NO     ,                                                   --4
+                 A.SELLER_ITEM_NO    ,                                                   --5
+                 A.DESCRIPTION       ,                                                   --6
+                 A.SPECIFICATION     ,                                                   --7
+                 A.UNIT_MEASURE      ,                                                   --8
+                 A.PO_QTY            ,                                                   --9
+                 A.TARGET_PRICE      ,                                                   --10
+                 A.RD_DATE           ,                                                   --11
+                 A.MAKER_NAME        ,                                                   --12
+                 A.DELY_TO_LOCATION  ,                                                   --13
+                 A.PR_NO             ,                                                   --14
+                 A.PR_SEQ            ,                                                   --15
+                 NVL(DECODE(SUBSTR(REF_PR_NO,2,1),'-',SUBSTR(REF_PR_NO,1,1),             
+                     DECODE(SUBSTR(REF_PR_NO,3,1),'-',SUBSTR(REF_PR_NO,1,2),             
+                     DECODE(SUBSTR(REF_PR_NO,4,1),'-',SUBSTR(REF_PR_NO,1,3),             
+                     DECODE(SUBSTR(REF_PR_NO,5,1),'-',SUBSTR(REF_PR_NO,1,4),             
+                     DECODE(SUBSTR(REF_PR_NO,6,1),'-',SUBSTR(REF_PR_NO,1,5), REF_PR_NO))))),' ') TEMP_REF_PR_NO,  --16
+                 A.CONTRACT_NO       ,                                                   --17
+                 A.CONTRACT_SEQ      ,                                                   --18
+                 A.CHANGE_USER_ID    ,                                                   --19
+                 A.CHANGE_USER_DEPT  ,                                                   --20
+                 A.LIST_PRICE        ,                                                   --21
+                 NVL(A.LEGACY_PO_NO,' ') AS LEGACY_PO_NO ,                                               --22
+                 NVL(A.LEGACY_PO_SEQ,' ') AS LEGACY_PO_SEQ,                                               --23
+                 A.AGENT             ,                                                   --24
+                 A.REF_ADD_USER_ID   ,                                                   --25
+                 A.REF_IF_NO         ,                                                   --26
+                 NVL(A.REMARK,' ') AS REMARK      ,                                               --27
+                 NVL(A.DOC_TYPE,'N') AS DOC_TYPE,                                                    --28
+                 A.BYIT_COMORG_CODE,                                                     --29
+                 A.PROCESS_TYPE,                                                         --30
+                 A.REQ_USER_INFO,                                                        --31
+                 A.REF_PR_NO  ,                                                           --32
+           		 A.ADD_USER_ID USER_ID
+           FROM ICOMPRDT A , ICOMPRHD B                                                  
+          WHERE A.BUYER      = #{st_buyer_code}                                                         
+            AND A.PR_NO      = #{st_pr_no}                                                         
+            AND A.BUYER    = B.BUYER                                                     
+            AND A.PR_NO    = B.PR_NO                                                     
+            AND A.RECV_FLAG  = 'IF'                                                      
+            AND A.STATUS <> 'D'                                                          
+            AND B.STATUS <> 'D'                                                          
+        ORDER BY A.BUYER,A.DELY_TO_LOCATION,A.SELLER,A.AGENT ,A.LEGACY_PO_NO,           
+            A.REQ_USER_INFO , A.DOC_TYPE, A.PROCESS_TYPE , A.LEGACY_PO_SEQ 
+		]]>
+	</select>
+	
+	
+	<select id="selectNewBuyerCreatePOKolonSub" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*selectNewBuyerCreatePOKolonSub*/
+	      SELECT                                                                          
+                 B.PO_NO,                                                                
+                 COUNT(*) AS TOTNO                                                              
+           FROM  ICOMPODT A, ICOMPOHD B                                                  
+          WHERE  A.BUYER             = #{BUYER}                                                 -- 1
+            AND  A.BUYER             = B.BUYER                                           
+            AND  A.PO_NO             = B.PO_NO                                           
+            AND  A.DELY_TO_LOCATION  = #{DELY_TO_LOCATION}                                                 -- 2
+            AND  A.LEGACY_PO_NO      = #{LEGACY_PO_NO}                                                 -- 3
+            AND  NVL(A.LEGACY_PO_SEQ,' ')    = NVL(#{LEGACY_PO_SEQ},' ')                                -- 4
+            AND  B.AGENT            = #{AGENT}                                                  -- 5
+            AND  B.ADD_USER_ID      = #{REF_ADD_USER_ID}                                                  -- 6
+            AND  A.BUYER_ITEM_NO    = #{BUYER_ITEM_NO}                                                  -- 7
+            AND  A.REF_PR_NO        = #{REF_PR_NO}                                                  -- 8
+            AND  A.STATUS <> 'D'                                                         
+            AND  B.STATUS <> 'D'                                                         
+          GROUP  BY  B.PO_NO                                                             
+		]]>
+	</select>	
+
+	
+	<update  id="insertNewBuyerCreatePOKolon_PODT" parameterType="java.util.Map" >
+		<![CDATA[
+	  /*insertNewBuyerCreatePOKolon_PODT*/
+      INSERT INTO ICOMPODT   (                                                       
+              BUYER                 , PO_NO              ,                           
+              PO_SEQ                , SELLER             ,                           
+              STATUS                , ADD_DATE           ,                           
+              ADD_TIME              , CHANGE_DATE        ,                           
+              CHANGE_TIME           , BUYER_ITEM_NO      ,                           
+              SELLER_ITEM_NO        , DESCRIPTION        ,                           
+              SPECIFICATION         , UNIT_MEASURE       ,                           
+              ITEM_QTY              , UNIT_PRICE         ,               UNIT_TAX,   
+              ITEM_AMT              , RD_DATE            ,                           
+              DOM_EXP_FLAG          , DELY_TO_LOCATION   ,                           
+              COMPLETE_MARK         , PR_NO              ,                           
+              PR_SEQ                , REF_PR_NO          ,                           
+              CONTRACT_NO           , CONTRACT_SEQ       ,                           
+              PROXY_BUY_FLAG        , AGENT_PRICE        ,                           
+              AGENT_ITEM_AMT        , CHANGE_USER_DEPT   ,                           
+              LEGACY_PO_NO          , CHANGE_USER_ID     ,                           
+              LEGACY_PO_SEQ         , REF_IF_NO          ,                           
+              DS_FLAG               , PO_REMARK          ,                           
+              BYIT_COMORG_CODE      , PROCESS_TYPE        ,                          
+              CATEG_ID, CMS_CATEG_ID, CMS_CATLG_ID, ITEM_GROUP, WAREHOUSE_CODE,KEP_PRICE,
+              ST_DATE               ,ITEM_MAKE_TYPE		,
+              DELIVERY_LT
+       )      
+  (    SELECT                                                                        
+              A.BUYER                ,  #{st_po_no}                         ,                     -- 1: PO_NO
+              TO_CHAR(${st_cnt} ,'FM000000') , A.SELLER                 ,                     -- 2: PO_SEQ
+              A.STATUS               , TO_CHAR(SYSDATE,'YYYYMMDD'),                  
+              SUBSTR(TO_CHAR(SYSDATE,'YYYYMMDD HH24MISS'),10,6)  ,                   
+              TO_CHAR(SYSDATE,'YYYYMMDD')                        ,                   
+              SUBSTR(TO_CHAR(SYSDATE,'YYYYMMDD HH24MISS'),10,6)  ,                   
+              A.BUYER_ITEM_NO                                      ,                 
+              NVL(A.SELLER_ITEM_NO,A.BUYER_ITEM_NO) ,A.DESCRIPTION ,                 
+              A.SPECIFICATION         , A.UNIT_MEASURE       ,                       
+              A.TARGET_QTY              , A.TARGET_PRICE       ,                     
+              (SELECT TAX_PRICE FROM ICOMCQDT WHERE BUYER = A.BYIT_COMORG_CODE AND BUYER_ITEM_NO = A.BUYER_ITEM_NO 
+                  AND CONTRACT_NO = A.CONTRACT_NO AND CONTRACT_SEQ = A.CONTRACT_SEQ),
+              A.TARGET_QTY * A.TARGET_PRICE, A.RD_DATE       ,                           
+              'DO'                    , A.DELY_TO_LOCATION   ,                       
+              'N'                     , A.PR_NO              ,                       
+              A.PR_SEQ                , A.REF_PR_NO          ,                       
+              A.CONTRACT_NO           , A.CONTRACT_SEQ       ,                       
+              'PX'                    , A.LIST_PRICE         ,                       
+              A.TARGET_QTY * A.LIST_PRICE, A.CHANGE_USER_DEPT  ,                     
+              A.LEGACY_PO_NO          , A.CHANGE_USER_ID     ,                       
+              A.LEGACY_PO_SEQ         , A.REF_IF_NO          ,                       
+              'N'                     , A.REMARK             ,                       
+              A.BYIT_COMORG_CODE      , A.PROCESS_TYPE        ,                      
+              A.CATEG_ID, A.CMS_CATEG_ID, A.CMS_CATLG_ID, A.ITEM_GROUP             , 
+              DECODE(A.PROCESS_TYPE,0,'', NVL(TRIM(A.WAREHOUSE_CODE), (SELECT ORIGIN_AGENT FROM ICOMCQDT           
+                                        WHERE BUYER = A.BYIT_COMORG_CODE              
+                                          AND CONTRACT_NO = A.CONTRACT_NO             
+                                          AND CONTRACT_SEQ = A.CONTRACT_SEQ           
+                                          AND STATUS <> 'D'))) AS WAREHOUSE_CODE,      
+              (SELECT NVL(KEP_PRICE,0) FROM ICOMCQDT WHERE BUYER=A.BYIT_COMORG_CODE AND CONTRACT_NO=A.CONTRACT_NO AND CONTRACT_SEQ=A.CONTRACT_SEQ),
+              F_GET_DELIVERY_INFO(A.BUYER, A.CONTRACT_NO, A.CONTRACT_SEQ, A.RD_DATE, 'D') ,
+              F_GET_DELIVERY_INFO(A.BUYER, A.CONTRACT_NO, A.CONTRACT_SEQ, A.RD_DATE, 'P')	,
+              NVL((SELECT DELIVERY_LT FROM ICOMCQDT WHERE BELOW_COMORG_CODE = A.BUYER AND CONTRACT_NO = A.CONTRACT_NO AND CONTRACT_SEQ = A.CONTRACT_SEQ AND STATUS != 'D'), 15)        
+         FROM  ICOMPRDT A , ICOMPRHD B                                                
+      WHERE A.BUYER  = #{st_buyer_code}                               --3: BUYER
+        AND A.PR_NO  = #{st_pr_no}                               --4: PR_NO
+        AND A.PR_SEQ = #{st_pr_seq}                               --5: PR_SEQ
+          AND  A.STATUS <> 'D'                                                        
+          AND  B.STATUS <> 'D'                                                        
+          AND  A.BUYER  = B.BUYER                                                     
+          AND  A.PR_NO  = B.PR_NO                                         ) 
+		                                                      
+		]]>
+	</update>		
+	
+
+	
+	<select id="getOrderPO" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*getOrderPO*/
+      SELECT  #{st_doc_type} ||TO_CHAR(SYSDATE,'YY')||LPAD(DECODE(YEAR, TO_CHAR(SYSDATE,'YYYY'), CUR_NO, 1),6,0) AS ORDERNO 
+        FROM ICOMSQMT         
+       WHERE COMPANY  = #{st_company}    
+         AND DOC_TYPE = #{st_doc_type}                                                     
+		]]>
+	</select>	
+
+
+
+	<update  id="insertICOMSQMTALL" parameterType="java.util.Map" >
+		<![CDATA[
+           INSERT INTO ICOMSQMT (COMPANY,DOC_TYPE,YEAR,CUR_NO)
+           VALUES (#{st_company},#{st_doc_type},TO_CHAR(SYSDATE,'YYYY'),2)
+		]]>
+	</update>		
+
+	<update  id="insertICOMSQMTOne" parameterType="java.util.Map" >
+		<![CDATA[
+	         UPDATE ICOMSQMT                  
+	            SET YEAR   = DECODE(YEAR,TO_CHAR(SYSDATE,'YYYY'), YEAR, TO_CHAR(SYSDATE,'YYYY')) ,    
+	                CUR_NO = DECODE(YEAR,TO_CHAR(SYSDATE,'YYYY'),CUR_NO+1,1)
+	         WHERE COMPANY =#{st_company} 
+	           AND DOC_TYPE=#{st_doc_type} 
+		]]>
+	</update>		
+
+
+</mapper>

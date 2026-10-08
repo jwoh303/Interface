@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mdcd">
+	<!-- 조회 -->
+	<select id="selectMasterMdCdBuyerCardSearchList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.pagestart"/>	
+			<![CDATA[
+				/* selectMasterMdCdBuyerCardSearchList */
+		    	SELECT
+				    DT.BUYER
+				    , GETCMSLOCNAME(HD.BUYER, HD.SITE) AS COM_NAME_LOC
+				    , DT.VISIT_TYPE
+				    , (SELECT COD.TEXT1 FROM ICOMCOD1 COD WHERE COD.TYPE ='K003' AND COD.CODE = DT.VISIT_TYPE)  AS VISIT_TEXT
+				    , DT.ADD_USER_ID
+				    , (SELECT USR.USER_NAME_LOC FROM ICOMLUSR USR WHERE USR.USER_ID = DT.ADD_USER_ID) AS ADD_DUSER_NM
+				    , TO_CHAR(TO_DATE(VISIT_DATE||VISIT_TIME,'YYYYMMDDHH24MISS'),'YYYY-MM-DD HH24:MI')  VISIT_DATE
+				    , SUBSTR(VISIT_NOTE,0,50) AS VISIT_NOTE
+				    , DT.IMAGE_KEY
+				    , DECODE(DT.IMAGE_KEY, NULL, '2', '1') AS IMAGE_KEY_IMG
+				    ,(SELECT DEPARTMENT FROM ICOMLUSR WHERE USER_ID = DT.ADD_USER_ID) AS DEPARTMENT
+				    , DT.ADD_DATE
+				    , DT.ADD_TIME
+				FROM KEP_VISITDT DT, KEP_VISITHD HD
+				WHERE 1=1
+				AND DT.STATUS <> 'D'
+				AND DT.VISIT_DATE BETWEEN #{st_from_date} AND #{st_to_date}
+				AND DT.BUYER = HD.BUYER
+			]]>
+			<if test="st_visit_kind != null and st_visit_kind != ''">
+				AND DT.VISIT_TYPE = #{st_visit_kind}
+			</if>
+			<if test="st_kep_user_id != null and st_kep_user_id != ''">
+				AND DT.ADD_USER_ID = #{st_kep_user_id}
+			</if>
+			<if test="st_visit_note != null and st_visit_note != ''">
+				AND DT.VISIT_NOTE LIKE '%' || #{st_visit_note} || '%'
+			</if>
+			<if test="st_buyer_code != null and st_buyer_code != ''">
+				AND DT.BUYER IN
+				<foreach collection="buyer_code_array" item="item" index="i" open="(" separator=","  close=")" >	
+					#{item}
+				</foreach>
+			</if>
+				ORDER BY GETCMSLOCNAME(HD.BUYER, HD.SITE), DT.VISIT_DATE
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+	
+	<!-- 방문자 조회 -->
+	<select id="selectMasterMdCdBuyerCardSearchKepuserList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			SELECT
+				L.USER_ID AS CODE,
+				L.USER_NAME_LOC AS TEXT1
+			FROM ICOMLUSR L
+			WHERE L.COM_CODE = 'KRKORE0001'
+			AND L.STATUS IN ('C','R')
+			AND L.USER_ID NOT IN ('KOREAB2B','KEP200300')
+			ORDER BY L.USER_NAME_LOC
+		]]>	
+	</select>
+	
+		
+</mapper>   
+   

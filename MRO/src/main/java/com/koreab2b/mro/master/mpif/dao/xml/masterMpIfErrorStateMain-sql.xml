@@ -1,0 +1,586 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mpif">
+
+	<!-- 조회 -->
+	<select id="selectMasterMpIfErrorStateMainList" parameterType="java.util.Map" resultType="java.util.Map">
+	/*selectMasterMpIfErrorStateMainList*/
+		<include refid="common.ibsheet.xml.pagestart"/>	
+		<![CDATA[
+			SELECT
+			    IFS.BUYER_NAME                 /* 고객사명 */
+			  , IFS.BUYER                      /* 고객사코드(Hidden) */
+			  , IFS.IF_PROGRESS_PODT           /* IF상태 Image */
+			  , IFS.IF_FLAG_PROGRESS           /* IF상태 Flag */
+			  , IFS.LEGACY_PO_NO               /* 주문번호  */
+			  , IFS.LEGACY_PO_SEQ              /* 주문항번 */
+			  , IFS.IF_STATUS                  /* 상태(IF) */
+			  , IFS.PR_STATUS                  /* 상태(PR) */
+			  , IFS.PO_STATUS                  /* 상태(PO) */
+			  , IFS.IF_EXCEL                   /* 상태(IF) */
+			  , IFS.PR_EXCEL                   /* 상태(PR) */
+			  , IFS.PO_EXCEL                   /* 상태(PO) */
+			  , IFS.ERROR_MSG                  /* 오류내역 */
+			  , IFS.BUYER_ITEM_NO              /* 품목코드 */
+			  , IFS.ORG_BUYER_ITEM_NO          /* ORG품목코드 */
+			  , IFS.DESCRIPTION                /* 품목명 */
+			  , IFS.SPECIFICATION              /* 규격 */
+			  , IFS.LEGACY_PR_NO               /* 관리번호 */
+			  , IFS.UNIT_PRICE_PAN             /* 판매단가 */
+			  /* --비교대상시작-- */           
+			  , IFS.UNIT_PRICE_IF              /* IF단가 */
+			  , IFS.UNIT_PRICE_PO              /* 발주단가 */
+			  , IFS.PRCHS                      /* 매입단가 */
+			  , IFS.PRCHS_AMT                  /* 매입가 */
+			  , IFS.UNIT_PRICE_AMT              /* 매출가 */
+			  , IFS.PRF_AMN                     /* 매익 */
+			  , IFS.MARGIN_RETE                 /* 매익율 */
+			  , IFS.BUYER_EXP_CUR_PRICE       		/* 시스템 환율 */
+			  , IFS.BUYER_PRICE_PAN       		/* 고객사 단가반영 매출단가 */
+			  , (IFS.BUYER_PRICE_PAN * IFS.ITEM_QTY_IF) AS BUYER_PRICE_AMT       		/* 고객사 단가반영 매출가 */
+       		  , ROUND(((IFS.BUYER_PRF_AMN - IFS.PRCHS ) * IFS.ITEM_QTY_IF), 0) AS BUYER_PRF_AMN 				/* 고객사 단가반영 매익 */
+			  , ROUND(((IFS.BUYER_PRF_AMN - IFS.PRCHS) / IFS.BUYER_PRF_AMN) * 100, 2) AS BUYER_MARGIN_RETE    	/* 고객사 단가반영 후 매익율 */
+			  , IFS.EXP_FOR_UNIT_PRICE_PODT    /* IF외화단가 */
+			  , IFS.EXP_FOR_ITEM_AMT    	   /* IF외화금액 */
+			  , IFS.EXP_FOR_UNIT_PRICE_CUR     /* 판매외화단가 */
+			  , IFS.EXP_FOR_UNIT_PRICE_AMT     /* 판매외화금액 */
+			  , ROUND(((IFS.EXP_FOR_UNIT_PRICE_PODT-IFS.EXP_FOR_UNIT_PRICE_CUR)/IFS.EXP_FOR_UNIT_PRICE_PODT) * 100, 2) AS EXP_FOR_RATE    /* 외화단가 변동률 */
+			  , IFS.EXP_FOR_ITEM_AMT - IFS.EXP_FOR_UNIT_PRICE_AMT AS EXP_FOR_LOSS_AMT       /* 외화 손익금액 */
+			  , IFS.EXP_CUR                    /* 외화화폐단위 */
+			  , IFS.ITEM_QTY_IF                /* IF수량 */
+			  , IFS.ITEM_QTY_PO                /* 발주수량 */
+			  , IFS.COM_NAME_IF                /* IF공급사 */
+			  , IFS.COM_NAME_PO                /* 공급회원사 */
+			  , IFS.RD_DATE_IF                 /* IF요청일 */
+			  , IFS.RD_DATE_PO                 /* 납품요구일 */
+			  /* --비교대상끝-- */             
+			  , IFS.PURCHASER_USER_ID          /* 발주자ID */
+			  , IFS.PURCHASER_USER_DEPT        /* 발주부서(Hidden) */
+			  , IFS.BYIT_COMORG_CODE           /* 그룹코드(Hidden) */
+			  , IFS.COMORG_LEVEL               /* 카탈로그 적용조직레벨(Hidden) */
+			  , IFS.ADD_DATE                   /* IF발주일 */
+			  , IFS.REQ_USER_INFO              /* 요청자정보 */
+			  , IFS.DELY_TO_LOCATION           /* 도착지코드 */
+			  , IFS.DOC_TYPE                   /* 납품유형(Hidden) */
+			  , IFS.PO_TYPE                    /* 발주유형(일반/선입고) */
+			  , IFS.REMARK2                    /* 선입고정보 */
+			  , IFS.REF_IF_NO                  /* 참조(비고) */
+			  , IFS.HD_REMARK || ' ; ' || IFS.REMARK || ' ; ' || REPLACE(IFS.IF_DESCRIPTION,IFS.REMARK,'') || ' ; ' || IF_SPECIFICATION AS REMARK                   /* 비고 */
+			  , IFS.CONTRACT_NO                /* 계약서번호 */
+			  , IFS.CONTRACT_SEQ               /* 계약서행번 */
+			  , IFS.IVDT_TYPE                  /* 거래유형(직납/TR) */
+			  , IFS.AGENT                      /* 협력사코드(Hidden) */
+			  , IFS.AGENT_NAME                 /* 협력사명 */
+			  , IFS.PURCHASER_USER_ID_ERR_FLAG /* 발주자미등록 */
+			  , IFS.RD_DATE_ERR_FLAG           /* 요청일오류 */
+			  , IFS.PO_DATE_ERR_FLAG           /* 발주일오류 */
+			  , IFS.BUYER_ITEM_ERR_FLAG        /* 품목코드미등록 */
+			  , IFS.UNIT_PRICE_ERR_FLAG        /* 판매단가 불일치 */
+			  , IFS.CREATE_DATE                /* 생성일자 */
+			  , IFS.CREATE_TIME                /* 생성시간 */
+			  , IFS.LOAD_DATE                  /* 작업일자 */
+			  , IFS.LOAD_TIME                  /* 작업시간 */
+              , IFS.PR_NO_B
+              , IFS.PR_SEQ_B
+              , IFS.PO_NO
+              , IFS.PO_SEQ
+              , IFS.DELY_TO_LOCATION_TEXT
+              , IFS.PLANT
+              , IFS.CANCEL_DATE
+              , IFS.CANCEL_RSON
+              , IFS.CANCEL_ID
+              , IFS.GW_NO
+              , IFS.GW_STATUS  
+			 FROM
+			 (
+			    SELECT /*+ USE_NL(A K)
+			               INDEX(B ICOMPRDT_07)
+			               INDEX(C ICOMPODT_09)
+			               INDEX(D ICOMCQDT_PK)
+			               INDEX(E ICOMCOD2_PK) 
+			               INDEX(F ICOMCMPY_PK)
+			               INDEX(G ICOMCMPY_PK)
+			               INDEX(I ICOMBYIT_PK)
+			               INDEX(J ICOMCMPY_PK)
+			               INDEX(AA SYS_C0052550)
+			               INDEX(BB KEP_CURRENCY_DT_PK)
+			           */
+			        TRIM(A.ERROR_MSG) AS ERROR_MSG
+			      , J.COM_NAME_LOC  AS BUYER_NAME
+			      , AA.IF_FLAG AS IF_FLAG_PROGRESS
+			      , CASE
+			      		WHEN A.GW_NO IS NOT NULL 					THEN '8' /* 상신중 */    
+			            WHEN AA.IF_FLAG = 'C'                       THEN '1' /* 작업대기 */
+			            WHEN AA.IF_FLAG <> 'C'  AND A.IF_FLAG = 'N' THEN '0' /* 정상 */
+			            WHEN AA.IF_FLAG IS NULL AND A.IF_FLAG = 'N' THEN '0' /* 정상 */
+			            WHEN AA.IF_FLAG <> 'C'  AND A.IF_FLAG = 'E' THEN '2' /* 오류건 */
+			            WHEN AA.IF_FLAG IS NULL AND A.IF_FLAG = 'E' THEN '2' /* 오류건 */
+			            WHEN A.IF_FLAG = 'D' THEN '7' /* 삭제건 */       
+			        END IF_PROGRESS_PODT
+			      , CASE
+			            WHEN A.STATUS = 'C' THEN '3'
+			            WHEN A.STATUS = 'R' THEN '4'
+			            WHEN A.STATUS = 'D' THEN '5'
+			        END AS IF_STATUS /* IF상태 */
+			      , CASE
+			            WHEN B.STATUS = 'C' THEN '3'
+			            WHEN B.STATUS = 'R' THEN '4'
+			            WHEN B.STATUS = 'D' THEN '5'
+			            ELSE '6'
+			        END AS PR_STATUS /* PR상태 */
+			      , CASE
+			            WHEN C.STATUS = 'C' THEN '3'
+			            WHEN C.STATUS = 'R' THEN '4'
+			            WHEN C.STATUS = 'D' THEN '5'
+			            ELSE '6'
+			        END AS PO_STATUS /* PO상태 */
+			      , A.STATUS                 AS IF_EXCEL
+			      , B.STATUS                 AS PR_EXCEL
+			      , C.STATUS                 AS PO_EXCEL
+			      , F.COM_NAME_LOC           AS COM_NAME_IF
+			      , G.COM_NAME_LOC           AS COM_NAME_PO
+			      , A.LEGACY_PR_NO           AS LEGACY_PR_NO
+			      , 
+			       CASE 
+			           WHEN A.EXP_CUR = 'USD' THEN BB.EXP_KR_UNIT_PRICE
+			           ELSE D.UNIT_PRICE
+			       END AS UNIT_PRICE_PAN    
+			      , A.UNIT_PRICE             AS UNIT_PRICE_IF
+			      , C.UNIT_PRICE             AS UNIT_PRICE_PO
+			      , D.LIST_PRICE             AS PRCHS
+			      , (D.LIST_PRICE * A.ITEM_QTY)      AS PRCHS_AMT
+			      , 
+			       CASE 
+			           WHEN A.EXP_CUR = 'USD' THEN (BB.EXP_KR_UNIT_PRICE * A.ITEM_QTY)
+			           ELSE (D.UNIT_PRICE * A.ITEM_QTY)
+			       END AS UNIT_PRICE_AMT   
+			      , 
+			       CASE 
+			           WHEN A.EXP_CUR = 'USD' THEN ((BB.EXP_KR_UNIT_PRICE - D.LIST_PRICE ) * A.ITEM_QTY )
+			           ELSE ((D.UNIT_PRICE - D.LIST_PRICE ) * A.ITEM_QTY )
+			       END AS PRF_AMN    
+			      , 
+			       CASE 
+			           WHEN A.EXP_CUR = 'USD' THEN ROUND(((BB.EXP_KR_UNIT_PRICE - D.LIST_PRICE ) / BB.EXP_KR_UNIT_PRICE) * 100, 2)
+			           ELSE ROUND(((D.UNIT_PRICE - D.LIST_PRICE ) / D.UNIT_PRICE ) * 100, 2)
+			       END AS MARGIN_RETE  
+			      , BD.EXP_CUR_PRICE AS BUYER_EXP_CUR_PRICE     
+			      , ROUND((BD.EXP_CUR_PRICE * A.EXP_FOR_UNIT_PRICE)) AS BUYER_PRICE_PAN
+			      , (BD.EXP_CUR_PRICE * A.EXP_FOR_UNIT_PRICE) AS BUYER_PRF_AMN
+			      , A.EXP_FOR_UNIT_PRICE	 AS EXP_FOR_UNIT_PRICE_PODT
+			      , A.EXP_FOR_ITEM_AMT	     AS EXP_FOR_ITEM_AMT
+			      , BB.EXP_FOR_UNIT_PRICE	 AS EXP_FOR_UNIT_PRICE_CUR
+			      , (BB.EXP_FOR_UNIT_PRICE * A.ITEM_QTY) AS EXP_FOR_UNIT_PRICE_AMT
+			      , A.EXP_CUR				 AS EXP_CUR
+			      , A.ITEM_QTY               AS ITEM_QTY_IF
+			      , C.ITEM_QTY               AS ITEM_QTY_PO
+			      , A.RD_DATE                AS RD_DATE_IF
+			      , C.RD_DATE                AS RD_DATE_PO
+			      , A.PURCHASER_USER_ID      AS PURCHASER_USER_ID
+			      , A.DELY_TO_LOCATION       AS DELY_TO_LOCATION
+			      , H.TEXT2                  AS IVDT_TYPE
+			      , CASE
+			            WHEN A.DOC_TYPE = 'N' THEN '일반'
+			            WHEN A.DOC_TYPE = 'S' THEN '선입고'
+			            ELSE ''
+			        END                      AS PO_TYPE
+			      , A.REQ_USER_INFO          AS REQ_USER_INFO
+			      , A.REMARK2                AS REMARK2
+			      , A.REF_IF_NO              AS REF_IF_NO
+			      , I.DESCRIPTION_LOC        AS DESCRIPTION
+			      , I.SPECIFICATION          AS SPECIFICATION
+			      , A.REMARK                 AS REMARK
+			      , A.HD_REMARK
+			      , A.BUYER                  AS BUYER
+			      , A.BYIT_COMORG_CODE       AS BYIT_COMORG_CODE
+			      , A.BUYER_ITEM_NO          AS BUYER_ITEM_NO
+			      , A.BUYER_ITEM_NO          AS ORG_BUYER_ITEM_NO
+			      , A.LEGACY_PO_NO           AS LEGACY_PO_NO
+			      , A.LEGACY_PO_SEQ          AS LEGACY_PO_SEQ
+			      , A.AGENT                  AS AGENT
+			      , A.PURCHASER_USER_DEPT    AS PURCHASER_USER_DEPT
+			      , J.BYCA_COMORG_LEVEL      AS COMORG_LEVEL
+			      , A.CONTRACT_NO            AS CONTRACT_NO
+			      , A.CONTRACT_SEQ           AS CONTRACT_SEQ
+			      , A.DOC_TYPE               AS DOC_TYPE
+			      , A.IF_FLAG                AS IF_FLAG
+			      , C.PO_NO                  AS PO_NO
+			      , C.PO_SEQ                 AS PO_SEQ
+			      , C.PR_NO                  AS PR_NO
+			      , C.PR_SEQ                 AS PR_SEQ
+			      , F.COM_NAME_LOC           AS AGENT_NAME
+			      , C.ITEM_AMT               AS ITEM_AMT
+			      , C.AGENT_ITEM_AMT         AS AGENT_ITEM_AMT
+			      , CASE
+			            WHEN C.STATUS = 'C' THEN '신규'
+			            WHEN C.STATUS = 'R' THEN '수정'
+			            WHEN C.STATUS = 'D' THEN '삭제'
+			            ELSE ''
+			        END AS PO_STATUS2 /* PO상태 */
+			      , CASE
+			            WHEN C.STATUS = 'C' THEN '신규'
+			            WHEN C.STATUS = 'R' THEN '수정'
+			            WHEN C.STATUS = 'D' THEN '삭제'
+			            ELSE ''
+			        END AS PR_STATUS2 /* PR상태 */
+			      , CASE
+			            WHEN A.IF_FLAG = 'E' AND ERROR_MSG LIKE '%발주자 미등록%' THEN 'X'
+			            ELSE ''
+			        END AS PURCHASER_USER_ID_ERR_FLAG
+			      , A.ADD_DATE               AS ADD_DATE /* 발주일 */
+			      , CASE
+			            WHEN A.IF_FLAG = 'E' AND ERROR_MSG LIKE '%발주일 오류%' THEN 'Y'
+			            ELSE 'N'
+			        END AS PO_DATE_ERR_FLAG
+			      , CASE
+			            WHEN A.IF_FLAG = 'E' AND ERROR_MSG LIKE '%요구일 오류%' THEN 'Y'
+			            ELSE 'N'
+			        END AS RD_DATE_ERR_FLAG
+			      , A.DESCRIPTION            AS IF_DESCRIPTION
+			      , A.SPECIFICATION          AS IF_SPECIFICATION
+			      , E.TEXT2                  AS ADDRESS /* 도착지주소 */
+			      , CASE
+			            WHEN A.IF_FLAG = 'E' AND A.ERROR_MSG LIKE '%품목코드 미등록%' AND TRIM(A.BUYER_ITEM_NO) IS NULL
+			                AND (SELECT COUNT(*)
+			                       FROM IF_PODT
+			                      WHERE BUYER         = A.BUYER
+			                        AND LEGACY_PO_NO  = A.LEGACY_PO_NO
+			                        AND LEGACY_PO_SEQ = A.LEGACY_PO_SEQ
+			                        AND IF_FLAG      != 'D') = 1
+			                THEN 'Y'
+			            ELSE 'N'
+			        END AS BUYER_ITEM_ERR_FLAG
+			      , CASE
+			            WHEN A.IF_FLAG = 'E' AND A.ERROR_MSG LIKE '%판매단가 불일치%' THEN 'Y'
+			            ELSE 'N'
+			        END AS UNIT_PRICE_ERR_FLAG
+			      , CASE
+			            WHEN A.IF_FLAG = 'E' AND ERROR_MSG LIKE '%도착지코드 미등록%' THEN 'Y'
+			            ELSE 'N'
+			        END AS DELY_TO_LOCATION_ERR_FLAG
+			      , A.CREATE_DATE
+			      , A.CREATE_TIME
+			      , A.LOAD_DATE
+			      , A.LOAD_TIME
+			      , B.PR_NO AS PR_NO_B
+                  , B.PR_SEQ AS PR_SEQ_B
+                  , A.DELY_TO_LOCATION_TEXT AS DELY_TO_LOCATION_TEXT
+                  , (SELECT TEXT1 FROM ICOMCOD2 WHERE COMPANY_CODE = 'KRSAMS0123' AND TYPE = 'C001' AND TEXT4 = 'OVERSEA' AND CODE = A.PLANT) AS PLANT
+                  , A.CANCEL_DATE
+                  , A.CANCEL_RSON
+                  , A.CANCEL_ID
+                  , A.GW_NO
+                  , A.GW_STATUS
+			    FROM
+			        IF_PODT A /* 인터페이스 주문상세내역 */
+			        LEFT OUTER JOIN KEP_CURRENCY_DT BB  /* 외화단가정보 */
+			        	ON(
+			        	BB.EXP_CODE IN ((SELECT TEXT2 FROM ICOMCOD2
+                                               WHERE TYPE = 'CRCY'
+                                                 AND COMPANY_CODE = 'KRKORE0001'
+                                                 AND TEXT1 = A.BUYER) )
+			        	AND BB.BUYER = ( SELECT BYCA_COMORG_CODE FROM ICOMCMPY WHERE COM_CODE = A.BUYER )
+                        AND BB.CONTRACT_NO = A.CONTRACT_NO
+                        AND BB.CONTRACT_SEQ = A.CONTRACT_SEQ
+                        AND BB.BUYER_ITEM_NO = A.BUYER_ITEM_NO
+			        	)    
+			            
+			        LEFT OUTER JOIN ICOMPRDT B /* 구매요청 제품정보 */
+			            ON (B.BUYER         = A.BUYER
+			            AND B.LEGACY_PO_NO  = A.LEGACY_PO_NO
+			            AND B.LEGACY_PO_SEQ = A.LEGACY_PO_SEQ
+			            AND B.BUYER_ITEM_NO = A.BUYER_ITEM_NO
+			            AND NVL(B.REF_PR_NO, ' ') = NVL(DECODE(B.BUYER, 'KRDAEW0016', B.REF_PR_NO, 'KRDONG0109', B.REF_PR_NO, NVL(A.LEGACY_PR_NO, ' ')), ' ')
+			            )
+			        LEFT OUTER JOIN ICOMPODT C /* 발주 제품정보 */
+			            ON (C.BUYER         = A.BUYER
+			            AND C.LEGACY_PO_NO  = A.LEGACY_PO_NO
+			            AND C.LEGACY_PO_SEQ = A.LEGACY_PO_SEQ
+			            AND C.BUYER_ITEM_NO = A.BUYER_ITEM_NO
+			            AND NVL(C.REF_PR_NO, ' ') = NVL(DECODE(C.BUYER, 'KRDAEW0016', C.REF_PR_NO, 'KRDONG0109', C.REF_PR_NO, NVL(A.LEGACY_PR_NO, ' ')), ' ')
+			            )
+			        LEFT OUTER JOIN ICOMCQDT D /* 구매사별 계약서 가격정보 */
+			            ON (D.BUYER         = A.BYIT_COMORG_CODE
+			            AND D.BUYER_ITEM_NO = A.BUYER_ITEM_NO
+			            AND D.CONTRACT_NO   = A.CONTRACT_NO
+			            AND D.CONTRACT_SEQ  = A.CONTRACT_SEQ
+			            AND D.AGENT         = A.AGENT
+			            )
+			        LEFT OUTER JOIN ICOMCOD2 E /* 회사별 코드관리 */
+			            ON (E.COMPANY_CODE  = A.BUYER
+			            AND E.TYPE          = 'C012'
+			            AND E.CODE          = A.DELY_TO_LOCATION
+			            )
+			        LEFT OUTER JOIN ICOMCMPY F /* 회원사정보 */
+			            ON (F.COM_CODE      = A.AGENT)
+			        LEFT OUTER JOIN ICOMCMPY G /* 회원사정보 */
+			            ON (G.COM_CODE      = B.AGENT)
+			        LEFT OUTER JOIN ICOMCOD1 H /* 마스터 코드관리 */
+			            ON (H.TYPE          = 'M034'
+			            AND H.CODE          = D.PROCESS_TYPE
+			            AND H.FLAG          = 'Y'
+			            )
+			        LEFT OUTER JOIN ICOMBYIT I /* 구매사카탈로그 상품정보 */
+			            ON (I.BUYER         = A.BYIT_COMORG_CODE
+			            AND I.BUYER_ITEM_NO = A.BUYER_ITEM_NO
+			            )
+			        LEFT OUTER JOIN ICOMCMPY J /* 회원사정보 */
+			            ON (J.COM_CODE      = A.BUYER)
+			        LEFT OUTER JOIN KEP_CURRENCY_HD BD  /* 외화단가정보 */
+			        	ON(
+			        	BD.EXP_CODE = ((SELECT TEXT2 FROM ICOMCOD2
+                                               WHERE TYPE = 'CRCY'
+                                                 AND COMPANY_CODE = 'KRKORE0001'
+                                                 AND TEXT1 = A.BUYER) )
+			        	)     
+			        INNER JOIN  IF_PROGRESS AA /* 오류 현황 메인 */
+			            ON (AA.BUYER        = A.BUYER
+			            AND AA.LEGACY_NO    = A.LEGACY_PO_NO
+			            AND AA.GUBUN        = 'PO'
+			            AND AA.IF_FLAG      NOT IN ('Y','D')
+			            )
+			    WHERE 1=1
+			    /*AND A.IF_FLAG <> 'D'*/	    
+		]]>
+		<if test="st_user_dept != null and st_user_dept != '' ">
+				AND EXISTS (
+				  SELECT 'X' FROM MIS_BUYER_MNG
+				   WHERE YEAR   = TO_CHAR(SYSDATE,'YYYY')
+				     AND STATUS = 'C'
+				     AND KEP_DEPT = #{st_user_dept}
+				)
+		</if>
+		<if test="st_err_text != null and st_err_text != '' ">
+			<![CDATA[
+			    AND A.ERROR_MSG LIKE '%'||#{st_err_text}||'%'
+			]]>  
+		</if>
+		<if test="st_legacy_po_no != null and st_legacy_po_no != '' ">
+			    AND A.LEGACY_PO_NO LIKE #{st_legacy_po_no} || '%'
+		</if>
+		<if test="st_legacy_pr_no != null and st_legacy_pr_no != '' ">
+			    AND A.LEGACY_PR_NO LIKE #{st_legacy_pr_no} || '%'
+		</if>
+		<if test="st_buyer_item_no != null and st_buyer_item_no != '' ">
+			    AND A.BUYER_ITEM_NO LIKE #{st_buyer_item_no} || '%'
+		</if>
+		<if test="buyer_code_array != null and buyer_code_array != '' ">
+				AND A.BUYER IN
+			<foreach item="item" index="index" collection="buyer_code_array" open="(" separator="," close=")">
+			    #{item}
+			</foreach>
+		</if>
+		<if test='st_date_flag_value == "N" '>
+			    AND A.ADD_DATE BETWEEN #{st_from_date} AND #{st_to_date}
+		</if>
+		/*20230823 삭제만 조회 추가 -> select list로 변경*/
+		<choose>
+			<when test='st_select_div == "A"'>
+				AND A.IF_FLAG IN ('E','N')
+			</when>
+			<when test='st_select_div == "E"'>
+				AND A.IF_FLAG = 'E'
+			</when>
+			<when test='st_select_div == "D"'>
+				AND A.IF_FLAG = 'D'
+			</when>
+		</choose>
+		
+		/*<if test='st_if_flag_value == "Y" '>
+			    AND A.IF_FLAG = 'E'
+		</if>
+		<if test='st_if_flag_value == "N" '>
+			    AND A.IF_FLAG IN ('E','N')
+		</if>*/
+		<![CDATA[
+				ORDER BY
+				    A.BUYER
+				  , A.LEGACY_PO_NO
+				  , A.BUYER_ITEM_NO
+			) IFS
+		]]>
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+
+	<update  id="updateMasterMpIfErrorStateMain_RD_DATE_IF" parameterType="java.util.Map" >
+		/*updateMasterMpIfErrorStateMain_RD_DATE_IF*/
+		<![CDATA[
+		UPDATE ICOMPRDT  
+		   SET RD_DATE = #{RD_DATE_IF}
+         WHERE BUYER   = #{BUYER} 
+           AND PR_NO   = #{PR_NO_B}
+           AND PR_SEQ  = #{PR_SEQ_B}
+		]]>		
+	</update>	
+	
+		<update  id="updateMasterMpIfErrorStateMain_RdDate_pr" parameterType="java.util.Map" >
+		/*updateMasterMpIfErrorStateMain_RdDate_pr*/
+		<![CDATA[
+		UPDATE ICOMPODT  
+		   SET RD_DATE = #{RD_DATE_IF}
+         WHERE BUYER   = #{BUYER} 
+           AND PR_NO   = #{PR_NO_B}
+           AND PR_SEQ  = #{PR_SEQ_B}
+		]]>		
+	</update>	
+	
+	<!-- 실행 -->
+	<update  id="updateMasterMpIfErrorStateMain_Execute_IF_PODT" parameterType="java.util.Map" >
+	/*updateMasterMpIfErrorStateMain_Execute_IF_PODT*/
+		<![CDATA[
+			UPDATE IF_PODT /* 인터페이스 주문상세내역 */
+			SET CHANGE_USER_ID   = #{st_user_id}
+			  , CHANGE_DATE      = TO_CHAR(SYSDATE,'YYYYMMDD')
+			  , CHANGE_TIME      = TO_CHAR(SYSDATE,'HH24MISS')
+			  , AGENT            = #{AGENT}
+			  , DOC_TYPE         = #{DOC_TYPE}
+			  , CONTRACT_NO      = #{CONTRACT_NO}
+			  , CONTRACT_SEQ     = #{CONTRACT_SEQ}
+			  , ADD_DATE         = #{ADD_DATE}
+			  , RD_DATE          = #{RD_DATE_IF}
+			  , DATE_CHANGE_HIST = SUBSTRB(SUBSTRB(DATE_CHANGE_HIST,1,350)||(CASE WHEN ADD_DATE != #{ADD_DATE} THEN '@ADD_DATE:'||ADD_DATE||'#'||CHANGE_USER_ID END)||(CASE WHEN RD_DATE != #{RD_DATE_IF} THEN '@RD_DATE:'||RD_DATE||'#'||CHANGE_USER_ID END),1,400)
+			  , BUYER_ITEM_NO    = NVL(TRIM(#{BUYER_ITEM_NO}),' ')
+			  , UNIT_PRICE       = NVL(#{UNIT_PRICE_IF},UNIT_PRICE)
+			  , ITEM_AMT         = NVL(#{UNIT_PRICE_IF},UNIT_PRICE) * ITEM_QTY
+			  , DELY_TO_LOCATION = #{DELY_TO_LOCATION}
+			WHERE 1=1
+			AND BUYER            = #{BUYER}
+			AND LEGACY_PO_NO     = #{LEGACY_PO_NO}
+			AND LEGACY_PO_SEQ    = NVL(#{LEGACY_PO_SEQ},' ')
+			AND BUYER_ITEM_NO    = NVL(#{BUYER_ITEM_NO},' ')
+		]]>
+	</update>
+	
+	<update  id="updateMasterMpIfErrorStateMain_Execute_POIFLOAD_DOOS" parameterType="java.util.Map" >
+	/*updateMasterMpIfErrorStateMain_Execute_POIFLOAD_DOOS*/
+		<![CDATA[
+			UPDATE POIFLOAD_DOOS /* 인터페이스 두중 발주내역 */
+			SET BUYER_ITEM_NO = #{BUYER_ITEM_NO}
+			WHERE 1=1
+			AND COM_CODE      = #{BUYER}
+			AND LEGACY_PO_NO  = #{LEGACY_PO_NO}
+			AND LEGACY_PO_SEQ = NVL(#{LEGACY_PO_SEQ},' ')
+		]]>
+	</update>
+	
+	<update  id="updateMasterMpIfErrorStateMain_Execute_IF_PROGRESS" parameterType="java.util.Map" >
+	/*updateMasterMpIfErrorStateMain_Execute_IF_PROGRESS*/
+		<![CDATA[
+			UPDATE IF_PROGRESS /* 오류 현황 메인 */
+			SET IF_FLAG   = 'C'
+			WHERE 1=1
+			AND BUYER     = #{BUYER}
+			AND LEGACY_NO = #{LEGACY_PO_NO}
+		]]>
+	</update>
+
+
+	<!-- 부분발주 -->
+	<update  id="updateMasterMpIfErrorStateMain_Partial_Po_IF_PODT" parameterType="java.util.Map" >
+	/*updateMasterMpIfErrorStateMain_Partial_Po_IF_PODT*/
+		<![CDATA[
+			UPDATE IF_PODT /* 인터페이스 주문상세내역 */
+			SET IF_FLAG       = 'Z'
+			WHERE 1=1
+			AND BUYER         = #{BUYER}
+			AND LEGACY_PO_NO  = #{LEGACY_PO_NO}
+			AND LEGACY_PO_SEQ = NVL(#{LEGACY_PO_SEQ},' ')
+			AND BUYER_ITEM_NO = NVL(#{BUYER_ITEM_NO},' ')
+		]]>
+	</update>
+
+	<update  id="updateMasterMpIfErrorStateMain_Partial_Po_IF_PROGRESS" parameterType="java.util.Map" >
+	/*updateMasterMpIfErrorStateMain_Partial_Po_IF_PROGRESS*/
+		<![CDATA[
+			UPDATE IF_PROGRESS /* 오류 현황 메인 */
+			SET IF_FLAG   = 'C'
+			WHERE 1=1
+			AND BUYER     = #{BUYER}
+			AND LEGACY_NO = #{LEGACY_PO_NO}
+			AND GUBUN     = 'PO'
+		]]>
+	</update>
+
+
+	<!-- 저장 -->
+	<update  id="updateMasterMpIfErrorStateMain_Save_IF_PODT" parameterType="java.util.Map" >
+	/*updateMasterMpIfErrorStateMain_Save_IF_PODT*/
+		<![CDATA[
+			UPDATE IF_PODT /* 인터페이스 주문상세내역 */
+			SET CHANGE_USER_ID    = #{st_user_id}
+			  , CHANGE_DATE       = TO_CHAR(SYSDATE,'YYYYMMDD')
+			  , CHANGE_TIME       = TO_CHAR(SYSDATE,'HH24MISS')
+			  , AGENT             = #{AGENT}
+			  , DOC_TYPE          = #{DOC_TYPE}
+			  , CONTRACT_NO       = #{CONTRACT_NO}
+			  , CONTRACT_SEQ      = #{CONTRACT_SEQ}
+			  , PURCHASER_USER_ID = #{PURCHASER_USER_ID}
+			  , ADD_DATE          = #{ADD_DATE}
+			  , RD_DATE           = #{RD_DATE_IF}
+			  , DATE_CHANGE_HIST  = SUBSTRB(SUBSTRB(DATE_CHANGE_HIST,1,350)||(CASE WHEN ADD_DATE != #{ADD_DATE} THEN '@ADD_DATE:'||ADD_DATE||'#'||CHANGE_USER_ID END)||(CASE WHEN RD_DATE != #{RD_DATE_IF} THEN '@RD_DATE:'||RD_DATE||'#'||CHANGE_USER_ID END),1,400)
+			  , BUYER_ITEM_NO     = NVL(TRIM(#{BUYER_ITEM_NO}),' ')
+			  , UNIT_PRICE        = NVL(#{UNIT_PRICE_IF},UNIT_PRICE)
+			  , ITEM_AMT          = NVL(#{UNIT_PRICE_IF},UNIT_PRICE) * ITEM_QTY
+			  , DELY_TO_LOCATION = #{DELY_TO_LOCATION}
+			WHERE 1=1
+			AND BUYER             = #{BUYER}
+			AND LEGACY_PO_NO      = NVL(#{LEGACY_PO_NO},' ')
+			AND LEGACY_PO_SEQ     = NVL(#{LEGACY_PO_SEQ},' ')
+			AND BUYER_ITEM_NO     = NVL(#{ORG_BUYER_ITEM_NO}, ' ')
+		]]>
+	</update>
+
+
+	<!-- 발주 삭제(종결) -->
+	<update id="updateMasterMpIfErrorStateMain_Delete_IF_PODT"  parameterType="java.util.Map">
+		<![CDATA[
+			UPDATE IF_PODT /* 인터페이스 주문상세내역 */
+			SET IF_FLAG       = 'D'
+			  , CANCEL_DATE   = SYSDATE
+			  , CANCEL_RSON   = #{st_cancel_remark}
+			  , CANCEL_ID     = #{st_user_id}
+			WHERE 1=1
+			AND BUYER         = #{BUYER}
+			AND LEGACY_PO_NO  = #{LEGACY_PO_NO}
+			AND LEGACY_PO_SEQ = NVL(#{LEGACY_PO_SEQ},' ')
+		]]>
+	</update>
+	
+	<update id="insertMasterMpIfErrorStateMain_Delete_SEC_PO_REJECT" parameterType="java.util.Map">
+		INSERT INTO EAI.IF_SEC_PO_RESULT_INFO_SEND (
+			SYS_CODE, IF_GB, PO_NO, PO_SEQ, PO_REQ_NO, PO_GB, PROGRESS_STATUS, EPR_PROCESS_DATE, EPR_PROCESS_HMS, EPR_PROCESS_RSLT, IF_FLAG
+		)
+		SELECT 
+               CASE
+                 WHEN A.COMPANY_CODE LIKE 'C5%' THEN 'DZFB'
+                 ELSE 'L10HMX'
+               END  SYS_CODE
+             , 'C' IF_GB, PO_NO, PO_SEQ, PO_REQ_NO, PO_GB, '03' PROGRESS_STATUS
+		     , TO_CHAR(SYSDATE,'YYYYMMDD') EPR_PROCESS_DATE, TO_CHAR(SYSDATE,'HH24MISS') EPR_PROCESS_HMS
+		     , '' AS EPR_PROCESS_RSLT, 'N' IF_FLAG
+		  FROM EAI.IF_SEC_PURCHASE_ORDER A
+		 WHERE PO_NO = #{LEGACY_PO_NO}
+		   AND PO_SEQ = NVL(#{LEGACY_PO_SEQ},' ')
+		   AND NOT EXISTS (
+		     SELECT 'X' FROM EAI.IF_SEC_PO_RESULT_INFO_SEND
+		      WHERE PO_NO = A.PO_NO
+		        AND PO_SEQ = A.PO_SEQ
+		        AND PO_REQ_NO = A.PO_REQ_NO )
+	</update>
+	
+	<select id="SelectGwExIFkey" parameterType="java.util.Map" resultType="String">
+			SELECT F_GET_NO('KRSAMS0123','EX')  AS IFKEY FROM DUAL
+	</select>
+	
+	<update id="updateIfPoListInfoApprDate"  parameterType="java.util.Map">
+		<![CDATA[
+			UPDATE IF_PODT 
+			SET GW_NO       = #{GW_NO}
+			WHERE 1=1
+			AND BUYER         = #{BUYER}
+			AND LEGACY_PO_NO  = #{LEGACY_PO_NO}
+			AND LEGACY_PO_SEQ = #{LEGACY_PO_SEQ}
+		]]>
+	</update>
+	
+</mapper>

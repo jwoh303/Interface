@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="common.mdcm">
+
+
+	<select id="selectMasterMdCmSellerCmpyChoicePopList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*selectMasterMdCmSellerCmpyChoicePopList*/
+				SELECT  /*+FULL(Y) PARALLEL(Y 4)*/
+		              Y.COM_CODE AS AGENT,          --[0]
+		              Y.COM_NAME_LOC AS COM_NAME_LOC,     --[1]
+		              Y.IRS_NO AS IRS_NO,     --[2]
+		              Y.INDUSTRY_TYPE AS INDUSTRY_TYPE,        --[3]
+		              Y.BUSINESS_ITEMS AS BUSINESS_ITEMS,        --[4]
+		              (SELECT COUNT(0) FROM ICOMCOD1 WHERE TYPE = 'HUB' AND FLAG ='Y' AND CODE =Y.COM_CODE) AS LOGISTICS_CENTER_CNT
+		         FROM  ICOMCMPY Y  
+		        WHERE  Y.COM_CODE IN (SELECT A.AGENT 
+								                   FROM ICOMCQDT A 
+								                  WHERE (A.BUYER, A.BUYER_ITEM_NO) IN (SELECT B.BUYER, B.BUYER_ITEM_NO FROM ICOMBYIT B
+								                                                                           WHERE 1=1
+		]]>
+		<if test="st_category_no != null and st_category_no != ''">
+                                                                                                           AND B.CATEGORY_NO   = #{st_category_no}  
+		</if> 
+		<![CDATA[
+								                                                                           ) 
+								                    AND A.STATUS        = 'C'  
+								                     AND A.BUYER         = UPPER(#{st_buyer} )
+		]]>
+		<if test="st_agent != null and st_agent != ''">
+                                                    AND A.AGENT         = UPPER(#{st_agent})  
+		</if>
+		<![CDATA[
+								                     )  
+           AND Y.BUSINESS_COND = 'S'  
+		]]>
+     	<if test='credit_status == "Y" '>
+                <![CDATA[    AND Y.CREDIT_STATUS   <> 'N' 		]]>
+		</if>	 
+		 	 
+         ORDER BY Y.COM_NAME_LOC
+	</select>
+	
+	<select id="selectMasterMdCmSellerCmpyChoicePopOldList" parameterType="java.util.Map" resultType="java.util.Map">
+	<![CDATA[
+	/*selectMasterMdCmSellerCmpyChoicePopOldList*/
+	SELECT  
+               X.AGENT AS AGENT,         --[0]
+               Y.COM_NAME_LOC AS COM_NAME_LOC,    --[1]
+               Y.IRS_NO AS IRS_NO,    --[2]
+               Y.INDUSTRY_TYPE AS INDUSTRY_TYPE,       --[3]
+               Y.BUSINESS_ITEMS AS BUSINESS_ITEMS,       --[4]
+               (SELECT COUNT(0) FROM ICOMCOD1 WHERE TYPE = 'HUB' AND FLAG ='Y' AND CODE =X.AGENT) AS LOGISTICS_CENTER_CNT
+         FROM  
+             (SELECT DISTINCT AGENT  
+                    FROM ICOMCQDT  
+                   WHERE BUYER         = UPPER(#{st_buyer})  
+                     AND STATUS        = 'C'        
+	]]>
+	<if test="st_agent_code != null and st_agent_code != ''">	                        
+                    AND AGENT LIKE UPPER(#{st_agent_code}||'%')  
+	</if>
+	<![CDATA[
+                 ) X, ICOMCMPY Y  
+        WHERE X.AGENT = Y.COM_CODE  
+          AND Y.STATUS IN ('C','R')  
+          AND Y.BUSINESS_COND = 'S'  
+     ]]>     
+	<if test="st_agent_name != null and st_agent_name != ''">          
+         AND Y.COM_NAME_LOC LIKE '%'||#{st_agent_name}||'%'
+	</if>
+	<if test='credit_status == "Y" '>
+               <![CDATA[    AND Y.CREDIT_STATUS   <> 'N' 		]]>
+	</if>	 	
+        ORDER BY Y.COM_NAME_LOC
+	</select>
+	
+	<select id="selectMasterMdCmSellerCmpyChoicePopNewList" parameterType="java.util.Map" resultType="java.util.Map">
+	<![CDATA[
+	/*selectMasterMdCmSellerCmpyChoicePopNewList*/
+	SELECT  
+              COM_CODE AS AGENT,       --[0]
+              COM_NAME_LOC AS COM_NAME_LOC,     --[1]
+              IRS_NO AS IRS_NO,     --[2]
+              INDUSTRY_TYPE AS INDUSTRY_TYPE,        --[3]
+              BUSINESS_ITEMS AS BUSINESS_ITEMS,        --[4]
+              (SELECT COUNT(0) FROM ICOMCOD1 WHERE TYPE = 'HUB' AND FLAG ='Y' AND CODE =COM_CODE) AS LOGISTICS_CENTER_CNT
+         FROM ICOMCMPY  
+        WHERE COUNTRY_CODE = 'KR'  
+          AND BUSINESS_COND = 'S'  
+          AND STATUS IN ('C','R')
+	]]>          
+	<if test="st_agent_code != null and st_agent_code != ''">	                        
+			AND COM_CODE LIKE UPPER(#{st_agent_code}||'%')  
+	</if>
+	<if test="st_agent_name != null and st_agent_name != ''">          
+         AND COM_NAME_LOC LIKE '%'||#{st_agent_name}||'%'
+	</if>
+	<if test='credit_status == "Y" '>
+               <![CDATA[    AND CREDIT_STATUS   <> 'N' 		]]>
+	</if>	 		
+        ORDER BY COM_NAME_LOC
+	</select>
+								
+</mapper>

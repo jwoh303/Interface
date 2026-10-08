@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="common.mpso">
+
+
+	<select id="selectMasterMpSoPrewarhsngRequestOrderMapppingPopList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.pagestart"/>	
+		<![CDATA[
+		/*selectMasterMpSoPrewarhsngRequestOrderMapppingPopList*/
+			SELECT  ROWNUM NUM,
+			        X.PO_NO,
+			        X.PO_SEQ,
+			        X.DESCRIPTION,
+			        X.MAKER_NAME,
+			        X.ITEM_QTY,
+			        X.UNIT_MEASURE,
+			        X.UNIT_PRICE,
+			        X.REQ_DEPT_NAME,
+			        X.SPECIFICATION,
+			        X.ORIGIN_NAME,
+			        X.AGENT_NAME,
+			        X.AGENT_PRICE,
+			        X.REQ_USER_NAME,
+			        X.BUYER_ITEM_NO
+			FROM
+			    (
+			        SELECT  B.PO_NO AS PO_NO,
+			        		B.PO_SEQ,
+			                B.DESCRIPTION AS DESCRIPTION,
+			                B.MAKER_NAME AS MAKER_NAME,
+			                B.ITEM_QTY AS ITEM_QTY,
+			                B.UNIT_MEASURE AS UNIT_MEASURE,
+			                B.UNIT_PRICE AS UNIT_PRICE,
+			                (SELECT TEXT2 FROM ICOMCOD2 WHERE COMPANY_CODE='KRKEPB0004' AND TYPE='C001' AND CODE=C.REQ_DEPT) AS REQ_DEPT_NAME,
+			                B.SPECIFICATION AS SPECIFICATION,
+			                (SELECT TEXT2 FROM ICOMCOD1 WHERE TYPE='M001' AND CODE=B.ORIGIN_CODE) AS ORIGIN_NAME,
+			                (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE=A.AGENT) AS AGENT_NAME,
+			                B.AGENT_PRICE AS AGENT_PRICE,
+			                (SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID=C.REQ_USER_ID) AS REQ_USER_NAME,
+			                B.BUYER_ITEM_NO AS BUYER_ITEM_NO
+			        FROM ICOMPOHD A, ICOMPODT B, ICOMPRDT C
+			        WHERE A.BUYER = #{st_buyer}
+			            AND A.PO_CREATE_DATE BETWEEN #{st_from_date} AND #{st_to_date}
+		]]>
+			<if test='st_buyer_item_no != null and st_buyer_item_no != ""'>
+				<![CDATA[ AND B.BUYER_ITEM_NO LIKE '%' || #{st_buyer_item_no} || '%' ]]>
+			</if>
+			
+			<if test='st_agent_name != null and st_agent_name != ""'>
+				<![CDATA[ AND A.AGENT IN (SELECT COM_CODE FROM ICOMCMPY WHERE COM_NAME_LOC LIKE '%' || #{st_agent_name} || '%') ]]>
+			</if>
+			
+			<if test='st_ref_pr_no != null and st_ref_pr_no != ""'>
+				<![CDATA[ AND B.REF_PR_NO LIKE '%' || #{st_ref_pr_no} || '%' ]]>
+			</if>
+			
+			<if test='st_desc_spec != null and st_desc_spec != ""'>
+				<![CDATA[ AND (B.DESCRIPTION LIKE '%#%' OR B.SPECIFICATION LIKE '%' || #{st_desc_spec} || '%') ]]>
+			</if>
+			
+			<if test='st_maker_name != null and st_maker_name != ""'>
+				<![CDATA[ AND B.MAKER_NAME LIKE '%' || #{st_maker_name} || '%' ]]>
+			</if>
+			
+			<if test='st_req_user_name != null and st_req_user_name != ""'>
+				<![CDATA[ AND C.REQ_USER_ID IN (SELECT USER_ID FROM ICOMLUSR WHERE USER_NAME_LOC LIKE '%' || #{st_req_user_name} || '%')]]>
+			</if>
+
+		<![CDATA[
+			            AND A.STATUS ^='D'
+			            AND A.BUYER=B.BUYER
+			            AND A.PO_NO=B.PO_NO
+			            AND B.STATUS ^='D'
+			            AND B.BUYER=C.BUYER
+			            AND B.PR_NO=C.PR_NO
+			            AND B.PR_SEQ=C.PR_SEQ
+			            AND C.STATUS ^='D'
+			        ORDER BY B.BUYER, B.PO_NO DESC, B.BUYER_ITEM_NO
+			    ) X
+		]]>
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+								
+</mapper>

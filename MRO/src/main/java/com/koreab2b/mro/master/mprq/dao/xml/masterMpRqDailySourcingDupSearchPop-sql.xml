@@ -1,0 +1,173 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mprq">
+
+	<select id="selectMasterMpRqDailySourcingDupCatList" parameterType="java.util.Map" resultType="java.util.LinkedHashMap">
+		<include refid="common.ibsheet.xml.pagestart"/>
+		<![CDATA[
+		/*selectMasterMpRqDailySourcingDupCatList*/
+			SELECT M.COM_NAME_LOC AS BUYER_NAME
+			     , A.BUYER
+			     , A.BUYER_ITEM_NO
+			     , CASE WHEN A.STATUS = 'D' THEN '삭제'
+			            WHEN A.PRODUCT_CLOSE_FLAG = 'Y' THEN '단종'
+			            ELSE '사용' END AS ITEM_STATUS_NM
+			     , A.CMS_CATLG_ID
+			     , A.DESCRIPTION_LOC AS DESCRIPTION
+			     , A.MAKER_PART_NO
+			     , A.SPECIFICATION
+			     , A.UNIT_MEASURE
+			     , A.MAKER_NAME
+			     , (SELECT MD.TEXT2 FROM ICOMCOD1 MD WHERE MD.TYPE = 'M001' AND MD.CODE = A.ORIGIN_CODE) AS ORIGIN_NAME
+			     , C.AGENT
+			     , (SELECT CMPY.COM_NAME_LOC FROM ICOMCMPY CMPY WHERE CMPY.COM_CODE = C.AGENT) AS AGENT_NAME
+			     , RTRIM(TO_CHAR(C.LIST_PRICE, 'FM999,999,999,990.99999'), '.') AS LIST_PRICE
+			     , RTRIM(TO_CHAR(C.UNIT_PRICE, 'FM999,999,999,990.99999'), '.') AS UNIT_PRICE
+			     , RTRIM(TO_CHAR(CASE WHEN A.TAX_TYPE = '12' THEN C.LIST_PRICE ELSE ROUND(C.LIST_PRICE * 1.1) END, 'FM999,999,999,990.99999'), '.') AS LIST_PRICE_VAT
+			     , RTRIM(TO_CHAR(CASE WHEN A.TAX_TYPE = '12' THEN C.UNIT_PRICE ELSE ROUND(C.UNIT_PRICE * 1.1) END, 'FM999,999,999,990.99999'), '.') AS UNIT_PRICE_VAT
+			     , RTRIM(TO_CHAR(C.MIN_ORDER_QTY, 'FM999,999,999,990.999'), '.') AS MIN_ORDER_QTY
+			     , RTRIM(TO_CHAR(C.PUR_UNIT_QTY, 'FM999,999,999,990.999'), '.') AS PUR_UNIT_QTY
+			     , (SELECT MD.TEXT2 FROM ICOMCOD1 MD WHERE MD.TYPE = 'M034' AND MD.CODE = C.PROCESS_TYPE) AS PROCESS_TYPE_NM
+			     , '' AS WAREHOUSE_NAME
+			     , C.DELIVERY_LT
+			     , SUBSTR(C.BUY_CLOSE_DATE, 1, 8) AS BUY_CLOSE_DATE
+			     , SUBSTR(C.SELL_CLOSE_DATE, 1, 8) AS SELL_CLOSE_DATE
+			     , A.SAFETY_FLAG
+			     , '' AS SAFE_NO
+			     , (SELECT CG.CATEG_PATH FROM CMSCATEG CG WHERE CG.CMS_CATEG_ID = A.CMS_CATEG_ID AND ROWNUM = 1) AS CATEG_PATH
+			  FROM ICOMBYIT A
+			  JOIN ICOMCMPY M
+			    ON M.COM_CODE = A.BUYER
+			  LEFT OUTER JOIN ICOMCQDT C
+			    ON C.BUYER = A.BUYER
+			   AND C.BUYER_ITEM_NO = A.BUYER_ITEM_NO
+			   AND C.BELOW_COMORG_CODE = M.BYCA_COMORG_CODE
+			   AND C.STATUS != 'D'
+			 WHERE 1 = 1
+		]]>
+		<choose>
+			<when test='st_group_yn == "Y"'>
+			   AND A.BUYER IN (SELECT G.COM_CODE
+			                     FROM ICOMCMPY G
+			                    WHERE G.BYCA_COMORG_CODE = (SELECT B.BYCA_COMORG_CODE FROM ICOMCMPY B WHERE B.COM_CODE = #{st_buyer})
+			                      AND G.BYCA_COMORG_CODE IS NOT NULL
+			                    UNION
+			                   SELECT #{st_buyer} FROM DUAL)
+			</when>
+			<otherwise>
+			   AND A.BUYER = #{st_buyer}
+			</otherwise>
+		</choose>
+		<choose>
+			<when test="st_item_no != null and st_item_no != ''">
+			   AND A.BUYER_ITEM_NO LIKE UPPER(#{st_item_no}) || '%'
+			</when>
+			<otherwise>
+				<include refid="dupSearchCondCat"/>
+			</otherwise>
+		</choose>
+		<![CDATA[
+			 ORDER BY A.BUYER, A.BUYER_ITEM_NO, C.AGENT
+		]]>
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+
+	<sql id="dupSearchCondCat">
+		<if test="st_description != null and st_description != ''">
+			   AND UPPER(A.DESCRIPTION_LOC) LIKE #{st_description}
+		</if>
+		<if test="st_maker_part_no != null and st_maker_part_no != ''">
+			   AND UPPER(A.MAKER_PART_NO) LIKE #{st_maker_part_no}
+		</if>
+		<if test="st_specification != null and st_specification != ''">
+			   AND UPPER(A.SPECIFICATION) LIKE #{st_specification}
+		</if>
+		<if test="st_maker_name != null and st_maker_name != ''">
+			   AND UPPER(A.MAKER_NAME) LIKE #{st_maker_name}
+		</if>
+		<if test="st_unit_measure != null and st_unit_measure != ''">
+			   AND UPPER(A.UNIT_MEASURE) = #{st_unit_measure}
+		</if>
+		<if test="st_sgArr != null">
+			   AND EXISTS (SELECT 1 FROM CMSCATEG CG
+			                WHERE CG.CMS_CATEG_ID = A.CMS_CATEG_ID
+			                  AND CG.SG_ID IN
+			                  <foreach item="item" collection="st_sgArr" open="(" separator="," close=")">
+			                  #{item}
+			                  </foreach>
+			              )
+		</if>
+	</sql>
+
+	<select id="selectMasterMpRqDailySourcingDupStdList" parameterType="java.util.Map" resultType="java.util.LinkedHashMap">
+		<include refid="common.ibsheet.xml.pagestart"/>
+		<![CDATA[
+		/*selectMasterMpRqDailySourcingDupStdList*/
+			SELECT C.CMS_CATLG_ID
+			     , DECODE(P.CATLG_SEQ, NULL, '', C.CMS_CATLG_ID || '-' || LPAD(P.CATLG_SEQ, 5, '0')) AS BUY_INFO_ID
+			     , DECODE(P.CATLG_SEQ, NULL, '', LPAD(P.CATLG_SEQ, 5, '0')) AS BUY_INFO_SEQ
+			     , DECODE(P.CATLG_SEQ, NULL, '', DECODE(P.STATUS, 'D', '불가', '가능')) AS SUPPLY_STATUS
+			     , C.DESCRIPTION_LOC AS DESCRIPTION
+			     , C.MODEL_INFO
+			     , C.SPECIFICATION
+			     , C.ORDER_MEASURE AS UNIT_MEASURE
+			     , C.MAKER_NAME
+			     , (SELECT MD.TEXT2 FROM ICOMCOD1 MD WHERE MD.TYPE = 'M001' AND MD.CODE = C.ORIGIN_CODE) AS ORIGIN_NAME
+			     , P.AGENT
+			     , (SELECT CMPY.COM_NAME_LOC FROM ICOMCMPY CMPY WHERE CMPY.COM_CODE = P.AGENT) AS AGENT_NAME
+			     , RTRIM(TO_CHAR(P.BUY_PRICE, 'FM999,999,999,990.99999'), '.') AS BUY_PRICE
+			     , RTRIM(TO_CHAR(P.MIN_ORDER_QTY, 'FM999,999,999,990.999'), '.') AS MIN_ORDER_QTY
+			     , RTRIM(TO_CHAR(P.PUR_UNIT_QTY, 'FM999,999,999,990.999'), '.') AS PUR_UNIT_QTY
+			     , (SELECT MD.TEXT2 FROM ICOMCOD1 MD WHERE MD.TYPE = 'M034' AND MD.CODE = P.PROCESS_TYPE) AS PROCESS_TYPE_NM
+			     , (SELECT MD.TEXT1 FROM ICOMCOD1 MD WHERE MD.TYPE = 'M186' AND MD.CODE = P.DELIVERY_TYPE) AS DELIVERY_TYPE_NM
+			     , RTRIM(TO_CHAR(CASE WHEN P.TAX_TYPE = '12' THEN P.BUY_PRICE ELSE ROUND(P.BUY_PRICE * 1.1) END, 'FM999,999,999,990.99999'), '.') AS BUY_PRICE_VAT
+			     , NVL((SELECT MAX(MD.TEXT2) FROM ICOMCOD1 MD
+			             WHERE MD.TYPE = 'W001' AND MD.TEXT4 = 'B' AND MD.TEXT1 = P.WAREHOUSE_CODE), P.WAREHOUSE_CODE) AS WAREHOUSE_NAME
+			     , P.DELIVERY_LT
+			     , P.BUY_CLOSE_DATE
+			     , DECODE(C.SAFE_STATUS, 'CERT', '인증', 'UNCERT', '미인증', 'EXCL', '비대상', '') AS SAFE_STATUS_NM
+			     , C.SAFE_NO
+			     , (SELECT CG.CATEG_PATH FROM CMSCATEG CG WHERE CG.CMS_CATEG_ID = C.CMS_CATEG_ID AND ROWNUM = 1) AS CATEG_PATH
+			  FROM CMSCATLG C
+			  LEFT OUTER JOIN CMSPRICE P
+			    ON P.CMS_CATLG_ID = C.CMS_CATLG_ID
+			 WHERE NVL(C.STATUS, 'C') != 'D'
+		]]>
+		<choose>
+			<when test="st_cms_code != null and st_cms_code != ''">
+			   AND C.CMS_CATLG_ID LIKE UPPER(#{st_cms_code}) || '%'
+			</when>
+			<otherwise>
+				<if test="st_description != null and st_description != ''">
+			   AND UPPER(C.DESCRIPTION_LOC) LIKE #{st_description}
+				</if>
+				<if test="st_maker_part_no != null and st_maker_part_no != ''">
+			   AND UPPER(C.MODEL_INFO) LIKE #{st_maker_part_no}
+				</if>
+				<if test="st_specification != null and st_specification != ''">
+			   AND UPPER(C.SPECIFICATION) LIKE #{st_specification}
+				</if>
+				<if test="st_maker_name != null and st_maker_name != ''">
+			   AND UPPER(C.MAKER_NAME) LIKE #{st_maker_name}
+				</if>
+				<if test="st_unit_measure != null and st_unit_measure != ''">
+			   AND UPPER(C.ORDER_MEASURE) = #{st_unit_measure}
+				</if>
+				<if test="st_sgArr != null">
+			   AND EXISTS (SELECT 1 FROM CMSCATEG CG
+			                WHERE CG.CMS_CATEG_ID = C.CMS_CATEG_ID
+			                  AND CG.SG_ID IN
+			                  <foreach item="item" collection="st_sgArr" open="(" separator="," close=")">
+			                  #{item}
+			                  </foreach>
+			              )
+				</if>
+			</otherwise>
+		</choose>
+		<![CDATA[
+			 ORDER BY C.CMS_CATLG_ID, P.CATLG_SEQ
+		]]>
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+
+</mapper>

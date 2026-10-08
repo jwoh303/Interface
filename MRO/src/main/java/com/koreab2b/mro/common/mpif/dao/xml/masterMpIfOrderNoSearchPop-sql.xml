@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="common.mpif">
+
+	<!-- 조회 -->
+	<select id="selectMasterMpIfOrderNoSearchPopList" parameterType="java.util.Map" resultType="java.util.Map">
+	/*selectMasterMpIfOrderNoSearchPopList*/
+		<![CDATA[
+			SELECT
+			    (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = A.BUYER ) AS BUYER_NAME /* 고객사명 */
+			  , A.BUYER           AS BUYER /* 고객사코드 */
+			  , A.LEGACY_PO_NO    AS LEGACY_PO_NO /* 주문번호 */
+			  , A.LEGACY_PO_SEQ   AS LEGACY_PO_SEQ /* 주문항번 */
+			  , A.REF_PR_NO       AS REF_PR_NO /* 관리번호 */
+			  , A.BUYER_ITEM_NO   AS BUYER_ITEM_NO /* 품목코드 */
+			  , A.GR_QTY          AS GR_QTY /* 입고수량 */
+			  , A.PR_NO           AS PR_NO /* PR번호 */
+			  , A.PR_SEQ          AS PR_SEQ /* PR순번 */
+			  , A.ITEM_QTY        AS ITEM_QTY /* 요청수량(확인필요) */
+			  , A.PO_NO           AS PO_NO /* 발주번호 */
+			  , A.PO_SEQ          AS PO_SEQ /* 발주행번 */
+			  , CASE
+			        WHEN A.PROCESS_TYPE = '0' THEN D.INV_NO
+			        ELSE E.INV_NO
+			    END INV_NO /* 납품번호 */
+			  , CASE
+			        WHEN A.PROCESS_TYPE = '0' THEN D.INV_SEQ
+			        ELSE E.INV_SEQ
+			    END INV_SEQ /* 납품순번 */
+			  , B.PO_CREATE_DATE  AS PO_CREATE_DATE /* 발주일 */
+			  , A.ITEM_QTY        AS ITEM_QTY_PO /* 발주수량 */
+			  , A.RD_DATE         AS RD_DATE /* 납품일 */
+			  , A.IV_QTY          AS IV_QTY /* 납품수량 */
+			  , A.GR_QTY          AS GR_QTY_PRE /* 기입고수량 */
+			  , (SELECT TEXT2 FROM ICOMCOD1 WHERE TYPE='M034' AND CODE=A.PROCESS_TYPE) AS PROCESS_TYPE_NM /* 거래유형 */
+			  , (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = B.AGENT) AS AGENT_NM /* 협력사명 */
+			FROM
+			    ICOMPODT A /* 발주 제품정보 */
+			  , ICOMPOHD B /* 발주 마스터정보 */
+			  , ICOMIVDT D /* 납품송장정보 */
+			  , WMSIVDT  E /* 물류센타 TR 송장 DT */
+			WHERE 1=1
+			AND A.BUYER   = B.BUYER
+			AND A.PO_NO   = B.PO_NO
+			AND A.BUYER   = D.BUYER(+)
+			AND A.PO_NO   = D.PO_NO(+)
+			AND A.PO_SEQ  = D.PO_SEQ(+)
+			AND A.BUYER   = E.BUYER(+)
+			AND A.PO_NO   = E.PO_NO(+)
+			AND A.PO_SEQ  = E.PO_SEQ(+)
+			AND A.STATUS ^= 'D'
+			AND A.BUYER   = #{st_buyer}
+			AND A.LEGACY_PO_NO  = DECODE(A.LEGACY_PO_NO, A.LEGACY_PO_SEQ, A.LEGACY_PO_NO, #{st_legacy_po_no})
+			AND A.LEGACY_PO_SEQ = NVL(#{st_legacy_po_seq},' ')
+			AND A.BUYER_ITEM_NO = NVL(#{st_buyer_item_no},' ')
+		]]>
+	</select>
+
+
+	<!-- 저장 -->
+	<update id="updateMasterMpIfOrderNoSearchPopList" parameterType="java.util.Map">
+	/*updateMasterMpIfOrderNoSearchPopList*/
+	/* 인터페이스 입고내역 */
+		UPDATE IF_GRDT
+		SET PO_NO  = #{PO_NO}
+		  , PO_SEQ = #{PO_SEQ}
+		WHERE 1=1
+		AND BUYER         = #{st_buyer}
+		AND LEGACY_GR_NO  = NVL(#{st_legacy_gr_no},' ')
+		AND LEGACY_GR_SEQ = NVL(#{st_legacy_gr_seq},' ')
+		AND LEGACY_PO_NO  = NVL(#{st_legacy_po_no},' ')
+		AND LEGACY_PO_SEQ = NVL(#{st_legacy_po_seq},' ')
+	</update>
+								
+</mapper>

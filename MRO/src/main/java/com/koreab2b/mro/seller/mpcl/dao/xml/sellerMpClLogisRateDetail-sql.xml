@@ -1,0 +1,377 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="seller.mpcl">
+	<!-- 조회 -->
+	<select id="selectSellerMpClLogisRateDetailList" parameterType="java.util.Map" resultType="java.util.Map">
+		/*selectSellerMpClLogisRateDetailList*/
+		<![CDATA[
+			 SELECT
+			X.WAREHOUSE_CODE_TEXT,
+			X.BUYER_NAME,
+			X.BUYER,
+			X.ISSUE_DATE,
+			X.PO_NO,
+			X.PO_SEQ,
+			X.BUYER_ITEM_NO,
+			X.DESCRIPTION,
+			X.SPECIFICATION,
+			X.AGENT_PRICE,
+			X.UNIT_MEASURE,
+			X.GR_QTY,
+			X.AGENT_ITEM_AMT,
+			X.LOGIS_AMT,
+			X.KEP_USER_NAME,
+			X.KEP_USER_PHONE,
+			X.LOGIS_TYPE
+			FROM
+			 (
+		    	SELECT
+		    			(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = PO.WAREHOUSE_CODE) AS WAREHOUSE_CODE_TEXT,
+						(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = GR.BUYER) AS BUYER_NAME,
+						GR.BUYER AS BUYER,
+						(SELECT TO_CHAR(TO_DATE(MAX(ISSUE_DATE),'YYYYMMDD'),'YY-MM-DD') FROM KEPTARDT WHERE TAX_BILL_NO = GR.LOGIS_TAX_BILL_NO) AS ISSUE_DATE,
+						PO.PO_NO AS PO_NO,
+						PO.PO_SEQ AS PO_SEQ,
+						PO.BUYER_ITEM_NO AS BUYER_ITEM_NO,
+						PO.DESCRIPTION AS DESCRIPTION,
+						PO.SPECIFICATION AS SPECIFICATION,
+						GR.AGENT_PRICE AS AGENT_PRICE,
+						PO.UNIT_MEASURE AS UNIT_MEASURE,
+						PO.GR_QTY AS GR_QTY,
+						GR.AGENT_ITEM_AMT AS AGENT_ITEM_AMT,
+						GR.LOGIS_AMT AS LOGIS_AMT,
+						(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID =
+							(SELECT KEP_USER_ID FROM MIS_BUYER_MNG WHERE YEAR = TO_CHAR(SYSDATE, 'YYYY') AND STATUS = 'C' AND PRIORITY = 'Y' AND BUYER = GR.BUYER)) AS KEP_USER_NAME,
+						(SELECT PHONE_NUMBER FROM ICOMLUSR WHERE USER_ID =
+							(SELECT KEP_USER_ID FROM MIS_BUYER_MNG WHERE YEAR = TO_CHAR(SYSDATE, 'YYYY') AND STATUS = 'C' AND PRIORITY = 'Y' AND BUYER = GR.BUYER)) AS KEP_USER_PHONE,
+						'자동' AS LOGIS_TYPE
+						FROM ICOMGRDT GR, ICOMPODT PO
+						WHERE 1=1
+						AND GR.BUYER = PO.BUYER
+						AND GR.PO_NO = PO.PO_NO
+						AND GR.PO_SEQ = PO.PO_SEQ
+						AND GR.STATUS IN ('C', 'R')
+						AND PO.STATUS IN ('C', 'R')
+						AND GR.AGENT = #{st_com_code}
+						AND GR.GR_DATE BETWEEN  #{st_from_date} || '01' AND #{st_from_date} || '31'
+						AND GR.LOGIS_BILL_FLAG = 'Y'
+						AND GR.LOGIS_RATE != 0
+					]]>
+					<if test="st_buyer_name != null and st_buyer_name != '' ">
+						AND (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = GR.BUYER) LIKE '%' || #{st_buyer_name} || '%'
+					</if>
+					<if test="st_warehouse_name != null and st_warehouse_name != '' ">
+						AND (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = PO.WAREHOUSE_CODE) LIKE '%' || #{st_warehouse_name} || '%'
+					</if>
+					<if test='st_logis_type != null and st_logis_type == "B" '>
+						AND GR.GR_NO = 'XX'
+					</if>
+					<if test="st_po_no != null and st_po_no != '' ">
+						AND PO.PO_NO = #{st_po_no}
+					</if>
+		<![CDATA[
+				UNION ALL
+
+		    		SELECT
+		    			NVL((SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = PO.WAREHOUSE_CODE),'-') AS WAREHOUSE_CODE_TEXT,
+						NVL(A.BUYER_NAME, '-') AS BUYER_NAME,
+						NVL(A.BUYER,' ') AS BUYER,
+						TO_CHAR(TO_DATE(A.ADD_DATE,'YYYYMMDD'),'YY-MM-DD') AS ISSUE_DATE,
+						NVL(PO.PO_NO,'-') AS PO_NO,
+						NVL(PO.PO_SEQ,'-')  AS PO_SEQ,
+						NVL(PO.BUYER_ITEM_NO,'-') AS BUYER_ITEM_NO,
+						NVL(PO.DESCRIPTION,'-')  AS DESCRIPTION,
+						NVL(PO.SPECIFICATION,'-') AS SPECIFICATION,
+						NVL(PO.AGENT_PRICE,'-') AS AGENT_PRICE,
+						NVL(PO.UNIT_MEASURE,'-') AS UNIT_MEASURE,
+						NVL(PO.GR_QTY,'-') AS GR_QTY,
+						NVL(PO.AGENT_PRICE * PO.GR_QTY,'-') AS AGENT_ITEM_AMT,
+						A.PAY_AMT AS LOGIS_AMT,
+						A.ADD_USER_NAME AS KEP_USER_NAME,
+						(SELECT PHONE_NUMBER FROM ICOMLUSR WHERE USER_ID = A.ADD_USER_ID) AS KEP_USER_PHONE,
+						'수기' AS LOGIS_TYPE
+						FROM PAY_REG_MNG A, ICOMPODT PO
+						WHERE A.STATUS IN ('C','R')
+						AND A.BUYER = PO.BUYER(+)
+						AND A.PO_NO = PO.PO_NO(+)
+						AND A.PO_SEQ = PO.PO_SEQ(+)
+						AND A.AGENT = #{st_com_code}
+						AND A.PAY_REG_TYPE = 'C'
+						AND A.PAY_REG_STATUS = 'C'
+						AND BILL_CLOSE_MONTH = #{st_from_date}
+			]]>
+						<if test="st_buyer_name != null and st_buyer_name != '' ">
+						AND A.BUYER_NAME LIKE '%' || #{st_buyer_name} || '%'
+						</if>
+						<if test="st_warehouse_name != null and st_warehouse_name != '' ">
+							AND (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = PO.WAREHOUSE_CODE) LIKE '%' || #{st_warehouse_name} || '%'
+						</if>
+						<if test='st_logis_type != null and st_logis_type == "A" '>
+							AND A.PAY_REG_TYPE = 'XX'
+						</if>
+						<if test="st_po_no != null and st_po_no != '' ">
+							AND PO.PO_NO = #{st_po_no}
+						</if>
+
+			<![CDATA[
+	    			) X
+
+
+
+
+		]]>
+	</select>
+
+
+
+
+
+
+
+
+	<!-- V2 조회  -->
+	<select id="selectSellerMpClLogisRateDetailList_v2" parameterType="java.util.Map" resultType="java.util.Map">
+		/*selectSellerMpClLogisRateDetailList_v2*/
+		<![CDATA[
+			 SELECT
+			X.WAREHOUSE_CODE_TEXT,
+			X.BUYER_NAME,
+			X.BUYER,
+			X.ISSUE_DATE,
+			X.PO_NO,
+			X.PO_SEQ,
+			X.BUYER_ITEM_NO,
+			X.DESCRIPTION,
+			X.SPECIFICATION,
+			X.AGENT_PRICE,
+			X.UNIT_MEASURE,
+			X.GR_QTY,
+			X.AGENT_ITEM_AMT,
+			X.LOGIS_AMT,
+			X.KEP_USER_NAME,
+			X.KEP_USER_PHONE,
+			X.LOGIS_TYPE
+			FROM
+			 (
+		    	SELECT
+		    			(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = PO.WAREHOUSE_CODE) AS WAREHOUSE_CODE_TEXT,
+						(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = GR.BUYER) AS BUYER_NAME,
+						GR.BUYER AS BUYER,
+						(SELECT TO_CHAR(TO_DATE(MAX(ISSUE_DATE),'YYYYMMDD'),'YY-MM-DD') FROM KEPTARDT WHERE TAX_BILL_NO = GR.LOGIS_TAX_BILL_NO) AS ISSUE_DATE,
+						PO.PO_NO AS PO_NO,
+						PO.PO_SEQ AS PO_SEQ,
+						PO.BUYER_ITEM_NO AS BUYER_ITEM_NO,
+						PO.DESCRIPTION AS DESCRIPTION,
+						PO.SPECIFICATION AS SPECIFICATION,
+						GR.AGENT_PRICE AS AGENT_PRICE,
+						PO.UNIT_MEASURE AS UNIT_MEASURE,
+						PO.GR_QTY AS GR_QTY,
+						GR.AGENT_ITEM_AMT AS AGENT_ITEM_AMT,
+						GR.LOGIS_AMT AS LOGIS_AMT,
+						(SELECT USER_NAME_LOC || '(' || PHONE_NUMBER || ')' FROM ICOMLUSR WHERE USER_ID =
+							(SELECT KEP_USER_ID FROM MIS_BUYER_MNG WHERE YEAR = TO_CHAR(SYSDATE, 'YYYY') AND STATUS = 'C' AND PRIORITY = 'Y' AND BUYER = GR.BUYER)) AS KEP_USER_NAME,
+						NULL AS KEP_USER_PHONE,
+						'자동' AS LOGIS_TYPE
+						FROM ICOMGRDT GR, ICOMPODT PO
+						WHERE 1=1
+						AND GR.BUYER = PO.BUYER
+						AND GR.PO_NO = PO.PO_NO
+						AND GR.PO_SEQ = PO.PO_SEQ
+						AND GR.STATUS IN ('C', 'R')
+						AND PO.STATUS IN ('C', 'R')
+						AND GR.AGENT = #{st_com_code}
+						AND GR.GR_DATE BETWEEN  #{st_from_date} || '01' AND #{st_from_date} || '31'
+						AND GR.LOGIS_BILL_FLAG = 'Y'
+						AND GR.LOGIS_RATE != 0
+					]]>
+					<!-- 고객사명 검색 조건 -->
+					<if test="st_buyer_name != null and st_buyer_name != '' ">
+						AND (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = GR.BUYER) LIKE '%' || #{st_buyer_name} || '%'
+					</if>
+					<!-- 물류센터명 검색 조건 -->
+					<if test="st_warehouse_name != null and st_warehouse_name != '' ">
+						AND (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = PO.WAREHOUSE_CODE) LIKE '%' || #{st_warehouse_name} || '%'
+					</if>
+					<!-- 구분 검색 조건: 수기(B) 선택 시 이 쿼리 제외 -->
+					<if test='st_logis_type != null and st_logis_type == "B" '>
+						AND GR.GR_NO = 'XX'
+					</if>
+					<!-- 발주번호 검색 조건 -->
+					<if test="st_po_no != null and st_po_no != '' ">
+						AND PO.PO_NO = #{st_po_no}
+					</if>
+		<![CDATA[
+				UNION ALL
+
+		    		SELECT
+		    			NVL((SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = PO.WAREHOUSE_CODE),'-') AS WAREHOUSE_CODE_TEXT,
+						NVL(A.BUYER_NAME, '-') AS BUYER_NAME,
+						NVL(A.BUYER,' ') AS BUYER,
+						TO_CHAR(TO_DATE(A.ADD_DATE,'YYYYMMDD'),'YY-MM-DD') AS ISSUE_DATE,
+						NVL(PO.PO_NO,'-') AS PO_NO,
+						NVL(PO.PO_SEQ,'-')  AS PO_SEQ,
+						NVL(PO.BUYER_ITEM_NO,'-') AS BUYER_ITEM_NO,
+						NVL(PO.DESCRIPTION,'-')  AS DESCRIPTION,
+						NVL(PO.SPECIFICATION,'-') AS SPECIFICATION,
+						NVL(PO.AGENT_PRICE,'-') AS AGENT_PRICE,
+						NVL(PO.UNIT_MEASURE,'-') AS UNIT_MEASURE,
+						NVL(PO.GR_QTY,'-') AS GR_QTY,
+						NVL(PO.AGENT_PRICE * PO.GR_QTY,'-') AS AGENT_ITEM_AMT,
+						A.PAY_AMT AS LOGIS_AMT,
+						A.ADD_USER_NAME || '(' || (SELECT PHONE_NUMBER FROM ICOMLUSR WHERE USER_ID = A.ADD_USER_ID) || ')' AS KEP_USER_NAME,
+						NULL AS KEP_USER_PHONE,
+						'수기' AS LOGIS_TYPE
+						FROM PAY_REG_MNG A, ICOMPODT PO
+						WHERE A.STATUS IN ('C','R')
+						AND A.BUYER = PO.BUYER(+)
+						AND A.PO_NO = PO.PO_NO(+)
+						AND A.PO_SEQ = PO.PO_SEQ(+)
+						AND A.AGENT = #{st_com_code}
+						AND A.PAY_REG_TYPE = 'C'
+						AND A.PAY_REG_STATUS = 'C'
+						AND A.BILL_CLOSE_MONTH = #{st_from_date}
+			]]>
+						<!-- 고객사명 검색 조건 -->
+						<if test="st_buyer_name != null and st_buyer_name != '' ">
+						AND A.BUYER_NAME LIKE '%' || #{st_buyer_name} || '%'
+						</if>
+						<!-- 물류센터명 검색 조건 -->
+						<if test="st_warehouse_name != null and st_warehouse_name != '' ">
+							AND (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = PO.WAREHOUSE_CODE) LIKE '%' || #{st_warehouse_name} || '%'
+						</if>
+						<!-- 구분 검색 조건: 자동(A) 선택 시 이 쿼리 제외 -->
+						<if test='st_logis_type != null and st_logis_type == "A" '>
+							AND A.PAY_REG_TYPE = 'XX'
+						</if>
+						<!-- 발주번호 검색 조건 -->
+						<if test="st_po_no != null and st_po_no != '' ">
+							AND PO.PO_NO = #{st_po_no}
+						</if>
+
+			<![CDATA[
+	    			) X
+		]]>
+	</select>
+	<select id="selectSellerMpClLogisRateDetailList_v3" parameterType="java.util.Map" resultType="java.util.Map">
+		/*selectSellerMpClLogisRateDetailList_v3*/
+		<![CDATA[
+			 SELECT
+			X.WAREHOUSE_CODE_TEXT,
+			X.BUYER_NAME,
+			X.BUYER,
+			X.ISSUE_DATE,
+			X.PO_NO,
+			X.PO_SEQ,
+			X.BUYER_ITEM_NO,
+			X.DESCRIPTION,
+			X.SPECIFICATION,
+			X.AGENT_PRICE,
+			X.UNIT_MEASURE,
+			X.DELIVERY_QTY,
+			X.AGENT_ITEM_AMT,
+			X.LOGIS_AMT,
+			X.KEP_USER_NAME,
+			X.KEP_USER_PHONE,
+			X.LOGIS_TYPE
+			FROM
+			 (
+		    	SELECT
+		    			(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = PO.WAREHOUSE_CODE) AS WAREHOUSE_CODE_TEXT,
+						(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = IV.BUYER) AS BUYER_NAME,
+						IV.BUYER AS BUYER,
+						(SELECT TO_CHAR(TO_DATE(MAX(ISSUE_DATE),'YYYYMMDD'),'YY-MM-DD') FROM KEPTARDT WHERE TAX_BILL_NO = IV.LOGIS_TAX_BILL_NO) AS ISSUE_DATE,
+						PO.PO_NO AS PO_NO,
+						PO.PO_SEQ AS PO_SEQ,
+						PO.BUYER_ITEM_NO AS BUYER_ITEM_NO,
+						PO.DESCRIPTION AS DESCRIPTION,
+						PO.SPECIFICATION AS SPECIFICATION,
+						IV.AGENT_PRICE AS AGENT_PRICE,
+						PO.UNIT_MEASURE AS UNIT_MEASURE,
+						IV.DELIVERY_QTY AS DELIVERY_QTY,
+						IV.AGENT_ITEM_AMT AS AGENT_ITEM_AMT,
+						IV.LOGIS_AMT AS LOGIS_AMT,
+						(SELECT USER_NAME_LOC || '(' || PHONE_NUMBER || ')' FROM ICOMLUSR WHERE USER_ID =
+							(SELECT KEP_USER_ID FROM MIS_BUYER_MNG WHERE YEAR = TO_CHAR(SYSDATE, 'YYYY') AND STATUS = 'C' AND PRIORITY = 'Y' AND BUYER = IV.BUYER)) AS KEP_USER_NAME,
+						NULL AS KEP_USER_PHONE,
+						'자동' AS LOGIS_TYPE
+						FROM ICOMIVDT IV, ICOMPODT PO
+						WHERE 1=1
+						AND IV.BUYER = PO.BUYER
+						AND IV.PO_NO = PO.PO_NO
+						AND IV.PO_SEQ = PO.PO_SEQ
+						AND IV.STATUS IN ('C', 'R')
+						AND PO.STATUS IN ('C', 'R')
+						AND IV.AGENT = #{st_com_code}
+						AND IV.DELIVERY_DATE BETWEEN  #{st_from_date} || '01' AND #{st_from_date} || '31'
+						AND IV.LOGIS_BILL_FLAG = 'Y'
+						AND IV.LOGIS_RATE != 0
+					]]>
+					<!-- 고객사명 검색 조건 -->
+					<if test="st_buyer_name != null and st_buyer_name != '' ">
+						AND (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = IV.BUYER) LIKE '%' || #{st_buyer_name} || '%'
+					</if>
+					<!-- 물류센터명 검색 조건 -->
+					<if test="st_warehouse_name != null and st_warehouse_name != '' ">
+						AND (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = PO.WAREHOUSE_CODE) LIKE '%' || #{st_warehouse_name} || '%'
+					</if>
+					<!-- 구분 검색 조건: 수기(B) 선택 시 이 쿼리 제외 -->
+					<if test='st_logis_type != null and st_logis_type == "B" '>
+						AND IV.GR_NO = 'XX'
+					</if>
+					<!-- 발주번호 검색 조건 -->
+					<if test="st_po_no != null and st_po_no != '' ">
+						AND PO.PO_NO = #{st_po_no}
+					</if>
+		<![CDATA[
+				UNION ALL
+
+		    		SELECT
+		    			NVL((SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = PO.WAREHOUSE_CODE),'-') AS WAREHOUSE_CODE_TEXT,
+						NVL(A.BUYER_NAME, '-') AS BUYER_NAME,
+						NVL(A.BUYER,' ') AS BUYER,
+						TO_CHAR(TO_DATE(A.ADD_DATE,'YYYYMMDD'),'YY-MM-DD') AS ISSUE_DATE,
+						NVL(PO.PO_NO,'-') AS PO_NO,
+						NVL(PO.PO_SEQ,'-')  AS PO_SEQ,
+						NVL(PO.BUYER_ITEM_NO,'-') AS BUYER_ITEM_NO,
+						NVL(PO.DESCRIPTION,'-')  AS DESCRIPTION,
+						NVL(PO.SPECIFICATION,'-') AS SPECIFICATION,
+						NVL(PO.AGENT_PRICE,'-') AS AGENT_PRICE,
+						NVL(PO.UNIT_MEASURE,'-') AS UNIT_MEASURE,
+						NVL(PO.DI_QTY,'-') AS DELIVERY_QTY,
+						NVL(PO.AGENT_PRICE * PO.DI_QTY,'-') AS AGENT_ITEM_AMT,
+						A.PAY_AMT AS LOGIS_AMT,
+						A.ADD_USER_NAME || '(' || (SELECT PHONE_NUMBER FROM ICOMLUSR WHERE USER_ID = A.ADD_USER_ID) || ')' AS KEP_USER_NAME,
+						NULL AS KEP_USER_PHONE,
+						'수기' AS LOGIS_TYPE
+						FROM PAY_REG_MNG A, ICOMPODT PO
+						WHERE A.STATUS IN ('C','R')
+						AND A.BUYER = PO.BUYER(+)
+						AND A.PO_NO = PO.PO_NO(+)
+						AND A.PO_SEQ = PO.PO_SEQ(+)
+						AND A.AGENT = #{st_com_code}
+						AND A.PAY_REG_TYPE = 'C'
+						AND A.PAY_REG_STATUS = 'C'
+						AND A.BILL_CLOSE_MONTH = #{st_from_date}
+			]]>
+						<!-- 고객사명 검색 조건 -->
+						<if test="st_buyer_name != null and st_buyer_name != '' ">
+						AND A.BUYER_NAME LIKE '%' || #{st_buyer_name} || '%'
+						</if>
+						<!-- 물류센터명 검색 조건 -->
+						<if test="st_warehouse_name != null and st_warehouse_name != '' ">
+							AND (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = PO.WAREHOUSE_CODE) LIKE '%' || #{st_warehouse_name} || '%'
+						</if>
+						<!-- 구분 검색 조건: 자동(A) 선택 시 이 쿼리 제외 -->
+						<if test='st_logis_type != null and st_logis_type == "A" '>
+							AND A.PAY_REG_TYPE = 'XX'
+						</if>
+						<!-- 발주번호 검색 조건 -->
+						<if test="st_po_no != null and st_po_no != '' ">
+							AND PO.PO_NO = #{st_po_no}
+						</if>
+
+			<![CDATA[
+	    			) X
+		]]>
+	</select>
+</mapper>

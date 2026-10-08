@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mprq">
+	<select id="selectMasterMpRqBulkQuotationSelAgent" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/*selectMasterMpRqBulkQuotationSelAgent*/
+			SELECT	AGENT_CODE,
+					AGENT_NAME,
+					COUNT(DISTINCT HD.PO_NO) AS PO_CNT,
+					SUM(AGENT_PRICE) AS TOT_AMT
+			FROM (
+				SELECT
+					COM_CODE AS AGENT_CODE,
+					COM_NAME_LOC AS AGENT_NAME
+				FROM ICOMCMPY
+				WHERE COM_NAME_LOC LIKE '%'||#{st_agent_name}||'%'
+			) A, ICOMPOHD HD, ICOMPODT DT
+			WHERE HD.AGENT = AGENT_CODE
+			AND HD.ADD_DATE BETWEEN TO_CHAR(ADD_MONTHS(SYSDATE,-3),'YYYYMMDD') AND TO_CHAR(SYSDATE,'YYYYMMDD')
+			AND HD.STATUS <> 'D'
+			AND DT.BUYER = HD.BUYER
+			AND DT.PO_NO = HD.PO_NO
+			AND DT.STATUS <> 'D'
+			GROUP BY AGENT_CODE,AGENT_NAME
+			ORDER BY TOT_AMT DESC, PO_CNT DESC
+		]]>
+	</select>
+	<select id="selectMasterMpRqBulkQuotationSelAgent2" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/*selectMasterMpRqBulkQuotationSelAgent*/
+			SELECT	AGENT_CODE,
+					AGENT_NAME,
+					COUNT(DISTINCT HD.PO_NO) AS PO_CNT,
+					SUM(AGENT_PRICE) AS TOT_AMT,
+					#{st_search_code} AS SEARCH_CODE
+			FROM (
+				SELECT
+					COM_CODE AS AGENT_CODE,
+					COM_NAME_LOC AS AGENT_NAME
+				FROM ICOMCMPY
+				WHERE COM_CODE IN ( SELECT CODE2
+									FROM ICOMCOD3
+									WHERE TYPE = 'MYAGENT'
+									AND BUYER = 'KRKORE0001'
+									AND CODE1 = #{st_search_code}
+									AND ADD_USER_ID = #{USER_ID}
+								)
+			) A, ICOMPOHD HD, ICOMPODT DT
+			WHERE HD.AGENT = AGENT_CODE
+			AND HD.ADD_DATE BETWEEN TO_CHAR(ADD_MONTHS(SYSDATE,-3),'YYYYMMDD') AND TO_CHAR(SYSDATE,'YYYYMMDD')
+			AND HD.STATUS <> 'D'
+			AND DT.BUYER = HD.BUYER
+			AND DT.PO_NO = HD.PO_NO
+			AND DT.STATUS <> 'D'
+			GROUP BY AGENT_CODE,AGENT_NAME
+			ORDER BY TOT_AMT DESC, PO_CNT DESC
+		]]>
+	</select>
+	<!-- 우선협력사 삭제 -->
+	<update  id="deleteMasterMpRqBulkQuotationSelAgent" parameterType="java.util.Map" >
+		<![CDATA[
+			/*deleteMasterMpRqBulkQuotationSelAgent*/
+			DELETE ICOMCOD3
+			WHERE TYPE = 'MYAGENT'
+			AND BUYER = 'KRKORE0001'
+			AND CODE1 = #{SEARCH_CODE}
+			AND CODE2 = #{AGENT_CODE}
+			AND ADD_USER_ID = #{USER_ID}
+		]]> 
+	</update>
+	
+	
+	<update  id="insertMasterMpRqBulkQuotationSelAgent" parameterType="java.util.Map" >
+		<![CDATA[
+			/*insertMasterMpRqBulkQuotationSelAgent*/
+			INSERT INTO ICOMCOD3
+			(BUYER,TYPE,CODE1,CODE2,ADD_USER_ID,ADD_DATE)
+			VALUES
+			(
+				'KRKORE0001',
+				'MYAGENT',
+				 #{st_search_code},
+				 #{AGENT_CODE},
+				 #{USER_ID},
+				 TO_CHAR(SYSDATE, 'YYYYMMDD')
+			)
+		]]> 
+	</update>
+	
+		<select id="selectMasterMpRqBulkQuotationSelAgentCnt" parameterType="java.util.Map" resultType="int">
+		<![CDATA[
+			/*selectMasterMpRqBulkQuotationSelAgentCnt*/
+			SELECT	COUNT(*)
+			FROM KEP_BURQ_RFQ
+			WHERE	BURQ_NO = #{st_burq_no}
+			AND		ITEM_KEY_ID = #{ITEM_KEY_ID}
+			AND 	AGENT = #{AGENT_CODE}
+		]]>
+	</select>
+	
+	<update  id="insertMasterMpRqBulkQuotationSelAgentRfq" parameterType="java.util.Map" >
+		<![CDATA[
+			/*insertMasterMpRqBulkQuotationSelAgentRfq*/
+			INSERT INTO KEP_BURQ_RFQ (
+				BURQ_NO,ITEM_KEY_ID,AGENT,AGENT_TYPE,BYIT_COMORG_CODE,BUYER,BURQ_RFQ_NO,STATUS,GPL_YN,ATOS_END_DATE,
+				KEP_DESCRIPTION,KEP_SPECIFICATION,KEP_MAKER_PART_NO,KEP_MAKER_CODE,KEP_MIN_ORDER_QTY,KEP_PUR_UNIT_QTY,KEP_UNIT_MEASURE,
+						SM_DESCRIPTION,
+		                SM_SPECIFICATION,
+		                SM_MAKER_PART_NO,
+		                SM_MAKER_CODE,
+		                SM_MIN_ORDER_QTY,
+		                SM_PUR_UNIT_QTY,
+		                SM_UNIT_MEASURE,
+		                SM_PROCESS_TYPE,
+		                SM_PARCEL_YN,
+		                SM_WAREHOUSE_CODE,
+		                DELIVERY_LT,
+						ADD_DATE,
+						ADD_USER_ID
+			)(
+				SELECT	A.BURQ_NO,
+						ITEM_KEY_ID,
+						#{AGENT_CODE} AS AGENT,
+						'A' AS AGENT_TYPE,
+						BYIT_COMORG_CODE,
+						BUYER,
+						BURQ_RFQ_NO,
+						'K3' AS STATUS,
+						GPL_YN,
+						ATOS_END_DATE,
+						KEP_DESCRIPTION,
+		                KEP_SPECIFICATION,
+		                KEP_MAKER_PART_NO,
+		                KEP_MAKER_CODE,
+		                KEP_MIN_ORDER_QTY,
+		                KEP_PUR_UNIT_QTY,
+		                KEP_UNIT_MEASURE,
+						SM_DESCRIPTION,
+		                SM_SPECIFICATION,
+		                SM_MAKER_PART_NO,
+		                SM_MAKER_CODE,
+		                SM_MIN_ORDER_QTY,
+		                SM_PUR_UNIT_QTY,
+		                SM_UNIT_MEASURE,
+		               	SM_PROCESS_TYPE,
+		                SM_PARCEL_YN,
+		                SM_WAREHOUSE_CODE,
+		                DELIVERY_LT,
+		                SYSDATE AS ADD_DATE,
+		                #{USER_ID} AS ADD_USER_ID
+				FROM KEP_BURQ_RFQ A
+				WHERE A.BURQ_NO = #{st_burq_no}
+				AND	A.ITEM_KEY_ID = #{ITEM_KEY_ID}
+				AND A.AGENT_TYPE = 'B'				
+			)
+		]]> 
+	</update>
+	
+</mapper>   
+   

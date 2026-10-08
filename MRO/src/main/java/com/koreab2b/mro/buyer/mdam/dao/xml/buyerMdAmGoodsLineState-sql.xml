@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="buyer.mdam">
+	<select id="selectBuyerMdAmGoodsLineStateList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.jsppagestart"/>
+		<![CDATA[
+			/*selectBuyerMdAmGoodsLineStateList*/
+			SELECT
+				  X.PO_DEPT				-- 발주부서
+				, X.BUYER_ITEM_NO		-- 품목코드
+				, X.DESCRIPTION			-- 품명
+				, X.MAKER_NAME			-- 제조사
+				, X.ITEM_QTY			-- 수량
+				, X.PO_NO				-- 발주번호
+				, X.PO_CREATE_DATE		-- 발주일
+				, X.DS_DATE				-- 납품예정일
+				, X.PURCHASER_NAME		-- 발주자
+				, X.SPECIFICATION		-- 규격
+				, X.UNIT_MEASURE		-- 단위
+				, X.UNIT_PRICE			-- 단가
+				, X.ITEM_AMT			-- 금액
+				, X.RD_DATE				-- 납품요청일
+				, X.DELIVERY_DATE		-- 납품완료일
+				, X.BUYER
+				, X.BYIT_COMORG_CODE
+				, X.CONTRACT_NO
+				, X.CONTRACT_SEQ
+				, X.CATEG_PATH
+			FROM (
+				SELECT
+					  (SELECT TEXT1 FROM ICOMCOD2 WHERE COMPANY_CODE=A.BUYER AND TYPE='C001' AND CODE=B.CHANGE_USER_DEPT) AS PO_DEPT
+					, B.BUYER_ITEM_NO AS BUYER_ITEM_NO
+					, B.DESCRIPTION AS DESCRIPTION
+					, B.MAKER_NAME AS MAKER_NAME
+					, NVL(B.ITEM_QTY, 0) AS ITEM_QTY
+					, B.PO_NO AS PO_NO
+					, A.PO_CREATE_DATE AS PO_CREATE_DATE
+					, B.DS_DATE AS DS_DATE
+					, NVL(A.PURCHASER_NAME, (SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID=A.PURCHASER_ID)) PURCHASER_NAME
+					, B.SPECIFICATION AS SPECIFICATION
+					, B.UNIT_MEASURE AS UNIT_MEASURE
+					, B.UNIT_PRICE AS UNIT_PRICE
+					, NVL(B.ITEM_AMT, 0) ITEM_AMT
+					, B.RD_DATE AS RD_DATE
+					, C.DELIVERY_DATE AS DELIVERY_DATE
+					, A.BUYER AS BUYER
+					, B.BYIT_COMORG_CODE AS BYIT_COMORG_CODE
+					, B.CONTRACT_NO AS CONTRACT_NO
+					, B.CONTRACT_SEQ AS CONTRACT_SEQ
+					, D.CATEG_PATH AS CATEG_PATH
+				FROM ICOMPOHD A, ICOMPODT B, ICOMIVDT C, ICOMBYCA D, ICOMBYIT E, ICOMBYCA F
+				WHERE
+						A.BUYER = #{st_com_code}
+					AND A.STATUS ^='D'
+					AND A.PO_CREATE_DATE BETWEEN #{st_from_date} AND #{st_to_date}
+		]]>
+			<!-- 발주번호 -->
+			<if test="st_po_no != null and st_po_no != ''">
+				<![CDATA[
+					AND B.PO_NO LIKE '%'||#{st_po_no}||'%'
+		 		]]>	 
+			</if>
+			<!-- 품목코드 -->
+			<if test="st_buyer_item_no != null and st_buyer_item_no != ''">
+				<![CDATA[
+					AND B.BUYER_ITEM_NO LIKE '%'||#{st_buyer_item_no}||'%'
+		 		]]>	 
+			</if>
+			<!-- 발주자 -->
+			<if test='st_po_user_id != null and st_po_user_id != "ALL"'>
+				<![CDATA[
+					AND A.ADD_USER_ID = '%'||#{st_po_user_id}||'%'
+		 		]]>	 
+			</if>
+			<!-- 발주부서 -->
+			<if test="st_req_dept_code != null and st_req_dept_code != ''">
+				<![CDATA[
+					AND B.CHANGE_USER_DEPT = #{st_req_dept_code}
+		 		]]>	 
+			</if>
+		<![CDATA[
+					AND B.BYIT_COMORG_CODE = E.BUYER 
+					AND B.BUYER_ITEM_NO = E.BUYER_ITEM_NO 
+					AND E.BUYER = D.COM_CODE 
+					AND E.CATEGORY_NO = D.STD_CATEG_ID
+					AND D.COM_CODE = F.COM_CODE  
+		]]>
+			<!-- 품목군 -->
+			<if test='st_categ_id != null and st_categ_id == "ALL"'>
+				<![CDATA[
+					AND D.STD_CATEG_ID = F.STD_CATEG_ID
+		 		]]>	 
+			</if>
+			<if test='st_categ_id != null and st_categ_id != "ALL"'>
+				<![CDATA[
+					AND F.STD_CATEG_ID = #{st_categ_id} 
+					AND D.CATEG_SYS_CODE LIKE F.CATEG_SYS_CODE||'%'
+		 		]]>	 
+			</if>
+		<![CDATA[
+					AND A.BUYER=B.BUYER
+					AND A.PO_NO=B.PO_NO
+					AND B.STATUS ^='D'
+					AND B.BUYER=C.BUYER(+)
+					AND B.PO_NO=C.PO_NO(+)
+					AND B.PO_SEQ=C.PO_SEQ(+)
+					AND C.STATUS(+) ^='D'
+			) X
+		]]>
+		<include refid="common.ibsheet.xml.jsppageend"/>
+	</select> 
+	
+	
+	<!-- USER LIST 조회 -->
+	<select id="selectBuyerMdAmGoodsLineStateUserList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.jsppagestart"/>
+		<![CDATA[
+			/*selectBuyerMdAmGoodsLineStateUserList*/
+			SELECT
+				  A.USER_ID
+				, A.USER_NAME_LOC
+			FROM ICOMLUSR A
+			WHERE
+					A.PERSON_AUTHOR = 'PO'
+				AND A.COM_CODE = #{st_com_code}
+			ORDER BY A.USER_NAME_LOC
+		]]>
+		<include refid="common.ibsheet.xml.jsppageend"/>	
+	</select> 
+	
+	
+</mapper>

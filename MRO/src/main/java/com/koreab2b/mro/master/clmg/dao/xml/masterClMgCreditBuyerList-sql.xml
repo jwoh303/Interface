@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.clmg">
+	<!-- 조회 -->
+	<select id="selectMasterClMgCreditBuyerList" parameterType="java.util.Map" resultType="java.util.Map">
+			<![CDATA[
+		    /*	selectMasterClMgCreditBuyerList */
+		    SELECT	LOAN_NO	AS LOAN_NO
+			,			IRS_NO	AS IRS_NO
+			,			IRS_NM	AS COM_NAME
+			,			BASE_CREDIT_AMT	AS BASE_CREDIT_AMT
+			,			ADD_CREDIT_LIMIT_AMT	AS ADD_CREDIT_AMT
+			,			TOT_CREDIT_LIMIT_AMT	AS TOT_CREDIT_AMT
+			,			BOND_BALANCE	AS BOND_BAL_AMT
+			,			BILL_BALANCE	AS BILL_BAL_AMT
+			,			PO_BALANCE	AS PO_BAL_AMT
+			,			P_RECV_AMT	AS P_RECV_AMT
+			,			CREDIT_AMT_BALANCE	AS CREDIT_BAL_AMT
+			,			DUTY_CYCLE	AS CREDIT_RATE
+			,			CREDIT_STATUS_IMG	AS CREDIT_STATUS_IMG
+			FROM	(
+					   SELECT	C.LOAN_NO
+						,			C.IRS_NO
+						,			C.IRS_NM
+						,			C.BASE_CREDIT_AMT
+						,			C.ADD_CREDIT_LIMIT_AMT
+						,			C.TOT_CREDIT_LIMIT_AMT
+						,			C.BOND_BALANCE
+						,			C.BILL_BALANCE
+						,			C.PO_BALANCE
+						,			C.P_RECV_AMT
+						,			C.CREDIT_AMT_BALANCE
+						,			C.DUTY_CYCLE
+						,			CASE	WHEN C.DUTY_CYCLE >= 100 THEN '0'
+											WHEN C.DUTY_CYCLE >= 90 THEN '1'
+											WHEN C.DUTY_CYCLE >= 80 THEN '2'
+											WHEN C.DUTY_CYCLE >= 0 THEN '3'
+						END	AS CREDIT_STATUS_IMG
+						FROM	(
+									SELECT	B.IRS_NO
+									,			MAX(B.IRS_NM)	AS IRS_NM
+									,			MAX(B.LOAN_NO)	AS LOAN_NO
+									,			SUM(B.BASE_CREDIT_AMT)	AS BASE_CREDIT_AMT
+									,			SUM(B.ADD_CREDIT_LIMIT_AMT)	AS ADD_CREDIT_LIMIT_AMT
+									,			SUM(B.BASE_CREDIT_AMT + B.ADD_CREDIT_LIMIT_AMT)	AS TOT_CREDIT_LIMIT_AMT
+									,			SUM(BOND_BALANCE)	AS BOND_BALANCE
+									,			SUM(BILL_BALANCE)	AS BILL_BALANCE
+									,			SUM(PO_BALANCE)	AS PO_BALANCE
+									,			SUM(P_RECV_AMT)	AS P_RECV_AMT
+									,			SUM((B.BASE_CREDIT_AMT + B.ADD_CREDIT_LIMIT_AMT+P_RECV_AMT)
+												- (BOND_BALANCE + BILL_BALANCE + PO_BALANCE))	AS CREDIT_AMT_BALANCE
+									,			SUM((BOND_BALANCE + BILL_BALANCE + PO_BALANCE))
+												/ SUM(DECODE((B.BASE_CREDIT_AMT + B.ADD_CREDIT_LIMIT_AMT+P_RECV_AMT),0,1,(B.BASE_CREDIT_AMT + B.ADD_CREDIT_LIMIT_AMT+P_RECV_AMT))) * 100	AS DUTY_CYCLE
+									FROM	(
+												SELECT	A.IRS_NO
+												,			A.IRS_NM
+												,			A.DEPT_CD
+												,			A.DEPT_NM
+												,			A.LOAN_NO
+												,			NVL(A.BASE_CREDIT_AMT, 0)	AS BASE_CREDIT_AMT
+												,			(
+															SELECT	NVL(SUM(CREDIT_LIMIT_AMT), 0)
+															FROM	KEPCLOAD	B
+															WHERE	A.LOAN_NO = B.LOAN_NO
+															AND		A.IRS_NO = B.IRS_NO
+															AND		A.DEPT_CD = B.DEPT_CD
+															AND		B.STATUS IN ('C', 'R')
+												)	AS ADD_CREDIT_LIMIT_AMT
+												,			NVL(B.BASIC_SALE_CREDIT, 0) + NVL(B.SALE_CREDIT, 0) + NVL(B.M_SALE_CREDIT, 0)	AS BOND_BALANCE
+												,			NVL(B.BASIC_BILLS_RECEIVABLE, 0) + NVL(B.P_BILLS_RECEIVABLE, 0)	AS BILL_BALANCE
+												,			NVL(B.PO_AMT, 0) - NVL(B.AR_AMT, 0)	AS PO_BALANCE
+												,			NVL(B.BASIC_ADVANCE_RECEIVED, 0) + NVL(B.P_ADVANCE_RECEIVED, 0)	AS P_RECV_AMT
+												,			A.ADD_DATE
+												,			A.ADD_TIME
+												FROM	KEPCLOBA	A
+												,			KEPCLOSM	B
+												WHERE	A.STATUS IN ('C', 'R')
+												AND		B.STATUS = 'C'
+												AND		A.IRS_NO = B.IRS_NO
+												AND		A.DEPT_CD = B.B2B_DEPT
+			]]>
+											<if test="st_buyer_name != null and st_buyer_name != ''">
+												AND		A.IRS_NM LIKE '%' || #{st_buyer_name} || '%'
+											</if>
+											<if test="st_irs_no != null and st_irs_no != ''">
+												AND		A.IRS_NO LIKE #{st_irs_no} || '%'
+											</if>
+			<![CDATA[												
+									) B
+									GROUP BY B.IRS_NO
+						) C
+				)
+				WHERE	1 = 1
+			]]>
+			<if test="st_status != 'ALL'">
+				AND		CREDIT_STATUS_IMG = #{st_status}
+			</if>
+			<![CDATA[
+				ORDER BY LOAN_NO
+			]]>
+	</select>
+</mapper>   
+   

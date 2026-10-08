@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="common.mprq">
+
+
+	<select id="selectMasterMpRqDbStndrdProgressPopList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*selectMasterMpRqDbStndrdProgressPopList*/
+			SELECT		   
+		          A.CMS_CATEG_ID		   
+		        , A.CATEG_NAME			   
+		        , NVL(B.ATTR_CNT,0) AS CMSATTRCNT	   
+		        , ROUND(NVL(B.ATTR_CNT,0)/2,0) AS LINECNT	   
+		        , CASE WHEN ROUND(NVL(B.ATTR_CNT,0)/2,0) * 2 = NVL(B.ATTR_CNT,0) THEN 'N' ELSE 'Y' END AS BLANKFLAG
+		        , B.ATTB1_NM			   
+		        , B.ATTB1_FLAG			   
+		        , B.ATTB2_NM			   
+		        , B.ATTB2_FLAG			   
+		        , B.ATTB3_NM			   
+		        , B.ATTB3_FLAG			   
+		        , B.ATTB4_NM			   
+		        , B.ATTB4_FLAG			   
+		        , B.ATTB5_NM			   
+		        , B.ATTB5_FLAG			   
+		        , B.ATTB6_NM			   
+		        , B.ATTB6_FLAG			   
+		        , B.ATTB7_NM			   
+		        , B.ATTB7_FLAG			   
+		        , B.ATTB8_NM			   
+		        , B.ATTB8_FLAG			   
+		        , B.ATTB9_NM			   
+		        , B.ATTB9_FLAG			   
+		        , B.ATTB10_NM			   
+		        , B.ATTB10_FLAG		   
+		        , B.ATTB11_NM			   
+		        , B.ATTB11_FLAG		   
+		        , B.ATTB12_NM			   
+		        , B.ATTB12_FLAG		   
+		        , B.ATTB13_NM			   
+		        , B.ATTB13_FLAG		   
+		        , B.ATTB14_NM			   
+		        , B.ATTB14_FLAG		   
+		        , B.ATTB15_NM			   
+		        , B.ATTB15_FLAG		   
+		        , B.ATTB16_NM			   
+		        , B.ATTB16_FLAG		   
+		        , B.ATTB17_NM			   
+		        , B.ATTB17_FLAG		   
+		        , B.ATTB18_NM			   
+		        , B.ATTB18_FLAG		   
+		        , B.ATTB19_NM			   
+		        , B.ATTB19_FLAG		   
+		        , B.ATTB20_NM			   
+		        , B.ATTB20_FLAG	
+		        ,(SELECT
+						DECODE(COUNT(COD.CODE),0,'N','Y')
+						FROM ICOMCOD1 COD
+						WHERE COD.TYPE = 'CM11'
+						AND COD.CODE = A.CMS_CATEG_ID
+						AND COD.FLAG = 'Y')   AS CMC_FLAG
+				, NVL(
+					(SELECT MAKER_PART_NO FROM KEPRQDT WHERE BUYER = #{st_buyer_code} AND QUOTATION_NO = #{st_quotation_no} AND QUOTATION_SEQ = #{st_quotation_seq} AND REVISION = #{st_revision}),
+					(SELECT MAKER_PART_NO FROM ICOMBYIT WHERE BUYER = (SELECT BYCA_COMORG_CODE FROM ICOMCMPY WHERE COM_CODE = #{st_buyer_code}) AND BUYER_ITEM_NO = (SELECT BUYER_ITEM_NO FROM KEPRQDT WHERE BUYER = #{st_buyer_code} AND QUOTATION_NO = #{st_quotation_no} AND QUOTATION_SEQ = #{st_quotation_seq} AND REVISION = #{st_revision}) AND STATUS IN ('C','R'))					
+				) AS MAKER_PART_NO
+				, (SELECT DESCRIPTION_LOC FROM ICOMBYIT WHERE BUYER = (SELECT BYCA_COMORG_CODE FROM ICOMCMPY WHERE COM_CODE = #{st_buyer_code}) AND BUYER_ITEM_NO = (SELECT BUYER_ITEM_NO FROM KEPRQDT WHERE BUYER = #{st_buyer_code} AND QUOTATION_NO = #{st_quotation_no} AND QUOTATION_SEQ = #{st_quotation_seq} AND REVISION = #{st_revision}) AND STATUS IN ('C','R')) AS EXIST_DESC
+				, (SELECT SPECIFICATION FROM ICOMBYIT WHERE BUYER = (SELECT BYCA_COMORG_CODE FROM ICOMCMPY WHERE COM_CODE = #{st_buyer_code}) AND BUYER_ITEM_NO = (SELECT BUYER_ITEM_NO FROM KEPRQDT WHERE BUYER = #{st_buyer_code} AND QUOTATION_NO = #{st_quotation_no} AND QUOTATION_SEQ = #{st_quotation_seq} AND REVISION = #{st_revision}) AND STATUS IN ('C','R')) AS EXIST_SPEC
+		     FROM CMSCATEG A			   
+		          LEFT OUTER JOIN CMSCATTR B ON (1 = 1		   
+		            AND B.CMS_CATEG_ID = A.CMS_CATEG_ID	   
+		          )					   
+		    WHERE A.CMS_CATEG_ID = #{st_cms_categ_id}
+		]]>
+	</select>
+	<update id="updateKeprqdtAddImage"  parameterType="java.util.Map">
+		<![CDATA[
+				UPDATE KEPRQDT /*updateKeprqdtAddImage*/
+				   SET IMGFILE_DIR = #{st_imgfile_dir}
+				   , IMGFILE_NAME = #{st_imgfile_name}
+				 WHERE BUYER = #{st_buyer_code} 
+				 AND QUOTATION_NO = #{st_quotation_no}
+				 AND QUOTATION_SEQ = #{st_quotation_seq}
+				 AND REVISION = #{st_revision}
+		]]>
+	</update>
+	<update id="updateMasterMpRqCmsRecvDate" parameterType="java.util.Map">
+		<![CDATA[
+		/* updateMasterMpRqCmsRecvDate */
+			UPDATE KEPRQDT A 
+				SET   CMS_RECV_DATE = TO_CHAR(SYSDATE,'YYYYMMDD')
+				, CMS_RECV_TIME = TO_CHAR(SYSDATE,'HH24MISS')
+				, CMS_USER_ID= #{USER_ID}
+				, ITEM_CLEANSING_USER_ID = DECODE(A.ITEM_CLEANSING_USER_ID, NULL, #{USER_ID}, A.ITEM_CLEANSING_USER_ID)
+				, ITEM_CLEANSING_DATE = DECODE(A.ITEM_CLEANSING_DATE, NULL, SYSDATE, A.ITEM_CLEANSING_DATE)
+				
+				, DESCRIPTION = #{st_description}
+				, SPECIFICATION = #{st_specification}
+                , UNIT_MEASURE = #{st_unit_measure}
+                , MAKER_CODE = #{st_maker_code}
+                , MAKER_NAME = #{st_maker_name}
+                , ORIGIN_CODE = #{st_origin_code}
+                , ORIGIN_NAME = #{st_origin_name}
+                , CMS_CATEG_ID = #{st_cms_categ_id}
+			    , ITEM_DETAIL_DESC = #{st_item_detail_desc}
+			    , DESCRIPTION_ENG = #{st_description_eng}
+				, SPECIFICATION_ENG = #{st_specification_eng}
+				, IMGFILE_DIR = #{st_imgfile_dir}
+				, IMGFILE_NAME = #{st_imgfile_name}
+				, ATTB1_NM = #{st_attb1_nm} 
+				, ATTB2_NM = #{st_attb2_nm} 
+				, ATTB3_NM = #{st_attb3_nm} 
+				, ATTB4_NM = #{st_attb4_nm} 
+				, ATTB5_NM = #{st_attb5_nm} 
+				, ATTB6_NM = #{st_attb6_nm} 
+				, ATTB7_NM = #{st_attb7_nm} 
+				, ATTB8_NM = #{st_attb8_nm} 
+				, ATTB9_NM = #{st_attb9_nm} 
+				, ATTB10_NM = #{st_attb10_nm} 
+				, ATTB11_NM = #{st_attb11_nm} 
+				, ATTB12_NM = #{st_attb12_nm} 
+				, ATTB13_NM = #{st_attb13_nm} 
+				, ATTB14_NM = #{st_attb14_nm} 
+				, ATTB15_NM = #{st_attb15_nm} 
+				, ATTB16_NM = #{st_attb16_nm} 
+				, ATTB17_NM = #{st_attb17_nm} 
+				, ATTB18_NM = #{st_attb18_nm}
+				, ATTB19_NM = #{st_attb19_nm}
+				, ATTB20_NM = #{st_attb20_nm}
+				, SG_ID = #{st_sg_id}
+				, MAKER_PART_NO = #{st_rpa_model_no}
+				 WHERE A.BUYER = #{st_buyer_code}                                    
+				   AND A.QUOTATION_NO = #{st_quotation_no}
+				   AND A.QUOTATION_SEQ = #{st_quotation_seq}
+				   AND A.REVISION = #{st_revision}                                    
+		]]>
+	</update>
+</mapper>

@@ -1,0 +1,248 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="common.wmco">
+
+
+	<select id="updateMasterWmCoWarehousingDetailWMS_GR_QTY" parameterType="java.util.Map" resultType="java.lang.String">
+	    <![CDATA[
+	   /*updateMasterWmCoWarehousingDetailWMS_GR_QTY*/
+		SELECT     INV_NO
+                      ,WMS_GR_QTY
+                      ,BUYER
+                      ,PO_NO
+		FROM ICOMIVDT
+       WHERE BUYER = #{st_buyer}	
+         AND  PO_NO = #{st_po_no}
+         AND  INV_NO =#{st_inv_no}	
+         AND  STATUS != 'D'
+         AND   WMS_GR_QTY <> 0 	
+	  ]]>
+	</select>
+
+
+	<update id="updateMasterWmCoWarehousingDetail" parameterType="java.util.Map" >
+	    <![CDATA[
+	   /*updateMasterWmCoWarehousingDetail*/
+				UPDATE ICOMIVDT IVDT										
+				SET IVDT.WMS_GR_QTY = NVL(IVDT.INV_QTY, 0),				
+					IVDT.WMS_GR_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD'),	
+					IVDT.WMS_GR_USER_ID = #{st_user_id},	
+            			IVDT.CAR_ID = #{CAR_ID},
+            			IVDT.CAR_NO = #{CAR_NO},
+            			IVDT.CAR_PERSON_NAME = #{CAR_PERSON_NAME},
+            			IVDT.CAR_PERSON_TEL = #{CAR_PERSON_TEL}	,		
+            			IVDT.SCHEDULED_DATE =#{SCHEDULED_DATE} 												 
+			 WHERE IVDT.INV_NO = #{st_inv_no}								
+			   AND IVDT.BUYER = #{st_buyer}										
+			   AND IVDT.PO_NO =  #{st_po_no}										
+			   AND IVDT.STATUS <> 'D'									
+			   AND IVDT.WMS_GR_QTY = 0				
+	  ]]>
+	</update>
+	<update id="updateMasterWmCoWarehousingDetail_v2" parameterType="java.util.Map" >
+	    <![CDATA[
+	   /*updateMasterWmCoWarehousingDetail_v2*/
+				UPDATE ICOMIVDT IVDT										
+				SET IVDT.WMS_GR_QTY = NVL(IVDT.INV_QTY, 0),				
+					IVDT.WMS_GR_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD'),	
+					IVDT.WMS_GR_USER_ID = #{st_user_id},	
+            			IVDT.CAR_ID = #{CAR_ID},
+            			IVDT.CAR_NO = #{CAR_NO},
+            			IVDT.CAR_PERSON_NAME = #{CAR_PERSON_NAME},
+            			IVDT.CAR_PERSON_TEL = #{CAR_PERSON_TEL}	,		
+            			IVDT.SCHEDULED_DATE =#{SCHEDULED_DATE} ,
+            			IVDT.DELIVERY_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD'),
+            			IVDT.DELIVERY_QTY = NVL(IVDT.INV_QTY, 0)												 
+			 WHERE IVDT.INV_NO = #{st_inv_no}								
+			   AND IVDT.BUYER = #{st_buyer}										
+			   AND IVDT.PO_NO =  #{st_po_no}										
+			   AND IVDT.STATUS <> 'D'									
+			   AND IVDT.WMS_GR_QTY = 0				
+	  ]]>
+	</update>
+	
+	
+	<select id="selectMasterWmCoWarehousingDetailPopORDERNO" parameterType="java.util.Map" resultType="java.lang.String">
+	   <![CDATA[
+	  	 /*selectMasterWmCoWarehousingDetailPopORDERNO*/
+	  	 Select doc_type||SUBSTR(year,3,2)||LPAD(cur_no,6,0) ORDERNO
+                     FROM Icomsqmt 
+                   WHERE company= 'KRKORE0001'
+		               AND doc_type = 'IK'
+	   	]]>
+	 </select>
+	
+	<select id="selectMasterWmCoWarehousingDetailPopForUpdate" parameterType="java.util.Map" resultType="java.util.Map">
+	  <![CDATA[
+	   /*selectMasterWmCoWarehousingDetailPopForUpdate*/
+           SELECT                 
+                   BUYER,         
+                   PO_NO,         
+                   PO_SEQ,        
+                   INV_NO,        
+                   INV_SEQ,       
+                   INV_QTY        
+             FROM ICOMIVDT        
+            WHERE BUYER = #{st_buyer}	      
+              AND PO_NO = #{st_po_no}	    
+              AND INV_NO = #{st_inv_no}	  
+              AND STATUS <> 'D'   
+	   
+	    ]]>
+	</select>
+	
+
+
+	<select id="selectMasterWmCoWarehousingDetailPopList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*selectMasterWmCoWarehousingDetailPopList*/
+              SELECT  
+                       DECODE((SELECT MAX(DOC_TYPE) FROM ICOMPOHD                             
+                                WHERE BUYER = PODT.BUYER                                      
+                                  AND PO_NO = PODT.PO_NO),                                    
+                              'X',SUBSTR(PODT.BUYER_ITEM_NO,1,7),                             
+                                  (SELECT STDCATLG_ID FROM ICOMCQDT                           
+                                    WHERE BUYER = PODT.BYIT_COMORG_CODE                       
+                                      AND BUYER_ITEM_NO = PODT.BUYER_ITEM_NO                  
+                                      AND CONTRACT_NO = PODT.CONTRACT_NO                      
+                                      AND CONTRACT_SEQ = PODT.CONTRACT_SEQ)) AS STDCATLG_ID,  --[00]
+                       PODT.DESCRIPTION AS DESCRIPTION,                           --[01]
+                       PODT.ITEM_QTY ||'('|| PODT.UNIT_MEASURE ||')' AS ITEM_QTY, --[02]
+                       PODT.UNIT_MEASURE AS UNIT_MEASURE,                         --[03]
+                       IVDT.INV_QTY AS GR_QTY,                                    --[04]
+                       PODT.AGENT_PRICE AS AGENT_PRICE,                           --[05]
+                       IVDT.ITEM_AMT AS AGENT_ITEM_AMT,                     --[06]
+                       PODT.PO_REMARK AS PO_REMARK,                               --[07]
+                       PODT.BUYER_ITEM_NO AS BUYER_ITEM_NO,                       --[08]
+                       PODT.SPECIFICATION AS SPECIFICATION,                       --[09]
+                       (SELECT SUM(NVL(WMS_GR_QTY,0)) FROM ICOMIVDT WHERE BUYER = PODT.BUYER AND PO_NO = PODT.PO_NO AND PO_SEQ = PODT.PO_SEQ AND STATUS <> 'D') AS WMS_GR_QTY,   --[10]
+--                       IVDT.WMS_GR_QTY AS WMS_GR_QTY,                                 --[10]
+                       PODT.UNIT_PRICE AS UNIT_PRICE,                             --[11]
+                       IVDT.INV_QTY*PODT.UNIT_PRICE AS ITEM_AMT,                  --[12]
+                       PODT.BUYER AS BUYER,                                       --[13]
+                       PODT.PO_NO AS PO_NO,                                       --[14]
+                       PODT.PO_SEQ AS PO_SEQ,                                     --[15]
+                       IVDT.INV_NO AS INV_NO,                                     --[16]
+                       IVDT.INV_SEQ AS INV_SEQ,                                   --[17]
+                       PODT.BYIT_COMORG_CODE AS BYIT_COMORG_CODE,                 --[18]
+                       PODT.CONTRACT_NO AS CONTRACT_NO,                           --[19]
+                       PODT.CONTRACT_SEQ AS CONTRACT_SEQ,                         --[20]
+
+                       (SELECT MAX(DOC_TYPE) FROM ICOMPOHD                        
+                                WHERE BUYER = PODT.BUYER                          
+                                  AND PO_NO = PODT.PO_NO) AS DOC_TYPE,            --[21]
+                       SUBSTR(PODT.BUYER_ITEM_NO,1,7) AS MASTER_ITEM,             --[22]
+                       DECODE((SELECT MAX(DOC_TYPE) FROM ICOMPOHD                 
+                                WHERE BUYER = PODT.BUYER                          
+                                  AND PO_NO = PODT.PO_NO),                        
+                              'X',(SELECT NVL(TRIM(IMG_NO),'0') FROM ITEMMAST     
+                                    WHERE STDCATLG_ID = SUBSTR(PODT.BUYER_ITEM_NO,1,7)),'') AS IMG_NO,  --[23]
+                     CASE WHEN (sysdate+7)-next_day(sysdate,1)+1 = 6 THEN  sysdate+3
+                             WHEN (sysdate+7)-next_day(sysdate,1)+1 = 7 THEN  sysdate+2
+                             ELSE SYSDATE+1 
+                             END  							SCHEDULED_DATE,                                   
+                      1 BOX_QTY,  
+                     NVL(B.CAR_ID,'') CAR_ID,
+                     NVL(B.CAR_NO,'') CAR_NO,
+                     NVL(B.CAR_PERSON_NAME,'') CAR_PERSON_NAME,
+                     NVL(B.CAR_PERSON_TEL,'')  CAR_PERSON_TEL,
+                     PODT.DELAY_REMARK,
+                     PODT.REF_PR_NO
+                FROM ICOMPODT PODT, ICOMIVDT IVDT
+			   , (SELECT C.CAR_ID,
+                           C.CAR_NO,
+                           C.CAR_PERSON_NAME
+                           ,C.CAR_PERSON_TEL
+                           ,C.BASE_YN
+                           ,C.BUYER
+                    FROM BNTBUYERCARINFO  C
+                   WHERE C.BASE_YN = 'Y'
+                ) B
+               WHERE PODT.BUYER = IVDT.BUYER  
+                 AND PODT.PO_NO = IVDT.PO_NO  
+                 AND PODT.PO_SEQ = IVDT.PO_SEQ  
+                 AND PODT.STATUS <> 'D'  
+                 AND IVDT.STATUS <> 'D'  
+				 AND PODT.PROCESS_TYPE = '2' 
+				 AND PODT.BUYER= B.BUYER(+)
+			]]>				 
+		<if test="st_buyer != null and st_buyer != ''">
+			<![CDATA[
+					AND PODT.BUYER =  #{st_buyer}
+			]]>	
+		</if>
+		<if test="st_inv_no != null and st_inv_no != ''">
+			<![CDATA[
+					AND IVDT.INV_NO =  #{st_inv_no}
+			]]>	
+		</if>
+		<if test="st_po_no != null and st_po_no != ''">
+			<![CDATA[
+					AND PODT.PO_NO =  #{st_po_no}
+			]]>	
+		</if>		
+			<![CDATA[		 
+              ORDER BY PODT.BUYER, PODT.PO_NO, PODT.PO_SEQ  						 
+		]]>
+
+		
+	</select>
+	
+	<select id="selectMasterWmCoWarehousingDetail" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*selectMasterWmCoWarehousingDetail*/
+		 SELECT 
+                 MAX((SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = POHD.BUYER)) AS COM_NAME,  	-- [00] COM_NAME
+                 POHD.PO_NO AS PO_NO,  																-- [01] PO_NO
+                 MAX(PODT.LEGACY_PO_NO) AS LEGACY_PO_NO,  												-- [02] LEGACY_PO_NO
+                 MAX(POHD.PO_CREATE_DATE) AS PO_CREATE_DATE,  											-- [03] PO_CREATE_DATE
+                 MAX(PODT.RD_DATE) AS RD_DATE,  														-- [04] RD_DATE
+                 IVDT.INV_NO AS INV_NO,  																-- [05] INV_NO
+                 MAX(DECODE(PODT.ITEM_QTY,IVDT.INV_QTY,'입고예정','분할입고예정')) AS STATUS,  		-- [06] STATUS
+                 MAX(DECODE(POHD.DOC_TYPE,'S','선입고','X','Kepmro','일반')) AS DOC_TEXT,  			-- [07] DOC_TEXT
+                 MAX(IVDT.INVOICE_DATE) AS GR_DATE_RE,  												-- [08] GR_DATE_RE
+                 MAX((SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = POHD.AGENT)) AS AGENT_NAME,  	-- [09] AGENT_NAME
+                 MAX((SELECT TEL_NO FROM ICOMCMPY WHERE COM_CODE = POHD.AGENT)) AS AGENT_TEL_NO,  		-- [10] AGENT_TEL_NO
+                 MAX(PRDT.ADD_USER_NAME) AS ADD_USER_NAME,  											-- [11] ADD_USER_NAME
+                 MAX(PRDT.ADD_USER_TEL) AS ADD_USER_TEL,  												-- [12] ADD_USER_TEL
+                 MAX(POHD.DELY_TO_LOCATION) AS DELY_TO_LOCATION,  										-- [13] DELY_TO_LOCATION
+                 MAX(POHD.PO_REMARK) AS PO_REMARK,  													-- [14] PO_REMARK
+                 MAX(POHD.DOC_TYPE) AS DOC_TYPE,  														-- [15] DOC_TYPE
+                 MAX(POHD.AGENT) AS AGENT,  															-- [16] AGENT
+                 POHD.BUYER AS BUYER,  																	-- [17] BUYER
+                 MAX(DECODE((SELECT COUNT(*) FROM HUBIVDT WHERE BUYER = IVDT.BUYER AND AGENT = POHD.AGENT AND PO_NO = IVDT.PO_NO AND S_INV_NO = IVDT.INV_NO), 0, 'Y', (SELECT DECODE(COUNT(*), 0, 'N', 'Y') FROM HUBIVDT WHERE BUYER = IVDT.BUYER AND AGENT = POHD.AGENT AND PO_NO = IVDT.PO_NO AND S_INV_NO = IVDT.INV_NO AND HUB_IV_DATE IS NOT NULL))) AS HUB_IV_YN,
+                 MAX(PODT.DELY_TO_LOCATION) AS DELY_TO_LOCATION_CODE,
+                 MAX((SELECT ITEM_NO FROM ICOMCQDT WHERE BUYER = PODT.BYIT_COMORG_CODE AND CONTRACT_NO = PODT.CONTRACT_NO AND CONTRACT_SEQ = PODT.CONTRACT_SEQ AND BUYER_ITEM_NO = PODT.BUYER_ITEM_NO)) AS CQDT_ITEM_NO
+            FROM ICOMPOHD POHD, ICOMPODT PODT, ICOMPRDT PRDT, ICOMIVDT IVDT  
+           WHERE  POHD.BUYER = PODT.BUYER  
+             AND POHD.PO_NO = PODT.PO_NO  
+             AND PODT.BUYER = PRDT.BUYER  
+             AND PODT.PR_NO = PRDT.PR_NO  
+             AND PODT.PR_SEQ = PRDT.PR_SEQ  
+             AND PODT.BUYER = IVDT.BUYER  
+             AND PODT.PO_NO = IVDT.PO_NO  
+             AND PODT.PO_SEQ = IVDT.PO_SEQ  
+         ]]>    
+ 		<if test="st_buyer != null and st_buyer != ''">
+			<![CDATA[
+					AND POHD.BUYER =  #{st_buyer}
+			]]>	
+		</if>
+		<if test="st_inv_no != null and st_inv_no != ''">
+			<![CDATA[
+					AND IVDT.INV_NO =  #{st_inv_no}
+			]]>	
+		</if>
+		<if test="st_po_no != null and st_po_no != ''">
+			<![CDATA[
+					AND POHD.PO_NO =  #{st_po_no}
+			]]>	
+		</if>
+		<![CDATA[            
+          GROUP BY POHD.BUYER, POHD.PO_NO,IVDT.INV_NO  						 
+		]]>
+
+		
+	</select>
+								
+</mapper>

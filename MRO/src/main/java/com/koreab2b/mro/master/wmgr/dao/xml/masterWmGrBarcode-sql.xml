@@ -1,0 +1,230 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.wmgr">
+
+
+
+	<!-- 조회 -->
+	<select id="selectMasterWmGrBarcodeList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.pagestart"/>	
+			<![CDATA[
+			/*selectMasterWmGrBarcodeList*/ 
+         SELECT
+                     A.GBN,
+                     A.BUYER_NAME,
+                     A.PO_CREATE_DATE,
+                     A.RD_DATE,
+                     A.PO_CNT,
+                     A.DELY_TO_LOCATION,
+                     DECODE(A.ADD_USER_TEL,' ',A.ADD_USER_NAME,A.ADD_USER_NAME||'(' ||ADD_USER_TEL||')')   ADD_USER_NAME,
+                     A.ADD_USER_NAME ADD_USER_NAME_ORG,
+                     A.ADD_USER_TEL,
+                     DECODE(A.AGENT_TEL_NO,' ' ,A.AGENT_NAME,A.AGENT_NAME||'('||AGENT_TEL_NO||')')    AGENT_NAME,
+                     A.AGENT_NAME AGENT_NAME_ORG,
+                     A.AGENT_TEL_NO,
+                     A.PO_NO,
+                     A.LEGACY_PO_NO,
+                     A.INV_NO,
+                     A.ITEM_AMT,
+                     A.AGENT,
+                     A.BUYER,
+                     A.PO_REMARK,
+                     A.DELAY_REMARK,
+                     A.SCM_REMARK AS SCM_REMARK,
+                     A.CREATE_DATE,
+                     A.CREATE_TIME,
+                     DECODE(A.BAR_STATUS,'E','오류', 'Y','처리') AS STATUS,
+                     A.ERROR_MSG
+
+              FROM (
+
+              SELECT
+                     DECODE(KEY_2,'I','입고','C','출고','X','입출고','배송확정') AS GBN,
+                     MAX((SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = PODT.BUYER)) AS BUYER_NAME,
+                     MAX(POHD.PO_CREATE_DATE) AS PO_CREATE_DATE,
+                     MAX(PODT.RD_DATE) AS RD_DATE,
+                     COUNT(PODT.PO_SEQ) AS PO_CNT,
+                     MAX(POHD.DELY_TO_LOCATION) AS DELY_TO_LOCATION,
+                     MAX(PRDT.ADD_USER_NAME) AS ADD_USER_NAME,
+                     MAX(PRDT.ADD_USER_TEL) AS ADD_USER_TEL,
+                     MAX((SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = POHD.AGENT)) AS AGENT_NAME,
+                     MAX((SELECT TEL_NO FROM ICOMCMPY WHERE COM_CODE = POHD.AGENT)) AS AGENT_TEL_NO,
+                     PODT.PO_NO AS PO_NO,
+                     MAX(PODT.LEGACY_PO_NO) AS LEGACY_PO_NO,
+                     TRXL.KEY_1 AS INV_NO,
+                     SUM(PODT.ITEM_AMT) AS ITEM_AMT,
+                     MAX(POHD.AGENT) AS AGENT,
+                     PODT.BUYER AS BUYER,
+                     MAX(POHD.PO_REMARK) AS PO_REMARK
+                     ,PODT.DELAY_REMARK
+                     ,MAX(PODT.SCM_REMARK) AS SCM_REMARK
+                     ,TRXL.KEY_4 AS CREATE_DATE
+                     ,TRXL.KEY_5 AS CREATE_TIME
+                     ,TRXL.KEY_9  AS BAR_STATUS
+                     ,TRXL.KEY_10 AS ERROR_MSG
+                FROM ICOMPODT PODT, ICOMPOHD POHD, ICOMPRDT PRDT, ICOMIVDT IVDT,ICOMTRXL TRXL
+               WHERE PODT.BUYER = POHD.BUYER
+                 AND PODT.PO_NO = POHD.PO_NO
+                 AND PODT.BUYER = PRDT.BUYER
+                 AND PODT.PR_NO = PRDT.PR_NO
+                 AND PODT.PR_SEQ = PRDT.PR_SEQ
+                 AND PODT.BUYER = IVDT.BUYER
+                 AND PODT.PO_NO = IVDT.PO_NO
+                 AND PODT.PO_SEQ = IVDT.PO_SEQ
+                 AND PODT.STATUS <> 'D'
+                 AND POHD.STATUS <> 'D'
+                 AND PRDT.STATUS <> 'D'
+                 AND IVDT.STATUS <> 'D'
+                 AND TRXL.DOC_NAME = 'WMS_BAR'
+                 AND IVDT.BUYER = TRXL.TARGET
+                 AND IVDT.INV_NO = TRXL.KEY_1
+                 AND PODT.WAREHOUSE_CODE =#{st_warehouse_code}
+                 AND TRXL.KEY_4 BETWEEN #{st_from_date} AND #{st_to_date}                                   
+                ]]> 
+                <if test='buyerCnt == "1"'>   
+                     AND PODT.BUYER IN
+	  			<foreach collection="buyerParam" item="st_buyer_code" index="i" open="(" separator=","  close=")" >	
+	    			 	#{st_buyer_code}
+	  			</foreach>   
+               </if>  
+ 			<if test="st_po_no != null and st_po_no != ''">       
+                  <![CDATA[
+                  	 AND (PODT.PO_NO = #{st_po_no} OR PODT.LEGACY_PO_NO LIKE #{st_po_no}||'%') 
+                  ]]>
+             </if>
+ 			<if test="st_inv_no != null and st_inv_no != ''">       
+                  <![CDATA[
+                  	 AND TRXL.KEY_1 = #{st_inv_no} 
+                  ]]>
+             </if> 			
+             <if test='agentCnt == "1"'>       
+                  <![CDATA[
+                  	 AND POHD.AGENT IN
+                  ]]>
+                 <foreach collection="agnetrParam" item="st_agent_code" index="i" open="(" separator=","  close=")" >	
+	    			 	#{st_agent_code}
+	  			</foreach>
+             </if>            
+              <if test="st_doc_type != null and st_doc_type != ''">               	
+                  <![CDATA[    
+                  	 AND TRXL.KEY_2 = #{st_doc_type}               
+                     ]]>
+             </if>  
+              <if test="st_status_check != null and st_status_check != ''">               	
+                  <![CDATA[    
+                  	 AND TRXL.KEY_9 = #{st_status_check}               
+                     ]]>
+             </if>  
+			<![CDATA[         
+                 GROUP BY PODT.BUYER
+                 ,PODT.PO_NO
+                 ,IVDT.INV_NO
+                 ,PODT.DELAY_REMARK
+                 ,TRXL.KEY_1
+                 ,TRXL.KEY_2
+                 ,TRXL.KEY_4
+                 ,TRXL.KEY_5
+                 ,TRXL.KEY_9
+                 ,TRXL.KEY_10
+                 UNION ALL
+              SELECT
+                     DECODE(KEY_2,'I','입고','C','출고','X','입출고','배송확정') AS STATUS,
+                     MAX((SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = PODT.BUYER)) AS BUYER_NAME,
+                     MAX(POHD.PO_CREATE_DATE) AS PO_CREATE_DATE,
+                     MAX(PODT.RD_DATE) AS RD_DATE,
+                     COUNT(PODT.PO_SEQ) AS PO_CNT,
+                     MAX(POHD.DELY_TO_LOCATION) AS DELY_TO_LOCATION,
+                     MAX(PRDT.ADD_USER_NAME) AS ADD_USER_NAME,
+                     MAX(PRDT.ADD_USER_TEL) AS ADD_USER_TEL,
+                     MAX((SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = POHD.AGENT)) AS AGENT_NAME,
+                     MAX((SELECT TEL_NO FROM ICOMCMPY WHERE COM_CODE = POHD.AGENT)) AS AGENT_TEL_NO,
+                     PODT.PO_NO AS PO_NO,
+                     MAX(PODT.LEGACY_PO_NO) AS LEGACY_PO_NO,
+                     TRXL.KEY_1 AS INV_NO,
+                     SUM(PODT.ITEM_AMT) AS ITEM_AMT,
+                     MAX(POHD.AGENT) AS AGENT,
+                     PODT.BUYER AS BUYER,
+                     MAX(POHD.PO_REMARK) AS PO_REMARK
+                     ,PODT.DELAY_REMARK
+                     ,MAX(PODT.SCM_REMARK) AS SCM_REMARK
+                     ,TRXL.KEY_4 AS CREATE_DATE
+                     ,TRXL.KEY_5 AS CREATE_TIME
+                     ,TRXL.KEY_9  AS BAR_STATUS
+                     ,TRXL.KEY_10 AS ERROR_MSG
+                FROM ICOMPODT PODT, ICOMPOHD POHD, ICOMPRDT PRDT, WMSIVDT IVDT,ICOMTRXL TRXL
+               WHERE PODT.BUYER = POHD.BUYER
+                 AND PODT.PO_NO = POHD.PO_NO
+                 AND PODT.BUYER = PRDT.BUYER
+                 AND PODT.PR_NO = PRDT.PR_NO
+                 AND PODT.PR_SEQ = PRDT.PR_SEQ
+                 AND PODT.BUYER = IVDT.BUYER
+                 AND PODT.PO_NO = IVDT.PO_NO
+                 AND PODT.PO_SEQ = IVDT.PO_SEQ
+                 AND PODT.STATUS <> 'D'
+                 AND POHD.STATUS <> 'D'
+                 AND PRDT.STATUS <> 'D'
+                 AND IVDT.STATUS <> 'D'
+                 AND TRXL.DOC_NAME = 'WMS_BAR'
+                 AND IVDT.BUYER = TRXL.TARGET
+                 AND IVDT.INV_NO = TRXL.KEY_1
+                 AND PODT.WAREHOUSE_CODE = #{st_warehouse_code}
+                 AND TRXL.KEY_4 BETWEEN #{st_from_date} AND #{st_to_date}                   
+                    ]]>
+			<if test='buyerCnt == "1"'>     
+                  <![CDATA[       
+                  	AND PODT.BUYER IN                     	
+                    ]]>
+                 <foreach collection="buyerParam" item="st_buyer_code" index="i" open="(" separator=","  close=")" >	
+	    			 	#{st_buyer_code}
+	  			</foreach>   
+             </if>
+            <if test="st_po_no != null and st_po_no != ''">     
+                  <![CDATA[       
+                  	AND (PODT.PO_NO = #{st_po_no} OR PODT.LEGACY_PO_NO LIKE #{st_po_no}||'%')       
+                    ]]>
+             </if>         
+ 			<if test="st_inv_no != null and st_inv_no != ''">       
+                  <![CDATA[
+                  	 AND TRXL.KEY_1 = #{st_inv_no} 
+                  ]]>
+             </if>                    
+            <if test='agentCnt == "1"'>     
+                  <![CDATA[       
+                  	AND POHD.AGENT IN
+                    ]]>
+                  <foreach collection="agnetrParam" item="st_agent_code" index="i" open="(" separator=","  close=")" >	
+	    			 	#{st_agent_code}
+	  			</foreach>
+             </if>     
+              <if test="st_doc_type != null and st_doc_type != ''">               	
+                  <![CDATA[    
+                  	 AND TRXL.KEY_2 = #{st_doc_type}               
+                     ]]>
+             </if>  
+              <if test="st_status_check != null and st_status_check != ''">               	
+                  <![CDATA[    
+                  	 AND TRXL.KEY_9 = #{st_status_check}               
+                     ]]>
+             </if>  
+			<![CDATA[ 
+                 GROUP BY PODT.BUYER
+                 ,PODT.PO_NO
+                 ,IVDT.INV_NO
+                 ,PODT.DELAY_REMARK
+                 ,TRXL.KEY_1
+                 ,TRXL.KEY_2
+                 ,TRXL.KEY_4
+                 ,TRXL.KEY_5
+                 ,TRXL.KEY_9
+                 ,TRXL.KEY_10
+
+                  ) A
+ 		 		ORDER BY A.BUYER_NAME, A.INV_NO, A.CREATE_DATE, A.CREATE_TIME
+
+ 			   ]]>   
+		<include refid="common.ibsheet.xml.pageend"/>								
+	</select>
+
+
+</mapper>   
+   

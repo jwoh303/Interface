@@ -1,0 +1,188 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.clmg">
+	<!-- 조회 -->
+	<select id="selectMasterClMgBasicCreditReg" parameterType="java.util.Map" resultType="java.util.Map">
+			<![CDATA[
+		    /*	selectMasterClMgBasicCreditReg */
+			SELECT
+			 A.LOAN_NO
+			 , A.IRS_NO
+			 , A.DEPT_CD
+			 , A.IRS_NM
+			 , A.DEPT_NM
+			 , A.BASE_CREDIT_AMT
+			 , A.ADD_DATE
+			 , A.STATUS
+			 ,DECODE(A.STATUS, 'E', '결재선오류','T','결재중','B','결재반려','D','삭제','등록요청') AS STATUS_TEXT
+			 ,(SELECT DECODE(COUNT(CMPY.COM_CODE),'0','7','8')
+			    FROM ICOMCOD3 COD , ICOMCMPY CMPY
+			    WHERE COD.BUYER ='KRKORE0001'
+			    AND COD.TYPE = 'BYMP'
+			    AND COD.FLAG = 'Y'   
+			    AND COD.CODE1 = CMPY.COM_CODE
+			    AND COD.TEXT1 = REPLACE( A.IRS_NO,'-','')
+			    AND COD.TEXT2 =  A.DEPT_CD) AS COMCODE_GUBUN_IMG
+			FROM KEPCLOBA A
+			WHERE A.STATUS IN ('E','T','B')
+			]]>
+			<choose>
+				<when test='st_status.equals("T")'>
+				AND		A.STATUS = 'T'
+				</when>
+				<when test='st_status.equals("B")'>
+				AND		A.STATUS = 'B'
+				</when>
+			</choose>
+			<if test="st_dept != null and st_dept != ''">
+				AND		A.DEPT_CD = #{st_dept}
+			</if>
+			<if test="st_irs_no != null and st_irs_no != ''">
+				AND		A.IRS_NO LIKE #{st_irs_no} || '%'
+			</if>
+			<if test="st_buyer_name != null and st_buyer_name != ''">
+				AND		A.IRS_NM LIKE  '%'||#{st_buyer_name} || '%'
+			</if>
+			<![CDATA[
+			ORDER BY A.IRS_NM , A.DEPT_NM
+			]]>
+	</select>
+
+	<!-- 삭제 -->
+	<update id="deleteMasterClMgBasicCreditReg"  parameterType="java.util.Map">
+		<![CDATA[
+		UPDATE	KEPCLOBA
+		SET 	CHANGE_DATE = TO_CHAR (SYSDATE, 'YYYYMMDD')
+		,		CHANGE_TIME = TO_CHAR (SYSDATE, 'HH24MISS')
+		,		CHANGE_USER_ID = UPPER(#{USER_ID})
+		,		STATUS	= 'D'
+		WHERE	1=1
+		AND		LOAN_NO = #{LOAN_NO}
+		AND		IRS_NO	= #{IRS_NO}
+		]]>
+	</update>
+	
+	<!-- 저장 -->
+	<update id="insertMasterClMgBasicCreditReg"  parameterType="java.util.Map">
+		<![CDATA[
+		INSERT INTO	KEPCLOBA
+		(
+		LOAN_NO
+		,IRS_NO
+		,DEPT_CD
+		,IRS_NM
+		,DEPT_NM
+		,BASE_CREDIT_AMT
+		,ADD_DATE
+		,ADD_TIME
+		,ADD_USER_ID
+		,STATUS
+		)
+		VALUES	(
+		(SELECT NVL(MAX(TO_NUMBER(LOAN_NO)),0)+1 AS LOAN_NO FROM KEPCLOBA)
+		,#{IRS_NO}
+		,#{DEPT_CODE}
+		,#{COM_NAME}
+		,#{DEPT_NAME}
+		,#{BASE_AMT}
+		,TO_CHAR (SYSDATE, 'YYYYMMDD')
+		,TO_CHAR (SYSDATE, 'HH24MISS')
+		,UPPER(#{USER_ID})
+		,'C'
+		)
+		]]>
+	</update>
+	<!-- 조회 -->
+	<select id="selectrMasterClMgBasicCreditReg" parameterType="java.util.Map" resultType="java.util.Map">
+		/*selectrMasterClMgBasicCreditReg*/
+		SELECT
+		IRS_NO
+		FROM KEPCLOBA
+		WHERE IRS_NO =  #{IRS_NO}
+		AND  DEPT_CD =  #{DEPT_CD}
+		AND STATUS != 'D'
+	</select>
+	<!-- 조회 -->
+	<select id="selectMasterClMgBasicCreditMapping" parameterType="java.util.Map" resultType="java.util.Map">
+		/*selectMasterClMgBasicCreditMapping*/
+		SELECT
+        	CODE1
+		FROM ICOMCOD3 COD3
+		WHERE BUYER = 'KRKORE0001'
+		AND TYPE = 'BYMP'
+		AND (CODE1, TEXT3, NVL(TEXT4,'XX'), TEXT2,TEXT1) IN (
+			SELECT
+			   F_SPLIT(B.COM_CODE,'^',1) AS COM_CODE
+			   , REPLACE(F_SPLIT(B.COM_CODE,'^',2),'-','') AS PO_IRS_NO
+			   , NVL(F_SPLIT(B.COM_CODE,'^',3),'XX') AS REQ_DEPT
+			  ,#{DEPT_CD}
+			  ,REPLACE(#{IRS_NO},'-','')
+			FROM DUAL A, (
+			SELECT
+			 REGEXP_SUBSTR(
+			        (#{COM_CODE}
+			        ),'[^'
+			        ||','
+			        ||']+',1,LEVEL) COM_CODE
+			
+			FROM DUAL
+			  CONNECT BY REGEXP_SUBSTR(
+			  (#{COM_CODE}
+			  ),'[^'
+			  ||','
+			  ||']+',1,LEVEL) IS NOT NULL
+			  ) B
+		  )
+	</select>
+	<!-- 저장 -->
+	<update id="insertMasterClMgBasicCreditMapping"  parameterType="java.util.Map">
+		<![CDATA[
+		/*insertMasterClMgBasicCreditMapping*/
+		INSERT INTO	ICOMCOD3
+		(
+		BUYER
+		,TYPE
+		,CODE1
+		,CODE2
+		,TEXT1
+		,FLAG
+		,TEXT2
+		,TEXT3
+		,TEXT4
+		,ADD_USER_ID
+		,ADD_DATE
+		)
+		SELECT
+		  'KRKORE0001'
+		  ,'BYMP'
+		  , F_SPLIT(B.COM_CODE,'^',1) AS COM_CODE
+		  ,(SELECT NVL(MAX(CD.CODE2)+1,1)  FROM ICOMCOD3 CD
+				WHERE CD.TYPE = 'BYMP'
+				AND CD.BUYER = 'KRKORE0001'
+				AND CD.CODE1 = F_SPLIT(B.COM_CODE,'^',1)) CODE2 
+		  ,REPLACE(#{IRS_NO},'-','')
+		  ,'Y'
+		  ,#{DEPT_CD}
+		  , REPLACE(F_SPLIT(B.COM_CODE,'^',2),'-','') AS PO_IRS_NO
+		  , F_SPLIT(B.COM_CODE,'^',3) AS REQ_DEPT
+		  ,#{st_user_id}
+		  ,TO_CHAR(SYSDATE,'YYYYMMDD')
+		FROM DUAL A, (
+		SELECT
+		 REGEXP_SUBSTR(
+		        (#{COM_CODE}
+		        ),'[^'
+		        ||','
+		        ||']+',1,LEVEL) COM_CODE
+		
+		FROM DUAL
+		  CONNECT BY REGEXP_SUBSTR(
+		  (#{COM_CODE}
+		  ),'[^'
+		  ||','
+		  ||']+',1,LEVEL) IS NOT NULL
+		  ) B
+		]]>
+	</update>
+</mapper>   
+   

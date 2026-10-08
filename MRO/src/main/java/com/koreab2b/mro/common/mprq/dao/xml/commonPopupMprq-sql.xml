@@ -1,0 +1,943 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="commonPopupMprq">
+
+	<!-- 견적상세내역조회 HD -->
+	<select id="quotationReDetailPopHd" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*commonPopupMprq.quotationReDetailPopHd*/
+		        SELECT                                                                                                      
+				        MAX((SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE=A.BUYER AND STATUS <> 'D')) AS COM_NAME_LOC 
+				        , MAX(A.BTOA_USER_NAME) AS BTOA_USER_NAME                                                                          
+				        ,  MAX(A.BTOA_DATE) AS BTOA_DATE                                                                                 
+				        , MAX(A.BTOA_USER_TEL) AS BTOA_USER_TEL                                                                              
+				        , MAX(A.BTOA_USER_MAIL) AS BTOA_USER_MAIL    
+				        , MAX(A.QUOTATION_NO) AS QUOTATION_NO  
+				        , MAX(A.REF_NO) AS REF_NO      
+				        , MAX(A.BTOA_USER_DEPT) AS BTOA_USER_DEPT                                                                 
+				   FROM KEPRQDT A                                                                                           
+				  WHERE A.BUYER = #{st_buyer}                                                                                      
+				    AND A.QUOTATION_NO = #{st_quotation_no}                                                                       
+				    AND A.REVISION = #{st_revision}                                                                                        
+				    AND A.STATUS <> 'D' 
+		]]>
+	</select>
+	<!-- 견적상세내역조회 DT -->
+	<select id="quotationReDetailPopDt" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*commonPopupMprq.quotationReDetailPopDt*/
+		SELECT	X.REVISION,
+					X.BUYER_ITEM_NO,
+					X.DESCRIPTION,
+					X.ITEM_QTY,
+					X.MAKER_NAME,
+					X.AGENT,
+					X.GR_FLAG,
+					X.CONFIRM_USER_ID,
+					X.BTOA_REMARK,
+					X.IMAGE_KEY,
+					X.QUOTATION_SEQ,
+					X.SOURCING_STATUS,
+					X.SPECIFICATION,
+					X.UNIT_MEASURE,
+					X.ORIGIN_NAME,
+					X.BUYER_TARGET_PRICE,
+					X.PO_FLAG,
+					X.CANCEL_REMARK,
+					X.ADMIN_TARGET_PRICE,
+					X.ITEM_TYPE,
+					X.BTOA_AGENT_NAME,
+					X.SG_ID,
+					X.SG_NAME,
+					(SELECT USR.USER_NAME_LOC FROM ICOMLUSR USR WHERE USR.USER_ID = X.SG_MNG_ID) AS SG_MNG_NM,
+					(
+						SELECT	DECODE(COUNT(*), 0, '', COUNT(*))	        
+						FROM	BNTNEGOHISTORY	H          
+						WHERE	H.BUYER=X.BUYER             
+						AND		H.QUOTATION_NO=X.QUOTATION_NO      
+						AND		H.QUOTATION_SEQ=X.QUOTATION_SEQ
+						AND		H.REVISION=X.REVISION
+					)	AS NEGO_COUNT,
+					X.CANCEL_USER_NAME
+		FROM	(
+				SELECT                  
+			        MAX(A.REVISION) AS REVISION
+			        , MAX(A.BUYER_ITEM_NO) AS BUYER_ITEM_NO      
+			        , MAX(A.DESCRIPTION) AS DESCRIPTION      
+			        , MAX(A.ITEM_QTY) AS ITEM_QTY     
+			        , MAX(A.MAKER_NAME) AS MAKER_NAME        
+			        , MAX(A.AGENT_NAME) AS AGENT     
+			        , '' AS GR_FLAG
+			        , MAX((SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID=A.CONFIRM_USER_ID)) AS CONFIRM_USER_ID       
+			        , MAX(A.BTOA_REMARK) AS BTOA_REMARK      
+			        , MAX(A.IMAGE_KEY) AS IMAGE_KEY
+			        , MAX(A.QUOTATION_SEQ) AS QUOTATION_SEQ      
+			        , CASE WHEN MAX(A.RECV_FLAG)='GD' THEN '견적취소'                                                        
+                                         ELSE CASE WHEN MAX(A.RECV_FLAG)='CC' THEN '장바구니'    
+                            ELSE CASE WHEN MAX(A.RECV_FLAG) = 'GS' THEN '결재진행중'                                            
+                            ELSE CASE WHEN MAX(A.RECV_FLAG) = 'GR' THEN '결재반려'                                                
+                            ELSE CASE WHEN MAX(A.RECV_FLAG)='PM' THEN '내부품의및카탈로그등록중'                                                
+                            ELSE CASE WHEN MAX(A.RECV_FLAG)='CM' THEN '합의완료'                                                
+                            ELSE CASE WHEN MAX(A.KEP_USER_ID) IS NULL THEN '고객사견적의뢰'                                        
+                            ELSE CASE WHEN MAX(B.AGENT_REVISION)=1 AND MAX(A.ATOB_UNIT_PRICE)=0 AND MAX(A.ATOB_SEND_FLAG)='N' AND MAX(B.BID_SUCCESS_FLAG)<>'Y' THEN '협력사견적요청'            
+                            ELSE CASE WHEN MAX(B.AGENT_REVISION)<>1 AND MAX(A.ATOB_UNIT_PRICE)=0 AND MAX(A.ATOB_SEND_FLAG)='N' THEN '협력사재견적요청'        
+                            ELSE CASE WHEN MAX(A.ATOB_UNIT_PRICE)=0 AND MAX(A.ATOB_SEND_FLAG)='N' AND MAX(B.BID_SUCCESS_FLAG)='Y' THEN '협력사선정완료'        
+                            ELSE CASE WHEN MAX(A.BTOA_NEGO_PRICE)=0 AND MAX(A.ATOB_UNIT_PRICE)<>0 AND MAX(A.ATOB_SEND_FLAG)='Y' THEN '고객사견적제시'        
+                            ELSE CASE WHEN MAX(A.BTOA_NEGO_PRICE)<>0 AND MAX(A.ATOB_UNIT_PRICE)=0 AND MAX(A.ATOB_SEND_FLAG)='Y' THEN '고객사NEGO의뢰'        
+                            ELSE CASE WHEN MAX(A.BTOA_NEGO_PRICE)<>0 AND MAX(A.ATOB_UNIT_PRICE)<>0 AND MAX(A.ATOB_SEND_FLAG)='Y' THEN '고객사NEGO견적제출'    
+                            END END END END END END END END END END END END END AS SOURCING_STATUS    
+			        , MAX(A.SPECIFICATION) AS SPECIFICATION     
+			        , MAX(A.UNIT_MEASURE) AS UNIT_MEASURE
+			        , MAX((SELECT TEXT2 FROM ICOMCOD1 WHERE TYPE='M001' AND CODE=A.ORIGIN_CODE)) AS ORIGIN_NAME      
+			        , MAX(A.BUYER_TARGET_PRICE) BUYER_TARGET_PRICE       
+			        , '' AS PO_FLAG     
+			        , MAX(A.CANCEL_REMARK) AS CANCEL_REMARK  
+			        , MAX(A.ADMIN_TARGET_PRICE) ADMIN_TARGET_PRICE     
+			        , DECODE(MAX(A.ITEM_TYPE),'O','1회성','T','계약','N','일반') AS ITEM_TYPE
+			        , MAX(A.BUYER)	AS BUYER
+			        , MAX(A.QUOTATION_NO)	AS QUOTATION_NO
+			        , MAX(A.BTOA_AGENT_NAME) AS BTOA_AGENT_NAME
+			        , MAX(A.SG_ID) AS SG_ID
+			        , NVL(MAX(SG.SG_NAME),' ') AS SG_NAME
+			        , MAX((SELECT MAX(TEXT1) FROM ICOMCOD3 COD
+									WHERE COD.BUYER ='KRKORE0001'
+									AND COD.TYPE ='CMDSM'
+									AND COD.CODE1 = A.SG_ID
+									AND COD.FLAG = 'Y'
+									AND COD.TEXT2 = 'Y')) AS SG_MNG_ID 
+					,  MAX((SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = A.CANCEL_USER_ID)) AS CANCEL_USER_NAME        
+			    FROM KEPRQDT A, KEPQTDT B, KEPSGMG SG			            
+			 WHERE A.BUYER = #{st_buyer}     
+			    AND A.QUOTATION_NO = #{st_quotation_no}      
+			    AND A.BUYER=B.BUYER(+)      
+			    AND A.QUOTATION_NO=B.QUOTATION_NO(+)        
+			    AND A.QUOTATION_SEQ=B.QUOTATION_SEQ(+)      
+			    AND A.REVISION=B.REVISION(+)        
+			    AND A.STATUS IN ('C','R')       
+			    AND B.STATUS(+) <> 'D'      
+			    AND B.STATUS(+) <> 'O'
+			    AND A.SG_ID = SG.SG_ID(+)      
+			    GROUP BY A.BUYER, A.QUOTATION_NO, A.QUOTATION_SEQ, A.REVISION
+		)	X
+		]]>
+	</select>
+
+
+<!-- 신규견적 고객사 -->
+	<select id="newSourcingBuyerList" parameterType="java.util.Map" resultType="java.util.Map">
+	<include refid="common.ibsheet.xml.pagestart"/>
+		<![CDATA[
+		/*commonPopupMprq.newSourcingBuyerList*/
+       SELECT						
+             A.BUYER AS BUYER,		
+             MAX((SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE=A.BUYER)) AS BUYER_NAME,
+             COUNT(*) AS CNT		
+        FROM KEPRQDT A ,			
+        				(SELECT BUYER
+        				  FROM BUYEROWN
+        				 WHERE USER_ID = #{USER_ID}
+        				) M			
+       WHERE A.BUYER = M.BUYER		
+		 AND    A.BTOA_DATE >= TO_CHAR(ADD_MONTHS(SYSDATE, -3), 'YYYYMMDD')	
+         AND A.RECV_FLAG IN ('NW', 'GA')	
+         AND A.SO_CA_FLAG='SO'		
+		 AND A.BTOA_NEGO_PRICE=0
+		 AND A.ATOB_UNIT_PRICE=0
+		 AND A.ATOB_SEND_FLAG='N'
+         AND A.KEP_USER_ID IS NULL	
+         AND (A.STATUS = 'C' OR A.STATUS = 'R')
+		AND  A.BUYER IN (	SELECT A.BUYER
+					                 FROM ICOMCOD3 COD3
+					                 WHERE COD3.BUYER = 'KRKORE0001'
+					                 AND   COD3.TYPE = 'CMPY'
+					                 AND   COD3.CODE1= 'ALL'
+					                 AND   COD3.CODE2 = #{USER_ID}
+					                 UNION ALL
+					                 SELECT MNG.BUYER
+					                 FROM  ICOMCOD3 COD3, MIS_BUYER_MNG MNG
+					                 WHERE COD3.BUYER = 'KRKORE0001'
+					                 AND   COD3.TYPE = 'CMPY'
+					                 AND   COD3.CODE1= MNG.KEP_DEPT
+					                 AND   COD3.CODE2 = #{USER_ID}
+					                 AND   MNG.YEAR = TO_CHAR(SYSDATE,'YYYY')
+					                 AND   MNG.STATUS = 'C'
+					                 UNION ALL
+					                 SELECT BUYER
+					                 FROM  MIS_BUYER_MNG
+					                 WHERE YEAR = TO_CHAR(SYSDATE,'YYYY')
+					                 AND   STATUS = 'C'
+					                 AND   KEP_USER_ID = #{USER_ID}
+					                 UNION ALL
+					                 SELECT COD.CODE1
+									FROM ICOMCOD3 COD , ICOMCMPY CMPY
+									WHERE  COD.BUYER = 'KRKORE0001'
+									AND COD.TYPE = 'CMPY'
+									AND COD.CODE1 = CMPY.COM_CODE
+									AND COD.CODE2 = #{USER_ID}
+									AND TO_CHAR(SYSDATE,'YYYYMMDD') BETWEEN TEXT2 AND TEXT3
+					                 )
+       GROUP BY A.BUYER				 
+		]]>
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+	
+
+<!-- 신규Nego 의뢰 고객사 -->
+	<select id="newSourcingNegoBuyerList" parameterType="java.util.Map" resultType="java.util.Map">
+	<include refid="common.ibsheet.xml.pagestart"/>
+		<![CDATA[
+		/*commonPopupMprq.newSourcingNegoBuyerList*/
+			SELECT	
+					A.BUYER,	
+					MAX((SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE=A.BUYER AND STATUS <> 'D')) AS BUYER_NAME,	
+					COUNT(*) CNT	
+			   FROM KEPRQDT A, KEPQTDT B,	
+					   					( SELECT BUYER	
+						    				  FROM BUYEROWN	
+						    				 WHERE USER_ID = #{USER_ID})M	
+			  WHERE A.BUYER = B.BUYER	
+			    AND A.BUYER = M.BUYER	
+				AND A.QUOTATION_NO=B.QUOTATION_NO	
+				AND A.QUOTATION_SEQ=B.QUOTATION_SEQ	
+				AND A.REVISION=B.REVISION	
+ 			   AND A.SO_CA_FLAG = 'SO'	
+ 			   AND A.RECV_FLAG <> 'GD'	
+				AND A.ATOB_UNIT_PRICE = 0	
+				AND A.BTOA_NEGO_PRICE <> 0	
+				AND A.ATOB_SEND_FLAG = 'Y'	
+				AND B.BID_SUCCESS_FLAG ='Y'	
+				AND B.STATUS(+) <> 'O'	
+ 			   AND (A.STATUS = 'C' OR A.STATUS = 'R')
+					   ]]>  
+			<if test="USER_ID != null and USER_ID != ''">	     
+							   <![CDATA[
+							   AND  A.BUYER  IN (
+											SELECT A.BUYER
+							                 FROM ICOMCOD3 COD3
+							                 WHERE COD3.BUYER = 'KRKORE0001'
+							                 AND   COD3.TYPE = 'CMPY'
+							                 AND   COD3.CODE1= 'ALL'
+							                 AND   COD3.CODE2 = #{USER_ID}
+							                 UNION ALL
+							                 SELECT MNG.BUYER
+							                 FROM  ICOMCOD3 COD3, MIS_BUYER_MNG MNG
+							                 WHERE COD3.BUYER = 'KRKORE0001'
+							                 AND   COD3.TYPE = 'CMPY'
+							                 AND   COD3.CODE1= MNG.KEP_DEPT
+							                 AND   COD3.CODE2 = #{USER_ID}
+							                 AND   MNG.YEAR = TO_CHAR(SYSDATE,'YYYY')	
+							                 AND   MNG.STATUS = 'C'
+							                 UNION ALL
+							                 SELECT BUYER
+							                 FROM  MIS_BUYER_MNG
+							                 WHERE YEAR = TO_CHAR(SYSDATE,'YYYY')
+							                 AND   STATUS = 'C'
+							                 AND   KEP_USER_ID = #{USER_ID}
+							                 UNION ALL
+							                 SELECT COD.CODE1
+											FROM ICOMCOD3 COD , ICOMCMPY CMPY
+											WHERE  COD.BUYER = 'KRKORE0001'
+											AND COD.TYPE = 'CMPY'
+											AND COD.CODE1 = CMPY.COM_CODE
+											AND COD.CODE2 = #{USER_ID}
+											AND TO_CHAR(SYSDATE,'YYYYMMDD') BETWEEN TEXT2 AND TEXT3
+							                 )
+							   ]]>  
+			</if>  	
+		<![CDATA[
+			GROUP BY A.BUYER	
+			 
+		]]>
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>									
+	<select id="selectBidSucessCodePop" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			SELECT /*selectBidSucessCodePop*/	
+                     CODE  
+                     , TEXT1  
+              FROM ICOMCOD1  
+              WHERE TYPE = 'M106'
+                AND CODE NOT IN ('BS01','BS09')
+                AND FLAG = 'Y'  
+              ORDER BY VALUE1	
+		]]>
+	</select>									
+	<select id="selectMarginReSelectPop" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			SELECT /*selectMarginReSelectPop*/	
+                     CODE  
+                     , TEXT1
+                     , TEXT2  
+              FROM ICOMCOD1  
+              WHERE TYPE = 'M107'
+              ORDER BY VALUE1	
+		]]>
+	</select>									
+	<select id="selectSellerChoice4Pop" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			SELECT /*selectSellerChoice4Pop*/	
+				   MAX((SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE=B.AGENT)) AS AGENT_NAME       
+				   , B.AGENT AS AGENT       
+				   , COUNT(B.BUYER_ITEM_NO) AS ITEM_CNT       
+				   , SUM(B.STOA_LIST_PRICE) AS TOT_AMT       
+				   FROM KEPRQDT A, KEPQTDT B       
+				   WHERE A.BUYER=#{st_buyer}           
+				   AND A.QUOTATION_NO=#{st_quotation_no}       
+				   AND A.REVISION=#{st_revision}      
+				   AND A.STATUS IN ('C','R')       
+				   AND A.ATOB_SEND_FLAG='N'       
+				   AND A.RECV_FLAG='GA'       
+				   AND B.BUYER=A.BUYER       
+				   AND B.QUOTATION_NO=A.QUOTATION_NO       
+				   AND B.QUOTATION_SEQ=A.QUOTATION_SEQ       
+				   AND B.REVISION=A.REVISION       
+				   AND B.SEL_USER_ID IS NOT NULL       
+				   AND B.STOA_DATE IS NOT NULL       
+				   AND B.STATUS IN ('C','R')       
+				   GROUP BY B.BUYER, B.QUOTATION_NO, B.REVISION, B.AGENT
+		]]>
+	</select>									
+	<select id="selectSellerChoice4CntPop" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			SELECT /*selectSellerChoice4CntPop*/	
+				   COUNT(*) AS TOT_CNT
+				   , MAX(   (SELECT       
+				   MAX(ROWNUM)       
+				   FROM       
+				   (       
+				       SELECT       
+				       COUNT(*) AS CNT       
+				       FROM KEPRQDT RQDT, KEPQTDT QTDT       
+				       WHERE RQDT.BUYER=#{st_buyer}       
+				       AND RQDT.QUOTATION_NO=#{st_quotation_no}       
+				       AND RQDT.REVISION=#{st_revision}         
+				       AND RQDT.STATUS IN ('C','R')       
+				       AND RQDT.ATOB_SEND_FLAG='N'       
+				       AND QTDT.BUYER=RQDT.BUYER       
+				       AND QTDT.QUOTATION_NO=RQDT.QUOTATION_NO       
+				       AND QTDT.QUOTATION_SEQ=RQDT.QUOTATION_SEQ       
+				       AND QTDT.REVISION=RQDT.REVISION       
+				       AND QTDT.SEL_USER_ID IS NOT NULL       
+				       AND QTDT.STOA_DATE IS NOT NULL       
+				       AND QTDT.STATUS IN ('C','R')       
+				       GROUP BY RQDT.BUYER, RQDT.QUOTATION_NO, RQDT.QUOTATION_SEQ, RQDT.REVISION       
+				       ) X ) ) AS ITEM_CNT     
+			   FROM KEPRQDT A       
+			   WHERE A.BUYER        = #{st_buyer}                 
+				   AND A.QUOTATION_NO = #{st_quotation_no}                    
+				   AND A.REVISION     = #{st_revision}       
+				   AND A.STATUS IN ('C','R')       
+				   AND A.RECV_FLAG='GA'
+		]]>
+	</select>									
+	<select id="selectPumPrintPop" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			SELECT /*selectPumPrintPop*/	
+              Y.BUYER,                                  
+              Y.QUOTATION_NO,                             
+              Y.QUOTATION_SEQ,                            
+              Y.REVISION                                
+            FROM KEPRQDT Y                              
+           WHERE Y.BUYER        = #{st_buyer}                 
+             AND Y.QUOTATION_NO = #{st_quotation_no}                    
+             AND Y.REVISION     = #{st_revision}                
+             AND Y.RECV_FLAG NOT IN('GD','PM')            
+             AND Y.STATUS IN ('C','R')                    
+           ORDER BY Y.QUOTATION_NO, Y.QUOTATION_SEQ
+		]]>
+	</select>									
+	<select id="selectQuotationInitListPop" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			SELECT /*selectQuotationInitListPop*/	
+                    BUYER,             
+					QUOTATION_NO,      
+					QUOTATION_SEQ,     
+					REVISION,          
+					AGENT,  
+					(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = AGENT) AS AGENT_NAME,           
+					AGENT_REVISION,    
+					REVISION_R,        
+					STATUS,            
+					BUYER_ITEM_NO,     
+					DESCRIPTION,       
+					SPECIFICATION,     
+					UNIT_MEASURE,      
+					MAKER_NAME,        
+					ORIGIN_NAME,       
+					LEAD_TIME,         
+					ATOS_DATE,         
+					ATOS_END_DATE,     
+					ATOS_END_TIME,     
+					SEL_USER_ID,       
+					SEL_USER_NAME,     
+					SEL_USER_TEL,      
+					STOA_LIST_PRICE,   
+					STOA_DATE,         
+					STOA_TIME,         
+					ATOB_UNIT_PRICE,   
+					ATOS_TARGET_PRICE, 
+					ITEM_QTY,          
+					STOA_REMARK,       
+					IMAGE_KEY,
+					DECODE(IMAGE_KEY, '',0,1) AS IMAGE_KEY_IMG,         
+					BID_SUCCESS_FLAG,  
+					SELLER_IMAGE_KEY,  
+					DECODE(SELLER_IMAGE_KEY,'',0,1) AS SELLER_IMAGE_KEY_IMG,
+					BID_SUCCESS_CODE,  
+					DSS_FLAG,          
+					DSS_CHOICE,        
+					ADMIN_CLOSE_FLAG,  
+					ATOB_SEND_FLAG,    
+					ATOB_DATE,         
+					ATOB_TIME,         
+					BTOA_NEGO_PRICE,
+					BID_SUCCESS_REASON 
+				FROM KEPQTDT_R
+				WHERE BUYER = #{st_buyer}
+					AND QUOTATION_NO = #{st_quotation_no}
+					AND QUOTATION_SEQ = #{st_quotation_seq}
+		]]>
+	</select>									
+	<select id="selectSellerUnitPriceHistoryPop" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			SELECT /*selectSellerUnitPriceHistoryPop*/	
+					ROWNUM AS NO,
+					QUOTATION_NO,               
+                    QUOTATION_SEQ,              
+                    BUYER_ITEM_NO,              
+                    STOA_DATE,                  
+                    STOA_LIST_PRICE,            
+                    STOA_REMARK,                
+                    AGENT_REVISION              
+               FROM KEPQTDT                     
+              WHERE BUYER= #{st_buyer}                
+                AND QUOTATION_NO= #{st_quotation_no}           
+                AND QUOTATION_SEQ= #{st_quotation_seq}           
+                AND REVISION= #{st_revision}                
+                AND AGENT= #{st_agent}                 
+                AND STATUS <> 'D'
+		]]>
+	</select>									
+	<select id="selectNegoviewPop" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			SELECT /*selectNegoviewPop*/	
+					  A.REVISION,            
+				      A.QUOTATION_NO,        
+				      A.QUOTATION_SEQ,       
+				      A.BUYER_ITEM_NO,       
+				      A.ATOB_DATE,           
+				      A.ATOB_UNIT_PRICE,     
+				      A.REJECT_REMARK,       
+				      A.BTOA_NEGO_PRICE,     
+				      A.BTOA_END_DATE				
+				 FROM KEPRQDT A              
+				WHERE A.BUYER=#{st_buyer}           
+				  AND A.QUOTATION_NO=#{st_quotation_no}    
+				  AND A.QUOTATION_SEQ=#{st_quotation_seq}   
+				  AND A.REVISION=#{st_revision}   			
+				  AND A.RECV_FLAG <> 'GD'    
+				  AND A.STATUS <> 'D'   
+		]]>
+	</select>
+	<update id="saveScmRemark" parameterType="java.util.Map" >
+		<![CDATA[
+		UPDATE KEPRQDT /*saveScmRemark*/
+	       SET SCM_REMARK     = #{st_return_remark}
+	     WHERE BUYER         = #{st_buyer}
+	       AND QUOTATION_NO  = #{st_quotation_no}
+	       AND QUOTATION_SEQ = #{st_quotation_seq}
+	       AND REVISION      = #{st_revision}
+	       AND STATUS       <> 'D'
+		]]>
+	</update>		
+		<select id="selectMasterMpRqSgChoicePop" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.jsppagestart"/>
+		<![CDATA[
+			/* selectMasterMpRqSgChoicePop */
+			SELECT
+			 SG_ID
+			 , SG_NAME
+			FROM KEPSGMG
+			WHERE STATUS != 'D'
+		]]>
+		<if test="st_sg_id != null and st_sg_id != ''">
+			<![CDATA[	AND SG_ID LIKE UPPER('%' || #{st_sg_id} || '%')		]]>
+		</if>
+		<if test="st_sg_nm != null and st_sg_nm != ''">
+			<![CDATA[	AND SG_NAME LIKE ('%' || #{st_sg_nm} || '%')		]]>
+		</if>
+		<![CDATA[
+			ORDER BY SG_ID
+		]]>
+		<include refid="common.ibsheet.xml.jsppageend"/>
+	</select>
+	
+	<select id="selectSamyangNegoviewPop" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			SELECT /*selectSamyangNegoviewPop*/
+                A.NEGO_SEQ,
+                A.REVISION,
+                A.QUOTATION_NO,
+				A.QUOTATION_SEQ,
+                A.NEGO_PRICE,
+				TO_CHAR(A.NEGO_DATE,'YYYYMMDD') AS NEGO_DATE,
+				A.BTOA_NEGO_PRICE,
+				A.BTOA_NEGO_REMARK,
+                A.ATOB_UNIT_PRICE
+		     FROM BNTNEGOHISTORY A
+		     WHERE   A.BUYER = #{st_buyer}             
+		     	AND A.QUOTATION_NO=#{st_quotation_no}     
+		     	AND A.QUOTATION_SEQ=#{st_quotation_seq}
+			UNION ALL
+			SELECT
+				'1' AS NEGO_SEQ,
+				B.REVISION,
+				B.QUOTATION_NO,
+				B.QUOTATION_SEQ,
+				B.ATOB_UNIT_PRICE AS NEGO_PRICE,
+				B.ATOB_DATE AS NEGO_DATE,
+				B.BTOA_NEGO_PRICE,
+				B.REJECT_REMARK AS BTOA_NEGO_REMARK,
+				B.ATOB_UNIT_PRICE
+				FROM KEPRQDT B
+				WHERE  B.BUYER = #{st_buyer}             
+			     	AND B.QUOTATION_NO=#{st_quotation_no}     
+			     	AND B.QUOTATION_SEQ=#{st_quotation_seq}
+					AND B.REVISION= #{st_revision}
+					AND B.RECV_FLAG <> 'GD'
+					AND B.STATUS <> 'D'
+					AND (select count(*)     FROM BNTNEGOHISTORY A
+					     WHERE A.BUYER = #{st_buyer}             
+					     	AND A.QUOTATION_NO=#{st_quotation_no}     
+					     	AND A.QUOTATION_SEQ=#{st_quotation_seq}
+						) < 1
+			 		     ORDER BY NEGO_SEQ DESC
+
+		]]>
+	</select>
+	
+	<select id="selectRemarkAtoB2PopHd" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			SELECT	/*selectRemarkAtoB2PopHd*/
+					TEXT1 AS ASRMGD_REMARK
+			FROM	ICOMCOD2
+			WHERE	1=1
+			AND		COMPANY_CODE = 'KRKORE0001'
+			AND		CODE = #{st_buyer}
+			AND		TYPE = 'ASRMGD'
+			AND		FLAG = 'Y'
+		]]>
+	</select>
+	
+	<select id="selectSellerMpRqUnitPriceHistoryPop_v2" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			SELECT /*selectSellerMpRqUnitPriceHistoryPop_v2*/	
+					ROWNUM AS NO,
+					QUOTATION_NO,               
+                    QUOTATION_SEQ,              
+                    BUYER_ITEM_NO,              
+                    STOA_DATE,                  
+                    STOA_LIST_PRICE,            
+                    STOA_REMARK,                
+                    AGENT_REVISION              
+               FROM KEPQTDT                     
+              WHERE BUYER= #{st_buyer}                
+                AND QUOTATION_NO= #{st_quotation_no}           
+                AND QUOTATION_SEQ= #{st_quotation_seq}           
+                AND REVISION= #{st_revision}                
+                AND AGENT= #{st_agent}                 
+                AND STATUS <> 'D'
+		]]>
+	</select>
+	
+	
+	<select id="selectSellerMpRqQuotaDetailPop_v2" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			SELECT     /*selectSellerMpRqQuotaDetailPop_v2*/              
+	        Z.NUM,
+	        Z.SOURCING_STATUS,
+	        Z.AGENT_SOURCING_STATUS,
+	        Z.ATOS_DATE,
+	        Z.BUYER_ITEM_NO,
+	        Z.SELLER_ITEM_NO,
+	        Z.UNIT_MEASURE,
+	        Z.MAKER_NAME,
+	        Z.ORIGIN_NAME,
+	        Z.ITEM_QTY,
+	        Z.KEP_USER_ID,
+	        Z.KEP_USER_NAME,
+	        (SELECT PHONE_NUMBER FROM ICOMLUSR WHERE USER_ID = Z.KEP_USER_ID) AS KEP_USER_PHONE,  
+	        (SELECT FAX_NUMBER FROM ICOMLUSR WHERE USER_ID = Z.KEP_USER_ID) AS KEP_USER_FAX,
+	        (SELECT EMAIL FROM ICOMLUSR WHERE USER_ID = Z.KEP_USER_ID) AS KEP_USER_EMAIL,
+	        Z.QUOTATION_NO,    
+	        Z.QUOTATION_SEQ,  
+	        TO_CHAR(TO_DATE(Z.ATOS_END_DATE || Z.ATOS_END_TIME, 'YYYY/MM/DD HH24:MI:SS'), 'YYYY/MM/DD HH24:MI') AS ATOS_END_DATE, 
+	        Z.ATOS_END_TIME, 
+	        Z.DESCRIPTION,   
+	        Z.SPECIFICATION,  
+	        Z.ATOS_REMARK,
+	        CASE WHEN Z.ATOS_REMARK IS NULL THEN '0' ELSE '1' END AS ATOS_REMARK_YN,
+	        Z.IMAGE_KEY,
+	        DECODE((SELECT COUNT(*) FROM ICOMATCH WHERE DOC_NO = Z.IMAGE_KEY), 0, '', (SELECT COUNT(*) FROM ICOMATCH WHERE DOC_NO = Z.IMAGE_KEY)||'개') AS IMAGE_KEY_CNT,
+	        Z.BUYER,
+	        Z.REVISION,     
+	        Z.AGENT,         
+	        Z.AGENT_REVISION,    
+	        Z.REMARK_URL,       
+	        Z.ORIGIN_CODE,      
+	        Z.LEAD_TIME,      
+	        Z.STOA_LIST_PRICE,
+	        Z.ORG_STOA_LIST_PRICE,
+	        Z.ITEM_AMT,         
+	        Z.STOA_REMARK,
+	        CASE WHEN Z.STOA_REMARK IS NULL THEN '0' ELSE '1' END AS STOA_REMARK_YN,    
+	        Z.BUYER_NAME || ' ' || Z.PLANT_NAME AS BUYER_NAME,     
+	        Z.REF_NO,          
+	        Z.CMS_CATEG_ID,    
+	        Z.CMS_CATLG_ID,    
+	        Z.CMS_SPEC,      
+	        Z.STOA_DATE,     
+	        Z.STOA_TIME,    
+	        Z.MAKER_PART_NO,
+	        /*SLOGIC-BEGIN(P04-4040-04)*/
+	        CASE WHEN Z.BUYER IN ('KRDHIM0005','KRDOOS0046','KRDIGU0001','KRDAEW0043','KRDHIM0002','KRDAEW0045','KRDHIM0003','KRDOOS0020', 
+	               'KRDOOS0024','KRXPR00738','KRDOOS0023','KRDOOS0003','KRDOOS0008','KRDHIM0001','KRKEPS0002')  
+	                THEN 'Y'  
+	        ELSE  'N' END AS CERT_CHECK,
+	        /*SLOGIC-END*/
+	        (SELECT REPLACE(IRS_NO,'-','') FROM ICOMCMPY WHERE COM_CODE=Z.AGENT ) AS AGENT_IRS_NO ,
+	        Z.MSDS_YN,
+	        /*SLOGIC-BEGIN(P04-4041-01)*/
+	        DECODE((SELECT COUNT(*) FROM BNTSLGIMP WHERE SLG_ID = 'P04-4041-01' AND COM_CODE = Z.BUYER AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN OPEN_DATE AND CLOSE_DATE), 0, 'N', 'Y') AS MOQ_USE_FLAG,
+	        /*SLOGIC-END*/
+	        /*SLOGIC-BEGIN(P04-4041-02)*/
+	        DECODE((SELECT COUNT(*) FROM BNTSLGIMP WHERE SLG_ID = 'P04-4041-02' AND COM_CODE = Z.BUYER AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN OPEN_DATE AND CLOSE_DATE), 0, 'N', 'Y') AS DELI_AREA_USE_FLAG,
+	        /*SLOGIC-END*/
+	        /*SLOGIC-BEGIN(P04-4041-03)*/
+	        DECODE((SELECT COUNT(*) FROM BNTSLGIMP WHERE SLG_ID = 'P04-4041-03' AND COM_CODE = Z.BUYER AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN OPEN_DATE AND CLOSE_DATE), 0, 'N', 'Y') AS PROCESS_TYPE_FLAG,
+	        /*SLOGIC-END*/
+	        Z.MIN_ORDER_QTY,
+	        Z.PUR_UNIT_QTY,
+	        Z.SELLER_AREA,
+	        NVL((SELECT LISTAGG(COD3.TEXT1,',') WITHIN GROUP (ORDER BY rn)
+						FROM (
+    						SELECT SUBSTR(Z.SELLER_AREA,
+            				CASE WHEN LEVEL = 1 THEN 1 ELSE INSTR(Z.SELLER_AREA,'__',1,LEVEL-1) + 2 END,
+            				CASE
+                				WHEN INSTR(Z.SELLER_AREA,'__',1,LEVEL) = 0 THEN LENGTH(Z.SELLER_AREA)
+                				ELSE INSTR(Z.SELLER_AREA,'__',1,LEVEL) - 
+                    				CASE WHEN LEVEL = 1 THEN 1 ELSE INSTR(Z.SELLER_AREA,'__',1,LEVEL-1) +2 END
+                				END
+            				)AS SPLIT,
+            				LEVEL AS rn
+            				FROM DUAL
+            				CONNECT BY LEVEL <= LENGTH(Z.SELLER_AREA)-LENGTH(REPLACE(Z.SELLER_AREA,'__','')) +1
+        				) T, ICOMCOD3 COD3
+        				WHERE T.SPLIT = COD3.CODE2
+        				AND COD3.CODE1 = Z.BUYER
+        				AND COD3.TYPE = 'DPAL'
+        				AND COD3.FLAG = 'Y'
+                    ),(SELECT LISTAGG(COD3.TEXT1,',') WITHIN GROUP (ORDER BY rn)
+						FROM (
+    						SELECT SUBSTR(Z.SELLER_AREA,
+            				CASE WHEN LEVEL = 1 THEN 1 ELSE INSTR(Z.SELLER_AREA,'__',1,LEVEL-1) + 2 END,
+				            CASE
+				                WHEN INSTR(Z.SELLER_AREA,'__',1,LEVEL) = 0 THEN LENGTH(Z.SELLER_AREA)
+				                ELSE INSTR(Z.SELLER_AREA,'__',1,LEVEL) - 
+				                    CASE WHEN LEVEL = 1 THEN 1 ELSE INSTR(Z.SELLER_AREA,'__',1,LEVEL-1) +2 END
+				                END
+				            )AS SPLIT,
+				            LEVEL AS rn
+				            FROM DUAL
+				            CONNECT BY LEVEL <= LENGTH(Z.SELLER_AREA)-LENGTH(REPLACE(Z.SELLER_AREA,'__','')) +1
+				        ) T, ICOMCOD3 COD3
+				        WHERE T.SPLIT = COD3.CODE2
+				        AND COD3.CODE1 = 'KRKORE0001'
+				        AND COD3.TYPE = 'DPAL'
+				        AND COD3.FLAG = 'Y'
+				    )) AS SELLER_AREA_TEXT,
+	        Z.RFQ_IMG_FLAG,
+	        Z.PRE_GR_FLAG,
+	        Z.PLANT,
+	        Z.PLANT_NAME,
+	        Z.SAFETY_FLAG,
+	        (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'M160' AND CODE = Z.SAFETY_FLAG) AS SAFETY_FLAG_TEXT,
+	        Z.SELLER_IMAGE_KEY,
+	        DECODE((SELECT COUNT(*) FROM ICOMATCH WHERE DOC_NO = Z.SELLER_IMAGE_KEY), 0, '', (SELECT COUNT(*) FROM ICOMATCH WHERE DOC_NO = Z.SELLER_IMAGE_KEY)||'개') AS SELLER_IMAGE_KEY_CNT,
+	        Z.IMGFILE_DIR,
+	        Z.IMGFILE_NAME,
+	        CASE WHEN Z.IMGFILE_NAME IS NULL THEN '' ELSE '1개' END AS IMGFILE_NAME_CNT,
+	        'N' AS QTDT_PRE_GR_FLAG,
+	        Z.VAT_FLAG,
+	        Z.TAX_TYPE,
+	        Z.TAX_TYPE_CODE,
+	        Z.ITEM_MAKE_TYPE,
+	        Z.ITEM_MAKE_TYPE_CODE,
+	        Z.PROCESS_TYPE,
+            Z.PROCESS_NM,
+   			(SELECT SG_ID FROM CMSCATEG WHERE CMS_CATEG_ID = Z.CMS_CATEG_ID) AS SG_ID,
+   			(SELECT TEXT2 FROM ICOMCOD2 WHERE TYPE = 'C012' AND CODE = (SELECT DELY_TO_LOCATION FROM ICOMLUSR WHERE USER_ID = Z.BTOA_USER_ID) AND COMPANY_CODE = Z.BUYER) AS DELY_TO_LOCATION,
+   			Z.MODIFY_FLAG
+	    FROM(                    
+	    SELECT                   
+	            ROWNUM NUM,      
+	            Y.SOURCING_STATUS, 
+	            Y.AGENT_SOURCING_STATUS, 
+	            Y.ATOS_DATE,     
+	            Y.BUYER_ITEM_NO,
+	            Y.SELLER_ITEM_NO, 
+	            Y.UNIT_MEASURE,  
+	            Y.MAKER_NAME,    
+	            Y.ORIGIN_NAME,   
+	            Y.ITEM_QTY,      
+	            Y.KEP_USER_ID,   
+	            Y.KEP_USER_NAME, 
+	            Y.QUOTATION_NO,  
+	            Y.QUOTATION_SEQ, 
+	            Y.ATOS_END_DATE, 
+	            Y.ATOS_END_TIME, 
+	            Y.DESCRIPTION,   
+	            Y.SPECIFICATION, 
+	            Y.ATOS_REMARK,   
+	            Y.IMAGE_KEY,     
+	            Y.BUYER,         
+	            Y.REVISION,      
+	            Y.AGENT,         
+	            Y.AGENT_REVISION,
+	            Y.REMARK_URL,    
+	            Y.ORIGIN_CODE,   
+	            Y.LEAD_TIME,     
+	            Y.STOA_LIST_PRICE,
+	            Y.ORG_STOA_LIST_PRICE,
+	            Y.ITEM_AMT,      
+	            Y.STOA_REMARK,   
+	            Y.BUYER_NAME,    
+	            Y.REF_NO,        
+	            Y.CMS_CATEG_ID,  
+	            Y.CMS_CATLG_ID,  
+	            Y.CMS_SPEC,       
+	            Y.STOA_DATE,       
+	            Y.STOA_TIME,       
+	            Y.MAKER_PART_NO,
+	            Y.MSDS_YN,
+	            Y.MIN_ORDER_QTY,
+	            Y.PUR_UNIT_QTY,
+	            Y.SELLER_AREA,
+	            Y.RFQ_IMG_FLAG,
+	            Y.PRE_GR_FLAG,
+	            Y.PLANT,
+	            Y.PLANT_NAME,
+	            Y.SAFETY_FLAG,
+	            Y.SELLER_IMAGE_KEY,
+	            Y.IMGFILE_DIR,
+	        	Y.IMGFILE_NAME,
+	        	Y.VAT_FLAG,
+	        	Y.TAX_TYPE,
+	        	Y.TAX_TYPE_CODE,
+	        	Y.ITEM_MAKE_TYPE,
+	        	Y.ITEM_MAKE_TYPE_CODE,
+	        	Y.PROCESS_TYPE,
+                Y.PROCESS_NM,
+	        	Y.BTOA_USER_ID,
+	        	Y.MODIFY_FLAG
+	    FROM                     
+	    (                        
+	                SELECT       
+	                X.SOURCING_STATUS, 
+	                X.AGENT_SOURCING_STATUS, 
+	                X.ATOS_DATE,     
+	                X.BUYER_ITEM_NO,
+	                X.SELLER_ITEM_NO, 
+	                X.UNIT_MEASURE,  
+	                X.MAKER_NAME,    
+	                X.ORIGIN_NAME,   
+	                X.ITEM_QTY,      
+	                X.KEP_USER_ID,   
+	                X.KEP_USER_NAME, 
+	                X.QUOTATION_NO,  
+	                X.QUOTATION_SEQ, 
+	                X.ATOS_END_DATE, 
+	                X.ATOS_END_TIME, 
+	                X.DESCRIPTION,   
+	                X.SPECIFICATION, 
+	                X.ATOS_REMARK,   
+	                X.IMAGE_KEY,     
+	                X.BUYER,         
+	                X.REVISION,      
+	                X.AGENT,         
+	                X.AGENT_REVISION,
+	                X.REMARK_URL,    
+	                X.ORIGIN_CODE,   
+	                X.LEAD_TIME,     
+	                X.STOA_LIST_PRICE,
+	                X.ORG_STOA_LIST_PRICE,
+	                X.ITEM_AMT,      
+	                X.STOA_REMARK,   
+	                X.BUYER_NAME,    
+	                X.REF_NO,        
+	                X.CMS_CATEG_ID,  
+	                X.CMS_CATLG_ID,  
+	                X.CMS_SPEC,       
+	                X.STOA_DATE,       
+	                X.STOA_TIME,       
+	                X.MAKER_PART_NO ,
+	                X.MSDS_YN,
+	                X.MIN_ORDER_QTY,
+	                X.PUR_UNIT_QTY,
+	                X.SELLER_AREA,
+	                X.RFQ_IMG_FLAG,
+	                X.PRE_GR_FLAG,
+	                X.PLANT,
+	                X.PLANT_NAME,
+	                X.SAFETY_FLAG,
+	                X.SELLER_IMAGE_KEY,
+	                X.IMGFILE_DIR,
+	        		X.IMGFILE_NAME,
+	        		X.VAT_FLAG,
+	        		X.TAX_TYPE,
+	        		X.TAX_TYPE_CODE,
+	        		X.ITEM_MAKE_TYPE,
+	        		X.ITEM_MAKE_TYPE_CODE,
+	        		X.PROCESS_TYPE,
+                    X.PROCESS_NM,
+	        		X.BTOA_USER_ID,
+	        		X.MODIFY_FLAG
+	    FROM(                        
+	                    SELECT       
+	
+	                    DECODE((SELECT COUNT(*) FROM KEPQTDT WHERE BUYER=A.BUYER                 
+	                                                           AND QUOTATION_NO=A.QUOTATION_NO   
+	                                                           AND QUOTATION_SEQ=A.QUOTATION_SEQ 
+	                                                           AND REVISION=A.REVISION           
+	                                                           AND AGENT=B.AGENT                 
+	                                                           AND STATUS <> 'D'), 1, '신규견적', '재견적요청') AS SOURCING_STATUS,
+	            	CASE WHEN A.RECV_FLAG ='GD' THEN '견적취소'         
+                ELSE CASE WHEN B.STATUS='O' AND A.STATUS='O'  THEN '차수증가종료'
+                ELSE CASE WHEN B.STOA_LIST_PRICE = 0 AND B.STOA_REMARK IS NOT NULL THEN '견적포기'       
+                ELSE CASE WHEN NVL(B.STOA_LIST_PRICE, 0)=0 AND B.ATOS_END_DATE||B.ATOS_END_TIME < TO_CHAR(SYSDATE, 'YYYYMMDDHH24MMSS') THEN '견적미제출'      
+                ELSE CASE WHEN NVL(B.STOA_LIST_PRICE, 0)=0 AND      
+                (SELECT COUNT(*) FROM KEPQTDT QT WHERE QT.BUYER=B.BUYER     
+                                                       AND QT.QUOTATION_NO=B.QUOTATION_NO       
+                                                       AND QT.QUOTATION_SEQ=B.QUOTATION_SEQ     
+                                                       AND QT.REVISION=B.REVISION       
+                                                       AND QT.STATUS <> 'D'     
+                                                       AND QT.AGENT=B.AGENT)=1 AND B.ATOS_END_DATE||B.ATOS_END_TIME >= TO_CHAR(SYSDATE, 'YYYYMMDDHH24MMSS')       
+                THEN '신규견적요청'     
+                ELSE CASE WHEN NVL(B.STOA_LIST_PRICE, 0)=0 THEN '재견적요청'        
+                ELSE CASE WHEN B.STOA_LIST_PRICE<>0 AND A.RECV_FLAG IN ('GA', 'GS','GR', 'PM') THEN '견적제출'      
+                ELSE CASE WHEN B.BID_SUCCESS_FLAG='Y'  THEN '단가선정'      
+                ELSE CASE WHEN B.BID_SUCCESS_FLAG='N'  THEN '단가미선정'        
+                END END END END END END END END END AS AGENT_SOURCING_STATUS,
+	                    B.ATOS_DATE,                                                                                         
+	                    A.BUYER_ITEM_NO,
+	                    B.SELLER_ITEM_NO,
+	                    A.UNIT_MEASURE,                                                                                      
+	                    A.MAKER_NAME,                                                                                        
+	                    (SELECT TEXT2 FROM ICOMCOD1 WHERE TYPE='M001' and code=A.ORIGIN_CODE) AS ORIGIN_NAME,                
+	                    A.ITEM_QTY,                                                                                          
+	                    A.KEP_USER_ID,                                                                                       
+	                    (SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID=A.KEP_USER_ID AND STATUS <> 'D') AS KEP_USER_NAME, 
+	                    A.QUOTATION_NO,                  
+	                    A.QUOTATION_SEQ,                 
+	                    B.ATOS_END_DATE,                 
+	                    B.ATOS_END_TIME,                 
+	                    A.DESCRIPTION,                   
+	                    A.SPECIFICATION,                 
+	                    NVL(TRIM(A.ATOS_REMARK),'') AS ATOS_REMARK,  
+	                    DECODE(A.IMAGE_PASS_FLAG,'Y',A.IMAGE_KEY,A.SELLER_IMAGE_KEY) AS IMAGE_KEY,                     
+	                    A.BUYER,                         
+	                    A.REVISION,                      
+	                    B.AGENT,        
+	            		B.AGENT_REVISION,
+	                    A.REMARK_URL,                    
+	                    B.ORIGIN_NAME AS ORIGIN_CODE,    
+	                    B.LEAD_TIME,                     
+	                    B.STOA_LIST_PRICE,
+	                    NVL(B.ORG_STOA_LIST_PRICE, B.STOA_LIST_PRICE) AS ORG_STOA_LIST_PRICE,
+	                    B.ITEM_QTY * NVL(B.ORG_STOA_LIST_PRICE, B.STOA_LIST_PRICE) AS ITEM_AMT, 
+	                    B.STOA_REMARK,                   
+	                    (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE=F_GET_HIDDEN_BUYER_NAME(A.BUYER, '01') AND STATUS <> 'D') AS BUYER_NAME, 
+	                    A.REF_NO,                        
+	                    A.CMS_CATEG_ID,                  
+	                    A.CMS_CATLG_ID,                  
+	                    (SELECT SPECIFICATION FROM CMSCATLG WHERE CMS_CATLG_ID = A.CMS_CATLG_ID) AS CMS_SPEC,  
+	                    B.STOA_DATE,     
+	                    B.STOA_TIME,  
+	                    A.MAKER_PART_NO,
+	                    A.MSDS_YN,
+						B.MIN_ORDER_QTY,
+						B.PUR_UNIT_QTY,
+						B.SELLER_AREA,
+						NVL(A.RFQ_IMG_FLAG,'N') AS RFQ_IMG_FLAG,
+						B.PRE_GR_FLAG,
+						A.PLANT,
+						F_GET_BUYER_PLANT_TEXT(A.BUYER, A.PLANT) AS PLANT_NAME,
+						A.SAFETY_FLAG,
+						B.SELLER_IMAGE_KEY,
+						B.IMGFILE_DIR,
+	        			B.IMGFILE_NAME,
+	        			NVL(C.VAT_FLAG,'N') AS VAT_FLAG,
+	        			(SELECT TEXT1 FROM ICOMCOD1 COD
+				 WHERE COD.TYPE='TX17'
+				 AND COD.CODE = B.TAX_TYPE) AS TAX_TYPE,
+				 (SELECT CODE FROM ICOMCOD1 COD
+				 WHERE COD.TYPE='TX17'
+				 AND COD.CODE = B.TAX_TYPE) AS TAX_TYPE_CODE,
+				 (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'M132' AND CODE = B.ITEM_MAKE_TYPE) AS ITEM_MAKE_TYPE,
+				 (SELECT CODE FROM ICOMCOD1 WHERE TYPE = 'M132' AND CODE = B.ITEM_MAKE_TYPE) AS ITEM_MAKE_TYPE_CODE,
+				 B.PROCESS_TYPE,
+				(SELECT TEXT2 FROM ICOMCOD1 COD
+					WHERE COD.TYPE = 'M034'
+					AND COD.FLAG = 'Y'
+					AND COD.CODE = B.PROCESS_TYPE) AS PROCESS_NM,
+	        			A.BTOA_USER_ID,
+	        	CASE WHEN NVL(B.STOA_LIST_PRICE, 0) > 0 THEN
+					CASE WHEN B.ATOS_END_DATE||B.ATOS_END_TIME > TO_CHAR(SYSDATE, 'YYYYMMDDHH24MMSS') THEN
+						CASE WHEN B.ADMIN_CLOSE_FLAG = 'N' THEN
+							CASE WHEN A.ATOB_SEND_FLAG = 'N' THEN
+								CASE WHEN (SELECT COUNT(*) FROM KEPQTDT
+											WHERE 1=1
+											AND BUYER = B.BUYER
+											AND QUOTATION_NO = B.QUOTATION_NO
+											AND QUOTATION_SEQ = B.QUOTATION_SEQ
+											AND REVISION = B.REVISION
+											AND AGENT_REVISION = B.AGENT_REVISION
+											AND STATUS = 'C'
+											AND BID_SUCCESS_FLAG = 'Y') = 0 THEN 'Y'
+								ELSE 'N'
+								END
+							ELSE 'N'
+							END
+						ELSE 'N'
+						END
+					ELSE 'N'
+					END
+				ELSE 'N'
+				END AS MODIFY_FLAG
+	               FROM KEPRQDT A, KEPQTDT B, KEP_BUYER_FLAG C            
+	              WHERE A.BUYER=B.BUYER                  
+	                AND A.QUOTATION_NO=B.QUOTATION_NO    
+	                AND A.QUOTATION_SEQ=B.QUOTATION_SEQ
+	                AND A.QUOTATION_NO = #{st_quotation_no}
+	                AND A.QUOTATION_SEQ = #{st_quotation_seq}
+	                AND A.REVISION = #{st_revision}
+	                AND A.BUYER = #{st_buyer}  
+	                AND A.REVISION=B.REVISION
+	                AND A.BUYER = C.COM_CODE(+)            
+	   				AND B.AGENT=#{st_agent}
+	            	AND B.AGENT_REVISION = #{st_agent_revision}	
+	                AND A.STATUS IN ('C','R')            
+	              	)X )Y )Z
+		]]>
+	</select>
+	
+	<select id="getSellerMpRqFile_v2" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			SELECT     /*getSellerMpRqFile_v2*/    
+			DOC_NO,DOC_SEQ,SRC_FILE_NAME
+			FROM ICOMATCH
+			WHERE DOC_NO = #{docNo}          
+		]]>
+	</select>
+	
+</mapper>

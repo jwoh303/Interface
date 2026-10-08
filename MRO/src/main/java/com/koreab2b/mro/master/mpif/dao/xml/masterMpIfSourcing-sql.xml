@@ -1,0 +1,602 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mpif">
+
+	<!-- 조회 -->
+	<select id="selectMasterMpIfSourcingList" parameterType="java.util.Map" resultType="java.util.Map">
+	/*master.mpif.selectMasterMpIfSourcingList*/
+		<include refid="common.ibsheet.xml.pagestart"/>
+		<![CDATA[
+		SELECT H.*
+		     , (SELECT ATOB_SEND_FLAG FROM KEPRQDT
+		         WHERE BUYER = H.BUYER
+		           AND QUOTATION_NO = H.QUOTATION_NO
+		           AND QUOTATION_SEQ = H.QUOTATION_SEQ
+		           AND REVISION = H.REVISION) AS ATOB_SEND_FLAG
+		  FROM (
+
+			SELECT /*+USE_NL(A K) INDEX(A SYS_C0052551) INDEX(AA SYS_C0052550)*/
+			    (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = A.BUYER) AS BUYER_NAME /* 고객사명 */
+			  , A.BUYER /* 고객사코드(hidden) */
+			  , CASE
+			        WHEN AA.IF_FLAG = 'C'                       THEN '1' /* 작업대기 */
+			        WHEN AA.IF_FLAG <> 'C'  AND A.IF_FLAG = 'N' THEN '0' /* 정상 */
+			        WHEN AA.IF_FLAG IS NULL AND A.IF_FLAG = 'N' THEN '0' /* 정상 */
+			        WHEN AA.IF_FLAG <> 'C'  AND A.IF_FLAG = 'E' THEN '2' /* 오류건 */
+			        WHEN AA.IF_FLAG IS NULL AND A.IF_FLAG = 'E' THEN '2' /* 오류건 */
+			    END IF_PROGRESS_REDT /* 인터페이스상태 Image */
+			  , AA.IF_FLAG AS IF_FLAG_PROGRESS /* 인터페이스상태 Flag */
+			  , A.QUOTATION_NO /* 견적번호 */
+			  , A.QUOTATION_SEQ /* 견적항번 */
+			  , A.REVISION /* 견적차수 */
+			  , (SELECT MAX(REVISION) FROM KEPRQDT
+			      WHERE BUYER = A.BUYER
+			        AND QUOTATION_NO = A.QUOTATION_NO
+			        AND QUOTATION_SEQ = A.QUOTATION_SEQ ) AS KEP_REVISION
+			  , DECODE(A.STATUS, 'C', '3', 'R','4', 'D', '5') AS REDT_STATUS /* 견적상태 */
+			  , DECODE(B.STATUS, 'C', '3', 'R','4', 'D', '5', '', '6') AS BYIT_STATUS /* 카달로그상태 */
+			  , A.STATUS AS REDT_EXCEL /* 견적상태 */
+			  , B.STATUS AS BYIT_EXCEL /* 카달로그상태 */
+			  , DECODE(B.STATUS, NULL, '품목미등록', 'D', '삭제'
+			                   , DECODE(B.PRODUCT_CLOSE_FLAG, 'N', '거래', '단종')) AS STATUS /* 상태 */
+			  , A.ERROR_MSG      AS ERROR_MSG /* 오류내역 */
+			  , A.BUYER_ITEM_NO  AS BUYER_ITEM_NO /* 품목코드 */
+			  , A.DESCRIPTION    AS DESCRIPTION /* 품목명 */
+			  , A.SPECIFICATION  AS SPECIFICATION /* 규격 */
+			  , A.UNIT_MEASURE   AS UNIT_MEASURE /* 단위 */
+			  , A.MAKER_NAME     AS MAKER_NAME /* 제조사 */
+			  , A.ORIGIN_NAME    AS ORIGIN_NAME /* 원산지 */
+			  , A.PREV_UNIT_PRICE AS PREV_UNIT_PRICE /* 실적단가 */
+			  , A.ITEM_QTY       AS ITEM_QTY /* 요청수량 */
+			  , A.REQ_USER_NAME  AS REQ_USER_NAME /* 요청자명 */
+			  , A.REQ_USER_DEPT  AS REQ_USER_DEPT /* 요청자부서명 */
+			  , A.REQ_USER_TEL   AS REQ_USER_TEL /* 요청자전화번호 */
+			  , A.REQ_USER_MAIL  AS REQ_USER_MAIL /* 요청자메일주소 */
+			  , A.RD_DATE        AS RD_DATE /* 납기요청일 */
+			  , A.CLOSE_DATE     AS CLOSE_DATE /* 견적마감일 */
+			  , A.CREATE_DATE    AS CREATE_DATE /* 생성일자 */
+			  , A.CREATE_TIME    AS CREATE_TIME /* 생성시간 */
+			  , A.LOAD_DATE      AS LOAD_DATE /* 작업일자 */
+			  , A.LOAD_TIME      AS LOAD_TIME /* 작업시간 */
+		]]>
+			FROM
+			    IF_REDT A
+			  , IF_PROGRESS AA
+			  , ICOMBYIT B
+			WHERE 1=1
+			  AND EXISTS (
+			    SELECT 'X' FROM MIS_BUYER_MNG
+			     WHERE 1 = 1
+			       AND YEAR = TO_CHAR(SYSDATE,'YYYY')
+			       AND STATUS = 'C'
+			       AND BUYER = A.BUYER
+		<if test="st_user_dept != null and st_user_dept != '' ">
+			        AND KEP_DEPT = #{st_user_dept}
+		</if>
+		<if test='st_user_check_value == "N" '>
+			        AND KEP_USER_ID = #{st_user_id}
+		</if>
+			  )
+			  AND A.IF_FLAG != 'D'
+		<if test="st_quotation_no != null and st_quotation_no != '' ">
+			  AND A.QUOTATION_NO LIKE '%' || #{st_quotation_no} || '%'
+		</if>
+		<if test="st_ref_if_no != null and st_ref_if_no != '' ">
+			  AND A.REF_IF_NO LIKE '%' || #{st_ref_if_no} || '%'
+		</if>
+		<if test="st_buyer_item_no != null and st_buyer_item_no != '' ">
+			  AND A.BUYER_ITEM_NO LIKE '%' || #{st_buyer_item_no} || '%'
+		</if>
+		<if test="buyer_code_array != null and buyer_code_array != '' ">
+			  AND A.BUYER IN
+			<foreach item="item" index="index" collection="buyer_code_array" open="(" separator="," close=")">
+			    #{item}
+			</foreach>
+		</if>
+		<if test='st_date_flag_value == "N" '>
+			  AND A.ADD_DATE BETWEEN #{st_from_date} AND #{st_to_date}
+		</if>
+		<if test='st_if_flag_value == "Y" '>
+			  AND A.IF_FLAG = 'E'
+		</if>
+		<if test='st_if_flag_value == "N" '>
+			  AND A.IF_FLAG IN ('E','N')
+		</if>
+		      AND AA.BUYER = A.BUYER
+		      AND AA.LEGACY_NO = A.QUOTATION_NO
+		      AND AA.GUBUN = 'RE'
+		      AND AA.IF_FLAG NOT IN ('Y','D')
+		      
+		      AND B.BUYER(+)         = A.BYIT_COMORG_CODE
+		      AND B.BUYER_ITEM_NO(+) = A.BUYER_ITEM_NO
+		<![CDATA[
+			ORDER BY
+			    A.BUYER
+			  , A.QUOTATION_NO
+			  , A.BUYER_ITEM_NO
+		]]>
+		  ) H
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+
+
+	<!-- 실행 -->
+	<update  id="updateMasterMpIfSourcing_IF_PROGRESS" parameterType="java.util.Map" >
+	/*master.mpif.updateMasterMpIfSourcing_IF_PROGRESS*/
+		<![CDATA[
+			UPDATE IF_PROGRESS /* 오류 현황 메인 */
+			SET IF_FLAG     = 'C'
+			  , CHANGE_DATE = TO_CHAR(SYSDATE,'YYYYMMDD')
+			  , CHANGE_TIME = TO_CHAR(SYSDATE,'HH24MISS')
+			WHERE 1=1
+			AND BUYER       = #{BUYER}
+			AND LEGACY_NO   = #{QUOTATION_NO}
+			AND GUBUN       = 'RE'
+		]]>
+	</update>
+
+
+	<!-- 견적 삭제(종결) -->
+	<update id="updateMasterMpIfSourcing_IF_REDT"  parameterType="java.util.Map">
+	/*master.mpif.updateMasterMpIfSourcing_IF_REDT*/
+		<![CDATA[
+			UPDATE IF_REDT /* 인터페이스 소싱(견적)내역 */
+			SET IF_FLAG       = 'D'
+			  , CANCEL_DATE   = SYSDATE
+			  , CANCEL_RSON   = #{st_cancel_remark}
+			  , CANCEL_ID     = #{st_user_id}
+			WHERE 1=1
+			AND BUYER         = #{BUYER}
+			AND QUOTATION_NO  = #{QUOTATION_NO}
+			AND QUOTATION_SEQ = #{QUOTATION_SEQ}
+			AND REVISION      = #{REVISION}
+		]]>
+	</update>
+	
+	
+	<update id="updateMasterMpIfSourcingNegoRqdtCreate" parameterType="java.util.Map" useGeneratedKeys="false">
+	/*master.mpif.updateMasterMpIfSourcingNegoRqdtCreate*/
+	INSERT INTO KEPRQDT (
+		BUYER,
+		QUOTATION_NO,
+		QUOTATION_SEQ,
+		REVISION,
+		STATUS,
+		RECV_FLAG,
+		BUYER_ITEM_NO,
+		DESCRIPTION,
+		SPECIFICATION,
+		UNIT_MEASURE,
+		MAKER_NAME,
+		ORIGIN_NAME,
+		BTOA_DATE,
+		BTOA_END_DATE,
+		BTOA_END_TIME,
+		BTOA_USER_ID,
+		BTOA_USER_NAME,
+		BTOA_USER_DEPT,
+		BTOA_USER_TEL,
+		BTOA_USER_FAX,
+		BTOA_USER_MAIL,
+		BUYER_TARGET_PRICE,
+		ATOB_UNIT_PRICE,
+		BTOA_NEGO_PRICE,
+		ITEM_QTY,
+		AGENT_NAME,
+		ATOB_DATE,
+		ATOB_TIME,
+		REJECT_REMARK,
+		BTOA_REMARK,
+		ATOS_REMARK,
+		ATOB_REMARK,
+		IMAGE_KEY,
+		LOAD_USER_ID,
+		REG_ITEM_NO,
+		LOAD_DATE,
+		LOAD_TIME,
+		KEP_USER_ID,
+		REF_NO,
+		ATOB_SEND_FLAG,
+		GW_NO,
+		AGENT_OPEN_FLAG,
+		CONTRACT_NO,
+		CONTRACT_SEQ,
+		CATEGORY_NO,
+		ITEM_GUBUN,
+		REMARK_URL,
+		ETC_REMARK,
+		SELLER_IMAGE_KEY,
+		PASS_FLAG,
+		KEPUSER_RECV_DATE,
+		KEPUSER_RECV_TIME,
+		BTOA_TIME,
+		CMS_CATEG_ID,
+		CMS_CATLG_ID,
+		CMS_RECV_DATE,
+		CMS_RECV_TIME,
+		CMS_USER_ID,
+		KEP_RECV_USER_ID,
+		MAKER_CODE,
+		ORIGIN_CODE,
+		SO_CA_FLAG,
+		MAKER_PART_NO,
+		CMS_REJECT_REMARK,
+		CMS_REJECT_DATE,
+		CMS_REJECT_TIME,
+		CMS_REJECT_USER,
+		TEAM_REJECT_REMARK,
+		TEAM_REJECT_DATE,
+		TEAM_REJECT_TIME,
+		TEAM_REJECT_USER,
+		SEND_DATE,
+		SEND_TIME,
+		BYPASS_FLAG,
+		CMS_REJECT_FLAG,
+		CMS_UP_COUNT,
+		CMS_FLAG,
+		CANCEL_USER_ID,
+		CANCEL_DATE,
+		CANCEL_REMARK,
+		ITEM_TYPE,
+		YEAR_QTY,
+		KWAY_CATEG_ID,
+		KWAY_CATLG_ID,
+		PROCESS_TYPE,
+		IMPORT_FLAG,
+		KEP_PRICE,
+		WAREHOUSE_CODE,
+		BELOW_COMORG_CODE,
+		LOGISTICS_FEE,
+		REFER_MAPPING_FLAG,
+		KEP_DESCRIPTION,
+		KEP_SPECIFICATION,
+		KEP_UNIT_MEASURE,
+		KEP_MAKER_NAME,
+		KEP_ORIGIN_NAME,
+		KEP_MAKER_PART_NO,
+		KEP_MAKER_CODE,
+		KEP_ORIGIN_CODE,
+		KEP_BUYER_ITEM_NO,
+		PLANT,
+		ITEM_GROUP,
+		RFQ_KEP_USER,
+		RFQ_DATE,
+		GW_GA_NO,
+		GREEN_FLAG,
+		BTOA_USER_DEPT_NAME,
+		SND_CHK,
+		SND_DATM,
+		CMS_UNMAP_CODE,
+		CMS_MAP_DATE,
+		CMS_MAP_TIME,
+		CMS_MAP_USER_ID,
+		REFINE_FLAG,
+		REFINE_USER_ID,
+		REFINE_DATE,
+		TRG_SKIP_FLAG,
+		ADMIN_TARGET_PRICE,
+		BUYER_CANCEL_REASON,
+		BUYER_CANCEL_DATE,
+		BUYER_CANCEL_TIME,
+		ADMIN_CANCEL_REASON,
+		PRE_GR_FLAG,
+		ATTB1_NM,
+		ATTB2_NM,
+		ATTB3_NM,
+		ATTB4_NM,
+		ATTB5_NM,
+		ATTB6_NM,
+		ATTB7_NM,
+		ATTB8_NM,
+		ATTB9_NM,
+		ATTB10_NM,
+		ATTB11_NM,
+		ATTB12_NM,
+		ATTB13_NM,
+		ATTB14_NM,
+		ATTB15_NM,
+		ATTB16_NM,
+		ATTB17_NM,
+		ATTB18_NM,
+		ATTB19_NM,
+		ATTB20_NM,
+		IMAGE_PASS_FLAG,
+		IMGFILE_NAME,
+		ITEM_DETAIL_DESC		
+	)
+	    SELECT 
+	           BUYER,
+	           QUOTATION_NO,
+	           QUOTATION_SEQ,
+	           (REVISION+1),
+	           'C',
+	           'GA',
+	           BUYER_ITEM_NO,
+	           DESCRIPTION,
+	           SPECIFICATION,
+	           UNIT_MEASURE,
+	           MAKER_NAME,
+	           ORIGIN_NAME,
+	           BTOA_DATE,
+	           TO_CHAR(SYSDATE+3,'YYYYMMDD') AS BTOA_END_DATE,
+	           '190000' AS BTOA_END_TIME,
+	           BTOA_USER_ID,
+	           BTOA_USER_NAME,
+	           BTOA_USER_DEPT,
+	           BTOA_USER_TEL,
+	           BTOA_USER_FAX,
+	           BTOA_USER_MAIL,
+	           BUYER_TARGET_PRICE,
+	           0 AS ATOB_UNIT_PRICE,
+	           1 AS BTOA_NEGO_PRICE,
+	           ITEM_QTY,
+	           AGENT_NAME,
+	           ATOB_DATE,
+	           ATOB_TIME,
+	           REJECT_REMARK,
+	           BTOA_REMARK,
+	           ATOS_REMARK,
+	           ATOB_REMARK,
+	           IMAGE_KEY,
+	           LOAD_USER_ID,
+	           REG_ITEM_NO,
+	           LOAD_DATE,
+	           LOAD_TIME,
+	           KEP_USER_ID,
+	           NULL,
+	           ATOB_SEND_FLAG,
+	           GW_NO,
+	           AGENT_OPEN_FLAG,
+	           CONTRACT_NO,
+	           CONTRACT_SEQ,
+	           CATEGORY_NO,
+	           ITEM_GUBUN,
+	           REMARK_URL,
+	           ETC_REMARK,
+	           SELLER_IMAGE_KEY,
+	           PASS_FLAG,
+	           KEPUSER_RECV_DATE,
+	           KEPUSER_RECV_TIME,
+	           BTOA_TIME,
+	           CMS_CATEG_ID,
+	           CMS_CATLG_ID,
+	           CMS_RECV_DATE,
+	           CMS_RECV_TIME,
+	           CMS_USER_ID,
+	           KEP_RECV_USER_ID,
+	           MAKER_CODE,
+	           ORIGIN_CODE,
+	           SO_CA_FLAG,
+	           MAKER_PART_NO,
+	           CMS_REJECT_REMARK,
+	           CMS_REJECT_DATE,
+	           CMS_REJECT_TIME,
+	           CMS_REJECT_USER,
+	           TEAM_REJECT_REMARK,
+	           TEAM_REJECT_DATE,
+	           TEAM_REJECT_TIME,
+	           TEAM_REJECT_USER,
+	           SEND_DATE,
+	           SEND_TIME,
+	           BYPASS_FLAG,
+	           CMS_REJECT_FLAG,
+	           CMS_UP_COUNT,
+	           CMS_FLAG,
+	           CANCEL_USER_ID,
+	           CANCEL_DATE,
+	           CANCEL_REMARK,
+	           ITEM_TYPE,
+	           YEAR_QTY,
+	           KWAY_CATEG_ID,
+	           KWAY_CATLG_ID,
+	           PROCESS_TYPE,
+	           IMPORT_FLAG,
+	           KEP_PRICE,
+	           WAREHOUSE_CODE,
+	           BELOW_COMORG_CODE,
+	           LOGISTICS_FEE,
+	           REFER_MAPPING_FLAG,
+	           KEP_DESCRIPTION,
+	           KEP_SPECIFICATION,
+	           KEP_UNIT_MEASURE,
+	           KEP_MAKER_NAME,
+	           KEP_ORIGIN_NAME,
+	           KEP_MAKER_PART_NO,
+	           KEP_MAKER_CODE,
+	           KEP_ORIGIN_CODE,
+	           KEP_BUYER_ITEM_NO,
+	           PLANT,
+	           ITEM_GROUP,
+	           RFQ_KEP_USER,
+	           RFQ_DATE,
+	           GW_GA_NO,
+	           GREEN_FLAG,
+	           BTOA_USER_DEPT_NAME,
+	           SND_CHK,
+	           SND_DATM,
+	           CMS_UNMAP_CODE,
+	           CMS_MAP_DATE,
+	           CMS_MAP_TIME,
+	           CMS_MAP_USER_ID,
+	           REFINE_FLAG,
+	           REFINE_USER_ID,
+	           REFINE_DATE,
+	           TRG_SKIP_FLAG,
+	           ADMIN_TARGET_PRICE,
+	           BUYER_CANCEL_REASON,
+	           BUYER_CANCEL_DATE,
+	           BUYER_CANCEL_TIME,
+	           ADMIN_CANCEL_REASON,
+	           PRE_GR_FLAG,
+	           ATTB1_NM,
+	           ATTB2_NM,
+	           ATTB3_NM,
+	           ATTB4_NM,
+	           ATTB5_NM,
+	           ATTB6_NM,
+	           ATTB7_NM,
+	           ATTB8_NM,
+	           ATTB9_NM,
+	           ATTB10_NM,
+	           ATTB11_NM,
+	           ATTB12_NM,
+	           ATTB13_NM,
+	           ATTB14_NM,
+	           ATTB15_NM,
+	           ATTB16_NM,
+	           ATTB17_NM,
+	           ATTB18_NM,
+	           ATTB19_NM,
+	           ATTB20_NM,
+	           IMAGE_PASS_FLAG,
+	           IMGFILE_NAME,
+	           ITEM_DETAIL_DESC
+	      FROM KEPRQDT
+	     WHERE (BUYER, QUOTATION_NO, QUOTATION_SEQ, REVISION) IN (
+	     <foreach collection="list" item="item" index="i" separator="," >
+	     	(#{item.BUYER},#{item.QUOTATION_NO},#{item.QUOTATION_SEQ},#{item.KEP_REVISION})
+	     </foreach>
+	     ) 
+	</update>
+
+	<update id="updateMasterMpIfSourcingNegoqtdtCreate" parameterType="java.util.Map" useGeneratedKeys="false">
+	/*master.mpif.updateMasterMpIfSourcingNegoqtdtCreate*/
+	INSERT INTO KEPQTDT(
+		BUYER,
+		QUOTATION_NO,
+		QUOTATION_SEQ,
+		REVISION,
+		AGENT,
+		AGENT_REVISION,
+		STATUS,
+		BUYER_ITEM_NO,
+		DESCRIPTION,
+		SPECIFICATION,
+		UNIT_MEASURE,
+		MAKER_NAME,
+		ORIGIN_NAME,
+		LEAD_TIME,
+		ATOS_DATE,
+		ATOS_END_DATE,
+		ATOS_END_TIME,
+		SEL_USER_ID,
+		SEL_USER_NAME,
+		SEL_USER_TEL,
+		STOA_LIST_PRICE,
+		STOA_DATE,
+		STOA_TIME,
+		ATOB_UNIT_PRICE,
+		ATOS_TARGET_PRICE,
+		ITEM_QTY,
+		STOA_REMARK,
+		IMAGE_KEY,
+		BID_SUCCESS_FLAG,
+		SELLER_IMAGE_KEY,
+		BID_SUCCESS_CODE,
+		KEP_PRICE,
+		DSS_FLAG,
+		DSS_CHOICE,
+		ADMIN_CLOSE_FLAG,
+		TRG_SKIP_FLAG,
+		ATOB_SEND_FLAG,
+		ATOB_DATE,
+		ATOB_TIME,
+		BTOA_NEGO_PRICE,
+		BID_SUCCESS_REASON,
+		BID_SUCCESS_KEP,
+		BID_SUCCESS_DATM
+	) (
+	    SELECT
+	           A.BUYER,
+	           A.QUOTATION_NO,
+	           A.QUOTATION_SEQ,
+	           (A.REVISION+1) AS REVISION,
+	           A.AGENT,
+	           A.AGENT_REVISION,
+	           CASE
+	             WHEN A.AGENT_REVISION = (SELECT MAX(AGENT_REVISION) FROM KEPQTDT
+	                                       WHERE BUYER         = A.BUYER
+	                                         AND QUOTATION_NO  = A.QUOTATION_NO 
+	                                         AND QUOTATION_SEQ = A.QUOTATION_SEQ
+	                                         AND REVISION      = A.REVISION
+	                                         AND AGENT         = A.AGENT )
+                   THEN 'C'
+                 ELSE 'O'
+	           END,
+	           A.BUYER_ITEM_NO,
+	           A.DESCRIPTION,
+	           A.SPECIFICATION,
+	           A.UNIT_MEASURE,
+	           A.MAKER_NAME,
+	           A.ORIGIN_NAME,
+	           A.LEAD_TIME,
+	           A.ATOS_DATE,
+	           A.ATOS_END_DATE,
+	           A.ATOS_END_TIME,
+	           A.SEL_USER_ID,
+	           A.SEL_USER_NAME,
+	           A.SEL_USER_TEL,
+	           A.STOA_LIST_PRICE,
+	           A.STOA_DATE,
+	           A.STOA_TIME,
+	           A.ATOB_UNIT_PRICE,
+	           A.ATOS_TARGET_PRICE,
+	           A.ITEM_QTY,
+	           A.STOA_REMARK,
+	           A.IMAGE_KEY,
+	           A.BID_SUCCESS_FLAG,
+	           A.SELLER_IMAGE_KEY,
+	           A.BID_SUCCESS_CODE,
+	           A.KEP_PRICE,
+	           A.DSS_FLAG,
+	           A.DSS_CHOICE,
+	           A.ADMIN_CLOSE_FLAG,
+	           A.TRG_SKIP_FLAG,
+	           A.ATOB_SEND_FLAG,
+	           A.ATOB_DATE,
+	           A.ATOB_TIME,
+	           A.BTOA_NEGO_PRICE,
+	           A.BID_SUCCESS_REASON,
+	           A.BID_SUCCESS_KEP,
+	           A.BID_SUCCESS_DATM
+	      FROM KEPQTDT A
+	     WHERE (BUYER, QUOTATION_NO, QUOTATION_SEQ, REVISION) IN (
+	     <foreach collection="list" item="item" index="i" separator="," >
+	     	(#{item.BUYER},#{item.QUOTATION_NO},#{item.QUOTATION_SEQ},#{item.KEP_REVISION})
+	     </foreach>
+	     ) 
+	       AND ATOB_SEND_FLAG = 'Y'
+	)
+	</update>
+	
+	<update id="updateMasterMpIfSourcingNegorqdtClose" parameterType="java.util.Map">
+	/*master.mpif.updateMasterMpIfSourcingNegorqdtClose*/
+	UPDATE KEPRQDT
+	   SET RECV_FLAG      = 'GD',
+	       CANCEL_USER_ID = 'IF_ADMIN',
+	       CANCEL_DATE    = SYSDATE,
+	       CANCEL_REMARK  = '재견적'
+     WHERE (BUYER, QUOTATION_NO, QUOTATION_SEQ, REVISION) IN (
+     <foreach collection="list" item="item" index="i" separator="," >
+     	(#{item.BUYER},#{item.QUOTATION_NO},#{item.QUOTATION_SEQ},#{item.KEP_REVISION})
+     </foreach>
+     ) 
+	   AND STATUS IN ('C','R')
+	</update>
+
+	<update id="updateMasterMpIfSourcingNegoqtdtClose" parameterType="java.util.Map">
+	/*master.mpif.updateMasterMpIfSourcingNegoqtdtClose*/
+	UPDATE KEPQTDT
+	   SET STATUS = 'O'
+	 WHERE (BUYER, QUOTATION_NO, REVISION, QUOTATION_SEQ) IN (
+	      SELECT BUYER, QUOTATION_NO, REVISION, QUOTATION_SEQ 
+	        FROM KEPRQDT
+		   WHERE (BUYER, QUOTATION_NO, QUOTATION_SEQ, REVISION) IN (
+		     <foreach collection="list" item="item" index="i" separator="," >
+		     	(#{item.BUYER},#{item.QUOTATION_NO},#{item.QUOTATION_SEQ},#{item.KEP_REVISION})
+		     </foreach>
+		   ) )
+	   AND ATOB_SEND_FLAG = 'Y'
+	</update>
+</mapper>   
+   

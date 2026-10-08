@@ -1,0 +1,299 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="common.mpiv">
+
+
+	<!-- getBuyerPrDisplayPop -->
+	<select id="selectCommonMpIvOdrreqDetailPopList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*selectCommonMpIvOdrreqDetailPopList*/
+
+
+             SELECT 
+                    H.PR_NO,  --[00]
+                    DECODE(H.DOC_TYPE,'S','(선입고)','F','(긴급발주)','') DOC_TEXT,  --[01]
+                    (SELECT TEXT1 FROM ICOMCOD2 WHERE COMPANY_CODE = H.BUYER AND TYPE = 'C001' AND CODE = H.CHANGE_USER_DEPT) REQ_DEPT,  --[02]
+                    (SELECT TEXT2 FROM ICOMCOD2 WHERE COMPANY_CODE = H.BUYER AND TYPE = 'C001' AND CODE = H.CHANGE_USER_DEPT) REQ_DEPT_TEXT,  --[02-1]
+                    H.CHANGE_DATE,  --[03]
+                    H.CHANGE_USER_NAME,  --[04]
+                    (SELECT MAX(D.RD_DATE) FROM ICOMPRDT D  
+                      WHERE H.BUYER = D.BUYER AND H.PR_NO = D.PR_NO AND H.STATUS <> 'D' AND D.STATUS <> 'D') RD_DATE,  --[05]
+                    H.CHANGE_USER_TEL,  --[06]
+                    H.DELY_TO_LOCATION,  --[07]
+                    H.REMARK,  --[08]
+                    H.BUYER,  --[09]
+                    H.CHANGE_USER_DEPT,  --[10]
+                    H.DOC_TYPE,  --[11]
+                    H.CHANGE_USER_MOBILE_PHONE
+
+						 ,(SELECT TARGET FROM ICOMTRGW WHERE COM_CODE = #{BUYER} AND KEY_1 =  H.PR_NO) GW_NO
+						 ,(SELECT C.TEXT3 FROM ICOMLUSR I, ICOMCOD2 C
+						  WHERE I.USER_ID = #{st_user_id}
+						  AND I.COM_CODE = C.COMPANY_CODE
+						  AND I.DEPARTMENT = C.CODE
+						  AND C.TYPE = 'C001'
+						  ) AS HONG_DEPT
+               FROM ICOMPRHD H 
+              WHERE H.BUYER = #{BUYER}
+                AND H.PR_NO =  #{PR_NO}
+                AND H.STATUS <> 'D' 
+            
+              				 
+		]]>
+ 
+		
+	</select>
+	<select id="selectCommonMpIvOdrreqDetailPopList_v2" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*selectCommonMpIvOdrreqDetailPopList_v2*/
+
+
+             SELECT 
+                    H.PR_NO,  --[00]
+                    DECODE(H.DOC_TYPE,'S','(선입고)','F','(긴급발주)','') DOC_TEXT,  --[01]
+                    (SELECT TEXT1 FROM ICOMCOD2 WHERE COMPANY_CODE = H.BUYER AND TYPE = 'C001' AND CODE = H.CHANGE_USER_DEPT) REQ_DEPT,  --[02]
+                    (SELECT TEXT2 FROM ICOMCOD2 WHERE COMPANY_CODE = H.BUYER AND TYPE = 'C001' AND CODE = H.CHANGE_USER_DEPT) REQ_DEPT_TEXT,  --[02-1]
+                    TO_CHAR(TO_DATE(H.CHANGE_DATE,'YYYYMMDD'),'YYYY-MM-DD') AS CHANGE_DATE,  --[03]
+                    H.CHANGE_USER_NAME,  --[04]
+                    H.CHANGE_USER_TEL,  --[06]
+                    H.DELY_TO_LOCATION,  --[07]
+                    H.REMARK,  --[08]
+                    H.BUYER,  --[09]
+                    H.CHANGE_USER_DEPT,  --[10]
+                    H.DOC_TYPE,  --[11]
+                    H.CHANGE_USER_MOBILE_PHONE,
+                    (SELECT COUNT(*) FROM( SELECT DISTINCT DELY_TO_LOCATION,DELY_TO_LOCATION_TEXT FROM ICOMPRDT WHERE BUYER = H.BUYER AND PR_NO = H.PR_NO AND STATUS != 'D')) AS PR_DELY_CNT,
+                    F_GET_PR_STTS(D.BUYER, D.PR_NO, D.PR_SEQ , 0) STATUS_CODE,
+                    F_GET_PR_STTS(D.BUYER, D.PR_NO, D.PR_SEQ , 1) STATUS_TEXT,
+					(SELECT TARGET FROM ICOMTRGW WHERE COM_CODE = #{BUYER} AND KEY_1 =  H.PR_NO) GW_NO,
+					(SELECT C.TEXT3 FROM ICOMLUSR I, ICOMCOD2 C
+						  WHERE I.USER_ID = #{st_user_id}
+						  AND I.COM_CODE = C.COMPANY_CODE
+						  AND I.DEPARTMENT = C.CODE
+						  AND C.TYPE = 'C001'
+						  ) AS HONG_DEPT,
+					H.DOC_TYPE_REMARK
+               FROM ICOMPRHD H , ICOMPRDT D
+              WHERE H.BUYER = #{BUYER}
+                AND H.PR_NO =  #{PR_NO}
+                AND H.STATUS <> 'D'
+                AND H.BUYER = D.BUYER
+                AND H.PR_NO = D.PR_NO
+                AND D.STATUS <> 'D'
+                AND D.PR_SEQ = #{PR_SEQ} 
+            
+              				 
+		]]>
+ 
+		
+	</select>
+	
+	<!-- getBuyerPrDisplayPop -->
+	<select id="getBuyerPrDisplayDtListPop" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*getBuyerPrDisplayDtListPop*/
+
+
+				  SELECT																										      		
+						 A.BUYER_ITEM_NO,																						--[00] 
+						 A.DESCRIPTION,																							--[01] 
+						 A.SPECIFICATION,																						--[02] 
+						 DECODE(NVL(A.RECV_QTY,0),0,A.TARGET_QTY,A.RECV_QTY) QTY,												--[03] 
+						 A.UNIT_MEASURE,																						--[04] 
+						 DECODE(A.RECV_FLAG,'PC',A.TARGET_PRICE,D.TARGET_PRICE)	 TARGET_PRICE,									--[05] 
+						 TRUNC(NVL(DECODE(NVL(A.RECV_QTY,0),0,A.TARGET_QTY,A.RECV_QTY),0) * NVL(DECODE(A.RECV_FLAG,'PC',A.TARGET_PRICE,D.TARGET_PRICE),0)) TARGET_AMT,	--[06] 
+						 decode((select agent_open_flag from icomcmpy where com_code = #{BUYER}		),'N','코리아e플랫폼(주)',(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = A.AGENT)) AGENT_NAME,								--[07] 
+						 A.REF_PR_NO,																							--[08] 
+						 A.AGENT,																								--[09] 
+						 A.PR_SEQ,																								--[10] 
+						 A.BYIT_COMORG_CODE,																					--[11] 
+						 A.CONTRACT_NO,																							--[12] 
+						 A.CONTRACT_SEQ,																						--[13] 
+		                 NVL((SELECT NVL(K.TOT_QTY,0) FROM ISERSTCK K                                                        
+		                         WHERE K.BUYER = A.BUYER                                                                        
+		                           AND K.STCK_MONTH = TO_CHAR(ADD_MONTHS(SYSDATE,-1),'YYYYMM')                                  
+		                           AND K.DEPT_CODE = A.CHANGE_USER_DEPT                                                         
+		                           AND K.BUYER_ITEM_NO = A.BUYER_ITEM_NO),0) STOCK,                                             --[14]		
+						 A.RECV_FLAG,																							--[15] 
+						 A.BUYER,																								--[16] 
+						 A.PR_NO,																								--[17] 
+						 A.IMAGE_KEY																								--[18] 
+						 
+						 
+						 ,A.TARGET_QTY
+						 ,A.PLAN_AMT_FLAG
+						 ,A.ACCOUNT_TYPE
+						 
+				         ,A.BUDGET_DEPT
+		            
+		            
+		    			  ,(SELECT TEXT2 FROM ICOMCOD2             
+		                          WHERE COMPANY_CODE = A.BUYER    
+		                            AND TYPE = 'Z014'             
+		                            AND CODE = DECODE(A.ACCOUNT_TYPE,NULL,C.ACCOUNT_TYPE,A.ACCOUNT_TYPE))   AS ACCOUNT_NAME  -- 계정명
+		            	  ,(select                                                                                                                 
+					              	    DECODE(COUNT(*),0 , '',                                                                                                 
+					                                  1 , DECODE(A.BUDGET_DEPT ,MAX(F.CODE1),     
+					                                          MAX((SELECT TEXT1 FROM ICOMCOD2 T                                                               
+					                                               WHERE T.COMPANY_CODE = A.BUYER AND T.TYPE = 'C001' AND T.CODE = F.CODE1)) ,''),            
+					                                  MAX((SELECT                                                                                             
+					                                          MAX((SELECT TEXT1 FROM ICOMCOD2 T                                                               
+					                                               WHERE T.COMPANY_CODE = A.BUYER AND T.TYPE = 'C001' AND T.CODE = F.CODE1))                  
+					                                       FROM ICOMCOD3 E , ICOMCOD3 F                                                                       
+					                                      WHERE E.BUYER = A.BUYER                                                                             
+					                                        AND E.CODE1 = A.BUDGET_DEPT                                             
+					                                        AND E.TYPE  = 'DTOD'                                                                              
+					                                        AND E.BUYER = F.BUYER                                                                             
+					                                        AND E.CODE2 = F.CODE1                                                                             
+					                                        AND F.TYPE  = 'DTOA'                                                                              
+					                                        AND F.CODE1 =  A.BUDGET_DEPT            
+					                                        AND DECODE(F.FLAG,'Y',DECODE(  A.BUDGET_DEPT  ,F.CODE1,'N','Y'),'N') = 'N'          
+					                                        AND F.CODE2 = DECODE(A.ACCOUNT_TYPE,NULL,C.ACCOUNT_TYPE, A.ACCOUNT_TYPE )))       )               
+					                  FROM ICOMCOD3 E , ICOMCOD3 F                                                                                            
+					                  WHERE E.BUYER = A.BUYER                                                                                                 
+					                    AND E.CODE1 = A.BUDGET_DEPT                                    
+					                    AND E.TYPE  = 'DTOD'                                                                                                  
+					                    AND E.BUYER = F.BUYER                                                                                                 
+					                    AND E.CODE2 = F.CODE1                                                                                                 
+					                    AND F.TYPE  = 'DTOA'                                                                                                  
+					                    AND F.CODE2 = DECODE(A.ACCOUNT_TYPE,NULL,C.ACCOUNT_TYPE, A.ACCOUNT_TYPE )   ) BUDGET_DEPT_NAME       -- 예산부서      
+					                    
+					  ,F_GET_PR_STTS(A.BUYER, A.PR_NO, A.PR_SEQ , 0)	STATUS_CODE
+                      , DECODE(A.DELY_BUNDLE_FLAG,'Y','묶음배송건','')  AS DELY_BUNDLE_GBN
+                      , NVL(A.REF_IF_NO,' ') AS REF_IF_NO
+                      , DECODE(TRIM(A.DELY_TO_LOCATION_TEXT), '', (SELECT DELY_TO_LOCATION FROM ICOMPRHD WHERE BUYER = A.BUYER AND PR_NO = A.PR_NO), A.DELY_TO_LOCATION_TEXT) AS DELY_TO_LOCATION_TEXT
+			 	FROM  ICOMPRDT A , ICOMCQDT D, ICOMBYIT C																		
+			    WHERE A.BUYER              = #{BUYER}																	
+			      AND A.PR_NO              =  #{PR_NO}
+			    		]]>
+		<!-- 발주부서 -->
+		<if test="RECV_FLAG != null and RECV_FLAG != ''">
+			<![CDATA[
+					AND A.RECV_FLAG          = #{RECV_FLAG}		
+			]]>	
+		</if>
+		  																	
+       <![CDATA[
+        	     																       
+				  AND A.STATUS            != 'D'																																						
+				  AND A.BYIT_COMORG_CODE   = D.BUYER																			
+				  AND A.BUYER_ITEM_NO      = D.BUYER_ITEM_NO																	
+				  AND A.CONTRACT_NO        = D.CONTRACT_NO																		
+				  AND A.CONTRACT_SEQ       = D.CONTRACT_SEQ																		
+				  AND C.BUYER              = D.BUYER																			
+				  AND C.BUYER_ITEM_NO      = D.BUYER_ITEM_NO																	
+              				 
+		]]>
+ 
+		
+	</select>
+	<select id="getBuyerPrDisplayDtListPop_v2" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*getBuyerPrDisplayDtListPop_v2*/
+
+
+				  SELECT																										      		
+						 A.BUYER_ITEM_NO,																						--[00] 
+						 A.DESCRIPTION,																							--[01] 
+						 A.SPECIFICATION,																						--[02] 
+						 DECODE(NVL(A.RECV_QTY,0),0,A.TARGET_QTY,A.RECV_QTY) QTY,												--[03] 
+						 A.UNIT_MEASURE,																						--[04] 
+						 DECODE(A.RECV_FLAG,'PC',A.TARGET_PRICE,D.TARGET_PRICE)	 TARGET_PRICE,									--[05] 
+						 TRUNC(NVL(DECODE(NVL(A.RECV_QTY,0),0,A.TARGET_QTY,A.RECV_QTY),0) * NVL(DECODE(A.RECV_FLAG,'PC',A.TARGET_PRICE,D.TARGET_PRICE),0)) TARGET_AMT,	--[06] 
+						 decode((select agent_open_flag from icomcmpy where com_code = #{BUYER}		),'N','코리아e플랫폼(주)',(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = A.AGENT)) AGENT_NAME,								--[07] 
+						 A.REF_PR_NO,																							--[08] 
+						 A.AGENT,																								--[09] 
+						 A.PR_SEQ,																								--[10] 
+						 A.BYIT_COMORG_CODE,																					--[11] 
+						 A.CONTRACT_NO,																							--[12] 
+						 A.CONTRACT_SEQ,																						--[13] 
+		                 NVL((SELECT NVL(K.TOT_QTY,0) FROM ISERSTCK K                                                        
+		                         WHERE K.BUYER = A.BUYER                                                                        
+		                           AND K.STCK_MONTH = TO_CHAR(ADD_MONTHS(SYSDATE,-1),'YYYYMM')                                  
+		                           AND K.DEPT_CODE = A.CHANGE_USER_DEPT                                                         
+		                           AND K.BUYER_ITEM_NO = A.BUYER_ITEM_NO),0) STOCK,                                             --[14]		
+						 A.RECV_FLAG,																							--[15] 
+						 A.BUYER,																								--[16] 
+						 A.PR_NO,																								--[17] 
+						 A.IMAGE_KEY																								--[18] 
+						 
+						 
+						 ,A.TARGET_QTY
+						 ,A.PLAN_AMT_FLAG
+						 ,A.ACCOUNT_TYPE
+						 
+				         ,A.BUDGET_DEPT
+		            
+		            
+		    			  ,(SELECT TEXT2 FROM ICOMCOD2             
+		                          WHERE COMPANY_CODE = A.BUYER    
+		                            AND TYPE = 'Z014'             
+		                            AND CODE = DECODE(A.ACCOUNT_TYPE,NULL,C.ACCOUNT_TYPE,A.ACCOUNT_TYPE))   AS ACCOUNT_NAME  -- 계정명
+		            	  ,(select                                                                                                                 
+					              	    DECODE(COUNT(*),0 , '',                                                                                                 
+					                                  1 , DECODE(A.BUDGET_DEPT ,MAX(F.CODE1),     
+					                                          MAX((SELECT TEXT1 FROM ICOMCOD2 T                                                               
+					                                               WHERE T.COMPANY_CODE = A.BUYER AND T.TYPE = 'C001' AND T.CODE = F.CODE1)) ,''),            
+					                                  MAX((SELECT                                                                                             
+					                                          MAX((SELECT TEXT1 FROM ICOMCOD2 T                                                               
+					                                               WHERE T.COMPANY_CODE = A.BUYER AND T.TYPE = 'C001' AND T.CODE = F.CODE1))                  
+					                                       FROM ICOMCOD3 E , ICOMCOD3 F                                                                       
+					                                      WHERE E.BUYER = A.BUYER                                                                             
+					                                        AND E.CODE1 = A.BUDGET_DEPT                                             
+					                                        AND E.TYPE  = 'DTOD'                                                                              
+					                                        AND E.BUYER = F.BUYER                                                                             
+					                                        AND E.CODE2 = F.CODE1                                                                             
+					                                        AND F.TYPE  = 'DTOA'                                                                              
+					                                        AND F.CODE1 =  A.BUDGET_DEPT            
+					                                        AND DECODE(F.FLAG,'Y',DECODE(  A.BUDGET_DEPT  ,F.CODE1,'N','Y'),'N') = 'N'          
+					                                        AND F.CODE2 = DECODE(A.ACCOUNT_TYPE,NULL,C.ACCOUNT_TYPE, A.ACCOUNT_TYPE )))       )               
+					                  FROM ICOMCOD3 E , ICOMCOD3 F                                                                                            
+					                  WHERE E.BUYER = A.BUYER                                                                                                 
+					                    AND E.CODE1 = A.BUDGET_DEPT                                    
+					                    AND E.TYPE  = 'DTOD'                                                                                                  
+					                    AND E.BUYER = F.BUYER                                                                                                 
+					                    AND E.CODE2 = F.CODE1                                                                                                 
+					                    AND F.TYPE  = 'DTOA'                                                                                                  
+					                    AND F.CODE2 = DECODE(A.ACCOUNT_TYPE,NULL,C.ACCOUNT_TYPE, A.ACCOUNT_TYPE )   ) BUDGET_DEPT_NAME       -- 예산부서      
+					                    
+					  ,F_GET_PR_STTS(A.BUYER, A.PR_NO, A.PR_SEQ , 0)	STATUS_CODE
+                      , DECODE(A.DELY_BUNDLE_FLAG,'Y','묶음배송건','')  AS DELY_BUNDLE_GBN
+                      , NVL(A.REF_IF_NO,' ') AS REF_IF_NO
+                      , A.RECIPIENT_PHONE
+                      , A.RECIPIENT_NAME
+                      , TO_CHAR(TO_DATE(A.RD_DATE,'YYYYMMDD'),'YYYY-MM-DD') AS RD_DATE
+                      , A.REMARK
+                      , A.DELY_TO_LOCATION
+                      , (SELECT TEXT1 FROM ICOMCOD2 WHERE COMPANY_CODE = A.BUYER AND TYPE = 'C012' AND CODE = A.DELY_TO_LOCATION AND FLAG = 'Y') AS DELY_TO_LOCATION_NAME
+                      , DECODE(TRIM(A.DELY_TO_LOCATION_TEXT), '', (SELECT DELY_TO_LOCATION FROM ICOMPRHD WHERE BUYER = A.BUYER AND PR_NO = A.PR_NO), A.DELY_TO_LOCATION_TEXT) AS DELY_TO_LOCATION_TEXT
+                      ,(SELECT F_GET_PR_STTS(A.BUYER, A.PR_NO, A.PR_SEQ , 1) FROM DUAL) AS PR_STATUS_TEXT 
+                      , A.RETURN_REASON
+			 	FROM  ICOMPRDT A , ICOMCQDT D, ICOMBYIT C																		
+			    WHERE A.BUYER              = #{BUYER}																	
+			      AND A.PR_NO              =  #{PR_NO}
+			    		]]>
+		<!-- 발주부서 -->
+		<if test="RECV_FLAG != null and RECV_FLAG != ''">
+			<![CDATA[
+					AND A.RECV_FLAG          = #{RECV_FLAG}		
+			]]>	
+		</if>
+		  																	
+       <![CDATA[
+        	     																       
+				  AND A.STATUS            != 'D'																																						
+				  AND A.BYIT_COMORG_CODE   = D.BUYER																			
+				  AND A.BUYER_ITEM_NO      = D.BUYER_ITEM_NO																	
+				  AND A.CONTRACT_NO        = D.CONTRACT_NO																		
+				  AND A.CONTRACT_SEQ       = D.CONTRACT_SEQ																		
+				  AND C.BUYER              = D.BUYER																			
+				  AND C.BUYER_ITEM_NO      = D.BUYER_ITEM_NO
+				  ORDER BY A.DELY_TO_LOCATION,A.DELY_TO_LOCATION_TEXT																	
+              				 
+		]]>
+ 
+		
+	</select>
+		
+								
+</mapper>

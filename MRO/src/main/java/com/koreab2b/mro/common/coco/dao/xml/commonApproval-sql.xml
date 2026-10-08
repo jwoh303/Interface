@@ -1,0 +1,3395 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="commonApproval">
+ 
+<select id="buyerNewPassRecvList" parameterType="java.util.Map" resultType="java.util.Map">
+	/*commonApproval.buyerNewPassRecvList*/
+
+		              SELECT
+		              	<if test="paging == 'cnt'"> 
+		              	count(1) TOTAL_CNT 
+						</if>
+						<if test="paging == 'nocnt'">
+					DISTINCT 
+                     0 No,  --[00]
+                     Y.COMPANY,            --[01]
+                     Y.DOCU_NO,            --[02]
+                     Y.DOCU_TITLE,         --[03]
+                     Y.ATTACH_CNT,         --[04]
+                     Y.GUBUN,              --[05]
+                     Y.START_DATE,         --[06]
+                     Y.NEXT_USER_NM,       --[07]
+                     Y.DOCU_KN,            --[08]
+                     Y.ADD_USER_ID,        --[09]
+                     Y.PASS_TP,            --[10]
+                     Y.PASS_KN,            --[11]
+                     Y.USER_NM,            --[12]
+                     Y.NEXT_USER_ID,       --[13]
+                     Y.EXTIF_TP_TEXT,      --[14]
+                     Y.EXTIF_TP,           --[15]
+                     NVL(Y.ORDER_DEPT,(SELECT D.TEXT1 FROM ICOMCOD2 D WHERE D.COMPANY_CODE=Y.COMPANY AND D.TYPE='C001' AND D.CODE=Y.DEPARTMENT)) ORDER_DEPT,         --[16]
+                     Y.ITEM_CNT,           --[17]
+                     Y.ORDER_AMT,          --[18]
+                     NVL(Y.ORDER_DEPT_CD,Y.DEPARTMENT) ORDER_DEPT_CD,      --[19]
+                     Y.KEY1,               --[20]
+                     Y.EXTIFNO,            --[21]
+                     Y.EXTIFCOUNT,         --[22]
+                     (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = Y.COMPANY) AS COMPANY_NAME,
+                     Y.DOC_TYPE
+                FROM(  
+                      SELECT  
+                             ROWNUM NUM,        
+                             X.COMPANY,         
+                             X.DOCU_NO,         
+                             X.DOCU_TITLE,      
+                             X.ATTACH_CNT,      
+                             X.GUBUN,           
+                             X.START_DATE,      
+                             X.NEXT_USER_NM,    
+                             X.DOCU_KN,         
+                             X.ADD_USER_ID,     
+                             X.PASS_TP,         
+                             X.PASS_KN,         
+                             X.USER_NM,         
+                             X.NEXT_USER_ID,    
+                             X.EXTIF_TP_TEXT,   
+                             X.EXTIF_TP,        
+                             X.ITEM_CNT,        
+                             X.ORDER_AMT,       
+                             X.ORDER_DEPT,      
+                             X.ORDER_DEPT_CD,   
+                             X.KEY1,            
+                             X.EXTIFNO,         
+                             X.EXTIFCOUNT,       
+                             (SELECT DEPARTMENT FROM ICOMLUSR WHERE USER_ID = X.USER_ID) DEPARTMENT,
+                             X.DOC_TYPE
+                        FROM(  
+                              SELECT 
+                                     A.COMPANY,  
+                                     A.DOCU_NO,  
+                                     A.DOCU_TITLE,  
+                                     A.ATTACH_CNT,  
+                                     DECODE(C.PASS_TP,'1','결재문서','2','참조문서','3','합의문서') GUBUN,  
+                                     TO_CHAR(A.START_DATE, 'YYYY/MM/DD' ) START_DATE,  
+                                     START_DATE START_DATE2,
+                                     DECODE(#{USERID}, B.USER_ID, '결재요망', (SELECT CODE2 FROM ICOMCOD3 WHERE TYPE = 'M-APPR' AND FLAG = 'Y' AND CODE2 = #{USERID} AND CODE1 = B.USER_ID), '결재요망', (SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = B.USER_ID)) AS NEXT_USER_NM,
+                                     A.DOCU_KN,  
+                                     A.USER_ID,
+                                     (SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = A.USER_ID) ADD_USER_ID,  
+                                     C.PASS_TP,  
+                                     NVL(C.PASS_KN,'0') PASS_KN,  
+                                     A.USER_NM USER_NM,
+                                     B.USER_ID AS NEXT_USER_ID,  
+                                     (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'APPR' AND CODE = A.EXTIF_TP) AS EXTIF_TP_TEXT,  
+                                     A.EXTIF_TP AS EXTIF_TP,  
+                                     DECODE(TRGW.DOC_NAME,'PR',                                
+                                       (SELECT COUNT(*) FROM ICOMPRDT                             
+                                         WHERE BUYER = TRGW.COM_CODE                        
+                                         AND   PR_NO = TRGW.KEY_1              
+                                         AND   STATUS ^= 'D'), 'PX',             
+                                       (SELECT COUNT(*) FROM ICOMPRDT                             
+                                         WHERE BUYER = TRGW.COM_CODE                   
+                                         AND   REF_NO = TRGW.KEY_1      
+                                         AND   STATUS ^= 'D'),NULL) AS ITEM_CNT,                  
+                                     DECODE(TRGW.DOC_NAME,'PR',                                
+                                       (SELECT SUM(TARGET_QTY*TARGET_PRICE) FROM ICOMPRDT                 
+                                         WHERE BUYER = TRGW.COM_CODE                
+                                         AND   PR_NO = TRGW.KEY_1                  
+                                         AND   STATUS ^= 'D'), 'PX',     
+                                       (SELECT SUM(RECV_QTY*TARGET_PRICE) FROM ICOMPRDT                   
+                                         WHERE BUYER = TRGW.COM_CODE                     
+                                         AND   REF_NO = TRGW.KEY_1                  
+                                         AND   STATUS ^= 'D'),NULL) AS ORDER_AMT,                      
+                                     DECODE(TRGW.DOC_NAME,'PR',                                
+                                       (SELECT MAX(COD2.TEXT1)||DECODE(COUNT(DISTINCT CHANGE_USER_DEPT),1,NULL,       
+                                           ' 외 '||TO_CHAR(COUNT(DISTINCT CHANGE_USER_DEPT)-1)||'개')              
+                                         FROM  ICOMPRDT, ICOMCOD2 COD2                             
+                                         WHERE BUYER = TRGW.COM_CODE                           
+                                         AND   PR_NO = TRGW.KEY_1                              
+                                         AND   STATUS ^= 'D'                               
+                                         AND   BUYER = COD2.COMPANY_CODE                           
+                                         AND   COD2.TYPE = 'C001'                              
+                                         AND   COD2.CODE =CHANGE_USER_DEPT  ), 'PX',                   
+                                       (SELECT MAX(COD2.TEXT1)||DECODE(COUNT(DISTINCT CHANGE_USER_DEPT),1,NULL,       
+                                           ' 외 '||TO_CHAR(COUNT(DISTINCT CHANGE_USER_DEPT)-1)||'건')             
+                                         FROM  ICOMPRDT, ICOMCOD2 COD2                             
+                                         WHERE BUYER = TRGW.COM_CODE                           
+                                         AND   REF_NO = TRGW.KEY_1                             
+                                         AND   STATUS ^= 'D'                               
+                                         AND   BUYER = COD2.COMPANY_CODE                           
+                                         AND   COD2.TYPE = 'C001'                              
+                                         AND   COD2.CODE =CHANGE_USER_DEPT),NULL) AS ORDER_DEPT,              
+                                     DECODE(TRGW.DOC_NAME,'PR',                               
+                                       (SELECT MAX( CHANGE_USER_DEPT)             
+                                         FROM  ICOMPRDT, ICOMCOD2 COD2                             
+                                         WHERE BUYER = TRGW.COM_CODE                           
+                                         AND   PR_NO = TRGW.KEY_1                              
+                                         AND   STATUS ^= 'D'                               
+                                         AND   BUYER = COD2.COMPANY_CODE                           
+                                         AND   COD2.TYPE = 'C001'                              
+                                         AND   COD2.CODE =CHANGE_USER_DEPT  ), 'PX',                   
+                                       (SELECT MAX(CHANGE_USER_DEPT)              
+                                         FROM  ICOMPRDT, ICOMCOD2 COD2                             
+                                         WHERE BUYER = TRGW.COM_CODE                           
+                                         AND   REF_NO = TRGW.KEY_1                             
+                                         AND   STATUS ^= 'D'                               
+                                         AND   BUYER = COD2.COMPANY_CODE                           
+                                         AND   COD2.TYPE = 'C001'                              
+                                         AND   COD2.CODE =CHANGE_USER_DEPT),NULL) AS ORDER_DEPT_CD,                 
+                                     TRGW.KEY_1 AS KEY1,              
+                                     A.EXTIF_NO AS EXTIFNO,           
+                                     A.EXTIF_COUNT AS EXTIFCOUNT,
+                                     NVL((SELECT DOC_TYPE FROM ICOMPRHD WHERE BUYER = A.COMPANY AND PR_NO = TRGW.KEY_1 AND A.EXTIF_TP = 'PR'),'N') AS DOC_TYPE          
+                                     </if>
+                                 FROM ICOGDOCU A, ICOGPASSLN B,  
+                                      (SELECT Y.COMPANY, Y.DOCU_NO, Y.PASS_TP, Y.PASS_KN,Y.ORDER_NO
+                                       FROM ICOGDOCU X, ICOGPASSLN  Y
+                                       WHERE X.COMPANY IN (SELECT BUYER FROM ICOMCOD3 WHERE TYPE = 'M-APPR' AND FLAG = 'Y' AND CODE2 = #{USERID} UNION SELECT #{BUYER} FROM DUAL)
+                                       AND X.START_DATE BETWEEN  to_date(#{startDate},'YYYY/MM/DD') AND
+                                                                 to_date(#{endDate},'YYYY/MM/DD')+1
+                                       AND X.PASS_STATUS = '0'
+                                       AND X.COMPANY=Y.COMPANY
+                                       AND X.DOCU_NO=Y.DOCU_NO
+                                       AND Y.USER_ID IN (SELECT CODE1 FROM ICOMCOD3 WHERE TYPE = 'M-APPR' AND FLAG = 'Y' AND CODE2 = #{USERID} UNION SELECT #{USERID} FROM DUAL) AND Y.ORDER_NO > 1 AND Y.DISPLAY_YN = 'Y') C  
+                                        ,ICOMTRGW TRGW  
+                                WHERE ((C.PASS_TP = '1' AND A.DOCU_NO = C.DOCU_NO AND A.COMPANY = C.COMPANY  AND A.PASS_STATUS = '0' AND C.PASS_KN IS NULL ) OR  
+                                       (C.PASS_TP = '3' AND A.DOCU_NO = C.DOCU_NO AND A.COMPANY = C.COMPANY  AND A.PASS_STATUS = '0'  AND C.PASS_KN IS NULL))  
+                                  AND A.COMPANY      = B.COMPANY  
+                                  AND A.DOCU_NO      = B.DOCU_NO  
+                                  AND A.CUR_ORDER_NO = B.ORDER_NO    
+                                AND A.COMPANY = TRGW.COM_CODE  
+                                AND A.DOCU_NO = TRGW.TARGET 
+                                AND C.COMPANY = A.COMPANY
+                                AND C.DOCU_NO = A.DOCU_NO
+                                AND C.COMPANY = TRGW.COM_CODE
+                                AND C.DOCU_NO = TRGW.TARGET
+                                AND C.PASS_TP IN ('1', '3')
+								<choose>
+									<when test='st_appr_yn == "Y"'>
+										AND B.USER_ID IN (SELECT CODE1 FROM ICOMCOD3 WHERE TYPE = 'M-APPR' AND FLAG = 'Y' AND CODE2 = #{USERID} UNION SELECT #{USERID} FROM DUAL)        
+									</when> 
+								</choose>
+                                  <if test="st_po_user_id != ''">  
+                                 	AND A.USER_ID = #{st_po_user_id} 
+                                 </if>
+                                 <if test="st_drafter != ''">  
+                                 	AND A.USER_NM like '%'||#{st_drafter} ||'%' 
+                                 </if>
+                                 <if test="st_gubun != ''">  
+                                 	AND A.EXTIF_TP =#{st_gubun} 
+                                 </if> 
+                                 <if test="st_subject != ''">  
+                                 	AND A.DOCU_TITLE LIKE '%'||#{st_subject} ||'%'  
+                                 </if>
+								 <if test='st_buyer_list != null and st_buyer_list != ""'>
+                                 	AND A.COMPANY = #{st_buyer_list}  
+                                 </if>
+                                 <if test="paging == 'nocnt'"> 
+				                 		ORDER BY START_DATE2 DESC ) X )Y  
+				                 	WHERE Y.NUM BETWEEN #{startrow} AND #{endrow}		
+                 				</if> 	 
+</select> 
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	<select id="buyerNewPassCompleteList" parameterType="java.util.Map" resultType="java.util.Map">
+	/*commonApproval.buyerNewPassCompleteList*/
+  
+          SELECT  
+            	<if test="paging == 'cnt'"> 
+		              	count(1) TOTAL_CNT 
+						</if>
+						<if test="paging == 'nocnt'"> 
+                 0 No,  --[00]
+                 Y.COMPANY,            --[01]
+                 Y.DOCU_NO,            --[02]
+                 Y.DOCU_TITLE,         --[03]
+                 Y.ATTACH_CNT,         --[04]
+                 Y.PASS_STATUS,        --[05]
+                 Y.START_DATE,         --[06]
+                 Y.NEXT_USER_NM,       --[07]
+                 Y.DOCU_KN,            --[08]
+                 Y.ADD_USER_ID,        --[09]
+                 Y.PASS_TP,            --[10]
+                 Y.PASS_KN,            --[11]
+                 Y.USER_NM,            --[12]
+                 Y.GUBUN,              --[13]
+                 Y.EXTIF_TP_TEXT,      --[14]
+                 Y.EXTIF_TP,           --[15]
+                 (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = Y.COMPANY) AS COMPANY_NAME
+            FROM(  
+                  SELECT  
+                         ROWNUM NUM,  
+                         X.COMPANY,  
+                         X.DOCU_NO,  
+                         X.DOCU_TITLE,  
+                         X.ATTACH_CNT,  
+                         X.PASS_STATUS,  
+                         X.START_DATE,  
+                         X.NEXT_USER_NM,  
+                         X.DOCU_KN,  
+                         X.ADD_USER_ID,  
+                         X.PASS_TP,  
+                         X.PASS_KN,  
+                         X.USER_NM,  
+                         X.GUBUN,  
+                         X.EXTIF_TP_TEXT,  
+                         X.EXTIF_TP  
+                   FROM(  
+                         SELECT  
+                                A.COMPANY,  
+                                A.DOCU_NO,  
+                                A.DOCU_TITLE,  
+                                A.ATTACH_CNT,  
+                                DECODE(A.PASS_STATUS,'0','결재진행중',  
+                                                     '1','반려',  
+                                                     '2','참조진행중', 
+                                                     '3','결재완료',  
+                                                     '4','상신취소',  
+                                                     ' ' ) PASS_STATUS, 
+                                TO_CHAR(A.START_DATE, 'YYYY/MM/DD HH24:MI:SS' ) START_DATE,  
+                                DECODE(A.PASS_STATUS,'0',(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = B.USER_ID),' ') NEXT_USER_NM,
+                                A.DOCU_KN,  
+                                (SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = A.USER_ID) AS ADD_USER_ID,  
+                                C.PASS_TP,  
+                                NVL(C.PASS_KN,'0') AS PASS_KN,  
+                                A.USER_NM AS USER_NM,  
+                                DECODE(C.PASS_TP,'2','참조',  
+                                                 DECODE(C.PASS_KN ,NULL,'미결재'  
+                                                                  ,'1' ,'결재'  
+                                                                  ,'3' ,'반려'  
+                                                                  ,'4' ,'미결재')) GUBUN,
+                                 (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'APPR' AND CODE = A.EXTIF_TP) AS EXTIF_TP_TEXT, 
+                                A.EXTIF_TP AS EXTIF_TP  
+                                </if>
+                           FROM ICOGDOCU A, ICOGPASSLN B,  
+                                (SELECT COMPANY, DOCU_NO, PASS_TP, PASS_KN FROM ICOGPASSLN  
+                                  WHERE USER_ID IN (SELECT CODE1 FROM ICOMCOD3 WHERE TYPE = 'M-APPR' AND FLAG = 'Y' AND CODE2 = #{USERID} UNION SELECT #{USERID} FROM DUAL)  AND COMPANY IN (SELECT BUYER FROM ICOMCOD3 WHERE TYPE = 'M-APPR' AND FLAG = 'Y' AND CODE2 = #{USERID} UNION SELECT #{BUYER} FROM DUAL) AND ORDER_NO > 1 AND DISPLAY_YN = 'Y') C  
+                          WHERE ((C.PASS_TP IN ('1', '3') AND A.DOCU_NO = C.DOCU_NO AND A.COMPANY = C.COMPANY AND C.PASS_KN IS NOT NULL ) OR  
+                                 (C.PASS_TP IN ('1', '3') AND A.DOCU_NO = C.DOCU_NO AND A.COMPANY = C.COMPANY AND A.PASS_STATUS <![CDATA[<>]]> '0' AND C.PASS_KN IS NULL) OR  
+                                 ( C.PASS_TP = '2' AND A.DOCU_NO = C.DOCU_NO AND A.COMPANY = C.COMPANY AND A.PASS_STATUS <![CDATA[<>]]> '0') )  
+                                AND A.COMPANY = B.COMPANY  
+                                AND A.DOCU_NO = B.DOCU_NO  
+                                AND A.CUR_ORDER_NO = B.ORDER_NO  
+                                AND TO_CHAR(START_DATE,'YYYYMMDD') BETWEEN replace(#{startDate},'/','') AND replace(#{endDate},'/','')
+                                
+                                <if test="st_status1 != 'ALL'">  
+                               AND DECODE(C.PASS_TP,'2','2',  
+                                                     DECODE(NVL(C.PASS_KN,'0'),'0','0'  
+                                                                              ,'1','1'  
+                                                                              ,'3','3'
+                                                                              ,'4','0' )) = #{st_status1}  
+                                </if>                                    
+							  <if test="st_drafter != ''">                                                  
+                               AND a.user_nm LIKE '%'||#{st_drafter}||'%'
+                               </if>
+							  <if test="st_gubun != ''">                                                  
+                               AND A.EXTIF_TP = #{st_gubun}
+                               </if>
+                               <if test="st_status != 'ALL'">                  
+                               AND A.PASS_STATUS = #{st_status}
+                               </if>
+                               <if test='st_buyer_list != null and st_buyer_list != ""'>
+                               		AND A.COMPANY = #{st_buyer_list}  
+                               </if>
+                               AND A.DOCU_TITLE LIKE '%'||#{st_subject}||'%'  
+                          ORDER BY START_DATE DESC  
+                                	<if test="paging == 'nocnt'"> 
+                         ) X )Y                     
+             WHERE Y.NUM BETWEEN #{startrow} AND #{endrow}		
+              </if>
+</select> 
+<select id="buyerNewPassList_v2" parameterType="java.util.Map" resultType="java.util.Map">
+  <include refid="common.ibsheet.xml.pagestart"/>
+	/*commonApproval.buyerNewPassList_v2*/
+          SELECT  
+                 Y.NUM AS NO,  --[00]
+                 Y.COMPANY,            --[01]
+                 Y.DOCU_NO,            --[02]
+                 Y.DOCU_TITLE,         --[03]
+                 Y.ATTACH_CNT,         --[04]
+                 Y.PASS_STATUS,        --[05]
+                 Y.START_DATE,         --[06]
+                 Y.NEXT_USER_NM,       --[07]
+                 Y.NEXT_USER_ID,
+                 Y.DOCU_KN,            --[08]
+                 Y.ADD_USER_ID,        --[09]
+                 Y.PASS_TP,            --[10]
+                 Y.PASS_KN,            --[11]
+                 Y.USER_NM,            --[12]
+                 Y.GUBUN,              --[13]
+                 Y.EXTIF_TP_TEXT,      --[14]
+                 Y.EXTIF_TP,           --[15]
+                 (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = Y.COMPANY) AS COMPANY_NAME,
+                 Y.PRICE,
+                 Y.DOC_TYPE
+            FROM(  
+                  SELECT  
+                         ROWNUM NUM,  
+                         X.COMPANY,  
+                         X.DOCU_NO,
+                         X.DOCU_TITLE,  
+                         X.ATTACH_CNT,  
+                         X.PASS_STATUS,  
+                         X.START_DATE,  
+                         X.NEXT_USER_NM,
+                         X.NEXT_USER_ID,  
+                         X.DOCU_KN,  
+                         X.ADD_USER_ID,  
+                         X.PASS_TP,  
+                         X.PASS_KN,  
+                         X.USER_NM,  
+                         X.GUBUN,  
+                         X.EXTIF_TP_TEXT,  
+                         X.EXTIF_TP,
+                         CASE WHEN X.EXTIF_TP = 'PR' THEN NVL((SELECT SUM(TRUNC(NVL(A.TARGET_QTY,0) * NVL(A.TARGET_PRICE,0))) FROM ICOMPRDT A WHERE A.BUYER = X.COMPANY AND A.PR_NO = X.KEY_1 AND A.RECV_FLAG NOT IN ('GR','PR','RR') AND A.STATUS != 'D'),0)
+                         	  WHEN X.EXTIF_TP = 'PX' THEN NVL((SELECT SUM(TRUNC(NVL(A.TARGET_QTY,0) * NVL(A.TARGET_PRICE,0))) FROM ICOMPRDT A WHERE A.BUYER = X.COMPANY AND A.REF_NO = X.KEY_1 AND A.RECV_FLAG NOT IN ('GR','PR','RR') AND A.STATUS != 'D'),0)
+                         	  WHEN X.EXTIF_TP = 'NG' THEN 0
+                         	  WHEN X.EXTIF_TP = 'NS' THEN
+                         	  	NVL((SELECT SUM(A.ATOB_UNIT_PRICE) FROM KEPRQDT A
+                                WHERE A.BUYER IN (SELECT CODE2 FROM ICOMCOD3 WHERE BUYER = X.COMPANY AND TYPE = 'TGCM' AND CODE1 =  X.USER_ID AND FLAG = 'Y' UNION SELECT X.COMPANY FROM DUAL)
+                                AND A.GW_NO = X.KEY_1
+                                AND A.SO_CA_FLAG = 'SO'
+                                AND A.STATUS IN ('C','R')
+                                AND A.RECV_FLAG != 'GD'
+                                AND A.ATOB_SEND_FLAG = 'Y' ),0)
+                         END AS PRICE,
+                         X.DOC_TYPE
+                   FROM(  
+                         SELECT  
+                                A.COMPANY,  
+                                A.DOCU_NO,  
+                                A.DOCU_TITLE,  
+                                A.ATTACH_CNT,  
+                                DECODE(A.PASS_STATUS,'1','결재반려',  
+                                                     '2','참조진행중', 
+                                                     '3','결재완료',  
+                                                     '4','상신취소',
+                                                     '0',CASE
+                                                             WHEN B.USER_ID IN (SELECT CODE1 FROM ICOMCOD3 WHERE TYPE = 'M-APPR' AND FLAG = 'Y' AND CODE2 = #{USERID}
+                                                                                 UNION SELECT #{USERID} FROM DUAL) THEN '결재대기'
+                                                             WHEN A.CUR_ORDER_NO = 2 AND A.USER_ID = #{USERID} AND B.REFER_DATE IS NULL THEN '상신완료'
+                                                             ELSE '결재진행중'
+                                                          END,
+                                                     ' ' ) PASS_STATUS,  
+                                TO_CHAR(A.START_DATE, 'YYYY-MM-DD HH24:MI' ) START_DATE,  
+                                DECODE(A.PASS_STATUS,'0',(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = B.USER_ID),'') NEXT_USER_NM,
+                                B.USER_ID AS NEXT_USER_ID,
+                                A.DOCU_KN,  
+                                (SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = A.USER_ID) AS ADD_USER_ID,  
+                                D.PASS_TP,  
+                                NVL(D.PASS_KN,'0') AS PASS_KN,  
+                                A.USER_NM AS USER_NM,  
+                                DECODE(D.PASS_TP,'2','참조'  
+                                                                  ,'1' ,'결재'  
+                                                                  ,'0' ,'상신'
+                                                                  ,'3' , '합의') GUBUN,
+                                 (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'APPR' AND CODE = A.EXTIF_TP) AS EXTIF_TP_TEXT, 
+                                A.EXTIF_TP AS EXTIF_TP,
+                                C.KEY_1,
+                                NVL((SELECT DOC_TYPE FROM ICOMPRHD WHERE BUYER = A.COMPANY AND PR_NO = C.KEY_1 AND A.EXTIF_TP = 'PR'),'N') AS DOC_TYPE,
+                                A.USER_ID
+                           FROM ICOGDOCU A, ICOGPASSLN B, ICOMTRGW C,
+                                (
+                                <choose>
+                                <when test="st_status1 != '' and st_status1 != null">
+                                	SELECT COMPANY, DOCU_NO, PASS_TP, PASS_KN
+                                    FROM ICOGPASSLN  
+                                   WHERE USER_ID IN (SELECT CODE1 FROM ICOMCOD3 WHERE TYPE = 'M-APPR' AND FLAG = 'Y' AND CODE2 = #{USERID} UNION SELECT #{USERID} FROM DUAL)
+                                     AND COMPANY IN (SELECT BUYER FROM ICOMCOD3 WHERE TYPE = 'M-APPR' AND FLAG = 'Y' AND CODE2 = #{USERID} UNION SELECT #{BUYER} FROM DUAL)
+                                     AND DISPLAY_YN = 'Y'  
+                           		</when> 
+                           		<otherwise>
+                           			SELECT COMPANY, DOCU_NO, PASS_TP, PASS_KN
+								   FROM (SELECT COMPANY, DOCU_NO, PASS_TP, PASS_KN,
+								                ROW_NUMBER() OVER (PARTITION BY COMPANY, DOCU_NO
+								                                    ORDER BY DECODE(PASS_TP,'1',1,'3',2,'2',3,'0',4,5)) RN
+								           FROM ICOGPASSLN  
+								          WHERE USER_ID IN (SELECT CODE1 FROM ICOMCOD3 WHERE TYPE = 'M-APPR' AND FLAG = 'Y' AND CODE2 = #{USERID} UNION SELECT #{USERID} FROM DUAL)
+								            AND COMPANY IN (SELECT BUYER FROM ICOMCOD3 WHERE TYPE = 'M-APPR' AND FLAG = 'Y' AND CODE2 = #{USERID} UNION SELECT #{BUYER} FROM DUAL)
+								            AND DISPLAY_YN = 'Y')
+								  WHERE RN = 1
+                           		</otherwise>
+                           </choose>
+                           ) D  
+                          WHERE A.DOCU_NO = D.DOCU_NO
+                            	AND A.COMPANY = D.COMPANY
+                                AND A.COMPANY = B.COMPANY  
+                                AND A.DOCU_NO = B.DOCU_NO  
+                                AND A.CUR_ORDER_NO = B.ORDER_NO
+                                AND A.COMPANY = C.COM_CODE
+                                AND A.DOCU_NO = C.TARGET  
+                                AND TO_CHAR(A.START_DATE,'YYYYMMDD') BETWEEN #{st_from_date} AND #{st_to_date}
+                                <if test="st_status1 != '' and st_status1 != null">
+                                AND D.PASS_TP = #{st_status1}     
+                                </if>                
+							  <if test="st_gubun != '' and st_gubun != null">                                                  
+                               AND A.EXTIF_TP = #{st_gubun}
+                               </if>
+                               <if test='st_buyer_list != null and st_buyer_list != ""'>
+                               		AND A.COMPANY = #{st_buyer_list}  
+                               </if>
+                               <if test="st_keyword != null and st_keyword != ''">
+	                               <choose>
+										<when test='st_keyword_type == "ALL"'>
+											AND (UPPER(A.DOCU_TITLE) LIKE UPPER('%'||#{st_keyword}||'%') 
+											OR UPPER(A.DOCU_CONT) LIKE UPPER('%'||#{st_keyword}||'%') 
+											OR UPPER(A.USER_NM) LIKE UPPER('%'||#{st_keyword}||'%') 
+											OR UPPER(A.USER_ID) LIKE UPPER('%'||#{st_keyword}||'%'))
+										</when>
+										<when test='st_keyword_type == "SUBJECT"'>
+											AND UPPER(A.DOCU_TITLE) LIKE UPPER('%'||#{st_keyword}||'%') 
+										</when>
+										<when test='st_keyword_type == "NAME"'>
+											AND UPPER(A.USER_NM) LIKE UPPER('%'||#{st_keyword}||'%') 
+										</when>
+										<when test='st_keyword_type == "ID"'>
+											AND UPPER(A.USER_ID) LIKE UPPER('%'||#{st_keyword}||'%') 
+										</when>
+										<when test='st_keyword_type == "CONT"'>
+											AND UPPER(A.DOCU_CONT) LIKE UPPER('%'||#{st_keyword}||'%') 
+										</when>
+								   </choose>
+							   </if>
+                                
+                          ORDER BY START_DATE DESC  
+                         ) X 
+                         WHERE 1=1
+                         <if test="st_status != '' and st_status != null">
+							AND X.PASS_STATUS = #{st_status}
+                         </if>
+                         )Y
+   <include refid="common.ibsheet.xml.pageend"/>                     
+</select>					
+					
+					
+					
+					
+					
+	<select id="buyerNewPassSendList" parameterType="java.util.Map" resultType="java.util.Map">
+	/*commonApproval.buyerNewPassSendList*/
+           SELECT  
+                       	<if test="paging == 'cnt'"> 
+		              	count(1) TOTAL_CNT 
+						</if>
+						<if test="paging == 'nocnt'"> 
+				 DISTINCT
+                 0 No, --[00]
+                 Y.COMPANY,           --[01]
+                 Y.DOCU_NO,           --[02]
+                 Y.DOCU_TITLE,        --[03]
+                 Y.ATTACH_CNT,        --[04]
+                 Y.PASS_STATUS,       --[05]
+                 Y.START_DATE,        --[06]
+                 Y.NEXT_USER_NM,      --[07]
+                 Y.DOCU_KN,           --[08]
+                 Y.ADD_USER_ID,       --[09]
+                 Y.PASS_TP,           --[10]
+                 Y.PASS_KN,           --[11]
+                 Y.USER_NM,           --[12]
+                 Y.PASS_STATUS_CODE,  --[13]
+                 Y.EXTIF_TP_TEXT,     --[14]
+                 Y.EXTIF_TP           --[15]
+            FROM (  
+                   SELECT  
+                          ROWNUM NUM,  
+                          X.COMPANY,  
+                          X.DOCU_NO,  
+                          X.DOCU_TITLE,  
+                          X.ATTACH_CNT,  
+                          X.PASS_STATUS,  
+                          X.START_DATE,  
+                          X.NEXT_USER_NM,  
+                          X.DOCU_KN,  
+                          X.ADD_USER_ID,  
+                          X.PASS_TP,  
+                          X.PASS_KN,  
+                          X.USER_NM,  
+                          X.PASS_STATUS_CODE,  
+                          X.EXTIF_TP_TEXT,  
+                          X.EXTIF_TP  
+                     FROM(  
+                           SELECT  
+                                  A.COMPANY,  
+                                  A.DOCU_NO,  
+                                  A.DOCU_TITLE,  
+                                  A.ATTACH_CNT,  
+                                  DECODE(A.PASS_STATUS,'0','결재진행중',  
+                                                       '1','반려',  
+                                                       '2','참조진행중',  
+                                                       '3','결재완료',  
+                                                       '4','상신취소',  
+                                                       ' ' ) PASS_STATUS,  
+                                  TO_CHAR(A.START_DATE, 'YYYY/MM/DD HH24:MI:SS' ) START_DATE,  
+                                  (SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = B.USER_ID) NEXT_USER_NM,  
+                                  A.DOCU_KN,  
+                                  A.USER_ID ADD_USER_ID,  
+                                  '1' PASS_TP,  
+                                  '1' PASS_KN,  
+                                  A.USER_NM USER_NM,  
+                                  A.PASS_STATUS AS PASS_STATUS_CODE,  
+                                   (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'APPR' AND CODE = A.EXTIF_TP)  AS EXTIF_TP_TEXT,  
+                                  A.EXTIF_TP AS EXTIF_TP  
+                                  	</if>
+                            FROM  ICOGDOCU A, ICOGPASSLN B, ICOGPASSLN C  
+                           WHERE A.USER_ID =#{USERID}
+                             AND A.COMPANY = #{BUYER}
+                             AND C.USER_ID = A.USER_ID  
+                             AND C.COMPANY = A.COMPANY  
+                             AND C.DOCU_NO = A.DOCU_NO  
+                             AND C.DISPLAY_YN = 'Y'  
+                             AND B.COMPANY = A.COMPANY  
+                             AND B.DOCU_NO = A.DOCU_NO  
+                             AND A.CUR_ORDER_NO = B.ORDER_NO  
+                             AND TO_CHAR(START_DATE,'YYYYMMDD') BETWEEN replace(#{startDate},'/','') AND replace(#{endDate},'/','')
+                        	  <if test="st_gubun != ''">  
+                            AND A.EXTIF_TP = #{st_gubun}
+                            </if>
+                           	<if test="st_status != 'ALL'">                              
+                            AND A.PASS_STATUS = #{st_status}                
+                            </if>        
+                            AND A.DOCU_TITLE LIKE  '%'||#{st_subject}||'%'  
+                          ORDER BY A.START_DATE DESC  
+                          <if test="paging == 'nocnt'"> 
+                      ) X )Y                        
+             WHERE Y.NUM BETWEEN #{startrow} AND #{endrow}		
+                      ORDER BY Y.START_DATE DESC   
+              </if>        
+</select> 
+
+ 
+<select id="buyerCommonPassStatusPop" parameterType="java.util.Map" resultType="java.util.Map">
+/*commonApproval.buyerCommonPassStatusPop*/
+ SELECT 
+		A.COMPANY
+		,A.DOCU_NO
+		,A.ORDER_NO
+		,A.USER_ID
+		,(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = A.USER_ID)  USER_NM
+		,DECODE(A.PASS_TP,0,'기안',1,'결재',2,'참조','3','합의') PASS_TP
+		,TO_CHAR(A.PASS_DATE,'YYYY/MM/DD HH24:MI:SS') PASS_DATE
+		,DECODE(A.PASS_KN,'','',3,'',4,'',9,'',TO_CHAR(A.REFER_DATE,'YYYY/MM/DD HH24:MI:SS')) REFER_DATE
+		,DECODE(A.PASS_TP, '2', '참조', DECODE(A.PASS_KN,'','미결재',0,'기안',1,'결재',2,'참조',3,'반려',4,'상신취소',9,'임시저장'))  PASS_KN
+		,A.DISPLAY_YN
+		,A.PASS_ADD
+	FROM ICOGPASSLN A
+	WHERE 
+		A.COMPANY =  #{COMPANY}           
+		AND A.DOCU_NO =   #{DOCU_NO}           
+	ORDER BY A.ORDER_NO   
+</select> 
+
+<select id="buyerCommonPassStatusPop_v2" parameterType="java.util.Map" resultType="java.util.Map">
+/*commonApproval.buyerCommonPassStatusPop_v2*/
+ SELECT 
+		A.COMPANY
+		,A.DOCU_NO
+		,A.ORDER_NO
+		,A.USER_ID
+		,(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = A.USER_ID)  USER_NM
+		,(SELECT TEXT1 FROM ICOMCOD2 WHERE TYPE = 'C001' AND COMPANY_CODE = #{COMPANY} AND CODE = (SELECT DEPARTMENT FROM ICOMLUSR WHERE USER_ID = A.USER_ID)) AS USER_DEPT
+		,(SELECT TEXT1 FROM ICOMCOD2 WHERE TYPE = 'C003' AND COMPANY_CODE = #{COMPANY} AND CODE = (SELECT POSITION FROM ICOMLUSR WHERE USER_ID = A.USER_ID)) AS USER_POS
+		,A.PASS_TP
+		,DECODE(A.PASS_TP,0,'기안',1,'결재',2,'참조','3','합의') PASS_TP_TEXT
+		,TO_CHAR(A.PASS_DATE,'YYYY-MM-DD HH24:MI') PASS_DATE
+		,DECODE(A.PASS_KN,4,'',9,'',TO_CHAR(A.REFER_DATE,'YYYY-MM-DD HH24:MI')) REFER_DATE
+		,DECODE(A.PASS_KN,'',DECODE(A.PASS_TP,1,'결재대기',3,'결재대기',''),0,'상신완료',1,'결재완료',2,'참조',3,'결재반려',4,'상신취소',9,'임시저장')  PASS_KN
+		,A.DISPLAY_YN
+		,A.PASS_ADD
+		,B.CUR_ORDER_NO
+		,B.USER_ID AS DOCU_USER_ID
+	FROM ICOGPASSLN A , ICOGDOCU B
+	WHERE 
+		A.COMPANY =  #{COMPANY}           
+		AND A.DOCU_NO =   #{DOCU_NO}
+		AND A.COMPANY = B.COMPANY
+		AND A.DOCU_NO = B.DOCU_NO           
+	ORDER BY A.ORDER_NO   
+</select>
+ 
+<select id="buyerCommonDeptStatusPop" parameterType="java.util.Map" resultType="java.util.Map">
+/*commonApproval.buyerCommonDeptStatusPop*/
+SELECT MAX(  
+			  (SELECT TEXT2   
+			  FROM ICOMCOD2   
+			  WHERE COMPANY_CODE = PRDT.BUYER 
+			  AND TYPE           = 'C001'    
+			  AND CODE           = PRDT.CHANGE_USER_DEPT  
+			  ))                                                                                                                                                           AS COMPANY_CODE_TEXT ,  --[0]
+			  GRDT.BUYER_ITEM_NO                                                                                                                                           AS BUYER_ITEM_NO ,    --[1]
+			  RTRIM(TO_CHAR(SUM(GRDT.ITEM_QTY),'FM999,999,990.999'),'.')                                                                                                   AS YYYY_QTY ,    --[2]
+			  RTRIM(TO_CHAR(SUM(GRDT.ITEM_AMT),'FM999,999,999,990.999'),'.')                                                                                               AS YYYY_AMT ,    --[3]
+			  RTRIM(TO_CHAR(SUM(DECODE(SUBSTR(GRDT.GR_DATE,1,6),TO_CHAR(TRUNC(LAST_DAY(ADD_MONTHS(SYSDATE,-00))),'YYYYMM'),GRDT.ITEM_QTY,0)),'FM999,999,990.999'),'.')     AS YY01_QTY , --[4]
+			  RTRIM(TO_CHAR(SUM(DECODE(SUBSTR(GRDT.GR_DATE,1,6),TO_CHAR(TRUNC(LAST_DAY(ADD_MONTHS(SYSDATE,-00))),'YYYYMM'),GRDT.ITEM_AMT,0)),'FM999,999,999,990.999'),'.') AS YY01_AMT , --[5] 
+			  RTRIM(TO_CHAR(SUM(DECODE(SUBSTR(GRDT.GR_DATE,1,6),TO_CHAR(TRUNC(LAST_DAY(ADD_MONTHS(SYSDATE,-01))),'YYYYMM'),GRDT.ITEM_QTY,0)),'FM999,999,990.999'),'.')     AS YY02_QTY , --[6] 
+			  RTRIM(TO_CHAR(SUM(DECODE(SUBSTR(GRDT.GR_DATE,1,6),TO_CHAR(TRUNC(LAST_DAY(ADD_MONTHS(SYSDATE,-01))),'YYYYMM'),GRDT.ITEM_AMT,0)),'FM999,999,999,990.999'),'.') AS YY02_AMT , --[7]
+			  RTRIM(TO_CHAR(SUM(DECODE(SUBSTR(GRDT.GR_DATE,1,6),TO_CHAR(TRUNC(LAST_DAY(ADD_MONTHS(SYSDATE,-02))),'YYYYMM'),GRDT.ITEM_QTY,0)),'FM999,999,990.999'),'.')     AS YY03_QTY , --[8]
+			  RTRIM(TO_CHAR(SUM(DECODE(SUBSTR(GRDT.GR_DATE,1,6),TO_CHAR(TRUNC(LAST_DAY(ADD_MONTHS(SYSDATE,-02))),'YYYYMM'),GRDT.ITEM_AMT,0)),'FM999,999,999,990.999'),'.') AS YY03_AMT ,  --[9]
+			  RTRIM(TO_CHAR(SUM(DECODE(SUBSTR(GRDT.GR_DATE,1,6),TO_CHAR(TRUNC(LAST_DAY(ADD_MONTHS(SYSDATE,-03))),'YYYYMM'),GRDT.ITEM_QTY,0)),'FM999,999,990.999'),'.')     AS YY04_QTY ,  --[10]
+			  RTRIM(TO_CHAR(SUM(DECODE(SUBSTR(GRDT.GR_DATE,1,6),TO_CHAR(TRUNC(LAST_DAY(ADD_MONTHS(SYSDATE,-03))),'YYYYMM'),GRDT.ITEM_AMT,0)),'FM999,999,999,990.999'),'.') AS YY04_AMT ,   --[11]
+			  RTRIM(TO_CHAR(SUM(DECODE(SUBSTR(GRDT.GR_DATE,1,6),TO_CHAR(TRUNC(LAST_DAY(ADD_MONTHS(SYSDATE,-04))),'YYYYMM'),GRDT.ITEM_QTY,0)),'FM999,999,990.999'),'.')     AS YY05_QTY ,   --[12]
+			  RTRIM(TO_CHAR(SUM(DECODE(SUBSTR(GRDT.GR_DATE,1,6),TO_CHAR(TRUNC(LAST_DAY(ADD_MONTHS(SYSDATE,-04))),'YYYYMM'),GRDT.ITEM_AMT,0)),'FM999,999,999,990.999'),'.') AS YY05_AMT ,    --[13]
+			  RTRIM(TO_CHAR(SUM(DECODE(SUBSTR(GRDT.GR_DATE,1,6),TO_CHAR(TRUNC(LAST_DAY(ADD_MONTHS(SYSDATE,-05))),'YYYYMM'),GRDT.ITEM_QTY,0)),'FM999,999,990.999'),'.')     AS YY06_QTY ,    --[14]
+			  RTRIM(TO_CHAR(SUM(DECODE(SUBSTR(GRDT.GR_DATE,1,6),TO_CHAR(TRUNC(LAST_DAY(ADD_MONTHS(SYSDATE,-05))),'YYYYMM'),GRDT.ITEM_AMT,0)),'FM999,999,999,990.999'),'.') AS YY06_AMT ,     --[15]
+			  RTRIM(TO_CHAR(SUM(DECODE(SUBSTR(GRDT.GR_DATE,1,6),TO_CHAR(TRUNC(LAST_DAY(ADD_MONTHS(SYSDATE,-06))),'YYYYMM'),GRDT.ITEM_QTY,0)),'FM999,999,990.999'),'.')     AS YY07_QTY , 	--[16]
+			  RTRIM(TO_CHAR(SUM(DECODE(SUBSTR(GRDT.GR_DATE,1,6),TO_CHAR(TRUNC(LAST_DAY(ADD_MONTHS(SYSDATE,-06))),'YYYYMM'),GRDT.ITEM_AMT,0)),'FM999,999,999,990.999'),'.') AS YY07_AMT , 	--[17]
+			  RTRIM(TO_CHAR(SUM(DECODE(SUBSTR(GRDT.GR_DATE,1,6),TO_CHAR(TRUNC(LAST_DAY(ADD_MONTHS(SYSDATE,-07))),'YYYYMM'),GRDT.ITEM_QTY,0)),'FM999,999,990.999'),'.')     AS YY08_QTY , 	--[18]
+			  RTRIM(TO_CHAR(SUM(DECODE(SUBSTR(GRDT.GR_DATE,1,6),TO_CHAR(TRUNC(LAST_DAY(ADD_MONTHS(SYSDATE,-07))),'YYYYMM'),GRDT.ITEM_AMT,0)),'FM999,999,999,990.999'),'.') AS YY08_AMT , 	--[19]
+			  RTRIM(TO_CHAR(SUM(DECODE(SUBSTR(GRDT.GR_DATE,1,6),TO_CHAR(TRUNC(LAST_DAY(ADD_MONTHS(SYSDATE,-08))),'YYYYMM'),GRDT.ITEM_QTY,0)),'FM999,999,990.999'),'.')     AS YY09_QTY , 	--[20]
+			  RTRIM(TO_CHAR(SUM(DECODE(SUBSTR(GRDT.GR_DATE,1,6),TO_CHAR(TRUNC(LAST_DAY(ADD_MONTHS(SYSDATE,-08))),'YYYYMM'),GRDT.ITEM_AMT,0)),'FM999,999,999,990.999'),'.') AS YY09_AMT , 	--[21]
+			  RTRIM(TO_CHAR(SUM(DECODE(SUBSTR(GRDT.GR_DATE,1,6),TO_CHAR(TRUNC(LAST_DAY(ADD_MONTHS(SYSDATE,-09))),'YYYYMM'),GRDT.ITEM_QTY,0)),'FM999,999,990.999'),'.')     AS YY10_QTY , 	--[22]
+			  RTRIM(TO_CHAR(SUM(DECODE(SUBSTR(GRDT.GR_DATE,1,6),TO_CHAR(TRUNC(LAST_DAY(ADD_MONTHS(SYSDATE,-09))),'YYYYMM'),GRDT.ITEM_AMT,0)),'FM999,999,999,990.999'),'.') AS YY10_AMT , 	--[23]
+			  RTRIM(TO_CHAR(SUM(DECODE(SUBSTR(GRDT.GR_DATE,1,6),TO_CHAR(TRUNC(LAST_DAY(ADD_MONTHS(SYSDATE,-10))),'YYYYMM'),GRDT.ITEM_QTY,0)),'FM999,999,990.999'),'.')     AS YY11_QTY , 	--[24]
+			  RTRIM(TO_CHAR(SUM(DECODE(SUBSTR(GRDT.GR_DATE,1,6),TO_CHAR(TRUNC(LAST_DAY(ADD_MONTHS(SYSDATE,-10))),'YYYYMM'),GRDT.ITEM_AMT,0)),'FM999,999,999,990.999'),'.') AS YY11_AMT , 	--[25]
+			  RTRIM(TO_CHAR(SUM(DECODE(SUBSTR(GRDT.GR_DATE,1,6),TO_CHAR(TRUNC(LAST_DAY(ADD_MONTHS(SYSDATE,-11))),'YYYYMM'),GRDT.ITEM_QTY,0)),'FM999,999,990.999'),'.')     AS YY12_QTY , 	--[26]
+			  RTRIM(TO_CHAR(SUM(DECODE(SUBSTR(GRDT.GR_DATE,1,6),TO_CHAR(TRUNC(LAST_DAY(ADD_MONTHS(SYSDATE,-11))),'YYYYMM'),GRDT.ITEM_AMT,0)),'FM999,999,999,990.999'),'.') AS YY12_AMT , 	--[27]
+			  PRDT.CHANGE_USER_DEPT                                                                                                                                        AS DEPT ,  --[28]
+			  MAX(GRDT.DESCRIPTION)                                                                                                                                        AS DESCRIPTION ,  --[29]
+			  MAX(GRDT.SPECIFICATION)                                                                                                                                      AS SPECIFICATION, 	--[30]
+			 (SELECT MAX(CATEGORY_TEXT) FROM ICOMBYIT WHERE BUYER = GRDT.BUYER AND BUYER_ITEM_NO = GRDT.BUYER_ITEM_NO) AS CATEG_NAME,  	--[31]
+			 GRDT.DESCRIPTION||CHR(10)||GRDT.SPECIFICATION  AS  SPECIFICATION	--[32]
+FROM ICOMGRDT GRDT, 
+  ICOMPODT PODT, 
+  ICOMPRDT PRDT 
+WHERE GRDT.GR_DATE BETWEEN TO_CHAR(TRUNC(LAST_DAY(ADD_MONTHS(SYSDATE,-11))),'YYYYMM') 
+  ||'01' 
+AND TO_CHAR(LAST_DAY(SYSDATE),'YYYYMMDD') 
+AND GRDT.BUYER = #{BUYER}
+AND GRDT.STATUS ^= 'D' 
+AND GRDT.BUYER   = PODT.BUYER 
+AND GRDT.PO_NO   = PODT.PO_NO 
+AND GRDT.PO_SEQ  = PODT.PO_SEQ 
+AND PODT.STATUS ^= 'D' 
+AND PODT.BUYER   = PRDT.BUYER 
+AND PODT.PR_NO   = PRDT.PR_NO 
+AND PODT.PR_SEQ  = PRDT.PR_SEQ 
+AND PRDT.STATUS ^= 'D' 
+
+AND DECODE( 
+ #{REVISION},'1',PRDT.CHANGE_USER_DEPT,GRDT.BUYER_ITEM_NO) = DECODE( 
+ #{REVISION},'1', 
+ #{USERDEPT}, 
+ #{BUYER_ITEM_NO}) 
+GROUP BY GRDT.BUYER , 
+  PRDT.CHANGE_USER_DEPT , 
+  GRDT.DESCRIPTION , 
+  GRDT.SPECIFICATION , 
+  GRDT.BUYER_ITEM_NO  
+ORDER BY CATEG_NAME   
+</select> 
+
+
+<select id="buyerCommonItemStatusPop" parameterType="java.util.Map" resultType="java.util.Map">
+/*commonApproval.buyerCommonItemStatusPop*/
+ SELECT MAX(   
+  (SELECT TEXT2    
+  FROM ICOMCOD2    
+  WHERE COMPANY_CODE = PRDT.BUYER  
+  AND TYPE           = 'C001'     
+  AND CODE           = PRDT.CHANGE_USER_DEPT   
+  ))                                                                                                                                                           AS COMPANY_CODE_TEXT ,   --[0]
+  GRDT.BUYER_ITEM_NO                                                                                                                                           AS BUYER_ITEM_NO ,     --[1]
+  RTRIM(TO_CHAR(SUM(GRDT.ITEM_QTY),'FM999,999,990.999'),'.')                                                                                                   AS YYYY_QTY ,     --[2]
+  RTRIM(TO_CHAR(SUM(GRDT.ITEM_AMT),'FM999,999,999,990.999'),'.')                                                                                               AS YYYY_AMT ,     --[3]
+  RTRIM(TO_CHAR(SUM(DECODE(SUBSTR(GRDT.GR_DATE,1,6),TO_CHAR(TRUNC(LAST_DAY(ADD_MONTHS(SYSDATE,-00))),'YYYYMM'),GRDT.ITEM_QTY,0)),'FM999,999,990.999'),'.')     AS YY01_QTY ,  --[4]
+  RTRIM(TO_CHAR(SUM(DECODE(SUBSTR(GRDT.GR_DATE,1,6),TO_CHAR(TRUNC(LAST_DAY(ADD_MONTHS(SYSDATE,-00))),'YYYYMM'),GRDT.ITEM_AMT,0)),'FM999,999,999,990.999'),'.') AS YY01_AMT ,  --[5] 
+  RTRIM(TO_CHAR(SUM(DECODE(SUBSTR(GRDT.GR_DATE,1,6),TO_CHAR(TRUNC(LAST_DAY(ADD_MONTHS(SYSDATE,-01))),'YYYYMM'),GRDT.ITEM_QTY,0)),'FM999,999,990.999'),'.')     AS YY02_QTY ,  --[6] 
+  RTRIM(TO_CHAR(SUM(DECODE(SUBSTR(GRDT.GR_DATE,1,6),TO_CHAR(TRUNC(LAST_DAY(ADD_MONTHS(SYSDATE,-01))),'YYYYMM'),GRDT.ITEM_AMT,0)),'FM999,999,999,990.999'),'.') AS YY02_AMT ,  --[7]
+  RTRIM(TO_CHAR(SUM(DECODE(SUBSTR(GRDT.GR_DATE,1,6),TO_CHAR(TRUNC(LAST_DAY(ADD_MONTHS(SYSDATE,-02))),'YYYYMM'),GRDT.ITEM_QTY,0)),'FM999,999,990.999'),'.')     AS YY03_QTY ,  --[8]
+  RTRIM(TO_CHAR(SUM(DECODE(SUBSTR(GRDT.GR_DATE,1,6),TO_CHAR(TRUNC(LAST_DAY(ADD_MONTHS(SYSDATE,-02))),'YYYYMM'),GRDT.ITEM_AMT,0)),'FM999,999,999,990.999'),'.') AS YY03_AMT ,   --[9]
+  RTRIM(TO_CHAR(SUM(DECODE(SUBSTR(GRDT.GR_DATE,1,6),TO_CHAR(TRUNC(LAST_DAY(ADD_MONTHS(SYSDATE,-03))),'YYYYMM'),GRDT.ITEM_QTY,0)),'FM999,999,990.999'),'.')     AS YY04_QTY ,   --[10]
+  RTRIM(TO_CHAR(SUM(DECODE(SUBSTR(GRDT.GR_DATE,1,6),TO_CHAR(TRUNC(LAST_DAY(ADD_MONTHS(SYSDATE,-03))),'YYYYMM'),GRDT.ITEM_AMT,0)),'FM999,999,999,990.999'),'.') AS YY04_AMT ,    --[11]
+  RTRIM(TO_CHAR(SUM(DECODE(SUBSTR(GRDT.GR_DATE,1,6),TO_CHAR(TRUNC(LAST_DAY(ADD_MONTHS(SYSDATE,-04))),'YYYYMM'),GRDT.ITEM_QTY,0)),'FM999,999,990.999'),'.')     AS YY05_QTY ,    --[12]
+  RTRIM(TO_CHAR(SUM(DECODE(SUBSTR(GRDT.GR_DATE,1,6),TO_CHAR(TRUNC(LAST_DAY(ADD_MONTHS(SYSDATE,-04))),'YYYYMM'),GRDT.ITEM_AMT,0)),'FM999,999,999,990.999'),'.') AS YY05_AMT ,     --[13]
+  RTRIM(TO_CHAR(SUM(DECODE(SUBSTR(GRDT.GR_DATE,1,6),TO_CHAR(TRUNC(LAST_DAY(ADD_MONTHS(SYSDATE,-05))),'YYYYMM'),GRDT.ITEM_QTY,0)),'FM999,999,990.999'),'.')     AS YY06_QTY ,     --[14]
+  RTRIM(TO_CHAR(SUM(DECODE(SUBSTR(GRDT.GR_DATE,1,6),TO_CHAR(TRUNC(LAST_DAY(ADD_MONTHS(SYSDATE,-05))),'YYYYMM'),GRDT.ITEM_AMT,0)),'FM999,999,999,990.999'),'.') AS YY06_AMT ,      --[15]
+  RTRIM(TO_CHAR(SUM(DECODE(SUBSTR(GRDT.GR_DATE,1,6),TO_CHAR(TRUNC(LAST_DAY(ADD_MONTHS(SYSDATE,-06))),'YYYYMM'),GRDT.ITEM_QTY,0)),'FM999,999,990.999'),'.')     AS YY07_QTY , 	--[16]
+  RTRIM(TO_CHAR(SUM(DECODE(SUBSTR(GRDT.GR_DATE,1,6),TO_CHAR(TRUNC(LAST_DAY(ADD_MONTHS(SYSDATE,-06))),'YYYYMM'),GRDT.ITEM_AMT,0)),'FM999,999,999,990.999'),'.') AS YY07_AMT , 	--[17]
+  RTRIM(TO_CHAR(SUM(DECODE(SUBSTR(GRDT.GR_DATE,1,6),TO_CHAR(TRUNC(LAST_DAY(ADD_MONTHS(SYSDATE,-07))),'YYYYMM'),GRDT.ITEM_QTY,0)),'FM999,999,990.999'),'.')     AS YY08_QTY , 	--[18]
+  RTRIM(TO_CHAR(SUM(DECODE(SUBSTR(GRDT.GR_DATE,1,6),TO_CHAR(TRUNC(LAST_DAY(ADD_MONTHS(SYSDATE,-07))),'YYYYMM'),GRDT.ITEM_AMT,0)),'FM999,999,999,990.999'),'.') AS YY08_AMT , 	--[19]
+  RTRIM(TO_CHAR(SUM(DECODE(SUBSTR(GRDT.GR_DATE,1,6),TO_CHAR(TRUNC(LAST_DAY(ADD_MONTHS(SYSDATE,-08))),'YYYYMM'),GRDT.ITEM_QTY,0)),'FM999,999,990.999'),'.')     AS YY09_QTY , 	--[20]
+  RTRIM(TO_CHAR(SUM(DECODE(SUBSTR(GRDT.GR_DATE,1,6),TO_CHAR(TRUNC(LAST_DAY(ADD_MONTHS(SYSDATE,-08))),'YYYYMM'),GRDT.ITEM_AMT,0)),'FM999,999,999,990.999'),'.') AS YY09_AMT , 	--[21]
+  RTRIM(TO_CHAR(SUM(DECODE(SUBSTR(GRDT.GR_DATE,1,6),TO_CHAR(TRUNC(LAST_DAY(ADD_MONTHS(SYSDATE,-09))),'YYYYMM'),GRDT.ITEM_QTY,0)),'FM999,999,990.999'),'.')     AS YY10_QTY , 	--[22]
+  RTRIM(TO_CHAR(SUM(DECODE(SUBSTR(GRDT.GR_DATE,1,6),TO_CHAR(TRUNC(LAST_DAY(ADD_MONTHS(SYSDATE,-09))),'YYYYMM'),GRDT.ITEM_AMT,0)),'FM999,999,999,990.999'),'.') AS YY10_AMT , 	--[23]
+  RTRIM(TO_CHAR(SUM(DECODE(SUBSTR(GRDT.GR_DATE,1,6),TO_CHAR(TRUNC(LAST_DAY(ADD_MONTHS(SYSDATE,-10))),'YYYYMM'),GRDT.ITEM_QTY,0)),'FM999,999,990.999'),'.')     AS YY11_QTY , 	--[24]
+  RTRIM(TO_CHAR(SUM(DECODE(SUBSTR(GRDT.GR_DATE,1,6),TO_CHAR(TRUNC(LAST_DAY(ADD_MONTHS(SYSDATE,-10))),'YYYYMM'),GRDT.ITEM_AMT,0)),'FM999,999,999,990.999'),'.') AS YY11_AMT , 	--[25]
+  RTRIM(TO_CHAR(SUM(DECODE(SUBSTR(GRDT.GR_DATE,1,6),TO_CHAR(TRUNC(LAST_DAY(ADD_MONTHS(SYSDATE,-11))),'YYYYMM'),GRDT.ITEM_QTY,0)),'FM999,999,990.999'),'.')     AS YY12_QTY , 	--[26]
+  RTRIM(TO_CHAR(SUM(DECODE(SUBSTR(GRDT.GR_DATE,1,6),TO_CHAR(TRUNC(LAST_DAY(ADD_MONTHS(SYSDATE,-11))),'YYYYMM'),GRDT.ITEM_AMT,0)),'FM999,999,999,990.999'),'.') AS YY12_AMT , 	--[27]
+  PRDT.CHANGE_USER_DEPT                                                                                                                                        AS DEPT ,   --[28]
+  MAX(GRDT.DESCRIPTION)                                                                                                                                        AS DESCRIPTION ,   --[29]
+  MAX(GRDT.SPECIFICATION)                                                                                                                                      AS SPECIFICATION 	--[30]
+FROM ICOMGRDT GRDT, 
+  ICOMPODT PODT, 
+  ICOMPRDT PRDT 
+WHERE GRDT.GR_DATE BETWEEN TO_CHAR(TRUNC(LAST_DAY(ADD_MONTHS(SYSDATE,-11))),'YYYYMM') 
+  ||'01' 
+AND TO_CHAR(LAST_DAY(SYSDATE),'YYYYMMDD') 
+AND GRDT.BUYER = #{BUYER}
+AND GRDT.STATUS ^= 'D' 
+AND GRDT.BUYER   = PODT.BUYER 
+AND GRDT.PO_NO   = PODT.PO_NO 
+AND GRDT.PO_SEQ  = PODT.PO_SEQ 
+AND PODT.STATUS ^= 'D' 
+AND PODT.BUYER   = PRDT.BUYER 
+AND PODT.PR_NO   = PRDT.PR_NO 
+AND PODT.PR_SEQ  = PRDT.PR_SEQ 
+AND PRDT.STATUS ^= 'D' 
+AND DECODE( 
+ #{REVISION},'1',PRDT.CHANGE_USER_DEPT,GRDT.BUYER_ITEM_NO) = DECODE( 
+ #{REVISION},'1', 
+ #{USERDEPT}, 
+ #{BUYER_ITEM_NO}) 
+GROUP BY GRDT.BUYER , 
+  PRDT.CHANGE_USER_DEPT , 
+  GRDT.BUYER_ITEM_NO 
+</select> 
+
+
+<update id="modfiySetRefer1" parameterType="java.util.Map">
+	/*commonApproval.modfiySetRefer1*/
+	UPDATE	ICOGPASSLN
+	SET		REFER_DATE = SYSDATE,
+			PASS_DATE = SYSDATE,
+			PASS_KN = '2'
+	WHERE	1=1
+	AND		COMPANY = #{COMPANY}
+	AND		DOCU_NO = #{DOCU_NO}
+	AND		USER_ID IN (SELECT CODE1 FROM ICOMCOD3 WHERE TYPE = 'M-APPR' AND FLAG = 'Y' AND CODE2 = #{USER_ID} UNION SELECT #{USER_ID} FROM DUAL)
+	AND		ORDER_NO = (SELECT MIN(ORDER_NO) FROM ICOGPASSLN WHERE COMPANY = #{COMPANY} AND DOCU_NO = #{DOCU_NO} AND USER_ID IN (SELECT CODE1 FROM ICOMCOD3 WHERE TYPE = 'M-APPR' AND FLAG = 'Y' AND CODE2 = #{USER_ID} UNION SELECT #{USER_ID} FROM DUAL) AND REFER_DATE IS NULL)
+</update>           
+
+<update id="modfiySetRefer2" parameterType="java.util.Map">
+	/*commonApproval.modfiySetRefer2*/
+	UPDATE	ICOGPASSLN
+	SET		REFER_DATE = SYSDATE 
+	WHERE	1=1
+	AND		COMPANY = #{COMPANY}
+	AND		DOCU_NO = #{DOCU_NO}
+	AND		USER_ID IN (SELECT CODE1 FROM ICOMCOD3 WHERE TYPE = 'M-APPR' AND FLAG = 'Y' AND CODE2 = #{USER_ID} UNION SELECT #{USER_ID} FROM DUAL)
+	AND		ORDER_NO = (SELECT MIN(ORDER_NO) FROM ICOGPASSLN WHERE COMPANY = #{COMPANY} AND DOCU_NO = #{DOCU_NO} AND USER_ID IN (SELECT CODE1 FROM ICOMCOD3 WHERE TYPE = 'M-APPR' AND FLAG = 'Y' AND CODE2 = #{USER_ID} UNION SELECT #{USER_ID} FROM DUAL) AND REFER_DATE IS NULL)
+</update>                              
+
+<select id="getBuyerCommonMyPage1" parameterType="java.util.Map" resultType="java.util.Map">
+  /*commonApproval.getBuyerCommonMyPage1*/
+  SELECT KEY_1||DECODE(TRIM(KEY_2),'','',('~'||KEY_2))||DECODE(TRIM(KEY_3),'','',('~'||KEY_3))||DECODE(TRIM(KEY_4),'','',('~'||KEY_4))
+         ||DECODE(TRIM(KEY_5),'','',('~'||KEY_5))||DECODE(TRIM(KEY_6),'','',('~'||KEY_6))||DECODE(TRIM(KEY_7),'','',('~'||KEY_7))
+         ||DECODE(TRIM(KEY_8),'','',('~'||KEY_8))||DECODE(TRIM(KEY_9),'','',('~'||KEY_9))||DECODE(TRIM(KEY_10),'','',('~'||KEY_10))
+         TEXT,
+         KEY_1,
+         KEY_2,
+         KEY_3,
+         KEY_4,
+         KEY_5,
+         KEY_6,
+         KEY_7,
+         KEY_8,
+         KEY_9,
+         KEY_10
+         FROM ICOMTRGW
+         WHERE COM_CODE =  #{COMPANY} AND TARGET =  #{DOCU_NO}  
+</select>         
+
+<select id="getIcomTrgwList" parameterType="java.util.Map" resultType="java.util.Map">
+  /*commonApproval.getIcomTrgwList*/
+  SELECT
+		 COM_CODE,
+		 DOC_NAME,
+		 TARGET,
+         KEY_1,
+         KEY_2,
+         KEY_3,
+         KEY_4,
+         KEY_5,
+         KEY_6,
+         KEY_7,
+         KEY_8,
+         KEY_9,
+         KEY_10
+         FROM ICOMTRGW
+         WHERE COM_CODE =  #{COMPANY} AND DOC_NAME IS NOT NULL AND TARGET =  #{DOCU_NO}  
+</select>         
+
+
+
+<select id="getBuyerCommonMyPage2" parameterType="java.util.Map" resultType="java.util.Map">
+	/*commonApproval.getBuyerCommonMyPage2*/
+	SELECT	X.USER_ID,
+			X.START_DATE,
+			X.DOCU_TITLE,
+			X.DOCU_CONT,
+			X.DOCU_KN,
+			X.DOCU_KN_NAME,
+			X.CUR_ORDER_NO,
+			X.PASS_STATUS,
+			DECODE(X.PASS_STATUS,'1','결재반려',  
+                                         '2','참조진행중', 
+                                         '3','결재완료',  
+                                         '4','상신취소',
+                                         '0',CASE
+                                                 WHEN X.APPROVAL_USER_ID IN (SELECT CODE1 FROM ICOMCOD3 WHERE TYPE = 'M-APPR' AND FLAG = 'Y' AND CODE2 = #{USER_ID}
+                                                                              UNION SELECT #{USER_ID} FROM DUAL) THEN '결재대기'
+                                                 WHEN X.CUR_ORDER_NO = 2 AND X.USER_ID = #{USER_ID} AND X.APPROVAL_REFER_DATE IS NULL THEN '상신완료'
+                                                 ELSE '결재진행중'
+                                              END,
+                                         ' ' ) PASS_STATUS_TEXT,
+			X.EXTIF_NO,
+			X.EXTIF_COUNT,
+			X.EXTIF_TP,
+			(SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'APPR' AND CODE = X.EXTIF_TP) AS EXTIF_TP_TEXT,
+			X.USER_NAME_LOC,
+			X.IMAGE_KEY,
+			(SELECT COUNT(*) FROM ICOMATCH WHERE DOC_NO = X.IMAGE_KEY) AS IMAGE_KEY_CNT,
+			X.IMAGE_KEY_FLAG,
+			X.TEXT2,
+			X.TEXT3,
+			X.TEXT4,
+			X.NEW_BIZ_URL,
+			X.APPROVAL_USER_ID,
+			DECODE((SELECT COUNT(*) FROM ICOMCOD3 WHERE TYPE = 'M-APPR' AND FLAG = 'Y' AND CODE2 = #{USER_ID} AND CODE1 = X.ORG_APPROVAL_USER_ID), 0, 'N', 'Y') AS APPROVAL_YN
+	FROM	(
+			SELECT	I.USER_ID,
+					TO_CHAR(I.START_DATE, 'YYYY/MM/DD HH24:MI:SS') START_DATE,
+					I.DOCU_TITLE,
+					I.DOCU_CONT,
+					I.DOCU_KN,
+					DECODE( I.DOCU_KN,'1','결재문서', I.DOCU_KN) AS DOCU_KN_NAME,
+					I.CUR_ORDER_NO,
+					I.PASS_STATUS,
+					NVL(I.EXTIF_NO,' ') AS EXTIF_NO,
+					NVL(I.EXTIF_COUNT, 0) AS EXTIF_COUNT,
+					NVL(I.EXTIF_TP,' ') AS EXTIF_TP,
+					L.USER_NAME_LOC,
+					IMAGE_KEY,
+					DECODE(IMAGE_KEY,'','BIDDING_SELECT.GIF','BIDDING_VIEW.GIF') AS IMAGE_KEY_FLAG,
+					CODE.TEXT2,
+					CODE.TEXT3,
+					CODE.TEXT4,
+					CODE.TEXT6 AS NEW_BIZ_URL,
+					DECODE((SELECT COUNT(*) FROM ICOMCOD3 WHERE TYPE = 'M-APPR' AND FLAG = 'Y' AND CODE2 = (SELECT USER_ID FROM ICOGPASSLN WHERE COMPANY = #{COMPANY} AND DOCU_NO = #{DOCU_NO} AND ORDER_NO = I.CUR_ORDER_NO AND PASS_KN IS NULL) AND CODE1 = #{USER_ID}), 0,
+						(SELECT USER_ID FROM ICOGPASSLN WHERE COMPANY = #{COMPANY} AND  DOCU_NO = #{DOCU_NO} AND ORDER_NO = I.CUR_ORDER_NO AND PASS_KN IS NULL), #{USER_ID}) AS APPROVAL_USER_ID,
+						(SELECT REFER_DATE FROM ICOGPASSLN WHERE COMPANY =  #{COMPANY} AND  DOCU_NO =  #{DOCU_NO} AND ORDER_NO = I.CUR_ORDER_NO AND PASS_KN IS NULL) AS APPROVAL_REFER_DATE,
+					(SELECT USER_ID FROM ICOGPASSLN WHERE COMPANY = #{COMPANY} AND  DOCU_NO = #{DOCU_NO} AND ORDER_NO = I.CUR_ORDER_NO AND PASS_KN IS NULL ) ORG_APPROVAL_USER_ID
+			FROM	ICOGDOCU I, ICOMLUSR L, (SELECT * FROM ICOMCOD1 WHERE TYPE = 'APPR') CODE
+          	WHERE	I.COMPANY = #{COMPANY}
+          	AND		I.DOCU_NO = #{DOCU_NO}
+          	AND		I.USER_ID = L.USER_ID
+          	AND		CODE.CODE = I.EXTIF_TP
+	) X
+</select>         
+
+<select id="getBuyerCommonMyPage3" parameterType="java.util.Map" resultType="java.util.Map">
+  /*commonApproval.getBuyerCommonMyPage3*/
+            SELECT                                                                              
+                 ORDER_NO - 1,                                                                   -- 1
+                 P.PASS_TP,                                                                      -- 2
+                 DECODE(PASS_TP,'1','결재문서', '2','참조문서', '3', '합의문서') PASS_TP_TEXT,                                               -- 3
+                 P.USER_ID,                                                                      -- 4
+                 L.USER_NAME_LOC ,                                                               -- 5
+                    (SELECT NVL(TEXT1,POSITION)                                                 
+                       FROM ICOMCOD2                                                            
+                      WHERE COMPANY_CODE = L.COM_CODE                                           
+                        AND TYPE='C003'                                                         
+                        AND CODE = L.POSITION) POSITION ,                                                 -- 6
+                    (SELECT NVL(TEXT1,DEPARTMENT)                                               
+                       FROM ICOMCOD2                                                            
+                      WHERE COMPANY_CODE = L.COM_CODE                                           
+                        AND TYPE='C001'                                                         
+                        AND CODE = L.DEPARTMENT)   DEPARTMENT ,
+                   TO_CHAR(P.ORDER_NO) AS ORDR_NO  ,
+                   TO_CHAR(NVL(P.PASS_KN, 'NO_APPR')) AS PSS_KN ,
+                   TO_CHAR(DOCU.CUR_ORDER_NO) AS CUR_ORDER_NO,
+                   DOCU.USER_ID AS DOCU_USER_ID
+                 FROM ICOGPASSLN P,ICOMLUSR L, ICOGDOCU DOCU                                                   
+                 WHERE P.COMPANY = #{COMPANY}  AND P.DOCU_NO = #{DOCU_NO} AND P.ORDER_NO > 1  
+                   AND P.USER_ID =l.USER_ID              
+                   AND P.COMPANY = DOCU.COMPANY
+                   AND P.DOCU_NO = DOCU.DOCU_NO                                       
+                ORDER BY P.ORDER_NO                 
+</select>         
+
+<select id="getBuyerCommonMyPage4" parameterType="java.util.Map" resultType="java.util.Map">
+  /*commonApproval.getBuyerCommonMyPage4*/
+  SELECT FILE_NM, SVRFILE_NM, FILE_SIZE FROM ICOGATTACH 
+         WHERE 
+         (COMPANY,DOCU_NO) IN (SELECT COMPANY,IMAGE_KEY FROM ICOGDOCU WHERE  COMPANY = #{COMPANY} AND DOCU_NO =#{DOCU_NO} )
+        
+          ORDER BY ATTACH_NO
+</select>         
+
+
+<select id="getAttachFileDataBaseSelect" parameterType="java.util.Map" resultType="java.util.Map">
+  /*commonApproval.getAttachFileDataBaseSelect*/
+            SELECT                                           
+                 TYPE           ,                     
+                 DES_FILE_NAME  ,                     
+                 SRC_FILE_NAME                           
+                 FROM ICOMATCH                             
+                 WHERE DOC_NO  IN (SELECT IMAGE_KEY FROM ICOGDOCU WHERE  COMPANY = #{COMPANY} AND DOCU_NO =#{DOCU_NO} )
+                 ORDER BY DOC_NO , DOC_SEQ         
+</select>         
+
+<select id="getPassAdd" parameterType="java.util.Map" resultType="java.util.Map">
+  /*commonApproval.getPassAdd*/
+        SELECT P.USER_ID, P.PASS_ADD,L.USER_NAME_LOC 
+          FROM ICOGPASSLN P,ICOMLUSR L 
+         WHERE P.COMPANY = #{COMPANY}  AND P.DOCU_NO = #{DOCU_NO}            
+           AND P.PASS_ADD IS NOT NULL 
+           AND P.USER_ID =l.USER_ID 
+           AND P.PASS_TP IN ('1', '3')
+         ORDER BY P.ORDER_NO   
+</select>         
+
+<select id="getBuyerCommonPrPxData" parameterType="java.util.Map" resultType="java.util.Map">
+  /*commonApproval.getBuyerCommonPrPxData*/
+        SELECT
+        	SUM(CASE WHEN A.RECV_FLAG IN ('GR','PR','RR') THEN TRUNC(NVL(A.TARGET_QTY,0) * NVL(A.TARGET_PRICE,0)) END) AS R_AMT
+            ,SUM(CASE WHEN A.RECV_FLAG NOT IN ('GR','PR','RR') THEN TRUNC(NVL(A.TARGET_QTY,0) * NVL(A.TARGET_PRICE,0)) END) AS PRICE
+        	,COUNT(*) AS CNT
+        FROM ICOMPRDT A
+        WHERE A.BUYER = #{COMPANY}
+        <if test="extif_tp == 'PR'">
+    	    AND A.PR_NO = #{key_1}
+    	    <if test="pass_status_text == '결재대기'">
+				AND A.RECV_FLAG NOT IN ('GR','PR','RR')
+            </if>
+        </if>
+        <if test="extif_tp == 'PX'">
+    	    AND A.REF_NO = #{key_1}
+    	    <if test="pass_status_text == '결재대기'">
+				AND A.RECV_FLAG NOT IN ('GR','PR')
+            </if>
+        </if>
+        AND A.STATUS != 'D'
+        
+</select>
+<select id="getBuyerCommonNgNsData" parameterType="java.util.Map" resultType="java.util.Map">
+  /*commonApproval.getBuyerCommonNgNsData*/
+        SELECT
+        COUNT(*) AS CNT
+        ,SUM(A.ATOB_UNIT_PRICE) AS PRICE
+        FROM KEPRQDT A 
+        <if test="extif_tp == 'NS'">
+        , KEPQTDT B
+        </if>
+        WHERE A.BUYER IN (SELECT CODE2 FROM ICOMCOD3 WHERE BUYER = #{COMPANY} AND TYPE = 'TGCM' AND CODE1 =  #{USER_ID} AND FLAG = 'Y' UNION SELECT #{COMPANY} FROM DUAL)
+        <if test="extif_tp == 'NG'">
+    	    AND A.GW_GA_NO = #{key_1}
+        </if>
+        <if test="extif_tp == 'NS'">
+    	    AND A.GW_NO = #{key_1}
+    	    AND B.BID_SUCCESS_FLAG = 'Y'  
+			AND A.ATOB_SEND_FLAG = 'Y'  
+	        AND A.BUYER = B.BUYER
+	        AND A.QUOTATION_NO = B.QUOTATION_NO  
+			AND A.QUOTATION_SEQ = B.QUOTATION_SEQ
+			AND A.REVISION=B.REVISION  
+			AND B.STATUS != 'D'  
+			AND B.STATUS != 'O'  
+        </if>
+        AND A.STATUS != 'D'
+	    AND A.SO_CA_FLAG='SO'     
+        AND A.STATUS IN ('C','R','O') 
+</select>
+                        
+<select id="getApprovalProcess" parameterType="java.util.Map" resultType="java.util.Map">
+  /*commonApproval.getApprovalProcess*/
+        SELECT 
+	        NVL(EXTIF_NO, ' ') EXTIF_NO,
+	        NVL(EXTIF_COUNT, 0) EXTIF_COUNT,
+	        NVL(EXTIF_TP,' ')  EXTIF_TP
+        FROM ICOGDOCU 
+        WHERE 
+        COMPANY = #{COMPANY}
+        AND DOCU_NO = #{DOCU_NO}            
+</select>         
+
+
+	 <update id="modifyICOGPASSLN" parameterType="java.util.Map">
+	   /*commonApproval.modifyICOGPASSLN*/ 
+	   /* PASS_KN	  결재상태(NULL:미결재,0:기안,1:승인,2:참조,3:반려,4:상신취소,9:임시저장) */
+		<![CDATA[
+			UPDATE	ICOGPASSLN
+			SET		PASS_DATE = SYSDATE,
+					PASS_KN = #{PASS_KN},
+					PASS_ADD = #{PASS_ADD}  
+            WHERE	1=1
+            AND		COMPANY = #{COMPANY}
+            AND		DOCU_NO = #{DOCU_NO}
+            AND		USER_ID IN (SELECT CODE1 FROM ICOMCOD3 WHERE TYPE = 'M-APPR' AND FLAG = 'Y' AND CODE2 = #{USER_ID} UNION SELECT #{USER_ID} FROM DUAL)
+            AND		PASS_DATE IS NULL
+            AND		PASS_TP <> 0
+      		]]>
+	</update> 		
+
+<select id="getICOGPASSLNOrderNo" parameterType="java.util.Map" resultType="java.util.Map">
+  /*commonApproval.getICOGPASSLNOrderNo*/     
+   /* PASS_TP 	결재구분(0:기안,1:결재,2:참조,3:합의) */
+   
+                   SELECT 
+                   		''||ORDER_NO ORDER_NO
+                   FROM
+				   ICOGPASSLN 
+                   WHERE 
+	                   COMPANY = #{COMPANY} 
+	                   AND DOCU_NO = #{DOCU_NO} 
+	                   AND PASS_TP IN ('1', '3')
+	                   AND PASS_KN IS NULL
+	                   ORDER BY TO_NUMBER(ORDER_NO)    
+</select>      
+
+
+
+<select id="getPassWisehubNo" parameterType="java.util.Map" resultType="java.util.Map">
+  /*commonApproval.getPassWisehubNo*/     
+SELECT                                                                              
+	A.COM_CODE,                                                                     --1
+	A.DOC_NAME,                                                                     --2
+	A.TARGET,                                                                       --3
+	A.KEY_1,                                                                        --4
+	A.KEY_2,                                                                        --5
+	A.KEY_3,                                                                        --6
+	A.KEY_4,                                                                        --7
+	A.KEY_5,                                                                        --8
+	A.KEY_6,                                                                        --9
+	A.KEY_7,                                                                        --10
+	A.KEY_8,                                                                        --11
+	A.KEY_9,                                                                        --12
+	A.KEY_10,                                                                       --13 
+	TO_CHAR(SYSDATE , 'YYYYMMDD') PO_CREATE_DATE,                                                  --14 Po_Create_Date
+	'N' GR_FLAG,                                                                            --15 Gr_Flag
+	NVL((SELECT HD.REG_USER_ID FROM KEPMGPHD HD WHERE HD.BUYER = A.KEY_2 AND HD.PM_NO = A.KEY_1 ),'*') AS REG_USER_ID,
+	NVL((SELECT MAX(PR_SUBJECT) FROM ICOMPRHD B  , ICOMPRDT C         
+	WHERE A.COM_CODE = C.BUYER                                
+	AND A.KEY_1 = DECODE(A.DOC_NAME,'PR',C.PR_NO,C.REF_NO)  
+	AND C.BUYER = B.BUYER                                   
+	AND C.PR_NO = B.PR_NO),'*')                             
+FROM ICOMTRGW A                                                                   
+WHERE COM_CODE = #{COMPANY}                                                                
+AND TARGET   = #{DOCU_NO}                                                                  
+AND DOC_NAME = #{DOC_NAME}           
+</select>     
+
+	 <update id="modifyICOGDOCU1" parameterType="java.util.Map">
+	   /*commonApproval.modifyICOGDOCU1*/ 
+	   /* PASS_STATUS	 	결재상태(0:진행중,1:반려,2:참조진행중,3:결재완료,4:상신취소)*/
+		<![CDATA[
+					UPDATE ICOGDOCU SET PASS_STATUS = #{PASS_STATUS}     
+                     WHERE COMPANY = #{COMPANY}      AND DOCU_NO = #{DOCU_NO}     
+      		]]>
+	</update> 		
+	
+	 <update id="modifyICOGDOCU2" parameterType="java.util.Map">
+	   /*commonApproval.modifyICOGDOCU2*/ 
+	   /* PASS_STATUS	 	결재상태(0:진행중,1:반려,2:참조진행중,3:결재완료,4:상신취소)*/	   
+		<![CDATA[
+					UPDATE ICOGDOCU 
+					SET 
+					CUR_ORDER_NO = #{CUR_ORDER_NO} , 
+					PASS_STATUS = #{PASS_STATUS}     
+                     WHERE COMPANY = #{COMPANY}      
+                     AND DOCU_NO = #{DOCU_NO}     
+      		]]>
+	</update> 		 
+	
+	 <update id="modifyICOGDOCU_DOCU_CONT" parameterType="java.util.Map">
+	   /*commonApproval.modifyICOGDOCU_DOCU_CONT*/ 
+		<![CDATA[
+					UPDATE ICOGDOCU 
+					SET DOCU_CONT= #{DOCU_CONT}      
+					WHERE COMPANY = #{COMPANY} 
+					AND DOCU_NO= #{DOCU_NO}     
+      		]]>
+	</update> 		 
+	 <update id="insertApprovalMailSend" parameterType="java.util.Map">
+	   /*commonApproval.insertApprovalMailSend*/ 
+		<![CDATA[
+	        INSERT INTO MAILSEND
+    	    (MAILFORM_ID
+    	    , SEND_COM_TYPE
+    	    , RECV_COM_TYPE
+    	    , SEND_COM_CODE
+    	    , SEND_USER_ID
+    	    , KEY1
+    	    , KEY2
+    	    , KEY3
+    	    , CRE_DATE)
+        	(SELECT 
+        		MAILFORM_ID
+        	 	, SEND_COM_TYPE
+        	 	, RECV_COM_TYPE
+        	 	, #{COMPANY}
+        	 	, 'KOREAB2B'
+                , #{DOCU_NO}
+                , #{CUR_ORDER_NO}
+                , '0'
+                ,  SYSDATE
+         	FROM MAILSETM
+         	WHERE MAILFORM_ID = 'GJ_SUBMIT_BB' 
+         	AND USING_FLAG = 'Y'
+         	AND NOT EXISTS (
+         	 SELECT 1 FROM MAILSEND B
+         	 WHERE  B.MAILFORM_ID = 'GJ_SUBMIT_BB'
+         	 AND B.SEND_COM_CODE =#{COMPANY}
+         	 AND B.KEY1 = #{DOCU_NO}
+         	 AND B.KEY2 =  #{CUR_ORDER_NO}
+         	 AND B.KEY3 = '0'
+         	)
+         	)     
+      		]]>
+	</update>	
+	 <update id="removeICOGPASSLN" parameterType="java.util.Map">
+	   /*commonApproval.removeICOGPASSLN*/ 
+		<![CDATA[	
+					DELETE 
+					FROM ICOGPASSLN 
+					WHERE 
+					COMPANY =  #{COMPANY} 
+					AND DOCU_NO = #{DOCU_NO}     
+					AND ORDER_NO >= nvl((SELECT CUR_ORDER_NO FROM ICOGDOCU WHERE COMPANY =  #{COMPANY}  /**P*/ AND DOCU_NO =  #{DOCU_NO}     /**P*/),0)
+      		]]>
+	</update> 		 
+	
+	 <update id="createICOGPASSLN" parameterType="java.util.Map">
+	   /*commonApproval.createICOGPASSLN*/ 
+	   	   /* PASS_STATUS	 	결재상태(0:진행중,1:반려,2:참조진행중,3:결재완료,4:상신취소)*/
+	   	   	   /* PASS_KN	  결재상태(NULL:미결재,0:기안,1:승인,2:참조,3:반려,4:상신취소,9:임시저장) */
+	   	   	   /* PASS_TP 	결재구분(0:기안,1:결재,2:참조,3:합의) */
+		<![CDATA[	
+	           INSERT INTO ICOGPASSLN
+	           (COMPANY, DOCU_NO, ORDER_NO, USER_ID, PASS_TP, PASS_DATE, REFER_DATE, PASS_KN)
+                VALUES
+                ( 
+                #{COMPANY} , 
+                #{DOCU_NO} , 
+                (
+                SELECT NVL(MAX(ORDER_NO),0)+1 MAX_ORDER_NO FROM ICOGPASSLN WHERE 
+				COMPANY =  #{COMPANY} 
+				AND DOCU_NO = #{DOCU_NO} 
+				), 
+                #{USER_ID},
+                #{PASS_TP} , 
+                DECODE(#{PASS_TP}, '0', SYSDATE, NULL),
+                DECODE(#{PASS_TP}, '0', SYSDATE, NULL),
+                #{PASS_KN}
+                )
+      		]]>
+	</update> 		 
+	 
+	<update id="createICOGPASSLN_v2" parameterType="java.util.Map">
+	   /*commonApproval.createICOGPASSLN_v2*/ 
+	   	   /* PASS_STATUS	 	결재상태(0:진행중,1:반려,2:참조진행중,3:결재완료,4:상신취소)*/
+	   	   	   /* PASS_KN	  결재상태(NULL:미결재,0:기안,1:승인,2:참조,3:반려,4:상신취소,9:임시저장) */
+	   	   	   /* PASS_TP 	결재구분(0:기안,1:결재,2:참조,3:합의) */
+		<![CDATA[	
+	           INSERT INTO ICOGPASSLN
+	           (COMPANY, DOCU_NO, ORDER_NO, USER_ID, PASS_TP, PASS_DATE, REFER_DATE, PASS_KN)
+                VALUES
+                ( 
+                #{COMPANY} , 
+                #{DOCU_NO} , 
+                (
+                SELECT NVL(MAX(ORDER_NO),0)+1 MAX_ORDER_NO FROM ICOGPASSLN WHERE 
+				COMPANY =  #{COMPANY} 
+				AND DOCU_NO = #{DOCU_NO} 
+				), 
+                #{APPR_ID},
+                #{PASS_TP} , 
+                DECODE(#{PASS_TP}, '0', SYSDATE, NULL),
+                DECODE(#{PASS_TP}, '0', SYSDATE, NULL),
+                #{PASS_KN}
+                )
+      		]]>
+	</update>
+	<update id="updateIcomapptDefaultFlag_v2" parameterType="java.util.Map">
+		<![CDATA[
+		/*commonApproval.updateIcomapptDefaultFlag_v2*/
+			UPDATE ICOMAPPT
+			SET DEFAULT_FLAG = NVL(#{defaultFlag},'N')
+			WHERE 1=1
+			AND USER_ID = #{USER_ID}
+		]]>
+		<if test="SUBJECT != null and SUBJECT != ''">
+			AND SUBJECT = #{SUBJECT}
+		</if>
+		<if test="APP_PATH != null and APP_PATH != ''">
+			AND APP_PATH = #{APP_PATH}
+		</if>
+	</update>
+	
+	<select id="getAppPath_v2" parameterType="java.util.Map" resultType="String">
+		  /*commonApproval.getAppPath_v2*/     
+		SELECT TO_CHAR((SELECT NVL(MAX(TO_NUMBER(NVL(X.APP_PATH,'0'))),0) +1 FROM ICOMAPPT X WHERE X.USER_ID = #{USER_ID} ))
+		FROM DUAL           
+	</select>  
+	
+	<update id="insertMyIcomappt_v2" parameterType="java.util.Map">
+		<![CDATA[
+		/*commonApproval.insertMyIcomappt_v2*/
+			INSERT INTO ICOMAPPT
+			(
+			USER_ID
+			,APP_PATH
+			,SUBJECT
+			,DEFAULT_FLAG
+			,ADD_DATE
+			,ADD_TIME
+			,ADD_USER_ID
+			,STATUS
+			)
+			VALUES
+			(
+			#{USER_ID}
+			,#{APP_PATH}
+			,#{SUBJECT}
+			,NVL(#{defaultFlag},'N')
+			,TO_CHAR(SYSDATE,'YYYYMMDD')
+			,TO_CHAR(SYSDATE,'HH24MISS')
+			,#{USER_ID}
+			,'C'
+			) 
+		]]>
+	</update>
+	<update id="insertMyIcomapse_v2" parameterType="java.util.Map">
+		<![CDATA[
+		/*commonApproval.insertMyIcomapse_v2*/
+			INSERT INTO ICOMAPSE(
+			    APP_PATH,
+			    USER_ID,
+			    APPR_ID,
+			    APPR_NAME,
+			    APPR_SEQ,
+			    GUBUN,
+			    ADD_DATE,
+			    ADD_TIME,
+			    ADD_USER_ID,
+			    STATUS
+			)VALUES(
+			    #{APP_PATH},
+			    #{USER_ID},
+			    #{APPR_ID},
+			    (SELECT X.USER_NAME_LOC FROM ICOMLUSR X WHERE X.USER_ID = #{APPR_ID} AND ROWNUM = 1),
+			    #{ORDER_SEQ},
+			    #{GUBUN},
+			    TO_CHAR(SYSDATE,'YYYYMMDD'),
+			    TO_CHAR(SYSDATE,'HH24MISS'),
+			    #{USER_ID},
+			    'C'
+			)
+		]]>
+	</update>
+	
+	<update id="insertMyIcomapse_v3" parameterType="java.util.Map">
+		<![CDATA[
+		/*commonApproval.insertMyIcomapse_v3*/
+			INSERT INTO ICOMAPSE(
+			    APP_PATH,
+			    USER_ID,
+			    APPR_ID,
+			    APPR_NAME,
+			    APPR_SEQ,
+			    GUBUN,
+			    ADD_DATE,
+			    ADD_TIME,
+			    ADD_USER_ID,
+			    STATUS
+			) VALUES (
+			    #{APP_PATH},
+			    #{USER_ID},
+			    NVL(
+			        (SELECT X.USER_ID
+			           FROM ICOMLUSR X
+			          WHERE X.USER_ID = #{APPR_ID}
+			            AND X.COM_CODE = #{COM_CODE}
+			            AND ROWNUM = 1),
+			        (SELECT X.USER_ID
+			           FROM ICOMLUSR X
+			          WHERE X.LEGACY_USER_ID = #{APPR_ID}
+			            AND X.COM_CODE = #{COM_CODE}
+			            AND ROWNUM = 1)
+			    ),
+			
+			    NVL(
+			        (SELECT X.USER_NAME_LOC
+			           FROM ICOMLUSR X
+			          WHERE X.USER_ID = #{APPR_ID}
+			            AND X.COM_CODE = #{COM_CODE}
+			            AND ROWNUM = 1),
+			        (SELECT X.USER_NAME_LOC
+			           FROM ICOMLUSR X
+			          WHERE X.LEGACY_USER_ID = #{APPR_ID}
+			            AND X.COM_CODE = #{COM_CODE}
+			            AND ROWNUM = 1)
+			    ),
+			
+			    #{ORDER_SEQ},
+			    #{GUBUN},
+			    TO_CHAR(SYSDATE, 'YYYYMMDD'),
+			    TO_CHAR(SYSDATE, 'HH24MISS'),
+			    #{USER_ID},
+			    'C'
+			)
+		]]>
+	</update>
+	
+	<update id="deleteMyPassLine_v2" parameterType="java.util.Map">
+		<![CDATA[
+		/*commonApproval.deleteMyPassLine_v2*/
+			UPDATE ICOMAPPT
+			SET STATUS = 'D'
+			,CHANGE_DATE = TO_CHAR(SYSDATE,'YYYYMMDD')
+			,CHANGE_TIME = TO_CHAR(SYSDATE,'HH24MISS')
+			,CHANGE_USER_ID = #{USER_ID}
+			WHERE 1=1
+			AND USER_ID = #{USER_ID}
+			AND APP_PATH = #{APP_PATH_DEL}
+		]]>
+	</update>
+	 
+	 <update id="modifyICOGDOCU_PASSSTATUS" parameterType="java.util.Map">
+	   /*commonApproval.modifyICOGDOCU_PASSSTATUS*/ 
+	   	   /* PASS_STATUS	 	결재상태(0:진행중,1:반려,2:참조진행중,3:결재완료,4:상신취소)*/
+		<![CDATA[	
+		 UPDATE ICOGDOCU SET PASS_STATUS='4' WHERE COMPANY= #{COMPANY}  AND DOCU_NO= #{DOCU_NO} 
+      		]]>
+	</update> 		 
+		
+		
+	 <update id="modifyICOGPASSLN_PASSKN" parameterType="java.util.Map">
+	   /*commonApproval.modifyICOGPASSLN_PASSKN*/ 
+	   	   /* PASS_KN	  결재상태(NULL:미결재,0:기안,1:승인,2:참조,3:반려,4:상신취소,9:임시저장) */
+		<![CDATA[	
+		 UPDATE ICOGPASSLN SET PASS_KN='4' WHERE COMPANY= #{COMPANY}  AND DOCU_NO= #{DOCU_NO} 
+      		]]>
+	</update> 			 
+		
+		
+	 <update id="modifyICOGPASSLN_PASSKN_2" parameterType="java.util.Map">
+	   /*commonApproval.modifyICOGPASSLN_PASSKN_2*/ 
+	   	   /* PASS_KN	  결재상태(NULL:미결재,0:기안,1:승인,2:참조,3:반려,4:상신취소,9:임시저장) */
+		<![CDATA[	
+		 UPDATE ICOGPASSLN SET PASS_KN='4' , PASS_ADD = #{PASS_ADD} WHERE COMPANY= #{COMPANY}  AND DOCU_NO= #{DOCU_NO} 
+      		]]>
+	</update>  
+	
+	
+	
+	 <update id="test" parameterType="java.util.Map">
+	   /*commonApproval.test*/ 
+		<![CDATA[	
+				UPDATE ICOMCOD1 SET TEXT4 = sysdate , TEXT6 = #{TEXT6} WHERE TYPE = #{TYPE}  AND CODE = #{CODE} 
+      		]]>
+	</update> 		 	
+	
+		 <update id="test1" parameterType="java.util.Map">
+	   /*commonApproval.test*/ 
+		<![CDATA[	
+				UPDATE ICOMCOD1 SET TEXT4 = sysdate ,T EXT5 = #{TEXT6}||'X' WHERE TYPE = #{TYPE}  AND CODE = #{CODE} 
+      		]]>
+	</update> 		 	
+	
+
+
+	<!-- 결재 -->
+	 <update id="createICOGDOCU" parameterType="java.util.Map">
+	   /*commonApproval.createICOGDOCU 결재 */ 
+	   /* PASS_STATUS	 	결재상태(0:진행중,1:반려,2:참조진행중,3:결재완료,4:상신취소)*/
+		<![CDATA[
+				INSERT INTO ICOGDOCU (COMPANY, DOCU_NO, USER_ID,DOCU_KN,
+				                      DOCU_TITLE, DOCU_CONT,  USER_NM,PASS_STATUS, 
+				                      START_DATE, CUR_ORDER_NO,EXTIF_TP , IMAGE_KEY) 
+	             VALUES(
+	                #{COMPANY},
+	                #{DOCU_NO},
+	                #{USER_ID},
+	                #{DOCU_KN},
+                    #{DOCU_TITLE},
+                    #{DOCU_CONT},
+                    #{USER_NM},
+                    #{PASS_STATUS},
+                    SYSDATE,
+                    2,
+                    #{EXTIF_TP},
+                    #{st_image_key}
+                    )
+      		]]>
+	</update> 		
+	
+		<!-- 결재임시 -->
+		 <update id="createICOTDOCU" parameterType="java.util.Map">
+	   /*commonApproval.createICOTDOCU 임시 */ 
+	   /* PASS_STATUS	 	결재상태(0:진행중,1:반려,2:참조진행중,3:결재완료,4:상신취소)*/
+		<![CDATA[
+		           INSERT INTO ICOTDOCU (COMPANY, DOCU_NO, USER_ID, PASS_STATUS,
+                              DOCU_KN, DOCU_TITLE, DOCU_CONT,  USER_NM, 
+                              START_DATE, CUR_ORDER_NO,DOCU_CC,DOCU_TO,IMAGE_KEY) 
+                     VALUES(
+                     #{COMPANY},
+                     #{DOCU_NO},
+                     #{USER_ID},
+                     #{PASS_STATUS},
+                     #{DOCU_KN},
+                     #{DOCU_TITLE},
+                     #{DOCU_CONT},
+                     #{USER_NM},
+                     SYSDATE,
+                     2,
+                     #{cc},
+                     #{to},
+                     #{st_image_key}
+                     )
+      		]]>
+	</update> 		
+	
+	<select id="getDocuNoICOMSQMT" parameterType="java.util.Map" resultType="java.util.Map">
+  		/*commonApproval.getDocuNoICOMSQMT*/     
+	            SELECT DOC_TYPE||SUBSTR(YEAR, 3, 2)||LPAD(CUR_NO,6,0)  DOCU_NO
+                        FROM ICOMSQMT 
+                        WHERE COMPANY = #{COMPANY}
+                        AND DOC_TYPE = #{DOC_TYPE}
+ 
+	</select> 		
+	
+	 <update id="createICOMSQMT" parameterType="java.util.Map">
+	   /*commonApproval.createICOMSQMT*/  
+		<![CDATA[
+ 
+             INSERT INTO ICOMSQMT(COMPANY, DOC_TYPE, YEAR, CUR_NO) 
+                        VALUES( #{COMPANY}, #{DOC_TYPE}
+                        , TO_CHAR(SYSDATE, 'YYYY'), 2) 
+            	]]>
+	</update> 		            
+                        
+	 <update id="modifyICOMSQMT" parameterType="java.util.Map">
+	   /*commonApproval.modifyICOMSQMT*/  
+		<![CDATA[     
+                 UPDATE ICOMSQMT SET YEAR = TO_CHAR(SYSDATE,'YYYY'),
+                                    CUR_NO = CUR_NO+1
+                        WHERE COMPANY = #{COMPANY}
+                        AND DOC_TYPE =#{DOC_TYPE}
+			]]>
+	</update> 		           
+	
+	
+	
+	
+		 <update id="createICOMTRGW" parameterType="java.util.Map">
+	   /*commonApproval.createICOMTRGW 추후 업무에서 연결고리로 사용하는 테이블 */  
+		<![CDATA[
+				INSERT INTO ICOMTRGW (
+				COM_CODE
+				,DOC_NAME
+				,TARGET
+				,KEY_1
+				,KEY_2
+			    ,KEY_3
+				,KEY_4
+				,KEY_5
+				,KEY_6
+				,KEY_7
+				,KEY_8
+				,KEY_9
+				,KEY_10) 
+	             VALUES(
+	                #{COMPANY}
+	                 ,#{DOC_TYPE_ICOMTRGW}  
+	                 ,#{DOCU_NO}  	                 
+	                 ,#{KEY_1} -- 반드시 있어야 한다. 각 업무의 키
+	                 ,#{KEY_2}
+	                 ,#{KEY_3}
+	                 ,#{KEY_4}
+	                 ,#{KEY_5}
+	                 ,#{KEY_6}
+	                 ,#{KEY_7}
+	                 ,#{KEY_8}
+	                 ,#{KEY_9}
+	                 ,#{KEY_10}
+                    )
+      		]]>
+	</update> 		
+	
+	<select id="getApprovalLine" parameterType="java.util.Map" resultType="java.util.Map">
+  		/*commonApproval.getApprovalLine*/     
+			SELECT              
+			  APP_PATH,         
+			  SUBJECT,        
+			  NVL(DEFAULT_FLAG,'N') AS DEFAULT_FLAG
+			  FROM ICOMAPPT      
+			WHERE 1=1   
+			AND USER_ID = #{USER_ID}
+			AND NVL(STATUS,'N') <![CDATA[ <> ]]> 'D'              
+			ORDER BY APP_PATH   
+ 
+	</select> 		
+	
+	<select id="getApprovalLine_v2" parameterType="java.util.Map" resultType="java.util.Map">
+  		/*commonApproval.getApprovalLine_v2*/     
+			SELECT              
+			  APP_PATH,         
+			  SUBJECT,        
+			  NVL(DEFAULT_FLAG,'N') AS DEFAULT_FLAG
+			  FROM ICOMAPPT      
+			WHERE 1=1   
+			AND USER_ID = #{USER_ID}
+			AND NVL(STATUS,'N') <![CDATA[ <> ]]> 'D'              
+			ORDER BY DEFAULT_FLAG DESC,TO_NUMBER(APP_PATH)   
+ 
+	</select> 		
+	
+		<select id="getApprovalInfo1" parameterType="java.util.Map" resultType="java.util.Map">
+  		/*commonApproval.getApprovalInfo1*/     
+			SELECT              
+		    A.*
+		    , TO_CHAR(SYSDATE,'YYYY/MM/DD HH:MM')   as CURDATE
+			FROM ICOMCOD1     A
+			WHERE 1=1   
+		 	AND A.TYPE = 'APPR'
+		 	AND A.CODE = #{DOC_TYPE}
+ 
+	</select> 		
+	
+	<select id="getCateApprovalLine" parameterType="java.util.Map" resultType="java.util.Map">
+  		/*commonApproval.getCateApprovalLine*/     
+		SELECT
+			C.CODE2 AS CATEAPPR_ID
+			, A.USER_NAME_LOC AS CATEAPPR_NAME
+		FROM ICOMCOD3 C, ICOMLUSR A
+		WHERE 1=1
+			AND C.BUYER = A.COM_CODE
+			AND C.CODE2 = A.USER_ID
+			AND C.BUYER = #{COM_CODE}
+			AND C.TYPE = 'CATE'
+		<if test="st_category_no != ''">                                                  
+			AND C.CODE1 = #{st_category_no}
+		</if>
+			AND A.STATUS <![CDATA[ <> ]]> 'D'
+ 
+	</select> 		
+	
+		<select id="getMultiPassLine" parameterType="java.util.Map" resultType="java.util.Map">
+  		/*commonApproval.getMultiPassLine*/     
+		SELECT                                                                                                                
+			DECODE(B.GUBUN,'C','결재','R','참조','H','합의') GUBUN_TEXT,                                                                    -- 1 구분(결재/참조)
+			B.APPR_ID ,                                                                                                    -- 2 아이디
+			B.APPR_NAME||'('||B.APPR_ID||')' AS APPR_NAME ,                                                                                                   -- 3 이름
+			(SELECT TEXT1 FROM ICOMCOD2 WHERE COMPANY_CODE = A.COM_CODE AND TYPE='C001' AND CODE = A.DEPARTMENT) DEPT,     -- 4 부서
+			(SELECT TEXT1 FROM ICOMCOD2 WHERE COMPANY_CODE = A.COM_CODE AND TYPE='C003' AND CODE = A.POSITION)  POSITION,  -- 5 직위
+			B.GUBUN                                                                                                        -- 6 구분코드
+			, B.APPR_SEQ																									-- 7 결재순서
+			, DECODE(B.GUBUN, 'R', 100, TO_NUMBER(B.APPR_SEQ)) AS ORDER_SEQ -- 화면 상 보이는 정렬 순서(1.결재/합의 등록순, 2.참조)
+		FROM  ICOMLUSR A , ICOMAPSE B , ICOMAPPT C                                                                                      
+		WHERE 1=1            
+		AND B.APP_PATH = C.APP_PATH            
+		AND B.USER_ID  = C.USER_ID            
+		AND A.STATUS IN ('C','R')
+		AND NVL(C.STATUS,'N') <![CDATA[ <> ]]>  'D'                  
+		AND C.APP_PATH = #{APP_PATH}
+		AND A.USER_ID = B.APPR_ID            
+		AND B.USER_ID = #{USER_ID}
+		UNION ALL
+		SELECT
+			'결재' AS GUBUN_TEXT
+			, A.USER_ID AS APPR_ID
+			, A.USER_NAME_LOC||'('||A.USER_ID||')' AS APPR_NAME
+			, (SELECT TEXT1 FROM ICOMCOD2 WHERE COMPANY_CODE = A.COM_CODE AND TYPE='C001' AND CODE = A.DEPARTMENT) AS DEPT
+			, (SELECT TEXT1 FROM ICOMCOD2 WHERE COMPANY_CODE = A.COM_CODE AND TYPE='C003' AND CODE = A.POSITION) AS POSITION
+			, 'C' AS GUBUN
+			, '99' AS APPR_SEQ
+			, 99 AS ORDER_SEQ
+		FROM ICOMLUSR A, ICOMCOD3 CATE
+		WHERE 1=1
+			AND A.COM_CODE = CATE.BUYER
+			AND A.USER_ID = CATE.CODE2
+			AND CATE.BUYER = #{COM_CODE}
+			AND CATE.TYPE = 'CATE'
+			AND CATE.CODE1 = #{st_category_no}
+			AND A.STATUS <![CDATA[ <> ]]> 'D'
+			AND CATE.FLAG = 'Y'
+		ORDER BY ORDER_SEQ
+	</select> 		
+	
+	<select id="getMultiPassLine_v2" parameterType="java.util.Map" resultType="java.util.Map">
+  		/*commonApproval.getMultiPassLine_v2*/     
+		SELECT                                                                                                                
+			DECODE(B.GUBUN,'C','결재','R','참조','H','합의') GUBUN_TEXT,                                                                    -- 1 구분(결재/참조)
+			B.APPR_ID ,                                                                                                    -- 2 아이디
+			B.APPR_NAME||'('||B.APPR_ID||')' AS APPR_NAME ,                                                                                                   -- 3 이름
+			(SELECT TEXT1 FROM ICOMCOD2 WHERE COMPANY_CODE = A.COM_CODE AND TYPE='C001' AND CODE = A.DEPARTMENT) DEPT,     -- 4 부서
+			(SELECT TEXT1 FROM ICOMCOD2 WHERE COMPANY_CODE = A.COM_CODE AND TYPE='C003' AND CODE = A.POSITION)  POSITION,  -- 5 직위
+			DECODE(B.GUBUN,'C','1','R','2','H','3') GUBUN_CODE,
+			 B.GUBUN                                                                                                        -- 6 구분코드
+			, B.APPR_SEQ AS ORDER_SEQ																						-- 7 결재순서
+		FROM  ICOMLUSR A , ICOMAPSE B , ICOMAPPT C                                                                                      
+		WHERE 1=1            
+		AND B.APP_PATH = C.APP_PATH            
+		AND B.USER_ID  = C.USER_ID            
+		AND A.STATUS IN ('C','R')
+		AND NVL(C.STATUS,'N') <![CDATA[ <> ]]>  'D'                  
+		AND C.APP_PATH = #{APP_PATH}
+		AND A.USER_ID = B.APPR_ID            
+		AND B.USER_ID = #{USER_ID}
+		UNION ALL
+		SELECT
+			'결재' AS GUBUN_TEXT
+			, A.USER_ID AS APPR_ID
+			, A.USER_NAME_LOC||'('||A.USER_ID||')' AS APPR_NAME
+			, (SELECT TEXT1 FROM ICOMCOD2 WHERE COMPANY_CODE = A.COM_CODE AND TYPE='C001' AND CODE = A.DEPARTMENT) AS DEPT
+			, (SELECT TEXT1 FROM ICOMCOD2 WHERE COMPANY_CODE = A.COM_CODE AND TYPE='C003' AND CODE = A.POSITION) AS POSITION
+			, '1' AS GUBUN_CODE
+			, 'C' AS GUBUN
+			, '99' AS ORDER_SEQ
+		FROM ICOMLUSR A, ICOMCOD3 CATE
+		WHERE 1=1
+			AND A.COM_CODE = CATE.BUYER
+			AND A.USER_ID = CATE.CODE2
+			AND CATE.BUYER = #{COM_CODE}
+			AND CATE.TYPE = 'CATE'
+			AND CATE.CODE1 = #{st_category_no}
+			AND A.STATUS <![CDATA[ <> ]]> 'D'
+			AND CATE.FLAG = 'Y'
+		ORDER BY ORDER_SEQ
+	</select>
+	
+	
+	
+	
+	
+	
+	
+	
+	
+			<select id="approvalPrListPop" parameterType="java.util.Map" resultType="java.util.Map">
+  		/*commonApproval.approvalPrListPop*/     
+ 
+ 		<![CDATA[
+             SELECT A.BUYER_ITEM_NO,                                                      --[00]
+                   A.DESCRIPTION,                                                        --[01]
+                   A.SPECIFICATION,                                                      --[02]
+                   A.TARGET_QTY,                                                           --[03]
+                   A.UNIT_MEASURE,                                                       --[04]
+                   A.TARGET_PRICE,                                                       --[05]
+                   TRUNC(NVL(A.TARGET_QTY,0) * NVL(A.TARGET_PRICE,0)) PO_AMT,              --[06]
+                   A.RD_DATE,                                                            --[07]
+                   A.REF_PR_NO,                                                          --[08]
+                   A.PR_SEQ,                                                             --[09]
+                   A.BYIT_COMORG_CODE,                                                   --[10]
+                   A.CONTRACT_NO,                                                        --[11]
+                   A.CONTRACT_SEQ,                                                       --[12]
+				   DECODE((SELECT AGENT_OPEN_FLAG FROM ICOMCMPY WHERE COM_CODE=A.BUYER), 'N','코리아이플랫폼㈜', (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE=D.AGENT)) AGENT_NAME,	 --[13]
+	    		   D.AGENT																	 --[14]
+	    		   ,(SELECT C2.TEXT1 FROM ICOMCOD2 C2 WHERE C2.TYPE = 'C001'							
+	    		           AND C2.COMPANY_CODE = A.BUYER				
+	    		         AND C2.CODE = A.REQ_DEPT) AS REQ_DEPT_NAME														  --[15]
+	    		   ,(SELECT L.USER_NAME_LOC FROM ICOMLUSR L WHERE L.COM_CODE = A.BUYER              
+	    		          AND L.USER_ID = A.REQ_USER_ID) AS REQ_USER_NAME											 --[16]	    		          
+	    		   ,A.IMAGE_KEY
+	    		   
+	    		   
+	    		   
+    		     	, (SELECT D.LTEXT FROM COWAY_BUDGET_ORG_ET_TREE D             
+                          WHERE D. BGORG =A.BUDGET_DEPT AND ROWNUM= 1 ) BUDGET_DEPT_NAME                         
+                     ,DECODE(A.BUDGET_DEPT,'','','('||A.BUDGET_DEPT||')')    BUDGET_DEPT
+                     ,  ( SELECT ACCT.LTEXT FROM COWAY_ACCOUNT_ET_OUTPUT ACCT      
+                            WHERE ACCT.KOKRS='2000'  AND ACCT.BGACT=A.ACCOUNT_TYPE    AND ROWNUM=1 ) ACCOUNT_NAME 
+                     ,DECODE(A.ACCOUNT_TYPE,'','','('||A.ACCOUNT_TYPE||')')  ACCOUNT_TYPE
+                     ,(SELECT        
+                              (NVL(REST. MPAMT, 0 ) + NVL(F_COWAY_BUYER_BUDGET_MPAMT2( A.BUYER , A.BUDGET_DEPT, A.ACCOUNT_TYPE, BDGT.TERM ) , 0) - (NVL(BDGT .TEMP_AMT,0) + NVL(BDGT. RESULT_AMT ,0 ))) REST_AMT 
+                         FROM COWAY_RESTS_ET_ORDER REST     
+                              , ICOMBDGT BDGT                                                     
+                         WHERE     1 = 1                                                          
+                              AND REST . KOKRS = '2000'                                           
+                              AND REST . AUFNR= BDGT .DEPT                                        
+                              AND REST . BGACT= BDGT .ACCOUNT_TYPE                                
+                              AND BDGT. TERM_TYPE ='M'                                            
+                              AND REST. GJAHR||LPAD(REST .MONAT , 2, '0' )=BDGT .TERM             
+                              AND BDGT. BUYER = A.BUYER                                           
+                              AND REST.AUFNR = A.BUDGET_DEPT                                      
+                              AND REST.BGACT=A.ACCOUNT_TYPE                                       
+                              AND A.ADD_DATE BETWEEN BDGT.FROM_DATE AND BDGT.TO_DATE) REST_AMT  
+                     , A.RECV_FLAG                                                             
+                     ,(SELECT PRHD.CHANGE_USER_NAME FROM ICOMPRHD PRHD WHERE PRHD.BUYER = A.BUYER AND PRHD.PR_NO = A.PR_NO) DAESNG_USER_NAME
+					, TO_NUMBER(F_SPLIT(REPLACE(A.MG_NOTE,',',''),'&',5)) AS BUDAM_AMT
+					, DECODE(F_SPLIT(A.MG_NOTE,'&',6),'1','수수료','2','운영비') AS GONGJE    
+					, A.BUYER 
+					, A.PR_NO
+					, (SELECT TEXT1 FROM ICOMCOD2 WHERE COMPANY_CODE = A.BUYER AND TYPE = 'C001' AND CODE = A.BUDGET_DEPT) AS PR_BUDGET_DEPT
+        			, (SELECT TEXT1 FROM ICOMCOD2 WHERE COMPANY_CODE = A.BUYER AND TYPE = 'Z014' AND CODE = A.ACCOUNT_TYPE) AS PR_ACCOUNT_TYPE
+        			, DECODE(A.RECV_FLAG, 'RR', '반려', 'GR', '반려', 'PR', '반려', '') AS RECV_FLAG_TEXT
+					, DECODE(A.RETURN_REASON, '', '', NULL, '', '사유: '||A.RETURN_REASON) AS RETURN_REASON
+					, A.REMARK AS REMARK
+					, A.PR_REASON
+					, A.REQ_DEPT
+		      FROM ICOMPRDT A, ICOMCQDT D, ICOMBYIT C                                  
+
+             WHERE A.BUYER              =  #{COMPANY}                               
+               AND A.PR_NO             =  #{DOCU_NO}        
+               	]]>
+                                      
+							  <if test="RECV_FLAG != '' and RECV_FLAG != null">                                                  
+                               AND A.RECV_FLAG = #{RECV_FLAG}
+                               </if>
+        		<![CDATA[                                                           
+               AND A.STATUS            != 'D'                           
+               AND C.STATUS            != 'D'                   
+               AND D.STATUS            != 'D'                   
+               AND A.BYIT_COMORG_CODE   = D.BUYER             
+               AND A.BUYER_ITEM_NO      = D.BUYER_ITEM_NO 
+               AND A.CONTRACT_NO        = D.CONTRACT_NO     
+               AND A.CONTRACT_SEQ       = D.CONTRACT_SEQ  
+               AND A.BYIT_COMORG_CODE   = C.BUYER               
+               AND A.BUYER_ITEM_NO      = C.BUYER_ITEM_NO   
+               AND C.PRODUCT_CLOSE_FLAG = 'N'
+               ]]>
+               <if test="FLAG != 'COMPLETE'">
+				AND A.RECV_FLAG NOT IN ('GR','PR','RR')
+               </if>
+	</select> 		
+	 
+	<select id="approvalPrListPop_v2" parameterType="java.util.Map" resultType="java.util.Map">
+  		/*commonApproval.approvalPrListPop_v2*/     
+ 
+ 		<![CDATA[
+             SELECT A.BUYER_ITEM_NO,                                                      --[00]
+                   A.DESCRIPTION,                                                        --[01]
+                   A.SPECIFICATION,                                                      --[02]
+                   A.TARGET_QTY,                                                           --[03]
+                   A.UNIT_MEASURE,                                                       --[04]
+                   A.TARGET_PRICE,                                                       --[05]
+                   TRUNC(NVL(A.TARGET_QTY,0) * NVL(A.TARGET_PRICE,0)) PO_AMT,              --[06]
+                   A.RD_DATE,                                                            --[07]
+                   A.REF_PR_NO,                                                          --[08]
+                   A.PR_SEQ,                                                             --[09]
+                   A.BYIT_COMORG_CODE,                                                   --[10]
+                   A.CONTRACT_NO,                                                        --[11]
+                   A.CONTRACT_SEQ,                                                       --[12]
+				   DECODE((SELECT AGENT_OPEN_FLAG FROM ICOMCMPY WHERE COM_CODE=A.BUYER), 'N','코리아이플랫폼㈜', (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE=D.AGENT)) AGENT_NAME,	 --[13]
+	    		   D.AGENT																	 --[14]
+	    		   ,(SELECT C2.TEXT1 FROM ICOMCOD2 C2 WHERE C2.TYPE = 'C001'							
+	    		           AND C2.COMPANY_CODE = A.BUYER				
+	    		         AND C2.CODE = A.REQ_DEPT) AS REQ_DEPT_NAME														  --[15]
+	    		   ,(SELECT L.USER_NAME_LOC FROM ICOMLUSR L WHERE L.COM_CODE = A.BUYER              
+	    		          AND L.USER_ID = A.REQ_USER_ID) AS REQ_USER_NAME											 --[16]	    		          
+	    		   ,A.IMAGE_KEY
+	    		   ,DECODE(A.IMAGE_KEY,NULL,'','다운로드') AS IMAGE_KEY_YN
+	    		   
+	    		   
+	    		   
+    		     	, (SELECT D.LTEXT FROM COWAY_BUDGET_ORG_ET_TREE D             
+                          WHERE D. BGORG =A.BUDGET_DEPT AND ROWNUM= 1 ) BUDGET_DEPT_NAME                         
+                     ,DECODE(A.BUDGET_DEPT,'','','('||A.BUDGET_DEPT||')')    BUDGET_DEPT
+                     ,  ( SELECT ACCT.LTEXT FROM COWAY_ACCOUNT_ET_OUTPUT ACCT      
+                            WHERE ACCT.KOKRS='2000'  AND ACCT.BGACT=A.ACCOUNT_TYPE    AND ROWNUM=1 ) ACCOUNT_NAME 
+                     ,DECODE(A.ACCOUNT_TYPE,'','','('||A.ACCOUNT_TYPE||')')  ACCOUNT_TYPE
+                     ,(SELECT        
+                              (NVL(REST. MPAMT, 0 ) + NVL(F_COWAY_BUYER_BUDGET_MPAMT2( A.BUYER , A.BUDGET_DEPT, A.ACCOUNT_TYPE, BDGT.TERM ) , 0) - (NVL(BDGT .TEMP_AMT,0) + NVL(BDGT. RESULT_AMT ,0 ))) REST_AMT 
+                         FROM COWAY_RESTS_ET_ORDER REST     
+                              , ICOMBDGT BDGT                                                     
+                         WHERE     1 = 1                                                          
+                              AND REST . KOKRS = '2000'                                           
+                              AND REST . AUFNR= BDGT .DEPT                                        
+                              AND REST . BGACT= BDGT .ACCOUNT_TYPE                                
+                              AND BDGT. TERM_TYPE ='M'                                            
+                              AND REST. GJAHR||LPAD(REST .MONAT , 2, '0' )=BDGT .TERM             
+                              AND BDGT. BUYER = A.BUYER                                           
+                              AND REST.AUFNR = A.BUDGET_DEPT                                      
+                              AND REST.BGACT=A.ACCOUNT_TYPE                                       
+                              AND A.ADD_DATE BETWEEN BDGT.FROM_DATE AND BDGT.TO_DATE) REST_AMT  
+                     , A.RECV_FLAG                                                             
+                     ,(SELECT PRHD.CHANGE_USER_NAME FROM ICOMPRHD PRHD WHERE PRHD.BUYER = A.BUYER AND PRHD.PR_NO = A.PR_NO) DAESNG_USER_NAME
+					, TO_NUMBER(F_SPLIT(REPLACE(A.MG_NOTE,',',''),'&',5)) AS BUDAM_AMT
+					, DECODE(F_SPLIT(A.MG_NOTE,'&',6),'1','수수료','2','운영비') AS GONGJE    
+					, A.BUYER 
+					, A.PR_NO
+					, (SELECT TEXT1 FROM ICOMCOD2 WHERE COMPANY_CODE = A.BUYER AND TYPE = 'C001' AND CODE = A.BUDGET_DEPT) AS PR_BUDGET_DEPT
+        			, (SELECT TEXT1 FROM ICOMCOD2 WHERE COMPANY_CODE = A.BUYER AND TYPE = 'Z014' AND CODE = A.ACCOUNT_TYPE) AS PR_ACCOUNT_TYPE
+        			, DECODE(A.RECV_FLAG, 'RR', '반려', 'GR', '반려', 'PR', '반려', '') AS RECV_FLAG_TEXT
+					, DECODE(A.RETURN_REASON, '', '', NULL, '',A.RETURN_REASON) AS RETURN_REASON
+					, A.REMARK AS PRDT_REMARK
+					, A.PR_REASON AS PR_REASON
+					, A.REQ_DEPT AS REQ_DEPT
+					, DECODE(C.MSDS_NO, 'MS99999999', '', C.MSDS_NO) AS MSDS_NO
+					
+		      FROM ICOMPRDT A, ICOMCQDT D, ICOMBYIT C                                  
+
+             WHERE A.BUYER              =  #{COMPANY}                               
+               AND A.PR_NO             =  #{DOCU_NO}        
+               	]]>
+                                      
+							  <if test="RECV_FLAG != '' and RECV_FLAG != null">                                                  
+                               AND A.RECV_FLAG = #{RECV_FLAG}
+                               </if>
+        		<![CDATA[                                                           
+               AND A.STATUS            != 'D'                           
+               AND C.STATUS            != 'D'                   
+               AND D.STATUS            != 'D'                   
+               AND A.BYIT_COMORG_CODE   = D.BUYER             
+               AND A.BUYER_ITEM_NO      = D.BUYER_ITEM_NO 
+               AND A.CONTRACT_NO        = D.CONTRACT_NO     
+               AND A.CONTRACT_SEQ       = D.CONTRACT_SEQ  
+               AND A.BYIT_COMORG_CODE   = C.BUYER               
+               AND A.BUYER_ITEM_NO      = C.BUYER_ITEM_NO   
+               AND C.PRODUCT_CLOSE_FLAG = 'N'
+               ]]>
+               <if test="pass_status_text == '결재대기'">
+				AND A.RECV_FLAG NOT IN ('GR','PR','RR')
+               </if>
+	</select>		
+	 
+	<select id="approvalPxListPop" parameterType="java.util.Map" resultType="java.util.Map">
+  		/*commonApproval.approvalPxListPop*/     
+ 
+ 		<![CDATA[
+             SELECT A.BUYER_ITEM_NO,                                                      --[00]
+                   A.DESCRIPTION,                                                        --[01]
+                   A.SPECIFICATION,                                                      --[02]
+                   A.RECV_QTY AS TARGET_QTY,                                                           --[03]
+                   A.UNIT_MEASURE,                                                       --[04]
+                   A.TARGET_PRICE,                                                       --[05]
+                   TRUNC(NVL(A.RECV_QTY,0) * NVL(A.TARGET_PRICE,0)) PO_AMT,              --[06]
+                   A.RD_DATE,                                                            --[07]
+                   A.REF_PR_NO,                                                          --[08]
+                   A.PR_SEQ,                                                             --[09]
+                   A.BYIT_COMORG_CODE,                                                   --[10]
+                   A.CONTRACT_NO,                                                        --[11]
+                   A.CONTRACT_SEQ,                                                       --[12]
+				   DECODE((SELECT AGENT_OPEN_FLAG FROM ICOMCMPY WHERE COM_CODE=A.BUYER), 'N','코리아이플랫폼㈜', (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE=D.AGENT)) AGENT_NAME,	 --[13]
+	    		   D.AGENT																	 --[14]
+	    		   ,(SELECT C2.TEXT1 FROM ICOMCOD2 C2 WHERE C2.TYPE = 'C001'							
+	    		           AND C2.COMPANY_CODE = A.BUYER				
+	    		         AND C2.CODE = A.REQ_DEPT) AS REQ_DEPT_NAME														  --[15]
+	    		   ,(SELECT L.USER_NAME_LOC FROM ICOMLUSR L WHERE L.COM_CODE = A.BUYER              
+	    		          AND L.USER_ID = A.REQ_USER_ID) AS REQ_USER_NAME											 --[16]	    		          
+	    		   ,A.IMAGE_KEY
+	    		   
+	    		   
+	    		   
+    		     	, (SELECT D.LTEXT FROM COWAY_BUDGET_ORG_ET_TREE D             
+                          WHERE D. BGORG =A.BUDGET_DEPT AND ROWNUM= 1 ) BUDGET_DEPT_NAME                         
+                     ,DECODE(A.BUDGET_DEPT,'','','('||A.BUDGET_DEPT||')')   BUDGET_DEPT
+                     ,  ( SELECT ACCT.LTEXT FROM COWAY_ACCOUNT_ET_OUTPUT ACCT      
+                            WHERE ACCT.KOKRS='2000'  AND ACCT.BGACT=A.ACCOUNT_TYPE    AND ROWNUM=1 ) ACCOUNT_NAME 
+                     ,DECODE(A.ACCOUNT_TYPE,'','','('||A.ACCOUNT_TYPE||')') ACCOUNT_TYPE
+                     ,(SELECT        
+                              (NVL(REST. MPAMT, 0 ) + NVL(F_COWAY_BUYER_BUDGET_MPAMT2( A.BUYER , A.BUDGET_DEPT, A.ACCOUNT_TYPE, BDGT.TERM ) , 0) - (NVL(BDGT .TEMP_AMT,0) + NVL(BDGT. RESULT_AMT ,0 ))) REST_AMT 
+                         FROM COWAY_RESTS_ET_ORDER REST     
+                              , ICOMBDGT BDGT                                                     
+                         WHERE     1 = 1                                                          
+                              AND REST . KOKRS = '2000'                                           
+                              AND REST . AUFNR= BDGT .DEPT                                        
+                              AND REST . BGACT= BDGT .ACCOUNT_TYPE                                
+                              AND BDGT. TERM_TYPE ='M'                                            
+                              AND REST. GJAHR||LPAD(REST .MONAT , 2, '0' )=BDGT .TERM             
+                              AND BDGT. BUYER = A.BUYER                                           
+                              AND REST.AUFNR = A.BUDGET_DEPT                                      
+                              AND REST.BGACT=A.ACCOUNT_TYPE                                       
+                              AND A.ADD_DATE BETWEEN BDGT.FROM_DATE AND BDGT.TO_DATE) REST_AMT  
+                                                                                  
+       				 ,(SELECT MAX(DT.PO_NO) FROM ICOMPODT DT WHERE DT.BUYER = A.BUYER AND DT.PR_NO = A.PR_NO AND DT.PR_SEQ = A.PR_SEQ) PO_NO
+        			 , A.RECV_FLAG
+        			 , A.REF_NO
+		      FROM ICOMPRDT A, ICOMCQDT D, ICOMBYIT C                       
+
+             WHERE A.BUYER              =  #{COMPANY}                               
+               AND A.REF_NO             =  #{DOCU_NO}        
+               	]]>
+                                      
+							  <if test="RECV_FLAG != ''">                                                  
+                               AND A.RECV_FLAG = #{RECV_FLAG}
+                               </if> 
+        		<![CDATA[                                                           
+               AND A.STATUS            != 'D'                           
+               AND C.STATUS            != 'D'                   
+               AND D.STATUS            != 'D'                   
+               AND A.BYIT_COMORG_CODE   = D.BUYER             
+               AND A.BUYER_ITEM_NO      = D.BUYER_ITEM_NO 
+               AND A.CONTRACT_NO        = D.CONTRACT_NO     
+               AND A.CONTRACT_SEQ       = D.CONTRACT_SEQ  
+               AND A.BYIT_COMORG_CODE   = C.BUYER               
+               AND A.BUYER_ITEM_NO      = C.BUYER_ITEM_NO   
+               
+               
+               	]]>       
+					  <if test="PO_NO != ''">                                                  
+             
+                             </if> 
+        		<![CDATA[                       
+                              
+               AND C.PRODUCT_CLOSE_FLAG = 'N'                                  
+ 	]]>
+	</select> 		
+	
+	
+	
+	
+	
+	
+	
+		<select id="approvalPxListPop2" parameterType="java.util.Map" resultType="java.util.Map">
+  		/*commonApproval.approvalPxListPop2*/     
+ 
+ 		<![CDATA[
+             SELECT A.BUYER_ITEM_NO,                                                      --[00]
+                   A.DESCRIPTION,                                                        --[01]
+                   A.SPECIFICATION,                                                      --[02]
+                   A.RECV_QTY AS TARGET_QTY,                                                           --[03]
+                   A.UNIT_MEASURE,                                                       --[04]
+                   A.TARGET_PRICE,                                                       --[05]
+                   TRUNC(NVL(A.RECV_QTY,0) * NVL(A.TARGET_PRICE,0)) PO_AMT,              --[06]
+                   A.RD_DATE,                                                            --[07]
+                   NVL((SELECT B.CODE||DECODE(B.TEXT1, NULL,'','('||B.TEXT1||')') FROM ICOMCOD2 B WHERE B.TYPE = 'M014' AND B.COMPANY_CODE = A.BUYER AND B.CODE = A.REF_PR_NO),A.REF_PR_NO) AS REF_PR_NO,                                                          --[08]
+                   A.PR_SEQ,                                                             --[09]
+                   A.BYIT_COMORG_CODE,                                                   --[10]
+                   A.CONTRACT_NO,                                                        --[11]
+                   A.CONTRACT_SEQ,                                                       --[12]
+				   DECODE((SELECT AGENT_OPEN_FLAG FROM ICOMCMPY WHERE COM_CODE=A.BUYER), 'N','코리아이플랫폼㈜', (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE=A.AGENT)) AGENT_NAME,	 --[13]
+	    		   A.AGENT																	 --[14]
+	    		   ,(SELECT C2.TEXT1 FROM ICOMCOD2 C2 WHERE C2.TYPE = 'C001'							
+	    		           AND C2.COMPANY_CODE = A.BUYER				
+	    		         AND C2.CODE = A.REQ_DEPT) AS REQ_DEPT_NAME														  --[15]
+	    		   ,(SELECT L.USER_NAME_LOC FROM ICOMLUSR L WHERE L.COM_CODE = A.BUYER              
+	    		          AND L.USER_ID = A.REQ_USER_ID) AS REQ_USER_NAME											 --[16]	    		          
+	    		   ,A.IMAGE_KEY
+	    		   
+	    		   
+	    		   
+    		     	, (SELECT D.LTEXT FROM COWAY_BUDGET_ORG_ET_TREE D             
+                          WHERE D. BGORG =A.BUDGET_DEPT AND ROWNUM= 1 ) BUDGET_DEPT_NAME                         
+                     ,DECODE(A.BUDGET_DEPT,'','','('||A.BUDGET_DEPT||')')   BUDGET_DEPT
+                     ,  ( SELECT ACCT.LTEXT FROM COWAY_ACCOUNT_ET_OUTPUT ACCT      
+                            WHERE ACCT.KOKRS='2000'  AND ACCT.BGACT=A.ACCOUNT_TYPE    AND ROWNUM=1 ) ACCOUNT_NAME 
+                     ,DECODE(A.ACCOUNT_TYPE,'','','('||A.ACCOUNT_TYPE||')') ACCOUNT_TYPE
+                     ,(SELECT        
+                              (NVL(REST. MPAMT, 0 ) + NVL(F_COWAY_BUYER_BUDGET_MPAMT2( A.BUYER , A.BUDGET_DEPT, A.ACCOUNT_TYPE, BDGT.TERM ) , 0) - (NVL(BDGT .TEMP_AMT,0) + NVL(BDGT. RESULT_AMT ,0 ))) REST_AMT 
+                         FROM COWAY_RESTS_ET_ORDER REST     
+                              , ICOMBDGT BDGT                                                     
+                         WHERE     1 = 1                                                          
+                              AND REST . KOKRS = '2000'                                           
+                              AND REST . AUFNR= BDGT .DEPT                                        
+                              AND REST . BGACT= BDGT .ACCOUNT_TYPE                                
+                              AND BDGT. TERM_TYPE ='M'                                            
+                              AND REST. GJAHR||LPAD(REST .MONAT , 2, '0' )=BDGT .TERM             
+                              AND BDGT. BUYER = A.BUYER                                           
+                              AND REST.AUFNR = A.BUDGET_DEPT                                      
+                              AND REST.BGACT=A.ACCOUNT_TYPE                                       
+                              AND A.ADD_DATE BETWEEN BDGT.FROM_DATE AND BDGT.TO_DATE) REST_AMT  
+                                                                                 
+        			 , (SELECT MAX(DT.PO_NO) FROM ICOMPODT DT WHERE DT.BUYER = A.BUYER AND DT.PR_NO = A.PR_NO AND DT.PR_SEQ = A.PR_SEQ) PO_NO
+        			 , A.RECV_FLAG
+        			 , A.REF_NO
+        			 , A.BUYER
+        			 , A.PR_NO
+        			 , (SELECT TEXT1 FROM ICOMCOD2 WHERE COMPANY_CODE = A.BUYER AND TYPE = 'C001' AND CODE = A.BUDGET_DEPT) AS PR_BUDGET_DEPT
+        			 , (SELECT TEXT1 FROM ICOMCOD2 WHERE COMPANY_CODE = A.BUYER AND TYPE = 'Z014' AND CODE = A.ACCOUNT_TYPE) AS PR_ACCOUNT_TYPE
+        			 , DECODE(A.RECV_FLAG, 'RR', '반려', 'GR', '반려', 'PR', '반려', '') AS RECV_FLAG_TEXT
+        			 , DECODE(A.RETURN_REASON, '', '', NULL, '', '사유: '||A.RETURN_REASON) AS RETURN_REASON
+        			 , HD.REMARK AS REMARK
+        			 , A.REMARK AS PRDT_REMARK
+        			 , A.PR_REASON
+        			 , A.REQ_DEPT
+		      FROM ICOMPRDT A, ICOMPRHD HD                                       
+
+             WHERE A.BUYER              =  #{COMPANY}                               
+               AND A.REF_NO             =  #{DOCU_NO}
+               AND A.BUYER = HD.BUYER
+               AND A.PR_NO = HD.PR_NO        
+               	]]>
+                                      
+							  <if test="RECV_FLAG != ''">                                                  
+                               AND A.RECV_FLAG = #{RECV_FLAG}
+                               </if> 
+        		<![CDATA[                                                           
+               AND A.STATUS            != 'D'
+               ]]>
+				<if test="FLAG == 'RECV'">
+					AND A.RECV_FLAG NOT IN ('GR','PR')
+				</if>
+				<![CDATA[
+               ORDER BY A.PR_NO, A.PR_SEQ
+ 				]]>
+		</select> 		
+	
+	<select id="approvalPxListPop_v2" parameterType="java.util.Map" resultType="java.util.Map">
+  		/*commonApproval.approvalPxListPop_v2*/     
+ 
+ 		<![CDATA[
+             SELECT A.BUYER_ITEM_NO,                                                      --[00]
+                   A.DESCRIPTION,                                                        --[01]
+                   A.SPECIFICATION,                                                      --[02]
+                   A.RECV_QTY AS TARGET_QTY,                                                           --[03]
+                   A.UNIT_MEASURE,                                                       --[04]
+                   A.TARGET_PRICE,                                                       --[05]
+                   TRUNC(NVL(A.RECV_QTY,0) * NVL(A.TARGET_PRICE,0)) PO_AMT,              --[06]
+                   A.RD_DATE,                                                            --[07]
+                   NVL((SELECT B.CODE||DECODE(B.TEXT1, NULL,'','('||B.TEXT1||')') FROM ICOMCOD2 B WHERE B.TYPE = 'M014' AND B.COMPANY_CODE = A.BUYER AND B.CODE = A.REF_PR_NO),A.REF_PR_NO) AS REF_PR_NO,                                                          --[08]
+                   A.PR_SEQ,                                                             --[09]
+                   A.BYIT_COMORG_CODE,                                                   --[10]
+                   A.CONTRACT_NO,                                                        --[11]
+                   A.CONTRACT_SEQ,                                                       --[12]
+				   DECODE((SELECT AGENT_OPEN_FLAG FROM ICOMCMPY WHERE COM_CODE=A.BUYER), 'N','코리아이플랫폼㈜', (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE=A.AGENT)) AGENT_NAME,	 --[13]
+	    		   A.AGENT																	 --[14]
+	    		   ,(SELECT C2.TEXT1 FROM ICOMCOD2 C2 WHERE C2.TYPE = 'C001'							
+	    		           AND C2.COMPANY_CODE = A.BUYER				
+	    		         AND C2.CODE = A.REQ_DEPT) AS REQ_DEPT_NAME														  --[15]
+	    		   ,(SELECT L.USER_NAME_LOC FROM ICOMLUSR L WHERE L.COM_CODE = A.BUYER              
+	    		          AND L.USER_ID = A.REQ_USER_ID) AS REQ_USER_NAME											 --[16]	    		          
+	    		   ,A.IMAGE_KEY
+	    		   ,DECODE(A.IMAGE_KEY,NULL,'','다운로드') AS IMAGE_KEY_YN
+	    		   
+	    		   
+    		     	, (SELECT D.LTEXT FROM COWAY_BUDGET_ORG_ET_TREE D             
+                          WHERE D. BGORG =A.BUDGET_DEPT AND ROWNUM= 1 ) BUDGET_DEPT_NAME                         
+                     ,DECODE(A.BUDGET_DEPT,'','','('||A.BUDGET_DEPT||')')   BUDGET_DEPT
+                     ,  ( SELECT ACCT.LTEXT FROM COWAY_ACCOUNT_ET_OUTPUT ACCT      
+                            WHERE ACCT.KOKRS='2000'  AND ACCT.BGACT=A.ACCOUNT_TYPE    AND ROWNUM=1 ) ACCOUNT_NAME 
+                     ,DECODE(A.ACCOUNT_TYPE,'','','('||A.ACCOUNT_TYPE||')') ACCOUNT_TYPE
+                     ,(SELECT        
+                              (NVL(REST. MPAMT, 0 ) + NVL(F_COWAY_BUYER_BUDGET_MPAMT2( A.BUYER , A.BUDGET_DEPT, A.ACCOUNT_TYPE, BDGT.TERM ) , 0) - (NVL(BDGT .TEMP_AMT,0) + NVL(BDGT. RESULT_AMT ,0 ))) REST_AMT 
+                         FROM COWAY_RESTS_ET_ORDER REST     
+                              , ICOMBDGT BDGT                                                     
+                         WHERE     1 = 1                                                          
+                              AND REST . KOKRS = '2000'                                           
+                              AND REST . AUFNR= BDGT .DEPT                                        
+                              AND REST . BGACT= BDGT .ACCOUNT_TYPE                                
+                              AND BDGT. TERM_TYPE ='M'                                            
+                              AND REST. GJAHR||LPAD(REST .MONAT , 2, '0' )=BDGT .TERM             
+                              AND BDGT. BUYER = A.BUYER                                           
+                              AND REST.AUFNR = A.BUDGET_DEPT                                      
+                              AND REST.BGACT=A.ACCOUNT_TYPE                                       
+                              AND A.ADD_DATE BETWEEN BDGT.FROM_DATE AND BDGT.TO_DATE) REST_AMT  
+                                                                                 
+        			 , (SELECT MAX(DT.PO_NO) FROM ICOMPODT DT WHERE DT.BUYER = A.BUYER AND DT.PR_NO = A.PR_NO AND DT.PR_SEQ = A.PR_SEQ) PO_NO
+        			 , A.RECV_FLAG
+        			 , A.REF_NO
+        			 , A.BUYER
+        			 , A.PR_NO
+        			 , (SELECT TEXT1 FROM ICOMCOD2 WHERE COMPANY_CODE = A.BUYER AND TYPE = 'C001' AND CODE = A.BUDGET_DEPT) AS PR_BUDGET_DEPT
+        			 , (SELECT TEXT1 FROM ICOMCOD2 WHERE COMPANY_CODE = A.BUYER AND TYPE = 'Z014' AND CODE = A.ACCOUNT_TYPE) AS PR_ACCOUNT_TYPE
+        			 , DECODE(A.RECV_FLAG, 'RR', '반려', 'GR', '반려', 'PR', '반려', '') AS RECV_FLAG_TEXT
+        			 , DECODE(A.RETURN_REASON, '', '', NULL, '',A.RETURN_REASON) AS RETURN_REASON
+        			 , HD.REMARK AS REMARK
+        			 , A.REMARK AS PRDT_REMARK
+        			 , A.PR_REASON
+        			 , A.REQ_DEPT
+        			 , DECODE(C.MSDS_NO, 'MS99999999', '', C.MSDS_NO) AS MSDS_NO
+		      FROM ICOMPRDT A, ICOMPRHD HD, ICOMBYIT C                                       
+
+             WHERE A.BUYER              =  #{COMPANY}                               
+               AND A.REF_NO             =  #{DOCU_NO}
+               AND A.BUYER = HD.BUYER
+               AND A.PR_NO = HD.PR_NO        
+               	]]>
+                                      
+							  <if test="RECV_FLAG != '' and RECV_FLAG != null">                                                  
+                               AND A.RECV_FLAG = #{RECV_FLAG}
+                               </if> 
+        		<![CDATA[                                                           
+               AND A.STATUS            != 'D'
+               ]]>
+				<if test="pass_status_text == '결재대기'">
+					AND A.RECV_FLAG NOT IN ('GR','PR')
+				</if>
+				<![CDATA[
+			   AND A.BYIT_COMORG_CODE   = C.BUYER               
+               AND A.BUYER_ITEM_NO      = C.BUYER_ITEM_NO   
+               AND C.PRODUCT_CLOSE_FLAG = 'N'
+               AND C.STATUS != 'D'
+               ORDER BY A.PR_NO, A.PR_SEQ
+ 				]]>
+		</select>
+		
+		<select id="approvalOeListPop" parameterType="java.util.Map" resultType="java.util.Map">
+  		/*commonApproval.approvalOeListPop*/     
+ 
+ 		<![CDATA[
+ 		
+ 		
+ 				SELECT 
+			A.DOCU_NO
+			,A.COMPANY
+			,A.BUYER
+			,A.PR_NO
+			,A.PR_SEQ
+			,A.PO_NO
+			,A.PO_SEQ
+			,A.PROCESS_TYPE
+			,A.AGENT
+			,A.UNIT_PRICE
+			,A.AGENT_PRICE
+			,A.KEP_PRICE
+			,A.ITEM_QTY
+			,A.DOC_TYPE
+			,A.DS_FLAG
+			,A.CLSD_FLAG
+			,A.PO_CHANGE_USER_ID
+			,A.WAREHOUSE_CODE
+			,A.BUDGET_FLAG
+			,A.RS_FLAG
+			,A.CA_FLAG
+			,A.CMS_CATLG_ID
+			,A.HIST_RSN_CD
+			,A.HIST_ID
+			,A.PROC_USER_ID
+			,A.PROC_DATE
+			,A.PROC_TIME 
+			,HIST.HIST_RSN_CD MASTER_HIST_RSN_CD   
+			,HIST.HIST_RSN_MEMO
+            ,PORS.CD_QTY
+            ,HISTDT.BUYER_ITEM_NO
+            ,HISTDT.CONTRACT_NO
+            ,HISTDT.CONTRACT_SEQ 
+            ,HISTDT.DESCRIPTION 
+            ,HISTDT.ITEM_QTY BEFORE_ITEM_QTY
+	        ,DECODE(HISTDT.AGENT_PRICE,0,TO_CHAR(HISTDT.AGENT_PRICE, 'FM99990.0'),TO_CHAR(ROUND((HISTDT.UNIT_PRICE-HISTDT.AGENT_PRICE)/HISTDT.AGENT_PRICE*100,1), 'FM99990.0'))||'%' AS RE_RATE
+	        ,DECODE(A.AGENT_PRICE,0,TO_CHAR(A.AGENT_PRICE, 'FM99990.0'),TO_CHAR(ROUND((A.UNIT_PRICE-A.AGENT_PRICE)/A.AGENT_PRICE*100,1), 'FM99990.0'))||'%' AS CH_RATE
+            ,HISTDT.UNIT_PRICE  BEFORE_UNIT_PRICE
+            ,HISTDT.AGENT_PRICE  BEFORE_AGENT_PRICE
+            ,HISTDT.KEP_PRICE  BEFORE_KEP_PRICE
+            ,HISTDT.PROCESS_TYPE  BEFORE_PROCESS_TYPE
+            ,(SELECT TEXT2 FROM ICOMCOD1 WHERE TYPE = 'M034' AND CODE = HISTDT.PROCESS_TYPE) AS BEFORE_PROCESS_NAME
+            ,(SELECT TEXT2 FROM ICOMCOD1 WHERE TYPE = 'M034' AND CODE = A.PROCESS_TYPE) AS PROCESS_NAME
+            ,HIST.AGENT  BEFORE_AGENT
+            ,A.AGENT AGENT --현재 협력사 코드 추가
+            ,(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = HIST.AGENT) BEFORE_AGENT_NAME
+            ,(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = A.AGENT) AGENT_NAME
+		FROM ICOMPODT_DOCU A , ICOMPOHD_HIST HIST, ICOMPORS PORS, ICOMPODT_HIST HISTDT
+		WHERE HIST.HIST_ID = A.HIST_ID 
+        AND HIST.BUYER = A.BUYER
+        AND HIST.PO_NO = A.PO_NO
+        AND   PORS.BUYER(+) = A.BUYER
+        AND   PORS.PO_NO(+) = A.PO_NO
+        AND   PORS.PO_SEQ(+) = A.PO_SEQ
+        AND   PORS.STATUS(+) <> 'D'
+        AND   HISTDT.BUYER = A.BUYER
+        AND   HISTDT.PO_NO = A.PO_NO
+        AND   HISTDT.PO_SEQ = A.PO_SEQ        
+        AND   HISTDT.HIST_ID = A.HIST_ID      
+		AND (A.DOCU_NO,A.COMPANY) IN ( 
+		SELECT KEY_1,COM_CODE FROM ICOMTRGW
+		WHERE  COM_CODE  = #{COMPANY}   AND DOC_NAME LIKE 'OE%' AND KEY_1  = #{DOCU_NO}        
+		)
+   		ORDER BY A.PO_NO DESC , A.PO_SEQ DESC
+ 	]]>
+	</select> 		
+		
+	
+		
+		<select id="approvalOfListPop" parameterType="java.util.Map" resultType="java.util.Map">
+
+			<![CDATA[
+			
+					 /*approvalOfListPop*/
+					 
+					 
+					SELECT
+							 IP.LEGACY_PO_NO,IP.BUYER_ITEM_NO,IP.REQ_USER_NAME,
+							 NVL(IP.ERROR_MSG,'정상') ERROR_MSG,
+							 IP.CREATE_DATE,
+							DT.DESCRIPTION,
+							DT.SPECIFICATION,
+							DT.UNIT_MEASURE,
+							IPR.JOB_PROCESS,
+							DECODE(IPR.JOB_PROCESS, 'PO', '발주', 'DO', '수주', 'IV', '납품', 'DI', '확정', 'GR', '입고') AS APLY_RANGE
+						FROM IF_PODT IP ,ICOMCQDT DT, IF_PROGRESS IPR
+					 WHERE 
+					IP.BUYER = DT.BELOW_COMORG_CODE
+                    AND IP.BUYER = DT.BELOW_COMORG_CODE
+                    AND IP.CONTRACT_NO = DT.CONTRACT_NO
+                    AND IP.BUYER_ITEM_NO = DT.BUYER_ITEM_NO 
+					AND DT.STATUS <> 'D'
+                    AND IP.BUYER = #{KEY_2}	 AND IP.LEGACY_PO_NO = #{DOCU_NO}
+                    AND IP.BUYER = IPR.BUYER
+                    AND IP.LEGACY_PO_NO = IPR.LEGACY_NO
+                    AND IP.REVISION = IPR.REVISION
+                    AND IPR.GUBUN = 'OF'	
+					 
+		 
+
+				]]> 
+	</select>
+	
+	
+	
+	
+	<select id="ICOGDOCU_TRG1" parameterType="java.util.Map" resultType="java.util.Map">
+
+			<![CDATA[
+			 
+			  /*ICOGDOCU_TRG1*/
+					 
+		           SELECT count(*) V_CNT,max(user_id) V_USER_ID 
+            FROM ICOGPASSLN
+           WHERE COMPANY =  #{COMPANY}	
+             AND DOCU_NO = #{DOCU_NO}	
+             AND ORDER_NO = #{CUR_ORDER_NO}	
+             AND PASS_TP IN ('1', '3')
+             AND USER_ID IN ( '1004','1030')
+             AND ROWNUM = 1
+
+				]]> 
+	</select>
+	
+	<select id="ICOGDOCU_TRG2" parameterType="java.util.Map" resultType="java.util.Map">
+
+			<![CDATA[
+			 
+			  /*ICOGDOCU_TRG2*/
+					 
+		           SELECT count(*) V_CNT,max(user_id) V_USER_ID 
+            FROM ICOGPASSLN
+           WHERE COMPANY =  #{COMPANY}	
+             AND DOCU_NO =  #{DOCU_NO}	
+             AND ORDER_NO =  #{CUR_ORDER_NO}	
+             AND PASS_TP IN ('1', '3')
+             AND ROWNUM = 1
+				]]> 
+	</select>
+	 
+	
+	
+	
+		<select id="ICOGDOCU_TRG4" parameterType="java.util.Map" resultType="java.util.Map">
+
+			<![CDATA[
+			 
+			  /*ICOGDOCU_TRG4*/
+					 
+       SELECT COUNT(*) V_CNT,MAX(KEY_1) V_PR_NO 
+         FROM ICOMTRGW
+        WHERE COM_CODE = #{COMPANY}	
+          AND DOC_NAME = 'PR'
+          AND TARGET = #{DOCU_NO}	
+          
+				]]> 
+	</select>
+	
+	
+	
+	
+	<update id="ICOGDOCU_TRG5" parameterType="java.util.Map">
+ 
+		<![CDATA[
+	 		  /*ICOGDOCU_TRG5*/
+	 
+	      UPDATE ICOMPRHD
+            SET PR_SUBJECT = NVL(SUBSTRB(#{DOCU_TITLE}	,1,200),PR_SUBJECT)
+          WHERE BUYER = #{COMPANY}	
+            AND PR_NO =  #{V_PR_NO}	
+            
+      		]]>
+	</update> 		
+	
+	
+		 
+	
+	
+	
+	
+	<select id="MAIL_GJSUBMIT_TRG1" parameterType="java.util.Map" resultType="java.util.Map">
+
+			<![CDATA[
+			 
+			  /*MAIL_GJSUBMIT_TRG1*/
+					 
+				SELECT COUNT(*)
+				    V_CNT
+				FROM ICOMCMPY
+				WHERE COM_CODE = #{COMPANY}	
+				AND   COM_TYPE = 'X'
+				AND ROWNUM = 1
+          
+				]]> 
+	</select>
+	
+	
+	<select id="MAIL_GJSUBMIT_TRG2" parameterType="java.util.Map" resultType="java.util.Map">
+
+			<![CDATA[
+			 
+			  /*MAIL_GJSUBMIT_TRG2*/
+					 
+    SELECT COUNT(*)  V_COUNT
+     FROM MAILSEND
+     WHERE MAILFORM_ID = 'GJ_SUBMIT_BB'
+       AND SEND_COM_CODE = #{COMPANY}	
+       AND KEY1 =  #{DOCU_NO}	
+       AND KEY2 = #{CUR_ORDER_NO}	
+       AND KEY3 = #{PASS_STATUS}	
+       AND ROWNUM = 1
+          
+				]]> 
+	</select>
+	
+	<select id="MAIL_GJSUBMIT_TRG3" parameterType="java.util.Map" resultType="java.util.Map">
+
+			<![CDATA[
+			 
+			  /*MAIL_GJSUBMIT_TRG3*/
+					 
+			SELECT MAILFORM_ID, SEND_COM_TYPE, RECV_COM_TYPE,  #{COMPANY} , 'KOREAB2B',
+			                                   #{DOCU_NO}	, #{CUR_ORDER_NO}	,  #{PASS_STATUS} ,  SYSDATE
+			                                FROM MAILSETM
+			                               WHERE MAILFORM_ID = 'GJ_SUBMIT_BB' AND USING_FLAG = 'Y'
+				]]> 
+	</select>
+	
+	<update id="MAIL_GJSUBMIT_TRG4" parameterType="java.util.Map">
+ 
+		<![CDATA[
+	 		  /*MAIL_GJSUBMIT_TRG4*/
+	 
+               UPDATE MAILSEND
+                  SET KEY2 = #{CUR_ORDER_NO}	
+                      KEY3 =   #{PASS_STATUS}	
+                      CRE_DATE = SYSDATE
+                 WHERE MAILFORM_ID = 'GJ_SUBMIT_BB'
+                   AND KEY1 =  #{DOCU_NO}	
+            
+      		]]>
+	</update> 		
+	
+	
+	<select id="MAIL_GJSUBMIT_TRG5" parameterType="java.util.Map" resultType="java.util.Map">
+
+			<![CDATA[
+			 
+			  /*MAIL_GJSUBMIT_TRG5*/
+					 
+			SELECT A.MAILFORM_ID, A.SEND_COM_TYPE, A.RECV_COM_TYPE, B.COMPANY, 'KOREAB2B',
+                                 B.DOCU_NO, B.ORDER_NO, #{PASS_STATUS} ,  SYSDATE
+                            FROM MAILSETM A, ICOGPASSLN B, MAILSEND C
+                           WHERE A.MAILFORM_ID = 'GJ_SUBMIT_BB' AND A.USING_FLAG = 'Y'
+                            AND  B.COMPANY = #{COMPANY} 
+                            AND  B.DOCU_NO = #{DOCU_NO} 
+                            AND  B.PASS_TP = '2'
+                            AND  C.MAILFORM_ID(+) = 'GJ_SUBMIT_BB'
+                            AND  B.COMPANY = C.SEND_COM_CODE(+)
+                            AND  B.DOCU_NO = C.KEY1(+)
+                            AND  B.ORDER_NO = C.KEY2(+)
+                            AND  C.MAILFORM_ID IS NULL
+				]]> 
+	</select>
+	
+	
+	<select id="MAIL_GJSUBMIT_TRG6" parameterType="java.util.Map" resultType="java.util.Map">
+
+			<![CDATA[
+			 
+			  /*MAIL_GJSUBMIT_TRG6*/
+					 
+			SELECT MAILFORM_ID, SEND_COM_TYPE, RECV_COM_TYPE,  #{COMPANY} , 'KOREAB2B',
+			                                   #{DOCU_NO}	, #{CUR_ORDER_NO}	,  #{PASS_STATUS} ,  SYSDATE
+			                                FROM MAILSETM
+			                               WHERE MAILFORM_ID = 'GJ_RETURN_BB' AND USING_FLAG = 'Y'
+				]]> 
+	</select>
+	
+	<update id="MAIL_GJSUBMIT_TRG7" parameterType="java.util.Map">
+ 
+		<![CDATA[
+	 		  /*MAIL_GJSUBMIT_TRG7*/
+	 
+               UPDATE MAILSEND
+                  SET KEY2 = #{CUR_ORDER_NO}	
+                      KEY3 =   #{PASS_STATUS}	
+                      CRE_DATE = SYSDATE
+                 WHERE MAILFORM_ID = 'GJ_RETURN_BB'
+                   AND KEY1 =  #{DOCU_NO}	
+            
+      		]]>
+	</update> 		
+	
+	
+	<update id="MAIL_GJSUBMIT_TRG8" parameterType="java.util.Map">
+ 
+		<![CDATA[
+	 		  /*MAIL_GJSUBMIT_TRG8*/
+	 		  
+           UPDATE ICOMTRXL
+              SET KEY_1 = 'AP_R'
+             WHERE DOC_NAME = 'SMSSEND'
+               AND TARGET = #{COMPANY}	
+               AND KEY_1 = 'AP_R'
+               AND KEY_2 = #{DOCU_NO}	
+            
+      		]]>
+	</update> 		
+	
+	
+	<select id="MAIL_GJSUBMIT_TRG9" parameterType="java.util.Map" resultType="java.util.Map">
+
+			<![CDATA[
+			 
+			  /*MAIL_GJSUBMIT_TRG9*/
+					 
+       SELECT KEY_1
+         INTO V_REF_NO
+         FROM ICOMTRGW
+         WHERE COM_CODE = #{COMPANY}	
+           AND TARGET = #{DOCU_NO}	
+				]]> 
+	</select>	
+	
+	<select id="MAIL_GJSUBMIT_TRG10" parameterType="java.util.Map" resultType="java.util.Map">
+
+			<![CDATA[
+			 
+			  /*MAIL_GJSUBMIT_TRG10*/
+					 
+               SELECT COUNT(*)
+                V_CNT
+              FROM ICOMTRXL
+             WHERE DOC_NAME = 'APPROVAL'
+               AND TARGET = #{COMPANY}	
+               AND KEY_1  = #{V_REF_NO}	 
+               AND KEY_2  = ' '
+               AND KEY_3  = ' '
+               AND KEY_4  = ' '
+               AND KEY_5  = ' '
+               AND KEY_6  = ' '
+               AND KEY_7  = ' '
+               AND KEY_8  = ' '
+               AND KEY_9  = ' '
+               AND KEY_10 = ' '
+               AND ROWNUM = 1
+				]]> 
+	</select>	
+	
+	
+	
+		<update id="MAIL_GJSUBMIT_TRG11" parameterType="java.util.Map">
+ 
+		<![CDATA[
+	 		  /*MAIL_GJSUBMIT_TRG11*/
+	 		  
+   INSERT INTO IF_PROGRESS
+                    (    BUYER,
+                        GUBUN,
+                        LEGACY_NO,
+                        REVISION,
+                        STATUS,
+                        IF_FLAG,
+                        TOT_CNT,
+                        TOT_AMT,
+                        ERR_CNT,
+                        ERR_MSG,
+                        REMARK,
+                        CHANGE_DATE,
+                        CHANGE_TIME,
+                        ADD_DATE,
+                        NO_CNT  )
+             VALUES  (#{COMPANY},
+                      'XX',
+                      #{V_REF_NO},
+                      '00',
+                      'C',
+                      'C',
+                      1,
+                      1,
+                      0,
+                      '?????!!',
+                      'BUDGET',
+                      TO_CHAR(SYSDATE,'YYYYMMDD'),
+                      TO_CHAR(SYSDATE,'HH24MISS'),
+                      TO_CHAR(SYSDATE,'YYYYMMDD'),
+                      0)
+            
+      		]]>
+	</update> 		
+	
+			<update id="MAIL_GJSUBMIT_TRG12" parameterType="java.util.Map">
+ 
+		<![CDATA[
+	 		  /*MAIL_GJSUBMIT_TRG12*/
+	 		  
+UPDATE IF_PROGRESS
+                            SET IF_FLAG = 'C',
+                                CHANGE_DATE = TO_CHAR(SYSDATE,'YYYYMMDD'),
+                                CHANGE_TIME = TO_CHAR(SYSDATE,'HH24MISS'),
+                                ERR_MSG     = '?????!!'
+                         WHERE BUYER =  #{COMPANY}
+                          AND  LEGACY_NO = #{V_REF_NO}
+                          AND  REMARK = 'BUDGET'
+                          AND  GUBUN     = 'XX'
+                          AND  REVISION  = '00'
+            
+      		]]>
+	</update> 			
+	
+	<select id="MAIL_GJSUBMIT_TRG13" parameterType="java.util.Map" resultType="java.util.Map">
+
+			<![CDATA[
+			 
+			  /*MAIL_GJSUBMIT_TRG13*/
+					 
+			SELECT MAILFORM_ID, SEND_COM_TYPE, RECV_COM_TYPE,  #{COMPANY} , 'KEP200300',
+			                                   #{DOCU_NO}	, #{CUR_ORDER_NO}	,  #{PASS_STATUS} ,  SYSDATE
+			                                FROM KMAILSETM
+			                               WHERE MAILFORM_ID = 'GJ_NEW_BB' AND USING_FLAG = 'Y'
+				]]> 
+	</select>	
+	
+	
+	<update id="MAIL_GJSUBMIT_TRG14" parameterType="java.util.Map">
+ 
+		<![CDATA[
+	 		  /*MAIL_GJSUBMIT_TRG14*/
+	 		  
+           UPDATE KMAILSEND
+              SET KEY2 = #{CUR_ORDER_NO} ,
+                  KEY3 =  #{PASS_STATUS} ,
+                  CRE_DATE = SYSDATE
+             WHERE MAILFORM_ID = 'GJ_NEW_BB'
+               AND KEY1 = #{DOCU_NO}
+            
+      		]]>
+	</update> 		
+	
+	
+	
+	<select id="MAIL_GJSUBMIT_TRG15" parameterType="java.util.Map" resultType="java.util.Map">
+
+			<![CDATA[
+			 
+			  /*MAIL_GJSUBMIT_TRG15*/
+					 
+SELECT A.MAILFORM_ID, A.SEND_COM_TYPE, A.RECV_COM_TYPE, B.COMPANY, 'KEP200300',
+                                 B.DOCU_NO, B.ORDER_NO, :NEW.PASS_STATUS,  SYSDATE
+                            FROM KMAILSETM A, ICOGPASSLN B, KMAILSEND C
+                           WHERE A.MAILFORM_ID = 'GJ_NEW_BB' AND A.USING_FLAG = 'Y'
+                            AND  B.COMPANY = #{COMPANY}
+                            AND  B.DOCU_NO = #{DOCU_NO}
+                            AND  B.PASS_TP = '2'
+                            AND  C.MAILFORM_ID(+) = 'GJ_NEW_BB'
+                            AND  B.COMPANY = C.SEND_COM_CODE(+)
+                            AND  B.DOCU_NO = C.KEY1(+)
+                            AND  B.ORDER_NO = C.KEY2(+)
+                            AND  C.MAILFORM_ID IS NULL
+				]]> 
+	</select>	
+	
+	
+	
+		<update id="MAIL_GJSUBMIT_TRG16" parameterType="java.util.Map">
+ 
+		<![CDATA[
+	 		  /*MAIL_GJSUBMIT_TRG16*/
+	 		  
+           UPDATE ICOMTRXL
+              SET KEY_1 = 'MRO_PASS'
+             WHERE DOC_NAME = 'SMSSEND'
+               AND TARGET = #{COMPANY}
+               AND KEY_1 = 'MRO_PASS'
+               AND KEY_2 =  #{DOCU_NO} 
+               AND KEY_3 = #{CUR_ORDER_NO}
+            
+      		]]>
+	</update> 		
+	
+	
+	
+	
+	<select id="MAIL_GJSUBMIT_TRG17" parameterType="java.util.Map" resultType="java.util.Map">
+
+			<![CDATA[
+			 
+			  /*MAIL_GJSUBMIT_TRG17*/
+					 
+SELECT MAILFORM_ID, SEND_COM_TYPE, RECV_COM_TYPE, #{COMPANY} , 'KEP200300',
+                                 #{DOCU_NO} , #{CUR_ORDER_NO} ,  #{PASS_STATUS}  ,  SYSDATE
+                            FROM KMAILSETM
+                           WHERE MAILFORM_ID = 'GJ_RETURN_BB' AND USING_FLAG = 'Y'
+				]]> 
+	</select>	
+	
+	
+	
+		<update id="MAIL_GJSUBMIT_TRG18" parameterType="java.util.Map">
+ 
+		<![CDATA[
+	 		  /*MAIL_GJSUBMIT_TRG18*/
+	 		  
+           UPDATE KMAILSEND
+              SET KEY2 =  #{CUR_ORDER_NO} ,
+                  KEY3 =  #{PASS_STATUS} ,
+                  CRE_DATE = SYSDATE
+             WHERE MAILFORM_ID = 'GJ_RETURN_BB'
+               AND KEY1 =  #{DOCU_NO} 
+            
+      		]]>
+	</update> 		
+	
+		<update id="setRejectPrList" parameterType="java.util.Map" >
+			<![CDATA[
+		 	/*setRejectPrList*/
+		      UPDATE ICOMPRDT SET 
+		          RECV_FLAG =#{st_prrecv_flag}
+		          , RETURN_REASON=#{st_return_reason}
+		          , CHANGE_DATE = TO_CHAR(SYSDATE,'YYYYMMDD')
+		          , CHANGE_TIME = TO_CHAR(SYSDATE,'HH24MISS')
+		          , PLAN_AMT_FLAG = 'N'
+		      WHERE BUYER = #{st_buyer}
+		        AND PR_NO = #{st_pr_no}
+		        AND PR_SEQ = #{st_pr_seq}
+		]]> 
+		</update> 	
+		<update id="updateTempBdgtUpdateRejectList" parameterType="java.util.Map" >
+			<![CDATA[
+				
+		 	/*updateTempBdgtUpdateRejectList*/ 	
+		                 UPDATE ICOMBDGT A SET                                                                   
+		                         A.TEMP_AMT = A.TEMP_AMT -                                                       
+		                                      (SELECT                                                            
+		                                             NVL(TARGET_QTY * TARGET_PRICE,0)                       
+		                                         FROM ICOMPRDT PRDT                                                   
+		                                         WHERE PRDT.BUYER = A.BUYER       
+		                                         	AND PRDT.BUYER = #{st_buyer}                                    
+		                                           AND PRDT.PR_NO =  #{st_pr_no} 
+		                                           AND PRDT.PR_SEQ = #{st_pr_seq}
+		                                           AND BUDGET_DEPT||ACCOUNT_TYPE = A.DEPT||A.ACCOUNT_TYPE        
+		                                         )                           
+		                 WHERE BUYER = #{st_buyer}                         
+		                   AND DEPT||ACCOUNT_TYPE IN (                                                           
+		                                          SELECT                                                         
+		                                             BUDGET_DEPT||ACCOUNT_TYPE                                   
+		                                         FROM ICOMPRDT PRDT                                                  
+		                                         WHERE PRDT.BUYER = A.BUYER                                           
+		                                         	AND PRDT.BUYER = #{st_buyer}                                    
+		                                           AND PRDT.PR_NO =  #{st_pr_no} 
+		                                           AND PRDT.PR_SEQ = #{st_pr_seq}                                                                    
+		                                         )                                                               
+		                   AND (SELECT ADD_DATE FROM ICOMPRDT PRDT WHERE PRDT.BUYER = #{st_buyer}  AND PRDT.PR_NO = #{st_pr_no} AND PRDT.PR_SEQ=#{st_pr_seq} ) BETWEEN A.FROM_DATE AND A.TO_DATE  
+		      
+		]]> 
+		</update>
+		<update id="updateTempBdgtUpdateCowayRejectList" parameterType="java.util.Map" >
+			<![CDATA[
+			
+		 	/*updateTempBdgtUpdateCowayRejectList*/
+		 	
+			INSERT INTO COWAY_BUDGET_ACTUAL (	
+			BUYER					
+			,PR_NO					
+			,PR_SEQ					
+			,PR_STATUS				
+			,BUDGET_DEPT				
+			,ACCOUNT_TYPE				
+			,ADD_DATE				
+			,ADD_TIME				
+			,MP_AMT				
+			) (					
+		 	SELECT					
+		 	 DT.BUYER				
+		 	 ,DT.PR_NO				
+		 	 ,DT.PR_SEQ				
+		 	 ,'R'					
+		 	 ,DT.BUDGET_DEPT			
+		 	 ,DT.ACCOUNT_TYPE			
+		 	 ,TO_CHAR(SYSDATE,'YYYYMMDD')		
+		 	 ,TO_CHAR(SYSDATE,'HH24MISS')		
+		 	 ,(TARGET_PRICE*TARGET_QTY) AMT		
+		 	FROM ICOMPRDT DT			
+		 	WHERE DT.BUYER   =  #{st_buyer} 
+		 	AND DT.PR_NO	 = #{st_pr_no}
+		 	AND DT.PR_SEQ	 = #{st_pr_seq}
+		 	AND DT.BUDGET_DEPT IS NOT NULL	
+		 	AND DT.ACCOUNT_TYPE IS NOT NULL	 
+		 	AND EXISTS (	
+		 		SELECT 1 FROM  COWAY_BUDGET_ACTUAL BA	
+		 		WHERE BA.BUYER = DT.BUYER	
+		 		AND BA.PR_NO   = DT.PR_NO	
+		 		AND BA.PR_SEQ  = DT.PR_SEQ )	
+		   ) 
+		      
+		      
+		]]> 
+		</update> 	
+	
+		<select id="buyerCauNewPassRecvList" parameterType="java.util.Map" resultType="java.util.Map">
+			/*commonApproval.buyerCauNewPassRecvList*/
+
+		              SELECT
+		              	<if test="paging == 'cnt'"> 
+		              	count(1) TOTAL_CNT 
+						</if>
+						<if test="paging == 'nocnt'"> 
+                     0 No,
+                     Y.COMPANY,
+                     Y.DOCU_NO,
+                     Y.DOCU_TITLE,
+                     DECODE(Y.EXTIF_TP, 'PX', (SELECT TO_CHAR(START_DATE, 'YYYY/MM/DD') FROM ICOGDOCU WHERE COMPANY = Y.COMPANY AND DOCU_NO = (SELECT MAX(TARGET) FROM ICOMTRGW WHERE COM_CODE = Y.COMPANY AND DOC_NAME = 'PR' AND KEY_1 = Y.KEY1)),Y.START_DATE) AS START_DATE,
+                     Y.USER_NM,
+                     Y.EXTIF_TP_TEXT,
+                     Y.EXTIF_TP,
+                     NVL(Y.ORDER_DEPT,(SELECT D.TEXT1 FROM ICOMCOD2 D WHERE D.COMPANY_CODE=Y.COMPANY AND D.TYPE='C001' AND D.CODE=Y.DEPARTMENT)) ORDER_DEPT,
+                     Y.ITEM_CNT,
+                     Y.ORDER_AMT,
+                     NVL(Y.ORDER_DEPT_CD,Y.DEPARTMENT) ORDER_DEPT_CD,
+                     Y.KEY1
+                FROM(
+                      SELECT
+                             ROWNUM NUM,
+                             X.COMPANY,
+                             X.DOCU_NO,
+                             X.DOCU_TITLE,
+                             X.START_DATE,
+                             X.USER_NM,
+                             X.EXTIF_TP_TEXT,
+                             X.EXTIF_TP,
+                             X.ITEM_CNT,
+                             X.ORDER_AMT,
+                             X.ORDER_DEPT,
+                             X.ORDER_DEPT_CD,
+                             X.KEY1,
+                             (SELECT DEPARTMENT FROM ICOMLUSR WHERE USER_ID = X.USER_ID) DEPARTMENT
+                        FROM(  
+                              SELECT 
+                                     A.COMPANY,  
+                                     A.DOCU_NO,  
+                                     A.DOCU_TITLE,  
+                                     A.ATTACH_CNT,  
+                                     DECODE(C.PASS_TP,'1','결재문서','2','참조문서','3','합의문서') GUBUN,  
+                                     TO_CHAR(A.START_DATE, 'YYYY/MM/DD' ) START_DATE,  
+                                     START_DATE START_DATE2,
+                                     decode( #{USERID} , B.USER_ID, '결재요망' ,(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = B.USER_ID))       NEXT_USER_NM,  
+                                     A.DOCU_KN,  
+                                     A.USER_ID,
+                                     (SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = A.USER_ID) ADD_USER_ID,  
+                                     C.PASS_TP,  
+                                     NVL(C.PASS_KN,'0') PASS_KN,  
+                                     A.USER_NM USER_NM,  
+                                     B.USER_ID AS NEXT_USER_ID,  
+                                     (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'APPR' AND CODE = A.EXTIF_TP) AS EXTIF_TP_TEXT,  
+                                     A.EXTIF_TP AS EXTIF_TP,  
+                                     DECODE(TRGW.DOC_NAME,'PR',                                
+                                       (SELECT COUNT(*) FROM ICOMPRDT                             
+                                         WHERE BUYER = TRGW.COM_CODE                        
+                                         AND   PR_NO = TRGW.KEY_1              
+                                         AND   STATUS ^= 'D'
+                                         AND   RECV_FLAG NOT IN ('GR','PR')), 'PX',             
+                                       (SELECT COUNT(*) FROM ICOMPRDT                             
+                                         WHERE BUYER = TRGW.COM_CODE                   
+                                         AND   REF_NO = TRGW.KEY_1      
+                                         AND   STATUS ^= 'D'
+                                         AND   RECV_FLAG NOT IN ('GR','PR')),NULL) AS ITEM_CNT,                  
+                                     DECODE(TRGW.DOC_NAME,'PR',                                
+                                       (SELECT SUM(TARGET_QTY*TARGET_PRICE) FROM ICOMPRDT                 
+                                         WHERE BUYER = TRGW.COM_CODE                
+                                         AND   PR_NO = TRGW.KEY_1                  
+                                         AND   STATUS ^= 'D'
+                                         AND   RECV_FLAG NOT IN ('GR','PR')), 'PX',     
+                                       (SELECT SUM(RECV_QTY*TARGET_PRICE) FROM ICOMPRDT                   
+                                         WHERE BUYER = TRGW.COM_CODE                     
+                                         AND   REF_NO = TRGW.KEY_1                  
+                                         AND   STATUS ^= 'D'
+                                         AND   RECV_FLAG NOT IN ('GR','PR')),NULL) AS ORDER_AMT,                      
+                                     DECODE(TRGW.DOC_NAME,'PR',                                
+                                       (SELECT MAX(COD2.TEXT1)||DECODE(COUNT(DISTINCT CHANGE_USER_DEPT),1,NULL,       
+                                           ' 외 '||TO_CHAR(COUNT(DISTINCT CHANGE_USER_DEPT)-1)||'개')              
+                                         FROM  ICOMPRDT, ICOMCOD2 COD2                             
+                                         WHERE BUYER = TRGW.COM_CODE                           
+                                         AND   PR_NO = TRGW.KEY_1                              
+                                         AND   STATUS ^= 'D'                               
+                                         AND   BUYER = COD2.COMPANY_CODE                           
+                                         AND   COD2.TYPE = 'C001'                              
+                                         AND   COD2.CODE =CHANGE_USER_DEPT  ), 'PX',                   
+                                       (SELECT MAX(COD2.TEXT1)||DECODE(COUNT(DISTINCT CHANGE_USER_DEPT),1,NULL,       
+                                           ' 외 '||TO_CHAR(COUNT(DISTINCT CHANGE_USER_DEPT)-1)||'건')             
+                                         FROM  ICOMPRDT, ICOMCOD2 COD2                             
+                                         WHERE BUYER = TRGW.COM_CODE                           
+                                         AND   REF_NO = TRGW.KEY_1                             
+                                         AND   STATUS ^= 'D'                               
+                                         AND   BUYER = COD2.COMPANY_CODE                           
+                                         AND   COD2.TYPE = 'C001'                              
+                                         AND   COD2.CODE =CHANGE_USER_DEPT),NULL) AS ORDER_DEPT,              
+                                     DECODE(TRGW.DOC_NAME,'PR',                               
+                                       (SELECT MAX( CHANGE_USER_DEPT)             
+                                         FROM  ICOMPRDT, ICOMCOD2 COD2                             
+                                         WHERE BUYER = TRGW.COM_CODE                           
+                                         AND   PR_NO = TRGW.KEY_1                              
+                                         AND   STATUS ^= 'D'                               
+                                         AND   BUYER = COD2.COMPANY_CODE                           
+                                         AND   COD2.TYPE = 'C001'                              
+                                         AND   COD2.CODE =CHANGE_USER_DEPT  ), 'PX',                   
+                                       (SELECT MAX(CHANGE_USER_DEPT)              
+                                         FROM  ICOMPRDT, ICOMCOD2 COD2                             
+                                         WHERE BUYER = TRGW.COM_CODE                           
+                                         AND   REF_NO = TRGW.KEY_1                             
+                                         AND   STATUS ^= 'D'                               
+                                         AND   BUYER = COD2.COMPANY_CODE                           
+                                         AND   COD2.TYPE = 'C001'                              
+                                         AND   COD2.CODE =CHANGE_USER_DEPT),NULL) AS ORDER_DEPT_CD,                 
+                                     DECODE(TRGW.DOC_NAME, 'PX', (SELECT MAX(PR_NO) FROM ICOMPRDT WHERE BUYER = TRGW.COM_CODE AND REF_NO = TRGW.KEY_1 AND STATUS != 'D'), TRGW.KEY_1) AS KEY1              
+                                     </if>
+                                 FROM ICOGDOCU A, ICOGPASSLN B,  
+                                      (SELECT Y.COMPANY, Y.DOCU_NO, Y.PASS_TP, Y.PASS_KN,Y.ORDER_NO
+                                       FROM ICOGDOCU X, ICOGPASSLN  Y
+                                       WHERE X.COMPANY=#{BUYER}
+                                       AND X.START_DATE BETWEEN  to_date(#{startDate},'YYYY/MM/DD') AND
+                                                                 to_date(#{endDate},'YYYY/MM/DD')+1
+                                       AND X.PASS_STATUS = '0'
+                                       AND X.COMPANY=Y.COMPANY
+                                       AND X.DOCU_NO=Y.DOCU_NO
+                                       AND Y.USER_ID =  #{USERID} AND Y.ORDER_NO > 1 AND Y.DISPLAY_YN = 'Y') C  
+                                        ,ICOMTRGW TRGW  
+                                WHERE ((C.PASS_TP = '1' AND A.DOCU_NO = C.DOCU_NO AND A.COMPANY = C.COMPANY  AND A.PASS_STATUS = '0' AND C.PASS_KN IS NULL ) OR  
+                                       (C.PASS_TP = '3' AND A.DOCU_NO = C.DOCU_NO AND A.COMPANY = C.COMPANY  AND A.PASS_STATUS = '0'  AND C.PASS_KN IS NULL))  
+                                  AND A.COMPANY      = B.COMPANY  
+                                  AND A.DOCU_NO      = B.DOCU_NO  
+                                  AND A.CUR_ORDER_NO = B.ORDER_NO    
+                                AND A.COMPANY = TRGW.COM_CODE  
+                                AND A.DOCU_NO = TRGW.TARGET 
+                                AND C.COMPANY = A.COMPANY
+                                AND C.DOCU_NO = A.DOCU_NO
+                                AND C.COMPANY = TRGW.COM_CODE
+                                AND C.DOCU_NO = TRGW.TARGET
+                                AND C.PASS_TP IN ('1', '3')
+								AND B.USER_ID = #{USERID}
+								
+                                 <if test="st_drafter != ''">  
+                                 	AND A.USER_NM like '%'||#{st_drafter} ||'%' 
+                                 </if>
+                                 <if test="st_gubun != ''">  
+                                 	AND A.EXTIF_TP =#{st_gubun} 
+                                 </if> 
+                                 <if test="st_subject != ''">  
+                                 	AND A.DOCU_TITLE LIKE '%'||#{st_subject} ||'%'  
+                                 </if>
+                                 
+                                 <if test="st_pr_no != ''">
+                                	AND DECODE(TRGW.DOC_NAME, 'PX', (SELECT MAX(PR_NO) FROM ICOMPRDT WHERE BUYER = TRGW.COM_CODE AND REF_NO = TRGW.KEY_1 AND STATUS != 'D'), TRGW.KEY_1) LIKE '%'||#{st_pr_no}||'%'
+                                 </if>
+                                 <if test="paging == 'nocnt'"> 
+				                 		ORDER BY START_DATE2 DESC ) X
+				                 		WHERE 1=1
+				                 		<if test="st_req_dept_code != ''">  
+											AND X.ORDER_DEPT_CD = #{st_req_dept_code}  
+										</if>
+				                 		)Y  
+				                 	WHERE Y.NUM BETWEEN #{startrow} AND #{endrow}		
+                 				</if> 	 
+		</select>
+		
+		<select id="buyerCauNewPassRecvExcelList" parameterType="java.util.Map" resultType="java.util.Map">
+		/*commonApproval.buyerCauNewPassRecvExcelList*/
+
+		SELECT	Z.COMPANY,
+				Z.DOCU_NO,
+				Z.DOCU_TITLE,
+				Z.START_DATE,
+				Z.USER_NM,
+				Z.EXTIF_TP_TEXT,
+				Z.EXTIF_TP,
+				Z.ORDER_DEPT,
+				Z.ITEM_CNT,
+				Z.ORDER_AMT,
+				Z.ORDER_DEPT_CD,
+				Z.KEY1,
+				PRDT.BUYER_ITEM_NO,
+				PRDT.DESCRIPTION,
+				PRDT.SPECIFICATION,
+				PRDT.UNIT_MEASURE,
+				PRDT.TARGET_QTY,
+				PRDT.TARGET_PRICE,
+				NVL(PRDT.TARGET_QTY, 0) * NVL(PRDT.TARGET_PRICE, 0) AS PRDT_AMT,
+				PRDT.RD_DATE,
+				PRDT.BUDGET_DEPT,
+				(SELECT TEXT1 FROM ICOMCOD2 WHERE TYPE = 'C001' AND COMPANY_CODE = Z.COMPANY AND CODE = PRDT.BUDGET_DEPT) AS BUDGET_DEPT_TEXT,
+				PRDT.ACCOUNT_TYPE,
+				(SELECT TEXT1 FROM ICOMCOD2 WHERE TYPE = 'Z014' AND COMPANY_CODE = Z.COMPANY AND CODE = PRDT.ACCOUNT_TYPE) AS ACCOUNT_TYPE_TEXT,
+				PRDT.DELY_TO_LOCATION,
+				(SELECT TEXT2 FROM ICOMCOD2 WHERE TYPE = 'C012' AND COMPANY_CODE = Z.COMPANY AND CODE = PRDT.DELY_TO_LOCATION) AS DELY_TO_LOCATION_TEXT,
+				DECODE(PRDT.IMAGE_KEY, '', 'N', 'Y') AS ATTACH_CNT
+		FROM	(
+				SELECT	Y.COMPANY,
+						Y.DOCU_NO,
+						Y.DOCU_TITLE,
+						DECODE(Y.EXTIF_TP, 'PX', (SELECT TO_CHAR(START_DATE, 'YYYY/MM/DD') FROM ICOGDOCU WHERE COMPANY = Y.COMPANY AND DOCU_NO = (SELECT MAX(TARGET) FROM ICOMTRGW WHERE COM_CODE = Y.COMPANY AND DOC_NAME = 'PR' AND KEY_1 = Y.KEY1)),Y.START_DATE) AS START_DATE,
+						Y.USER_NM,
+						Y.EXTIF_TP_TEXT,
+						Y.EXTIF_TP,
+						NVL(Y.ORDER_DEPT,(SELECT D.TEXT1 FROM ICOMCOD2 D WHERE D.COMPANY_CODE=Y.COMPANY AND D.TYPE='C001' AND D.CODE=Y.DEPARTMENT)) ORDER_DEPT,
+						Y.ITEM_CNT,
+						Y.ORDER_AMT,
+						NVL(Y.ORDER_DEPT_CD,Y.DEPARTMENT) ORDER_DEPT_CD,
+						Y.KEY1,
+						Y.ATTACH_CNT
+				FROM	(
+						SELECT	X.COMPANY,
+								X.DOCU_NO,
+								X.DOCU_TITLE,
+								X.START_DATE,
+								X.USER_NM,
+								X.EXTIF_TP_TEXT,
+								X.EXTIF_TP,
+								X.ITEM_CNT,
+								X.ORDER_AMT,
+								X.ORDER_DEPT,
+								X.ORDER_DEPT_CD,
+								X.KEY1,
+								X.ATTACH_CNT,
+								(SELECT DEPARTMENT FROM ICOMLUSR WHERE USER_ID = X.USER_ID) DEPARTMENT
+						FROM	(
+								SELECT	A.COMPANY,
+										A.DOCU_NO,
+										A.DOCU_TITLE,
+										A.ATTACH_CNT,
+										DECODE(C.PASS_TP,'1','결재문서','2','참조문서','3','합의문서') GUBUN,
+										TO_CHAR(A.START_DATE, 'YYYY/MM/DD' ) START_DATE,
+										START_DATE START_DATE2,
+										decode( #{USERID}, B.USER_ID, '결재요망' ,(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = B.USER_ID))       NEXT_USER_NM,
+										A.DOCU_KN,
+										A.USER_ID,
+										(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = A.USER_ID) ADD_USER_ID,
+										C.PASS_TP,
+										NVL(C.PASS_KN,'0') PASS_KN,
+										A.USER_NM USER_NM,
+										B.USER_ID AS NEXT_USER_ID,
+										(SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'APPR' AND CODE = A.EXTIF_TP) AS EXTIF_TP_TEXT,
+										A.EXTIF_TP AS EXTIF_TP,
+										DECODE(TRGW.DOC_NAME,'PR',
+										  (SELECT COUNT(*) FROM ICOMPRDT
+										    WHERE BUYER = TRGW.COM_CODE
+										    AND   PR_NO = TRGW.KEY_1
+										    AND   STATUS ^= 'D'), 'PX',
+										  (SELECT COUNT(*) FROM ICOMPRDT
+										    WHERE BUYER = TRGW.COM_CODE
+										    AND   REF_NO = TRGW.KEY_1
+										    AND   STATUS ^= 'D'),NULL) AS ITEM_CNT,
+										DECODE(TRGW.DOC_NAME,'PR',
+										  (SELECT SUM(TARGET_QTY*TARGET_PRICE) FROM ICOMPRDT
+										    WHERE BUYER = TRGW.COM_CODE
+										    AND   PR_NO = TRGW.KEY_1
+										    AND   STATUS ^= 'D'), 'PX',
+										  (SELECT SUM(RECV_QTY*TARGET_PRICE) FROM ICOMPRDT
+										    WHERE BUYER = TRGW.COM_CODE
+										    AND   REF_NO = TRGW.KEY_1
+										    AND   STATUS ^= 'D'),NULL) AS ORDER_AMT,
+										DECODE(TRGW.DOC_NAME,'PR',
+										  (SELECT MAX(COD2.TEXT1)||DECODE(COUNT(DISTINCT CHANGE_USER_DEPT),1,NULL,
+										      ' 외 '||TO_CHAR(COUNT(DISTINCT CHANGE_USER_DEPT)-1)||'개')
+										    FROM  ICOMPRDT, ICOMCOD2 COD2
+										    WHERE BUYER = TRGW.COM_CODE
+										    AND   PR_NO = TRGW.KEY_1
+										    AND   STATUS ^= 'D'
+										    AND   BUYER = COD2.COMPANY_CODE
+										    AND   COD2.TYPE = 'C001'
+										    AND   COD2.CODE =CHANGE_USER_DEPT  ), 'PX',
+										  (SELECT MAX(COD2.TEXT1)||DECODE(COUNT(DISTINCT CHANGE_USER_DEPT),1,NULL,
+										      ' 외 '||TO_CHAR(COUNT(DISTINCT CHANGE_USER_DEPT)-1)||'건')
+										    FROM  ICOMPRDT, ICOMCOD2 COD2
+										    WHERE BUYER = TRGW.COM_CODE
+										    AND   REF_NO = TRGW.KEY_1
+										    AND   STATUS ^= 'D'
+										    AND   BUYER = COD2.COMPANY_CODE
+										    AND   COD2.TYPE = 'C001'
+										    AND   COD2.CODE =CHANGE_USER_DEPT),NULL) AS ORDER_DEPT,
+										DECODE(TRGW.DOC_NAME,'PR',
+										  (SELECT MAX( CHANGE_USER_DEPT)
+										    FROM  ICOMPRDT, ICOMCOD2 COD2
+										    WHERE BUYER = TRGW.COM_CODE
+										    AND   PR_NO = TRGW.KEY_1
+										    AND   STATUS ^= 'D'
+										    AND   BUYER = COD2.COMPANY_CODE
+										    AND   COD2.TYPE = 'C001'
+										    AND   COD2.CODE =CHANGE_USER_DEPT  ), 'PX',
+										  (SELECT MAX(CHANGE_USER_DEPT)
+										    FROM  ICOMPRDT, ICOMCOD2 COD2
+										    WHERE BUYER = TRGW.COM_CODE
+										    AND   REF_NO = TRGW.KEY_1
+										    AND   STATUS ^= 'D'
+										    AND   BUYER = COD2.COMPANY_CODE
+										    AND   COD2.TYPE = 'C001'
+										    AND   COD2.CODE =CHANGE_USER_DEPT),NULL) AS ORDER_DEPT_CD,
+										DECODE(TRGW.DOC_NAME, 'PX', (SELECT MAX(PR_NO) FROM ICOMPRDT WHERE BUYER = TRGW.COM_CODE AND REF_NO = TRGW.KEY_1 AND STATUS != 'D'), TRGW.KEY_1) AS KEY1
+								FROM	ICOGDOCU A, ICOGPASSLN B,  
+                                      (SELECT Y.COMPANY, Y.DOCU_NO, Y.PASS_TP, Y.PASS_KN,Y.ORDER_NO
+                                       FROM ICOGDOCU X, ICOGPASSLN  Y
+                                       WHERE X.COMPANY=#{BUYER}
+                                       AND X.START_DATE BETWEEN  to_date(#{startDate},'YYYY/MM/DD') AND
+                                                                 to_date(#{endDate},'YYYY/MM/DD')+1
+                                       AND X.PASS_STATUS = '0'
+                                       AND X.COMPANY=Y.COMPANY
+                                       AND X.DOCU_NO=Y.DOCU_NO
+                                       AND Y.USER_ID =  #{USERID} AND Y.ORDER_NO > 1 AND Y.DISPLAY_YN = 'Y') C  
+                                        ,ICOMTRGW TRGW  
+                                WHERE ((C.PASS_TP = '1' AND A.DOCU_NO = C.DOCU_NO AND A.COMPANY = C.COMPANY  AND A.PASS_STATUS = '0' AND C.PASS_KN IS NULL ) OR  
+                                       (C.PASS_TP = '3' AND A.DOCU_NO = C.DOCU_NO AND A.COMPANY = C.COMPANY  AND A.PASS_STATUS = '0'  AND C.PASS_KN IS NULL))  
+                                  AND A.COMPANY      = B.COMPANY  
+                                  AND A.DOCU_NO      = B.DOCU_NO  
+                                  AND A.CUR_ORDER_NO = B.ORDER_NO    
+                                AND A.COMPANY = TRGW.COM_CODE  
+                                AND A.DOCU_NO = TRGW.TARGET 
+                                AND C.COMPANY = A.COMPANY
+                                AND C.DOCU_NO = A.DOCU_NO
+                                AND C.COMPANY = TRGW.COM_CODE
+                                AND C.DOCU_NO = TRGW.TARGET
+                                AND C.PASS_TP IN ('1', '3')
+								AND B.USER_ID = #{USERID}
+								
+                                 <if test="st_drafter != ''">  
+                                 	AND A.USER_NM like '%'||#{st_drafter} ||'%' 
+                                 </if>
+                                 <if test="st_gubun != ''">  
+                                 	AND A.EXTIF_TP =#{st_gubun} 
+                                 </if> 
+                                 <if test="st_subject != ''">  
+                                 	AND A.DOCU_TITLE LIKE '%'||#{st_subject} ||'%'  
+                                 </if>
+                                 
+                                 <if test="st_pr_no != ''">
+                                	AND DECODE(TRGW.DOC_NAME, 'PX', (SELECT MAX(PR_NO) FROM ICOMPRDT WHERE BUYER = TRGW.COM_CODE AND REF_NO = TRGW.KEY_1 AND STATUS != 'D'), TRGW.KEY_1) LIKE '%'||#{st_pr_no}||'%'
+                                 </if>
+		                 		ORDER BY START_DATE2 DESC ) X
+		                 		WHERE 1=1
+		                 		<if test="st_req_dept_code != ''">  
+									AND X.ORDER_DEPT_CD = #{st_req_dept_code}  
+								</if>
+                 		)Y	
+		) Z, ICOMPRDT PRDT
+		WHERE	1=1
+		AND		Z.COMPANY = PRDT.BUYER
+		AND		Z.KEY1 = PRDT.PR_NO
+		AND		PRDT.STATUS ^= 'D'
+		</select>
+		
+		<select id="getBuyerCauCommonMyPagePopPrList" parameterType="java.util.Map" resultType="java.util.Map">
+		/*getBuyerCauCommonMyPagePopPrList*/
+		SELECT	PD.BUYER AS BUYER,
+				PD.PR_NO AS PR_NO,
+				PD.PR_SEQ AS PR_SEQ,
+				PD.BUYER_ITEM_NO AS BUYER_ITEM_NO,
+				PD.DESCRIPTION AS DESCRIPTION,
+				PD.SPECIFICATION AS SPECIFICATION,
+				PD.UNIT_MEASURE AS UNIT_MEASURE,
+				DECODE(#{DOC_TYPE}, 'PR', PD.TARGET_QTY, PD.RECV_QTY) AS TARGET_QTY,
+				PD.TARGET_PRICE AS TARGET_PRICE,
+				DECODE(#{DOC_TYPE}, 'PR', PD.TARGET_QTY, PD.RECV_QTY) * PD.TARGET_PRICE AS AMT,
+				PD.RD_DATE AS RD_DATE,
+				PD.BUDGET_DEPT AS BUDGET_DEPT_CODE,
+				(SELECT TEXT1 FROM ICOMCOD2 WHERE COMPANY_CODE = PD.BUYER AND TYPE = 'C001' AND CODE = PD.BUDGET_DEPT) AS BUDGET_DEPT_TEXT,
+				PD.ACCOUNT_TYPE AS ACCOUNT_TYPE,
+				(SELECT TEXT1 FROM ICOMCOD2 WHERE COMPANY_CODE = PD.BUYER AND TYPE = 'Z014' AND CODE = PD.ACCOUNT_TYPE) AS ACCOUNT_TYPE_TEXT,
+				PD.DELY_TO_LOCATION,
+				(SELECT TEXT2 FROM ICOMCOD2 WHERE COMPANY_CODE = PD.BUYER AND TYPE = 'C012' AND CODE = PD.DELY_TO_LOCATION) AS DELY_TO_LOCATION_TEXT,
+				PD.IMAGE_KEY AS IMAGE_KEY,
+				DECODE(PD.IMAGE_KEY,NULL,'2','3') AS IMAGE_KEY_YN,
+				DECODE((SELECT COUNT(*) FROM ICOMPRDT WHERE BUYER = #{COMPANY} AND DECODE(#{DOC_TYPE}, 'PR', PR_NO, REF_NO) = #{KEY_1} AND STATUS != 'D' AND RECV_FLAG NOT IN ('GR','PR')), 1, '', '부분반려') AS REJECT,
+                PD.BYIT_COMORG_CODE,                                                  
+                PD.CONTRACT_NO,                                                     
+                PD.CONTRACT_SEQ     
+		FROM	ICOMPRDT PD, ICOMCQDT CQ, ICOMBYIT BT
+		WHERE	1=1
+		AND		PD.BYIT_COMORG_CODE = BT.BUYER
+		AND 	PD.BUYER_ITEM_NO = BT.BUYER_ITEM_NO
+		AND 	BT.BUYER = CQ.BUYER
+		AND 	BT.BUYER_ITEM_NO = CQ.BUYER_ITEM_NO
+		AND		PD.BYIT_COMORG_CODE = CQ.BUYER
+		AND 	PD.BUYER_ITEM_NO = CQ.BUYER_ITEM_NO
+		AND 	PD.CONTRACT_NO = CQ.CONTRACT_NO
+		AND 	PD.CONTRACT_SEQ = CQ.CONTRACT_SEQ
+		AND		PD.BUYER = #{COMPANY}
+		AND		DECODE(#{DOC_TYPE}, 'PR', PD.PR_NO, PD.REF_NO) = #{KEY_1}
+		AND 	PD.STATUS != 'D'     
+		AND 	CQ.STATUS != 'D'
+		AND 	BT.STATUS != 'D'
+		AND 	BT.PRODUCT_CLOSE_FLAG = 'N'                       
+        AND		PD.RECV_FLAG NOT IN ('GR','PR')             
+		ORDER BY PD.PR_NO, PD.PR_SEQ
+		</select>
+		
+		<select  id="getprDocuNo" parameterType="java.util.Map" resultType="String">
+		/*getprDocuNo*/
+		<![CDATA[
+		SELECT	DECODE(COUNT(*), 0, 'NULL', MAX(TARGET)) AS TARGET
+		FROM	ICOMTRGW
+		WHERE	1=1
+		AND		COM_CODE = #{COMPANY}
+		AND		KEY_1 = (
+				SELECT	MAX(PR_NO)
+				FROM	ICOMPRDT
+				WHERE	1=1
+				AND		(BUYER, REF_NO) IN (
+						SELECT	COM_CODE, KEY_1
+						FROM	ICOMTRGW
+						WHERE	1=1
+						AND		COM_CODE = #{COMPANY}
+						AND		TARGET = #{DOCU_NO}
+				)
+		)
+		]]>
+	</select>
+	<update id="setRejectPrMultiList" parameterType="java.util.Map" >
+		<![CDATA[
+	 	/*setRejectPrMultiList*/
+	      UPDATE ICOMPRDT SET 
+	          RECV_FLAG =#{st_prrecv_flag}
+	          , RETURN_REASON=#{st_return_reason}
+	          , CHANGE_DATE = TO_CHAR(SYSDATE,'YYYYMMDD')
+	          , CHANGE_TIME = TO_CHAR(SYSDATE,'HH24MISS')
+	          , PLAN_AMT_FLAG = 'N'
+	      WHERE BUYER = #{BUYER}
+	        AND PR_NO = #{PR_NO}
+	        AND PR_SEQ = #{PR_SEQ}
+	]]> 
+	</update>
+	<update id="updateTempBdgtUpdateRejectMultiList" parameterType="java.util.Map" >
+		<![CDATA[
+	 	/*updateTempBdgtUpdateRejectMultiList*/ 	
+	                 UPDATE ICOMBDGT A SET                                                                   
+	                         A.TEMP_AMT = A.TEMP_AMT -                                                       
+	                                      (SELECT                                                            
+	                                             NVL(TARGET_QTY * TARGET_PRICE,0)                       
+	                                         FROM ICOMPRDT PRDT                                                   
+	                                         WHERE PRDT.BUYER = A.BUYER       
+	                                         	AND PRDT.BUYER = #{BUYER}                                    
+	                                           AND PRDT.PR_NO =  #{PR_NO} 
+	                                           AND PRDT.PR_SEQ = #{PR_SEQ}
+	                                           AND BUDGET_DEPT||ACCOUNT_TYPE = A.DEPT||A.ACCOUNT_TYPE        
+	                                         )                           
+	                 WHERE BUYER = #{st_buyer}                         
+	                   AND DEPT||ACCOUNT_TYPE IN (                                                           
+	                                          SELECT                                                         
+	                                             BUDGET_DEPT||ACCOUNT_TYPE                                   
+	                                         FROM ICOMPRDT PRDT                                                  
+	                                         WHERE PRDT.BUYER = A.BUYER                                           
+	                                         	AND PRDT.BUYER = #{BUYER}                                    
+	                                           AND PRDT.PR_NO =  #{PR_NO} 
+	                                           AND PRDT.PR_SEQ = #{PR_SEQ}                                                                    
+	                                         )                                                               
+	                   AND (SELECT ADD_DATE FROM ICOMPRDT PRDT WHERE PRDT.BUYER = #{BUYER}  AND PRDT.PR_NO = #{PR_NO} AND PRDT.PR_SEQ=#{PR_SEQ} ) BETWEEN A.FROM_DATE AND A.TO_DATE  
+	      
+	]]> 
+	</update>
+	<update id="insertSeqRejectMail" parameterType="java.util.Map">
+		<![CDATA[
+		/*insertSeqRejectMail*/		
+		INSERT INTO MAILSEND(
+			MAILFORM_ID,
+			SEND_COM_TYPE,
+			RECV_COM_TYPE,
+			SEND_COM_CODE,
+			SEND_USER_ID,
+			KEY1,
+			KEY2,
+			KEY3,
+			KEY4,
+			KEY5,
+			KEY6,
+			CRE_DATE,
+			ERR_DATE
+		)VALUES(
+			'GJ_SEQ_RETURN_BB',
+			'B',
+			'B',
+			'KRKORE0001',
+			'KOREAB2B',
+			#{BUYER},
+			#{DOCU_NO},
+			#{PR_NO},
+			#{st_user_id},
+			' ',
+			' ',
+			SYSDATE,
+			''
+		)
+		]]>
+	</update>
+	
+	<select id="getBuyerApprovalLine" parameterType="java.util.Map" resultType="java.util.Map">
+  		/*commonApproval.getBuyerApprovalLine*/
+		<![CDATA[     
+		SELECT
+			A.USER_ID AS BUYERAPPR_ID,
+			A.USER_NAME_LOC AS BUYERAPPR_NAME
+		FROM ICOMCOD3 C, ICOMLUSR A
+		WHERE 1=1
+			AND C.BUYER = #{COM_CODE}
+			AND C.TYPE = 'D-APPR'
+			AND C.CODE1 = A.DEPARTMENT
+			AND C.BUYER = A.COM_CODE
+			AND A.STATUS <> 'D'
+			AND C.FLAG =  'Y'
+		UNION
+		SELECT
+			A.USER_ID AS BUYERAPPR_ID,
+			A.USER_NAME_LOC AS BUYERAPPR_NAME
+		FROM ICOMCOD3 C, ICOMLUSR A
+		WHERE 1=1
+			AND C.BUYER = #{COM_CODE}
+			AND C.TYPE = 'U-APPR'
+			AND C.CODE1 = A.USER_ID
+			AND C.BUYER = A.COM_CODE
+			AND A.STATUS <> 'D'
+			AND C.FLAG =  'Y'
+ 		]]>
+	</select> 
+	
+	<select id="getExcelDownCamList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			SELECT /*getExcelDownCamList*/
+			
+					 NVL((SELECT COM_NAME_LOC FROM ICOMCMPY C WHERE C.COM_CODE=NVL(B.PO_NO,A.BUYER)),(SELECT COMORG_NAME FROM BYCAORGL D WHERE D.COMORG_CODE=NVL(B.PO_NO,A.BUYER))) AS BUYER_NAME,
+			         BUYER_ITEM_NO,
+			         RE_DESCRIPTION,
+			         CH_DESCRIPTION,
+			         RE_SPECIFICATION,
+			         CH_SPECIFICATION,
+			         RE_UNIT_MEASURE,
+			         CH_UNIT_MEASURE,
+			         CH_ORIGIN_CODE,
+			         NVL((SELECT TEXT2
+			            FROM ICOMCOD1
+			           WHERE TYPE = 'M001' AND CODE = B.RE_ORIGIN_CODE), ' ')
+			            AS RE_ORGIN_TEXT,
+			         NVL((SELECT TEXT2
+			            FROM ICOMCOD1
+			           WHERE TYPE = 'M001' AND CODE = B.CH_ORIGIN_CODE), ' ')
+			            AS CH_ORGIN_TEXT,
+			         RE_MAKER_NAME,
+			         CH_MAKER_NAME,
+			         (SELECT COM_NAME_LOC
+			          FROM ICOMCMPY
+			         WHERE COM_CODE = B.AGENT) AS RE_AGENT_TEXT,
+			         (SELECT COM_NAME_LOC
+			          FROM ICOMCMPY
+			         WHERE COM_CODE = B.RE_AGENT) AS CH_AGENT_TEXT,
+			         RE_UNIT_PRICE,
+			         NVL(CH_UNIT_PRICE,RE_UNIT_PRICE) AS CH_UNIT_PRICE,
+			         CASE WHEN RE_UNIT_PRICE > NVL(CH_UNIT_PRICE,RE_UNIT_PRICE)
+			         	  THEN '-' || TO_CHAR(ROUND((RE_UNIT_PRICE - NVL(CH_UNIT_PRICE,RE_UNIT_PRICE)) / RE_UNIT_PRICE * 100, 2), 'FM99990.0') || '%'
+			         	  WHEN RE_UNIT_PRICE < NVL(CH_UNIT_PRICE,RE_UNIT_PRICE)
+			         	  THEN TO_CHAR(ROUND((NVL(CH_UNIT_PRICE,RE_UNIT_PRICE) - RE_UNIT_PRICE) / NVL(CH_UNIT_PRICE,RE_UNIT_PRICE) * 100, 2), 'FM99990.0') || '%'
+			         	  ELSE '0%'
+			         	  END AS UNIT_PRICE_RATE,
+			         RE_LIST_PRICE,
+			         NVL(CH_LIST_PRICE,RE_LIST_PRICE) AS CH_LIST_PRICE,
+			         CASE WHEN RE_LIST_PRICE > NVL(CH_LIST_PRICE,RE_LIST_PRICE)
+			         	  THEN '-' || TO_CHAR(ROUND((RE_LIST_PRICE - NVL(CH_LIST_PRICE,RE_LIST_PRICE)) / RE_LIST_PRICE * 100, 2), 'FM99990.0') || '%'
+			         	  WHEN RE_LIST_PRICE < NVL(CH_LIST_PRICE,RE_LIST_PRICE)
+			         	  THEN TO_CHAR(ROUND((NVL(CH_LIST_PRICE,RE_LIST_PRICE) - RE_LIST_PRICE) / NVL(CH_LIST_PRICE,RE_LIST_PRICE) * 100, 2), 'FM99990.0') || '%'
+			         	  ELSE '0%'
+			         	  END AS LIST_PRICE_RATE,
+			         DECODE(RE_LIST_PRICE,0,TO_CHAR(RE_LIST_PRICE, 'FM99990.0'),TO_CHAR(ROUND((RE_UNIT_PRICE-RE_LIST_PRICE)/RE_LIST_PRICE*100,1), 'FM99990.0'))||'%' AS RE_RATE,
+			         DECODE(CH_LIST_PRICE,0,TO_CHAR(CH_LIST_PRICE, 'FM99990.0'),TO_CHAR(ROUND((CH_UNIT_PRICE-CH_LIST_PRICE)/CH_LIST_PRICE*100,1), 'FM99990.0'))||'%' AS CH_RATE,
+			         CASE WHEN ROUND((RE_UNIT_PRICE-RE_LIST_PRICE)/RE_LIST_PRICE*100,1) > ROUND((CH_UNIT_PRICE-CH_LIST_PRICE)/CH_LIST_PRICE*100,1)
+			         	  THEN '-' || TO_CHAR(ROUND((RE_UNIT_PRICE-RE_LIST_PRICE)/RE_LIST_PRICE*100,1) - ROUND((CH_UNIT_PRICE-CH_LIST_PRICE)/CH_LIST_PRICE*100,1), 'FM99990.0') || '%'
+			         	  WHEN ROUND((RE_UNIT_PRICE-RE_LIST_PRICE)/RE_LIST_PRICE*100,1) < ROUND((CH_UNIT_PRICE-CH_LIST_PRICE)/CH_LIST_PRICE*100,1)
+			         	  THEN TO_CHAR(ROUND((CH_UNIT_PRICE-CH_LIST_PRICE)/CH_LIST_PRICE*100,1) - ROUND((RE_UNIT_PRICE-RE_LIST_PRICE)/RE_LIST_PRICE*100,1), 'FM99990.0') || '%'
+			         	  ELSE '0%'
+			         	  END AS RATE_GAP,
+			         BELOW_TEXT
+			         ,MARGIN_RE
+			         ,(SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE='M107' AND CODE = MARGIN_RE) MARGIN_RE_TEXT
+                     ,CONTRACT_NO
+                     ,CONTRACT_SEQ 
+                     ,B.PM_NO
+                     ,B.PM_SEQ
+                     ,B.BUYER
+                     ,NVL((SELECT COD.TEXT1 FROM ICOMCOD1 COD  WHERE COD.TYPE = 'M132' AND COD.CODE = B.RE_ITEM_MAKE_TYPE), ' ') AS RE_ITEM_MAKE_TYPE_NM
+                     ,NVL((SELECT COD.TEXT1 FROM ICOMCOD1 COD  WHERE COD.TYPE = 'M132' AND COD.CODE = B.CH_ITEM_MAKE_TYPE), NVL((SELECT COD.TEXT1 FROM ICOMCOD1 COD  WHERE COD.TYPE = 'M132' AND COD.CODE = B.RE_ITEM_MAKE_TYPE), ' ')) AS CH_ITEM_MAKE_TYPE_NM
+                     ,B.RE_ITEM_MAKE_TYPE  AS RE_ITEM_MAKE_TYPE
+                     ,NVL(B.CH_ITEM_MAKE_TYPE,B.RE_ITEM_MAKE_TYPE) AS CH_ITEM_MAKE_TYPE
+                     ,NVL(B.RE_DELIVERY_LT,  ' ') AS RE_DELIVERY_LT
+                     ,NVL(B.CH_DELIVERY_LT, NVL(B.RE_DELIVERY_LT,  ' ')) AS CH_DELIVERY_LT
+                     , NVL(B.RE_TO_DATE,  ' ') AS RE_TO_DATE
+                     , NVL(B.CH_TO_DATE, NVL(B.RE_TO_DATE,  ' ')) AS CH_TO_DATE
+                     , NVL(B.RE_MIN_ORDER_QTY, 1) AS RE_MIN_ORDER_QTY
+                     , NVL(B.CH_MIN_ORDER_QTY, NVL(B.RE_MIN_ORDER_QTY, 1)) AS CH_MIN_ORDER_QTY
+                     , NVL(B.RE_PUR_UNIT_QTY, 1) AS RE_PUR_UNIT_QTY
+                     , NVL(B.CH_PUR_UNIT_QTY, NVL(B.RE_PUR_UNIT_QTY, 1)) AS CH_PUR_UNIT_QTY
+                     , B.RE_SELLER_AREA AS RE_SELLER_AREA
+                     , NVL(B.CH_SELLER_AREA,B.RE_SELLER_AREA) AS CH_SELLER_AREA
+                     , RE_PROCESS_TYPE
+                     , CH_PROCESS_TYPE
+                     , RE_WAREHOUSE_CODE
+                     , CH_WAREHOUSE_CODE
+                     ,(SELECT TEXT2 FROM ICOMCOD1 WHERE TYPE = 'M034' AND FLAG = 'Y' AND CODE = RE_PROCESS_TYPE) AS RE_PROCESS_TYPE_TEXT
+	             	 ,(SELECT TEXT2 FROM ICOMCOD1 WHERE TYPE = 'M034' AND FLAG = 'Y' AND CODE = CH_PROCESS_TYPE) AS CH_PROCESS_TYPE_TEXT
+	             	 ,NVL((SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = RE_WAREHOUSE_CODE),' ') AS RE_WAREHOUSE_CODE_TEXT
+	             	 ,NVL((SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = CH_WAREHOUSE_CODE),' ') AS CH_WAREHOUSE_CODE_TEXT
+                      ,B.RE_AGENT AS RE_AGENT --변경 후 협력사 코드 추가 
+                      ,B.AGENT AS AGENT --변경 전 협력사 코드 추가
+                      ,B.RE_SELL_CLOSE_DATE
+                      ,B.CH_SELL_CLOSE_DATE
+                      ,B.RE_BUY_CLOSE_DATE
+                      ,B.CH_BUY_CLOSE_DATE
+                      ,CASE WHEN ABS((RE_UNIT_PRICE - CH_UNIT_PRICE) / RE_UNIT_PRICE * 100) >= 10 THEN 'Y'
+                            ELSE 'N' END AS UNIT_PRICE_CHG_FLAG
+                      ,CASE WHEN ABS((RE_LIST_PRICE - CH_LIST_PRICE) / RE_LIST_PRICE * 100) >= 10 THEN 'Y'
+                     		ELSE 'N' END AS LIST_PRICE_CHG_FLAG
+			    FROM KEPMGPHD A, KEPMGPDT B
+			  	 WHERE A.BUYER = B.BUYER 
+			     AND A.PM_NO = B.PM_NO
+			     AND A.BUYER = (SELECT BYCA_COMORG_CODE FROM ICOMCMPY WHERE COM_CODE = #{KEY_2} AND STATUS <> 'D')			
+			     AND A.PM_NO = #{KEY_1}
+			     ORDER BY B.PM_SEQ
+		]]>
+	</select>
+
+	<update id="setRejectNgNsList_v2" parameterType="java.util.Map" >
+		<![CDATA[
+	 	/*setRejectNgNsList_v2 추후에 반려사유 컬럼 추가해서 넣어줘야함*/
+	      UPDATE KEPRQDT SET 
+	          RECV_FLAG =#{st_recv_flag}
+	      WHERE BUYER = #{st_buyer}
+	        AND QUOTATION_NO = #{st_quotation_no}
+	        AND QUOTATION_SEQ = #{st_quotation_seq}
+	        AND STATUS IN ('C','R')
+	]]> 
+	</update>
+
+	<select id="getCurrentPassLine_v2" parameterType="java.util.Map" resultType="java.util.Map">
+/*commonApproval.getCurrentPassLine_v2*/
+ SELECT 
+		A.USER_ID AS APPR_ID
+		,(SELECT USER_NAME_LOC||'('||USER_ID||')' FROM ICOMLUSR WHERE USER_ID = A.USER_ID)  APPR_NAME
+		,(SELECT TEXT1 FROM ICOMCOD2 WHERE TYPE = 'C001' AND COMPANY_CODE = #{COMPANY} AND CODE = (SELECT DEPARTMENT FROM ICOMLUSR WHERE USER_ID = A.USER_ID)) AS DEPT
+		,(SELECT TEXT1 FROM ICOMCOD2 WHERE TYPE = 'C003' AND COMPANY_CODE = #{COMPANY} AND CODE = (SELECT POSITION FROM ICOMLUSR WHERE USER_ID = A.USER_ID)) AS POSITION
+		,DECODE(A.PASS_TP,1,'결재',2,'참조',3,'합의') AS GUBUN_TEXT
+		,DECODE(A.PASS_TP,1,'C',2,'R',3,'H') AS GUBUN
+		,A.PASS_TP
+		,A.ORDER_NO-1 AS ORDER_SEQ
+		,A.PASS_KN
+		,A.PASS_DATE
+		,A.REFER_DATE
+		,A.PASS_ADD
+		,A.DISPLAY_YN
+	FROM ICOGPASSLN A
+	WHERE 
+		A.COMPANY =  #{COMPANY}           
+		AND A.DOCU_NO =   #{DOCU_NO}
+		AND A.PASS_TP != 0 /*상신제외*/
+	ORDER BY A.ORDER_NO   
+</select>
+<select id="getMyRecentIcomappt_v2" parameterType="java.util.Map" resultType="String">
+/*commonApproval.getMyRecentIcomappt_v2*/
+ SELECT 
+		DECODE(COUNT(*),0,'N',MAX(APP_PATH)) AS APP_PATH
+	FROM ICOMAPPT A
+	WHERE 
+		A.USER_ID =  #{USER_ID}           
+		AND A.SUBJECT =   #{SUBJECT}
+		AND A.STATUS != 'D'
+</select>
+<update id="deleteMyRecentIcomapse_v2" parameterType="java.util.Map">
+		<![CDATA[
+		/*commonApproval.deleteMyRecentIcomapse_v2*/
+			DELETE FROM ICOMAPSE
+			WHERE 1=1
+			AND USER_ID = #{USER_ID}
+			AND STATUS != 'D'
+			AND APP_PATH = (SELECT 
+								APP_PATH
+							FROM ICOMAPPT A
+							WHERE 
+								A.USER_ID =  #{USER_ID}           
+								AND A.SUBJECT =   #{SUBJECT}
+								AND A.STATUS != 'D')
+		]]>
+	</update>
+</mapper>

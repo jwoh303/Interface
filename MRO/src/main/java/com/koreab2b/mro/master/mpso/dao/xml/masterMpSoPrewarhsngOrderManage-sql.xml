@@ -1,0 +1,473 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mpso">
+	<!-- 조회 -->
+	<select id="selectMasterMpSoPrewarhsngOrderManageList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.pagestart"/>	
+		<![CDATA[
+			SELECT  ROWNUM NUM,
+				        X.STATUS_TEXT,
+				        X.BUYER_NAME,
+				        X.BEFORE_GR_DATE,
+				        X.PO_NO,
+				        X.BUYER_ITEM_NO,
+				        X.DESCRIPTION,
+				        X.MAKER_NAME,
+				        X.UNIT_PRICE,
+				        X.ITEM_QTY,
+				        X.REQ_USER_NAME,
+				        X.REQ_USER_DEPT_NAME,
+				        X.REQ_USER_TEL_NO,
+				        X.AGENT_NAME,
+				        X.AGENT_USER_NAME,
+				        X.AGENT_TEL_NO,
+				        X.KEP_USER_NAME,
+				        X.SPECIFICATION,
+				        X.ORIGIN_NAME,
+				        X.AGENT_PRICE,
+				        X.UNIT_MEASURE,
+				        X.BS_NO,
+				        X.BUYER_CODE,
+				        X.STATUS,
+				        X.CLOSE_ITEM_QTY,
+				        X.DELIVERY_FLAG,
+		                X.PROCESS_TYPE,
+		                X.PROCESS_NAME,
+		                X.WAREHOUSE_CODE,
+		                X.WAREHOUSE_NAME,
+		                X.DELY_TO_LOCATION,
+		                X.REQ_USER_ID,
+						X.REQ_USER_DEPT_CODE,
+						X.MAKER_CODE,
+						X.ORIGIN_CODE,
+						X.AGENT_CODE,
+						X.AGENT_USER_ID,
+						X.KEP_USER_ID,
+						X.CONTRACT_NO,
+			    		X.CONTRACT_SEQ,
+						X.REMARK,
+						X.INV_NO,
+						X.ADD_USER_ID,
+						(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = X.ADD_USER_ID) AS ADD_USER_NAME
+			FROM
+			    (
+			        SELECT  (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE=A.BUYER) AS BUYER_NAME,
+				                A.BEFORE_GR_DATE AS BEFORE_GR_DATE,
+				                A.PO_NO AS PO_NO,
+				                A.BUYER_ITEM_NO AS BUYER_ITEM_NO,
+				                A.DESCRIPTION AS DESCRIPTION,
+				                A.MAKER_NAME AS MAKER_NAME,
+				                A.UNIT_PRICE AS UNIT_PRICE,
+				                A.ITEM_QTY,
+				                A.REQ_USER_NAME,
+				                A.REQ_USER_DEPT_NAME,
+				                A.REQ_USER_TEL_NO,
+				                A.AGENT_NAME,
+				                A.AGENT_USER_NAME,
+				                A.AGENT_TEL_NO,
+				                A.KEP_USER_NAME,
+				                A.SPECIFICATION,
+				                A.ORIGIN_NAME,
+				                A.AGENT_PRICE,
+				                A.UNIT_MEASURE,
+				                A.BS_NO,
+				                A.BUYER AS BUYER_CODE,
+				                A.CLOSE_ITEM_QTY,
+				                A.DELIVERY_FLAG,
+				                A.PROCESS_TYPE,
+				                (SELECT TEXT2 FROM ICOMCOD1 WHERE TYPE = 'M034' AND FLAG = 'Y' AND CODE = A.PROCESS_TYPE) AS PROCESS_NAME,
+				                A.WAREHOUSE_CODE,
+				                (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = A.WAREHOUSE_CODE) AS WAREHOUSE_NAME,
+				                A.DELY_TO_LOCATION,
+				                A.REQ_USER_ID,
+								A.REQ_USER_DEPT_CODE,
+								A.MAKER_CODE,
+								A.ORIGIN_CODE,
+								A.AGENT_CODE,
+								A.AGENT_USER_ID,
+								A.KEP_USER_ID,
+								A.CONTRACT_NO,
+			    				A.CONTRACT_SEQ,
+								A.REMARK,
+								B.INV_NO,
+								CASE WHEN A.STATUS = 'D'       THEN 'BS99' --'선입고취소'
+						            WHEN A.DELIVERY_FLAG = 'Y' THEN 'BS40' --'납품확정'
+						            WHEN A.DELIVERY_FLAG = 'P' THEN 'BS30' --'납품예정'
+						            WHEN B.INV_NO IS NOT NULL  THEN 'BS20' --'송장'
+						            WHEN B.INV_NO IS NULL      THEN 'BS10' --'요청'
+						            ELSE NULL
+						        END AS STATUS,
+						        CASE WHEN A.STATUS = 'D'       THEN '선입고취소'
+						            WHEN A.DELIVERY_FLAG = 'Y' THEN '납품확정'
+						            WHEN A.DELIVERY_FLAG = 'P' THEN '납품예정'
+						            WHEN B.INV_NO IS NOT NULL  THEN '송장'
+						            WHEN B.INV_NO IS NULL      THEN '요청'
+						            ELSE NULL
+						        END AS STATUS_TEXT,
+						        A.ADD_USER_ID
+			        FROM KEP_BEFORE_STOCKED_MNG A
+							, KEP_BEFORE_STOCKED_IVDT B
+			        WHERE A.BEFORE_GR_DATE >= #{st_from_date} 
+				        AND A.BEFORE_GR_DATE <= #{st_to_date}
+						AND A.BUYER = B.BUYER(+)
+						AND A.BS_NO = B.BS_NO(+)
+		]]>
+			
+			<if test='st_buyer_code != null and st_buyer_code != ""'>
+				<![CDATA[	AND A.BUYER IN	]]>
+				<foreach collection="arry_buyer_code" item="itm" open="(" separator="," close=")">
+					<![CDATA[	#{itm}	]]>
+				</foreach>
+			</if>
+
+			<if test='st_buyer_item_no != null and st_buyer_item_no != ""'>
+				<![CDATA[ AND A.BUYER_ITEM_NO = #{st_buyer_item_no} ]]>
+			</if>
+
+			<if test='st_process_type != null and st_process_type != ""'>
+				<![CDATA[ AND A.PROCESS_TYPE = #{st_process_type} ]]>
+			</if>
+
+			<if test='st_desc_spec != null and st_desc_spec != ""'>
+				<![CDATA[ AND (A.DESCRIPTION LIKE '%' || #{st_desc_spec} || '%' OR A.SPECIFICATION LIKE '%' || #{st_desc_spec} || '%') ]]>
+			</if>
+
+			<if test='st_po_no != null and st_po_no == "POMP"'>
+				<![CDATA[ AND A.PO_NO IS NOT NULL ]]>
+			</if>
+
+		<![CDATA[
+			        ORDER BY A.BUYER, A.BS_NO DESC
+			    ) X
+		]]>
+			<if test='st_status_code != null and st_status_code != ""'>
+				<![CDATA[ WHERE X.STATUS = #{st_status_code} ]]>
+			</if>
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+
+	<update  id="insertMasterMpSoPrewarhsngOrderManage" parameterType="java.util.Map" >
+		<![CDATA[
+			INSERT INTO KEP_BEFORE_STOCKED_MNG (
+			    BUYER,
+			    BS_NO,
+			    BUYER_ITEM_NO,
+			    CONTRACT_NO,
+			    CONTRACT_SEQ,
+			    DESCRIPTION,
+			    SPECIFICATION,
+			    MAKER_CODE,
+			    MAKER_NAME,
+			    ORIGIN_CODE,
+			    ORIGIN_NAME,
+			    UNIT_PRICE,
+			    AGENT_PRICE,
+			    ITEM_QTY,
+			    UNIT_MEASURE,
+			    REQ_USER_ID,
+			    REQ_USER_NAME,
+			    REQ_USER_DEPT_CODE,
+			    REQ_USER_DEPT_NAME,
+			    REQ_USER_TEL_NO,
+			    BEFORE_GR_DATE,
+			    AGENT_CODE,
+			    AGENT_NAME,
+			    AGENT_USER_ID,
+			    AGENT_USER_NAME,
+			    AGENT_TEL_NO,
+			    KEP_USER_ID,
+			    KEP_USER_NAME,
+			    REMARK,
+			    ADD_DATE,
+			    ADD_TIME,
+			    CHANGE_DATE,
+			    CHANGE_TIME,
+			    PROCESS_TYPE,
+			    WAREHOUSE_CODE,
+			    DELY_TO_LOCATION,
+			    ADD_USER_ID
+			) VALUES (
+			    #{BUYER_CODE},
+			    #{BS_NO},
+			    #{BUYER_ITEM_NO},
+			    #{CONTRACT_NO},
+			    #{CONTRACT_SEQ},
+			    #{DESCRIPTION},
+			    #{SPECIFICATION},
+			    #{MAKER_CODE},
+			    #{MAKER_NAME},
+			    #{ORIGIN_CODE},
+			    #{ORIGIN_NAME},
+			    #{UNIT_PRICE},
+			    #{AGENT_PRICE},
+			    #{ITEM_QTY},
+			    #{UNIT_MEASURE},
+			    #{REQ_USER_ID},
+			    #{REQ_USER_NAME},
+			    #{REQ_USER_DEPT_CODE},
+			    #{REQ_USER_DEPT_NAME},
+			    #{REQ_USER_TEL_NO},
+			    #{BEFORE_GR_DATE},
+			    #{AGENT_CODE},
+			    #{AGENT_NAME},
+			    #{AGENT_USER_ID},
+			    #{AGENT_USER_NAME},
+			    #{AGENT_TEL_NO},
+			    #{KEP_USER_ID},
+			    #{KEP_USER_NAME},
+			    #{REMARK},
+			    TO_CHAR(SYSDATE, 'YYYYMMDD'),
+			    TO_CHAR(SYSDATE, 'HH24MISS'),
+			    TO_CHAR(SYSDATE, 'YYYYMMDD'),
+			    TO_CHAR(SYSDATE, 'HH24MISS'),
+			    #{PROCESS_TYPE},
+			    #{WAREHOUSE_CODE},
+			    #{DELY_TO_LOCATION},
+			    #{st_user_id}
+			)
+		]]>
+	</update>
+	
+	<update  id="updateMasterMpSoPrewarhsngOrderManage" parameterType="java.util.Map" >
+		<![CDATA[
+			UPDATE KEP_BEFORE_STOCKED_MNG A        
+			SET A.BUYER_ITEM_NO = #{BUYER_ITEM_NO},        	 -- 1
+			    A.CONTRACT_NO = #{CONTRACT_NO},         -- 2
+			    A.CONTRACT_SEQ = #{CONTRACT_SEQ},         -- 3
+			    A.DESCRIPTION = #{DESCRIPTION},         -- 4
+			    A.SPECIFICATION = #{SPECIFICATION},         -- 5
+			    A.MAKER_CODE = #{MAKER_CODE},         -- 6
+			    A.MAKER_NAME = #{MAKER_NAME},         -- 7
+			    A.ORIGIN_CODE = #{ORIGIN_CODE},         -- 8
+			    A.ORIGIN_NAME = #{ORIGIN_NAME},         -- 9
+			    A.UNIT_PRICE = #{UNIT_PRICE},         -- 10
+			    A.AGENT_PRICE = #{AGENT_PRICE},         -- 11
+			    A.ITEM_QTY = #{ITEM_QTY},         -- 12
+			    A.UNIT_MEASURE = #{UNIT_MEASURE},         -- 13
+			    A.REQ_USER_ID = #{REQ_USER_ID},         -- 14
+			    A.REQ_USER_NAME = #{REQ_USER_NAME},         -- 15
+			    A.REQ_USER_DEPT_CODE = #{REQ_USER_DEPT_CODE},         -- 16
+			    A.REQ_USER_DEPT_NAME = #{REQ_USER_DEPT_NAME},         -- 17
+			    A.REQ_USER_TEL_NO = #{REQ_USER_TEL_NO},         -- 18
+			    A.BEFORE_GR_DATE = #{BEFORE_GR_DATE},         -- 19
+			    A.AGENT_CODE = #{AGENT_CODE},         -- 20
+			    A.AGENT_NAME = #{AGENT_NAME},         -- 21
+			    A.AGENT_USER_ID = #{AGENT_USER_ID},         -- 22
+			    A.AGENT_USER_NAME = #{AGENT_USER_NAME},         -- 23
+			    A.AGENT_TEL_NO = #{AGENT_TEL_NO},         -- 24
+			    A.KEP_USER_ID = #{KEP_USER_ID},         -- 25
+			    A.KEP_USER_NAME = #{KEP_USER_NAME},         -- 26
+			    A.REMARK = #{REMARK},         -- 27
+			    A.CHANGE_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD'),        
+			    A.CHANGE_TIME = TO_CHAR(SYSDATE, 'HH24MISS'),
+			    A.PROCESS_TYPE = #{PROCESS_TYPE} ,       	 -- 28
+			    A.WAREHOUSE_CODE = #{WAREHOUSE_CODE} ,       	 -- 29
+			    A.DELY_TO_LOCATION = #{DELY_TO_LOCATION}       	 -- 30
+			WHERE A.BUYER = #{BUYER_CODE}        	 -- 31
+				AND A.BS_NO = #{BS_NO}        	 -- 32
+		]]>
+	</update>
+	
+	<update  id="updateMasterMpSoPrewarhsngReqCancel" parameterType="java.util.Map" >
+		<![CDATA[
+			UPDATE KEP_BEFORE_STOCKED_MNG SET
+				  STATUS='D'
+				, CHANGE_DATE  = TO_CHAR(SYSDATE,'YYYYMMDD')    
+			    , CHANGE_TIME  = TO_CHAR(SYSDATE,'HH24MISS')
+			WHERE BUYER = #{BUYER_CODE}
+				AND BS_NO = #{BS_NO}
+		]]>
+	</update>
+	
+	<update  id="updateMasterMpSoPrewarhsngMappingReg" parameterType="java.util.Map" >
+		<![CDATA[
+			UPDATE KEP_BEFORE_STOCKED_MNG SET
+			    STATUS = 'F',
+			    PO_NO = PO_NO || #{st_po_no},
+			    CLOSE_ITEM_QTY = CLOSE_ITEM_QTY + TO_NUMBER(#{st_close_item_qty}),
+			    CHANGE_DATE=TO_CHAR(SYSDATE, 'YYYYMMDD'),
+			    CHANGE_TIME=TO_CHAR(SYSDATE, 'HH24MISS')
+			WHERE BUYER=#{st_buyer}
+			    AND BS_NO=#{st_bs_no}
+		]]>
+	</update>
+	
+	<update  id="updateMasterMpSoPrewarhsngMappingPartialReg" parameterType="java.util.Map" >
+		<![CDATA[
+			UPDATE KEP_BEFORE_STOCKED_MNG SET
+			    STATUS = 'P',
+			    PO_NO = PO_NO || #{st_po_no},
+			    CLOSE_ITEM_QTY = CLOSE_ITEM_QTY + TO_NUMBER(#{st_close_item_qty}),
+			    CHANGE_DATE=TO_CHAR(SYSDATE, 'YYYYMMDD'),
+			    CHANGE_TIME=TO_CHAR(SYSDATE, 'HH24MISS')
+			WHERE BUYER = #{st_buyer}
+			    AND BS_NO = #{st_bs_no}
+		]]>
+	</update>
+	
+	<update  id="updateMasterMpSoPrewarhsngMappingCancelReg" parameterType="java.util.Map" >
+		<![CDATA[
+			UPDATE KEP_BEFORE_STOCKED_MNG SET
+			    STATUS = 'C',
+			    PO_NO = NULL,
+			    CLOSE_ITEM_QTY = 0,
+			    CHANGE_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD'),
+			    CHANGE_TIME = TO_CHAR(SYSDATE, 'HH24MISS')
+			WHERE BUYER = #{st_buyer}
+			    AND BS_NO = #{st_bs_no}
+		]]>
+	</update>
+	
+	<update  id="updateMasterMpSoPrewarhsngMappingGrpCancelReg" parameterType="java.util.Map" >
+		<![CDATA[
+			UPDATE KEP_BEFORE_STOCKED_MNG SET
+			    STATUS = 'C',
+			    PO_NO = NULL,
+			    CLOSE_ITEM_QTY = 0,
+			    CHANGE_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD'),
+			    CHANGE_TIME = TO_CHAR(SYSDATE, 'HH24MISS')
+			WHERE BUYER = #{BUYER_CODE}
+			    AND BS_NO = #{BS_NO}
+		]]>
+	</update>
+	
+	<select id="selectMasterMpSoPrewarhsngTranStatement_checkRepetition" parameterType="java.util.Map" resultType="String">
+		<![CDATA[
+			SELECT SUM(NVL(A.ITEM_QTY, 0))  - ( SUM(NVL(B.INV_QTY, 0)))
+			  FROM KEP_BEFORE_STOCKED_MNG A
+			     , KEP_BEFORE_STOCKED_IVDT B
+			 WHERE A.BUYER = B.BUYER(+)
+			   AND A.BS_NO = B.BS_NO(+)
+			   AND A.BUYER =  #{BUYER_CODE}
+			   AND B.INV_NO =  #{INV_NO}
+			   AND A.STATUS ^='D'
+			   AND B.STATUS(+) ^='D'
+			 GROUP BY A.BUYER
+		]]>
+	</select>
+	
+	<update id="insertMasterMpSoPrewarhsngTranStatement_ivdt" parameterType="java.util.Map" >
+		<![CDATA[
+			INSERT INTO KEP_BEFORE_STOCKED_IVDT
+			(
+					    INV_NO,
+					    INV_SEQ,
+					    BUYER,
+					    BS_NO,
+					    SELLER,
+					    STATUS,
+					    SEND_DATE,
+					    SEND_TIME,
+					    ADD_DATE,
+					    ADD_TIME,
+					    CHANGE_DATE,
+					    CHANGE_TIME,
+					    BUYER_ITEM_NO,
+					    INV_QTY,
+					    UNIT_PRICE,
+					    ITEM_AMT,
+					    INVOICE_DATE,
+					    PURCHASER_ID,
+					    PURCHASER_DEPT,
+					    DELY_TO_LOCATION
+			)
+			SELECT
+				       #{INV_NO},
+				       TO_CHAR( #{INV_SEQ},'FM000000'),
+				       D.BUYER,
+				       D.BS_NO,
+				       'KRKORE0001' SELLER,
+				       'C',
+				       '',
+				       '',
+				       TO_CHAR(SYSDATE,'YYYYMMDD'),
+				       TO_CHAR(SYSDATE,'HH24MISS'),
+				       TO_CHAR(SYSDATE,'YYYYMMDD'),
+				       TO_CHAR(SYSDATE,'HH24MISS'),
+				       D.BUYER_ITEM_NO,
+				       D.ITEM_QTY,
+				       DECODE(D.PROCESS_TYPE,'2',D.AGENT_PRICE, D.UNIT_PRICE) UNIT_PRICE,
+				       TRUNC((DECODE(D.PROCESS_TYPE,'2',D.AGENT_PRICE, D.UNIT_PRICE) * D.ITEM_QTY )),
+				       TO_CHAR(SYSDATE,'YY/MM/DD'),
+				       #{REQ_USER_ID},
+				       #{REQ_USER_DEPT_CODE},
+				       DECODE(D.PROCESS_TYPE,'2', (SELECT MAX(CODE) FROM ICOMCOD2 WHERE COMPANY_CODE = D.WAREHOUSE_CODE AND TYPE = 'C012'),D.DELY_TO_LOCATION) DELY_TO_LOCATION
+			  FROM KEP_BEFORE_STOCKED_MNG D
+			 WHERE D.BUYER  = #{BUYER_CODE}
+			   AND D.BS_NO  = #{BS_NO}
+			   AND D.STATUS <> 'D'
+		]]>
+	</update>
+	
+	<update  id="insertMasterMpSoPrewarhsngTranStatement_ivhd" parameterType="java.util.Map" >
+		<![CDATA[
+			INSERT INTO KEP_BEFORE_STOCKED_IVHD
+			(
+			        SELLER,
+			        INV_NO,
+			        BUYER,
+			        STATUS,
+			        SEND_DATE,
+			        SEND_TIME,
+			        ADD_DATE,
+			        ADD_TIME,
+			        CHANGE_DATE,
+			        CHANGE_TIME,
+			        INV_DATE,
+			        INV_TTL_AMT,
+			        INV_AMT,
+			        INV_TAX_AMT_1,
+			        INV_TAX_RATE_1,
+			        REMARK_INV
+			)
+			SELECT
+				        'KRKORE0001',
+				        #{INV_NO},
+				        A.BUYER,
+				        'C',
+				        '',
+				        '',
+				        TO_CHAR(SYSDATE,'YYYYMMDD'),
+				        TO_CHAR(SYSDATE,'HH24MISS'),
+				        TO_CHAR(SYSDATE,'YYYYMMDD'),
+				        TO_CHAR(SYSDATE,'HH24MISS'),
+				        TO_CHAR(SYSDATE,'YY/MM/DD'),
+				        SUM(TRUNC((DECODE(A.PROCESS_TYPE,'2',A.AGENT_PRICE, A.UNIT_PRICE) * A.ITEM_QTY ))) +
+				        SUM(TRUNC((DECODE(A.PROCESS_TYPE,'2',A.AGENT_PRICE, A.UNIT_PRICE) * A.ITEM_QTY ) * 0.1 )),  -- 총금액
+				        SUM(TRUNC((DECODE(A.PROCESS_TYPE,'2',A.AGENT_PRICE, A.UNIT_PRICE) * A.ITEM_QTY ))),         -- 공급사액
+				        SUM(TRUNC((DECODE(A.PROCESS_TYPE,'2',A.AGENT_PRICE, A.UNIT_PRICE) * A.ITEM_QTY ) * 0.1 )),  -- 부가세
+				        0.1,
+				        ''
+			  FROM  KEP_BEFORE_STOCKED_MNG A
+			     ,   KEP_BEFORE_STOCKED_IVDT B
+			 WHERE A.BUYER = B.BUYER(+)
+			   AND A.BS_NO = B.BS_NO(+)
+			   AND B.BUYER = #{BUYER_CODE}
+			   AND B.INV_NO = #{INV_NO}
+			   AND A.STATUS != 'D'
+            GROUP BY A.BUYER
+		]]>
+	</update>
+	
+	<update  id="updateMasterMpSoPrewarhsngDeliveryEndReg" parameterType="java.util.Map" >
+		<![CDATA[
+			UPDATE KEP_BEFORE_STOCKED_MNG SET
+			    DELIVERY_FLAG = 'Y'
+			    , CHANGE_DATE  = TO_CHAR(SYSDATE,'YYYYMMDD')    
+			    , CHANGE_TIME  = TO_CHAR(SYSDATE,'HH24MISS')
+			WHERE BUYER = #{BUYER_CODE}
+			    AND BS_NO = #{BS_NO}
+			    AND DELIVERY_FLAG = 'N'
+		]]>
+	</update>
+	
+	<select id="selectMasterMpSoPrewarhsng_comType" parameterType="java.util.Map" resultType="String">
+		<![CDATA[
+			SELECT  COM_TYPE
+			FROM ICOMCMPY
+			WHERE COM_CODE = #{BUYER_CODE}
+		]]>
+	</select>
+	
+</mapper>   
+   

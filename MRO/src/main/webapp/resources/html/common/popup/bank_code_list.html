@@ -1,0 +1,194 @@
+
+
+<div class="DIVpopup-overlay" id="DIVpopupOverlay"></div>
+<div class="DIVpopup" id="DIVpopup" style="width:500px;">
+  <div class="wrapPopup" style="padding:40px 20px;">
+    <div class="PopupTit">은행<span><a href="#" id="DIVclosePopup"><img src="/resources/imgs/Icon_close.png" /></a></span></div>
+    <div class="SearchPopupInput mt10" style="width:100%">
+      <input type="text" id="h_bank_name" style="width:85%;" placeholder="은행명을 검색하세요">
+      <button type="button" id="btnSearch">검색버튼</button>
+    </div>
+    <div class="ComPopup mt10" style="height:316px;">
+      <table class="ComPopupTable" style="width:100%;">
+        <colgroup>
+          <col width="30%" />
+          <col width="70%" />
+        </colgroup>
+        <thead>
+          <tr>
+            <th>코드</th>
+            <th>은행명(국문)</th>
+          </tr>
+        </thead>
+        <tbody id="bankCodeTableBody">
+        </tbody>
+      </table>
+    </div>
+  </div><!-- wrapPopup 끝-->
+</div>
+
+<style>
+/* ComPopup - base.css에 미정의, 디자인 원본(promote/css/base.css) 기준 */
+.ComPopup{min-height:50px; min-width:300px; text-align:center; vertical-align:top; border-top:1px solid #c5d1e2; background-color:#fff; overflow:auto; border-bottom:1px solid #dedede;}
+.ComPopup {scrollbar-width:thin; scrollbar-color:#acadb3 #ebecf2; border-top:1px solid #c5d1e2;}
+.ComPopup::-webkit-scrollbar {width:12px; height:12px;}
+.ComPopup::-webkit-scrollbar-track {background:#ebecf2;}
+.ComPopup::-webkit-scrollbar-thumb {background:#acadb3; border-radius:8px; border:3px solid #ebecf2;}
+.ComPopup::-webkit-scrollbar-thumb:hover {filter:brightness(0.9);}
+.ComPopup::-webkit-scrollbar-thumb:active {filter:brightness(0.8);}
+
+/* ComPopupTable - base.css에 미정의, 디자인 원본 기준 */
+.ComPopupTable{}
+.ComPopupTable thead {position:sticky; top:0; z-index:10;}
+.ComPopupTable th{height:38px; line-height:38px; text-align:center; font-size:15px; font-weight:400; letter-spacing:-0.8px; color:#5B5C61; vertical-align:top; border-bottom:1px solid #dedede; border-left:1px solid #dedede; background-color:#f2f7ff;}
+.ComPopupTable th:first-child{border-left:0px;}
+.ComPopupTable th span{color:#F6495F;}
+.ComPopupTable tr:hover{cursor:pointer; background-color:#F7FAE6;}
+.ComPopupTable td{height:30px; line-height:30px; padding:0 10px; font-size:15px; font-weight:400; letter-spacing:-0.5px; color:#404046; border-bottom:1px solid #dedede; border-left:1px solid #dedede; background-color:#fff;}
+.ComPopupTable td:first-child{border-left:0px;}
+.ComPopupTable td a:link{color:#2172ec; text-decoration:underline;}
+
+/* NoDate - 디자인 원본 기준 */
+.NoDate{text-align:center; vertical-align:bottom; font-size:16px; letter-spacing:-0.2px; font-weight:700; color:#5B5C61;}
+.NoDate img{height:80px; width:80px;}
+</style>
+
+<script type="text/javascript">
+/**
+ * 은행조회 팝업 API
+ */
+window.createPopupAPI = function(overlayId, containerId) {
+    var $overlay = $('#' + overlayId);
+    var $container = $('#' + containerId);
+    var selectCallback = null;
+    var animationType = $container.data('animationType') || 'default';
+
+    var allData = [];
+    var filteredData = [];
+    var $bankCodeTableBody = $container.find('#bankCodeTableBody');
+
+    var api = {};
+
+    function close() {
+        var $popup = $container.find('.DIVpopup');
+        if ($popup.hasClass('popup-button-exit') || $popup.hasClass('popup-exit')) return;
+        var exitClass = animationType === 'fromButton' ? 'popup-button-exit' : 'popup-exit';
+        var animationDuration = animationType === 'fromButton' ? 1000 : 200;
+
+        $popup.removeClass('popup-enter popup-button-enter').addClass(exitClass);
+        $overlay.removeClass('popup-enter').addClass('popup-exit');
+
+        setTimeout(function() {
+            $overlay.remove();
+            $container.remove();
+            if ($('[id^="popup-overlay-"]').length === 0) {
+                var scrollY = $('body').data('scrollY') || 0;
+                $('body').css({ 'position': '', 'top': '', 'left': '', 'right': '', 'overflow-y': '' });
+                window.scrollTo(0, scrollY);
+            }
+        }, animationDuration);
+    }
+
+    function onSelect(callback) {
+        selectCallback = callback;
+        return api;
+    }
+
+    function showNoData(message) {
+        $bankCodeTableBody.html(
+            '<tr><td colspan="2" style="height:200px;"><div class="NoDate mt50 mb50">' +
+            '<img src="/resources/imgs/Icon_Warning01.png" /><br/>' +
+            (message || '조회된 데이터가 없습니다.') +
+            '</div></td></tr>'
+        );
+    }
+
+    function loadBankList() {
+        $bankCodeTableBody.html(
+            '<tr><td colspan="2" style="height:200px; text-align:center; color:#999;">' +
+            '<img src="/resources/libs/ibsheet7/js/DeepBlue/90px.gif" alt="로딩중..." />' +
+            '</td></tr>'
+        );
+
+        HttpUtil.post('/common/commonList_v2.do', {
+            codeGubun: 'bankCodePop', bank: '', franch: ''
+        }, {
+            showLoader: false, showDefaultAlert: false
+        }).then(function(response) {
+            var result = response.data || {};
+            allData = result.Data || result.data || [];
+            filteredData = allData;
+            renderTable(filteredData);
+        }).catch(function(error) {
+            console.error('[BankCodePopup] 로드 실패:', error);
+            showNoData('은행 정보를 불러오는 중 오류가 발생했습니다.');
+        });
+    }
+
+    function filterByName() {
+        var keyword = $.trim($container.find('#h_bank_name').val()).toUpperCase();
+        if (!keyword) {
+            filteredData = allData;
+        } else {
+            filteredData = [];
+            for (var i = 0; i < allData.length; i++) {
+                var name = (allData[i].TEXT1 || '').toUpperCase();
+                var code = (allData[i].CODE || '').toUpperCase();
+                if (name.indexOf(keyword) >= 0 || code.indexOf(keyword) >= 0) {
+                    filteredData.push(allData[i]);
+                }
+            }
+        }
+        renderTable(filteredData);
+    }
+
+    function renderTable(data) {
+        $bankCodeTableBody.empty();
+        if (data.length === 0) {
+            showNoData('조회된 데이터가 없습니다.');
+            return;
+        }
+        for (var i = 0; i < data.length; i++) {
+            var row = data[i];
+            $bankCodeTableBody.append(
+                '<tr data-index="' + i + '">' +
+                '<td>' + (row.CODE || '') + '</td>' +
+                '<td>' + (row.TEXT1 || '') + '</td>' +
+                '</tr>'
+            );
+        }
+    }
+
+    function selectRow(index) {
+        var row = filteredData[index];
+        if (!row) return;
+        if (selectCallback) selectCallback(row);
+        close();
+    }
+
+    function bindEvents() {
+        $container.find('#btnSearch').on('click', filterByName);
+        $container.find('#h_bank_name').on('keydown', function(e) {
+            if (e.keyCode === 13) { e.preventDefault(); filterByName(); }
+        });
+        $container.find('#DIVclosePopup').on('click', function(e) { e.preventDefault(); close(); });
+        $overlay.on('click', close);
+        $bankCodeTableBody.on('click', 'tr', function() {
+            var idx = parseInt($(this).data('index'));
+            if (!isNaN(idx)) selectRow(idx);
+        });
+    }
+
+    api.close = close;
+    api.onSelect = onSelect;
+    api.$overlay = $overlay;
+    api.$container = $container;
+
+    bindEvents();
+    loadBankList();
+
+    setTimeout(function() { $container.find('#h_bank_name').focus(); }, 300);
+
+    return api;
+};
+</script>

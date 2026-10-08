@@ -1,0 +1,203 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.cmcl">
+	<!-- 조회 -->
+	<select id="selectBuyerGrAmt" parameterType="java.util.Map" resultType="String">
+	/*selectBuyerGrAmt*/
+		<![CDATA[
+			SELECT 
+			    NVL(SUM(ITEM_AMT), 0)
+			FROM 
+			    ICOMGRDT
+			WHERE 1=1
+			AND GR_DATE BETWEEN SUBSTR(#{issue_date}, 0, 6) || '01' AND #{issue_date}
+			AND AR_BILL_FLAG = 'N' 
+			AND STATUS <> 'D'			
+		]]>
+		<if test="buyer_code == 'KRDOOD0001' ">
+			AND BUYER IN ('KRDOOD0001' ,'KRDOOS0004')
+		</if>
+		<if test="buyer_code != 'KRDOOD0001' ">
+			AND BUYER = #{buyer_code}
+		</if>
+	</select>
+	
+	<select id="selectExcelIrsInfo" parameterType="java.util.Map" resultType="String">
+	/*selectExcelIrsInfo*/
+		<![CDATA[
+			SELECT 
+			    DECODE
+			    (
+			        (SELECT IRS_NAME FROM KEPTIRSN WHERE SITE = 'KA' AND IRS_NO = #{irs_no})
+			      , NULL
+			      , CM.COM_NAME_LOC
+			      , (SELECT IRS_NAME FROM KEPTIRSN WHERE SITE = 'KA' AND IRS_NO = #{irs_no})
+			    ) AS IRS_NAME
+			  , DECODE
+			    (
+			        (SELECT CEO_NAME_LOC FROM KEPTIRSN WHERE SITE = 'KA' AND IRS_NO = #{irs_no})
+			      , NULL, CM.CEO_NAME_LOC
+			      , (SELECT CEO_NAME_LOC FROM KEPTIRSN WHERE SITE = 'KA' AND IRS_NO = #{irs_no})
+			    ) AS CEO_NAME_LOC
+			  , DECODE
+			    (
+			        (SELECT INDUSTRY_TYPE FROM KEPTIRSN WHERE SITE = 'KA' AND IRS_NO = #{irs_no})
+			      , NULL
+			      , CM.INDUSTRY_TYPE
+			      , (SELECT INDUSTRY_TYPE FROM KEPTIRSN WHERE SITE = 'KA' AND IRS_NO = #{irs_no})
+			    ) AS INDUSTRY_TYPE
+			  , DECODE
+			    (
+			        (SELECT BUSINESS_ITEMS FROM KEPTIRSN WHERE SITE = 'KA' AND IRS_NO = #{irs_no})
+			      , NULL
+			      , CM.BUSINESS_ITEMS
+			      , (SELECT BUSINESS_ITEMS FROM KEPTIRSN WHERE SITE = 'KA' AND IRS_NO = #{irs_no})
+			    ) AS BUSINESS_ITEMS
+			  , DECODE
+			    (
+			        (SELECT ADDRESS_LOC FROM KEPTIRSN WHERE SITE = 'KA' AND IRS_NO = #{irs_no})
+			      , NULL
+			      , CM.ADDRESS_LOC
+			      , (SELECT ADDRESS_LOC FROM KEPTIRSN WHERE SITE = 'KA' AND IRS_NO = #{irs_no})
+			    ) AS ADDRESS_LOC
+			FROM 
+			    ICOMCMPY CM
+			WHERE  CM.COM_CODE = #{com_code}
+		]]>
+	</select>
+
+	<!-- 생성 -->
+	<update  id="insertMasterCmClSalesTaxsheetCreation_KEPTARDT" parameterType="java.util.Map" >
+	/*insertMasterCmClSalesTaxsheetCreation_KEPTARDT*/
+		<![CDATA[
+			INSERT INTO KEPTARDT /* 외상매출_세금계산서 */
+			(
+			    TAX_BILL_NO                 ,KEP_IRS                    ,SITE                       ,DEPT_CODE                  ,STATUS
+			   ,ISSUE_DATE                  ,CUSTOMER_NAME              ,IRS_NO                     ,BUYER_CODE                 
+			   ,TOT_SUPP_PRICE
+			   ,TOT_TAX_PRICE               
+			   ,TOT_AMT                    
+			   ,SUPP_PRICE                 
+			   ,TAX_PRICE                  
+			   ,AMT
+			   ,TAX_TYPE                    ,BILL_TYPE
+			   ,PRINT_DATE                  ,PRINT_USER_ID              ,PRINT_CNT
+			   ,PRINT_AVAIL_CNT             ,CONFIRM_FLAG               ,REMARK_DESCRIPTION         ,REMARK_SPECIFICATION       ,REMARK_QTY
+			   ,REMARK_PRICE                ,ASK_TYPE                   ,ADD_DATE                   ,ADD_TIME                   ,ADD_USER_ID
+			   ,CHANGE_DATE                 ,CHANGE_TIME                ,CHANGE_USER_ID             ,AR_CLOSE_REVISION          ,KEP_IRS_NAME
+			   ,KEP_CEO_NAME_LOC            ,KEP_INDUSTRY_TYPE          ,KEP_BUSINESS_ITEMS         ,KEP_ADDRESS_LOC            ,IRS_NAME
+			   ,CEO_NAME_LOC                ,INDUSTRY_TYPE              ,BUSINESS_ITEMS             ,ADDRESS_LOC                ,PARTIAL_FLAG
+			   ,AR_CLOSE_MONTH
+			)
+			VALUES
+			(
+			    #{order_no}                 ,#{KEP_IRS_NO}              ,'KA'                       ,#{KEP_DEPT_CODE} /*DEPT_CODE*/ ,'C'
+			   ,#{issue_date}               ,#{buyer_irs_name}           ,#{BUYER_IRS_NO}           ,#{BUYER}                   
+			   ,#{GR_AMT} /*TOT_SUPP_PRICE*/
+			   ,#{TAX_AMT} /*TOT_TAX_PRICE*/     
+			   ,#{GR_AMT} + #{TAX_AMT} /*TOT_AMT*/
+			   ,#{GR_AMT} /*SUPP_PRICE*/       
+			   ,#{TAX_AMT} /*TAX_PRICE*/     
+			   ,#{GR_AMT} + #{TAX_AMT} /*AMT*/
+			   ,'11' /*TAX_TYPE*/           ,(SELECT BILL_TYPE FROM V_VOC_ICOMCMPY WHERE SYS_TYPE = 'KA' AND COM_CODE = #{BUYER}) /*BILL_TYPE*/
+			   ,''/*PRINT_DATE*/            ,'' /*PRINT_USER_ID*/       ,0 /*PRINT_CNT*/
+			   ,1 /*PRINT_AVAIL_CNT*/       ,'N' /*CONFIRM_FLAG*/       ,'MRO용품외'                ,'MRO용품외'                ,1
+			   ,#{GR_AMT}               ,'02' /*ASK_TYPE*/           ,TO_CHAR(SYSDATE,'YYYYMMDD'),TO_CHAR(SYSDATE,'HH24MISS'),#{st_user_id}
+			   ,TO_CHAR(SYSDATE,'YYYYMMDD') ,TO_CHAR(SYSDATE,'HH24MISS'),#{st_user_id}              ,#{close_revision}          ,#{kep_irs_name}
+			   ,#{kep_ceo_name_loc}         ,#{kep_industry_type}       ,#{kep_business_items}      ,#{kep_address_loc}         ,#{buyer_irs_name}
+			   ,#{buyer_ceo_name_loc}       ,#{buyer_industry_type}     ,#{buyer_business_items}    ,#{buyer_address_loc}       ,'Y'
+			   ,#{YM_date}
+			)
+		]]>
+	</update>
+	
+	<update  id="insertMasterCmClSalesTaxsheetCreation_KEPTITEM" parameterType="java.util.Map" >
+	/*insertMasterCmClSalesTaxsheetCreation_KEPTITEM*/
+		<![CDATA[
+			INSERT INTO KEPTITEM /* 세금계산서 품목정보 */
+			(
+			    TAX_BILL_NO
+			  , ITEM_SEQ
+			  , REMARK_DESCRIPTION
+			  , REMARK_SPECIFICATION
+			  , REMARK_QTY
+			  , REMARK_PRICE
+			  , SUPP_PRICE
+			  , TAX_PRICE
+			  , REMARK_DATE
+			)
+			VALUES
+			(
+			    #{order_no}
+			  , '000001'
+			  , 'MRO용품외'
+			  , ''
+			  , ''
+			  , TRUNC(#{GR_AMT})
+			  , TRUNC(#{GR_AMT})
+			  , TRUNC(#{GR_AMT}*0.1)
+			  , TO_CHAR(SYSDATE, 'YYYYMMDD')
+			)
+		]]>
+	</update>
+	
+	<update  id="updateMasterCmClSalesTaxsheetCreation_ICOMGRDT" parameterType="java.util.Map" >
+	/*updateMasterCmClSalesTaxsheetCreation_ICOMGRDT*/
+		<![CDATA[
+			UPDATE 
+			    ICOMGRDT GR /* 구매사별 입고정보 */
+			SET
+			    AR_CLOSE_DEPT       = LPAD(#{KEP_DEPT_CODE},3,0)
+			  , AR_CLOSE_MONTH      = #{YM_date}
+			  , AR_CLOSE_REVISION   = #{close_revision}
+			  , AR_BILL_FLAG        = 'Y'
+			  , AR_TAX_BILL_NO      = 'PARTIAL'
+			WHERE 1=1
+			AND GR.STATUS <> 'D'
+		]]>
+	<choose>
+		<when test="BUYER == 'KRDOOD0001' or BUYER == 'KRDOOS0004' ">
+			AND (GR.BUYER = 'KRDOOD0001' OR GR.BUYER = 'KRDOOS0004' )
+		</when>
+		<when test="BUYER == 'KRISUC0004' or BUYER == 'KRISUC0005' or BUYER == 'KRISUC0006' ">
+			AND (GR.BUYER = 'KRISUC0004' OR GR.BUYER = 'KRISUC0005' OR GR.BUYER = 'KRISUC0006')
+		</when>
+		<when test="BUYER == 'KRCOWA0001' or BUYER == 'KRCOWA0005' or BUYER == 'KRCOWA0006' ">
+			AND (GR.BUYER = 'KRCOWA0001' OR GR.BUYER = 'KRCOWA0005' OR GR.BUYER = 'KRCOWA0006')
+		</when>
+		<otherwise>
+			AND GR.BUYER = #{BUYER}
+		</otherwise>
+	</choose>
+<if test="BUYER == 'KRDOOD0001' ">
+	<choose>
+		<when test="D_date == '10' ">
+			AND GR.GR_DATE BETWEEN #{YM_date} || '01' AND #{issue_date}
+		</when>
+		<when test="D_date == '20' ">
+			AND GR.GR_DATE BETWEEN #{YM_date} || '11' AND #{issue_date}
+		</when>
+		<otherwise>
+			AND GR.GR_DATE BETWEEN #{YM_date} || '21' AND #{issue_date}
+		</otherwise>
+	</choose>
+</if>
+<if test="BUYER != 'KRDOOD0001' ">
+    <if test='close_revision == "1" '>
+			AND GR.GR_DATE BETWEEN #{YM_date} || '01' AND #{YM_date} || '15'
+    </if>
+    <if test='close_revision != "1" '>
+			AND GR.GR_DATE BETWEEN #{YM_date} || '16' AND #{YM_date} || '31'
+    </if>
+</if>
+	</update>
+
+
+	<!-- 삭제 -->
+	<update id="deleteMasterCmClSalesTaxsheetCreation"  parameterType="java.util.Map">
+		<![CDATA[
+		]]>
+	</update>
+
+</mapper>   
+   

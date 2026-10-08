@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="common.mdcd">
+
+
+	<select id="selectMasterMdCdAgentCardInfoPopList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/*selectMasterMdCdAgentCardInfoPopList*/
+			
+			SELECT COM_NAME_LOC
+				 , INDUSTRY_TYPE
+				 , BUSINESS_ITEMS
+				 , ADDRESS_LOC
+				 , TEL_NO
+			FROM ICOMCMPY
+			WHERE COM_CODE = #{com_code}
+		]]>
+	</select>
+	
+	<select id="selectMasterMdCdAgentCardInfoPopVisit" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.pagestart"/>
+			<![CDATA[
+				/* selectMasterMdCdAgentCardInfoPopVisit */
+				SELECT AGENT
+					 , BUYER
+					 , (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = KAV.BUYER) AS BUYER_NAME_LOC
+				     , TO_CHAR(TO_DATE(KAV.VISIT_DATE || KAV.VISIT_TIME,'YYYYMMDDHH24MISS'), 'YYYY-MM-DD HH24:MI') AS CSTMR_VISIT_DATE
+				     , (SELECT COD.TEXT1 FROM ICOMCOD1 COD WHERE COD.TYPE ='K006' AND COD.CODE = KAV.VISIT_TYPE)  AS VISIT_TYPE
+				     , (SELECT A.USER_NAME_LOC FROM ICOMLUSR A WHERE A.USER_ID = KAV.ADD_USER_ID  ) AS USER_NAME_LOC
+				     , SUBSTR(KAV.VISIT_NOTE,0,50) AS VISIT_NOTE
+				     , DECODE(KAV.IMAGE_KEY, NULL, '0', '1') AS IMAGE_FLAG
+				     , KAV.IMAGE_KEY
+				     , KAV.ADD_DATE
+				     , KAV.ADD_TIME
+				     , KAV.ADD_USER_ID
+				FROM KEP_AGENT_VISIT KAV
+				WHERE 1=1
+				AND KAV.AGENT = #{com_code}
+				AND KAV.STATUS <> 'D'
+			]]>
+			<if test="st_agent_name != null and st_agent_name != ''">
+				AND KAV.AGENT = 'KRKEPS0002'
+				AND (KAV.VISIT_NOTE LIKE '%' || #{st_agent_name} || '%' OR KAV.AGENT_NAME LIKE '%' || #{st_agent_name} || '%')	
+       		</if>
+       		<![CDATA[
+				ORDER BY KAV.VISIT_DATE DESC
+			]]>
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+	
+	<update id="deleteMasterMdCdAgentCardInfoPop" parameterType="java.util.Map">
+		<![CDATA[
+			UPDATE KEP_AGENT_VISIT A
+			SET A.STATUS = 'D'
+			WHERE A.AGENT = #{AGENT}
+			AND A.ADD_DATE = #{ADD_DATE}
+			AND A.ADD_TIME = #{ADD_TIME}
+			AND A.STATUS <> 'D'
+		]]>
+	</update>		
+
+</mapper>

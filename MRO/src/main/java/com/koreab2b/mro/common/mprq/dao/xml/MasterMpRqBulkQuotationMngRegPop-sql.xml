@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mprq">
+	<!-- 일괄담당자 초기화 -->
+	<update  id="initBntTrxlBuRqMngReg" parameterType="java.util.Map" >
+		<![CDATA[
+			/*initBntTrxlBuRqMngReg*/			
+           DELETE FROM BNTTRXL
+           WHERE DOC_NAME = 'BURQ_MNG'
+             AND TARGET = #{USER_ID}
+             AND KEY_1 = #{st_burq_no}
+		]]>
+	</update>
+	
+	<update  id="setBntTrxlBuRqMngReg" parameterType="java.util.Map" >
+		<![CDATA[
+			/*setBntTrxlBuRqMngReg*/
+			INSERT INTO BNTTRXL  (  
+				  DOC_NAME
+				, TARGET
+				, KEY_1
+				, KEY_2
+				, KEY_3
+				, KEY_4
+				, KEY_5
+				, KEY_6
+				, KEY_7
+				, KEY_8
+				, KEY_9
+				, KEY_10
+				, KEY_11
+				, KEY_12
+				, KEY_13
+				, KEY_14
+				, KEY_15
+				, KEY_16
+				, KEY_17
+				, KEY_18
+				, KEY_19
+				, KEY_20
+				, KEY_21
+				, KEY_22
+				, KEY_23
+				, KEY_24
+			) VALUES(
+				'BURQ_MNG',					-- DOC_NAME
+				#{USER_ID},					-- TARGET	USER_ID    
+				#{st_burq_no},				-- KEY_1    BURQ_NO
+				#{SEQ},						-- KEY_2    
+				NVL(#{AGENT_CODE}, ' '),	-- KEY_3	
+				NVL(UPPER(#{AGENT_MNG_USER_ID}), ' '),	-- KEY_4	
+				' ',						-- KEY_5
+				' ',						-- KEY_6
+				' ',						-- KEY_7
+				' ',						-- KEY_8
+				' ',						-- KEY_9
+				' ',						-- KEY_10
+				' ',						-- KEY_11
+				' ',						-- KEY_12
+				' ', 						-- LEY_13
+				' ', 						-- KEY_14
+				' ', 						-- KEY_15
+				' ', 						-- KEY_16
+				' ', 						-- KEY_17
+				' ', 						-- KEY_18
+				' ', 						-- KEY_19
+				' ', 						-- KEY_20
+				' ', 						-- KEY_21
+				' ', 						-- KEY_22
+				' ', 						-- KEY_23
+				' ' 						-- KEY_24
+			)
+		]]> 
+	</update>
+		
+	<select id="selectMasterMpRqBulkQuotationMngReg" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/*selectMasterMpRqBulkQuotationMngReg*/
+			SELECT	SEQ,
+					AGENT_CODE,
+					AGENT_NAME,
+					AGENT_MNG_USER_ID,
+					AGENT_MNG_USER_NAME,
+					CASE WHEN AGENT_NAME IS NULL THEN '협력사 코드 오류'
+						 WHEN AGENT_YN < 1 THEN '협력사 상태 확인 필요'
+						 WHEN AGENT_MNG_USER_NAME IS NULL THEN '사번 오류'
+						 WHEN AGENT_MNG_YN < 1 THEN '삭제 사용자'
+						 WHEN (SELECT COUNT(*) FROM KEP_BURQ_MNG MNG WHERE BURQ_NO = MNG.BURQ_NO AND PROJECT_STATUS NOT IN ('G','C')) = 0 THEN '프로젝트 상태 오류' 
+					ELSE '정상' END AS RESULT
+			FROM (
+					SELECT
+						KEY_2 AS SEQ,
+						TRIM(KEY_3) AS AGENT_CODE,
+						(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = TRIM(KEY_3) AND BUSINESS_COND = 'S' ) AS AGENT_NAME,
+						(SELECT COUNT(*) FROM ICOMCMPY WHERE COM_CODE = TRIM(KEY_3) AND BUSINESS_COND = 'S' AND STATUS IN ('C','R') ) AS AGENT_YN, -- 협력사 상태값
+						TRIM(KEY_4) AS AGENT_MNG_USER_ID,
+						(SELECT MIN(USER_NAME_LOC) FROM ICOMLUSR WHERE LEGACY_USER_ID = TRIM(KEY_4)  AND COM_CODE = 'KRKORE0001') AS AGENT_MNG_USER_NAME,
+						(SELECT COUNT(*) FROM ICOMLUSR WHERE LEGACY_USER_ID = TRIM(KEY_4) AND COM_CODE = 'KRKORE0001' AND STATUS <> 'D') AS AGENT_MNG_YN, -- 삭제 사용자 여부
+						KEY_1 AS BURQ_NO
+					FROM BNTTRXL A
+					WHERE DOC_NAME = 'BURQ_MNG'
+					AND TARGET = #{USER_ID}
+					AND KEY_1 = #{st_burq_no}
+				) A
+			ORDER BY TO_NUMBER(SEQ)
+		]]>
+	</select>
+	
+	
+	<update  id="updateMasterMpRqBulkQuotationMngReg" parameterType="java.util.Map" >
+		<![CDATA[
+			/*updateMasterMpRqBulkQuotationMngReg*/
+			UPDATE KEP_BURQ_ITEM
+			SET AGENT_MNG_USER_ID = #{AGENT_MNG_USER_ID},							
+				CHANGE_DATE = SYSDATE,
+				CHANGE_USER_ID = #{USER_ID}
+			WHERE BURQ_NO = #{st_burq_no}
+			AND AGENT = #{AGENT_CODE} 
+		]]> 
+	</update>
+	
+	<update id="updateMasterMpRqBulkQuotationProjectStatus_2" parameterType="java.util.Map" >
+			<![CDATA[
+			/* updateMasterMpRqBulkQuotationProjectStatus_2 */
+			UPDATE KEP_BURQ_MNG
+			SET PROJECT_STATUS = DECODE(RFQ_START_DATE,NULL,'B',PROJECT_STATUS),
+				RFQ_START_DATE =  DECODE(RFQ_START_DATE,NULL,SYSDATE,RFQ_START_DATE),
+				CHANGE_DATE = SYSDATE,
+				CHANGE_USER_ID = #{USER_ID}
+			WHERE BURQ_NO = #{st_burq_no}
+		]]>
+	</update>
+</mapper>   
+   

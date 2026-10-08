@@ -1,0 +1,223 @@
+
+<div class="DIVpopup-overlay" id="DIVpopupOverlay"></div>
+<div class="DIVpopup" id="DIVpopup" style="width: 560px; height: auto; max-height: 80vh; overflow-y: auto;">
+  <div class="wrapPopup" style="padding: 20px;">
+    <div class="PopupTit">사용자 상세정보<span><a href="#" id="DIVclosePopup"><img src="/resources/imgs/Icon_close.png" /></a></span></div>
+
+    <div class="PopupTitSub">사용자 정보</div>
+    <table class="PopTableThLTdL">
+      <colgroup>
+        <col width="100px" />
+        <col width="400px" />
+      </colgroup>
+      <tr>
+        <th>ID</th>
+        <td id="userId"></td>
+      </tr>
+      <tr>
+        <th>이름</th>
+        <td id="userName"></td>
+      </tr>
+      <tr>
+        <th>부서</th>
+        <td id="deptName"></td>
+      </tr>
+      <tr>
+        <th>직급</th>
+        <td id="position"></td>
+      </tr>
+      <tr>
+        <th>휴대폰</th>
+        <td id="mobile"></td>
+      </tr>
+      <tr>
+        <th>전화번호</th>
+        <td id="phoneNumber"></td>
+      </tr>
+      <tr>
+        <th>FAX</th>
+        <td id="fax"></td>
+      </tr>
+      <tr>
+        <th>이메일</th>
+        <td id="email"></td>
+      </tr>
+      <tr>
+        <th>주소</th>
+        <td id="address"></td>
+      </tr>
+    </table>
+
+    <div class="h10"></div>
+
+    <table class="PopTableThLTdL">
+      <colgroup>
+        <col width="100px" />
+        <col width="400px" />
+      </colgroup>
+      <tr>
+        <th>알림수신</th>
+        <td>
+          <label class="CheckMediumLabel">
+            <input type="checkbox" id="chkSms"  readonly>
+            <span class="CheckMediumCustom" readonly></span>휴대폰 문자메세지
+          </label>
+          <label class="CheckMediumLabel">
+            <input type="checkbox" id="chkEmail" readonly>
+            <span class="CheckMediumCustom" readonly></span>이메일
+          </label>
+        </td>
+      </tr>
+    </table>
+
+    <div class="h30"></div>
+  </div><!-- wrapPopup 끝-->
+</div>
+
+<script type="text/javascript">
+/**
+ * 팝업 API 생성 함수 (PopupUtil 표준 패턴)
+ * @param {string} overlayId - 오버레이 ID
+ * @param {string} containerId - 컨테이너 ID
+ * @returns {Object} 팝업 API 객체
+ */
+window.createPopupAPI = function(overlayId, containerId) {
+    var $overlay = $('#' + overlayId);
+    var $container = $('#' + containerId);
+    var animationType = $container.data('animationType') || 'default';
+
+    // Public API 객체
+    var api = {};
+
+    /**
+     * 키보드 이벤트 핸들러 (Enter, Space 키로 닫기)
+     */
+    function handleKeydown(e) {
+        // Enter(13) 또는 Space(32) 키 감지
+        if (e.keyCode === 13 || e.keyCode === 32) {
+            e.preventDefault();
+            close();
+        }
+    }
+
+    /**
+     * 팝업 닫기 (애니메이션 포함)
+     */
+    function close() {
+        var $popup = $container.find('.DIVpopup');
+
+        // 이미 닫기 애니메이션 중이면 무시
+        if ($popup.hasClass('popup-button-exit') || $popup.hasClass('popup-exit')) {
+            return;
+        }
+
+        // 애니메이션 타입에 따른 클래스 결정
+        var exitClass = animationType === 'fromButton' ? 'popup-button-exit' : 'popup-exit';
+        var animationDuration = animationType === 'fromButton' ? 1000 : 200;
+
+        // 열기 애니메이션 클래스 제거 후 닫기 애니메이션 적용
+        $popup.removeClass('popup-enter popup-button-enter').addClass(exitClass);
+        $overlay.removeClass('popup-enter').addClass('popup-exit');
+
+        // 애니메이션 완료 후 제거
+        setTimeout(function() {
+            // 키보드 이벤트 해제
+            $(document).off('keydown', handleKeydown);
+
+            $overlay.remove();
+            $container.remove();
+
+            // ✅ body 스크롤 복원 (모든 팝업이 닫혔는지 확인)
+            if ($('[id^="popup-overlay-"]').length === 0) {
+                var scrollY = $('body').data('scrollY') || 0;
+                $('body').css({
+                    'position': '',
+                    'top': '',
+                    'left': '',
+                    'right': '',
+                    'overflow-y': ''
+                });
+                window.scrollTo(0, scrollY);
+                console.log('[User Detail Popup] body 스크롤 복원');
+            }
+
+            console.log('[User Detail Popup] 팝업 닫힘');
+        }, animationDuration);
+    }
+
+    /**
+     * 사용자 데이터 설정 (renewal 디자인 기준)
+     * @param {Object} userData - 서버에서 받은 사용자 데이터
+     * @returns {Object} api 객체 (체이닝 지원)
+     */
+    function setUserData(userData) {
+        if (!userData) return api;
+
+        // 기본 정보
+        if (userData.USER_ID) $container.find('#userId').text(userData.USER_ID);
+        if (userData.USER_NAME_LOC) $container.find('#userName').text(userData.USER_NAME_LOC);
+        if (userData.DEPARTMENT_TEXT) $container.find('#deptName').text(userData.DEPARTMENT_TEXT);
+        if (userData.POSITION_TEXT) $container.find('#position').text(userData.POSITION_TEXT);
+        if (userData.MOBILE_PHONE) $container.find('#mobile').text(userData.MOBILE_PHONE);
+        if (userData.PHONE_NUMBER) $container.find('#phoneNumber').text(userData.PHONE_NUMBER);
+        if (userData.FAX_NUMBER) $container.find('#fax').text(userData.FAX_NUMBER);
+        if (userData.EMAIL) $container.find('#email').text(userData.EMAIL);
+        if (userData.ADDRESS_LOC) $container.find('#address').text(userData.ADDRESS_LOC);
+
+        // 알림수신 체크박스 - 명시적 설정 (모든 경우에 대해 상태 설정)
+        var smsRecvFlag = userData.SMS_RECV_FLAG === 'Y';
+        var mailRecvFlag = userData.MAIL_RECV_FLAG === 'Y';
+
+        $container.find('#chkSms').prop('checked', smsRecvFlag);
+        $container.find('#chkEmail').prop('checked', mailRecvFlag);
+
+        console.log('[User Detail Popup] 알림수신 설정 - SMS:', userData.SMS_RECV_FLAG, '→', smsRecvFlag, ', Email:', userData.MAIL_RECV_FLAG, '→', mailRecvFlag);
+
+        console.log('[User Detail Popup] 사용자 데이터 바인딩 완료:', userData);
+        return api;
+    }
+
+    /**
+     * 이벤트 바인딩
+     */
+    function bindEvents() {
+        // 기존 이벤트 제거 (중복 방지)
+        $container.find('#DIVclosePopup').off('click');
+        $overlay.off('click');
+        $(document).off('keydown', handleKeydown);
+
+        // 닫기 버튼 클릭 이벤트
+        $container.find('#DIVclosePopup').on('click', function(e) {
+            e.preventDefault();
+            close();
+        });
+
+        // 오버레이 클릭 시 닫기
+        $overlay.on('click', function() {
+            close();
+        });
+
+        // Enter, Space 키 입력 시 닫기
+        $(document).on('keydown', handleKeydown);
+
+        // 체크박스 클릭 방지 (상태 변경 불가)
+        $container.find('#chkSms, #chkEmail').on('click', function(e) {
+            e.preventDefault();
+            return false;
+        });
+
+        console.log('[User Detail Popup] 이벤트 바인딩 완료 (키보드 지원 포함)');
+    }
+
+    // Public API 속성 할당
+    api.close = close;
+    api.setUserData = setUserData;
+    api.$overlay = $overlay;
+    api.$container = $container;
+
+    // 자동 실행: 이벤트 즉시 바인딩
+    bindEvents();
+
+    return api;
+};
+</script>

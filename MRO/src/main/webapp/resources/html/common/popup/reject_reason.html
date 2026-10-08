@@ -1,0 +1,115 @@
+<style>
+/* 회원가입(renewal_partner_reg.jsp:472) 와 동일 패턴 — 필수 입력 미입력 시 붉은 테두리 */
+.input-error { border: 2px solid #F6495F !important; background-color: #FFF5F5 !important; }
+</style>
+
+<div class="DIVpopup-overlay" id="DIVpopupOverlay"></div>
+<div class="DIVpopup" id="DIVpopup">
+	<div class="wrapPopup" style="width:540px; background:#fff; border-radius:8px;">
+		<div class="PopupTit">승인거절 사유
+			<span><a href="#" id="DIVclosePopup"><img src="/resources/imgs/Icon_close.png" /></a></span>
+		</div>
+		<div class="PopupTitSubTxt" style="text-align:left">
+			총 <span id="rejectSelectedCount">0</span> 건이 선택되었습니다. 거절사유를 입력해주세요.
+		</div>
+		<div class="TextField" id="rejectLimitedArea">
+			<textarea id="rejectMessage" maxlength="1000" placeholder="" style="width:96%; height:170px; resize:none; font-family:Pretendard; font-size:14px; font-weight:400; letter-spacing:-0.5px; color:#24252B;"></textarea>
+			<div class="meta" aria-live="polite" style="text-align:right; padding-top:5px;">
+				<span id="rejectCount">0</span>/1000
+			</div>
+		</div>
+		<div class="PopupListBtnBox_Center mt20">
+			<button class="ButQuaternary_large" id="btnRejectCancel" style="width:125px;margin-right:10px;">취소</button>
+			<button class="ButPrimary_large" id="btnRejectConfirm" style="width:125px;">등록</button>
+		</div>
+	</div>
+</div>
+
+<script type="text/javascript">
+window.createPopupAPI = function(overlayId, containerId, options) {
+	var $overlay = $('#' + overlayId);
+	var $container = $('#' + containerId);
+	var confirmCallback = null;
+	var cancelCallback = null;
+
+	// data 로 전달된 선택 건수 표시
+	if (options && options.data && typeof options.data.selectedCount !== 'undefined') {
+		$container.find('#rejectSelectedCount').text(options.data.selectedCount);
+	}
+
+	function close() {
+		$overlay.remove();
+		$container.remove();
+		if ($('[id^="popup-overlay-"]').length === 0) {
+			var scrollY = $('body').data('scrollY') || 0;
+			$('body').css({ 'position':'', 'top':'', 'left':'', 'right':'', 'overflow-y':'' });
+			window.scrollTo(0, scrollY);
+		}
+	}
+
+	function onConfirm(cb) { confirmCallback = cb; return api; }
+	function onCancel(cb)  { cancelCallback  = cb; return api; }
+
+	// 회원가입(renewal_partner_reg.jsp:481-497) 동일 패턴 — 붉은 테두리 + 화면 밖이면 스크롤 이동
+	function showError($el) {
+		$el.addClass('input-error');
+		if ($el.length > 0 && $el[0].getBoundingClientRect) {
+			var rect = $el[0].getBoundingClientRect();
+			if (rect.top < 0 || rect.top > window.innerHeight) {
+				$('html, body').animate({ scrollTop: $el.offset().top - (window.innerHeight / 2) }, 300);
+			}
+		}
+		$el.focus();
+	}
+
+	function bindEvents() {
+		// 글자 수 카운터 + 입력 시 에러 해제
+		$container.find('#rejectMessage').on('input', function() {
+			$container.find('#rejectCount').text($(this).val().length);
+			$(this).removeClass('input-error');
+		});
+
+		// X 닫기
+		$container.find('#DIVclosePopup').on('click', function(e) {
+			e.preventDefault();
+			if (cancelCallback) cancelCallback();
+			close();
+		});
+
+		// 취소
+		$container.find('#btnRejectCancel').on('click', function(e) {
+			e.preventDefault();
+			if (cancelCallback) cancelCallback();
+			close();
+		});
+
+		// 등록 → 입력값 검증 후 confirmCallback(reason) 호출
+		$container.find('#btnRejectConfirm').on('click', function(e) {
+			e.preventDefault();
+			var $ta = $container.find('#rejectMessage');
+			var reason = $.trim($ta.val());
+			if (!reason) {
+				showError($ta); // 붉은 테두리 + 스크롤 + 포커스 (alert 미사용)
+				return;
+			}
+			if (confirmCallback) {
+				var keepOpen = confirmCallback(reason);
+				if (keepOpen === true) return; // 콜백이 명시적으로 true 반환 시 모달 유지
+			}
+			close();
+		});
+	}
+
+	var api = {
+		onConfirm: onConfirm,
+		onCancel: onCancel,
+		close: close,
+		$overlay: $overlay,
+		$container: $container
+	};
+
+	bindEvents();
+	setTimeout(function(){ $container.find('#rejectMessage').focus(); }, 50);
+	return api;
+};
+</script>

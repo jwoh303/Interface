@@ -1,0 +1,20 @@
+package com.koreab2b.mro.master.mdcp.service;
+
+import java.util.List;
+import java.util.Map;
+
+public interface MasterMdCpSAgntcmpyRegManageService {
+	
+	// 리스트조회
+	public List<Map<String,String>> getList(Map<String,Object>  param);
+	
+	// 리스트조회
+	public Map<String, String> getSAgentList(Map<String,String>  param);
+
+	// 저장
+	public String updateSelectedData(Map<String,String>  formData, List<Object> gridData);
+	
+	// 삭제
+	public String delSelectedData(Map<String,String>  formData, List<Object> gridData);
+
+}

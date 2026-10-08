@@ -1,0 +1,1302 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.cmcl">
+
+	<!-- 조회 -->
+	<select id="deleteMasterCmClPurchaseTaxsheetIssueReg_ICOMGRDT" parameterType="java.util.Map" resultType="java.util.Map">
+		/*deleteMasterCmClPurchaseTaxsheetIssueReg_ICOMGRDT*/
+		SELECT LOGIS_TAX_BILL_NO 
+         FROM ICOMGRDT 
+         WHERE AP_TAX_BILL_NO = #{TAX_BILL_NO}
+            AND LOGIS_BILL_FLAG = 'Y'
+	</select>
+	<select id="deleteMasterCmClPurchaseTaxsheetIssueReg_ICOMIVDT_v2" parameterType="java.util.Map" resultType="java.util.Map">
+		/*deleteMasterCmClPurchaseTaxsheetIssueReg_ICOMIVDT_v2*/
+		SELECT LOGIS_TAX_BILL_NO 
+         FROM ICOMIVDT 
+         WHERE AP_TAX_BILL_NO = #{TAX_BILL_NO}
+            AND LOGIS_BILL_FLAG = 'Y'
+	</select>
+	
+	<!-- 조회 -->
+	<select id="selectMasterCmClPurchaseTaxsheetIssueRegList" parameterType="java.util.Map" resultType="java.util.Map">
+	/*selectMasterCmClPurchaseTaxsheetIssueRegList*/
+		<![CDATA[
+		SELECT
+			SB.KEP_IRS_NAME
+			,SB.SITE_GUBUN_NAME
+			,SB.IRS_NO
+			,REPLACE(SB.IRS_NO,'-','') AS REPLACE_AGENT_IRS_NO
+			,SB.AGENT_CODE
+			,SB.CUSTOMER_NAME
+			,NVL(SB.BILL_CODE, 
+				CASE WHEN MAIN.CONVERSATION_ID IS NULL THEN 
+             					( SELECT CMPY.BILL_CODE FROM ICOMCMPY CMPY WHERE CMPY.COM_CODE = SB.AGENT_CODE )
+          				WHEN MAIN.CONVERSATION_ID IS NOT NULL THEN '41000008' 
+          				ELSE '90000001'
+          		END
+          	) AS BILL_CODE_TEXT
+			, NVL(TO_CHAR(MAIN.DTI_WDATE,'YYYYMMDD'), SB.ISSUE_DATE ) AS ISSUE_DATE
+			,SB.SUPP_PRICE
+			,SB.TAX_PRICE
+			,SB.AMT
+			,SB.TAX_TYPE_TEXT
+			,SB.BILL_TYPE_TEXT
+			,SB.TAX_BILL_NO
+			,SB.CONFIRM_FLAG
+			,SB.STATUS
+			,SB.CHANGE_DATE
+			,SB.SEND_DATE
+			,SB.REMARK_DESCRIPTION
+			,SB.KEP_IRS_NO
+			,SB.SITE_GUBUN_CODE
+			,SB.DEPT_CODE
+			,SB.TAX_TYPE
+			,SB.TOT_TAX_PRICE
+			,SB.CLOSE_MONTH
+			,SB.AP_CLOSE_REVISION
+			,SB.COM_NAME_LOC_ORDER
+			,SB.NTS_SEND_FLAG
+			,SB.IF_SEND_FLAG
+			,SB.ADD_USER_ID
+			,SB.INDUSTRY_TYPE
+			,SB.BUSINESS_ITEMS
+			,SB.ADDRESS_LOC
+			,SB.CEO_NAME_LOC
+			 ,REPLACE(IRS.IRS_NO,'-','') AS KEP_COM_IRS_NO
+	 		 ,IRS.IRS_NAME AS KEP_COM_NAME_LOC
+	 		 ,IRS.BUSINESS_ITEMS AS KEP_COM_BUSINESS_ITEMS
+	 		 ,IRS.INDUSTRY_TYPE AS KEP_COM_INDUSTRY_TYPE
+	 		 ,IRS.CEO_NAME_LOC AS KEP_COM_CEO_NAME_LOC
+	 		 ,IRS.ADDRESS_LOC AS KEP_COM_ADDRESS_LOC
+			 ,USR.FND_USER_NAME AS KEP_USER_NAME
+			 ,USR.EMAIL AS KEP_USER_EMAIL
+			 ,USR.SMART_ID AS SMART_ID
+			 ,USR.SMART_PASSWORD AS SMART_PASSWORD
+			 ,USR.AUTHTOKEN AS AUTHTOKEN
+			 ,NVL(MAIN.SUP_EMAIL, NVL(SB.EMAIL, BILL.EMAIL)) AS RECV_EMAIL
+			 ,NVL(MAIN.SUP_EMP_NAME, NVL(SB.EMAIL_NAME, BILL.USER_NAME_LOC)) AS RECV_USER_NAME
+			 ,BILL.PHONE_NUMBER AS RECV_PHONE_NUMBER
+			 ,MAIN.AMEND_CODE AS AMEND_CODE
+			 ,MAIN.CONVERSATION_ID AS CONVERSATION_ID
+			 ,MAIN.ISSUE_ID AS ISSUE_ID
+			 ,MAIN.ORI_ISSUE_ID AS ORI_ISSUE_ID
+			 ,STATUS.DTI_STATUS AS DTI_STATUS
+			 ,(SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE='TX11' AND CODE=STATUS.DTI_STATUS) AS DTI_STATUS_TEXT 
+			 ,STATUS.RETURN_DESCRIPTION AS RETURN_DESCRIPTION
+			 ,STATUS.NTS_SEND_STATUS
+			 ,STATUS.NTS_RESULT_CODE
+			 ,STATUS.RETURN_CODE STATUS_RETURN_CODE
+			 ,#{st_user_id} AS CREATED_BY
+			 ,MAIN.CREATED_BY AS MAIN_CREATED_BY
+			 ,NVL(DECODE(LENGTH(SB.ASK_TYPE),1,'0'||SB.ASK_TYPE,SB.ASK_TYPE),'02') AS AR_REQ_TYPE
+			 ,SB.APDT_REMARK
+			 ,SB.SUP_BIZPLACE_CODE
+			 ,MAIN.SUP_AMOUNT AS MAIN_SUP_AMOUNT
+			 ,MAIN.TAX_AMOUNT AS MAIN_TAX_AMOUNT
+			 ,MAIN.TOTAL_AMOUNT AS MAIN_TOTAL_AMOUNT
+			 ,DECODE(MAIN.CONVERSATION_ID,'',DECODE(SB.EMAIL,'','N','Y'),'N') AS AP_MAIL_SEND_YN
+			 ,DECODE(MAIN.CONVERSATION_ID,'','',DECODE(STATUS.DTI_STATUS,'V','[역발행메일재전송]','I','[역발행메일재전송]','')) AS AP_R_MAIL_SEND
+			 ,DECODE(MAIN.CONVERSATION_ID,'','N',DECODE(SB.EMAIL,'','N','Y')) AS AP_R_MAIL_SEND_YN
+			 ,DECODE(MAIN.CONVERSATION_ID,'','',SB.EMAIL) AS AP_R_MAIL_SEND_MAIL
+			 ,(SELECT DECODE(COUNT(*), 0, 'N', 'Y') FROM ICOMCOD3 WHERE BUYER = 'KRKORE0001' AND TYPE = 'SMTX' AND CODE1 = (SELECT MAX(BUYER_CODE) FROM KEPTAPDT WHERE TAX_BILL_NO = SB.TAX_BILL_NO AND DEPT_CODE = SB.DEPT_CODE) AND CODE2 = SB.AGENT_CODE) AS ICOMCOD3_SMTX_YN
+		FROM(
+			SELECT																									
+					MAX((SELECT TEXT4 FROM ICOMCOD1 WHERE TYPE = 'VC04' AND CODE = APDT.SITE)) AS KEP_IRS_NAME ,    
+					MAX((SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'VC04' AND CODE = APDT.SITE)) AS SITE_GUBUN_NAME,  
+					MAX(IRS_NO) AS IRS_NO,
+					MAX(SITE) AS SITE,
+					MAX(APDT.AGENT_CODE) AS AGENT_CODE,                                                                          
+					MAX(CUSTOMER_NAME) AS CUSTOMER_NAME,                                                            
+					MAX(ISSUE_DATE) AS ISSUE_DATE,                                                                  
+					SUM(APDT.SUPP_PRICE) AS SUPP_PRICE,																
+					SUM(APDT.TAX_PRICE) AS TAX_PRICE,																
+					MAX(TOT_AMT) AS AMT,																			
+					MAX(APDT.TAX_TYPE) AS TAX_TYPE_TEXT,                                                                 
+					MAX(APDT.BILL_TYPE) AS BILL_TYPE_TEXT,                                                               
+					MAX(APDT.TAX_BILL_NO) AS TAX_BILL_NO,
+					MAX(APDT.CONFIRM_FLAG) AS CONFIRM_FLAG,                                                           
+					MAX(DECODE(IF_SEND_FLAG,NULL,'미전송','N','전송중','E','전송오류','Y','전송완료')) AS STATUS, 
+					MAX(APDT.CHANGE_DATE) AS CHANGE_DATE,                                                           
+					MAX(APDT.SEND_DATE) AS SEND_DATE,                                                               
+					MAX((SELECT REMARK_DESCRIPTION FROM KEPTITEM WHERE TAX_BILL_NO = APDT.TAX_BILL_NO AND ITEM_SEQ = '000001')) REMARK_DESCRIPTION,
+					MAX(APDT.KEP_IRS) AS KEP_IRS_NO,                                                                   
+					MAX(APDT.SITE) AS SITE_GUBUN_CODE,                                                              
+					MAX(APDT.DEPT_CODE) AS DEPT_CODE,                                                               
+					MAX(APDT.TAX_TYPE) AS TAX_TYPE,                                                                 
+					MAX(APDT.TOT_TAX_PRICE) AS TOT_TAX_PRICE,                                                       
+					MAX(APDT.AP_CLOSE_MONTH) AS CLOSE_MONTH,														
+					MAX(APDT.AP_CLOSE_REVISION) AS AP_CLOSE_REVISION,												
+					MAX(TRIM(REPLACE(REPLACE(REPLACE(REPLACE(CUSTOMER_NAME,'(유)',''),'(사)',''),'(주)',''),'㈜',''))) AS COM_NAME_LOC_ORDER,	
+					MAX(NTS_SEND_FLAG) AS NTS_SEND_FLAG,	
+					MAX(DECODE(IF_SEND_FLAG,NULL,'N','N','N','E','E','Y','Y')) AS IF_SEND_FLAG,
+					MAX(APDT.ADD_USER_ID) AS ADD_USER_ID,
+					MAX(APDT.INDUSTRY_TYPE) AS INDUSTRY_TYPE,
+					MAX(APDT.BUSINESS_ITEMS) AS BUSINESS_ITEMS,
+					MAX(APDT.ADDRESS_LOC) AS ADDRESS_LOC,
+					MAX(APDT.CEO_NAME_LOC) AS CEO_NAME_LOC,
+					MAX(APDT.ASK_TYPE) AS ASK_TYPE,
+					MAX(APDT.REMARK) AS APDT_REMARK,
+					MAX(APDT.SUP_BIZPLACE_CODE) AS SUP_BIZPLACE_CODE,
+					MAX(APDT.BILL_CODE) AS BILL_CODE,
+					MAX(APDT.EMAIL_NAME) AS EMAIL_NAME,
+					MAX(APDT.EMAIL) AS EMAIL
+			FROM
+			    KEPTAPDT APDT /* 외상매입_세금계산서 */
+			WHERE APDT.ISSUE_DATE BETWEEN #{st_from_date} AND #{st_to_date}		    
+			AND APDT.SITE = 'KA'
+			AND APDT.STATUS <> 'D'
+			
+		]]>
+		<if test="st_buyer_code != null and st_buyer_code != '' ">
+		    AND APDT.BUYER_CODE   = #{st_buyer_code}
+		</if>
+		<if test="st_agent_irs_no != null and st_agent_irs_no != '' ">
+			AND APDT.IRS_NO LIKE  '%'||#{st_agent_irs_no} || '%'
+		</if>
+		<if test="st_agent_code != null and st_agent_code != '' ">
+			AND APDT.AGENT_CODE = #{st_agent_code}
+		</if>
+		<if test="st_add_user_id != null and st_add_user_id != '' ">
+			AND APDT.ADD_USER_ID = #{st_add_user_id}
+		</if>
+		<if test="st_bill_type != null and st_bill_type != '' ">
+			AND APDT.BILL_TYPE = #{st_bill_type}
+		</if>
+		<if test="st_user_dept != null and st_user_dept != '' ">
+			AND APDT.DEPT_CODE = #{st_user_dept}
+		</if>
+		<if test="st_send_flag != 'ALL' ">
+		    AND DECODE(IF_SEND_FLAG,NULL,'미전송','N','전송중','E','전송오류','Y','전송완료') = #{st_send_flag}
+		</if>
+		<if test="st_bill_type_text != null and st_bill_type_text != '' ">
+		    AND APDT.BILL_TYPE = #{st_bill_type_text}
+		</if>		
+		<if test="st_bill_code_text != null and st_bill_code_text != '' ">
+		    AND (SELECT BILL_CODE FROM ICOMCMPY
+			    	WHERE COM_CODE = APDT.AGENT_CODE) = #{st_bill_code_text}
+		</if>	
+		<if test="st_tax_bill_no != null and st_tax_bill_no != '' ">
+		    AND APDT.TAX_BILL_NO LIKE #{st_tax_bill_no}||'%'
+		</if>
+		<if test="st_confirm_flag != 'ALL' ">
+		    AND APDT.CONFIRM_FLAG = #{st_confirm_flag}
+		</if>
+		<![CDATA[
+			GROUP BY 
+			    APDT.TAX_BILL_NO
+			    ) SB, KEPTIRSN IRS, XXSB_DTI_SM_USER USR, XXSB_DTI_MAIN MAIN, XXSB_DTI_STATUS STATUS, BILL_ACCOUNTING BILL
+			WHERE SB.KEP_IRS_NO = IRS.IRS_NO
+			AND SB.SITE = IRS.SITE
+			AND IRS.COM_CODE = 'KRKORE0001'
+			AND REPLACE(SB.KEP_IRS_NO,'-','') = USR.FND_REGNO(+)
+			AND USR.FND_USER  (+)= #{st_user_id}
+			AND SB.TAX_BILL_NO = MAIN.SEQ_ID(+)
+			AND MAIN.CONVERSATION_ID = STATUS.CONVERSATION_ID(+)
+			AND SB.AGENT_CODE = BILL.COM_CODE (+)
+			AND SB.IRS_NO = BILL.IRS_NO (+)
+		]]>
+		<if test="st_dti_status != null and st_dti_status != '' ">
+		    AND STATUS.DTI_STATUS = #{st_dti_status}
+		</if>
+		<if test="st_ntd_sendstatus != null and st_ntd_sendstatus != '' ">
+		    AND STATUS.NTS_SEND_STATUS = #{st_ntd_sendstatus}
+		</if>
+		<if test="st_send_gbn != null and st_send_gbn != '' ">
+			<![CDATA[
+				AND MAIN.CONVERSATION_ID IS NULL
+			]]>		
+		</if>
+		<![CDATA[
+			AND BILL.PRIORITY (+)= 'Y'
+			AND MAIN.STATUS (+)!= 'D'
+			ORDER BY 
+			    COM_NAME_LOC_ORDER, SB.TAX_BILL_NO  ,MAIN.CONVERSATION_ID, NVL(TO_CHAR(MAIN.DTI_WDATE,'YYYYMMDD'), SB.ISSUE_DATE )
+		]]>
+	</select>
+	
+	<select id="selectMasterCmClPurchaseTaxsheetIssueRegList_Detail" parameterType="java.util.Map" resultType="java.util.Map">
+	/*selectMasterCmClPurchaseTaxsheetIssueRegList_Detail*/
+		<![CDATA[
+		SELECT
+			SB.KEP_IRS_NAME
+			,SB.SITE_GUBUN_NAME
+			,SB.IRS_NO
+			,SB.CUSTOMER_NAME
+			,SB.AGENT_CODE
+			,SB.CUSTOMER_NAME
+			, NVL(TO_CHAR(MAIN.DTI_WDATE,'YYYYMMDD'), SB.ISSUE_DATE ) AS ISSUE_DATE
+			,SB.TOT_SUPP_PRICE
+			,SB.TOT_TAX_PRICE
+			,SB.TOT_AMT
+			,SB.DEPT_NAME
+			,SB.SUPP_PRICE
+			,SB.TAX_PRICE
+			,SB.AMT
+			,SB.TAX_TYPE
+			,SB.BILL_TYPE
+			,SB.TAX_BILL_NO
+			,SB.STATUS AS STATUS_NM
+			,SB.CHANGE_DATE
+			,SB.SEND_DATE
+			,SB.REMARK_DESCRIPTION
+			,SB.KEP_IRS
+			,SB.SITE_GUBUN_CODE
+			,SB.DEPT_CODE
+			,STATUS.DTI_STATUS
+			,(SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE='TX11' AND CODE=STATUS.DTI_STATUS) AS DTI_STATUS_TEXT
+		FROM(
+			SELECT
+			    (SELECT TEXT4 FROM ICOMCOD1 WHERE TYPE = 'VC04' AND CODE = 'KA') AS KEP_IRS_NAME
+			  , (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'VC04' AND CODE = APDT.SITE) AS SITE_GUBUN_NAME
+			  , IRS_NO AS IRS_NO
+			  , CUSTOMER_NAME AS CUSTOMER_NAME
+			  , ISSUE_DATE AS ISSUE_DATE
+			  , TOT_SUPP_PRICE AS TOT_SUPP_PRICE
+			  , TOT_TAX_PRICE AS TOT_TAX_PRICE
+			  , TOT_AMT AS TOT_AMT
+			  , (SELECT TEXT2 FROM ICOMCOD1 WHERE TYPE ='TX06' AND CODE = APDT.DEPT_CODE) DEPT_NAME
+			  , APDT.SUPP_PRICE
+			  , APDT.TAX_PRICE
+			  , APDT.AMT
+			  , (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE ='TX02' AND CODE = APDT.TAX_TYPE) TAX_TYPE
+			  , (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE ='TX03' AND CODE = APDT.BILL_TYPE) BILL_TYPE
+			  , APDT.TAX_BILL_NO AS TAX_BILL_NO
+			  , DECODE(IF_SEND_FLAG, NULL, '미전송', 'N', '전송대기', 'E', '전송오류', 'Y', '전송완료', 'W', '취소대기', 'F', '취소오류', 'C', '취소완료') AS STATUS
+			  , APDT.CHANGE_DATE AS CHANGE_DATE
+			  , APDT.SEND_DATE AS SEND_DATE
+			  , APDT.REMARK_DESCRIPTION AS REMARK_DESCRIPTION
+			  , APDT.KEP_IRS AS KEP_IRS
+			  , APDT.SITE AS SITE_GUBUN_CODE
+			  , APDT.DEPT_CODE AS DEPT_CODE
+			  , APDT.AGENT_CODE
+			  , APDT.KEP_IRS AS KEP_IRS_NO
+			  , APDT.SITE
+			FROM 
+			    KEPTAPDT APDT /* 외상매입_세금계산서 */
+			WHERE 1=1
+			AND STATUS <> 'D'
+			AND APDT.ISSUE_DATE BETWEEN #{st_from_date} AND #{st_to_date}
+			AND APDT.SITE = 'KA'
+		]]>
+		<if test="st_buyer_code != null and st_buyer_code != '' ">
+		    AND APDT.BUYER_CODE   = #{st_buyer_code}
+		</if>
+		<if test="st_agent_irs_no != null and st_agent_irs_no != '' ">
+			AND APDT.IRS_NO LIKE  '%'||#{st_agent_irs_no} || '%'
+		</if>
+		<if test="st_agent_code != null and st_agent_code != '' ">
+			AND APDT.AGENT_CODE = #{st_agent_code}
+		</if>
+		<if test="st_add_user_id != null and st_add_user_id != '' ">
+			AND APDT.ADD_USER_ID = #{st_add_user_id}
+		</if>
+		<if test="st_bill_type != null and st_bill_type != '' ">
+			AND APDT.BILL_TYPE = #{st_bill_type}
+		</if>
+		<if test="st_user_dept != null and st_user_dept != '' ">
+			AND APDT.DEPT_CODE = #{st_user_dept}
+		</if>
+		<if test="st_send_flag != 'ALL' ">
+		    AND DECODE(IF_SEND_FLAG,NULL,'미전송','N','전송중','E','전송오류','Y','전송완료') = #{st_send_flag}
+		</if>
+		<if test="st_bill_type_text != null and st_bill_type_text != '' ">
+		    AND APDT.BILL_TYPE = #{st_bill_type_text}
+		</if>		
+		<if test="st_bill_code_text != null and st_bill_code_text != '' ">
+		    AND (SELECT BILL_CODE FROM ICOMCMPY
+			    	WHERE COM_CODE = APDT.AGENT_CODE) = #{st_bill_code_text}
+		</if>	
+		<if test="st_tax_bill_no != null and st_tax_bill_no != '' ">
+		    AND APDT.TAX_BILL_NO LIKE #{st_tax_bill_no}||'%'
+		</if>
+		<![CDATA[
+			    ) SB, KEPTIRSN IRS, XXSB_DTI_SM_USER USR, XXSB_DTI_MAIN MAIN, XXSB_DTI_STATUS STATUS, BILL_ACCOUNTING BILL
+			WHERE SB.KEP_IRS_NO = IRS.IRS_NO
+			AND SB.SITE = IRS.SITE
+			AND IRS.COM_CODE = 'KRKORE0001'
+			AND REPLACE(SB.KEP_IRS_NO,'-','') = USR.FND_REGNO(+)
+			AND USR.FND_USER  (+)= #{st_user_id}
+			AND SB.TAX_BILL_NO = MAIN.SEQ_ID(+)
+			AND MAIN.CONVERSATION_ID = STATUS.CONVERSATION_ID(+)
+			AND SB.AGENT_CODE = BILL.COM_CODE (+)
+			AND SB.IRS_NO = BILL.IRS_NO (+)
+		]]>
+		<if test="st_dti_status != null and st_dti_status != '' ">
+		    AND STATUS.DTI_STATUS = #{st_dti_status}
+		</if>
+		<if test="st_ntd_sendstatus != null and st_ntd_sendstatus != '' ">
+		    AND STATUS.NTS_SEND_STATUS = #{st_ntd_sendstatus}
+		</if>
+		<if test="st_send_gbn != null and st_send_gbn != '' ">
+			<![CDATA[
+				AND MAIN.CONVERSATION_ID IS NULL
+			]]>		
+		</if>
+		<![CDATA[
+			AND BILL.PRIORITY (+)= 'Y'
+			AND MAIN.STATUS (+)!= 'D'
+			ORDER BY
+			   SB.CUSTOMER_NAME,  SB.TAX_BILL_NO  ,MAIN.CONVERSATION_ID, NVL(TO_CHAR(MAIN.DTI_WDATE,'YYYYMMDD'), SB.ISSUE_DATE )
+		]]>
+	</select>
+
+
+	<!-- 수정 -->
+	<update  id="updateMasterCmClPurchaseTaxsheetIssueReg" parameterType="java.util.Map" >
+	/*updateMasterCmClPurchaseTaxsheetIssueReg*/
+		<![CDATA[
+			UPDATE 
+			    KEPTAPDT /* 외상매입_세금계산서 */
+			SET 
+			    CHANGE_USER_ID  = #{st_user_id}
+			  , CHANGE_DATE     = TO_CHAR(SYSDATE, 'YYYYMMDD')
+			  , CHANGE_TIME     = TO_CHAR(SYSDATE, 'HH24MISS')
+			  , ISSUE_DATE      = #{ISSUE_DATE}
+			  , TAX_TYPE        = #{TAX_TYPE_TEXT}
+			  , BILL_TYPE       = #{BILL_TYPE_TEXT}
+			  , ASK_TYPE       =  #{AR_REQ_TYPE}
+			  , REMARK       = #{APDT_REMARK}
+			  , SUP_BIZPLACE_CODE = #{SUP_BIZPLACE_CODE}
+			  , BILL_CODE = #{BILL_CODE_TEXT}
+			WHERE 
+			    TAX_BILL_NO     = #{TAX_BILL_NO}
+		]]>
+	</update>
+
+	<update  id="updateMasterCmClPurchaseTaxsheetIssueReg_Pay" parameterType="java.util.Map" >
+	/*updateMasterCmClPurchaseTaxsheetIssueReg_Pay*/
+		<![CDATA[
+			UPDATE 
+			    KEPTAPDT /* 외상매입_세금계산서 */
+			SET 
+			    PAY_TERMS    = #{PAY_TERMS}
+			WHERE 
+			    TAX_BILL_NO  = #{TAX_BILL_NO}
+		]]>
+	</update>
+
+	<!-- 삭제 -->
+	<update id="deleteMasterCmClPurchaseTaxsheetIssueReg"  parameterType="java.util.Map">
+	/*deleteMasterCmClPurchaseTaxsheetIssueReg*/
+		<![CDATA[
+			UPDATE KEPTAPDT /* 외상매입_세금계산서 */
+			SET STATUS = 'D' 
+			WHERE 
+			    TAX_BILL_NO = #{TAX_BILL_NO}
+		]]>
+	</update>
+	
+	<!-- 역발행요청삭제 -->
+	<update id="delApMasterCmClPurchaseTaxsheetIssueRegList"  parameterType="java.util.Map">
+	/*delApMasterCmClPurchaseTaxsheetIssueRegList*/
+		<![CDATA[
+			UPDATE XXSB_DTI_MAIN
+			SET STATUS = 'D' 
+			, LAST_UPDATE_DATE = SYSDATE
+			, LAST_UPDATED_BY = #{st_user_id}
+			WHERE   CONVERSATION_ID = #{CONVERSATION_ID}
+		]]>
+	</update>
+	<update id="updateMasterCmClPurchaseTaxsheetIssueReg_Clear"  parameterType="java.util.Map">
+	/*updateMasterCmClPurchaseTaxsheetIssueReg_Clear*/
+		<![CDATA[
+			UPDATE 
+			    ICOMGRDT /* 구매사별 입고정보 */
+			SET
+			    AP_BILL_FLAG        = 'N'
+			  , AP_TAX_BILL_NO      = ''
+			  , AP_CLOSE_REVISION	= ''
+			  , AP_CLOSE_MONTH      = ''
+			  , AP_CLOSE_DEPT       = ''
+			WHERE 1=1
+			AND AP_TAX_BILL_NO      = #{TAX_BILL_NO}
+		]]>
+	</update>
+	<update id="updateMasterCmClPurchaseTaxsheetIssueReg_Clear_v2"  parameterType="java.util.Map">
+	/*updateMasterCmClPurchaseTaxsheetIssueReg_Clear_v2*/
+		<![CDATA[
+			UPDATE 
+			    ICOMIVDT /* 구매사별 입고정보 */
+			SET
+			    AP_BILL_FLAG        = 'N'
+			  , AP_TAX_BILL_NO      = ''
+			  , AP_CLOSE_REVISION	= ''
+			  , AP_CLOSE_MONTH      = ''
+			  , AP_CLOSE_DEPT       = ''
+			  , AP_CLOSE_USER_ID	= ''
+			WHERE 1=1
+			AND AP_TAX_BILL_NO      = #{TAX_BILL_NO}
+		]]>
+	</update>
+	
+	<update id="updateMasterCmClPurchaseTaxsheetIssueReg_BillCloseList"  parameterType="java.util.Map">
+	/*updateMasterCmClPurchaseTaxsheetIssueReg_BillCloseList*/
+		<![CDATA[
+			UPDATE
+			    BILL_CLOSE_USER_LIST
+			SET 
+			    CLOSE_CMPL_YN = 'N'
+			WHERE 1=1
+			AND LEGACY_USER_ID = (SELECT LEGACY_USER_ID FROM ICOMLUSR WHERE USER_ID = #{st_user_id})
+			AND BILL_CLOSE_MONTH = #{CLOSE_MONTH}
+			AND CLOSE_TYPE = 'AP' 
+			AND AGENT_CODE = #{AGENT_CODE}
+		]]>
+	</update>
+	
+	
+	<!-- 전송 -->
+	<update id="sendApMasterCmClPurchaseTaxsheetIssueReg"  parameterType="java.util.Map">
+	/*sendApMasterCmClPurchaseTaxsheetIssueReg*/
+		<![CDATA[
+			UPDATE KEPTAPDT SET	
+			IF_SEND_FLAG	= 'N',
+			CHANGE_USER_ID  = #{st_user_id},
+			SEND_USER_ID  = #{st_user_id},
+			SEND_DATE		= TO_CHAR(SYSDATE,'YYYYMMDD'),
+			SEND_TIME		= TO_CHAR(SYSDATE,'HH24MISS'),
+			CHANGE_DATE		= TO_CHAR(SYSDATE,'YYYYMMDD'),
+			CHANGE_TIME		= TO_CHAR(SYSDATE,'HH24MISS')
+			WHERE 
+			    TAX_BILL_NO = #{TAX_BILL_NO}
+		]]>
+	</update>
+	
+	<!-- 정발행 메일 요청 -->
+	<update  id="sendApMailMasterCmClPurchaseTaxsheetIssueReg1" parameterType="java.util.Map" >
+	/* sendApMailMasterCmClPurchaseTaxsheetIssueReg1 */
+		<![CDATA[
+			UPDATE 
+			    KEPTAPDT /* 외상매입_세금계산서 */
+			SET 
+			    EMAIL_NAME = #{RECV_USER_NAME} || '(정)',
+			    EMAIL = #{RECV_EMAIL}
+			WHERE 
+			    TAX_BILL_NO  = #{TAX_BILL_NO}
+		]]>
+	</update>
+	
+	<!-- 역발행 메일 요청 -->
+	<update  id="rsendApMailMasterCmClPurchaseTaxsheetIssueReg" parameterType="java.util.Map" >
+	/* rsendApMailMasterCmClPurchaseTaxsheetIssueReg */
+		<![CDATA[
+			UPDATE 
+			    KEPTAPDT /* 외상매입_세금계산서 */
+			SET 
+			    EMAIL_NAME = #{RECV_USER_NAME} || '(역)',
+			    EMAIL = #{RECV_EMAIL}
+			WHERE 
+			    TAX_BILL_NO  = #{TAX_BILL_NO}
+		]]>
+	</update>
+	
+	<update  id="sendApMailMasterCmClPurchaseTaxsheetIssueReg2" parameterType="java.util.Map" >
+	/* sendApMailMasterCmClPurchaseTaxsheetIssueReg2 */
+		<![CDATA[
+			INSERT INTO MAILSEND(
+						MAILFORM_ID
+						,SEND_COM_TYPE
+						,RECV_COM_TYPE
+						,SEND_COM_CODE
+						,SEND_USER_ID
+						,KEY1
+						,KEY2
+						,KEY3
+						,KEY4
+						,KEY5
+						,KEY6
+						,CRE_DATE
+						,ERR_DATE
+					)VALUES(
+						'AP_CONFIRM_MS'
+						,'M'
+						,'S'
+						,'KRKORE0001'
+						,'FTP'
+						,#{TAX_BILL_NO}
+						,' '
+						,' '
+						,' '
+						,' '
+						,' '
+					,SYSDATE
+					,''
+					)
+		]]>
+	</update>
+	
+	<select id="selectMasterCmClsendApRMailPop" parameterType="java.util.Map" resultType="java.util.Map">
+	<![CDATA[
+		/*selectMasterCmClsendApRMailPop*/
+        SELECT A.BUYER
+               , (SELECT D.COM_NAME_LOC FROM ICOMCMPY D WHERE D.COM_CODE = A.BUYER) AS BUYER_NAME
+               , A.PO_NO AS PO_NO
+               , A.PO_SEQ AS PO_SEQ
+               , A.LEGACY_PO_NO AS LEGACY_PO_NO
+               , A.LEGACY_PO_SEQ AS LEGACY_PO_SEQ
+               , A.BUYER_ITEM_NO AS BUYER_ITEM_NO
+               , A.DESCRIPTION AS DESCRIPTION
+               , A.SPECIFICATION AS SPECIFICATION
+               , A.ITEM_QTY AS ITEM_QTY
+               , A.UNIT_MEASURE AS UNIT_MEASURE
+               , B.PO_CREATE_DATE AS PO_CREATE_DATE    -- 발주일
+               , A.RD_DATE AS RD_DATE          -- 납기요청일
+               , ( SELECT MAX(C.GR_DATE) 
+                     FROM ICOMGRDT C
+                    WHERE A.BUYER  = C.BUYER
+                      AND A.PO_NO  = C.PO_NO
+                      AND A.PO_SEQ = C.PO_SEQ ) AS GR_DATE         
+               , (DECODE(A.PROCESS_TYPE,'0'                                           
+                                             ,(SELECT MIN(INVOICE_DATE) 
+                                                 FROM ICOMIVDT                                
+                                                WHERE BUYER  = A.BUYER 
+                                                  AND PO_NO  = A.PO_NO                               
+                                                  AND PO_SEQ = A.PO_SEQ 
+                                                  AND STATUS <>'D')                             
+                                             ,(SELECT MIN(INV_DATE) 
+                                                 FROM WMSIVDT                                     
+                                                WHERE BUYER  = A.BUYER   
+                                                  AND PO_NO  = A.PO_NO                            
+                                                  AND PO_SEQ = A.PO_SEQ  
+                                                  AND STATUS <> 'D'))) AS INVOICE_DATE   --납품일
+                , (DECODE(A.PROCESS_TYPE,'0'                                           
+                                              ,(SELECT MIN(DELIVERY_DATE) 
+                                                  FROM ICOMIVDT                               
+                                                 WHERE BUYER = A.BUYER 
+                                                  AND PO_NO  = A.PO_NO                               
+                                                  AND PO_SEQ = A.PO_SEQ 
+                                                  AND STATUS <>'D')                             
+                                              ,(SELECT MIN(DELIVERY_DATE) 
+                                                  FROM WMSIVDT                                
+                                                 WHERE BUYER  = A.BUYER   
+                                                   AND PO_NO  = A.PO_NO                            
+                                                   AND PO_SEQ = A.PO_SEQ  
+                                                   AND STATUS <> 'D'))) AS DELIVERY_DATE  --배송일               
+                , NVL(A.GR_QTY,0) AS GR_QTY
+                , NVL(A.IV_QTY,0) AS INVOICE_QTY                                       
+                , NVL(A.DI_QTY,0) AS DELIVERY_QTY
+                , B.AGENT AS SELLER
+                , (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = B.AGENT) AS SELLER_NAME
+                , A.PROCESS_TYPE AS PROCESS_TYPE                                
+                , (DECODE(A.PROCESS_TYPE,'0','직납','1','재고','2','TR','3','VMI')) AS PROCESS_TYPE_NAME    
+                , (SELECT DISTINCT ADD_USER_NAME FROM ICOMPRDT WHERE BUYER = A.BUYER AND PR_NO = A.PR_NO AND PR_SEQ = A.PR_SEQ ) AS PROCESS_USER_NAME
+                , D.BUYER_DEPT_CODE
+                , D.BUYER_PERSON_NAME
+                , D.BUYER_PERSON_TEL
+                , D.B_REQ_DATE
+                , D.B_REQ_USER_ID
+                , D.WMRE_NO
+                ,(SELECT TEXT1 
+        		   FROM ICOMCOD2 
+                  WHERE TYPE = 'C001' 
+                     AND COMPANY_CODE = A.BUYER 
+                     AND CODE =D.BUYER_DEPT_CODE)  BUYER_DEPT_NAME
+                ,D.WMRE_TYPE
+                ,D.WMRE_QTY
+                ,D.B_REQ_REMARK
+                ,CASE 
+                         WHEN A.PROCESS_TYPE IN ('1','3')  THEN  (SELECT distinct COD2.TEXT1 FROM ICOMCOD2  COD2
+                                                                                           WHERE COD2.COMPANY_CODE = 'KRKORE0001'
+                                                                                               AND COD2.TYPE = 'WR01'
+                                                                                               AND COD2.FLAG = 'Y'
+                                                                                               AND COD2.TEXT2 = B.AGENT ) 
+                         ELSE A.WAREHOUSE_CODE
+                         END AS WAREHOUSE_CODE
+                ,( SELECT BB.COM_NAME_LOC   TEXT1
+                 FROM  ICOMCMPY BB
+                WHERE  BB.COM_CODE  =   (CASE 
+                         WHEN A.PROCESS_TYPE IN ('1','3')  THEN  (SELECT distinct COD2.TEXT1 FROM ICOMCOD2  COD2
+                                                                                           WHERE COD2.COMPANY_CODE = 'KRKORE0001'
+                                                                                               AND COD2.TYPE = 'WR01'
+                                                                                               AND COD2.FLAG = 'Y'
+                                                                                               AND COD2.TEXT2 = B.AGENT ) 
+                         ELSE A.WAREHOUSE_CODE
+                         END)
+                
+                )  WAREHOUSE_NAME 
+               ,NVL((SELECT COUNT(RS.PO_NO) FROM ICOMPORS RS WHERE RS.BUYER =A.BUYER AND RS.PO_NO = A.PO_NO AND RS.PO_SEQ = A.PO_SEQ),0) STATUS_BACK_CODE
+               ,NVL((SELECT SUM(WMRE.WMRE_QTY) FROM BNTWMRE WMRE WHERE WMRE.BUYER = A.BUYER AND WMRE.PO_NO = A.PO_NO AND WMRE.PO_SEQ = A.PO_SEQ),0) TOTAL_WMRE_QTY
+               , PR.ADD_USER_ID AS PR_ADD_USER_ID
+               , PR.ADD_USER_NAME AS PR_ADD_USER_NAME
+               , PR.ADD_USER_TEL AS PR_ADD_USER_TEL
+               , PR.ADD_USER_DEPT AS PR_ADD_USER_DEPT
+               , (SELECT TEXT1 FROM ICOMCOD2
+					WHERE COMPANY_CODE = A.BUYER
+					AND TYPE = 'C001'
+					AND CODE = PR.ADD_USER_DEPT ) AS PR_ADD_USER_DEPT_NM
+          FROM ICOMPODT A, ICOMPOHD B,  BNTWMRE D,ICOMPRDT PR
+         WHERE A.BUYER  = B.BUYER 
+           AND A.PO_NO  = B.PO_NO
+            AND A.BUYER  = D.BUYER(+) 
+            AND A.PO_SEQ = D.PO_SEQ(+)
+            AND A.PO_NO = D.PO_NO(+)
+            AND A.PO_NO = D.PO_NO(+)
+            AND  PR.BUYER          = A.BUYER  
+            AND  PR.PR_NO         = A.PR_NO
+            AND  PR.PR_SEQ        = A.PR_SEQ                  
+           AND A.BUYER =#{st_buyer_code}
+           AND A.PO_NO = #{st_po_no}
+           AND A.PO_SEQ = #{st_po_seq}
+ 		]]>     
+	</select>
+	
+	<!-- 마감확정내역(매입) -->
+	<update  id="InsertMasterCmClApCloseConfirm" parameterType="java.util.Map" >
+		/*InsertMasterCmClApCloseConfirm*/
+		<![CDATA[
+			INSERT INTO AP_CLOSE_CONFIRM_LIST
+			(
+				SITE,
+				TAX_BILL_NO,
+				KEP_DEPT,
+				BUYER_CODE,
+				AGENT_CODE,
+				TAX_IRS_NO,
+				AP_TYPE,
+				AP_CLOSE_MONTH,
+				ISSUE_DATE,
+				PM_LEGACY_USER_ID,
+				PM_USER_NAME,
+				LAST_MONTH_STOCK_AMT,
+				THIS_MONTH_SELL_AMT,
+				THIS_MONTH_BUY_AMT,
+				THIS_MONTH_STOCK_AMT,
+				CONFIRM_LEGACY_USER_ID,
+				CONFIRM_USER_NAME,
+				ADD_DATE,
+				AR_CLOSE_CONFIRM_YN,
+				AR_CLOSE_CONFIRM_DATE,
+				ERP_SEND_YN,
+				ERP_SEND_DATE				
+			)
+			
+			SELECT
+			MAX(X.SITE) AS SITE,
+			X.TAX_BILL_NO AS TAX_BILL_NO,
+			X.KEP_DEPT AS KEP_DEPT,
+			MAX(X.BUYER_CODE) AS BUYER_CODE,
+			MAX(X.AGENT_CODE) AS AGENT_CODE,
+			MAX(X.TAX_IRS_NO) AS TAX_IRS_NO,
+			MAX(AP_TYPE) AS AP_TYPE,
+			MAX(X.AP_CLOSE_MONTH) AS AP_CLOSE_MONTH,
+			MAX(X.ISSUE_DATE) AS ISSUE_DATE,
+			MAX(X.PM_LEGACY_USER_ID) AS PM_LEGACY_USER_ID,
+			MAX(X.PM_USER_NAME) AS PM_USER_NAME,
+			SUM(X.LAST_MONTH_STOCK_AMT) AS LAST_MONTH_STOCK_AMT,
+			SUM(X.THIS_MONTH_SELL_AMT) AS THIS_MONTH_SELL_AMT,
+			SUM(X.THIS_MONTH_BUY_AMT) AS THIS_MONTH_BUY_AMT,
+			SUM(X.THIS_MONTH_STOCK_AMT) AS THIS_MONTH_STOCK_AMT,
+			MAX(X.CONFIRM_LEGACY_USER_ID) AS CONFIRM_LEGACY_USER_ID,
+			MAX(X.CONFIRM_USER_NAME) AS CONFIRM_USER_NAME,
+			MAX(X.ADD_DATE) AS ADD_DATE,
+			MAX(X.AR_CLOSE_CONFIRM_YN) AS AR_CLOSE_CONFIRM_YN,
+			MAX(X.AR_CLOSE_CONFIRM_DATE) AS AR_CLOSE_CONFIRM_DATE,
+			MAX(X.ERP_SEND_YN) AS ERP_SEND_YN,
+			MAX(X.ERP_SEND_DATE) AS ERP_SEND_DATE
+
+
+		FROM (
+		
+			SELECT
+				 'KA'	AS SITE,
+				 GR.AP_TAX_BILL_NO || 'ST'	AS TAX_BILL_NO,
+				 GR.AP_CLOSE_DEPT	AS KEP_DEPT,
+				 (SELECT DISTINCT(ORG_WAREHOUSE_CODE) FROM WMSSTCK WHERE STDCATLG_ID = (SELECT CMS_CATLG_ID FROM ICOMPODT WHERE BUYER = GR.BUYER AND PO_NO = GR.PO_NO AND PO_SEQ = GR.PO_SEQ)) 	AS BUYER_CODE,
+				(SELECT DISTINCT(LAST_AGENT) FROM WMSSTCK WHERE STDCATLG_ID = (SELECT CMS_CATLG_ID FROM ICOMPODT WHERE BUYER = GR.BUYER AND PO_NO = GR.PO_NO AND PO_SEQ = GR.PO_SEQ))	AS AGENT_CODE,
+				(SELECT IRS_NO FROM ICOMCMPY WHERE COM_CODE = (SELECT DISTINCT(LAST_AGENT) FROM WMSSTCK WHERE STDCATLG_ID = (SELECT CMS_CATLG_ID FROM ICOMPODT WHERE BUYER = GR.BUYER AND PO_NO = GR.PO_NO AND PO_SEQ = GR.PO_SEQ)))	AS TAX_IRS_NO,
+				 'ST' AS AP_TYPE,
+				 GR.AP_CLOSE_MONTH AS AP_CLOSE_MONTH,
+			 	 (SELECT MAX(ISSUE_DATE) FROM KEPTAPDT AP WHERE AP.TAX_BILL_NO = GR.AP_TAX_BILL_NO)	AS ISSUE_DATE,
+				 (SELECT LEGACY_USER_ID FROM ICOMLUSR WHERE COM_CODE ='KRKORE0001' AND USER_ID =
+				   (SELECT KEP_USER_ID FROM MIS_BUYER_MNG WHERE YEAR = TO_CHAR(SYSDATE,'YYYY') AND PRIORITY = 'Y' AND STATUS = 'C' AND GR.BUYER = BUYER))	AS PM_LEGACY_USER_ID,
+				 (SELECT USER_NAME_LOC FROM ICOMLUSR WHERE COM_CODE ='KRKORE0001' AND USER_ID =
+				   (SELECT KEP_USER_ID FROM MIS_BUYER_MNG WHERE YEAR = TO_CHAR(SYSDATE,'YYYY') AND PRIORITY = 'Y' AND STATUS = 'C' AND GR.BUYER = BUYER))	AS PM_USER_NAME,
+				0 AS LAST_MONTH_STOCK_AMT, -- 전월재고
+				0 AS THIS_MONTH_SELL_AMT, -- 당월매출원가
+				 ROUND(AGENT_ITEM_AMT/F_GET_VATRATE_NEW(GR.BUYER)) AS THIS_MONTH_BUY_AMT, -- 당월매입
+				0 AS THIS_MONTH_STOCK_AMT, -- 이월재고
+				 (SELECT LEGACY_USER_ID FROM ICOMLUSR WHERE COM_CODE ='KRKORE0001' AND USER_ID =  #{st_user_id})	AS CONFIRM_LEGACY_USER_ID,
+				 (SELECT USER_NAME_LOC FROM ICOMLUSR WHERE COM_CODE ='KRKORE0001' AND USER_ID =  #{st_user_id})	AS CONFIRM_USER_NAME,
+				 SYSDATE	AS ADD_DATE,
+				'N'	AS AR_CLOSE_CONFIRM_YN,
+				NULL	AS AR_CLOSE_CONFIRM_DATE,
+				'N'	AS ERP_SEND_YN,
+				NULL	AS ERP_SEND_DATE
+				FROM ICOMGRDT GR
+				WHERE GR.STATUS <> 'D'
+				AND GR.AP_CLOSE_MONTH =  #{CLOSE_MONTH}
+				AND GR.PROCESS_TYPE = '1'				
+				AND AP_BILL_FLAG ='Y'
+				AND (SELECT MAX(ADD_USER_ID) FROM KEPTAPDT APDT WHERE APDT.TAX_BILL_NO = GR.AP_TAX_BILL_NO) =  #{st_user_id}
+				AND NOT EXISTS (
+								SELECT 'X' FROM AP_CLOSE_CONFIRM_LIST LIST
+								WHERE LIST.TAX_BILL_NO LIKE GR.AP_TAX_BILL_NO || '%'
+				)
+				
+			UNION ALL
+			
+			SELECT
+				 'KA'	AS SITE,
+				 GR.AP_TAX_BILL_NO	AS TAX_BILL_NO,
+				 GR.AP_CLOSE_DEPT	AS KEP_DEPT,
+				 GR.BUYER	AS BUYER_CODE,
+				 DECODE(GR.PROCESS_TYPE, '3',
+				 							(SELECT WAREHOUSE_CODE FROM ICOMPODT PO
+				 									 WHERE GR.BUYER = PO.BUYER
+				 									 AND   GR.PO_NO = PO.PO_NO
+				 									 AND   GR.PO_SEQ = PO.PO_SEQ
+				 									 AND   PO.STATUS <> 'D') , GR.AGENT)	AS AGENT_CODE,
+				 (SELECT MAX(IRS_NO) FROM KEPTAPDT WHERE TAX_BILL_NO = GR.AP_TAX_BILL_NO)	AS TAX_IRS_NO,
+     			DECODE((SELECT MAX(BILL_TYPE) FROM KEPTAPDT WHERE TAX_BILL_NO = GR.AP_TAX_BILL_NO), '12', 'AP_S', '11','AP', 'AP_R') AS AP_TYPE,
+				 GR.AP_CLOSE_MONTH AS AP_CLOSE_MONTH,
+			 	 (SELECT MAX(ISSUE_DATE) FROM KEPTAPDT AP WHERE AP.TAX_BILL_NO = GR.AP_TAX_BILL_NO)	AS ISSUE_DATE,
+				 (SELECT LEGACY_USER_ID FROM ICOMLUSR WHERE COM_CODE ='KRKORE0001' AND USER_ID =
+				   (SELECT KEP_USER_ID FROM MIS_BUYER_MNG WHERE YEAR = TO_CHAR(SYSDATE,'YYYY') AND PRIORITY = 'Y' AND STATUS = 'C' AND GR.BUYER = BUYER))	AS PM_LEGACY_USER_ID,
+				 (SELECT USER_NAME_LOC FROM ICOMLUSR WHERE COM_CODE ='KRKORE0001' AND USER_ID =
+				   (SELECT KEP_USER_ID FROM MIS_BUYER_MNG WHERE YEAR = TO_CHAR(SYSDATE,'YYYY') AND PRIORITY = 'Y' AND STATUS = 'C' AND GR.BUYER = BUYER))	AS PM_USER_NAME,
+				0 AS LAST_MONTH_STOCK_AMT, -- 전월재고
+                 DECODE((SELECT TAX_TYPE FROM KEPTAPDT WHERE TAX_BILL_NO = GR.AP_TAX_BILL_NO AND DEPT_CODE = GR.AP_CLOSE_DEPT AND STATUS <> 'D'), '23', GR.AGENT_ITEM_AMT, ROUND(GR.AGENT_ITEM_AMT/F_GET_VATRATE_NEW(GR.BUYER))) AS THIS_MONTH_SELL_AMT, -- 당월매출원가
+				 DECODE((SELECT TAX_TYPE FROM KEPTAPDT WHERE TAX_BILL_NO = GR.AP_TAX_BILL_NO AND DEPT_CODE = GR.AP_CLOSE_DEPT AND STATUS <> 'D'), '23', GR.AGENT_ITEM_AMT, ROUND(GR.AGENT_ITEM_AMT/F_GET_VATRATE_NEW(GR.BUYER))) AS THIS_MONTH_BUY_AMT, -- 당월매입
+				 0 AS THIS_MONTH_STOCK_AMT, -- 이월재고
+				 (SELECT LEGACY_USER_ID FROM ICOMLUSR WHERE COM_CODE ='KRKORE0001' AND USER_ID =  #{st_user_id})	AS CONFIRM_LEGACY_USER_ID,
+				 (SELECT USER_NAME_LOC FROM ICOMLUSR WHERE COM_CODE ='KRKORE0001' AND USER_ID =  #{st_user_id})	AS CONFIRM_USER_NAME,
+				 SYSDATE	AS ADD_DATE,
+				'N'	AS AR_CLOSE_CONFIRM_YN,
+				NULL	AS AR_CLOSE_CONFIRM_DATE,
+				'N'	AS ERP_SEND_YN,
+				NULL	AS ERP_SEND_DATE
+
+
+			FROM ICOMGRDT GR
+			WHERE GR.STATUS <> 'D'
+			AND GR.AP_CLOSE_MONTH =  #{CLOSE_MONTH}
+			AND GR.PROCESS_TYPE != '1'
+			AND AP_BILL_FLAG ='Y'
+			AND (SELECT MAX(ADD_USER_ID) FROM KEPTAPDT APDT WHERE APDT.TAX_BILL_NO = GR.AP_TAX_BILL_NO) =  #{st_user_id}
+			AND NOT EXISTS (
+					SELECT 'X' FROM PAY_REG_MNG PRM
+								WHERE  PRM.BUYER = GR.BUYER
+								AND    PRM.PO_NO = GR.PO_NO
+								AND    PRM.PO_SEQ = GR.PO_SEQ
+								AND    PRM.STATUS = 'C'
+								AND    PRM.PAY_REG_TYPE = 'D'
+			)
+			AND NOT EXISTS (
+							SELECT 'X' FROM AP_CLOSE_CONFIRM_LIST LIST
+							WHERE GR.AP_TAX_BILL_NO = LIST.TAX_BILL_NO
+			)
+
+			UNION ALL
+
+			 SELECT
+				 'KA'	AS SITE,
+				 GR.AP_TAX_BILL_NO || 'ST'	AS TAX_BILL_NO,
+				 GR.AP_CLOSE_DEPT	AS KEP_DEPT,
+				 GR.BUYER	AS BUYER_CODE,
+				 DECODE(GR.PROCESS_TYPE, '3',
+				 							(SELECT WAREHOUSE_CODE FROM ICOMPODT PO
+				 									 WHERE GR.BUYER = PO.BUYER
+				 									 AND   GR.PO_NO = PO.PO_NO
+				 									 AND   GR.PO_SEQ = PO.PO_SEQ
+				 									 AND   PO.STATUS <> 'D') , GR.AGENT)	AS AGENT_CODE,
+				 (SELECT MAX(IRS_NO) FROM KEPTAPDT WHERE TAX_BILL_NO = GR.AP_TAX_BILL_NO)	AS TAX_IRS_NO,
+     			 'ST' AS AP_TYPE,
+				 GR.AP_CLOSE_MONTH AS AP_CLOSE_MONTH,
+			 	 (SELECT MAX(ISSUE_DATE) FROM KEPTAPDT AP WHERE AP.TAX_BILL_NO = GR.AP_TAX_BILL_NO)	AS ISSUE_DATE,
+				 (SELECT LEGACY_USER_ID FROM ICOMLUSR WHERE COM_CODE ='KRKORE0001' AND USER_ID =
+				   (SELECT KEP_USER_ID FROM MIS_BUYER_MNG WHERE YEAR = TO_CHAR(SYSDATE,'YYYY') AND PRIORITY = 'Y' AND STATUS = 'C' AND GR.BUYER = BUYER))	AS PM_LEGACY_USER_ID,
+				 (SELECT USER_NAME_LOC FROM ICOMLUSR WHERE COM_CODE ='KRKORE0001' AND USER_ID =
+				   (SELECT KEP_USER_ID FROM MIS_BUYER_MNG WHERE YEAR = TO_CHAR(SYSDATE,'YYYY') AND PRIORITY = 'Y' AND STATUS = 'C' AND GR.BUYER = BUYER))	AS PM_USER_NAME,
+				0 AS LAST_MONTH_STOCK_AMT, -- 전월재고
+                0 AS THIS_MONTH_SELL_AMT, -- 당월매출원가
+				 ROUND(AGENT_ITEM_AMT/F_GET_VATRATE_NEW(GR.BUYER)) AS THIS_MONTH_BUY_AMT, -- 당월매입
+				 ROUND(AGENT_ITEM_AMT/F_GET_VATRATE_NEW(GR.BUYER)) AS THIS_MONTH_STOCK_AMT, -- 이월재고
+				 (SELECT LEGACY_USER_ID FROM ICOMLUSR WHERE COM_CODE ='KRKORE0001' AND USER_ID =  #{st_user_id})	AS CONFIRM_LEGACY_USER_ID,
+				 (SELECT USER_NAME_LOC FROM ICOMLUSR WHERE COM_CODE ='KRKORE0001' AND USER_ID =  #{st_user_id})	AS CONFIRM_USER_NAME,
+				 SYSDATE	AS ADD_DATE,
+				'N'	AS AR_CLOSE_CONFIRM_YN,
+				NULL	AS AR_CLOSE_CONFIRM_DATE,
+				'N'	AS ERP_SEND_YN,
+				NULL	AS ERP_SEND_DATE
+
+
+			FROM ICOMGRDT GR
+			WHERE GR.STATUS <> 'D'
+			AND GR.AP_CLOSE_MONTH =  #{CLOSE_MONTH} 
+			AND GR.PROCESS_TYPE != '1'
+			AND AP_BILL_FLAG ='Y'
+			AND (SELECT MAX(ADD_USER_ID) FROM KEPTAPDT APDT WHERE APDT.TAX_BILL_NO = GR.AP_TAX_BILL_NO) = #{st_user_id}
+			AND  EXISTS (
+					SELECT 'X' FROM PAY_REG_MNG PRM
+								WHERE  PRM.BUYER = GR.BUYER
+								AND    PRM.PO_NO = GR.PO_NO
+								AND    PRM.PO_SEQ = GR.PO_SEQ
+								AND    PRM.STATUS = 'C'
+								AND    PRM.PAY_REG_TYPE = 'D'
+			)
+			AND NOT EXISTS (
+							SELECT 'X' FROM AP_CLOSE_CONFIRM_LIST LIST
+							WHERE LIST.TAX_BILL_NO LIKE GR.AP_TAX_BILL_NO || '%'
+			)
+			
+			UNION ALL
+
+			SELECT
+				 'KA'	AS SITE,
+				 GR.AP_TAX_BILL_NO || 'ST2'	AS TAX_BILL_NO,
+				 GR.AP_CLOSE_DEPT	AS KEP_DEPT,
+				 GR.BUYER	AS BUYER_CODE,
+				 DECODE(GR.PROCESS_TYPE, '3',
+				 							(SELECT WAREHOUSE_CODE FROM ICOMPODT PO
+				 									 WHERE GR.BUYER = PO.BUYER
+				 									 AND   GR.PO_NO = PO.PO_NO
+				 									 AND   GR.PO_SEQ = PO.PO_SEQ
+				 									 AND   PO.STATUS <> 'D') , GR.AGENT)	AS AGENT_CODE,
+				 (SELECT MAX(IRS_NO) FROM KEPTAPDT WHERE TAX_BILL_NO = GR.AP_TAX_BILL_NO)	AS TAX_IRS_NO,
+     			 'ST' AS AP_TYPE,
+				 TO_CHAR(ADD_MONTHS(TO_DATE(GR.AP_CLOSE_MONTH, 'YYYYMM'),1), 'YYYYMM') AS AP_CLOSE_MONTH,
+			 	 (SELECT MAX(ISSUE_DATE) FROM KEPTAPDT AP WHERE AP.TAX_BILL_NO = GR.AP_TAX_BILL_NO)	AS ISSUE_DATE,
+				 (SELECT LEGACY_USER_ID FROM ICOMLUSR WHERE COM_CODE ='KRKORE0001' AND USER_ID =
+				   (SELECT KEP_USER_ID FROM MIS_BUYER_MNG WHERE YEAR = TO_CHAR(SYSDATE,'YYYY') AND PRIORITY = 'Y' AND STATUS = 'C' AND GR.BUYER = BUYER))	AS PM_LEGACY_USER_ID,
+				 (SELECT USER_NAME_LOC FROM ICOMLUSR WHERE COM_CODE ='KRKORE0001' AND USER_ID =
+				   (SELECT KEP_USER_ID FROM MIS_BUYER_MNG WHERE YEAR = TO_CHAR(SYSDATE,'YYYY') AND PRIORITY = 'Y' AND STATUS = 'C' AND GR.BUYER = BUYER))	AS PM_USER_NAME,
+				ROUND(AGENT_ITEM_AMT/F_GET_VATRATE_NEW(GR.BUYER)) AS LAST_MONTH_STOCK_AMT, -- 전월재고
+                ROUND(AGENT_ITEM_AMT/F_GET_VATRATE_NEW(GR.BUYER)) AS THIS_MONTH_SELL_AMT, -- 당월매출원가
+				 0 AS THIS_MONTH_BUY_AMT, -- 당월매입
+				 0 AS THIS_MONTH_STOCK_AMT, -- 이월재고
+				 (SELECT LEGACY_USER_ID FROM ICOMLUSR WHERE COM_CODE ='KRKORE0001' AND USER_ID = #{st_user_id})	AS CONFIRM_LEGACY_USER_ID,
+				 (SELECT USER_NAME_LOC FROM ICOMLUSR WHERE COM_CODE ='KRKORE0001' AND USER_ID = #{st_user_id})	AS CONFIRM_USER_NAME,
+				 SYSDATE	AS ADD_DATE,
+				'N'	AS AR_CLOSE_CONFIRM_YN,
+				NULL	AS AR_CLOSE_CONFIRM_DATE,
+				'N'	AS ERP_SEND_YN,
+				NULL	AS ERP_SEND_DATE
+
+
+			FROM ICOMGRDT GR
+			WHERE GR.STATUS <> 'D'
+			AND GR.AP_CLOSE_MONTH =  #{CLOSE_MONTH}
+			AND GR.PROCESS_TYPE != '1'
+			AND AP_BILL_FLAG ='Y'
+			AND (SELECT MAX(ADD_USER_ID) FROM KEPTAPDT APDT WHERE APDT.TAX_BILL_NO = GR.AP_TAX_BILL_NO) = #{st_user_id}
+			AND  EXISTS (
+					SELECT 'X' FROM PAY_REG_MNG PRM
+								WHERE  PRM.BUYER = GR.BUYER
+								AND    PRM.PO_NO = GR.PO_NO
+								AND    PRM.PO_SEQ = GR.PO_SEQ
+								AND    PRM.STATUS = 'C'
+								AND    PRM.PAY_REG_TYPE = 'D'
+			)
+			AND NOT EXISTS (
+							SELECT 'X' FROM AP_CLOSE_CONFIRM_LIST LIST
+							WHERE LIST.TAX_BILL_NO LIKE GR.AP_TAX_BILL_NO || '%'
+			)
+
+
+		) X
+		GROUP BY X.TAX_BILL_NO, X.KEP_DEPT								 
+			
+		]]>
+	</update>
+	<update  id="InsertMasterCmClApCloseConfirm_v2" parameterType="java.util.Map" >
+		/*InsertMasterCmClApCloseConfirm_v2*/
+		<![CDATA[
+			INSERT INTO AP_CLOSE_CONFIRM_LIST
+			(
+				SITE,
+				TAX_BILL_NO,
+				KEP_DEPT,
+				BUYER_CODE,
+				AGENT_CODE,
+				TAX_IRS_NO,
+				AP_TYPE,
+				AP_CLOSE_MONTH,
+				ISSUE_DATE,
+				PM_LEGACY_USER_ID,
+				PM_USER_NAME,
+				LAST_MONTH_STOCK_AMT,
+				THIS_MONTH_SELL_AMT,
+				THIS_MONTH_BUY_AMT,
+				THIS_MONTH_STOCK_AMT,
+				CONFIRM_LEGACY_USER_ID,
+				CONFIRM_USER_NAME,
+				ADD_DATE,
+				AR_CLOSE_CONFIRM_YN,
+				AR_CLOSE_CONFIRM_DATE,
+				ERP_SEND_YN,
+				ERP_SEND_DATE				
+			)
+			
+			SELECT
+			MAX(X.SITE) AS SITE,
+			X.TAX_BILL_NO AS TAX_BILL_NO,
+			X.KEP_DEPT AS KEP_DEPT,
+			MAX(X.BUYER_CODE) AS BUYER_CODE,
+			MAX(X.AGENT_CODE) AS AGENT_CODE,
+			MAX(X.TAX_IRS_NO) AS TAX_IRS_NO,
+			MAX(AP_TYPE) AS AP_TYPE,
+			MAX(X.AP_CLOSE_MONTH) AS AP_CLOSE_MONTH,
+			MAX(X.ISSUE_DATE) AS ISSUE_DATE,
+			MAX(X.PM_LEGACY_USER_ID) AS PM_LEGACY_USER_ID,
+			MAX(X.PM_USER_NAME) AS PM_USER_NAME,
+			SUM(X.LAST_MONTH_STOCK_AMT) AS LAST_MONTH_STOCK_AMT,
+			SUM(X.THIS_MONTH_SELL_AMT) AS THIS_MONTH_SELL_AMT,
+			SUM(X.THIS_MONTH_BUY_AMT) AS THIS_MONTH_BUY_AMT,
+			SUM(X.THIS_MONTH_STOCK_AMT) AS THIS_MONTH_STOCK_AMT,
+			MAX(X.CONFIRM_LEGACY_USER_ID) AS CONFIRM_LEGACY_USER_ID,
+			MAX(X.CONFIRM_USER_NAME) AS CONFIRM_USER_NAME,
+			MAX(X.ADD_DATE) AS ADD_DATE,
+			MAX(X.AR_CLOSE_CONFIRM_YN) AS AR_CLOSE_CONFIRM_YN,
+			MAX(X.AR_CLOSE_CONFIRM_DATE) AS AR_CLOSE_CONFIRM_DATE,
+			MAX(X.ERP_SEND_YN) AS ERP_SEND_YN,
+			MAX(X.ERP_SEND_DATE) AS ERP_SEND_DATE
+
+
+		FROM (
+		
+			SELECT
+				 'KA'	AS SITE,
+				 IV.AP_TAX_BILL_NO || 'ST'	AS TAX_BILL_NO,
+				 IV.AP_CLOSE_DEPT	AS KEP_DEPT,
+				 (SELECT DISTINCT(ORG_WAREHOUSE_CODE) FROM WMSSTCK WHERE STDCATLG_ID = (SELECT CMS_CATLG_ID FROM ICOMPODT WHERE BUYER = IV.BUYER AND PO_NO = IV.PO_NO AND PO_SEQ = IV.PO_SEQ)) 	AS BUYER_CODE,
+				(SELECT DISTINCT(LAST_AGENT) FROM WMSSTCK WHERE STDCATLG_ID = (SELECT CMS_CATLG_ID FROM ICOMPODT WHERE BUYER = IV.BUYER AND PO_NO = IV.PO_NO AND PO_SEQ = IV.PO_SEQ))	AS AGENT_CODE,
+				(SELECT IRS_NO FROM ICOMCMPY WHERE COM_CODE = (SELECT DISTINCT(LAST_AGENT) FROM WMSSTCK WHERE STDCATLG_ID = (SELECT CMS_CATLG_ID FROM ICOMPODT WHERE BUYER = IV.BUYER AND PO_NO = IV.PO_NO AND PO_SEQ = IV.PO_SEQ)))	AS TAX_IRS_NO,
+				 'ST' AS AP_TYPE,
+				 IV.AP_CLOSE_MONTH AS AP_CLOSE_MONTH,
+			 	 (SELECT MAX(ISSUE_DATE) FROM KEPTAPDT AP WHERE AP.TAX_BILL_NO = IV.AP_TAX_BILL_NO)	AS ISSUE_DATE,
+				 (SELECT LEGACY_USER_ID FROM ICOMLUSR WHERE COM_CODE ='KRKORE0001' AND USER_ID =
+				   (SELECT KEP_USER_ID FROM MIS_BUYER_MNG WHERE YEAR = TO_CHAR(SYSDATE,'YYYY') AND PRIORITY = 'Y' AND STATUS = 'C' AND IV.BUYER = BUYER))	AS PM_LEGACY_USER_ID,
+				 (SELECT USER_NAME_LOC FROM ICOMLUSR WHERE COM_CODE ='KRKORE0001' AND USER_ID =
+				   (SELECT KEP_USER_ID FROM MIS_BUYER_MNG WHERE YEAR = TO_CHAR(SYSDATE,'YYYY') AND PRIORITY = 'Y' AND STATUS = 'C' AND IV.BUYER = BUYER))	AS PM_USER_NAME,
+				0 AS LAST_MONTH_STOCK_AMT, -- 전월재고
+				0 AS THIS_MONTH_SELL_AMT, -- 당월매출원가
+				 ROUND(AGENT_ITEM_AMT/F_GET_VATRATE_NEW(IV.BUYER)) AS THIS_MONTH_BUY_AMT, -- 당월매입
+				0 AS THIS_MONTH_STOCK_AMT, -- 이월재고
+				 (SELECT LEGACY_USER_ID FROM ICOMLUSR WHERE COM_CODE ='KRKORE0001' AND USER_ID =  #{st_user_id})	AS CONFIRM_LEGACY_USER_ID,
+				 (SELECT USER_NAME_LOC FROM ICOMLUSR WHERE COM_CODE ='KRKORE0001' AND USER_ID =  #{st_user_id})	AS CONFIRM_USER_NAME,
+				 SYSDATE	AS ADD_DATE,
+				'N'	AS AR_CLOSE_CONFIRM_YN,
+				NULL	AS AR_CLOSE_CONFIRM_DATE,
+				'N'	AS ERP_SEND_YN,
+				NULL	AS ERP_SEND_DATE
+				FROM ICOMIVDT IV
+				WHERE IV.STATUS <> 'D'
+				AND IV.AP_CLOSE_MONTH =  #{CLOSE_MONTH}
+				AND IV.PROCESS_TYPE = '1'				
+				AND IV.AP_BILL_FLAG ='Y'
+				AND (SELECT MAX(ADD_USER_ID) FROM KEPTAPDT APDT WHERE APDT.TAX_BILL_NO = IV.AP_TAX_BILL_NO) =  #{st_user_id}
+				AND NOT EXISTS (
+								SELECT 'X' FROM AP_CLOSE_CONFIRM_LIST LIST
+								WHERE LIST.TAX_BILL_NO LIKE IV.AP_TAX_BILL_NO || '%'
+				)
+				
+			UNION ALL
+			
+			SELECT
+				 'KA'	AS SITE,
+				 IV.AP_TAX_BILL_NO	AS TAX_BILL_NO,
+				 IV.AP_CLOSE_DEPT	AS KEP_DEPT,
+				 IV.BUYER	AS BUYER_CODE,
+				 DECODE(IV.PROCESS_TYPE, '3',
+				 							(SELECT WAREHOUSE_CODE FROM ICOMPODT PO
+				 									 WHERE IV.BUYER = PO.BUYER
+				 									 AND   IV.PO_NO = PO.PO_NO
+				 									 AND   IV.PO_SEQ = PO.PO_SEQ
+				 									 AND   PO.STATUS <> 'D') , IV.AGENT)	AS AGENT_CODE,
+				 (SELECT MAX(IRS_NO) FROM KEPTAPDT WHERE TAX_BILL_NO = IV.AP_TAX_BILL_NO)	AS TAX_IRS_NO,
+     			DECODE((SELECT MAX(BILL_TYPE) FROM KEPTAPDT WHERE TAX_BILL_NO = IV.AP_TAX_BILL_NO), '12', 'AP_S', '11','AP', 'AP_R') AS AP_TYPE,
+				 IV.AP_CLOSE_MONTH AS AP_CLOSE_MONTH,
+			 	 (SELECT MAX(ISSUE_DATE) FROM KEPTAPDT AP WHERE AP.TAX_BILL_NO = IV.AP_TAX_BILL_NO)	AS ISSUE_DATE,
+				 (SELECT LEGACY_USER_ID FROM ICOMLUSR WHERE COM_CODE ='KRKORE0001' AND USER_ID =
+				   (SELECT KEP_USER_ID FROM MIS_BUYER_MNG WHERE YEAR = TO_CHAR(SYSDATE,'YYYY') AND PRIORITY = 'Y' AND STATUS = 'C' AND IV.BUYER = BUYER))	AS PM_LEGACY_USER_ID,
+				 (SELECT USER_NAME_LOC FROM ICOMLUSR WHERE COM_CODE ='KRKORE0001' AND USER_ID =
+				   (SELECT KEP_USER_ID FROM MIS_BUYER_MNG WHERE YEAR = TO_CHAR(SYSDATE,'YYYY') AND PRIORITY = 'Y' AND STATUS = 'C' AND IV.BUYER = BUYER))	AS PM_USER_NAME,
+				0 AS LAST_MONTH_STOCK_AMT, -- 전월재고
+                 DECODE((SELECT TAX_TYPE FROM KEPTAPDT WHERE TAX_BILL_NO = IV.AP_TAX_BILL_NO AND DEPT_CODE = IV.AP_CLOSE_DEPT AND STATUS <> 'D'), '23', IV.AGENT_ITEM_AMT, ROUND(IV.AGENT_ITEM_AMT/F_GET_VATRATE_NEW(IV.BUYER))) AS THIS_MONTH_SELL_AMT, -- 당월매출원가
+				 DECODE((SELECT TAX_TYPE FROM KEPTAPDT WHERE TAX_BILL_NO = IV.AP_TAX_BILL_NO AND DEPT_CODE = IV.AP_CLOSE_DEPT AND STATUS <> 'D'), '23', IV.AGENT_ITEM_AMT, ROUND(IV.AGENT_ITEM_AMT/F_GET_VATRATE_NEW(IV.BUYER))) AS THIS_MONTH_BUY_AMT, -- 당월매입
+				 0 AS THIS_MONTH_STOCK_AMT, -- 이월재고
+				 (SELECT LEGACY_USER_ID FROM ICOMLUSR WHERE COM_CODE ='KRKORE0001' AND USER_ID =  #{st_user_id})	AS CONFIRM_LEGACY_USER_ID,
+				 (SELECT USER_NAME_LOC FROM ICOMLUSR WHERE COM_CODE ='KRKORE0001' AND USER_ID =  #{st_user_id})	AS CONFIRM_USER_NAME,
+				 SYSDATE	AS ADD_DATE,
+				'N'	AS AR_CLOSE_CONFIRM_YN,
+				NULL	AS AR_CLOSE_CONFIRM_DATE,
+				'N'	AS ERP_SEND_YN,
+				NULL	AS ERP_SEND_DATE
+
+
+			FROM ICOMIVDT IV
+			WHERE IV.STATUS <> 'D'
+			AND IV.AP_CLOSE_MONTH =  #{CLOSE_MONTH}
+			AND IV.PROCESS_TYPE != '1'
+			AND IV.AP_BILL_FLAG ='Y'
+			AND (SELECT MAX(ADD_USER_ID) FROM KEPTAPDT APDT WHERE APDT.TAX_BILL_NO = IV.AP_TAX_BILL_NO) =  #{st_user_id}
+			AND NOT EXISTS (
+					SELECT 'X' FROM PAY_REG_MNG PRM
+								WHERE  PRM.BUYER = IV.BUYER
+								AND    PRM.PO_NO = IV.PO_NO
+								AND    PRM.PO_SEQ = IV.PO_SEQ
+								AND    PRM.STATUS = 'C'
+								AND    PRM.PAY_REG_TYPE = 'D'
+			)
+			AND NOT EXISTS (
+							SELECT 'X' FROM AP_CLOSE_CONFIRM_LIST LIST
+							WHERE IV.AP_TAX_BILL_NO = LIST.TAX_BILL_NO
+			)
+
+			UNION ALL
+
+			 SELECT
+				 'KA'	AS SITE,
+				 IV.AP_TAX_BILL_NO || 'ST'	AS TAX_BILL_NO,
+				 IV.AP_CLOSE_DEPT	AS KEP_DEPT,
+				 IV.BUYER	AS BUYER_CODE,
+				 DECODE(IV.PROCESS_TYPE, '3',
+				 							(SELECT WAREHOUSE_CODE FROM ICOMPODT PO
+				 									 WHERE IV.BUYER = PO.BUYER
+				 									 AND   IV.PO_NO = PO.PO_NO
+				 									 AND   IV.PO_SEQ = PO.PO_SEQ
+				 									 AND   PO.STATUS <> 'D') , IV.AGENT)	AS AGENT_CODE,
+				 (SELECT MAX(IRS_NO) FROM KEPTAPDT WHERE TAX_BILL_NO = IV.AP_TAX_BILL_NO)	AS TAX_IRS_NO,
+     			 'ST' AS AP_TYPE,
+				 IV.AP_CLOSE_MONTH AS AP_CLOSE_MONTH,
+			 	 (SELECT MAX(ISSUE_DATE) FROM KEPTAPDT AP WHERE AP.TAX_BILL_NO = IV.AP_TAX_BILL_NO)	AS ISSUE_DATE,
+				 (SELECT LEGACY_USER_ID FROM ICOMLUSR WHERE COM_CODE ='KRKORE0001' AND USER_ID =
+				   (SELECT KEP_USER_ID FROM MIS_BUYER_MNG WHERE YEAR = TO_CHAR(SYSDATE,'YYYY') AND PRIORITY = 'Y' AND STATUS = 'C' AND IV.BUYER = BUYER))	AS PM_LEGACY_USER_ID,
+				 (SELECT USER_NAME_LOC FROM ICOMLUSR WHERE COM_CODE ='KRKORE0001' AND USER_ID =
+				   (SELECT KEP_USER_ID FROM MIS_BUYER_MNG WHERE YEAR = TO_CHAR(SYSDATE,'YYYY') AND PRIORITY = 'Y' AND STATUS = 'C' AND IV.BUYER = BUYER))	AS PM_USER_NAME,
+				0 AS LAST_MONTH_STOCK_AMT, -- 전월재고
+                0 AS THIS_MONTH_SELL_AMT, -- 당월매출원가
+				 ROUND(AGENT_ITEM_AMT/F_GET_VATRATE_NEW(IV.BUYER)) AS THIS_MONTH_BUY_AMT, -- 당월매입
+				 ROUND(AGENT_ITEM_AMT/F_GET_VATRATE_NEW(IV.BUYER)) AS THIS_MONTH_STOCK_AMT, -- 이월재고
+				 (SELECT LEGACY_USER_ID FROM ICOMLUSR WHERE COM_CODE ='KRKORE0001' AND USER_ID =  #{st_user_id})	AS CONFIRM_LEGACY_USER_ID,
+				 (SELECT USER_NAME_LOC FROM ICOMLUSR WHERE COM_CODE ='KRKORE0001' AND USER_ID =  #{st_user_id})	AS CONFIRM_USER_NAME,
+				 SYSDATE	AS ADD_DATE,
+				'N'	AS AR_CLOSE_CONFIRM_YN,
+				NULL	AS AR_CLOSE_CONFIRM_DATE,
+				'N'	AS ERP_SEND_YN,
+				NULL	AS ERP_SEND_DATE
+
+
+			FROM ICOMIVDT IV
+			WHERE IV.STATUS <> 'D'
+			AND IV.AP_CLOSE_MONTH =  #{CLOSE_MONTH} 
+			AND IV.PROCESS_TYPE != '1'
+			AND IV.AP_BILL_FLAG ='Y'
+			AND (SELECT MAX(ADD_USER_ID) FROM KEPTAPDT APDT WHERE APDT.TAX_BILL_NO = IV.AP_TAX_BILL_NO) = #{st_user_id}
+			AND  EXISTS (
+					SELECT 'X' FROM PAY_REG_MNG PRM
+								WHERE  PRM.BUYER = IV.BUYER
+								AND    PRM.PO_NO = IV.PO_NO
+								AND    PRM.PO_SEQ = IV.PO_SEQ
+								AND    PRM.STATUS = 'C'
+								AND    PRM.PAY_REG_TYPE = 'D'
+			)
+			AND NOT EXISTS (
+							SELECT 'X' FROM AP_CLOSE_CONFIRM_LIST LIST
+							WHERE LIST.TAX_BILL_NO LIKE IV.AP_TAX_BILL_NO || '%'
+			)
+			
+			UNION ALL
+
+			SELECT
+				 'KA'	AS SITE,
+				 IV.AP_TAX_BILL_NO || 'ST2'	AS TAX_BILL_NO,
+				 IV.AP_CLOSE_DEPT	AS KEP_DEPT,
+				 IV.BUYER	AS BUYER_CODE,
+				 DECODE(IV.PROCESS_TYPE, '3',
+				 							(SELECT WAREHOUSE_CODE FROM ICOMPODT PO
+				 									 WHERE IV.BUYER = PO.BUYER
+				 									 AND   IV.PO_NO = PO.PO_NO
+				 									 AND   IV.PO_SEQ = PO.PO_SEQ
+				 									 AND   PO.STATUS <> 'D') , IV.AGENT)	AS AGENT_CODE,
+				 (SELECT MAX(IRS_NO) FROM KEPTAPDT WHERE TAX_BILL_NO = IV.AP_TAX_BILL_NO)	AS TAX_IRS_NO,
+     			 'ST' AS AP_TYPE,
+				 TO_CHAR(ADD_MONTHS(TO_DATE(IV.AP_CLOSE_MONTH, 'YYYYMM'),1), 'YYYYMM') AS AP_CLOSE_MONTH,
+			 	 (SELECT MAX(ISSUE_DATE) FROM KEPTAPDT AP WHERE AP.TAX_BILL_NO = IV.AP_TAX_BILL_NO)	AS ISSUE_DATE,
+				 (SELECT LEGACY_USER_ID FROM ICOMLUSR WHERE COM_CODE ='KRKORE0001' AND USER_ID =
+				   (SELECT KEP_USER_ID FROM MIS_BUYER_MNG WHERE YEAR = TO_CHAR(SYSDATE,'YYYY') AND PRIORITY = 'Y' AND STATUS = 'C' AND IV.BUYER = BUYER))	AS PM_LEGACY_USER_ID,
+				 (SELECT USER_NAME_LOC FROM ICOMLUSR WHERE COM_CODE ='KRKORE0001' AND USER_ID =
+				   (SELECT KEP_USER_ID FROM MIS_BUYER_MNG WHERE YEAR = TO_CHAR(SYSDATE,'YYYY') AND PRIORITY = 'Y' AND STATUS = 'C' AND IV.BUYER = BUYER))	AS PM_USER_NAME,
+				ROUND(AGENT_ITEM_AMT/F_GET_VATRATE_NEW(IV.BUYER)) AS LAST_MONTH_STOCK_AMT, -- 전월재고
+                ROUND(AGENT_ITEM_AMT/F_GET_VATRATE_NEW(IV.BUYER)) AS THIS_MONTH_SELL_AMT, -- 당월매출원가
+				 0 AS THIS_MONTH_BUY_AMT, -- 당월매입
+				 0 AS THIS_MONTH_STOCK_AMT, -- 이월재고
+				 (SELECT LEGACY_USER_ID FROM ICOMLUSR WHERE COM_CODE ='KRKORE0001' AND USER_ID = #{st_user_id})	AS CONFIRM_LEGACY_USER_ID,
+				 (SELECT USER_NAME_LOC FROM ICOMLUSR WHERE COM_CODE ='KRKORE0001' AND USER_ID = #{st_user_id})	AS CONFIRM_USER_NAME,
+				 SYSDATE	AS ADD_DATE,
+				'N'	AS AR_CLOSE_CONFIRM_YN,
+				NULL	AS AR_CLOSE_CONFIRM_DATE,
+				'N'	AS ERP_SEND_YN,
+				NULL	AS ERP_SEND_DATE
+
+
+			FROM ICOMIVDT IV
+			WHERE IV.STATUS <> 'D'
+			AND IV.AP_CLOSE_MONTH =  #{CLOSE_MONTH}
+			AND IV.PROCESS_TYPE != '1'
+			AND IV.AP_BILL_FLAG ='Y'
+			AND (SELECT MAX(ADD_USER_ID) FROM KEPTAPDT APDT WHERE APDT.TAX_BILL_NO = IV.AP_TAX_BILL_NO) = #{st_user_id}
+			AND  EXISTS (
+					SELECT 'X' FROM PAY_REG_MNG PRM
+								WHERE  PRM.BUYER = IV.BUYER
+								AND    PRM.PO_NO = IV.PO_NO
+								AND    PRM.PO_SEQ = IV.PO_SEQ
+								AND    PRM.STATUS = 'C'
+								AND    PRM.PAY_REG_TYPE = 'D'
+			)
+			AND NOT EXISTS (
+							SELECT 'X' FROM AP_CLOSE_CONFIRM_LIST LIST
+							WHERE LIST.TAX_BILL_NO LIKE IV.AP_TAX_BILL_NO || '%'
+			)
+
+
+		) X
+		GROUP BY X.TAX_BILL_NO, X.KEP_DEPT								 
+			
+		]]>
+	</update>
+	
+	<!-- 마감제출 여부 확인(매입) -->
+	<select id="selectMasterCmClArTax_APbillCnt" parameterType="java.util.Map" resultType="String">
+		/*selectMasterCmClArTax_APbillCnt*/
+		<![CDATA[
+		SELECT COUNT(*) AS COUNT
+         FROM BILL_CLOSE_USER_LIST A
+         WHERE A.BILL_CLOSE_MONTH = #{CLOSE_MONTH}
+         AND A.CLOSE_TYPE = 'AP'
+         AND A.LEGACY_USER_ID = (SELECT LEGACY_USER_ID FROM ICOMLUSR WHERE USER_ID = #{st_user_id})
+         AND A.CLOSE_CMPL_YN = 'Y'
+         AND 0 = (	-- 마감제출 이후 관리팀에서 해제한 경우 제출할 수 있도록
+         			SELECT COUNT(*) FROM BILL_CLOSE_USER_LIST B
+         							WHERE B.BILL_CLOSE_MONTH = #{CLOSE_MONTH}
+         							AND   B.CLOSE_TYPE = 'AP'
+         							AND   B.LEGACY_USER_ID = (SELECT LEGACY_USER_ID FROM ICOMLUSR WHERE USER_ID = #{st_user_id})
+         							AND   B.CLOSE_CMPL_YN = 'N'
+         		 )
+         
+         				         
+         
+        ]]>
+	</select>
+	
+	
+	<!-- 사용자별 마감 현황(매입) -->
+	<update  id="updateMasterCmClApBillCloseUserList" parameterType="java.util.Map" >
+		/*updateMasterCmClApBillCloseUserList*/		 
+		<![CDATA[	
+		
+		UPDATE BILL_CLOSE_USER_LIST
+		SET CLOSE_CMPL_YN = 'Y'
+		WHERE LEGACY_USER_ID = (SELECT LEGACY_USER_ID FROM ICOMLUSR WHERE USER_ID = #{st_user_id})
+		AND BILL_CLOSE_MONTH = #{CLOSE_MONTH}
+		AND CLOSE_TYPE = #{close_type}	 
+			
+		]]>
+	</update>
+	
+	<!-- 사용자별 마감 현황(매입) -->
+	<update  id="insertMasterCmClApBillCloseUserList" parameterType="java.util.Map" >
+		/*insertMasterCmClApBillCloseUserList*/		 
+		<![CDATA[	
+		
+		INSERT INTO BILL_CLOSE_USER_LIST
+		(
+			LEGACY_USER_ID,
+			BILL_CLOSE_MONTH,
+			CLOSE_TYPE,
+			SEQ,
+			KEP_DEPT,
+			BUYER_CODE,
+			AGENT_CODE,
+			CLOSE_CMPL_YN
+		)
+		SELECT 
+				X.LEGACY_USER_ID,
+	  			X.BILL_CLOSE_MONTH,
+	   			X.CLOSE_TYPE,
+	   			ROW_NUMBER() OVER(PARTITION BY X.LEGACY_USER_ID, X.BILL_CLOSE_MONTH, X.CLOSE_TYPE ORDER BY X.KEP_DEPT, X.BILL_CLOSE_MONTH, X.CLOSE_TYPE ) AS SEQ,
+	   			X.KEP_DEPT,
+	   			X.BUYER_CODE,
+	   			X.AGENT_CODE AS AGENT_CODE,
+	   			'Y' AS CLOSE_CMPL_YN
+		FROM    (
+			SELECT
+			 (SELECT LEGACY_USER_ID FROM ICOMLUSR WHERE USER_ID = #{st_user_id})	AS LEGACY_USER_ID,
+			 #{CLOSE_MONTH}	AS BILL_CLOSE_MONTH,
+			 #{close_type}	AS CLOSE_TYPE,			
+			 AP.DEPT_CODE	AS KEP_DEPT,
+			 AP.BUYER_CODE	AS BUYER_CODE,
+			 AP.AGENT_CODE  AS AGENT_CODE			
+			 FROM KEPTAPDT AP
+			 WHERE AP.STATUS <> 'D'
+			 AND AP.AP_CLOSE_MONTH = #{CLOSE_MONTH}
+			 AND AP.ADD_USER_ID = #{st_user_id}
+			 AND EXISTS (
+						SELECT 'X' FROM ICOMGRDT GR
+						WHERE AP.BUYER_CODE = GR.BUYER						
+						AND AP.TAX_BILL_NO = GR.AP_TAX_BILL_NO										
+						AND GR.STATUS <> 'D'
+				)
+			 AND NOT EXISTS (
+			 			SELECT 'X' FROM BILL_CLOSE_USER_LIST B
+		  						   WHERE 1=1			  						  
+		  						   AND   AP.AP_CLOSE_MONTH = B.BILL_CLOSE_MONTH
+		  						   AND   AP.BUYER_CODE = B.BUYER_CODE
+		  						   AND   AP.AGENT_CODE = B.AGENT_CODE
+		  						   AND   (SELECT LEGACY_USER_ID FROM ICOMLUSR WHERE USER_ID = AP.ADD_USER_ID) = B.LEGACY_USER_ID
+		  						   AND   B.CLOSE_TYPE = 'AP'
+		  						   AND   B.CLOSE_CMPL_YN = 'Y'			 
+ 			    )
+		  ) X
+          GROUP BY X.LEGACY_USER_ID, X.BILL_CLOSE_MONTH, X.CLOSE_TYPE, X.KEP_DEPT, X.BUYER_CODE, X.AGENT_CODE			 
+			
+		]]>
+	</update>
+	
+	<!-- 미마감대상자 제거 -->
+	<update  id="deleteMasterCmClApBillCloseUserList" parameterType="java.util.Map" >
+		/*deleteMasterCmClApBillCloseUserList*/		 
+		<![CDATA[	
+		
+		DELETE FROM BILL_CLOSE_USER_LIST		
+		WHERE LEGACY_USER_ID = (SELECT LEGACY_USER_ID FROM ICOMLUSR WHERE USER_ID =#{st_user_id})
+		AND BILL_CLOSE_MONTH = #{CLOSE_MONTH}
+		AND CLOSE_TYPE = 'AP'
+		AND AGENT_CODE NOT IN (
+				SELECT AGENT_CODE FROM KEPTAPDT
+						WHERE STATUS <> 'D'
+						AND   AP_CLOSE_MONTH = #{CLOSE_MONTH}						
+						AND   ADD_USER_ID = #{st_user_id}
+						GROUP BY AGENT_CODE
+		)	 
+			
+		]]>
+	</update>
+	
+	
+	
+	
+	<!-- 마감제출 -->
+	<update  id="updateMasterCmClSalesTaxsheetIssueReg_ApConfirm" parameterType="java.util.Map" >
+	/*updateMasterCmClSalesTaxsheetIssueReg_ApConfirm*/
+		<![CDATA[
+			UPDATE
+			    KEPTAPDT
+			SET 
+			    CONFIRM_FLAG    = 'Y'
+			  , CONFIRM_USER_ID = #{st_user_id}
+			  , CONFIRM_DATE    = TO_CHAR(SYSDATE, 'YYYYMMDD')
+			  , CONFIRM_TIME    = TO_CHAR(SYSDATE, 'HH24MISS')
+			  , CHANGE_USER_ID  = #{st_user_id}
+			  , CHANGE_DATE     = TO_CHAR(SYSDATE, 'YYYYMMDD')
+			  , CHANGE_TIME     = TO_CHAR(SYSDATE, 'HH24MISS')
+			WHERE 1=1
+			AND ADD_USER_ID 	= #{st_user_id}
+			AND AP_CLOSE_MONTH  = #{CLOSE_MONTH}
+			AND CONFIRM_FLAG    = 'N'
+		]]>
+			
+	</update>
+</mapper>   
+   

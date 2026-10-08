@@ -1,0 +1,175 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="common.mpso">
+
+
+	<select id="getCategoryListSelectPop" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*getCategoryListSelectPop*/
+
+
+		    	SELECT SUBSTR(B.CATEG_SYS_CODE,0,12) AS CATEG_CODE,                                
+				       MAX((SELECT CATEG_NAME FROM ICOMBYCA                                        
+				             WHERE COM_CODE = B.COM_CODE                                           
+				               AND CATEG_SYS_CODE = SUBSTR(b.CATEG_SYS_CODE,0,12))) AS CATEG_NAME, 
+				       NVL(SUM(DECODE(A.CART_QTY,0,1,A.CART_QTY) * C.UNIT_PRICE),0) AS TOT_AMT     
+				FROM ICOMCART A, ICOMBYCA B, ICOMCQDT C, ICOMBYIT D              
+				WHERE C.BUYER = #{byca_comorg_code}                                     
+				AND   A.BYIT_COMORG_CODE = C.BUYER                               
+				AND   C.BUYER = D.BUYER                                          
+				AND   B.COM_CODE = C.BUYER                                       
+				AND   B.STD_CATEG_ID = D.CATEGORY_NO                             
+				AND   A.BUYER_ITEM_NO = C.BUYER_ITEM_NO                          
+				AND   C.BUYER_ITEM_NO = D.BUYER_ITEM_NO                          
+				AND   A.CONTRACT_NO = C.CONTRACT_NO                              
+				AND   A.CONTRACT_SEQ = C.CONTRACT_SEQ                            
+				AND   D.PRODUCT_CLOSE_FLAG = 'N'                                 
+				AND   B.STATUS <> 'D'                                            
+				AND   C.STATUS <> 'D'                                            
+				AND   D.STATUS <> 'D'                                            
+				AND   A.USER_ID =  #{user_id}                                             
+				AND   A.USE_FLAG = 'C'                                           
+				GROUP BY  SUBSTR(B.CATEG_SYS_CODE,0,12)                           
+				ORDER BY SUBSTR(B.CATEG_SYS_CODE,0,12)                            
+								 
+		]]> 
+		
+	</select>
+	
+	<!-- 예산편성기간 -->
+	<select id="getTermType" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*getTermType*/
+
+        	SELECT DISTINCT																					    
+					TERM AS CODE,																					    
+					SUBSTR(TERM,0,4)||DECODE(SUBSTR(TERM,5,2),'H1','년도 상반기','H2','년도 하반기'			    
+			                               ,'Q1','년도 1/4분기','Q2','년도 2/4분기'							    
+			                               ,'Q3','년도 3/4분기','Q4','년도 4/4분기'							    
+			                               ,'01','년도 1월','02','년도 2월'									 
+			                               ,'03','년도 3월','04','년도 4월'									 
+			                               ,'05','년도 5월','06','년도 6월'									    
+			                               ,'07','년도 7월','08','년도 8월'									    
+			                               ,'09','년도 9월','10','년도 10월'									    
+			                               ,'11','년도 11월','12','년도 12월'								    
+			                               ,'년도') TEXT1												    
+			  	 FROM ICOMBDGT																				 
+			  		WHERE BUYER =#{SessionComCode}                 												    
+				  	AND DEPT  =  #{SessionUserDept}                 												   
+				  	AND FROM_DATE LIKE SUBSTR(TO_CHAR(SYSDATE,'YYYYMMDD'),0,4)||'%'							 
+				    ORDER BY TERM                                                                               
+											 
+		]]> 
+		
+	</select>
+		
+								
+								
+	<!-- ２) 	계정분류(예산관리계정) 항목 쿼리 -->
+	<select id="getAccountTypeSelect" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*getAccountTypeSelect*/
+
+        	SELECT CODE AS CODE
+		     , TEXT2 AS TEXT1
+			  FROM ICOMCOD2 
+			 WHERE 1=1
+			   AND COMPANY_CODE = #{SEARCH}      -- 파라메터 고객사 코드
+			   AND TYPE = 'Z014'
+                                                                 
+											 
+		]]> 
+		
+	</select>
+		
+		
+
+
+	<!-- 예산조회 -->
+	<select id="getBuyerAdminBudgetListSql" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*getBuyerAdminBudgetListSql*/
+
+	SELECT																						
+				  (SELECT C.TEXT1 FROM ICOMCOD2 C														
+					WHERE C.COMPANY_CODE = A.BUYER														
+					  AND C.CODE = A.DEPT																
+					  AND C.TYPE = 'C001') DEPT_NAME,													--[0]
+				  (SELECT C.TEXT2 FROM ICOMCOD2 C														
+					WHERE C.COMPANY_CODE = A.BUYER														
+					  AND C.CODE = A.ACCOUNT_TYPE														
+					  AND C.TYPE = 'Z014') ACCOUNT_TYPE_NAME,													--[1]
+				  DECODE(A.TERM_TYPE,'Y','년','H','반기','Q','분기','M','월','') TERM_TYPE,				--[2]
+				  SUBSTR(A.TERM,0,4)||DECODE(SUBSTR(A.TERM,5,2),'H1','년도 상반기','H2','년도 하반기'	
+														   ,'Q1','년도 1/4분기','Q2','년도 2/4분기'		
+														   ,'Q3','년도 3/4분기','Q4','년도 4/4분기'		
+														   ,'01','년도 1월','02','년도 2월'				
+														   ,'03','년도 3월','04','년도 4월'				
+														   ,'05','년도 5월','06','년도 6월'				
+														   ,'07','년도 7월','08','년도 8월'				
+														   ,'09','년도 9월','10','년도 10월'			
+														   ,'11','년도 11월','12','년도 12월'			
+														   ,'년도') TERM_TEXT,							--[3]
+				  NVL(A.PLAN_AMT,'0') PLAN_AMT,																--[4]
+				  NVL(A.RESULT_AMT,'0') RESULT_AMT,														--[5]
+				  NVL(A.PLAN_AMT,'0') - (NVL(A.RESULT_AMT,'0')+ NVL(A.TEMP_AMT,'0')) MONEY,				--[6] 잔액
+				  A.REMARK ,																		--[7]
+				  A.PLAN_DATE ,																--[8]
+				  A.LAST_RESULT_DATE,													--[9]
+				  NVL(A.TEMP_AMT,'0') TEMP_AMT,														--[10]
+				  A.TERM ,																			--[11]
+				  A.FROM_DATE ,																	--[12]
+				  A.TO_DATE ,																		--[13]
+				  A.DEPT ,																		--[14]
+				  A.ACCOUNT_TYPE ,																--[15]
+				  A.TERM_TYPE ,																--[16]
+				  'CHANGE' CHECK_VALUE,																	--[17]
+				  A.DEPT ORG_DEPT_CODE,																	--[18]
+				  A.ACCOUNT_TYPE ORG_ACCOUNT_TYPE,														--[19]
+				  A.TERM ORG_TERM,																		--[20]
+				  DECODE(NVL(A.REMARK ,'icon') , 'icon' ,'off.gif' ,'on.gif')  REMARK_IMG		--[21]
+			  FROM ICOMBDGT A, ICOMCOD3 B , ICOMCOD3 C													
+			WHERE A.BUYER =  #{st_buyer}																		
+			  AND  A.BUYER = B.BUYER																	
+			  AND  B.CODE1 = #{change_user_dept}																	--세션값
+			  AND  B.CODE2 = A.DEPT																		
+			  AND  B.TYPE = 'DTOD'																		
+			  AND  A.BUYER = C.BUYER																	
+			  AND  A.DEPT  = C.CODE1																	
+			  AND  A.ACCOUNT_TYPE = C.CODE2																
+			  AND  C.TYPE = 'DTOA'	
+			  																	
+	]]> 
+		<if test="st_account_type != ''">
+			<![CDATA[
+					AND  A.ACCOUNT_TYPE = #{st_account_type}			--계정선택값
+			]]>	
+		</if>
+		 <![CDATA[
+			 
+			  AND  SUBSTR(TERM,0,4) =   #{st_select_year}														--년도 선택값	
+			  AND DECODE(C.FLAG,'Y',DECODE( #{change_user_dept} ,C.CODE1,'N','Y'),'N') = 'N'							
+  
+	]]> 
+		<if test="st_term_type == 'ALL'">
+			<![CDATA[
+					AND TO_CHAR(SYSDATE,'YYYYMMDD') BETWEEN FROM_DATE AND TO_DATE									
+			]]>	
+		</if>	
+		<if test="st_term_type != 'ALL'">
+			<![CDATA[
+					AND  A.TERM = 	#{st_term_type}							
+			]]>	
+		</if>
+		 <![CDATA[
+			 
+			ORDER BY DEPT_NAME , ACCOUNT_TYPE_NAME,  TO_DATE DESC												            
+											 
+		]]> 
+		
+	</select>
+	
+			
+		
+		
+</mapper>

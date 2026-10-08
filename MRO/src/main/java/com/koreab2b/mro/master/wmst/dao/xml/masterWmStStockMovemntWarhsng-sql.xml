@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.wmst">
+	<!-- 조회 -->
+	<select id="selectMasterWmStStockMovemntWarhsngList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.pagestart"/>	
+			<![CDATA[
+				/* selectMasterWmStStockMovemntWarhsngList */
+		    	SELECT
+					A.MOVE_NO,																																					/* 재고이동요청번호 */
+					A.MOVE_SEQ,																																				/* 재고이동요청순번 */
+					A.WAREHOUSE_CODE_FR,																																	/* 출발물류센터 */
+					(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = A.WAREHOUSE_CODE_FR) AS WAREHOUSE_CODE_FR_TEXT,		/* 출발물류센터 */   
+					A.WAREHOUSE_CODE_TO,																																	/* 도착물류센터 */
+					(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = A.WAREHOUSE_CODE_TO) AS WAREHOUSE_CODE_TO_TEXT,		/* 출발물류센터 */
+					A.STDCATLG_ID,																																				/* 품목코드 */
+					B.DESCRIPTION,																																				/* 품목명 */
+					B.SPECIFICATION,																																			/* 규격 */
+					A.REQ_QTY,																																					/* 이동요청수량 */
+					C.AVAIL_QTY,																																				/* 재고수량 */
+					A.INV_QTY,																																					/* 출고수량 */
+					A.INV_QTY AS GR_QTY,																																	/* 입고수량(출고수량 그대로 입고수량이 됨) */
+					A.REQ_DATE,																																					/* 이동요청일자 */
+					A.REQ_TIME,																																					/* 이동요청시간 */
+					(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = A.REQ_USER_ID) AS REQ_USER_NM,										/* 이동요청자 */
+					A.INV_DATE,																																					/* 이동출고일자 */
+					DECODE(A.INV_TIME, NULL, '', (SUBSTR(A.INV_TIME,0,2) || ':' || SUBSTR(A.INV_TIME,3,2))) INV_TIME,											/* 이동출고시간 */
+					(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = A.INV_USER_ID) AS INV_USER_NM,											/* 이동출고자 */
+					TO_CHAR(SYSDATE, 'YYYYMMDD') AS GR_DATE,																										/* 이동입고일자 */
+					B.CONTRACT_NO,
+                    B.CONTRACT_SEQ,
+					A.MOVE_REMARK																																			/* 비고 */
+				FROM BNTWMSMOVE A, ICOMCQDT B, WMSSTCK C
+				WHERE 1=1
+				AND A.WAREHOUSE_CODE_FR = C.WAREHOUSE_CODE
+				AND A.STDCATLG_ID = C.STDCATLG_ID
+				AND B.BUYER = C.ORG_WAREHOUSE_CODE
+				AND B.BUYER_ITEM_NO = C.STDCATLG_ID
+				AND B.CONTRACT_NO = C.CONTRACT_NO
+				AND B.CONTRACT_SEQ = C.CONTRACT_SEQ
+				AND C.AGENT = 'KRKORE0001'
+				AND (A.CLOSE_DATE IS NULL OR A.CLOSE_DATE = '')
+				AND A.STATUS = '2'																																			/* 상태가 출고(입고대기) 인 것 */
+			]]>
+			<if test="st_warehouse_code_fr != null and st_warehouse_code_fr != ''">
+				AND A.WAREHOUSE_CODE_FR = #{st_warehouse_code_fr}																								/* 조회조건(출발물류센터) */	
+			</if>
+			<if test="st_warehouse_code_to != null and st_warehouse_code_to != ''">
+				AND A.WAREHOUSE_CODE_TO = #{st_warehouse_code_to}																								/* 조회조건(도착물류센터) */	
+			</if>
+			<if test="st_move_no != null and st_move_no != ''">
+				AND A.MOVE_NO LIKE '%'	 || #{st_move_no} || '%'																										/* 조회조건(출고번호) */	
+			</if>
+			<if test="st_from_date != null and st_from_date != ''  and st_to_date != null and st_to_date != ''   "  >
+				 AND A.INV_DATE BETWEEN #{st_from_date} AND #{st_to_date}																						/* 조회조건(요청일자) */
+			</if>
+			<if test="st_stdcatlg_id != null and st_stdcatlg_id != ''">
+				AND A.STDCATLG_ID LIKE '%'	 || #{st_stdcatlg_id} || '%'																									/* 조회조건(품목코드) */	
+			</if>
+			<if test="st_description != null and st_description != ''">
+				AND B.DESCRIPTION LIKE '%'	 || #{st_description} || '%'																									/* 조회조건(품목명) */	
+			</if>	
+		        ORDER BY A.MOVE_NO, A.MOVE_SEQ, A.WAREHOUSE_CODE_FR, A.WAREHOUSE_CODE_TO, A.STDCATLG_ID
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+	
+	<select id="selectMasterWmStStockMovemntWarhsngWarehouseCode" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			SELECT TEXT1 AS WAREHOUSE_CODE FROM ICOMCOD2 WHERE TYPE = 'WR01' AND FLAG = 'Y' AND COMPANY_CODE = #{st_com_code} AND CODE = #{st_user_id}
+		]]>
+	</select>
+	
+	<select id="selectMasterWmStStockMovemntWarhsngWmsstckCnt" parameterType="java.util.Map" resultType="String">
+		<![CDATA[
+			SELECT COUNT(*) CNT FROM WMSSTCK WHERE WAREHOUSE_CODE = #{WAREHOUSE_CODE_TO} AND STDCATLG_ID = #{STDCATLG_ID} AND AGENT = 'KRKORE0001'
+		]]>	
+	</select>
+	
+	
+	<!-- 입고확정 -->
+	<update id="updateMasterWmStStockMovemntWarhsng"  parameterType="java.util.Map">
+		<![CDATA[
+			UPDATE WMSSTCK SET
+				TOT_QTY = NVL(TOT_QTY,0) + TO_NUMBER(#{INV_QTY}),
+				AVAIL_QTY = NVL(AVAIL_QTY,0) + TO_NUMBER(#{INV_QTY}),
+				CHANGE_USER = #{st_user_id},
+				CHANGE_DATE = TO_CHAR(SYSDATE,'YYYYMMDD'),
+				LAST_REC_DATE = TO_CHAR(SYSDATE,'YYYYMMDD')
+			WHERE WAREHOUSE_CODE = #{WAREHOUSE_CODE_TO}
+			AND STDCATLG_ID = #{STDCATLG_ID}
+			AND AGENT = 'KRKORE0001'
+		]]>
+	</update>
+	
+	<update id="updateMasterWmStStockMovemntWarhsngBntwmsmove"  parameterType="java.util.Map">
+		<![CDATA[
+			UPDATE BNTWMSMOVE SET
+				DELIVERY_QTY = #{INV_QTY},
+				DELIVERY_USER_ID = #{st_user_id},
+				DELIVERY_DATE = TO_CHAR(SYSDATE,'YYYYMMDD'),
+				DELIVERY_TIME = TO_CHAR(SYSDATE, 'HH24MISS'),
+				GR_USER_ID = #{st_user_id},
+				GR_QTY = #{INV_QTY},
+				GR_DATE = TO_CHAR(SYSDATE,'YYYYMMDD'),
+				GR_TIME = TO_CHAR(SYSDATE, 'HH24MISS'),
+				STATUS = '3'
+			WHERE MOVE_NO = #{MOVE_NO}
+			AND MOVE_SEQ = #{MOVE_SEQ}
+		]]>
+	</update>
+</mapper>   
+   

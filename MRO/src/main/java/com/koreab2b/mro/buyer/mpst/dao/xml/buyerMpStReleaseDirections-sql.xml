@@ -1,0 +1,185 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="buyer.mpst">
+
+	<!-- 조회 -->
+	<select id="selectBuyerMpStReleaseDirectionsList" parameterType="java.util.Map" resultType="java.util.Map">
+	/*selectBuyerMpStReleaseDirectionsList*/
+		<include refid="common.ibsheet.xml.jsppagestart"/>
+		<![CDATA[
+            SELECT
+                X.BUYER
+              , X.BYCA_COMORG_CODE
+              , X.ITEM_NO
+              , X.DESCRIPTION
+              , X.SPECIFICATION
+              , X.MAKER_CODE
+              , X.MAKER_NAME
+              , X.UNIT_MEASURE
+              , X.TOT_QTY
+              , X.TARGET_PRICE
+              , X.CONTRACT_NO
+              , X.CONTRACT_SEQ
+            FROM 
+            (
+                SELECT
+                    A.BUYER
+                  , B.BUYER AS BYCA_COMORG_CODE
+                  , A.ITEM_NO
+                  , B.DESCRIPTION
+                  , B.SPECIFICATION
+                  , B.MAKER_CODE
+                  , B.MAKER_NAME
+                  , B.UNIT_MEASURE
+                  , A.TOT_QTY
+                  , B.TARGET_PRICE
+                  , B.CONTRACT_NO
+                  , B.CONTRACT_SEQ
+                  , ROW_NUMBER() OVER(PARTITION BY B.BUYER_ITEM_NO ORDER BY B.BUYER, B.CONTRACT_NO DESC, B.CONTRACT_SEQ DESC) AS MAX_CONT
+                  , A.CHANGE_DATE
+                FROM 
+                    BUYER_STOCK A /* 구매사 재고 관리 테이블 */
+                  , ICOMCQDT B /* 구매사별 계약서 가격정보 */
+                  , ICOMCMPY C /* 회원사정보 */
+                WHERE 1=1
+                AND A.BUYER = C.COM_CODE
+                AND C.BYCA_COMORG_CODE = B.BUYER
+                AND A.ITEM_NO = B.BUYER_ITEM_NO
+                AND A.BUYER = #{st_com_code}
+			    AND A.STATUS <> 'D'
+			    AND B.STATUS <> 'D'
+                AND EXISTS 
+                (
+                    SELECT 'x' FROM ICOMCOD2 COD2
+                    WHERE COD2.COMPANY_CODE = A.BUYER AND COD2.CODE = A.ITEM_NO AND COD2.TYPE = 'STCK'AND COD2.FLAG = 'Y'
+                )
+ 		]]>
+ 		<if test="st_buyer_item_no != null and st_buyer_item_no != '' ">
+			    AND A.ITEM_NO LIKE '%' || #{st_buyer_item_no} || '%'
+ 		</if>  
+ 		<if test="st_description != null and st_description != '' ">
+			    AND B.DESCRIPTION LIKE '%' || #{st_description} || '%'
+ 		</if>  
+ 		<if test="st_specification != null and st_specification != '' ">
+			    AND B.SPECIFICATION LIKE '%' || #{st_specification} || '%'
+ 		</if>  
+		<![CDATA[
+			) X
+			WHERE 
+			    X.MAX_CONT = 1 /* 계약데이터는 마지막 계약을 기준으로 한다 */
+			ORDER BY 
+			    X.CHANGE_DATE DESC
+ 		]]>  
+		<include refid="common.ibsheet.xml.jsppageend"/>	
+	</select>
+	
+	<select id="selectBuyerMpStReleaseDirectionsList_userList" parameterType="java.util.Map" resultType="java.util.Map">
+	/*selectBuyerMpStReleaseDirectionsList_userList*/
+		<![CDATA[
+			SELECT
+			    USER_ID
+			  , USER_NAME_LOC AS USER_NAME
+			  , LEGACY_USER_ID
+			FROM
+			    ICOMLUSR /* 사용자정보 */
+			WHERE 1=1
+			AND COM_CODE = #{st_com_code}
+			AND (STATUS IN ('C','R') OR STATUS IS NULL)
+			ORDER BY
+			    USER_NAME_LOC
+		]]>
+	</select>
+	 
+	
+	<!-- 저장 -->
+	<update id="insertBuyerMpStReleaseDirectionsCreate_BUYER_STOCK_LIST" parameterType="java.util.Map">
+	/*insertBuyerMpStReleaseDirectionsCreate_BUYER_STOCK_LIST*/
+		<![CDATA[
+			INSERT INTO BUYER_STOCK_LIST /* 구매사 수불 상세내역 */
+			(
+			    BUYER
+			  , WAREHOUSE_CODE
+			  , JOB_TYPE
+			  , JOB_NO
+			  , ITEM_NO
+			  , ITEM_QTY
+			  , JOB_DATE
+			  , JOB_TIME
+			  , JOB_NOTE
+			  , CREATE_USER_ID
+			  , CREATE_DEPT_CD
+			  , JOB_USER_ID
+			  , JOB_DEPT_CD
+			  , GR_NO
+			  , GR_SEQ
+			  , STATUS
+			)
+			VALUES
+			(
+			    #{st_com_code}
+			  , 'W'
+			  , 'CHUL'
+			  , TO_CHAR(SYSDATE,'YYYYMMDD') || TO_CHAR(F_BUYER_SQMT(#{st_com_code},'CHUL'),'FM0000')
+			  , #{st_item_no}
+			  , #{st_chul_qty}
+			  , TO_CHAR(SYSDATE,'YYYYMMDD')
+			  , TO_CHAR(SYSDATE,'HH24MISS')
+			  , #{st_remark}
+			  , #{st_user_id}
+			  , #{st_user_dept}
+			  , #{st_job_user_id}
+			  , (SELECT DEPARTMENT FROM ICOMLUSR WHERE USER_ID = #{st_job_user_id})
+			  , ''
+			  , ''
+			  , 'C'
+			)
+		]]>
+	</update>
+	
+	<!-- 저장 -->
+	<update id="insertBuyerMpStReleaseDirectionsCreate_BUYER_STOCK" parameterType="java.util.Map">
+		<![CDATA[
+			MERGE INTO BUYER_STOCK /* 구매사 재고 관리 테이블 */
+			USING DUAL
+			ON 
+			(
+			        BUYER           = #{st_com_code}
+			    AND WAREHOUSE_CODE  = 'W'
+			    AND ITEM_NO         = #{st_item_no}
+			)
+			WHEN MATCHED THEN 
+			    UPDATE SET
+			        TOT_QTY     = TOT_QTY - #{st_chul_qty}
+			      , AVAIL_QTY   = AVAIL_QTY - #{st_chul_qty}
+			      , CHANGE_DATE = SYSDATE
+			WHEN NOT MATCHED THEN
+			    INSERT 
+			    (
+			        BUYER
+			      , WAREHOUSE_CODE
+			      , ITEM_NO
+			      , STATUS
+			      , TOT_QTY
+			      , ALLOC_QTY
+			      , AVAIL_QTY
+			      , PRE_GR_QTY
+			      , CREATE_DATE
+			      , CHANGE_DATE
+			    )
+			    VALUES 
+			    (
+			        #{st_com_code}
+			      , 'W'
+			      , #{st_item_no}
+			      , 'C'
+			      , #{st_chul_qty}
+			      , 0
+			      , #{st_chul_qty}
+			      , 0
+			      , SYSDATE
+			      , SYSDATE
+			    )
+		]]>
+	</update>
+	
+</mapper>

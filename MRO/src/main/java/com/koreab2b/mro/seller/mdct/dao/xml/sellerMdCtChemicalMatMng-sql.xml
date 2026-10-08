@@ -1,0 +1,363 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="seller.mdct">
+	<!-- 조회 -->
+	<select id="selectSellerMdCtChemicalMatMngList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.pagestart"/>	
+			<![CDATA[
+				/*selectSellerMdCtChemicalMatMngList*/
+				SELECT
+				 REQ.REQ_NO
+				 ,REQ.BYIT_COMORG_CODE
+				 ,REQ.BUYER
+				 ,(SELECT CMPY.COM_NAME_LOC
+				  FROM ICOMCMPY CMPY
+				  WHERE CMPY.COM_CODE = REQ.BUYER) AS BUYER_NM
+				 ,REQ.BUYER_ITEM_NO
+				 ,DECODE(D.DESCRIPTION, NULL, B.DESCRIPTION_LOC, D.DESCRIPTION) AS DESCRIPTION_LOC
+				 ,DECODE(D.SPECIFICATION, NULL, B.SPECIFICATION, D.SPECIFICATION) AS SPECIFICATION
+				 ,DECODE(D.MAKER_NAME, NULL, B.MAKER_NAME, D.MAKER_NAME) AS MAKER_NAME
+				 ,REQ.REQ_DATE
+				 ,REQ.REQ_USER_ID
+				 ,C.USER_NAME_LOC
+				 ,C.PHONE_NUMBER
+				 ,REQ.REQ_STATUS
+                 ,REQ.STOA_DATE
+                 ,(SELECT USR.USER_NAME_LOC FROM ICOMLUSR USR
+                 	WHERE USR.USER_ID = REQ.STOA_USER_ID) AS STOA_USER_NM
+                 ,REQ.CONFIRM_DATE
+                 ,(SELECT USR.USER_NAME_LOC FROM ICOMLUSR USR
+                 	WHERE USR.USER_ID = REQ.CONFIRM_USER_ID) AS CONFIRM_USER_NM
+				 ,(SELECT DECODE(COUNT(PO_NO),0,'N','Y') FROM ICOMPODT PODT
+					WHERE PODT.BUYER = REQ.BUYER
+					AND PODT.BUYER_ITEM_NO = REQ.BUYER_ITEM_NO
+					AND PODT.ADD_DATE BETWEEN TO_CHAR(SYSDATE-30,'YYYYMMDD') AND TO_CHAR(SYSDATE,'YYYYMMDD')
+					AND PODT.STATUS != 'D') AS PO_YN
+				, DECODE(TRIM(REQ.CMC_HARMFUL_YN),'','0','1') AS  MAKE_IMG
+				 ,(SELECT TEXT1 FROM ICOMCOD1 COD
+					WHERE COD.TYPE = 'CM01'
+					AND COD.CODE = REQ.REQ_STATUS) AS STATUS_NM
+				,REQ.QUOTATION_NO
+                 ,REQ.QUOTATION_SEQ
+                 ,REQ.REVISION
+				,(SELECT DECODE(COUNT(COD.CODE),0,'N','Y')
+					FROM  ICOMCOD1 COD
+					WHERE 1=1
+					AND	COD.CODE = B.CMS_CATEG_ID
+					AND COD.TYPE = 'CM11'
+					AND COD.TEXT1 = 'Y'
+					AND COD.FLAG = 'Y') AS SG118_YN	
+				FROM KEP_CMC_REQ REQ, ICOMBYIT B, ICOMLUSR C, KEPRQDT D
+				WHERE REQ.BYIT_COMORG_CODE = B.BUYER(+)
+				AND REQ.BUYER_ITEM_NO = B.BUYER_ITEM_NO(+)
+				AND REQ.REQ_USER_ID = C.USER_ID
+				AND B.STATUS(+) != 'D'
+				
+				AND REQ.BUYER = D.BUYER(+)
+				AND REQ.QUOTATION_NO = D.QUOTATION_NO(+)
+                AND REQ.QUOTATION_SEQ = D.QUOTATION_SEQ(+)
+                
+				AND REQ.AGENT = #{st_com_code}
+				AND TO_CHAR(REQ.REQ_DATE,'YYYYMMDD')  BETWEEN #{st_from_date} AND #{st_to_date}
+			]]>
+			<if test="st_req_no != null and st_req_no != ''">
+				AND UPPER(REQ.REQ_NO) LIKE UPPER(#{st_req_no}) || '%'
+			</if>
+			<if test="st_status != null and st_status != ''">
+				AND REQ.REQ_STATUS =  #{st_status} 
+			</if>
+			<if test="st_desc != null and st_desc != ''">
+				AND (B.DESCRIPTION_LOC LIKE '%'||#{st_desc}||'%' OR D.DESCRIPTION LIKE '%'||#{st_desc}||'%')  
+			</if>
+			<if test="st_spec != null and st_spec != ''">
+				AND (B.SPECIFICATION LIKE '%'||#{st_spec}||'%' OR D.SPECIFICATION LIKE '%'||#{st_spec}||'%') 
+			</if>
+			<![CDATA[
+				ORDER BY  REQ.REQ_NO		
+			]]>
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+
+	<!-- 리뉴얼 탭1 - MSDS 전체 조회 -->
+	<select id="selectMSDSList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/*selectMSDSList*/
+			SELECT
+				 'I' AS SSTATUS
+				,ROWNUM AS NO
+				,TO_CHAR(REQ.REQ_DATE,'YYYY.MM.DD') AS REQUEST_DATE
+				,REQ.REQ_NO AS REQUEST_NO
+				,(SELECT TEXT1 FROM ICOMCOD1 COD
+					WHERE COD.TYPE = 'CM01_V2'
+					AND COD.CODE = REQ.REQ_STATUS) AS STATUS
+				,CASE WHEN REQ.REQ_STATUS IN ('Q', 'R') THEN '/resources/imgs/Btn_RegIng.gif'   ELSE '/resources/imgs/Btn_RegEnd.gif ' END AS MSDS
+				,(SELECT CMPY.COM_NAME_LOC
+					FROM ICOMCMPY CMPY
+					WHERE CMPY.COM_CODE = REQ.BUYER) AS CUSTOMER_NAME
+				,REQ.BUYER_ITEM_NO AS ITEM_CODE
+				,DECODE(D.DESCRIPTION, NULL, B.DESCRIPTION_LOC, D.DESCRIPTION) AS ITEM_NAME
+				,DECODE(D.SPECIFICATION, NULL, B.SPECIFICATION, D.SPECIFICATION) AS SPEC
+				,DECODE(D.MAKER_NAME, NULL, B.MAKER_NAME, D.MAKER_NAME) AS MANUFACTURER
+
+
+
+
+        	,(SELECT USR.USER_NAME_LOC
+					FROM ICOMLUSR USR, MIS_BUYER_MNG MNG
+					WHERE MNG.BUYER = REQ.BUYER
+					AND MNG.KEP_USER_ID = USR.USER_ID
+					AND MNG.YEAR = TO_CHAR(SYSDATE, 'YYYY')
+					AND MNG.STATUS = 'C'
+					AND MNG.PRIORITY ='Y'
+                    AND ROWNUM = 1) AS KEP_MANAGER
+				
+                
+                ,(SELECT USR.PHONE_NUMBER
+					FROM ICOMLUSR USR, MIS_BUYER_MNG MNG
+					WHERE MNG.BUYER = REQ.BUYER
+					AND MNG.KEP_USER_ID = USR.USER_ID
+					AND MNG.YEAR = TO_CHAR(SYSDATE, 'YYYY')
+                    AND MNG.PRIORITY ='Y'
+					AND MNG.STATUS = 'C'
+					AND ROWNUM = 1) AS KEP_CONTACT
+				
+
+
+
+				,TO_CHAR(REQ.STOA_DATE,'YYYY.MM.DD') AS SUBMIT_DATE
+				,(SELECT USR.USER_NAME_LOC FROM ICOMLUSR USR
+					WHERE USR.USER_ID = REQ.STOA_USER_ID) AS SUBMITTER
+				,TO_CHAR(REQ.CONFIRM_DATE,'YYYY.MM.DD') AS APPROVE_DATE
+				,(SELECT USR.USER_NAME_LOC FROM ICOMLUSR USR
+					WHERE USR.USER_ID = REQ.CONFIRM_USER_ID) AS APPROVER
+				,NVL(REQ.QUOTATION_NO, '') AS QUOTATION_NO
+				,NVL(REQ.QUOTATION_SEQ, '') AS QUOTATION_SEQ
+				,CASE WHEN REQ.REVISION IS NULL OR REQ.REVISION = 0 THEN '' ELSE TO_CHAR(REQ.REVISION) END AS REVISION
+				,NVL(REQ.BUYER, '') AS BUYER
+				,REQ.REQ_STATUS
+				,CASE WHEN REQ.QUOTATION_NO IS NOT NULL THEN '견적 단계' ELSE '발주 단계' END AS GUBUN
+			FROM KEP_CMC_REQ REQ, ICOMBYIT B, ICOMLUSR C, KEPRQDT D
+			WHERE REQ.BYIT_COMORG_CODE = B.BUYER(+)
+			AND REQ.BUYER_ITEM_NO = B.BUYER_ITEM_NO(+)
+			AND REQ.REQ_USER_ID = C.USER_ID
+			AND B.STATUS(+) != 'D'
+			AND REQ.BUYER = D.BUYER(+)
+			AND REQ.QUOTATION_NO = D.QUOTATION_NO(+)
+			AND REQ.QUOTATION_SEQ = D.QUOTATION_SEQ(+)
+			AND REQ.AGENT = #{sessionComCode}
+		]]>
+		<!-- 날짜 조건 (dateType에 따라 동적) -->
+		<if test='dateType != null and dateType == "S"'>
+			AND TO_CHAR(REQ.STOA_DATE,'YYYYMMDD') BETWEEN #{fromDate} AND #{toDate}
+		</if>
+		<if test='dateType != null and dateType == "C"'>
+			AND TO_CHAR(REQ.CONFIRM_DATE,'YYYYMMDD') BETWEEN #{fromDate} AND #{toDate}
+		</if>
+		<if test='dateType == null or (dateType != "S" and dateType != "C")'>
+			AND TO_CHAR(REQ.REQ_DATE,'YYYYMMDD') BETWEEN #{fromDate} AND #{toDate}
+		</if>
+		<!-- 검색어 조건 (searchType에 따라 동적) -->
+		<if test="searchKeyword != null and searchKeyword != ''">
+			<if test='searchType != null and searchType == "N"'>
+				<!-- 품목코드 검색 -->
+				AND UPPER(REQ.BUYER_ITEM_NO) LIKE UPPER('%'||#{searchKeyword}||'%')
+			</if>
+			<if test='searchType != null and searchType == "C"'>
+				<!-- 코드명(품목명) 검색 -->
+				AND (B.DESCRIPTION_LOC LIKE '%'||#{searchKeyword}||'%' OR D.DESCRIPTION LIKE '%'||#{searchKeyword}||'%')
+			</if>
+			<if test='searchType != null and searchType == "S"'>
+				<!-- 규격 검색 -->
+				AND (B.SPECIFICATION LIKE '%'||#{searchKeyword}||'%' OR D.SPECIFICATION LIKE '%'||#{searchKeyword}||'%')
+			</if>
+		</if>
+		<!-- 구분 조건 -->
+		<if test="gubun != null and gubun != ''">
+			<if test='gubun == "QUOTATION"'>
+				AND REQ.QUOTATION_NO IS NOT NULL
+			</if>
+			<if test='gubun == "ORDER"'>
+				AND REQ.QUOTATION_NO IS NULL
+			</if>
+		</if>
+		<!-- 진행상태 -->
+		<if test="status != null and status != ''">
+			AND REQ.REQ_STATUS = #{status}
+		</if>
+		<!-- 검토요청(M), 삭제(D), 오분류종결(T), 취소(N) 상태 제외 -->
+		<![CDATA[
+		AND REQ.REQ_STATUS NOT IN ('M', 'D', 'T', 'N')
+		]]>
+		<!-- 요청번호 -->
+		<if test="requestNo != null and requestNo != ''">
+			AND UPPER(REQ.REQ_NO) LIKE UPPER(#{requestNo}||'%')
+		</if>
+		<!-- 견적번호 -->
+		<if test="quotationNo != null and quotationNo != ''">
+			AND UPPER(REQ.QUOTATION_NO) LIKE UPPER(#{quotationNo}||'%')
+		</if>
+		<![CDATA[
+			ORDER BY REQ.REQ_NO DESC
+		]]>
+	</select>
+
+	<!-- 리뉴얼 탭2 - MSDS 제출요청 조회 (요청,재요청 상태만) -->
+	<select id="selectMSDSSubmitRequestList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/*selectMSDSSubmitRequestList*/
+			SELECT
+				 'I' AS SSTATUS
+				,ROWNUM AS NO
+				,TO_CHAR(REQ.REQ_DATE,'YYYY.MM.DD') AS REQUEST_DATE
+				,REQ.REQ_NO AS REQUEST_NO
+ 				,(SELECT TEXT1 FROM ICOMCOD1 COD
+					WHERE COD.TYPE = 'CM01_V2'
+					AND COD.CODE = REQ.REQ_STATUS) AS STATUS
+				, '/resources/imgs/Btn_RegIng.gif' AS BTN01
+				,(SELECT CMPY.COM_NAME_LOC
+					FROM ICOMCMPY CMPY
+					WHERE CMPY.COM_CODE = REQ.BUYER) AS CUSTOMER_NAME
+				,REQ.BUYER_ITEM_NO AS ITEM_CODE
+				,DECODE(D.DESCRIPTION, NULL, B.DESCRIPTION_LOC, D.DESCRIPTION) AS ITEM_NAME
+				,DECODE(D.SPECIFICATION, NULL, B.SPECIFICATION, D.SPECIFICATION) AS SPEC
+				,DECODE(D.MAKER_NAME, NULL, B.MAKER_NAME, D.MAKER_NAME) AS MANUFACTURER
+			
+			
+				,CASE WHEN REQ.QUOTATION_NO IS NOT NULL THEN '견적 단계' ELSE '발주 단계' END AS GUBUN
+			
+			
+	     	,(SELECT USR.USER_NAME_LOC
+					FROM ICOMLUSR USR, MIS_BUYER_MNG MNG
+					WHERE MNG.BUYER = REQ.BUYER
+					AND MNG.KEP_USER_ID = USR.USER_ID
+					AND MNG.YEAR = TO_CHAR(SYSDATE, 'YYYY')
+					AND MNG.STATUS = 'C'
+					AND MNG.PRIORITY ='Y'
+                    AND ROWNUM = 1) AS KEP_MANAGER
+				
+                
+                ,(SELECT USR.PHONE_NUMBER
+					FROM ICOMLUSR USR, MIS_BUYER_MNG MNG
+					WHERE MNG.BUYER = REQ.BUYER
+					AND MNG.KEP_USER_ID = USR.USER_ID
+					AND MNG.YEAR = TO_CHAR(SYSDATE, 'YYYY')
+                    AND MNG.PRIORITY ='Y'
+					AND MNG.STATUS = 'C'
+					AND ROWNUM = 1) AS KEP_CONTACT
+				
+				
+				
+				
+				
+				,TO_CHAR(REQ.STOA_DATE,'YYYY.MM.DD') AS SUBMIT_DATE
+				,(SELECT USR.USER_NAME_LOC FROM ICOMLUSR USR
+					WHERE USR.USER_ID = REQ.STOA_USER_ID) AS SUBMITTER
+				,TO_CHAR(REQ.CONFIRM_DATE,'YYYY.MM.DD') AS APPROVE_DATE
+				,(SELECT USR.USER_NAME_LOC FROM ICOMLUSR USR
+					WHERE USR.USER_ID = REQ.CONFIRM_USER_ID) AS APPROVER
+				,NVL((SELECT BYCA.CATEG_NAME
+				      FROM ICOMBYCA BYCA
+				      WHERE BYCA.COM_CODE = REQ.BUYER
+				      AND BYCA.STD_CATEG_ID = B.CMS_CATEG_ID
+				      AND ROWNUM = 1), '-') AS ICOMBYCA
+				,NVL((SELECT CMSC.CATEG_NAME
+				      FROM CMSCATEG CMSC
+				      WHERE CMSC.CMS_CATEG_ID = B.CMS_CATEG_ID
+				      AND ROWNUM = 1), '-') AS CMSCATEG
+				,NVL(REQ.QUOTATION_NO, '') AS QUOTATION_NO
+				,NVL(REQ.QUOTATION_SEQ, '') AS QUOTATION_SEQ
+				,CASE WHEN REQ.REVISION IS NULL OR REQ.REVISION = 0 THEN '' ELSE TO_CHAR(REQ.REVISION) END AS REVISION
+				,NVL(REQ.BUYER, '') AS BUYER
+				,REQ.REQ_STATUS
+			FROM KEP_CMC_REQ REQ, ICOMBYIT B, ICOMLUSR C, KEPRQDT D
+			WHERE REQ.BYIT_COMORG_CODE = B.BUYER(+)
+			AND REQ.BUYER_ITEM_NO = B.BUYER_ITEM_NO(+)
+			AND REQ.REQ_USER_ID = C.USER_ID
+			AND B.STATUS(+) != 'D'
+			AND REQ.BUYER = D.BUYER(+)
+			AND REQ.QUOTATION_NO = D.QUOTATION_NO(+)
+			AND REQ.QUOTATION_SEQ = D.QUOTATION_SEQ(+)
+			AND REQ.AGENT = #{sessionComCode}
+		]]>
+		<!-- 날짜 조건 (dateType에 따라 동적) -->
+		<if test='dateType != null and dateType == "S"'>
+			AND TO_CHAR(REQ.STOA_DATE,'YYYYMMDD') BETWEEN #{fromDate} AND #{toDate}
+		</if>
+		<if test='dateType != null and dateType == "C"'>
+			AND TO_CHAR(REQ.CONFIRM_DATE,'YYYYMMDD') BETWEEN #{fromDate} AND #{toDate}
+		</if>
+		<if test='dateType == null or (dateType != "S" and dateType != "C")'>
+			AND TO_CHAR(REQ.REQ_DATE,'YYYYMMDD') BETWEEN #{fromDate} AND #{toDate}
+		</if>
+		<!-- 검색어 조건 (searchType에 따라 동적) -->
+		<if test="searchKeyword != null and searchKeyword != ''">
+			<if test='searchType != null and searchType == "N"'>
+				<!-- 품목코드 검색 -->
+				AND UPPER(REQ.BUYER_ITEM_NO) LIKE UPPER('%'||#{searchKeyword}||'%')
+			</if>
+			<if test='searchType != null and searchType == "C"'>
+				<!-- 코드명(품목명) 검색 -->
+				AND (B.DESCRIPTION_LOC LIKE '%'||#{searchKeyword}||'%' OR D.DESCRIPTION LIKE '%'||#{searchKeyword}||'%')
+			</if>
+			<if test='searchType != null and searchType == "S"'>
+				<!-- 규격 검색 -->
+				AND (B.SPECIFICATION LIKE '%'||#{searchKeyword}||'%' OR D.SPECIFICATION LIKE '%'||#{searchKeyword}||'%')
+			</if>
+		</if>
+		<!-- 진행상태 조건 -->
+		<if test="reqStatus != null and reqStatus != ''">
+			<choose>
+				<when test='reqStatus == "Q,R"'>
+					<![CDATA[
+						AND REQ.REQ_STATUS IN ('Q','R')
+					]]>
+				</when>
+				<when test='reqStatus == "Q"'>
+					<![CDATA[
+						AND REQ.REQ_STATUS = 'Q'
+					]]>
+				</when>
+				<when test='reqStatus == "R"'>
+					<![CDATA[
+						AND REQ.REQ_STATUS = 'R'
+					]]>
+				</when>
+				<otherwise>
+					<![CDATA[
+						AND REQ.REQ_STATUS IN ('Q','R')
+					]]>
+				</otherwise>
+			</choose>
+		</if>
+		<if test="reqStatus == null or reqStatus == ''">
+			<![CDATA[
+				AND REQ.REQ_STATUS IN ('Q','R')
+			]]>
+		</if>
+		<!-- 검토요청(M), 삭제(D), 오분류종결(T), 취소(N) 상태 제외 -->
+		<![CDATA[
+		AND REQ.REQ_STATUS NOT IN ('M', 'D', 'T', 'N')
+		]]>
+		<!-- 구분 조건 (발주/견적) -->
+		<if test="gubun != null and gubun != ''">
+			<if test='gubun == "QUOTATION"'>
+				AND REQ.QUOTATION_NO IS NOT NULL
+			</if>
+			<if test='gubun == "ORDER"'>
+				AND REQ.QUOTATION_NO IS NULL
+			</if>
+		</if>
+		<!-- 요청번호 -->
+		<if test="requestNo != null and requestNo != ''">
+			AND UPPER(REQ.REQ_NO) LIKE UPPER(#{requestNo}||'%')
+		</if>
+		<!-- 견적번호 -->
+		<if test="quotationNo != null and quotationNo != ''">
+			AND UPPER(REQ.QUOTATION_NO) LIKE UPPER(#{quotationNo}||'%')
+		</if>
+		<![CDATA[
+			ORDER BY REQ.REQ_NO DESC
+		]]>
+	</select>
+</mapper>
+

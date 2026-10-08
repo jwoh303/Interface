@@ -1,0 +1,399 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta name="keywords" content="" />
+<meta name="description" content="" />
+<title>팝업-권고발주 상세조회</title>
+<link rel="stylesheet" type="text/css" href="/resources/css/base.css" />
+<link rel="stylesheet" type="text/css" href="/resources/css/main_seller.css" />
+</head>
+<body>
+
+<!-- PopupUtil 호환 구조 -->
+<div class="DIVpopup" style="display: block;">
+  <div class="wrapPopup">
+    <div class="PopupTit">상세조회 및 송장생성<span><a href="#" id="closePopupBtn"><img src="/resources/imgs/Icon_close.png" /></a></span></div>
+    <div class="PopupTitSub">기본정보</div>
+    <table class="PopupTableTxt" style="width:1200px">
+      <colgroup>
+        <col width="150px" />
+        <col width="350px" />
+        <col width="150px" />
+        <col width="350px" />
+      </colgroup>
+      <tr>
+        <th>발주번호</th>
+        <td id="vpoNo">-</td>
+        <th>권고발주일</th>
+        <td id="vpoDate">-</td>
+      </tr>
+      <tr>
+        <th>금액합계</th>
+        <td id="itemAmt">-</td>
+        <th>입고요청일</th>
+        <td id="rdDate">-</td>
+      </tr>
+      <tr>
+        <th>도착지</th>
+        <td colspan="3" id="delyLocation">-</td>
+      </tr>
+    </table>
+    <div class="PopupTitSub">상세정보</div>
+    <div class="IBSheetPopup" style="min-height:300px; max-height:400px; overflow-y:auto;">
+      <table class="IBSheetTablePopup" style="width:1200px; table-layout:fixed;" id="detailTable">
+        <colgroup>
+          <col width="17%" />
+          <col width="10%" />
+          <col width="15%" />
+          <col width="19%" />
+          <col width="8%" />
+          <col width="5%" />
+          <col width="8%" />
+          <col width="8%" />
+          <col width="10%" />
+        </colgroup>
+        <thead>
+          <tr style="height:40px;">
+            <th style="height:40px;">물류센터</th>
+            <th style="height:40px;">품목코드</th>
+            <th style="height:40px;">품목명</th>
+            <th style="height:40px;">규격</th>
+            <th style="height:40px;">단위</th>
+            <th style="height:40px;">발주수량</th>
+            <th style="height:40px;">단가</th>
+            <th style="height:40px;">발주금액</th>
+            <th style="height:40px;">비고</th>
+          </tr>
+        </thead>
+        <tbody id="detailTableBody">
+          <!-- 동적으로 데이터 추가 -->
+          <tr style="height:40px;">
+            <td colspan="9" style="text-align:center; height:40px;">데이터를 불러오는 중...</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="h30"></div>
+    <div class="PopupListBtnBox_Center">
+      <button class="ButPrimary_large" id="btnInvoice">송장등록</button>
+    </div>
+  </div><!-- wrapPopup 끝-->
+</div><!-- DIVpopup 끝-->
+
+<script>
+/**
+ * PopupUtil 호환 API 생성 함수
+ * @param {string} overlayId - 오버레이 ID (PopupUtil에서 자동 전달)
+ * @param {string} containerId - 컨테이너 ID (PopupUtil에서 자동 전달)
+ * @returns {Object} 팝업 API 객체
+ */
+window.createPopupAPI = function(overlayId, containerId) {
+    console.log('[recommand_order_detail] createPopupAPI 호출됨:', overlayId, containerId);
+
+    var popupData = null; // 팝업 기본 데이터
+    var detailData = []; // 상세 품목 리스트
+    var onInvoiceCallback = null; // 송장등록 콜백
+    var onCloseCallback = null; // 닫기 콜백
+
+    // ========== 팝업 닫기 함수 ==========
+    function closePopup() {
+        console.log('[recommand_order_detail] 팝업 닫기');
+        $('#' + overlayId).remove();
+        $('#' + containerId).remove();
+
+        if (onCloseCallback && typeof onCloseCallback === 'function') {
+            onCloseCallback();
+        }
+    }
+
+    // ========== 숫자 포맷 헬퍼 함수 ==========
+    function formatNumber(value) {
+        if (!value || value === '0' || value === 0) return '0';
+        return Number(value).toLocaleString('ko-KR');
+    }
+
+    // ========== 날짜 포맷 헬퍼 함수 (YYYYMMDD -> YYYY-MM-DD) ==========
+    function formatDate(dateStr) {
+        if (!dateStr || dateStr.length !== 8) return dateStr;
+        return dateStr.substring(0, 4) + '-' + dateStr.substring(4, 6) + '-' + dateStr.substring(6, 8);
+    }
+
+    // ========== 상세정보 조회 (HttpUtil 사용) ==========
+    function loadDetail() {
+        console.log('[recommand_order_detail] 상세정보 조회 시작');
+
+        if (!popupData || !popupData.vpoNo) {
+            console.error('[recommand_order_detail] 발주번호가 없습니다.');
+            $('#detailTableBody').html('<tr style="height:40px;"><td colspan="9" style="text-align:center; height:40px; color:red;">발주번호가 없습니다.</td></tr>');
+            return;
+        }
+
+        // HttpUtil 사용 가능 여부 확인
+        if (typeof HttpUtil === 'undefined' || typeof HttpUtil.get !== 'function') {
+            console.error('[recommand_order_detail] HttpUtil을 찾을 수 없습니다.');
+            $('#detailTableBody').html('<tr style="height:40px;"><td colspan="9" style="text-align:center; height:40px; color:red;">HttpUtil을 불러올 수 없습니다.</td></tr>');
+            return;
+        }
+
+        // 파라미터 구성
+        var params = {
+            st_agent: popupData.agent || '',
+            st_vpo_no: popupData.vpoNo || '',
+            st_buyer: popupData.buyer || '',
+            st_search_flag: 'Y'
+        };
+
+        console.log('[recommand_order_detail] 요청 파라미터:', params);
+
+        // HttpUtil.get으로 데이터 조회 (v2 JSON API 사용)
+        HttpUtil.get('/mpiv/getCommonMpIvDetailInvoiceCreationPop_v2.do', params, {
+            showLoader: true,
+            showDefaultAlert: false
+        }).then(function(response) {
+            console.log('[recommand_order_detail] 조회 성공:', response);
+
+            // 응답 데이터 확인 (response.data.data 구조)
+            if (!response || !response.data || !response.data.data) {
+                console.error('[recommand_order_detail] 응답 데이터가 없습니다.');
+                $('#detailTableBody').html('<tr style="height:40px;"><td colspan="9" style="text-align:center; height:40px;">조회된 데이터가 없습니다.</td></tr>');
+                return;
+            }
+
+            detailData = response.data.data || [];
+
+            // BUYER 정보를 첫 번째 항목에서 추출하여 popupData에 저장
+            if (detailData.length > 0 && detailData[0].BUYER) {
+                popupData.buyer = detailData[0].BUYER;
+                console.log('[recommand_order_detail] BUYER 정보 추출:', popupData.buyer);
+            }
+
+            renderDetailTable(detailData);
+
+        }).catch(function(error) {
+            console.error('[recommand_order_detail] 조회 실패:', error);
+            $('#detailTableBody').html('<tr style="height:40px;"><td colspan="9" style="text-align:center; height:40px; color:red;">데이터 조회에 실패했습니다.</td></tr>');
+        });
+    }
+
+    // ========== 상세정보 테이블 렌더링 ==========
+    function renderDetailTable(dataList) {
+        console.log('[recommand_order_detail] 테이블 렌더링 시작, 데이터 개수:', dataList.length);
+
+        var tbody = $('#detailTableBody');
+        tbody.empty();
+
+        if (!dataList || dataList.length === 0) {
+            tbody.html('<tr style="height:40px;"><td colspan="9" style="text-align:center; height:40px;">조회된 데이터가 없습니다.</td></tr>');
+            return;
+        }
+
+        // 각 품목별로 테이블 행 생성
+        for (var i = 0; i < dataList.length; i++) {
+            var item = dataList[i];
+
+            var row = '<tr style="height:40px;">' +
+                '<td style="height:40px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' + (item.WMS_NAME || '-') + '</td>' +
+                '<td style="height:40px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' + (item.BUYER_ITEM_NO || '-') + '</td>' +
+                '<td style="text-align:left; height:40px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' + (item.DESCRIPTION || '-') + '</td>' +
+                '<td style="text-align:left; height:40px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' + (item.SPECIFICATION || '-') + '</td>' +
+                '<td style="height:40px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' + (item.UNIT_MEASURE || '-') + '</td>' +
+                '<td class="Price" style="height:40px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' + formatNumber(item.ITEM_QTY) + '</td>' +
+                '<td class="Price" style="height:40px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' + formatNumber(item.UNIT_PRICE) + '</td>' +
+                '<td class="Price" style="height:40px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' + formatNumber(item.ITEM_AMT) + '</td>' +
+                '<td style="text-align:left; height:40px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">' + (item.VPO_REMARK || '-') + '</td>' +
+                '</tr>';
+
+            tbody.append(row);
+        }
+
+        console.log('[recommand_order_detail] 테이블 렌더링 완료');
+    }
+
+    // ========== 송장등록 쿼리 문자열 생성 ==========
+    function buildQueryString() {
+        if (!detailData || detailData.length === 0) {
+            console.error('[recommand_order_detail] 품목 데이터가 없습니다.');
+            return '';
+        }
+
+        var queryParts = [];
+
+        for (var i = 0; i < detailData.length; i++) {
+            var item = detailData[i];
+
+            // 형식: buyer_item_no@@iv_qty@@rd_date@@buyer@@vpo_seq
+            var part = [
+                item.BUYER_ITEM_NO || '',
+                item.IV_QTY || '0',
+                item.RD_DATE || '',
+                item.BUYER || '',
+                item.VPO_SEQ || ''
+            ].join('@@');
+
+            queryParts.push(part);
+        }
+
+        // 각 품목을 ^||^로 연결
+        return queryParts.join('^||^');
+    }
+
+    // ========== 송장등록 처리 (HttpUtil 사용) ==========
+    function saveInvoice() {
+        console.log('[recommand_order_detail] 송장등록 시작');
+
+        if (!detailData || detailData.length === 0) {
+            alert('조회된 품목이 없습니다.');
+            return;
+        }
+
+        if (!popupData || !popupData.vpoNo) {
+            alert('발주번호가 없습니다.');
+            return;
+        }
+
+        // 확인 메시지
+        if (!confirm('송장을 등록하시겠습니까?')) {
+            return;
+        }
+
+        // 쿼리 문자열 생성
+        var queryString = buildQueryString();
+        console.log('[recommand_order_detail] 쿼리 문자열:', queryString);
+
+        // HttpUtil 사용 가능 여부 확인
+        if (typeof HttpUtil === 'undefined' || typeof HttpUtil.post !== 'function') {
+            console.error('[recommand_order_detail] HttpUtil을 찾을 수 없습니다.');
+            alert('HttpUtil을 불러올 수 없습니다.');
+            return;
+        }
+
+        // 파라미터 구성
+        var params = {
+            st_query: queryString,
+            st_buyer: popupData.buyer || '',
+            st_vpo_no: popupData.vpoNo || '',
+            st_agent: popupData.agent || ''
+        };
+
+        console.log('[recommand_order_detail] 송장등록 요청 파라미터:', params);
+
+        // HttpUtil.post로 저장
+        HttpUtil.post('/mpiv/saveCommonMpIvDetailInvoiceCreationPop.do', params, {
+            showLoader: false,
+            showDefaultAlert: false
+        }).then(function(response) {
+            console.log('[recommand_order_detail] 송장등록 성공:', response);
+
+            alert('송장이 성공적으로 등록되었습니다.');
+
+            // 사용자 콜백 호출
+            if (onInvoiceCallback && typeof onInvoiceCallback === 'function') {
+                onInvoiceCallback(response);
+            }
+
+            // 팝업 닫기
+            closePopup();
+
+        }).catch(function(error) {
+            console.error('[recommand_order_detail] 송장등록 실패:', error);
+
+            var errorMsg = '송장 등록에 실패했습니다.';
+            if (error && error.message) {
+                errorMsg += '\n' + error.message;
+            }
+            alert(errorMsg);
+        });
+    }
+
+    // ========== 기본정보 설정 함수 ==========
+    function setData(data) {
+        console.log('[recommand_order_detail] 데이터 설정:', data);
+        popupData = data;
+
+        // 기본정보 표시
+        $('#vpoNo').text(data.vpoNo || '-');
+        $('#vpoDate').text(formatDate(data.vpoDate) || '-');
+        $('#itemAmt').text(formatNumber(data.itemAmt));
+        $('#rdDate').text(formatDate(data.rdDate) || '-');
+        $('#delyLocation').text(data.delyLocation || '-');
+
+        console.log('[recommand_order_detail] 기본정보 표시 완료');
+
+        // 상세정보 자동 조회
+        loadDetail();
+
+        return api;
+    }
+
+    // ========== 송장등록 버튼 클릭 이벤트 핸들러 ==========
+    $('#btnInvoice').off('click').on('click', function() {
+        console.log('[recommand_order_detail] 송장등록 버튼 클릭');
+        saveInvoice();
+    });
+
+    // ========== 닫기 버튼 클릭 이벤트 핸들러 ==========
+    $('#closePopupBtn').off('click').on('click', function(e) {
+        e.preventDefault();
+        closePopup();
+    });
+
+    // ========== 오버레이 클릭 시 닫기 ==========
+    $('#' + overlayId).off('click').on('click', function() {
+        closePopup();
+    });
+
+    // ========== Public API ==========
+    var api = {
+        /**
+         * 팝업 데이터 설정 및 상세정보 자동 조회
+         * @param {Object} data - 팝업에 표시할 데이터
+         * @param {string} data.vpoNo - 권고발주번호
+         * @param {string} data.vpoDate - 권고발주일
+         * @param {string} data.itemAmt - 금액합계
+         * @param {string} data.rdDate - 입고요청일
+         * @param {string} data.delyLocation - 배송지
+         * @param {string} data.agent - 공급사 코드
+         * @param {string} data.buyer - 구매자 코드
+         * @returns {Object} 체이닝을 위한 API 객체
+         */
+        setData: setData,
+
+        /**
+         * 송장등록 성공 콜백 설정
+         * @param {Function} callback - 송장등록 성공 시 실행될 콜백
+         * @returns {Object} 체이닝을 위한 API 객체
+         */
+        onInvoice: function(callback) {
+            onInvoiceCallback = callback;
+            return api;
+        },
+
+        /**
+         * 팝업 닫기 콜백 설정
+         * @param {Function} callback - 팝업 닫힐 때 실행될 콜백
+         * @returns {Object} 체이닝을 위한 API 객체
+         */
+        onClose: function(callback) {
+            onCloseCallback = callback;
+            return api;
+        },
+
+        /**
+         * 팝업 닫기
+         */
+        close: closePopup,
+
+        /**
+         * 상세정보 새로고침
+         */
+        refresh: loadDetail
+    };
+
+    console.log('[recommand_order_detail] API 생성 완료');
+    return api;
+};
+</script>
+
+</body>
+</html>

@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="common.wmgi">
+	<select id="selectMasterWmGiMultiHubReleaseTransPopList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/* selectMasterWmGiMultiHubReleaseTransPopList */
+			SELECT	HUB.BUYER,
+					(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = HUB.BUYER) AS BUYER_NAME,
+					PODT.PO_NO,
+					PODT.PO_SEQ,
+					PODT.BUYER_ITEM_NO,
+					POHD.PO_CREATE_DATE,
+					PODT.RD_DATE,
+					HUB.SCHEDULED_DATE,
+					HUB.S_INV_NO AS INV_NO,
+					HUB.S_INV_SEQ AS INV_SEQ,
+					PODT.DESCRIPTION,
+					PODT.SPECIFICATION,
+					PODT.UNIT_MEASURE,
+					HUB.HUB_GR_QTY AS WMS_IK_QTY,
+					NVL(HUB.TOT_BOX_QTY, 1) AS BOX_QTY,					
+					PODT.BYIT_COMORG_CODE,
+					PODT.CONTRACT_NO,
+					PODT.CONTRACT_SEQ,
+					HUB.DEPT_CENTER,
+					(SELECT TEXT7 FROM ICOMCOD1 WHERE TYPE = 'W001' AND TEXT1 = HUB.DEPT_CENTER) AS DEPT_CENTER_NAME,
+					HUB.ARRV_CENTER,
+					(SELECT TEXT7 FROM ICOMCOD1 WHERE TYPE = 'W001' AND TEXT1 = HUB.ARRV_CENTER) AS ARRV_CENTER_NAME,
+					DECODE(HUB.ARRV_CENTER, 'KRKORE0440', '0', 'KRKORE0404', '1', 'KRKORE0192', '2', 'KRKORE0068', '3', '9') AS ORD
+			FROM	HUBIVDT HUB, ICOMIVDT IVDT, ICOMPODT PODT, ICOMPOHD POHD
+			WHERE	1=1
+			AND		HUB.BUYER = IVDT.BUYER
+			AND		HUB.S_INV_NO = IVDT.INV_NO
+			AND		HUB.S_INV_SEQ = IVDT.INV_SEQ
+			AND		IVDT.BUYER = PODT.BUYER
+			AND		IVDT.PO_NO = PODT.PO_NO
+			AND		IVDT.PO_SEQ = PODT.PO_SEQ
+			AND		PODT.BUYER = POHD.BUYER
+			AND		PODT.PO_NO = POHD.PO_NO
+			AND		HUB.STATUS <> 'D'
+			AND		IVDT.STATUS <> 'D'
+			AND		PODT.STATUS <> 'D'
+			AND		POHD.STATUS <> 'D'
+			AND		PODT.PROCESS_TYPE = '2'
+			AND		NVL(IVDT.INV_QTY,0) != NVL(IVDT.WMS_GR_QTY,0)
+			AND		NVL(HUB.HUB_IV_QTY,0) != NVL(HUB.HUB_GR_QTY,0)
+			AND		HUB.DEPT_CENTER = #{st_warehouse_code}
+		]]>
+		
+	<if test='st_date_type == "rd_date"'>
+		<![CDATA[
+			AND		PODT.RD_DATE BETWEEN #{st_from_date} AND #{st_to_date}
+			ORDER BY ORD, RD_DATE, BUYER, PO_NO
+ 		]]>	 
+	</if>
+	<if test='st_date_type == "po_create_date"'>
+		<![CDATA[
+			AND		POHD.PO_CREATE_DATE BETWEEN #{st_from_date} AND #{st_to_date}
+			ORDER BY ORD, PO_CREATE_DATE, BUYER, PO_NO
+ 		]]>	 
+	</if>
+	<if test='st_date_type == "sc_date"'>
+		<![CDATA[
+			AND		HUB.SCHEDULED_DATE BETWEEN #{st_from_date} AND #{st_to_date}
+			ORDER BY ORD, SCHEDULED_DATE, BUYER, PO_NO
+ 		]]>	 
+	</if>
+	</select>
+	
+	<update id="updateMasterWmGiMultiHubReleaseTransPop" parameterType="java.util.Map">
+		<![CDATA[
+			/* updateMasterWmGiMultiHubReleaseTransPop */
+			UPDATE	HUBIVDT
+			SET		HUB_IV_QTY = HUB_GR_QTY,
+					HUB_IV_DATE = REPLACE(#{st_inv_date}, '/', ''),
+					HUB_IV_CREATE_DATE = SYSDATE,
+					HUB_IV_USER_ID = #{st_user_id},
+					TOT_BOX_QTY = #{BOX_QTY},
+					CHANGE_DATE = TO_CHAR(SYSDATE,'YYYYMMDD'),
+					CHANGE_TIME = TO_CHAR(SYSDATE,'HH24MISS'),
+					CHANGE_USER_ID = #{st_user_id},
+					SCHEDULED_DATE = REPLACE(#{st_scheduled_date}, '/', '')
+			WHERE	BUYER = #{BUYER}
+			AND		S_INV_NO = #{INV_NO}
+			AND		S_INV_SEQ = #{INV_SEQ}
+			AND		PO_NO = #{PO_NO}
+			AND		PO_SEQ = #{PO_SEQ}
+			AND		DEPT_CENTER = #{st_warehouse_code}
+			AND		ARRV_CENTER = #{ARRV_CENTER}
+			AND		NVL(HUB_IV_QTY,0) != NVL(HUB_GR_QTY,0)
+			AND		STATUS != 'D'
+		]]>
+	</update>
+</mapper>

@@ -1,0 +1,362 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="buyer.mpso">
+	<select id="selectBuyerMpSoOrderAdminProgressList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.jsppagestart"/>
+		<![CDATA[
+		
+		/*selectBuyerMpSoOrderAdminProgressList*/
+		    			SELECT                                                                                   
+		    			         PR.LEGACY_PO_NO ,                                                    
+		    			         PR.LEGACY_PO_SEQ ,                                                   
+		    			         SUBSTR(PR.REF_PR_NO,0,7) AS SUB_REF_PR_NO,                                           
+		    			         PR.REF_PR_NO ,                                                       
+		    			         PR.BUYER_ITEM_NO ,                                                   
+		    			         F_GET_PR_STTS(PR.BUYER, PR.PR_NO, PR.PR_SEQ , 1) AS STATUS,                                                                 
+		    			         TRIM(PR.DESCRIPTION) AS DESCRIPTION,                                               
+		    			         TRIM(PR.SPECIFICATION) AS SPECIFICATION,                                                 
+		    			         PR.UNIT_MEASURE AS UNIT_MEASURE,                                                        
+		    			         NVL(PO.ITEM_QTY,0) AS ITEM_QTY,                                                     
+		    			         NVL(PR.TARGET_PRICE,0) AS TARGET_PRICE,                                                 
+		    			         NVL(PO.ITEM_QTY,0) * NVL(PR.TARGET_PRICE,0)   AS TARGET_AMT,                      
+		    			         PO.PO_CREATE_DATE AS PO_CREATE_DATE,                                                    
+		    			         PR.RD_DATE AS RD_DATE,                                                       
+		    			         GR.GR_DATE AS GR_DATE,                                                           
+		    			         DECODE(NVL(GR.ITEM_QTY,0),'0',NVL(PO.GR_QTY,0),NVL(GR.ITEM_QTY,0)) AS GR_QTY, 
+		    			         (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = PO.AGENT)  AS AGENT_LOC,     
+		    			         PR.ADD_USER_ID,                                                                 
+		    			         (select text1 from icomcod2 where company_code = pr.buyer and type = 'C001' and code = PR.ADD_USER_DEPT) ADD_USER_DEPT,                                                               
+		    			         PR.ADD_USER_NAME,                                                               
+		    			         PO.REMARK,                                                                      
+		    			         PO.LOCATION,                                                                    
+		    			         PO.PO_NO AS PO_NO,                                                        
+		    			         DECODE(PO.PO_NO,'',PR.PR_SEQ,PO.PO_SEQ) AS PO_SEQ,                         
+		    			         PR.BUYER AS BUYER,                                                     
+		    			         PO.AGENT AS AGENT,                                                         
+		    			         RECV_FLAG RECV_FLAG,                                                            
+		    			         NVL(PO.IV_QTY,0)  IV_QTY,                                                       
+		    			         NVL(PO.DO_QTY,0)  DO_QTY,                                                       
+		    			         PR.PR_NO,                                                                       
+		    			         GR.ITEM_AMT GR_AMT                                                              
+		    			      FROM  ICOMPRDT PR, ICOMGRDT GR,                                                    
+		    			            ( SELECT A.*, B.AGENT, B.PO_CREATE_DATE,                                     
+		    			                     B.PO_REMARK REMARK, B.DELY_TO_LOCATION LOCATION                     
+		    			                FROM ICOMPODT A, ICOMPOHD B                                              
+		                               WHERE B.BUYER = #{st_buyer_code}                                                   
+          ]]> 
+          <if test='st_date_type   == "PO" '>
+          			<![CDATA[
+		                   AND   B.PO_CREATE_DATE     BETWEEN  #{fromDate}		 AND #{toDate}	
+   		  			]]>
+   		  	</if>		
+		<![CDATA[
+		    	                           AND   A.STATUS ^= 'D'                                                 
+		    	                           AND   B.STATUS ^= 'D'                                                 
+		    	                           AND   A.BUYER = B.BUYER                                               
+		    	                           AND   A.PO_NO = B.PO_NO    ) PO                                       
+		    	             WHERE  PR.BUYER          = PO.BUYER                                                 
+          ]]>
+          <if test='st_date_type   == "GR" '>
+          			<![CDATA[
+		                 	  AND  GR.GR_DATE     BETWEEN  #{fromDate}		 AND #{toDate}
+		                 	  
+   		  			]]>
+   		  	</if>
+   		  	<![CDATA[ 
+							   AND  PO.BUYER          =#{st_buyer_code} /**P*/		
+		    	               AND  GR.BUYER(+)       = #{st_buyer_code}   /**P*/	                                                 
+		    	               AND  PO.BUYER          = GR.BUYER(+)                                              
+		    	               AND  PO.PO_NO          = GR.PO_NO(+)                                              
+		    	               AND  PO.PO_SEQ         = GR.PO_SEQ(+)                                             
+		    	               AND  PR.PR_NO          = PO.PR_NO                                                 
+		    	               AND  PR.PR_SEQ         = PO.PR_SEQ                                                
+		    	               AND  PR.STATUS         != 'D'                                                     
+		    	               AND  PR.ADD_USER_ID    != '1110'                                                  
+		    	               AND  GR.STATUS(+)      != 'D'                                                     
+		    	               AND  PR.RECV_FLAG      = 'PC'                                                     
+		    	               AND  PR.SAVE_FLAG      = 'PX'
+		]]>           
+		 <if test="st_search_no != null and st_search_no != ''">
+			<![CDATA[
+	 			AND PR.BUYER_ITEM_NO     =    #{st_search_no} /**P*/	   
+	 		]]>	 
+		</if>              
+		 <if test="st_legacy_po_no != null and st_legacy_po_no != ''">
+			<![CDATA[
+	 			AND PR.LEGACY_PO_NO     =    #{st_legacy_po_no}  /**P*/	  
+	 		]]>	 
+		</if>    
+		 <if test="st_dept_no != null and st_dept_no != ''">
+			<![CDATA[
+	 			AND PR.ADD_USER_DEPT     =    #{st_dept_no}	    
+	 		]]>	 
+		</if>                               
+          <if test="st_status  != null and st_status != ''">
+          	<if test='st_status  != "ALL" '>
+	          	<![CDATA[
+	          		AND  F_GET_PR_STTS(PR.BUYER, PR.PR_NO, PR.PR_SEQ , 0) =  #{st_status}	
+	   		  	]]>
+   		  	</if>
+   		  </if>        
+   		<![CDATA[
+		     ORDER BY PR.LEGACY_PO_NO
+   		]]>
+		<include refid="common.ibsheet.xml.jsppageend"/>	
+	</select> 
+	<select id="selectBuyerMpSoOrderAdminProgressExcelList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*selectBuyerMpSoOrderAdminProgressExcelList*/
+		    			SELECT                                                                                   
+		    			         (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = PO.BUYER) AS COM_NAME_LOC,    
+		    			         PR.LEGACY_PO_NO AS LEGACY_PO_NO,                                                    
+		    			         PR.LEGACY_PO_SEQ AS LEGACY_PO_SEQ,                                                   
+		    			         SUBSTR(PR.REF_PR_NO,0,7) AS REF_PR_NO,                                           
+		    			         PR.REF_PR_NO AS REF_PR_SEQ,                                                       
+		    			         PR.BUYER_ITEM_NO AS BUYER_ITEM_NO,                                                   
+		    			         TRIM(PR.DESCRIPTION) AS DESCRIPTION,                                               
+		    			         TRIM(PR.SPECIFICATION) AS SPECIFICATION,                                                 
+		    			         PR.UNIT_MEASURE AS UNIT_MEASURE,                                                        
+		    			         NVL(PO.ITEM_QTY,0) AS ITEM_QTY,                                                     
+		    			         NVL(PR.TARGET_PRICE,0) AS TARGET_PRICE,                                                 
+		    			         NVL(PO.ITEM_QTY,0) * NVL(PR.TARGET_PRICE,0)   AS PO_AMT,                      
+		    			         PO.PO_CREATE_DATE AS PO_CREATE_DATE,                                                    
+		    			         PR.RD_DATE AS RD_DATE,                                                       
+		    			         NVL(GR.GR_DATE,' ') AS GR_DATE,                                                           
+		    			         NVL(PO.GR_QTY,0) AS GR_QTY,                                                   
+		    			         DECODE((SELECT AGENT_OPEN_FLAG FROM ICOMCMPY WHERE COM_CODE = PO.BUYER),        
+		    			           'N', '코리아이플랫폼(주)',                                                    
+		    			            (SELECT DECODE(A.AGENT_OPEN_FLAG,'N','코리아이플랫폼(주)', A.com_name_loc)   
+		    			                    FROM ICOMCMPY A                                                      
+		    			               WHERE A.COM_CODE = PO.AGENT))  AS AGENT_NAME,                               
+		    			         PR.ADD_USER_DEPT  ADD_USER_DEPT,                          
+		    			         PR.REQ_USER_INFO ADD_USER_DEPT2,    
+		    			         PR.ADD_USER_NAME,                                                               
+		    			         PO.REMARK,                                                                      
+		    			         PO.LOCATION,                                                                    
+		    			         NVL(GR.item_amt,0) GR_AMT,                                                           
+		    			         DECODE(ABS(CA.DEPTH-2),DEPTH-2,SUBSTRB(CA.CATEG_PATH,INSTRB(CA.CATEG_PATH,' > ',1,2)+3,DECODE(CA.DEPTH,2,100,INSTRB(CA.CATEG_PATH,' > ',1,3)-INSTRB(CA.CATEG_PATH,' > ',1,2)-3)),'') AS CATEG_DEPTH2,   
+		    			         DECODE(ABS(CA.DEPTH-3),DEPTH-3,SUBSTRB(CA.CATEG_PATH,INSTRB(CA.CATEG_PATH,' > ',1,3)+3,DECODE(CA.DEPTH,3,100,INSTRB(CA.CATEG_PATH,' > ',1,4)-INSTRB(CA.CATEG_PATH,' > ',1,3)-3)),'') AS CATEG_DEPTH3,   
+		    			         DECODE(ABS(CA.DEPTH-4),DEPTH-4,SUBSTRB(CA.CATEG_PATH,INSTRB(CA.CATEG_PATH,' > ',1,4)+3,DECODE(CA.DEPTH,4,100,INSTRB(CA.CATEG_PATH,' > ',1,5)-INSTRB(CA.CATEG_PATH,' > ',1,4)-3)),'') AS CATEG_DEPTH4,   
+		    			         DECODE(ABS(CA.DEPTH-5),DEPTH-5,SUBSTRB(CA.CATEG_PATH,INSTRB(CA.CATEG_PATH,' > ',1,5)+3,DECODE(CA.DEPTH,5,100,INSTRB(CA.CATEG_PATH,' > ',1,6)-INSTRB(CA.CATEG_PATH,' > ',1,5)-3)),'') AS CATEG_DEPTH5    
+		    			      FROM  ICOMPRDT PR, ICOMGRDT GR, ICOMBYIT BT, ICOMBYCA CA,                          
+		    			            ( SELECT A.*, B.AGENT, B.PO_CREATE_DATE,                                     
+		    			                     B.PO_REMARK REMARK, B.DELY_TO_LOCATION LOCATION                     
+		    			                FROM ICOMPODT A, ICOMPOHD B                                              
+		                               WHERE B.BUYER = #{st_buyer_code} /**P*/	                                                       
+          ]]> 
+          <if test='st_date_type   == "PO" '>
+          			<![CDATA[
+		                   AND   B.PO_CREATE_DATE     BETWEEN  #{fromDate}		 AND #{toDate}	
+   		  			]]>
+   		  	</if>		
+		<![CDATA[
+		    	                           AND   A.STATUS ^= 'D'                                                 
+		    	                           AND   B.STATUS ^= 'D'                                                 
+		    	                           AND   A.BUYER = B.BUYER                                               
+		    	                           AND   A.PO_NO = B.PO_NO    ) PO                                       
+		    	             WHERE  PR.BUYER          = PO.BUYER                                                 
+          ]]>
+          <if test='st_date_type   == "GR" '>
+          			<![CDATA[
+		                 	  AND  GR.GR_DATE     BETWEEN  #{fromDate}		 AND #{toDate}
+		                 	  
+   		  			]]>
+   		  	</if>
+   		  	<![CDATA[ 
+		    	               AND  PR.BUYER          =#{st_buyer_code}                                                     
+		    	               AND  GR.BUYER(+)       =#{st_buyer_code}                                                   
+		    	               AND  BT.BUYER          = #{st_buyer_code}                                                  
+		    	               AND  CA.COM_CODE       =(SELECT BYCA_COMORG_CODE FROM ICOMCMPY WHERE COM_CODE = #{st_buyer_code})                                               
+		    	               AND  PO.BUYER          = GR.BUYER(+)                                              
+		    	               AND  PR.BUYER          = BT.BUYER                                                 
+		    	               AND  BT.BUYER          = CA.COM_CODE                                              
+		    	               AND  BT.CATEGORY_NO    = CA.STD_CATEG_ID                                                                                
+		    	               AND  PO.PO_NO          = GR.PO_NO(+)                                              
+		    	               AND  PO.PO_SEQ         = GR.PO_SEQ(+)                                              
+		    	               AND  PR.PR_NO          = PO.PR_NO                                                 
+		    	               AND  PR.PR_SEQ         = PO.PR_SEQ                                                
+		    	               AND  PR.BUYER_ITEM_NO  = BT.BUYER_ITEM_NO                                         
+		    	               AND  PR.STATUS         != 'D'                                                     
+		    	               AND  GR.STATUS(+)      != 'D'                                                     
+		    	               AND  BT.STATUS         != 'D'                                                     
+		    	               AND  PR.RECV_FLAG      = 'PC'                                                     
+		    	               AND  PR.SAVE_FLAG      = 'PX'                                                     
+		    	               AND  PR.ADD_USER_ID    != '1110'
+	 		]]>	                  
+		 <if test="st_search_no != null and st_search_no != ''">
+			<![CDATA[
+	 			AND PR.BUYER_ITEM_NO     =    #{st_search_no} /**P*/	   
+	 		]]>	 
+		</if>              
+		 <if test="st_legacy_po_no != null and st_legacy_po_no != ''">
+			<![CDATA[
+	 			AND PR.LEGACY_PO_NO     =    #{st_legacy_po_no}  /**P*/	  
+	 		]]>	 
+		</if>    
+		 <if test="st_dept_no != null and st_dept_no != ''">
+			<![CDATA[
+	 			AND PR.CHANGE_USER_DEPT     =    #{st_dept_no}	    
+	 		]]>	 
+		</if>                               
+          <if test="st_status  != null and st_status != ''">
+          	<if test='st_status  != "ALL" '>
+	          	<![CDATA[
+	          		AND  F_GET_PR_STTS(PR.BUYER, PR.PR_NO, PR.PR_SEQ , 0) =  #{st_status}	
+	   		  	]]>
+   		  	</if>
+   		  </if>        
+   		<![CDATA[
+		     ORDER BY PR.LEGACY_PO_NO
+   		]]>                                 
+	</select> 
+	<select id="selectBuyerMpSoOrderDeptSumList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*selectBuyerMpSoOrderDeptSumList*/
+		       SELECT C.BUYER      AS BUYER,              
+		               C.REQ_DEPT   AS REQ_DEPT,             
+		               MAX((SELECT TEXT1 FROM ICOMCOD2 WHERE COMPANY_CODE = C.BUYER AND TYPE = 'C001' AND CODE = C.REQ_DEPT)) AS REQ_DEPT_NM,             
+		               SUM(NVL(B.ITEM_AMT,0)) AS PO_AMT,                
+		               SUM(NVL(D.ITEM_AMT,0)) AS GR_AMT,                
+		               COUNT(NVL(B.PO_SEQ,0)) AS PO_CNT                 
+		        FROM ICOMPOHD A, ICOMPODT B, ICOMPRDT C,                   
+		                 (  SELECT BUYER,PO_NO,PO_SEQ,SUM(ITEM_AMT) AS ITEM_AMT FROM ICOMGRDT              
+		                    WHERE BUYER =#{st_buyer_code}          
+		                      AND   STATUS ^= 'D'
+		  ]]>                      
+          <if test='st_date_type   == "GR" '>
+          			<![CDATA[
+		             AND  GR_DATE     BETWEEN  #{fromDate}		 AND #{toDate}
+   		  			]]>
+   		  	</if>
+			<![CDATA[   
+		    	GROUP BY BUYER,PO_NO,PO_SEQ) D                
+		        WHERE A.BUYER = #{st_buyer_code}
+		  	]]>                      
+         	<if test='st_date_type   == "PO" '>
+         		<![CDATA[                       
+		        AND   A.PO_CREATE_DATE BETWEEN  #{fromDate}		 AND #{toDate}
+				]]>
+   			</if>
+			<![CDATA[                   
+		        AND   D.PO_NO(+)  = B.PO_NO                               
+		        AND   D.PO_SEQ(+) = B.PO_SEQ                              
+		        AND   D.BUYER(+) = B.BUYER                                
+		        AND   A.STATUS ^= 'D'                                     
+		        AND   A.BUYER = B.BUYER                                   
+		        AND   A.PO_NO = B.PO_NO                                   
+		        AND   B.STATUS ^= 'D'                                     
+		        AND   B.BUYER = C.BUYER                                   
+		        AND   B.PR_NO = C.PR_NO                                   
+		        AND   B.PR_SEQ= C.PR_SEQ                                  
+		        AND   C.STATUS ^= 'D'
+			]]>	                          
+		 	<if test="st_search_no != null and st_search_no != ''">
+				<![CDATA[
+	 			AND C.BUYER_ITEM_NO      =    #{st_search_no}	    
+	 			]]>	 
+			</if>
+		 	<if test="st_legacy_po_no != null and st_legacy_po_no != ''">
+				<![CDATA[
+	 			AND C.LEGACY_PO_NO      =    #{st_legacy_po_no}	    
+	 			]]>	 
+			</if>
+		 	<if test="st_dept_no != null and st_dept_no != ''">
+				<![CDATA[
+	 			AND C.REQ_DEPT      =    #{st_dept_no}	    
+	 			]]>	 
+			</if>                   
+          	<if test="st_status  != null and st_status != ''">
+          		<if test='st_status  != "ALL" '>
+	          		<![CDATA[
+	          		AND  F_GET_PR_STTS(C.BUYER, C.PR_NO, C.PR_SEQ , 0) =  #{st_status}	
+	   		  		]]>
+   		  		</if>
+   		  	</if>
+   		<![CDATA[
+   		  	GROUP BY C.BUYER,C.REQ_DEPT
+   		]]>
+		 <choose>
+	   	<when test="st_sort_column  != null and st_sort_column != ''">
+	    	ORDER BY  ${st_sort_column} ${st_sort_flag}
+	    </when> 
+	    <otherwise>
+	    	 ORDER BY  3  
+	    </otherwise>
+	    </choose>
+	</select> 
+	<select id="selectBuyerMpSoOrderAgentSumList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*selectBuyerMpSoOrderAgentSumList*/
+		       SELECT C.BUYER      AS BUYER,              
+		                A.AGENT  ,   
+		                MAX((SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = A.AGENT )) AS    AGENT_NAME,     
+		               SUM(NVL(B.ITEM_AMT,0)) AS PO_AMT,                
+		               SUM(NVL(D.ITEM_AMT,0)) AS GR_AMT,                
+		               COUNT(NVL(B.PO_SEQ,0)) AS PO_CNT                 
+		        FROM ICOMPOHD A, ICOMPODT B, ICOMPRDT C,                   
+		                 (  SELECT BUYER,PO_NO,PO_SEQ,SUM(ITEM_AMT) AS ITEM_AMT FROM ICOMGRDT              
+		                    WHERE BUYER =#{st_buyer_code}          
+		                      AND   STATUS ^= 'D'
+		  ]]>                      
+          <if test='st_date_type   == "GR" '>
+          			<![CDATA[
+		             AND  GR_DATE     BETWEEN  #{fromDate}		 AND #{toDate}
+   		  			]]>
+   		  	</if>
+			<![CDATA[   
+		    	GROUP BY BUYER,PO_NO,PO_SEQ) D                
+		        WHERE A.BUYER = #{st_buyer_code}
+		  	]]>                      
+         	<if test='st_date_type   == "PO" '>
+         		<![CDATA[                       
+		        AND   A.PO_CREATE_DATE BETWEEN  #{fromDate}		 AND #{toDate}
+				]]>
+   			</if>
+			<![CDATA[                   
+		        AND   D.PO_NO(+)  = B.PO_NO                               
+		        AND   D.PO_SEQ(+) = B.PO_SEQ                              
+		        AND   D.BUYER(+) = B.BUYER                                
+		        AND   A.STATUS ^= 'D'                                     
+		        AND   A.BUYER = B.BUYER                                   
+		        AND   A.PO_NO = B.PO_NO                                   
+		        AND   B.STATUS ^= 'D'                                     
+		        AND   B.BUYER = C.BUYER                                   
+		        AND   B.PR_NO = C.PR_NO                                   
+		        AND   B.PR_SEQ= C.PR_SEQ                                  
+		        AND   C.STATUS ^= 'D'
+			]]>	                          
+		 	<if test="st_search_no != null and st_search_no != ''">
+				<![CDATA[
+	 			AND C.BUYER_ITEM_NO      =    #{st_search_no}	    
+	 			]]>	 
+			</if>
+		 	<if test="st_legacy_po_no != null and st_legacy_po_no != ''">
+				<![CDATA[
+	 			AND C.LEGACY_PO_NO      =    #{st_legacy_po_no}	    
+	 			]]>	 
+			</if>
+		 	<if test="st_dept_no != null and st_dept_no != ''">
+				<![CDATA[
+	 			AND C.REQ_DEPT      =    #{st_dept_no}	    
+	 			]]>	 
+			</if>                   
+          	<if test="st_status  != null and st_status != ''">
+          		<if test='st_status  != "ALL" '>
+	          		<![CDATA[
+	          		AND  F_GET_PR_STTS(C.BUYER, C.PR_NO, C.PR_SEQ , 0) =  #{st_status}	
+	   		  		]]>
+   		  		</if>
+   		  	</if>
+   		<![CDATA[
+   		  	GROUP BY C.BUYER,A.AGENT
+   		]]>
+		 <choose>
+	   <when test="st_sort_column  != null and st_sort_column != ''">
+	    	ORDER BY  ${st_sort_column} ${st_sort_flag}
+	    </when> 
+	    <otherwise>
+	    	 ORDER BY  3  
+	    </otherwise>
+	    </choose>
+	</select> 
+</mapper>

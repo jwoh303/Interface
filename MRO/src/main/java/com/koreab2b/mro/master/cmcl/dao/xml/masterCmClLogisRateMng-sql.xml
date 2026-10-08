@@ -1,0 +1,184 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.cmcl">
+	<!-- 조회 -->
+	<select id="selectMasterLogisRateMngList" parameterType="java.util.Map" resultType="java.util.Map">		
+			<![CDATA[
+			 /*selectMasterLogisRateMngList*/
+			 SELECT
+					X.AGENT,
+					X.AGENT_NAME,
+					X.AGENT_IRS_NO,
+					X.BUYER,
+					X.BUYER_NAME,
+					X.BUYER_IRS_NO,
+					X.LOGIS_RATE,
+					X.AGENT_USER_NAME,
+					X.LOGIS_CNT,
+					X.START_DATE,
+					X.END_DATE,
+					X.ADD_DATE,
+					X.ADD_USER_ID,
+					X.ADD_USER_NAME,
+					X.CHANGE_DATE,
+					X.CHANGE_USER_ID,
+					X.CHANGE_USER_NAME,
+					X.REMARK,
+					X.KEP_USER_NAME,
+					DECODE(X.EXP_FLAG,'N','국내','해외') AS EXP_FLAG
+						FROM (
+								SELECT				    	           
+					    			A.AGENT,
+					    			(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = A.AGENT) AS AGENT_NAME,
+					    			A.AGENT_IRS_NO,
+					    			A.BUYER,
+					    			(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = A.BUYER) AS BUYER_NAME,
+					    			A.BUYER_IRS_NO,
+					    			A.LOGIS_RATE,
+					    			A.AGENT_USER_NAME,
+					    			'0' AS LOGIS_CNT,	    			
+					    			TO_CHAR(TO_DATE(A.START_DATE, 'YYYYMMDD'), 'YYYY/MM/DD') AS START_DATE,
+					    			A.END_DATE,
+					    			A.ADD_DATE,
+					    			A.ADD_USER_ID,
+					    			(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = A.ADD_USER_ID) AS ADD_USER_NAME,
+					    			A.CHANGE_DATE,
+					    			A.CHANGE_USER_ID,
+					    			(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = A.CHANGE_USER_ID) AS CHANGE_USER_NAME,
+					    			A.REMARK,
+					    			A.KEP_USER_NAME,
+					    			A.EXP_FLAG		    			                 
+									FROM LOGIS_RATE_MNG A
+									WHERE 1=1
+									AND STATUS IN ('C', 'R')
+									AND NOT EXISTS ( SELECT 'X' FROM KEP_LOGISTIC_FEE_MNG
+													WHERE  A.AGENT = AGENT
+												    AND    A.EXP_FLAG = EXP_FLAG )										
+							]]>
+							
+							<if test="st_buyer_code != null and st_buyer_code != '' ">
+							    AND A.BUYER = #{st_buyer_code}
+							</if>
+							<if test="st_agent_code != null and st_agent_code != '' ">
+							    AND A.AGENT = #{st_agent_code}
+							</if>
+							<if test="st_agent_irs_no != null and st_agent_irs_no != '' ">
+							    AND REPLACE(A.AGENT_IRS_NO,'-','') LIKE '%'|| REPLACE(#{st_agent_irs_no},'-','') ||'%'
+							</if>
+				<![CDATA[			
+							UNION ALL
+
+		                SELECT
+				    			A.AGENT,
+				    			(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = A.AGENT) AS AGENT_NAME,
+				    			A.AGENT_IRS_NO,
+				    			A.BUYER,
+				    			(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = A.BUYER) AS BUYER_NAME,
+				    			A.BUYER_IRS_NO,
+				    			A.LOGIS_RATE,
+				    			A.AGENT_USER_NAME,
+				    			'8' AS LOGIS_CNT,
+				    			TO_CHAR(TO_DATE(A.START_DATE, 'YYYYMMDD'), 'YYYY/MM/DD') AS START_DATE,
+				    			A.END_DATE,
+				    			A.ADD_DATE,
+				    			A.ADD_USER_ID,
+				    			(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = A.ADD_USER_ID) AS ADD_USER_NAME,
+				    			A.CHANGE_DATE,
+				    			A.CHANGE_USER_ID,
+				    			(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = A.CHANGE_USER_ID) AS CHANGE_USER_NAME,
+				    			A.REMARK,
+				    			A.KEP_USER_NAME,
+				    			A.EXP_FLAG
+								FROM LOGIS_RATE_MNG A
+								WHERE 1=1
+								AND STATUS IN ('C', 'R')
+								AND EXISTS ( SELECT 'X' FROM KEP_LOGISTIC_FEE_MNG
+															WHERE  A.AGENT = AGENT
+															AND    A.EXP_FLAG = EXP_FLAG )
+						]]>
+							<if test="st_buyer_code != null and st_buyer_code != '' ">
+							    AND A.BUYER = #{st_buyer_code}
+							</if>
+							<if test="st_agent_code != null and st_agent_code != '' ">
+							    AND A.AGENT = #{st_agent_code}
+							</if>
+							<if test="st_agent_irs_no != null and st_agent_irs_no != '' ">
+							    AND REPLACE(A.AGENT_IRS_NO,'-','') LIKE '%'|| REPLACE(#{st_agent_irs_no},'-','') ||'%'
+							</if>
+							
+						 ) X
+                  ORDER BY X.AGENT, X.ADD_DATE			
+	</select>
+	
+	<update id="updateMasterCmClLogisRateMngList" parameterType="java.util.Map">
+		<![CDATA[
+			/* updateMasterCmClLogisRateMngList */
+			UPDATE LOGIS_RATE_MNG
+			SET 
+				 STATUS = 'R'
+				,LOGIS_RATE = #{LOGIS_RATE}
+				,END_DATE = #{END_DATE}
+				,REMARK = REMARK || '@@' || #{REMARK}			
+				,CHANGE_DATE = SYSDATE
+				,CHANGE_USER_ID = #{st_user_id}
+				,CHANGE_USER_NAME = (SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = #{st_user_id})
+			WHERE 1=1
+			AND AGENT = #{AGENT}
+			AND BUYER = #{BUYER}
+			AND EXP_FLAG = DECODE(#{EXP_FLAG},'국내','N','Y')
+		]]>
+	</update>
+	
+	<update id="deleteMasterCmClLogisRateMngList" parameterType="java.util.Map">
+		<![CDATA[
+			/* deleteMasterCmClLogisRateMngList */
+			UPDATE LOGIS_RATE_MNG
+			SET  
+				 STATUS = 'D'				
+				,CHANGE_DATE = SYSDATE
+				,CHANGE_USER_ID = #{st_user_id}
+				,CHANGE_USER_NAME = (SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = #{st_user_id})
+				,REMARK = REMARK || '@@' || #{REMARK}
+			WHERE 1=1
+			AND AGENT = #{AGENT}
+			AND BUYER = #{BUYER}
+			AND EXP_FLAG = DECODE(#{EXP_FLAG},'국내','N','Y')
+		]]>
+	</update>
+	
+	<select id="selectMasterLogisRateMngFeeList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.pagestart"/>	
+			<![CDATA[
+			 /*selectMasterLogisRateMngFeeList*/
+		    	SELECT           
+		    			(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = BUYER) AS BUYER_NAME,
+		    			BUYER_ITEM_NO,
+		    			LOGISTICS_FEE || '%' AS LOGISTICS_FEE,
+		    			TO_CHAR(TO_DATE(END_DATE, 'YYYYMM'), 'YYYY/MM') AS END_DATE,		    			
+		    			REASON,
+		    			ADD_USER_NAME,
+		    			TO_CHAR(ADD_DATE, 'YY/MM/DD') AS ADD_DATE,
+		    			LOGIS_RATE_STATUS,
+		    			(SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'LGST' AND CODE = LOGIS_RATE_STATUS AND FLAG = 'Y') AS LOGIS_RATE_STATUS_TEXT	    			                 
+						FROM KEP_LOGISTIC_FEE_MNG
+						WHERE 1=1
+						AND AGENT = #{st_agent}
+						AND EXP_FLAG = #{st_exp_flag}
+					]]>
+					<if test="st_buyer != null and st_buyer != '' and st_buyer != 'ALL' ">
+				   		 AND BUYER = #{st_buyer}
+					</if>
+					<if test="st_buyer_item_no != null and st_buyer_item_no != ''">
+				   		 AND BUYER_ITEM_NO = #{st_buyer_item_no}
+					</if>
+					<if test="st_add_user_name != null and st_add_user_name != ''">
+				   		 AND ADD_USER_NAME = #{st_add_user_name}
+					</if>
+						ORDER BY 1, ADD_DATE
+						
+		        
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+
+</mapper>   
+   

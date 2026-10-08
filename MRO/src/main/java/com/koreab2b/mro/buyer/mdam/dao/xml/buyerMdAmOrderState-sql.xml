@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="buyer.mdam">
+	<select id="selectBuyerMdAmOrderStateList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.jsppagestart"/>
+		<![CDATA[
+			SELECT	/*selectBuyerMdAmOrderStateList*/		 			
+           '1' AS NUM  
+            , 'RE14000023 ' AS A
+						, '00001' AS B
+						, '20140213' AS C
+						, '123123' AS D
+						, 'EA' AS E
+						, '0' AS F
+						, '' AS G
+						, '' AS H
+						, '구매담당자' AS I
+						, '견적의뢰' AS J
+						, '123' AS K
+						, '20140220' AS L
+						, '123123' AS M
+						, '1' AS N
+						, '0' AS O
+						, '' AS P
+						, '구매팀' AS Q
+						, 'KRKEPB0004' AS R
+						, '1' AS S
+						, 'KRBEST0003' AS T
+						, '(주)오피스디포코리아' AS U
+						, 'KEP200470' AS V
+						, '김미경' AS W
+						, '' AS Y
+				FROM DUAL
+			  WHERE 1=1 				
+ 		]]>  
+		 <if test="st_quotation_no != null and st_quotation_no != ''">
+			<![CDATA[
+	 			AND A.QUOTATION_NO LIKE '%'||#{st_quotation_no}||'%'
+	 		]]>	 
+		</if>
+		<if test="st_btoa_user_dept_code != null and st_btoa_user_dept_code != ''">
+			<![CDATA[
+	 			AND A.BTOA_USER_DEPT  = #{st_btoa_user_dept_code}
+	 		]]>	 
+		</if> 
+		<!-- 품목코드 -->
+		<if test="st_search_type == 'BC' and st_search_code != ''">
+			<![CDATA[
+	 			AND A.BUYER_ITEM_NO = #{st_search_code}
+	 		]]>	 
+		</if>
+		<!-- 품명 -->
+		<if test="st_search_type == 'DE' and st_search_code != ''">
+			<![CDATA[
+	 			AND A.DESCRIPTION LIKE '%'||#{st_search_code}||'%'
+	 		]]>	 
+		</if>
+		<!-- 규격 -->
+		<if test="st_search_type == 'SP' and st_search_code != ''">
+			<![CDATA[
+	 			AND A.SPECIFICATION LIKE '%'||#{st_search_code}||'%'
+	 		]]>	 
+		</if>
+		<!-- 진행상태 -->
+		<if test="st_sourcing_status !=null and st_sourcing_status != ''">
+			<![CDATA[
+	 			AND J LIKE '%'||#{st_sourcing_status}||'%'
+	 		]]>	 
+		</if>
+		<if test="st_user_group=='Q' or st_user_group=='C'">
+			<![CDATA[
+	 			AND A.BTOA_USER_ID = #{st_user_id}
+	 		]]>	 
+		</if>
+		<!-- 셰플러코리아 견적취소건 조회 제외 -->
+		<if test="st_com_code=='KRFAGB0003'">
+			<![CDATA[
+	 			AND A.RECV_FLAG ^='GD'            
+	 		]]>	 
+		</if>
+		
+		<include refid="common.ibsheet.xml.jsppageend"/>	
+	</select> 
+	
+	<!-- 장바구니 중복 체크 -->
+	<select id="getBuyerMdAmOrderStateCheck" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		 	SELECT /*getBuyerMdAmOrderStateCheck*/
+		 	      COUNT(*) AS DUP_CNT
+              FROM ICOMCART           
+            WHERE BUYER          = #{st_com_code}                
+                AND USER_ID        = #{st_user_id}               
+                AND USE_FLAG       = 'C'                
+                AND BUYER_ITEM_NO  = #{st_buyer_item_no}                
+                AND AGENT          = #{st_agent}                
+                AND CONTRACT_NO    = #{st_contract_no}                
+                AND CONTRACT_SEQ   = #{st_contract_seq}                
+                AND BYIT_COMORG_CODE   = #{st_byit_comorg_code}
+        ]]> 
+	</select> 
+	
+	<!-- 장바구니 생성 -->
+	<update id="insertBuyerMdAmOrderStateCreate" parameterType="java.util.Map">
+		<![CDATA[
+ 		 	INSERT INTO ICOMCART ( 
+     		 	/*insertBuyerMdAmOrderStateCreate*/                                                                           
+		         BUYER
+		         , USER_ID
+		         , BUYER_ITEM_NO
+		         , SEQ
+		         , CART_QTY                                    
+		         , REG_DATE
+		         , USE_FLAG
+		         , AGENT
+		         , CONTRACT_NO
+		         , CONTRACT_SEQ
+		         , BYIT_COMORG_CODE
+		         , REMARK        
+		       ) VALUES (                                                                                        
+		           #{st_com_code}                                                                                            
+		           , #{st_user_id}                                                                                             
+		           , #{st_buyer_item_no}                                                                                             
+		           , (SELECT DECODE(MAX(SEQ),NULL,'0', MAX(SEQ))+1                                                        
+		                       FROM ICOMCART                                                                        
+		                      WHERE BUYER         = #{st_com_code}                                                           
+		                        AND USER_ID       = #{st_user_id}                                                             
+		                        AND USE_FLAG      = 'C' )                                                             
+		           , NVL(#{st_item_qty}, 1)                                                                                     
+		           , TO_CHAR(SYSDATE,'YYYYMMDD')                                                                    
+		           , 'C'                                                                                           
+		           , #{st_agent}                                                                                          
+		           , #{st_contract_no}                                                                                            
+		           , #{st_contract_seq}                                                                                            
+		           , #{st_byit_comorg_code}                                                                                           
+		           , CASE WHEN #{st_com_code} = 'KRKOLO0016' OR #{st_buyer} = 'KRKEPB0004'
+		                THEN #{st_btoa_remark} ELSE '' END
+		)           														
+		]]>
+	</update>
+	
+	<!-- 견적 상태 update -->
+	<update id="updateBuyerMdAmOrderStateRq" parameterType="java.util.Map">
+		<![CDATA[
+ 		 	UPDATE KEPRQDT    
+        /*updateBuyerMdAmOrderStateRq*/
+				 SET RECV_FLAG='CC'        
+				WHERE BUYER = #{st_com_code}            
+				 AND QUOTATION_NO = #{st_contract_no}        
+				 AND QUOTATION_SEQ = #{st_contract_seq} 
+				 AND REVISION = #{st_rivision}   
+				 AND STATUS<>'D'        														
+		]]>
+	</update> 
+</mapper>

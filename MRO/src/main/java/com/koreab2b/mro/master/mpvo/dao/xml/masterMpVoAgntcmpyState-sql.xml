@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mpvo">
+
+	<!-- 조회 -->
+	<select id="selectMasterMpVoAgntcmpyStateList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+	    	SELECT  (SELECT COM_NAME_LOC FROM V_VOC_ICOMCMPY
+				         WHERE COM_CODE = X.IMPUTE_AGENT AND SYS_TYPE=X.SYS_TYPE AND BUSINESS_COND LIKE '%S%') AS IMPUTE_AGENT_NAME,
+				        X.FLAG_DC,
+				        X.FLAG_PS,
+				        X.FLAG_PA,
+				        X.FLAG_FB,
+				        (X.FLAG_DC+X.FLAG_PS+X.FLAG_PA+X.FLAG_FB) AS T_FLAG,
+				        X.IMPUTE_AGENT,
+				        X.SYS_TYPE
+			FROM
+			    (
+			        SELECT  A.IMPUTE_AGENT,
+				                NVL(SUM(DECODE(A.RECV_FLAG,'DC',1)),0) AS FLAG_DC,
+				                NVL(SUM(DECODE(A.RECV_FLAG,'PS',1)),0) AS FLAG_PS,
+				                NVL(SUM(DECODE(A.RECV_FLAG,'PA',1)),0) AS FLAG_PA,
+				                NVL(SUM(DECODE(A.RECV_FLAG,'FB',1)),0) AS FLAG_FB,
+				                A.SYS_TYPE
+			        FROM KEPAVCDT A, (SELECT CODE FROM ICOMCOD1 WHERE TYPE = 'VC01' AND TEXT3 = 'C') B
+			        WHERE A.IMPUTE_TYPE IN ('SS','MS')
+			            AND TO_CHAR(A.CD_DATE,'YYYYMMDD') BETWEEN #{st_fromDate} AND #{st_toDate}
+			            AND A.CLAIM_TYPE = B.CODE
+		]]>
+			<if test="st_buyer_code != null and st_buyer_code != ''">
+	    		<![CDATA[	AND (A.SYS_TYPE, A.BUYER) IN 	]]>
+				<foreach collection="arry_buyer_code" item="itm" open="(" separator="," close=")">
+					<![CDATA[	${itm}	]]>
+				</foreach>
+	        </if>
+	        
+	        <if test="st_agent_code != null and st_agent_code != ''">
+	    		<![CDATA[	AND (A.SYS_TYPE, A.IMPUTE_AGENT) IN 	]]>
+				<foreach collection="arry_agent_code" item="itm" open="(" separator="," close=")">
+					<![CDATA[	${itm}	]]>
+				</foreach>
+	        </if>
+			            
+		<![CDATA[
+			        GROUP BY A.IMPUTE_AGENT, A.SYS_TYPE
+			    ) X
+			ORDER BY 1
+		]]>
+	</select>
+
+</mapper>   
+   

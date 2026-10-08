@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mpiv">
+	<!-- 조회 -->
+	<select id="selectMasterMpIvOrderReceiptDelayList" parameterType="java.util.Map" resultType="java.util.Map">	
+		<![CDATA[
+			/*selectMasterMpIvOrderReceiptDelayList*/
+			SELECT /*+USE_NL(C B)*/
+				  (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE=B.BUYER) AS BUYER_NAME	-- 고객사
+				, B.REF_PR_NO																-- 관리번호
+				, D.REF_NO																	-- 주문번호
+				, B.PO_NO																	-- 발주번호
+				, B.BUYER_ITEM_NO															-- 품목코드
+				, DECODE(B.SCM_REMARK,NULL,'-','SCM') AS SCM_REMARK							-- SCM비고
+				, B.DESCRIPTION																-- 품명
+				, B.SPECIFICATION															-- 규격
+				, NVL(B.PO_REMARK, ' ') AS PO_REMARK										-- 비고
+				, B.UNIT_MEASURE															-- 단위
+				, B.ITEM_QTY																-- 발주수량
+				, NVL(B.UNIT_PRICE,0) AS UNIT_PRICE											-- 단가
+				, B.RD_DATE																	-- 납기요청일
+				, A.PO_CREATE_DATE AS PO_DATE												-- 발주일
+				, TO_DATE(TO_CHAR(SYSDATE,'YYYYMMDD'),'YYYYMMDD') - TO_DATE(A.PO_CREATE_DATE,'YYYYMMDD') AS OVER_DAY	-- 경과일수
+				, A.AGENT
+				, (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE=A.AGENT) AS AGENT_NAME	-- 협력사
+				, (SELECT TEXT1 FROM ICOMCOD2 WHERE COMPANY_CODE = C.BUYER AND TYPE= 'C001' AND CODE = D.REQ_DEPT) AS REQ_DEPT_NAME		-- 요청부서
+				, D.CHANGE_USER_NAME AS REQ_USER_NAME										-- 요청자
+				, A.PURCHASER_NAME															-- 발주자
+				, B.BUYER
+				, B.PO_SEQ
+				, D.REQ_USER_ID			-- 요청자ID
+				, A.PURCHASER_ID		-- 발주자ID
+				, B.BYIT_COMORG_CODE
+				, D.CONTRACT_NO
+				, D.CONTRACT_SEQ
+				
+				, B.MAKER_NAME
+				, (SELECT PHONE_NUMBER FROM ICOMLUSR WHERE USER_ID=A.PURCHASER_ID) AS PURCHSER_TEL_NO
+				, (SELECT TEXT2 FROM ICOMCOD1 WHERE TYPE='M001' AND CODE=B.ORIGIN_CODE) AS ORIGIN_NAME
+				, B.DS_DATE
+				, (SELECT CHANGE_USER_TEL FROM ICOMPRDT WHERE BUYER=B.BUYER AND PR_NO=B.PR_NO AND PR_SEQ=B.PR_SEQ) AS REQ_USER_TEL_NO
+				, (SELECT TEXT2 FROM ICOMCOD1 WHERE TYPE = 'M034' AND CODE = B.PROCESS_TYPE) AS PROCESS_TEXT
+				, (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = DECODE(B.PROCESS_TYPE,'1', B.WAREHOUSE_CODE,'3', B.WAREHOUSE_CODE, A.AGENT)) AS ORIGIN_AGENT_NAME
+				, (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = DECODE(B.PROCESS_TYPE,'2',B.WAREHOUSE_CODE)) AS WAREHOUSE_NAME
+				, NVL(B.AGENT_PRICE,0) AS AGENT_PRICE
+				, B.ADD_DATE AS ADD_DATE
+				, CASE WHEN (B.DO_QTY >= 0 OR B.GR_QTY>=0 ) THEN '접수' ELSE '미접수' END RS_STTS  -- 현재상태
+			FROM ICOMPOHD A, ICOMPODT B, KEP_PM_PA_LIST C, ICOMPRDT D
+			WHERE 1=1
+				AND A.BUYER = B.BUYER
+				AND A.PO_NO = B.PO_NO
+				AND B.BUYER = C.BUYER
+				AND B.PO_NO = C.KEY1
+				AND B.PO_SEQ = C.KEY2
+				-- 2019.02.18 제거		AND B.ITEM_GROUP = C.KEY4
+				AND B.BUYER = D.BUYER
+				AND B.PR_NO = D.PR_NO
+				AND B.PR_SEQ = D.PR_SEQ
+				AND D.STATUS <> 'D'
+				AND C.GUBUN = #{st_gubun}  -- 수주미접수(IV_DO_NO),  장기미접수(IV_LONG_DO_NO)
+		]]>
+			<if test='st_po_date_chk == "Y"'>
+				AND A.PO_CREATE_DATE BETWEEN #{st_from_date} AND #{st_to_date}	-- 발주일	
+			</if>
+		<![CDATA[
+				AND C.BUYER IN (	SELECT DISTINCT BUYER 
+									FROM MIS_BUYER_MNG 
+									WHERE
+											YEAR = TO_CHAR(SYSDATE,'YYYY')
+										AND KEP_DEPT = #{st_user_dept_cd}		-- 담당부서
+		]]>
+									<!-- 고객사 -->
+									<if test="st_buyer_code.size() > 0">
+										AND BUYER IN 
+										<foreach item="item" collection="st_buyer_code" open="(" separator="," close=")">
+									 		#{item}
+										</foreach>
+									</if>
+		<![CDATA[
+				)
+		]]>
+		
+			<!-- 발주번호 -->
+			<if test="st_po_no != null and st_po_no != ''">
+				AND A.PO_NO = #{st_po_no}
+			</if>
+
+			<!-- 품목코드 -->
+			<if test="st_buyer_item_no != null and st_buyer_item_no != ''">
+				AND B.BUYER_ITEM_NO LIKE '%'||#{st_buyer_item_no}||'%'
+			</if>
+
+			<!-- 협력사 -->
+			<if test="st_agent_code != null and st_agent_code != ''">
+				AND A.AGENT = #{st_agent_code}
+			</if>
+			
+		<![CDATA[
+			ORDER BY B.REF_PR_NO, B.PO_NO
+		]]>
+	</select>
+
+</mapper>
+   

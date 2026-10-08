@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="seller.mpcl">
+    <!-- 전자세금계산서 상세내역 조회 -->
+    <select id="selectSellerMpClTaxDetailList" parameterType="java.util.Map" resultType="java.util.Map">
+        <![CDATA[
+            SELECT
+                C.COM_NAME_LOC as compyName,                        -- 고객사명 (ICOMCMPY에서 직접 조회)
+                G.PO_NO as poNo,                                    -- 발주번호
+                G.BUYER_ITEM_NO as itemCode,                        -- 품목코드
+                G.DESCRIPTION as itemName,                          -- 품명
+                G.SPECIFICATION as spec,                            -- 규격
+                G.ITEM_QTY as receiptQty,                          -- 입고수량
+                G.AGENT_PRICE as receiptPrice,                     -- 입고단가 (VAT 계산 제거)
+                G.AGENT_ITEM_AMT as receiptAmount,                 -- 입고금액 (VAT 계산 제거)
+                TO_CHAR(TO_DATE(K.ISSUE_DATE, 'YYYYMMDD'), 'YYYY.MM.DD') as confirmDate,  -- 확정일
+                TO_CHAR(TO_DATE(G.GR_DATE, 'YYYYMMDD'), 'YYYY.MM.DD') as receiptDate,      -- 입고일
+                G.BUYER,
+                TO_CHAR(TO_DATE(POHD.PO_CREATE_DATE, 'YYYYMMDD'), 'YYYY/MM/DD') as ORDER_DATE,  -- 발주일
+                DEPT.TEXT1 as PURCHASER_DEPT,                       -- 요청부서 (ICOMCOD2에서 부서명)
+                PRDT.ADD_USER_NAME as REQUESTER_NAME                -- 요청자 (ICOMPRDT에서 요청자명)
+            FROM KEPTAPDT K
+            INNER JOIN ICOMGRDT G ON K.TAX_BILL_NO = G.AP_TAX_BILL_NO
+            INNER JOIN ICOMCMPY C ON G.BUYER = C.COM_CODE
+            LEFT OUTER JOIN ICOMPOHD POHD ON POHD.BUYER = G.BUYER AND POHD.PO_NO = G.PO_NO
+            LEFT OUTER JOIN ICOMPODT PODT ON G.BUYER = PODT.BUYER AND G.PO_NO = PODT.PO_NO AND G.PO_SEQ = PODT.PO_SEQ
+            LEFT OUTER JOIN ICOMPRDT PRDT ON PODT.BUYER = PRDT.BUYER AND PODT.PR_NO = PRDT.PR_NO AND PODT.PR_SEQ = PRDT.PR_SEQ
+            LEFT OUTER JOIN ICOMCOD2 DEPT ON PRDT.BUYER = DEPT.COMPANY_CODE AND PRDT.ADD_USER_DEPT = DEPT.CODE AND DEPT.TYPE = 'C001'
+            WHERE K.TAX_BILL_NO = #{taxBillNo}
+                AND K.STATUS <> 'D'
+                AND G.STATUS <> 'D'
+                AND C.STATUS <> 'D'
+            ORDER BY G.PO_NO, G.PO_SEQ
+        ]]>
+    </select>
+</mapper>

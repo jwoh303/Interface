@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="buyer.mpso">
+	<select id="selectBuyerMpSoDelayDlvyStateList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.jsppagestart"/>
+
+        /*selectBuyerMpSoDelayDlvyStateList*/
+     SELECT
+                 (ROWNUM ) No,           --[00]
+                 S.PR_NO ,           --[01]요청번호
+                 S.REF_PR_NO ,       --[02]관리번호
+                 S.RD_DATE ,       --[03]배송희망일
+                 S.CHANGE_DATE ,       --[04]주문일
+                 S.BUYER_ITEM_NO ,   --[05]상품코드
+                 S.PO_CREATE_DATE ,    --[06]발주일
+                 S.DESCRIPTION ,         --[07]품명
+                 S.SPECIFICATION ,       --[08]규격
+                 S.ITEM_QTY ,        --[09]발주수량
+                 S.UNIT_MEASURE ,        --[10]단위
+                 S.DELAY_DAY ,       --[11]지연일수
+                 S.UNIT_PRICE ,          --[12]단가
+                 S.PO_SUM ,              --[13]금액
+                 S.AGENT_TEXT ,        --[14]공급사
+                 S.PURCHASER_NAME ,    --[15]발주자
+                 S.BUYER,                    --[16]
+                 S.PR_SEQ,                   --[17]
+                 S.AGENT,                    --[18]
+                 S.PURCHASER_ID,             --[19]
+                 S.BYIT_COMORG_CODE,         --[20]
+                 (SELECT MAX(RS.CD_DATE) FROM ICOMPORS RS
+                   WHERE RS.BUYER = S.BUYER AND RS.PO_NO = S.PO_NO AND RS.PO_SEQ = S.PO_SEQ) CD_DATE,
+                 F_GET_PR_STTS(S.BUYER, S.PR_NO, S.PR_SEQ , 1)  STATUS_TEXT,
+                 S.PR_RETURN_REASON,
+                 S.PO_NO,
+                 S.GR_QTY,
+                 S.DI_QTY,
+                 S.PO_SEQ,
+                 S.REQ_DEPT_NAME,
+                 S.PURCHASER_DEPT_NAME
+          FROM (
+          SELECT
+                 ROWNUM NUM,
+                 A.PR_NO,
+                 A.REF_PR_NO,
+                 A.RD_DATE,
+                 A.CHANGE_DATE,
+                 A.BUYER_ITEM_NO,
+                 A.PO_CREATE_DATE,
+                 A.DESCRIPTION,
+                 A.SPECIFICATION,
+                 A.ITEM_QTY,
+                 A.UNIT_MEASURE,
+                 A.DELAY_DAY,
+                 A.UNIT_PRICE,
+                 A.PO_SUM,
+                 A.AGENT_TEXT,
+                 A.PURCHASER_NAME,
+                 A.BUYER,
+                 A.PR_SEQ,
+                 A.AGENT,
+                 A.PURCHASER_ID,
+                 A.BYIT_COMORG_CODE,
+                 A.PR_RETURN_REASON,
+                 A.PO_NO,
+                 A.GR_QTY,
+                 A.DI_QTY,
+                 A.PO_SEQ,
+                 A.REQ_DEPT_NAME,
+                 A.PURCHASER_DEPT_NAME
+
+          FROM (
+          SELECT
+                 PR.REF_PR_NO AS REF_PR_NO,
+                 PR.PR_NO AS PR_NO,
+                 PR.BUYER_ITEM_NO AS BUYER_ITEM_NO,
+                 PR.DESCRIPTION AS DESCRIPTION,
+                 PR.SPECIFICATION AS SPECIFICATION,
+                 PR.UNIT_MEASURE AS UNIT_MEASURE,
+                 PO.ITEM_QTY AS ITEM_QTY,
+                 TRUNC(SYSDATE - TO_DATE(PO.RD_DATE,'YYYYMMDD'),0) AS DELAY_DAY,
+                 PR.CHANGE_DATE AS CHANGE_DATE,
+                 PH.PO_CREATE_DATE AS PO_CREATE_DATE,
+                 PO.RD_DATE AS RD_DATE,
+                 DECODE(CMP.AGENT_OPEN_FLAG,'N', '코리아이플랫폼(주)',
+                        (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = PH.AGENT)) AGENT_TEXT,
+                 PH.PURCHASER_NAME AS PURCHASER_NAME,
+                 PR.BUYER AS BUYER,
+                 PR.PR_SEQ AS PR_SEQ,
+                 DECODE(CMP.AGENT_OPEN_FLAG,'N','KRKORE0001',PH.AGENT) AGENT ,
+                 PH.PURCHASER_ID AS PURCHASER_ID,
+                 PR.BYIT_COMORG_CODE AS BYIT_COMORG_CODE,
+                 PO.UNIT_PRICE AS UNIT_PRICE,
+                 TRUNC(NVL(PO.ITEM_QTY * PO.UNIT_PRICE,0)) AS PO_SUM,
+                 PR.RETURN_REASON AS PR_RETURN_REASON,
+                 PO.PO_NO,
+                 PO.GR_QTY,
+                 PO.DI_QTY,
+                 PO.PO_SEQ,
+                 PR.CHANGE_USER_DEPT,
+                 DR.TEXT1 AS REQ_DEPT_NAME,
+                 PR.PURCHASER_DEPT,
+                 DP.TEXT1 AS PURCHASER_DEPT_NAME
+            FROM ICOMPODT PO
+                 INNER JOIN ICOMPOHD PH ON (1 = 1
+                   AND PH.BUYER = PO.BUYER
+                   AND PH.PO_NO = PO.PO_NO
+                   AND PH.PO_CREATE_DATE >= #{st_po_create_year}||'0101'
+                 )
+                 INNER JOIN ICOMPRDT PR ON (1 = 1
+                   AND PR.BUYER          = PO.BUYER
+                   AND PR.PR_NO          = PO.PR_NO
+                   AND PR.PR_SEQ         = PO.PR_SEQ
+                   AND PR.SAVE_FLAG      = 'PX'
+	               AND PR.CHANGE_USER_ID = DECODE((
+	                  			SELECT COUNT(USR.USER_ID) FROM ICOMLUSR USR
+								WHERE USR.USER_ID =#{st_user_id}
+								AND USR.PR_MNG_FLAG= 'Y'),1,PR.CHANGE_USER_ID, #{st_user_id}		 )
+				<if test="st_req_dept_code != null and st_req_dept_code != '' and st_dept_type == 'PO'">
+				   AND PR.PURCHASER_DEPT = #{st_req_dept_code}
+				</if>
+				<if test="st_req_dept_code != null and st_req_dept_code != '' and st_dept_type == 'PR'">
+				   AND PR.CHANGE_USER_DEPT = #{st_req_dept_code}
+				</if>
+                   AND PR.STATUS IN ('C','R')
+                 )
+                 INNER JOIN ICOMCMPY CMP ON (1 = 1
+                   AND CMP.COM_CODE  = PO.BUYER
+                 )
+                 LEFT OUTER JOIN ICOMCOD2 DR ON (1 = 1
+                   AND DR.TYPE = 'C001'
+                   AND DR.CODE = PR.CHANGE_USER_DEPT
+                   AND DR.COMPANY_CODE = PR.BUYER
+                 )
+                 LEFT OUTER JOIN ICOMCOD2 DP ON (1 = 1
+                   AND DP.TYPE = 'C001'
+                   AND DP.CODE = PR.PURCHASER_DEPT
+                   AND DP.COMPANY_CODE = PR.BUYER
+                 )
+		<![CDATA[
+           WHERE PO.BUYER =  #{st_com_code}
+             AND PO.STATUS IN ('C','R')
+             AND PO.RD_DATE < TO_CHAR(SYSDATE, 'YYYYMMDD')
+             AND NVL(PO.GR_QTY,0) < PO.ITEM_QTY
+             AND NVL(PO.DI_QTY,0) < PO.ITEM_QTY
+            ORDER BY CHANGE_DATE
+        )A )S
+ 		]]>  
+		 
+		
+		<include refid="common.ibsheet.xml.jsppageend"/>	
+	</select> 
+	 
+</mapper>

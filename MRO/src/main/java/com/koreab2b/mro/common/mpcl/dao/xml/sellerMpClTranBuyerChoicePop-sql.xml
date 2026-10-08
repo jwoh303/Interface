@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="common.mpcl">
+
+
+	<!-- 무한 스크롤 페이징 지원 (pageNum, pageSize 파라미터 선택적) -->
+	<select id="selectSellerMpClTranBuyerChoicePopList" parameterType="java.util.Map" resultType="java.util.Map">
+		SELECT * FROM (
+			SELECT ROWNUM AS RNUM, A.* FROM (
+				SELECT X.BUYER AS BUYER,
+				       DECODE (SUBSTR (X.BUYER, 7, 1),
+				               'G', (SELECT COMORG_NAME
+				                       FROM BYCAORGL
+				                      WHERE COMORG_CODE = X.BUYER),
+				               (SELECT COM_NAME_LOC
+				                  FROM ICOMCMPY
+				                 WHERE COM_CODE = X.BUYER))
+				          AS BUYER_NAME,
+				       X.CNT AS CNT
+				  FROM ICOMCQDT_BYIT_CNT_MV X
+				 WHERE AGENT = #{com_code}
+				<if test="keyword != null and keyword != ''">
+				   AND DECODE (SUBSTR (X.BUYER, 7, 1),
+				               'G', (SELECT COMORG_NAME FROM BYCAORGL WHERE COMORG_CODE = X.BUYER),
+				               (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = X.BUYER))
+				       LIKE '%'||#{keyword}||'%'
+				</if>
+				 ORDER BY BUYER_NAME
+			) A
+			<if test="pageSize != null">
+				<![CDATA[
+				WHERE ROWNUM <= #{endRow}
+				]]>
+			</if>
+		)
+		<if test="pageSize != null">
+			<![CDATA[
+			WHERE RNUM > #{startRow}
+			]]>
+		</if>
+	</select>
+	
+	<select id="selectSellerMpClTranBuyerChoicePopListBackUp" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*selectSellerMpClTranBuyerChoicePopListBackUp*/
+		SELECT X.BUYER AS BUYER,
+		       DECODE (SUBSTR (X.BUYER, 7, 1),
+		               'G', (SELECT COMORG_NAME
+		                       FROM BYCAORGL
+		                      WHERE COMORG_CODE = X.BUYER),
+		               (SELECT COM_NAME_LOC
+		                  FROM ICOMCMPY
+		                 WHERE COM_CODE = X.BUYER))
+		          AS BUYER_NAME,
+		       X.CNT AS CNT
+		  FROM (  SELECT A.BUYER AS BUYER, COUNT (*) AS CNT
+		            FROM ICOMCQDT A, ICOMBYIT B
+		           WHERE     A.AGENT = #{com_code}
+		                 AND A.BUYER = B.BUYER
+		                 AND A.BUYER_ITEM_NO = B.BUYER_ITEM_NO
+		                 AND B.PRODUCT_CLOSE_FLAG IN ('N', 'T')
+		                 AND A.STATUS <> 'D'
+		                 AND A.STATUS <> 'D'
+		        GROUP BY A.BUYER) X
+			]]>	
+	</select>
+								
+</mapper>

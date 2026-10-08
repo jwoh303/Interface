@@ -1,0 +1,413 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mdcm">
+	<!-- 조회 -->
+	<select id="selectMasterMdCmCatalogRecharterList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.pagestart"/>	
+			<![CDATA[
+			/* selectMasterMdCmCatalogRecharterList */
+			SELECT 
+				A.RC_NO
+				, A.RC_SEQ
+				, A.REVISION
+				, A.AGENT
+				,(SELECT CMPY.COM_NAME_LOC 
+					FROM ICOMCMPY CMPY WHERE CMPY.COM_CODE = A.AGENT) AS AGENT_NM
+				, A.BUYER
+				,(SELECT CMPY.COM_NAME_LOC 
+					FROM ICOMCMPY CMPY WHERE CMPY.COM_CODE = A.BUYER) AS BUYER_NM
+				, A.BYIT_COMORG_CODE
+				, A.BUYER_ITEM_NO
+				, A.CONTRACT_NO
+				, A.CONTRACT_SEQ
+				, A.RC_TYPE
+				, (SELECT COD.TEXT1
+					FROM ICOMCOD1 COD
+					WHERE COD.TYPE = 'RC01'
+					AND COD.CODE = A.RC_TYPE) AS RC_TEXT 
+				, A.ATOB_DATE
+				, A.ATOS_DATE
+				, A.STOA_DATE
+				, A.CLOSE_DATE
+				, A.STOA_CLOSE_DATE
+				, A.STOA_CLOSE_DATE AS STOA_CLOSE_DATE_2 
+				, A.UNIT_PRICE
+				, A.ATOB_UNIT_PRICE
+				, A.LIST_PRICE
+				, A.STOA_LIST_PRICE
+				, A.A_NOTE
+				, B.DESCRIPTION_LOC
+				, B.SPECIFICATION
+				, B.ORIGIN_CODE
+				, (SELECT COD.TEXT2 
+					FROM ICOMCOD1 COD WHERE COD.TYPE = 'M001' AND CODE = B.ORIGIN_CODE) AS ORIGIN_NM
+				, C.MAKER_NAME
+				, C.UNIT_MEASURE
+				, C.MAKER_PART_NO
+				, C.MIN_ORDER_QTY
+				, C.PUR_UNIT_QTY
+				, A.ADD_USER_ID
+				, (SELECT USR.USER_NAME_LOC FROM ICOMLUSR USR WHERE USR.USER_ID = A.ADD_USER_ID) USER_NM
+				, (SELECT USR.PHONE_NUMBER FROM ICOMLUSR USR WHERE USR.USER_ID = A.ADD_USER_ID) USER_PHONE_NUMBER
+				, NVL(D.RATE_GUBUN,'B') AS RATE_GUBUN
+				, NVL(D.RATE, 3) AS RATE
+				, (SELECT USR.USER_NAME_LOC FROM ICOMLUSR USR WHERE USR.USER_ID =  A.STOA_USER_ID) AS STOA_USER_NM
+				, (SELECT USR.PHONE_NUMBER FROM ICOMLUSR USR WHERE USR.USER_ID =  A.STOA_USER_ID) AS STOA_USER_PHONE
+				, (SELECT COD.TEXT1 FROM ICOMCOD1 COD 
+					WHERE COD.TYPE = 'CC01'
+					AND COD.CODE = A.G_NOTE) AS G_NOTE
+				, A.S_NOTE
+				, C.UNIT_PRICE AS RE_UNIT_PRICE
+				, C.LIST_PRICE AS RE_LIST_PRICE
+				, C.SELL_CLOSE_DATE AS RE_TO_DATE
+				, C.BUY_CLOSE_DATE AS RE_BUY_CLOSE_DATE
+				, C.SELL_CLOSE_DATE AS RE_SELL_CLOSE_DATE
+				, C.LAST_PO_DATE
+				, ROUND(((A.STOA_LIST_PRICE - C.LIST_PRICE) / C.LIST_PRICE * 100), 2) AS INCR_RATE
+				, A.UNIT_PRICE_CHANGE_REASON AS UNIT_PRICE_CHANGE_REASON
+				, A.LIST_PRICE_CHANGE_REASON AS LIST_PRICE_CHANGE_REASON
+			FROM KEP_RCDT A, ICOMBYIT B, ICOMCQDT C, KEP_BUYER_RATE D
+			WHERE A.BYIT_COMORG_CODE = B.BUYER
+			AND A.BYIT_COMORG_CODE = C.BUYER
+			AND B.BUYER = C.BUYER
+			AND A.BUYER_ITEM_NO = B.BUYER_ITEM_NO
+			AND A.BUYER_ITEM_NO  = C.BUYER_ITEM_NO
+			AND B.BUYER_ITEM_NO = C.BUYER_ITEM_NO
+			AND A.CONTRACT_NO = C.CONTRACT_NO
+			AND A.CONTRACT_SEQ = C.CONTRACT_SEQ
+			AND A.BUYER = D.BUYER(+)
+			AND B.STATUS != 'D'
+			AND C.STATUS != 'D'
+			AND A.RC_TYPE != 'O'
+			AND A.ATOS_DATE BETWEEN   #{st_from_date} AND #{st_to_date}
+		]]>
+		 <!-- 고객사 -->
+		 <if test="st_buyer_code != null and st_buyer_code != ''">
+			<![CDATA[
+	 			AND A.BUYER = #{st_buyer_code}
+	 		]]>	 
+		 </if>
+		 <!-- 협력사 -->
+		 <if test="st_agent_code != null and st_agent_code != ''">
+			<![CDATA[
+	 			AND A.AGENT = #{st_agent_code}
+	 		]]>	 
+		 </if>
+		 <!-- 품목코드 -->
+		 <if test="st_buyer_item_no != null and st_buyer_item_no != ''">
+			<![CDATA[
+	 			AND A.BUYER_ITEM_NO LIKE '%'||#{st_buyer_item_no}||'%'
+	 		]]>
+	 	</if>
+		 <!-- 진행상태 -->
+		 <if test="st_rc_type != null and st_rc_type != ''">
+			<![CDATA[
+	 			AND A.RC_TYPE = #{st_rc_type}
+	 		]]>	 
+		 </if>
+		 <!-- 요청번호 -->
+		 <if test="st_rc_no != null and st_rc_no != ''">
+			<![CDATA[
+	 			AND A.RC_NO LIKE '%'||#{st_rc_no}||'%'
+	 		]]>	 
+		 </if>
+		 <!-- 품목명 -->
+		 <if test="st_desc != null and st_desc != ''">
+			<![CDATA[
+	 			AND B.DESCRIPTION_LOC LIKE '%'||#{st_desc}||'%'
+	 		]]>	 
+		 </if>
+		 <!-- 규격 -->
+		 <if test="st_sepc != null and st_sepc != ''">
+			<![CDATA[
+	 			AND B.SPECIFICATION LIKE '%'||#{st_sepc}||'%'
+	 		]]>	 
+		 </if>
+		 <!-- 매출단가변경 -->
+		 <if test='st_unit_price_yn != null and st_unit_price_yn != "ALL"'>
+			<![CDATA[
+	 			AND DECODE(C.UNIT_PRICE,A.ATOB_UNIT_PRICE,'N','Y') = #{st_unit_price_yn}
+	 		]]>	 
+		 </if>
+		 <!-- 매입단가변경 -->
+		 <if test='st_price_yn != null and st_price_yn != "ALL"'>
+			<![CDATA[
+	 			AND DECODE(C.LIST_PRICE,A.STOA_LIST_PRICE,'N','Y') = #{st_price_yn}
+	 		]]>	 
+		 </if>
+		 <!-- 담당자 검색조건 -->
+		 <if test="st_mng_id != null and st_mng_id != ''">
+			<![CDATA[
+	 			AND A.ADD_USER_ID = #{st_mng_id}
+	 		]]>	 
+		 </if>
+		 <!-- 매입단가 인상율 -->
+		 <if test="st_incr_rate != null and st_incr_rate != ''">
+		 	<if test='st_incr_type == "U"'>
+		 		<![CDATA[
+	 				AND ROUND(((A.STOA_LIST_PRICE - C.LIST_PRICE) / C.LIST_PRICE * 100), 2) >= #{st_incr_rate}
+	 			]]>
+		 	</if>
+			<if test='st_incr_type == "D"'>
+		 		<![CDATA[
+	 				AND ROUND(((A.STOA_LIST_PRICE - C.LIST_PRICE) / C.LIST_PRICE * 100), 2) <= #{st_incr_rate}
+	 			]]>
+		 	</if>	 
+		 </if> 
+		 <![CDATA[
+			ORDER BY  A.RC_NO, A.RC_SEQ
+	 	]]>	
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+	<!-- 재계약 저장 -->
+	<update id="saveMasterMdCmCatalogRecharter" parameterType="java.util.Map">
+		<![CDATA[
+		 /*saveMasterMdCmCatalogRecharter*/
+		 	UPDATE KEP_RCDT A                                   
+               SET CHANGE_DATE= SYSDATE
+                   , ATOB_UNIT_PRICE = #{ATOB_UNIT_PRICE}
+                   , UNIT_PRICE_CHANGE_REASON = #{UNIT_PRICE_CHANGE_REASON}
+             WHERE A.RC_NO = #{RC_NO}
+               AND A.RC_SEQ = #{RC_SEQ}
+               AND A.REVISION = #{REVISION}    
+               AND A.AGENT = #{AGENT}
+               AND A.BUYER = #{BUYER}                       	 		 										   
+		]]>
+	</update>
+	<!-- 재계약 저장 -->
+	<update id="cancleMasterMdCmCatalogRecharter" parameterType="java.util.Map">
+		<![CDATA[
+		 /*cancleMasterMdCmCatalogRecharter*/
+		 	UPDATE KEP_RCDT A                                   
+               SET CHANGE_DATE= SYSDATE
+                   , CHANGE_USER_ID = #{st_user_id}
+                   ,  RC_TYPE = 'D'
+             WHERE A.RC_NO = #{RC_NO}
+               AND A.RC_SEQ = #{RC_SEQ}
+               AND A.REVISION = #{REVISION}    
+               AND A.AGENT = #{AGENT}
+               AND A.BUYER = #{BUYER}                       	 		 										   
+		]]>
+	</update>
+	<!-- 재계약 기존차수 종결 -->
+	<update id="updateMasterMdCmCatalogRecharterRevision" parameterType="java.util.Map">
+		<![CDATA[
+		 /*updateMasterMdCmCatalogRecharterRevision*/
+		 	UPDATE KEP_RCDT A                                   
+               SET CHANGE_DATE= SYSDATE
+                   , CHANGE_USER_ID = #{st_user_id}
+                   ,  RC_TYPE = 'O'
+             WHERE A.RC_NO = #{RC_NO}
+               AND A.RC_SEQ = #{RC_SEQ}
+               AND A.REVISION = #{REVISION}    
+               AND A.AGENT = #{AGENT}
+               AND A.BUYER = #{BUYER}                       	 		 										   
+		]]>
+	</update>
+	<!-- 재계약 차수추가하여 재요청 -->
+	<update id="insertMasterMdCmCatalogRecharterRevision" parameterType="java.util.Map">
+		<![CDATA[
+		 /*insertMasterMdCmCatalogRecharterRevision*/
+		  INSERT INTO KEP_RCDT
+		  ( RC_NO
+		  , RC_SEQ
+		  , REVISION
+		  , AGENT
+		  , BUYER
+		  , BYIT_COMORG_CODE
+		  , BUYER_ITEM_NO
+		  , CONTRACT_NO
+		  , CONTRACT_SEQ
+		  , RC_TYPE
+		  , ATOB_DATE
+		  , ATOS_DATE
+		  , CLOSE_DATE
+		  , STOA_CLOSE_DATE
+		  , STOA_LIST_PRICE
+		  , A_NOTE
+		  , ADD_DATE
+		  , ADD_USER_ID
+		  , CHANGE_DATE
+		  , CHANGE_USER_ID
+		  ) VALUES
+		  (
+		    #{RC_NO}
+		    , #{RC_SEQ}
+		    , (SELECT MAX(RCDT.REVISION)+1 FROM KEP_RCDT RCDT
+				WHERE RCDT.RC_NO = #{RC_NO}
+				AND RCDT.RC_SEQ = #{RC_SEQ})
+		    , #{AGENT}
+		    , #{BUYER}
+		    , #{BYIT_COMORG_CODE}
+		    , #{BUYER_ITEM_NO}
+		    , #{CONTRACT_NO}
+		    , #{CONTRACT_SEQ}
+		    , 'C'
+		    , #{ATOB_DATE}
+		    , TO_CHAR(SYSDATE, 'YYYYMMDD')
+		    , #{CLOSE_DATE}
+		    , #{STOA_CLOSE_DATE}
+		    , #{LIST_PRICE}
+		    , #{A_NOTE}
+		    , SYSDATE
+		    , #{st_user_id}
+		    , SYSDATE
+		    , #{st_user_id}
+		  )
+		]]>
+	</update>
+	<!-- KEPMGPDT 결재임시 상태건 삭제(데이터 정리용) -->
+	<update id="deleteMasterMdCmKepmgpdtRecharter" parameterType="java.util.Map">
+		<![CDATA[
+		 /*deleteMasterMdCmKepmgpdtRecharter*/
+		 	UPDATE KEPMGPDT A                                   
+               SET CHANGE_DATE= SYSDATE
+                   ,  STATUS = 'D'
+             WHERE A.BUYER = #{BUYER}
+               AND A.QUOTATION_NO = #{RC_NO}
+               AND A.QUOTATION_SEQ = #{RC_SEQ}
+               AND A.REVISION = #{REVISION}    
+               AND A.BUYER_ITEM_NO = #{BUYER_ITEM_NO}
+               AND A.STATUS = 'C'                    	 		 										   
+		]]>
+	</update>
+	<!-- KEPMGPHD 결재임시 상태건 삭제(데이터 정리용) -->
+	<update id="deleteMasterMdCmKepmghhdRecharter" parameterType="java.util.Map">
+		<![CDATA[
+		 /*deleteMasterMdCmKepmghhdRecharter*/
+		 	UPDATE KEPMGPHD A                                   
+               SET CHANGE_DATE= SYSDATE
+                   ,  STATUS = 'D'
+             WHERE (A.BUYER, A.PM_NO) IN (
+             	SELECT B.BUYER, B.PM_NO FROM KEPMGPDT B
+             	WHERE B.BUYER = #{BUYER}
+               AND B.QUOTATION_NO = #{RC_NO}
+               AND B.QUOTATION_SEQ = #{RC_SEQ}
+               AND B.REVISION = #{REVISION}    
+               AND B.BUYER_ITEM_NO = #{BUYER_ITEM_NO}
+               AND B.STATUS = 'D'    
+             )
+		]]>
+	</update>
+	<!-- 단가반영요청 상태업데이트 -->
+	<update id="approvalMasterMdCmCatalogRecharter" parameterType="java.util.Map">
+		<![CDATA[
+		 /*approvalMasterMdCmCatalogRecharter*/
+		 	UPDATE KEP_RCDT A                                   
+               SET CHANGE_DATE= SYSDATE
+                   , CHANGE_USER_ID = #{st_user_id}
+                   ,  RC_TYPE = 'W'
+             WHERE A.RC_NO = #{RC_NO}
+               AND A.RC_SEQ = #{RC_SEQ}
+               AND A.REVISION = #{REVISION}    
+               AND A.AGENT = #{AGENT}
+               AND A.BUYER = #{BUYER}                       	 		 										   
+		]]>
+	</update>
+	<!-- 단가반영요청 상태업데이트 -->
+	<update  id="insertMasterMdCmKepmgpdtRecharter" parameterType="java.util.Map" >
+		<![CDATA[
+	/*insertMasterMdCmKepmgpdtRecharter*/
+     INSERT INTO KEPMGPDT (  
+                                 BUYER,             
+                                 PM_NO,             
+                                 PM_SEQ,            
+                                 STATUS,            
+                                 REG_DATE,          
+                                 CHANGE_DATE,       
+                                 REG_USER_ID,       
+                                 BUYER_ITEM_NO,     
+                                 AGENT,             
+                                 RE_UNIT_PRICE,     
+                                 CH_UNIT_PRICE,     
+                                 RE_LIST_PRICE,     
+                                 CH_LIST_PRICE,     
+                                 QUOTATION_NO,
+                                 QUOTATION_SEQ,
+                                 REVISION,            
+		                         PA_FLAG,            
+		                         CONTRACT_NO,            
+		                         CONTRACT_SEQ ,           
+		                         RE_AGENT	,
+		                         RE_DESCRIPTION ,			
+		                         RE_SPECIFICATION ,			
+		                         RE_UNIT_MEASURE,
+		                         RE_TO_DATE,
+		                         CH_TO_DATE,
+		                         RE_SELL_CLOSE_DATE,
+		                         CH_SELL_CLOSE_DATE,
+		                         RE_BUY_CLOSE_DATE,
+		                         CH_BUY_CLOSE_DATE,
+		                         UNIT_PRICE_CHANGE_REASON,
+		                         LIST_PRICE_CHANGE_REASON
+                               ) VALUES (  
+                                          #{BUYER},                           --[01] BUYER				
+                                          #{PM_NO},                           --[02] PM_NO				
+                                          TO_CHAR(#{PM_SEQ},'FM000000'),       --[03] PM_SEQ				
+                                          'C',                         -- STATUS					  
+                                          SYSDATE,                     -- REG_DATE				
+                                          SYSDATE,                     -- CHANGE_DATE				
+                                          #{st_user_id},                           --[04] REG_USER_ID			
+                                          #{BUYER_ITEM_NO},                           --[05] BUYER_ITEM_NO		
+                                          #{AGENT},                           --[06] AGENT
+                                          #{RE_UNIT_PRICE},                           --[07] RE_UNIT_PRICE		
+                                          #{ATOB_UNIT_PRICE},                           --[08] CH_UNIT_PRICE		
+                                          #{RE_LIST_PRICE},                           --[09] RE_LIST_PRICE		
+                                          #{LIST_PRICE},                           --[10] CH_LIST_PRICE		
+                                          #{RC_NO},                           --[13] RC_NO				
+                                          #{RC_SEQ},                           --[14] RC_SEQ
+                                          #{REVISION},                           --[15] REVISION				
+										   DECODE('Y', 'N','N','Y',DECODE(#{RE_UNIT_PRICE},#{ATOB_UNIT_PRICE},'N','Y')),	        --[16] PA_FLAG, [17] RE_UNIT_PRICE, [18] CH_UNIT_PRICE pa_flag : Y 경우, 매출단가 변경시 구매사 결재 필요
+                                          #{CONTRACT_NO},                           --[21] CONTRACT_NO		
+                                          #{CONTRACT_SEQ},                            --[22] CONTRACT_SEQ		
+                                           #{AGENT},   -- RE_AGENT                         
+                                           #{DESCRIPTION_LOC} , -- DESCRIPTION
+                                           #{SPECIFICATION} , -- SPECIFICATION
+                                           #{UNIT_MEASURE},
+                                           #{RE_TO_DATE},
+                                           #{STOA_CLOSE_DATE},
+                                           #{RE_SELL_CLOSE_DATE},
+                                           #{STOA_CLOSE_DATE},
+                                           #{RE_BUY_CLOSE_DATE},
+                                           #{STOA_CLOSE_DATE},
+                                           #{UNIT_PRICE_CHANGE_REASON},
+                                           #{LIST_PRICE_CHANGE_REASON}
+                                        )  
+  		]]>
+	</update>
+	<update  id="insertMasterMdCmKepmgphdRecharter" parameterType="java.util.Map" >
+		<![CDATA[
+		/*insertMasterMdCmKepmgphdRecharter*/		
+          INSERT INTO KEPMGPHD (  
+                                 BUYER,              
+                                 PM_NO,              
+                                 STATUS,             
+                                 REG_DATE,           
+                                 CHANGE_DATE,        
+                                 REG_USER_ID,        
+                                 REG_USER_DEPT,      
+                                 GUBUN,              
+                                 CA_FLAG,            
+                                 SUBJECT,            
+                                 REMARK,             
+                                 BUYER_SUBJECT,      
+                                 BUYER_REMARK        
+                               ) VALUES (  
+                                          #{BUYER},         --[01] BUYER
+                                          #{PM_NO},         --[02] PM_NO
+                                          'C',       --     STATUS
+                                          SYSDATE,   --     REG_DATE
+                                          SYSDATE,   --     CHANGE_DATE
+                                          #{st_user_id},         --[03] REG_USER_ID
+                                          #{st_dept_cd},         --[04] REG_USER_DEPT
+                                          'RCT',         --[05] GUBUN
+                                          'N',         --[06] CA_FLAG 카탈로그 변경
+                                          '카탈로그 재계약 관리',         --[07] SUBJEC 고객사결재테이블로 통합으로 인하여 사용안함
+                                           '카탈로그 재계약 관리',            --[08] REMARK 고객사결재테이블로 통합으로 인하여 사용안함
+		                                   '카탈로그 재계약 관리',            --[09] BUYER_SUBJECT 고객사결재테이블로 통합으로 인하여 사용안함
+		                                   '카탈로그 재계약 관리'      --[10] BUYER_REMARK 고객사결재테이블로 통합으로 인하여 사용안함
+                                        )   
+		]]>
+	</update>
+</mapper>   
+   

@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mpif">
+	
+	<!-- 조회 -->
+	<select id="selectMasterMpIfBefrList" parameterType="java.util.Map" resultType="java.util.Map">
+	/*selectMasterMpIfBefrList*/
+		<include refid="common.ibsheet.xml.pagestart"/>	
+		<![CDATA[
+            SELECT
+                X.STATUS_NM /* 진행상태명 */
+              , X.COM_NAME_LOC /* 구매회사명 */
+              , X.KEPT_DEPT_CODE /* 담당부서명 */
+              , X.GUBUN_NM /* 분류명 */
+              , X.LEGACY_NUM /* 분류코드 */
+              , X.TOT_CNT /* 총건수 */
+              , X.TOT_AMT /* 총금액 */
+              , X.STD_CNT /* 정상건수 */
+              , X.ERR_CNT /* 오류건수 */
+              , X.CHANGE_DT /* 오류발생일시 */
+              , X.CONFIRM_DT /* 확인일시 */
+              , X.ERR_MSG /* 오류내용 */
+              , X.REMARK /* 비고란 */
+              , X.ADD_DATE /* 발주일 */
+              , X.CHANGE_DATE /* 수신일 */
+              , X.BUYER /* 구매사 */
+              , X.IF_FLAG /* 진행상태 */
+              , X.CHANGE_USER_ID
+              , X.REVISION /* 차수 */
+              , X.STATUS /* 진행상태코드 */
+              , X.COM_CODE /* 회원사코드 */
+              , (SELECT MIN(INVOICE_DATE) FROM IF_IVDT WHERE BUYER = X.BUYER AND LEGACY_IV_NO = X.LEGACY_NO AND STATUS <> 'D') AS INVOICE_DATE /* 납품예정일 */
+              , X.PROG_STATUS /* 상태 */
+            FROM
+            (
+                SELECT 
+                    DECODE(A.IF_FLAG,'A','미확인','E','미확인','N','확인','C','작업진행','T','작업대기','기타') AS STATUS_NM
+                  , C.COM_NAME_LOC           AS COM_NAME_LOC
+                  , E.TEXT1                  AS KEPT_DEPT_CODE
+                  , DECODE(A.GUBUN,'RE','소싱','PO','발주','IV','납품','GR','입고','XX','기타','기타외') AS GUBUN_NM
+                  , A.LEGACY_NO              AS LEGACY_NUM
+                  , A.TOT_CNT                AS TOT_CNT
+                  , A.TOT_AMT                AS TOT_AMT
+                  , (A.TOT_CNT - A.ERR_CNT)  AS STD_CNT
+                  , A.ERR_CNT                AS ERR_CNT
+                  , TRIM(A.CHANGE_DATE) ||TRIM(A.CHANGE_TIME) AS CHANGE_DT
+                  , TRIM(A.CONFIRM_DATE)||TRIM(A.CONFIRM_TIME) AS CONFIRM_DT
+                  , A.ERR_MSG                AS ERR_MSG
+                  , A.REMARK                 AS REMARK
+                  , TRIM(A.ADD_DATE)         AS ADD_DATE
+                  , TRIM(A.CHANGE_DATE)      AS CHANGE_DATE
+                  , A.BUYER                  AS BUYER
+                  , A.IF_FLAG                AS IF_FLAG
+                  , C.CHANGE_USER_ID         AS CHANGE_USER_ID
+                  , A.REVISION               AS REVISION
+                  , DECODE(IF_FLAG,'A','2','E','2','N','0','C','1','T','6') AS STATUS
+                  , C.COM_CODE AS COM_CODE
+                  , A.STATUS AS PROG_STATUS
+                  , A.LEGACY_NO
+                FROM 
+                    IF_PROGRESS A /* 오류 현황 메인 */
+                    INNER JOIN ICOMCMPY C /* 회원사정보 */
+                        ON (C.COM_CODE = A.BUYER)
+                    INNER JOIN
+                    (  
+                        SELECT DISTINCT 
+                            BUYER
+                          , KEP_DEPT
+                        FROM 
+                            MIS_BUYER_MNG /* 고객사별 담당자 정보 */
+                        WHERE 1 = 1
+                        AND YEAR = TO_CHAR(SYSDATE,'YYYY')
+                        AND STATUS = 'C'
+                  --      AND PRIORITY = 'Y'
+		]]>
+		<if test="buyer_code_array != null and buyer_code_array != '' ">
+						AND BUYER IN
+			<foreach item="item" index="index" collection="buyer_code_array" open="(" separator="," close=")">
+			    		    #{item}
+			</foreach>
+		</if>
+		<if test="st_user_dept != null and st_user_dept != '' ">
+						AND KEP_DEPT = #{st_user_dept}
+		</if>
+        <if test='st_user_check_value == "N" '>
+						AND KEP_USER_ID = #{st_user_id}
+		</if>
+		<![CDATA[
+                    ) D ON (D.BUYER = A.BUYER)
+                    INNER JOIN IF_ADMIN B /* 구매사별 KeP담당자 */
+                        ON (B.BUYER = D.BUYER)
+                    INNER JOIN ICOMCOD2 E /* 회사별 코드관리 */
+                        ON (E.COMPANY_CODE = 'KRKORE0001'
+                        AND E.TYPE         = 'C001'
+                        AND E.CODE         = D.KEP_DEPT)
+                WHERE 1=1
+                AND A.IF_FLAG IN ('A','N','T','C','E') /* Y:정상, Z:최초실행 */
+                AND A.GUBUN = 'XX'
+                ORDER BY 
+                    A.BUYER
+                  , A.GUBUN
+                  , A.LEGACY_NO
+            ) X
+		]]>
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+
+</mapper>   
+   

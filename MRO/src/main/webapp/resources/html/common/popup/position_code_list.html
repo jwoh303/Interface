@@ -1,0 +1,344 @@
+
+
+<div class="DIVpopup-overlay" id="DIVpopupOverlay"></div>
+<div class="DIVpopup" id="DIVpopup" style="width:480px;">
+  <div class="wrapPopup" style="padding:40px 20px;">
+    <div class="PopupTit">직급 검색<span><a href="#" id="DIVclosePopup"><img src="/resources/imgs/Icon_close.png" /></a></span></div>
+    <div class="PopupTxt mt15 mb02" id="totalCountArea">총 <span id="totalCount">0</span>건</div>
+
+    <!-- 결과 테이블 -->
+    <div id="tableArea" style="min-height:260px;">
+      <table class="ComPopupTableT01" id="positionCodeTable" style="width:100%;">
+        <colgroup>
+          <col style="width:30%;" />
+          <col style="width:50%;" />
+          <col style="width:20%;" />
+        </colgroup>
+        <thead>
+          <tr>
+            <th>직급코드</th>
+            <th>직급명</th>
+            <th>선택</th>
+          </tr>
+        </thead>
+        <tbody id="positionCodeTableBody">
+        </tbody>
+      </table>
+    </div>
+  </div><!-- wrapPopup -->
+</div>
+
+<style>
+/* PopupTit - buyer_base.css */
+.wrapPopup .PopupTit {
+  position: relative;
+  height: 35px;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  color: #090A10;
+  vertical-align: top;
+}
+.wrapPopup .PopupTit span {
+  position: absolute;
+  right: 0;
+}
+.wrapPopup .PopupTit span img {
+  width: 24px;
+  height: 24px;
+}
+
+/* PopupTxt - buyer_base.css */
+.wrapPopup .PopupTxt {
+  font-size: 15px;
+  font-weight: 400;
+  letter-spacing: -0.2px;
+}
+
+/* ComPopupTableT01 - buyer_base.css */
+.ComPopupTableT01 {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+.ComPopupTableT01 thead {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+.ComPopupTableT01 th {
+  height: 38px;
+  line-height: 38px;
+  text-align: center;
+  font-size: 15px;
+  font-weight: 400;
+  letter-spacing: -0.8px;
+  color: #5B5C61;
+  vertical-align: top;
+  border-top: 1px solid #c5d1e2;
+  border-bottom: 1px solid #dedede;
+  border-left: 1px solid #dedede;
+  background-color: #f2f7ff;
+}
+.ComPopupTableT01 th:first-child {
+  border-left: 0px;
+}
+.ComPopupTableT01 td {
+  height: 30px;
+  line-height: 30px;
+  padding: 0 10px;
+  font-size: 15px;
+  font-weight: 400;
+  letter-spacing: -0.5px;
+  color: #404046;
+  text-align: center;
+  border-bottom: 1px solid #dedede;
+  border-left: 1px solid #dedede;
+  background-color: #fff;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ComPopupTableT01 td:first-child {
+  border-left: 0px;
+}
+.ComPopupTableT01 td:nth-child(2) {
+  text-align: left;
+}
+.ComPopupTableT01 tr:hover {
+  cursor: pointer;
+  background-color: #F7FAE6;
+}
+
+/* ButOutline_Tiny - buyer_base.css */
+.ComPopupTableT01 .ButOutline_Tiny {
+  height: 24px;
+  line-height: 23px;
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: -0.2px;
+  color: #404046;
+  background-color: #fff;
+  border: 1px solid #DEDEDE;
+  border-radius: 6px;
+  cursor: pointer;
+  vertical-align: middle;
+}
+.ComPopupTableT01 .ButOutline_Tiny:hover {
+  color: #404046;
+  border: 1px solid #DEDEDE;
+  background: #f6f6f6;
+}
+
+/* NoData - buyer_base.css */
+.NoData {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+  color: #5B5C61;
+  text-align: center;
+}
+.NoData img {
+  width: 80px;
+  height: 80px;
+}
+</style>
+
+<script type="text/javascript">
+/**
+ * 직급 검색 팝업 API
+ * PopupUtil에서 window.createPopupAPI를 자동 호출
+ */
+window.createPopupAPI = function(overlayId, containerId, options) {
+    var $overlay = $('#' + overlayId);
+    var $container = $('#' + containerId);
+    var selectCallback = null;
+    var animationType = $container.data('animationType') || 'default';
+
+    // options에서 com_code, type 수신
+    var comCode = (options && options.data && options.data.com_code) || '';
+    var type = (options && options.data && options.data.type) || 'C003';
+
+    // 데이터 관련
+    var allData = [];
+
+    // DOM 참조
+    var $positionCodeTable = $container.find('#positionCodeTable');
+    var $positionCodeTableBody = $container.find('#positionCodeTableBody');
+    var $totalCountArea = $container.find('#totalCountArea');
+    var $totalCount = $container.find('#totalCount');
+
+    var api = {};
+
+    /**
+     * 팝업 닫기
+     */
+    function close() {
+        var $popup = $container.find('.DIVpopup');
+        if ($popup.hasClass('popup-button-exit') || $popup.hasClass('popup-exit')) {
+            return;
+        }
+        var exitClass = animationType === 'fromButton' ? 'popup-button-exit' : 'popup-exit';
+        var animationDuration = animationType === 'fromButton' ? 1000 : 200;
+
+        $popup.removeClass('popup-enter popup-button-enter').addClass(exitClass);
+        $overlay.removeClass('popup-enter').addClass('popup-exit');
+
+        setTimeout(function() {
+            $overlay.remove();
+            $container.remove();
+
+            if ($('[id^="popup-overlay-"]').length === 0) {
+                var scrollY = $('body').data('scrollY') || 0;
+                $('body').css({
+                    'position': '',
+                    'top': '',
+                    'left': '',
+                    'right': '',
+                    'overflow-y': ''
+                });
+                window.scrollTo(0, scrollY);
+            }
+        }, animationDuration);
+    }
+
+    /**
+     * 선택 콜백 설정 (체이닝)
+     */
+    function onSelect(callback) {
+        selectCallback = callback;
+        return api;
+    }
+
+    /**
+     * NoData 표시 (테이블 tbody 내부)
+     */
+    function showNoData(message) {
+        $positionCodeTable.show();
+        $positionCodeTableBody.html(
+            '<tr><td colspan="3"><div class="NoData mt50 mb50">' +
+            '<img src="/resources/imgs/Icon_Warning01.png" alt="경고" /><br/>' +
+            (message || '조회된 데이터가 없습니다.') +
+            '</div></td></tr>'
+        );
+    }
+
+    /**
+     * 직급코드 조회
+     */
+    function searchPositionCode() {
+        var params = {
+            codeGubun: 'positionCodePop',
+            com_code: comCode,
+            type: type
+        };
+
+        // 로딩 표시
+        $positionCodeTableBody.html(
+            '<tr><td colspan="3" style="height:200px; text-align:center; color:#999;">' +
+            '<img src="/resources/libs/ibsheet7/js/DeepBlue/90px.gif" alt="로딩중..." />' +
+            '</td></tr>'
+        );
+        $positionCodeTable.show();
+
+        HttpUtil.post('/common/getPositionCodePop_v2.do', params, {
+            showLoader: false,
+            showDefaultAlert: false
+        }).then(function(response) {
+            var result = response.data || {};
+            allData = result.data || [];
+            var totalCount = allData.length;
+
+            if (totalCount > 0) {
+                $totalCountArea.show();
+                $totalCount.text(totalCount);
+                renderTable();
+            } else {
+                $totalCountArea.show();
+                $totalCount.text('0');
+                showNoData('조회된 데이터가 없습니다.');
+            }
+        }).catch(function(error) {
+            console.error('[PositionCodePopup] 조회 실패:', error);
+            showNoData('조회된 데이터가 없습니다.');
+            alert(error.userMessage || '직급 정보를 불러오는 중 오류가 발생했습니다.');
+        });
+    }
+
+    /**
+     * 테이블 렌더링 (전체 목록, 페이징 없음)
+     */
+    function renderTable() {
+        $positionCodeTableBody.empty();
+
+        for (var i = 0; i < allData.length; i++) {
+            var row = allData[i];
+            var tr = '<tr data-index="' + i + '">' +
+                     '<td>' + (row.CODE || '') + '</td>' +
+                     '<td>' + (row.TEXT1 || '') + '</td>' +
+                     '<td><button type="button" class="ButOutline_Tiny btn-select" data-index="' + i + '">선택</button></td>' +
+                     '</tr>';
+            $positionCodeTableBody.append(tr);
+        }
+    }
+
+    /**
+     * 행 선택 처리
+     */
+    function selectRow(index) {
+        var row = allData[index];
+        if (!row) return;
+
+        if (selectCallback) {
+            selectCallback(row);
+        }
+        close();
+    }
+
+    /**
+     * 이벤트 바인딩
+     */
+    function bindEvents() {
+        // 닫기 버튼
+        $container.find('#DIVclosePopup').on('click', function(e) {
+            e.preventDefault();
+            close();
+        });
+
+        // 오버레이 클릭
+        $overlay.on('click', function() {
+            close();
+        });
+
+        // 선택 버튼 (이벤트 위임)
+        $positionCodeTableBody.on('click', '.btn-select', function(e) {
+            e.stopPropagation();
+            var idx = parseInt($(this).data('index'));
+            selectRow(idx);
+        });
+
+        // 행 클릭으로 선택
+        $positionCodeTableBody.on('click', 'tr', function() {
+            var idx = parseInt($(this).data('index'));
+            if (!isNaN(idx)) {
+                selectRow(idx);
+            }
+        });
+    }
+
+    // API 공개 메서드
+    api.close = close;
+    api.onSelect = onSelect;
+    api.$overlay = $overlay;
+    api.$container = $container;
+
+    // 자동 초기화
+    bindEvents();
+
+    // 팝업 오픈 시 즉시 데이터 로드
+    searchPositionCode();
+
+    return api;
+};
+</script>

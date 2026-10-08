@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.wmst">
+	<!-- 조회 -->
+	<select id="selectMasterWmStStockMovemntList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.pagestart"/>	
+			<![CDATA[
+		    	SELECT
+					A.MOVE_NO,																																					/* 재고이동요청번호 */
+					A.MOVE_SEQ,																																				/* 재고이동요청순번 */
+					A.WAREHOUSE_CODE_FR,																																	/* 출발물류센터 */
+					(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = A.WAREHOUSE_CODE_FR) AS WAREHOUSE_CODE_FR_TEXT,		/* 출발물류센터 */   
+					A.WAREHOUSE_CODE_TO,																																	/* 도착물류센터 */
+					(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = A.WAREHOUSE_CODE_TO) AS WAREHOUSE_CODE_TO_TEXT,		/* 출발물류센터 */
+					A.STATUS,																																					/* 진행상태 */
+					CASE
+						WHEN A.STATUS = '1' THEN '이동요청'
+						WHEN A.STATUS = '2' THEN '이동출고'
+						WHEN A.STATUS = '3' THEN '이동입고'
+						WHEN A.STATUS = '9' THEN '요청취소'
+					END STATUS_TEXT,																																			/* 진행상태 */
+					CASE
+						WHEN A.STATUS = '1' THEN '0'
+						WHEN A.STATUS = '2' THEN '1'
+						WHEN A.STATUS = '3' THEN '1'
+						WHEN A.STATUS = '9' THEN '0'
+					END STATUS_IMG,																																			/* RD 호출 상태 */
+					A.STDCATLG_ID,																																				/* 품목코드 */   
+					B.DESCRIPTION,																																				/* 품목명 */ 
+					B.SPECIFICATION,																																			/* 규격 */ 
+					B.UNIT_MEASURE,
+					A.REQ_QTY,																																					/* 이동요청수량 */
+					A.REQ_DATE,																																					/* 이동요청일자 */
+					A.REQ_TIME,																																					/* 이동요청시간 */
+					A.REQ_USER_ID,
+					(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = A.REQ_USER_ID) AS REQ_USER_NM,										/* 이동요청자 */    
+					A.INV_QTY,																																					/* 이동출고수량 */        
+					A.INV_DATE,																																					/* 이동출고일자 */
+					DECODE(A.INV_TIME, NULL, '', (SUBSTR(A.INV_TIME,0,2) || ':' || SUBSTR(A.INV_TIME,3,2))) INV_TIME,											/* 이동출고시간 */
+					(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = A.INV_USER_ID) AS INV_USER_NM,											/* 이동출고자자 */
+					A.GR_QTY,																																					/* 이동입고수량 */
+					A.GR_DATE,																																					/* 이동입고일자 */
+					DECODE(A.GR_TIME, NULL, '', (SUBSTR(A.GR_TIME,0,2) || ':' || SUBSTR(A.GR_TIME,3,2))) GR_TIME,												/* 이동입고시간 */
+					(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = A.GR_USER_ID) AS GR_USER_NM,											/* 이동입고자 */
+					A.ADD_DATE,
+					DECODE(A.ADD_TIME, NULL, '', (SUBSTR(A.ADD_TIME,0,2) || ':' || SUBSTR(A.ADD_TIME,3,2))) ADD_TIME,										/*이동요청등록시간 */
+					B.CONTRACT_NO,
+                    B.CONTRACT_SEQ,
+					A.MOVE_REMARK																																			/* 비고 */
+				FROM BNTWMSMOVE A, ICOMCQDT B
+				WHERE 1=1         
+				AND (SELECT DISTINCT ORG_WAREHOUSE_CODE FROM WMSSTCK WHERE STDCATLG_ID = A.STDCATLG_ID AND WAREHOUSE_CODE = A.WAREHOUSE_CODE_FR) = B.BUYER
+				AND A.STDCATLG_ID = B.BUYER_ITEM_NO      
+			]]>
+			
+			<choose>
+				<when test = ' st_gubun == "F" ' >
+					<if test="st_warehouse_code != null and st_warehouse_code != ''">
+					AND A.WAREHOUSE_CODE_FR = #{st_warehouse_code}																								/* 조회조건(출발물류센터) */	
+					</if>
+				</when>
+				<when test= ' st_gubun == "T" ' >
+					<if test="st_warehouse_code != null and st_warehouse_code != ''">
+					AND A.WAREHOUSE_CODE_TO = #{st_warehouse_code}																								/* 조회조건(도착물류센터) */	
+					</if>
+				</when>
+				<otherwise>
+				</otherwise>
+			</choose>
+			<if test="st_move_no != null and st_move_no != ''">
+				AND A.MOVE_NO LIKE '%'	 || #{st_move_no} || '%'																										/* 조회조건(출고번호) */	
+			</if>
+			<if test="st_from_date != null and st_from_date != ''  and st_to_date != null and st_to_date != ''   "  >
+				 AND A.REQ_DATE BETWEEN #{st_from_date} AND #{st_to_date}																						/* 조회조건(요청일자) */
+			</if>
+			<if test="st_req_user_id != null and st_req_user_id != ''">
+				AND A.REQ_USER_ID LIKE '%'	 || #{st_req_user_id} || '%' 																									/* 조회조건(출발물류센터) */	
+			</if>
+			<if test="st_stdcatlg_id != null and st_stdcatlg_id != ''">
+				AND A.STDCATLG_ID LIKE '%'	 || #{st_stdcatlg_id} || '%'																									/* 조회조건(품목코드) */	
+			</if>
+			<if test="st_description != null and st_description != ''">
+				AND B.DESCRIPTION LIKE '%'	 || #{st_description} || '%'																									/* 조회조건(품목명) */	
+			</if>
+			<if test="st_status != null and st_status != ''">
+				AND A.STATUS = #{st_status}																																	/* 조회조건(진행상태) */	
+			</if>
+				ORDER BY A.MOVE_NO, A.MOVE_SEQ, A.WAREHOUSE_CODE_FR, A.WAREHOUSE_CODE_TO, A.STDCATLG_ID
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+
+
+	<update  id="insertMasterWmStStockMovemnt" parameterType="java.util.Map" >
+		<![CDATA[
+				INSERT INTO	KEPQTDT					
+				(									
+					BUYER,							
+					QUOTATION_NO,					
+					QUOTATION_SEQ,					
+					REVISION,						
+					AGENT,							
+					AGENT_REVISION,					
+					STATUS,							
+					BUYER_ITEM_NO,					
+					DESCRIPTION,					
+					SPECIFICATION,					
+					UNIT_MEASURE,					
+					MAKER_NAME,						
+					ORIGIN_NAME,					
+					ATOS_DATE,						
+					ATOS_END_DATE,					
+					ATOS_END_TIME,					
+					ITEM_QTY,						
+					IMAGE_KEY,						
+					DSS_FLAG,						
+					DSS_CHOICE						
+				)									
+				(									
+				SELECT								
+					#{BUYER},									/* 1 : BUYER */
+					#{QUOTATION_NO},									/* 2 : QUOTATION_NO */
+					#{QUOTATION_SEQ},									/* 3 : QUOTATION_SEQ */
+					#{REVISION},									/* 4 : REVISION */
+					#{AGENT},									/* 5 : AGENT */
+					#{AGENT_REVISION},								/* 6 : AGENT_REVISION */
+					'C',						
+					BUYER_ITEM_NO,				
+					DESCRIPTION,				
+					SPECIFICATION,				
+					UNIT_MEASURE,				
+					MAKER_NAME,					
+					ORIGIN_CODE,				
+					TO_CHAR(SYSDATE, 'YYYYMMDD')AS ATOS_DATE,
+					#{ATOS_END_DATE},								/* 7 : ATOS_END_DATE */
+					#{ATOS_END_TIME},								/* 8 : ATOS_END_TIME */
+					ITEM_QTY,					
+					IMAGE_KEY,					
+					#{DSS_FLAG},								/*  9 : DSS_FLAG   if(chk_str[1].equals("A") || chk_str[1].equals("B") || chk_str[1].equals("C")|| chk_str[1].equals("S")) : Y , 기타  : N   */
+					#{DSS_CHOICE}								/*    10 : DSS_CHOICE */
+				   FROM KEPRQDT						
+				  WHERE BUYER=#{BUYER}							/* 11 : BUYER */           
+					AND QUOTATION_NO=#{QUOTATION_NO}					/* 12 : QUOTATION_NO     */
+					AND QUOTATION_SEQ=#{QUOTATION_SEQ}					/* 13 : QUOTATION_SEQ    */
+					AND REVISION=#{REVISION}						/* 14 : REVISION  */       
+					AND RECV_FLAG <> 'GD'			
+					AND STATUS IN ('C','R')			
+				)									
+
+		]]>
+							   <!-- /* CMS_USER_ID = 'TEMPUSER', */ -->
+		
+	</update>
+
+
+<!-- 삭제 -->
+	<update id="deleteMasterWmStStockMovemnt"  parameterType="java.util.Map">
+		<![CDATA[
+				UPDATE KEPRQDT					
+				   SET RECV_FLAG      = 'GD' 	
+				     , CANCEL_USER_ID = #{USR_ID}    		/*CANCEL_USER_ID*/
+				     , CANCEL_DATE    = SYSDATE	
+				     , CANCEL_REMARK  = #{CANCEL_REMARK}    		/*CANCEL_REMARK*/
+				 WHERE BUYER          = #{BUYER}			/*BUYER*/
+				   AND QUOTATION_NO   = #{QUOTATION_NO}	 		/*QUOTATION_NO*/
+				   AND QUOTATION_SEQ  = #{QUOTATION_SEQ}			/*QUOTATION_SEQ*/
+				   AND REVISION       = #{REVISION}			/*REVISION*/
+				   AND STATUS IN ('C','R')
+		]]>
+	</update>
+
+</mapper>   
+   

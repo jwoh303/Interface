@@ -1,0 +1,330 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mdcm">
+
+	<!-- ============================================================================
+	     상품정보 수정요청 (DB관리파트 승인화면) - masterMdCmCmsItemChangeReqList.jsp
+	       + 비교 팝업 / 반려 팝업 / 승인 반영
+	     저장 테이블 : CMSCATLG_REQ(헤더) / CMSCATLG_REQ_DT(변경항목)
+	     ★ 그리드 행 단위가 "변경항목 1건"이다 - 헤더에 상세를 조인해 펼친다.
+	     ★ 요청자용 현황 화면은 masterMdCmCmsItemChangeReqStatus-sql.xml 로 갈라 두었다.
+	       여기는 미처리(REQ) 대기열만 다루므로 진행상태·반려사유·처리담당자·처리일시 열이 없다.
+	     ★ 요청 등록(채번·INSERT·중복확인)은 masterMdCmCmsItemChangeReqReg-sql.xml.
+	     ============================================================================ -->
+
+	<!-- 변경항목 표기 + 기존/변경 값 해석.
+	     JOB_COLUMN 마다 코드→명칭 규칙이 달라 CASE 로 가른다.
+	     ⚠ 여기 JOB_COLUMN 목록과 화면 조회조건 [변경항목] 드롭다운은 같은 9개여야 한다.
+	     ⚠ 제조사는 화면 표기가 '명 (코드)' 다(PARKER (MK004299)). -->
+	<sql id="cmsItemChangeReqDecode">
+		<![CDATA[
+			,DECODE(D.JOB_COLUMN, 'STATUS',          '상품상태'
+			                    , 'DESCRIPTION_LOC', '품목명'
+			                    , 'MODEL_INFO',      '모델번호'
+			                    , 'SPECIFICATION',   '규격'
+			                    , 'MAKER_CODE',      '제조사'
+			                    , 'ORIGIN_CODE',     '원산지'
+			                    , 'ORDER_MEASURE',   '단위'
+			                    , 'ITEM_GUBUN',      '상품구분'
+			                    , 'TR_HANDLE_TYPE',  'TR취급가능여부'
+			                    , D.JOB_COLUMN) AS JOB_COLUMN_NM		/* 변경항목 */
+			,CASE D.JOB_COLUMN
+			      WHEN 'STATUS'         THEN DECODE(D.OLD_DATA, 'D', '미사용', '사용')
+			      WHEN 'ITEM_GUBUN'     THEN DECODE(D.OLD_DATA, 'G', '표준품', '비표준품')
+			      WHEN 'MAKER_CODE'     THEN (SELECT MK.TEXT1 || ' (' || D.OLD_DATA || ')' FROM ICOMCOD1 MK
+			                                    WHERE MK.TYPE = 'M104' AND MK.CODE = D.OLD_DATA)
+			      WHEN 'ORIGIN_CODE'    THEN (SELECT OG.TEXT2 FROM ICOMCOD1 OG
+			                                    WHERE OG.TYPE = 'M001' AND OG.CODE = D.OLD_DATA)
+			      WHEN 'TR_HANDLE_TYPE' THEN (SELECT TR.TEXT1 FROM ICOMCOD1 TR
+			                                    WHERE TR.TYPE = 'M181' AND TR.CODE = D.OLD_DATA)
+			      ELSE D.OLD_DATA END AS OLD_TEXT								/* 기존 */
+			,CASE D.JOB_COLUMN
+			      WHEN 'STATUS'         THEN DECODE(D.NEW_DATA, 'D', '미사용', '사용')
+			      WHEN 'ITEM_GUBUN'     THEN DECODE(D.NEW_DATA, 'G', '표준품', '비표준품')
+			      WHEN 'MAKER_CODE'     THEN (SELECT MK.TEXT1 || ' (' || D.NEW_DATA || ')' FROM ICOMCOD1 MK
+			                                    WHERE MK.TYPE = 'M104' AND MK.CODE = D.NEW_DATA)
+			      WHEN 'ORIGIN_CODE'    THEN (SELECT OG.TEXT2 FROM ICOMCOD1 OG
+			                                    WHERE OG.TYPE = 'M001' AND OG.CODE = D.NEW_DATA)
+			      WHEN 'TR_HANDLE_TYPE' THEN (SELECT TR.TEXT1 FROM ICOMCOD1 TR
+			                                    WHERE TR.TYPE = 'M181' AND TR.CODE = D.NEW_DATA)
+			      ELSE D.NEW_DATA END AS NEW_TEXT								/* 변경 */
+		]]>
+	</sql>
+
+	<!-- 승인 대기열 목록 (DB관리파트 화면).
+	     미처리 건만 보이는 화면이라 REQ_STATUS='REQ' 를 SQL 에 박는다 - 화면·컨트롤러가 상태를 보내지 않는다.
+	     요청번호 1건이 변경항목 N행으로 펼쳐지고, ITEM_CNT 가 그 건의 변경항목 수다. -->
+	<select id="selectMasterMdCmCmsItemChangeReqList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.pagestart"/>
+			<![CDATA[
+				/*selectMasterMdCmCmsItemChangeReqList*/
+				SELECT
+				  H.REQ_NO																						/* 요청번호 */
+				 ,H.CMS_CATLG_ID																				/* 상품정보코드 */
+				 /* ↓ 요청 시점 스냅샷. CMSCATLG 현재값이 아니다 - 요청 당시 화면이 그대로 남는다 */
+				 ,DECODE(H.STATUS, 'D', '미사용', '사용') AS STATUS_NM											/* 상품상태 */
+				 ,H.DESCRIPTION_LOC																				/* 품목명 */
+				 ,H.MODEL_INFO																					/* 모델번호 */
+				 ,H.SPECIFICATION																				/* 규격 */
+				 ,(SELECT MK.TEXT1 FROM ICOMCOD1 MK
+				     WHERE MK.TYPE = 'M104' AND MK.CODE = H.MAKER_CODE) AS MAKER_NAME							/* 제조사명 */
+				 ,H.MAKER_CODE																					/* 제조사코드 */
+				 ,(SELECT OG.TEXT2 FROM ICOMCOD1 OG
+				     WHERE OG.TYPE = 'M001' AND OG.CODE = H.ORIGIN_CODE) AS ORIGIN_NAME							/* 원산지명 */
+				 ,H.ORDER_MEASURE																				/* 단위 */
+				 ,D.REQ_SEQ																						/* 변경항목 순번 */
+				 ,D.JOB_COLUMN																					/* 변경항목(원컬럼명) */
+			]]>
+			<include refid="master.mdcm.cmsItemChangeReqDecode"/>
+			<![CDATA[
+				 /* 변경사유 : 상품상태는 사유코드(M182), 그 외는 텍스트 (상태변경 팝업 규약과 동일) */
+				 ,NVL((SELECT RS.TEXT1 FROM ICOMCOD1 RS
+				         WHERE RS.TYPE = 'M182' AND RS.CODE = D.CHANGE_REASON_CODE)
+				     , D.CHANGE_REASON_REMARK) AS CHANGE_REASON												/* 변경사유 */
+				 /* 대체코드 : 사유가 '중복존재'(DUP)일 때만 값이 있다 */
+				 ,CASE WHEN D.CHANGE_REASON_CODE = 'DUP' THEN D.ALT_CATLG_ID ELSE '' END AS ALT_CODE			/* 대체코드 */
+				 ,(SELECT U1.USER_NAME_LOC FROM ICOMLUSR U1 WHERE U1.USER_ID = H.REQ_USER_ID) AS REQ_USER_NAME	/* 요청자 */
+				 ,H.REQ_USER_ID																					/* 요청자 ID */
+				 ,SUBSTR(H.REQ_DATE,1,4) || '/' || SUBSTR(H.REQ_DATE,5,2) || '/' || SUBSTR(H.REQ_DATE,7,2)
+				  || ' ' || SUBSTR(H.REQ_TIME,1,2) || ':' || SUBSTR(H.REQ_TIME,3,2) AS REQ_DATETIME				/* 요청일시 */
+				 /* 이 요청번호의 변경항목 수 - 목업의 '복수항목 요청건수 3건' */
+				 ,(SELECT COUNT(*) FROM CMSCATLG_REQ_DT C WHERE C.REQ_NO = H.REQ_NO) AS ITEM_CNT				/* 변경항목수 */
+				FROM CMSCATLG_REQ H, CMSCATLG_REQ_DT D
+				WHERE H.REQ_NO = D.REQ_NO
+				  AND H.REQ_STATUS = 'REQ'
+			]]>
+			<!-- 요청일 : 요청일 기준 한 달 이전까지 조회. 화면이 기본 -1개월을 채워 보낸다 -->
+			<if test="st_from_date != null and st_from_date != '' and st_to_date != null and st_to_date != ''">
+				AND H.REQ_DATE BETWEEN #{st_from_date} AND #{st_to_date}
+			</if>
+			<!-- 요청번호 : 대량입력(다건, 정확일치) 우선, 없으면 단건 -->
+			<choose>
+				<when test="st_req_no_multi != null and st_req_no_multi.size() > 0">
+					AND H.REQ_NO IN
+					<foreach item="item" collection="st_req_no_multi" open="(" separator="," close=")">
+						#{item}
+					</foreach>
+				</when>
+				<when test="st_req_no != null and st_req_no != ''">
+					AND H.REQ_NO = #{st_req_no}
+				</when>
+			</choose>
+			<!-- 상품코드 : 대량입력(다건) 우선, 없으면 단건. 둘 다 **정확일치**.
+			     ★ 컬럼에 UPPER() 를 씌우면 인덱스를 못 탄다 - 저장값이 전부 대문자라 입력값만 UPPER 로 맞춘다.
+			     ★ 전방일치(LIKE 'A%')는 폐기 - 상품정보 목록과 같은 규약(2026-09-07 사용자 결정). -->
+			<choose>
+				<when test="st_cmscatlg_multi != null and st_cmscatlg_multi.size() > 0">
+					AND H.CMS_CATLG_ID IN
+					<foreach item="item" collection="st_cmscatlg_multi" open="(" separator="," close=")">
+						UPPER(#{item})
+					</foreach>
+				</when>
+				<when test="st_cmscatlg != null and st_cmscatlg != ''">
+					AND H.CMS_CATLG_ID = UPPER(#{st_cmscatlg})
+				</when>
+			</choose>
+			<!-- 변경항목 : 그 항목이 **포함된 요청**을 통째로 남긴다(행 단위로 자르지 않는다).
+			     2026-09-15 : 요청자 현황 화면(masterMdCmCmsItemChangeReqStatus-sql.xml)과 같이 바꿨다 —
+			     종전 `D.JOB_COLUMN = …` 은 해당 행만 남겨, 9항목짜리 요청도 1행으로 보였다. -->
+			<if test="st_job_column != null and st_job_column != ''">
+				AND EXISTS (SELECT 1 FROM CMSCATLG_REQ_DT C2
+				             WHERE C2.REQ_NO = H.REQ_NO
+				               AND C2.JOB_COLUMN = #{st_job_column})
+			</if>
+			<!-- 변경항목수 : SINGLE=단일항목(1건) / MULTI=복수항목(2건 이상)
+			     ⚠ 코드값을 한 글자로 두지 말 것 - OGNL 이 'S' 를 Character 로 파싱해 String 비교가 항상 거짓이 된다 -->
+			<choose>
+				<when test="st_item_cnt == 'SINGLE'">
+					AND (SELECT COUNT(*) FROM CMSCATLG_REQ_DT C WHERE C.REQ_NO = H.REQ_NO) = 1
+				</when>
+				<when test="st_item_cnt == 'MULTI'">
+					AND (SELECT COUNT(*) FROM CMSCATLG_REQ_DT C WHERE C.REQ_NO = H.REQ_NO) &gt; 1
+				</when>
+			</choose>
+			<!-- 품목명 / 모델번호 / 규격 : 요청 시점 스냅샷 기준. 2글자 이상은 화면에서 검사 -->
+			<if test="st_item_name != null and st_item_name != ''">
+				AND H.DESCRIPTION_LOC LIKE '%' || #{st_item_name} || '%'
+			</if>
+			<if test="st_model_info != null and st_model_info != ''">
+				AND H.MODEL_INFO LIKE '%' || #{st_model_info} || '%'
+			</if>
+			<if test="st_specification != null and st_specification != ''">
+				AND H.SPECIFICATION LIKE '%' || #{st_specification} || '%'
+			</if>
+			<!-- 제조사 : 텍스트 조회 불가 - 팝업이 돌려준 코드로만 건다 -->
+			<if test="st_maker_code != null and st_maker_code != ''">
+				AND H.MAKER_CODE = #{st_maker_code}
+			</if>
+			<!-- 요청자 : 이름 한 글자부터 LIKE (견적의뢰접수 요청자와 같은 기준) -->
+			<if test="st_req_user_name != null and st_req_user_name != ''">
+				AND EXISTS (SELECT 1 FROM ICOMLUSR U
+				             WHERE U.USER_ID = H.REQ_USER_ID
+				               AND U.USER_NAME_LOC LIKE '%' || #{st_req_user_name} || '%')
+			</if>
+			<![CDATA[
+				ORDER BY H.REQ_NO DESC, D.REQ_SEQ
+			]]>
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+
+	<!-- ================= 비교 팝업 (요청번호 클릭, 설계 6p) ================= -->
+
+	<!-- 요청 헤더 1건 + 요청 시점 스냅샷.
+	     좌(기존)/우(변경) 두 벌은 컨트롤러가 이 값에 상세항목(OLD/NEW_DATA)을 덮어 만든다.
+	     ⚠ 카테고리·상세분류·일회성구분·구매담당자는 변경 대상이 아니라 여기 없다 -
+	       상세 조회(selectMasterMdCmCmsItemDetail)의 현재값을 그대로 쓴다. -->
+	<select id="selectMasterMdCmCmsItemChangeReqHeader" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/*selectMasterMdCmCmsItemChangeReqHeader*/
+			SELECT H.REQ_NO																					/* 요청번호 */
+			     , H.CMS_CATLG_ID																			/* 상품정보코드 */
+			     , H.REQ_STATUS																				/* 진행상태(원코드) */
+			     , (SELECT ST.TEXT1 FROM ICOMCOD1 ST
+			          WHERE ST.TYPE = 'CMSRSTTS' AND ST.CODE = H.REQ_STATUS) AS REQ_STATUS_NM				/* 진행상태 (ICOMCOD1 CMSRSTTS) */
+			     , H.STATUS																					/* 요청 시점 상품상태(코드) */
+			     , DECODE(H.STATUS, 'D', '미사용', '사용') AS STATUS_NM
+			     , H.DESCRIPTION_LOC																		/* 요청 시점 품목명 */
+			     , H.MODEL_INFO																				/* 요청 시점 모델번호 */
+			     , H.SPECIFICATION																			/* 요청 시점 규격 */
+			     , H.MAKER_CODE																				/* 요청 시점 제조사코드 */
+			     , (SELECT MK.TEXT1 FROM ICOMCOD1 MK
+			          WHERE MK.TYPE = 'M104' AND MK.CODE = H.MAKER_CODE) AS MAKER_NAME						/* 제조사명 */
+			     , H.ORIGIN_CODE																			/* 요청 시점 원산지코드 */
+			     , (SELECT OG.TEXT2 FROM ICOMCOD1 OG
+			          WHERE OG.TYPE = 'M001' AND OG.CODE = H.ORIGIN_CODE) AS ORIGIN_CODE_NAME				/* 원산지명 */
+			     , H.ORDER_MEASURE																			/* 요청 시점 단위 */
+			     , (SELECT U1.USER_NAME_LOC FROM ICOMLUSR U1 WHERE U1.USER_ID = H.REQ_USER_ID) AS REQ_USER_NAME	/* 요청자 */
+			     , SUBSTR(H.REQ_DATE,1,4) || '/' || SUBSTR(H.REQ_DATE,5,2) || '/' || SUBSTR(H.REQ_DATE,7,2)
+			       || ' ' || SUBSTR(H.REQ_TIME,1,2) || ':' || SUBSTR(H.REQ_TIME,3,2) AS REQ_DATETIME		/* 요청일시 */
+			     , H.REJECT_REASON																			/* 반려사유 */
+			  FROM CMSCATLG_REQ H
+			 WHERE H.REQ_NO = #{st_req_no}
+		]]>
+	</select>
+
+	<!-- 그 요청의 변경항목 전체. 승인 처리도 이 목록을 돌면서 CMSCATLG 에 반영한다 -->
+	<select id="selectMasterMdCmCmsItemChangeReqDtList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/*selectMasterMdCmCmsItemChangeReqDtList*/
+			SELECT D.REQ_NO
+			     , D.REQ_SEQ
+			     , D.JOB_COLUMN																				/* 변경항목(CMSCATLG 컬럼명) */
+			     , D.OLD_DATA																				/* 기존값(코드) */
+			     , D.NEW_DATA																				/* 변경값(코드) */
+			     , D.CHANGE_REASON_CODE
+			     , D.CHANGE_REASON_REMARK
+			     , D.ALT_CATLG_ID
+			     , (SELECT H.CMS_CATLG_ID FROM CMSCATLG_REQ H WHERE H.REQ_NO = D.REQ_NO) AS CMS_CATLG_ID
+			]]>
+			<include refid="master.mdcm.cmsItemChangeReqDecode"/>
+			<![CDATA[
+			  FROM CMSCATLG_REQ_DT D
+			 WHERE D.REQ_NO = #{st_req_no}
+			 ORDER BY D.REQ_SEQ
+		]]>
+	</select>
+
+	<!-- ===================== 승인 / 반려 (쓰기) ===================== -->
+
+	<!-- 헤더 상태 전이. WHERE 에 REQ_STATUS='REQ' 를 걸어 이미 처리된 건은 0건이 된다(낙관적 잠금 역할).
+	     ★ 이 UPDATE 가 0을 돌려주면 CMSCATLG 반영을 하지 않는다 - 두 번 승인되는 것을 막는다. -->
+	<update id="updateMasterMdCmCmsItemChangeReqApprove" parameterType="java.util.Map">
+		<![CDATA[
+			/*updateMasterMdCmCmsItemChangeReqApprove*/
+			UPDATE CMSCATLG_REQ
+			   SET REQ_STATUS     = 'APR'
+			     , PROC_USER_ID   = #{st_user_id}
+			     , PROC_DATE      = TO_CHAR(SYSDATE,'YYYYMMDD')
+			     , PROC_TIME      = TO_CHAR(SYSDATE,'HH24MISS')
+			 WHERE REQ_NO     = #{st_req_no}
+			   AND REQ_STATUS = 'REQ'
+		]]>
+	</update>
+
+	<update id="updateMasterMdCmCmsItemChangeReqReject" parameterType="java.util.Map">
+		<![CDATA[
+			/*updateMasterMdCmCmsItemChangeReqReject*/
+			UPDATE CMSCATLG_REQ
+			   SET REQ_STATUS     = 'REJ'
+			     , REJECT_REASON  = #{st_reject_reason}
+			     , PROC_USER_ID   = #{st_user_id}
+			     , PROC_DATE      = TO_CHAR(SYSDATE,'YYYYMMDD')
+			     , PROC_TIME      = TO_CHAR(SYSDATE,'HH24MISS')
+			 WHERE REQ_NO     = #{st_req_no}
+			   AND REQ_STATUS = 'REQ'
+		]]>
+	</update>
+
+	<!-- ★ 승인 반영 : 변경항목 1건을 CMSCATLG 에 쓴다.
+	     `${st_job_column}` 는 컬럼명이라 바인드가 안 된다 → **DaoImpl 이 화이트리스트로 먼저 검증**한다.
+	       (검증을 빼면 SQL 주입 통로가 된다. DT 값은 우리 화면이 넣은 것이지만 믿지 않는다.)
+	     F_HST_CMSCATLG 가 SET 절에서 이력을 남긴다 - 반영과 이력적재가 한 번에 끝난다.
+	     대상 9개가 전부 VARCHAR2 라 TO_CHAR 함정(BASE_PRICE)에는 걸리지 않는다. -->
+	<update id="updateMasterMdCmCmsItemChangeReqApplyCatlg" parameterType="java.util.Map">
+		<![CDATA[
+			/*updateMasterMdCmCmsItemChangeReqApplyCatlg*/
+			UPDATE CMSCATLG
+			   SET ${st_job_column} = F_HST_CMSCATLG( CMS_CATLG_ID
+			                                        , #{st_job_column}
+			                                        , #{st_new_data}
+			                                        , #{st_user_id}
+			                                        , #{st_reason_code}
+			                                        , #{st_reason_remark}
+			                                        , #{st_alt_code} )
+		]]>
+		<!-- CMSCATLG 는 제조사명을 자기 컬럼(MAKER_NAME)으로 들고 있다 - 코드만 바꾸면 이름이 옛 값으로 남아
+		     목록·상세가 바뀌기 전 제조사를 계속 보여준다. 이력에는 코드만 남기므로 여기서만 맞춘다.
+		     코드는 제조사 팝업·일괄수정 검증을 통과한 값이라, M104 에 없으면 이름을 비운다. -->
+		<if test="st_job_column == 'MAKER_CODE'">
+			<![CDATA[
+			     , MAKER_NAME = (SELECT MD.TEXT1 FROM ICOMCOD1 MD
+			                      WHERE MD.TYPE = 'M104' AND MD.CODE = #{st_new_data})
+			]]>
+		</if>
+		<![CDATA[
+			     , CHANGE_USER_ID = #{st_user_id}
+			     , CHANGE_DATE    = TO_CHAR(SYSDATE,'YYYYMMDD')
+			     , CHANGE_TIME    = TO_CHAR(SYSDATE,'HH24MISS')
+			 WHERE CMS_CATLG_ID = #{st_catlg_id}
+		]]>
+	</update>
+
+	<!-- 상품상태(STATUS) 변경을 반영할 때만 추가로 본체에 사유·대체코드를 남긴다.
+	     목록 화면의 [미사용 변경사유]·[대체코드] 열이 이 값을 읽는다(masterMdCmCmsItem-sql.xml).
+	     ⚠ 이력은 위 UPDATE 가 이미 남겼다 - 여기서 F_HST_CMSCATLG 를 또 부르면 같은 변경이 두 줄이 된다. -->
+	<update id="updateMasterMdCmCmsItemChangeReqApplyReason" parameterType="java.util.Map">
+		<![CDATA[
+			/*updateMasterMdCmCmsItemChangeReqApplyReason*/
+			UPDATE CMSCATLG
+			   SET CHANGE_REASON_CODE   = #{st_reason_code}
+			     , CHANGE_REASON_REMARK = #{st_reason_remark}
+			     , ALT_CATLG_ID         = #{st_alt_code}
+			 WHERE CMS_CATLG_ID = #{st_catlg_id}
+		]]>
+	</update>
+
+	<!-- ★ 상품상태를 [미사용] 으로 반영할 때, 그 상품에 달린 구매정보를 전부 [불가] 로 함께 내린다.
+	     - 이미 불가인 행은 WHERE 가 걸러 이력이 두 번 쌓이지 않는다(함수도 같은 값이면 SKIP 한다).
+	     - 상태와 사유만 쓴다. 대체코드는 상품정보(CMSCATLG.ALT_CATLG_ID)에만 있다. -->
+	<update id="updateMasterMdCmCmsItemChangeReqApplyBuyInfoUnuse" parameterType="java.util.Map">
+		<![CDATA[
+			/*updateMasterMdCmCmsItemChangeReqApplyBuyInfoUnuse*/
+			UPDATE CMSPRICE
+			   SET STATUS = F_HST_CMSPRICE( CMS_CATLG_ID
+			                              , CATLG_SEQ
+			                              , 'STATUS'
+			                              , #{st_new_status}
+			                              , #{st_user_id}
+			                              , #{st_reason_code}
+			                              , #{st_reason_remark} )
+			     , SUPPLY_REASON_CODE   = #{st_reason_code}
+			     , SUPPLY_REASON_REMARK = #{st_reason_remark}
+			     , CHANGE_USER_ID       = #{st_user_id}
+			     , CHANGE_DATE          = TO_CHAR(SYSDATE,'YYYYMMDD')
+			     , CHANGE_TIME          = TO_CHAR(SYSDATE,'HH24MISS')
+			 WHERE CMS_CATLG_ID = #{st_catlg_id}
+			   AND NVL(STATUS, ' ') != #{st_new_status}
+		]]>
+	</update>
+
+</mapper>

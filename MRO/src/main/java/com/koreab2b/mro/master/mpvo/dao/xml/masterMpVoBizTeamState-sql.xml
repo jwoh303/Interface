@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mpvo">
+	<!-- 조회 -->
+	<select id="selectMasterMpVoBizTeamStateList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		    	SELECT  (SELECT TEXT1 FROM V_VOC_ICOMCOD2 
+					         WHERE COMPANY_CODE = 'KRKORE0001'
+					            AND TYPE = 'C001' 
+					            AND CODE = X.DS_DEPT 
+					            AND SYS_TYPE='KA') DS_DEPT_NAME,
+					        X.FLAG_DC,
+					        X.FLAG_PS,
+					        X.FLAG_PA,
+					        X.FLAG_FB,
+					        (X.FLAG_DC+X.FLAG_PS+X.FLAG_PA+X.FLAG_FB) AS T_FLAG,
+					        X.DS_DEPT
+				FROM
+				    ( 
+				        SELECT  A.DS_DEPT,
+					                NVL(SUM(DECODE(A.RECV_FLAG,'DC',1)),0) AS FLAG_DC,
+					                NVL(SUM(DECODE(A.RECV_FLAG,'PS',1)),0) AS FLAG_PS,
+					                NVL(SUM(DECODE(A.RECV_FLAG,'PA',1)),0) AS FLAG_PA,
+					                NVL(SUM(DECODE(A.RECV_FLAG,'FB',1)),0) AS FLAG_FB
+				        FROM KEPAVCDT A, (SELECT CODE FROM ICOMCOD1 WHERE TYPE = 'VC01' AND TEXT3 = 'C') B
+				        WHERE TO_CHAR(A.CD_DATE,'YYYYMMDD') BETWEEN #{st_fromDate} AND #{st_toDate}
+				            AND A.CLAIM_TYPE = B.CODE
+			]]>
+				<choose>
+					<when test='st_dashboard_flag == "Y"'>
+						<![CDATA[	AND A.RECV_FLAG IN ('DC','PS')	]]>
+					</when>
+					<otherwise>
+						<![CDATA[	AND A.RECV_FLAG IN ('DC','PS','PA','FB')	]]>
+					</otherwise>
+				</choose>
+				
+				<if test="st_ds_dept_code != null and st_ds_dept_code != ''">
+		    		<![CDATA[	AND A.DS_DEPT IN (#{st_ds_dept_code})	]]>
+		        </if>
+				
+				<if test="st_ds_user_id != null and st_ds_user_id != ''">
+		    		<![CDATA[	AND A.DS_USER_ID IN (#{st_ds_user_id})	]]>
+		        </if>
+			<![CDATA[
+				        GROUP BY A.DS_DEPT   
+				    ) X
+				ORDER BY 1
+			]]>
+	</select>
+
+</mapper>   
+   

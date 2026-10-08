@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mpiv">
+	<!-- 조회 -->
+	<select id="selectMasterMpIvDeliveryDateList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.pagestart"/>	
+			<![CDATA[
+			/*selectMasterMpIvDeliveryDateList*/		
+				SELECT
+				 C.COM_NAME_LOC AS BUYER_NAME
+				, B.BUYER 
+				, B.PO_NO
+				, B.PO_SEQ
+				, A.REVISION
+				, C.BYCA_COMORG_CODE
+				, B.CONTRACT_NO
+				, B.CONTRACT_SEQ
+				, B.BUYER_ITEM_NO
+				, B.DESCRIPTION
+				, B.SPECIFICATION
+				, B.ITEM_QTY
+				, B.IV_QTY
+				, B.GR_QTY
+				, B.DI_QTY
+				, A.BEFORE_DATA
+				, A.AFTER_DATA
+				, A.ADD_DATE
+				, A.CONFIRM_DATE
+				, B.LEGACY_PO_NO
+				, B.LEGACY_PO_SEQ
+				, D.AGENT
+				, (SELECT CMPY.COM_NAME_LOC FROM ICOMCMPY CMPY WHERE CMPY.COM_CODE = D.AGENT) AGENT_NAME
+				,  A.CONFIRM_ID
+				, (SELECT USR.USER_NAME_LOC FROM ICOMLUSR USR WHERE USR.USER_ID = A.CONFIRM_ID) CONFIRM_USER_NM
+				FROM ICOMPODT_MNG A, ICOMPODT B, ICOMCMPY C, ICOMPOHD D
+				WHERE A.BUYER = B.BUYER
+				AND A.PO_NO = B.PO_NO
+				AND A.PO_SEQ = B.PO_SEQ
+				AND B.BUYER = D.BUYER
+				AND B.PO_NO = D.PO_NO
+				AND A.BUYER = C.COM_CODE
+				AND B.STATUS != 'D'
+				AND A.STATUS = 'C'
+				AND A.COLUMN_NM = 'RD_DATE'
+				AND A.ADD_DATE BETWEEN #{st_from_date} AND #{st_to_date}		
+		]]>
+		<!-- 고객사 -->
+		<if test="st_buyer_code != null and st_buyer_code != ''">
+			<![CDATA[
+				AND A.BUYER = #{st_buyer_code}
+			]]>
+		</if>
+		<!-- 협력사 -->
+		<if test="st_agent_code != null and st_agent_code != ''">
+			<![CDATA[
+				AND D.AGENT = #{st_agent_code}
+			]]>
+		</if>
+		<!-- 발주번호 -->
+		<if test="st_po_no != null and st_po_no != ''">
+			<![CDATA[
+				AND A.PO_NO  LIKE UPPER(#{st_po_no}||'%')
+			]]>
+		</if>	
+		
+		<!-- 고객사 발주번호 -->
+		<if test="st_legacy_po_no != null and st_legacy_po_no != ''">
+			<![CDATA[
+				AND B.LEGACY_PO_NO LIKE UPPER(#{st_legacy_po_no}||'%')
+			]]>
+		</if>	
+		
+		<!-- 품목코드 -->
+		<if test="st_buyer_item_no != null and st_buyer_item_no != ''">
+			<![CDATA[
+				AND B.BUYER_ITEM_NO  LIKE UPPER(#{st_buyer_item_no}||'%')
+			]]>
+		</if>	
+		<!-- 확인완료제외여부 -->
+		<if test='st_gr_flag == "GR"'>
+			<![CDATA[
+				AND A.CONFIRM_DATE IS NULL
+	 		]]>
+		</if>
+		<![CDATA[
+			ORDER BY  C.COM_NAME_LOC, B.PO_NO
+		]]>
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+
+<!-- 수정 -->
+	<update id="updateMasterMpIvDeliveryDateList"  parameterType="java.util.Map">
+		<![CDATA[
+			/*updateMasterMpIvDeliveryDateList*/
+			UPDATE ICOMPODT_MNG
+			SET 
+				  CONFIRM_FLAG = 'Y'
+				  , CONFIRM_ID = #{st_user_id}
+				  , CONFIRM_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD')
+				  , CONFIRM_TIME =  TO_CHAR(SYSDATE, 'HH24MISS')         
+			WHERE
+					BUYER	= #{BUYER}
+				AND PO_NO	= #{PO_NO}
+				AND PO_SEQ	= #{PO_SEQ}
+				AND REVISION = #{REVISION}
+		]]>
+	</update>
+
+</mapper>   
+   

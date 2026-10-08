@@ -1,0 +1,1220 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="common.wmre">
+
+	<select id="selectMasterWmReReturnEntryPopList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*selectMasterWmReReturnEntryPopList*/
+			SELECT										        
+					CODE, 								 
+					TEXT1, 							 
+					TEXT2, 							 
+					(SELECT COUNT(*) FROM ICOMLUSR WHERE COM_CODE=COMPANY_CODE AND DEPARTMENT=CODE AND STATUS ='D') AS DEPT_USER_COUNT	 
+			  FROM ICOMCOD2 							 
+			 WHERE COMPANY_CODE = #{com_code}		 
+		       AND TEXT1 LIKE '%'||#{st_req_dept_name}||'%' 
+			   AND TYPE='C001' 							 
+		]]>
+	
+	</select>
+	
+	<select id="getMasterWmReReturnWmPopForUpdate" parameterType="java.util.Map" resultType="java.util.Map">
+			<![CDATA[
+				/*getMasterWmReReturnWmPopForUpdate*/
+		  SELECT WMRE_NO
+                   , BUYER
+                    ,(SELECT A.COM_NAME_LOC FROM ICOMCMPY A WHERE A.COM_CODE = BUYER) AS BUYER_NAME 
+                   , PO_NO
+                   , PO_SEQ
+                   , LEGACY_PO_NO
+                   , LEGACY_PO_SEQ
+                   , BUYER_ITEM_NO
+                   , DESCRIPTION
+                   , SPECIFICATION
+                   , ITEM_QTY
+                   , UNIT_MEASURE
+                   , SELLER
+                   ,(SELECT A.COM_NAME_LOC FROM ICOMCMPY A WHERE A.COM_CODE = SELLER) AS SELLER_NAME 
+                   , PROCESS_TYPE
+                   ,(DECODE(PROCESS_TYPE,'0','직납','1','재고','2','TR','3','VMI')) PROCESS_TEXT
+                   , BUYER_DEPT_CODE
+                   ,(SELECT TEXT1 
+	    FROM ICOMCOD2 
+	   WHERE TYPE = 'C001' 
+	     AND COMPANY_CODE = BUYER AND CODE =BUYER_DEPT_CODE ) AS BUYER_DEPT_NAME   -- 요청부서
+                   , BUYER_PERSON_NAME
+                   , BUYER_PERSON_TEL
+                   , WAREHOUSE_CODE
+                   , ADD_USER_ID
+                   , PROCESS_USER_NAME
+                   , WMRE_QTY
+                   , WMRE_TYPE
+                   , (
+                   SELECT TEXT1 
+                    FROM ICOMCOD1
+                  WHERE TYPE = 'WM01'
+                      AND CODE =WMRE_TYPE
+                   ) WMRE_TYPE_NAME
+                   , WMRE_TYPE2
+                    , CASE WHEN WMRE_TYPE ='01' THEN (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE= 'WM02' AND CODE = WMRE_TYPE2 )
+                               WHEN WMRE_TYPE ='02' THEN (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE= 'WM03' AND CODE = WMRE_TYPE2 )
+                               ELSE ''
+                               END WMRE_TYPE2_NAME                   
+                   , WMRE_TYPE3
+                    , CASE WHEN WMRE_TYPE ='01' THEN (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE= 'WM04' AND CODE = WMRE_TYPE3 )
+                               WHEN WMRE_TYPE ='02' THEN (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE= 'WM05' AND CODE = WMRE_TYPE3 )
+                               ELSE ''
+                               END WMRE_TYPE3_NAME                   
+                    , WMRE_TYPE_DETAIL
+                   , WMRE_FILE
+                   , B_REQ_DATE
+                   , M_REC_DATE                
+                   , B_REQ_USER_ID
+                    ,(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = B_REQ_USER_ID) AS B_REQ_USER_NAME
+                   , B_REQ_FLAG
+                   , M_REC_USER_ID
+                    ,(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = M_REC_USER_ID) AS M_REC_USER_NAME
+                    ,(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = S_REC_USER_ID) AS  S_REC_USER_NAME                    
+                   , M_REC_FLAG
+                    , FLAG
+                   , B_REQ_REMARK
+                   , M_REC_REMARK
+                   , NVL((SELECT SUM(WMRE.WMRE_QTY) FROM BNTWMRE WMRE WHERE WMRE.BUYER = A.BUYER AND WMRE.PO_NO = A.PO_NO AND WMRE.PO_SEQ = A.PO_SEQ AND WMRE.CANCEL_DATE IS NULL),0) TOTAL_WMRE_QTY
+                   , DELIVERY_FLAG
+                FROM BNTWMRE A
+               WHERE WMRE_NO = #{st_WMRE_NO} 
+				]]>
+	</select>
+	<select id="getMasterWmReReturnEntryPopForUpdateSeller_v2" parameterType="java.util.Map" resultType="java.util.Map">
+			<![CDATA[
+				/*getMasterWmReReturnEntryPopForUpdateSeller_v2*/
+		  SELECT A.WMRE_NO
+                   , A.BUYER
+                    ,(SELECT CMPY.COM_NAME_LOC FROM ICOMCMPY CMPY WHERE CMPY.COM_CODE = A.BUYER) AS BUYER_NAME 
+                   , A.PO_NO
+                   , B.PO_CREATE_DATE
+                   , B.PURCHASER_NAME
+                   , B.AGENT_PO_TTL_AMT
+                   , B.PO_REMARK
+                   ,(SELECT COUNT(*) FROM ICOMPODT PODT WHERE PODT.BUYER = B.BUYER AND PODT.PO_NO = B.PO_NO AND PODT.STATUS != 'D') AS ITEM_CNT
+                   , A.PO_SEQ
+                   , A.LEGACY_PO_NO
+                   , A.LEGACY_PO_SEQ
+                   , A.BUYER_ITEM_NO
+                   , A.DESCRIPTION
+                   , A.SPECIFICATION
+                   , A.ITEM_QTY
+                   , A.UNIT_MEASURE
+                   , A.SELLER
+                   ,(SELECT CMPY.COM_NAME_LOC FROM ICOMCMPY CMPY WHERE CMPY.COM_CODE = A.SELLER) AS SELLER_NAME 
+                   , A.PROCESS_TYPE
+                   ,(DECODE(A.PROCESS_TYPE,'0','직납','1','재고','2','TR','3','VMI')) PROCESS_TEXT
+                   , A.BUYER_DEPT_CODE
+                   ,(SELECT TEXT1 
+	    FROM ICOMCOD2 
+	   WHERE TYPE = 'C001' 
+	     AND COMPANY_CODE = A.BUYER AND CODE = A.BUYER_DEPT_CODE ) AS BUYER_DEPT_NAME   -- 요청부서
+                   , A.BUYER_PERSON_NAME
+                   , A.BUYER_PERSON_TEL
+                   , A.WAREHOUSE_CODE
+                   , A.ADD_USER_ID
+                   , A.PROCESS_USER_NAME
+                   , A.WMRE_QTY
+                   , A.WMRE_TYPE
+                   , (
+                   SELECT TEXT1 
+                    FROM ICOMCOD1
+                  WHERE TYPE = 'WM01'
+                      AND CODE = A.WMRE_TYPE
+                   ) WMRE_TYPE_NAME
+                   , A.WMRE_TYPE2
+                    , CASE WHEN A.WMRE_TYPE ='01' THEN (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE= 'WM02' AND CODE = A.WMRE_TYPE2 )
+                               WHEN A.WMRE_TYPE ='02' THEN (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE= 'WM03' AND CODE = A.WMRE_TYPE2 )
+                               ELSE ''
+                               END WMRE_TYPE2_NAME                   
+                   , WMRE_TYPE3
+                    , CASE WHEN A.WMRE_TYPE ='01' THEN (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE= 'WM04' AND CODE = A.WMRE_TYPE3 )
+                               WHEN A.WMRE_TYPE ='02' THEN (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE= 'WM05' AND CODE = A.WMRE_TYPE3 )
+                               ELSE ''
+                               END WMRE_TYPE3_NAME                   
+                    , A.WMRE_TYPE_DETAIL
+                   , A.WMRE_FILE
+                   , DECODE(A.WMRE_FILE,NULL,'',(SELECT COUNT(*) FROM ICOMATCH WHERE DOC_NO = A.WMRE_FILE)||'개') AS WMRE_FILE_CNT
+                   , A.B_REQ_DATE
+                   , A.M_REC_DATE                
+                   , A.B_REQ_USER_ID
+                    ,(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = A.B_REQ_USER_ID) AS B_REQ_USER_NAME
+                   , A.B_REQ_FLAG
+                   , A.M_REC_USER_ID
+                    ,(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = A.M_REC_USER_ID) AS M_REC_USER_NAME
+                    ,(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = A.S_REC_USER_ID) AS  S_REC_USER_NAME                    
+                   , A.M_REC_FLAG
+                    , A.FLAG
+                   , A.B_REQ_REMARK
+                   , A.M_REC_REMARK
+                   , NVL((SELECT SUM(WMRE.WMRE_QTY) FROM BNTWMRE WMRE WHERE WMRE.BUYER = A.BUYER AND WMRE.PO_NO = A.PO_NO AND WMRE.PO_SEQ = A.PO_SEQ AND WMRE.CANCEL_DATE IS NULL),0) TOTAL_WMRE_QTY
+                   , A.DELIVERY_FLAG
+                   , A.S_REC_DATE
+                   , A.S_REC_REMARK
+                FROM BNTWMRE A , ICOMPOHD B
+               WHERE WMRE_NO = #{st_WMRE_NO}
+               AND A.BUYER = B.BUYER(+)
+               AND A.PO_NO = B.PO_NO(+)
+               AND B.STATUS(+) != 'D' 
+				]]>
+	</select>	
+	
+	<select id="getMasterWmReReturnWmNoPop" parameterType="java.util.Map" resultType="java.util.Map">
+			<![CDATA[
+		     /*getMasterWmReReturnWmNoPop*/			
+                    SELECT 
+                    	 -- 품목 및 주문정보 
+                    	 WMRE_NO            
+                    	, BUYER
+                    	,PO_NO              
+                    	,PO_SEQ             
+                    	,BUYER_ITEM_NO      
+                    	,DESCRIPTION        
+                    	,ITEM_QTY           
+                    	,UNIT_MEASURE       
+                    	,SELLER  
+                        ,(SELECT A.COM_NAME_LOC FROM ICOMCMPY A WHERE A.COM_CODE = SELLER) AS SELLER_NAME 
+                    	,(DECODE(PROCESS_TYPE,'0','직납','1','재고','2','TR','3','VMI')) PROCESS_TYPE    	
+                    	-- 고객사 요청정보
+                    	,BUYER_DEPT_CODE     
+                    	,BUYER_PERSON_NAME   
+                    	,BUYER_PERSON_TEL    	
+                    	 -- 운영사 접수정보
+                    	,WAREHOUSE_CODE      -- 접속물류센터
+                    	,ADD_USER_ID         -- 접속유저
+                    	,PROCESS_USER_NAME   -- 사용자 입력 	
+                    	-- 반품/교환 사유 정보
+                    	,WMRE_QTY            
+                    	,WMRE_TYPE            -- 01반품/02교환  공통코드로 정의(WM01)
+                    	,WMRE_TYPE2           -- WMRE_TYPE의 상세  (WM02/WM03)
+                    	,WMRE_TYPE3           -- WMRE_TYPE2의 상세 (WM04/WM05)
+                    	,WMRE_TYPE_DETAIL    	
+                       -- --- 여기까지는 화면 1 내용
+                        -----------------------------------------------------------------------------------------
+                        -- 반품 조치현황 조회부분시작 
+                        -- 고객사 요청 쿼리
+                        , B_REQ_FLAG        -- 처리여부
+                        , B_REQ_DATE        -- 처리일자
+                        , B_REQ_USER_ID     -- 처리담당
+                        ,(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = B_REQ_USER_ID) AS B_REQ_USER_NAME
+                        , B_REQ_REMARK      -- 처리비고
+                        -- 운영사접수 
+                        , M_REC_FLAG
+                        , M_REC_DATE
+                        , M_REC_USER_ID
+                        ,(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = M_REC_USER_ID) AS M_REC_USER_NAME
+                        , M_REC_REMARK    -- 화면1에서 저장된 데이터 보여줌
+                        
+                        --------------------- 반품 조치현황 등록부분 (실제입력)
+                        -- 협력사접수
+                        , S_REC_FLAG
+                        , S_REC_DATE
+                        , S_REC_USER_ID 
+                         ,(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = S_REC_USER_ID) AS S_REC_USER_NAME
+                        , S_REC_REMARK           -- 협력사 입력 데이터 
+                        -- 협력사명세서 출력
+                        , S_PRT_FLAG
+                        , S_PRT_DATE
+                        , S_PRT_USER_ID
+                        ,(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = S_PRT_USER_ID) AS S_PRT_USER_NAME
+                        , S_PRT_REMARK   
+                        -- 물류센터 회수
+                        , W_GR_FLAG
+                        , W_GR_QTY    -- 수량
+                        , W_GR_DATE
+                        , W_GR_USER_ID
+                        ,(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = W_GR_USER_ID) AS W_GR_USER_NAME
+                        , W_GR_REMARK            -- 운영사(물류센터) 입력 데이터 (PROCESS_TYPE = '0'직납일 경우 에디트 불가 항목)
+                        -- 물류센터 반출
+                        , W_RIV_FLAG
+                        , W_RIV_DATE
+                        , W_RIV_USER_ID
+                        ,(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID =W_RIV_USER_ID) AS W_RIV_USER_NAME
+                        , W_RIV_REMARK           -- 운영사(물류센터) 입력 데이터 (PROCESS_TYPE = '0'직납일 경우 에디트 불가 항목)
+                        -- 물류센터출고
+                        , W_IVK_FLAG
+                        , W_IVK_TYPE             -- 공통코드 WMO6 출고방법
+                        , W_IVK_DATE
+                        , W_IVK_USER_ID
+                        ,(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID =W_IVK_USER_ID) AS W_IVK_USER_NAME
+                        , W_IVK_REMARK           -- 운영사(물류센터) 입력 데이터 (PROCESS_TYPE = '0'직납일 경우 에디트 불가 항목)
+                        -- 협력사입고
+                        , S_GR_FLAG
+                        , S_GR_DATE
+                        , S_GR_USER_ID
+                        ,(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = S_GR_USER_ID) AS W_S_GR_USER_NAME
+                        , S_GR_REMARK             -- 협력사 입고 데이터
+                        -- 물류센터 교환입고
+                        , W_CHGR_FLAG
+                        , W_CHGR_DATE
+                        , W_CHGR_USER_ID
+                        ,(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = W_CHGR_USER_ID) AS W_CHGR_USER_NAME
+                        , W_CHGR_REMARK           -- 운영사(물류센터) 입력 데이터 (PROCESS_TYPE = '0'직납 이거나 WMRE_TYPE = '01' 반품 일 경우 에디트 불가)
+                        -- 물류센터 교환납품
+                        , W_CHDELI_FLAG
+                        , W_CHDELI_DATE
+                        , W_CHDELI_USER_ID
+                        ,(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = W_CHDELI_USER_ID) AS W_CHDELI_USER_NAME
+                        , W_CHDELI_REMARK         -- 운영사(물류센터) 입력 데이터 (PROCESS_TYPE = '0'직납 이거나 WMRE_TYPE = '01' 반품 일 경우 에디트 불가)
+                        -- 협력사 교환납품
+                        , S_CHDELI_FLAG
+                        , S_CHDELI_DATE
+                        , S_CHDELI_USER_ID
+                        ,(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = S_CHDELI_USER_ID) AS S_CHDELI_USER_NAME
+                        , S_CHDELI_REMARK         -- 협력사 입력 데이터 ( WMRE_TYPE = '01' 반품 일 경우 에디트 불가)
+                        -- 운영사 마감
+                        , M_CLOSE_FLAG
+                        , M_CLOSE_DATE
+                        , M_CLOSE_USER_ID
+                        ,(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = M_CLOSE_USER_ID) AS M_CLOSE_USER_NAME
+                        , M_CLOSE_REMARK          -- 운영사(사업부) 입력 데이터 
+                        -- 종결처리
+                        , END_FLAG
+                        , END_DATE
+                        , END_USER_ID
+                        ,(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = END_USER_ID) AS END_USER_NAME
+                        -- 취소 처리 
+                        ,CANCEL_FLAG
+                        ,CANCEL_DATE
+                        ,CANCEL_USER_ID
+                        ,CANCEL_REMARK
+                         ,(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = CANCEL_USER_ID) AS CANCEL_USER_NAME
+                        ,  TO_CHAR(SYSDATE,'YYYYMMDD') AS CUR_DATE
+                     FROM  	 BNTWMRE
+                     WHERE 1=1
+                       AND WMRE_NO = #{st_WMRE_NO}
+		     
+			]]>
+	</select>
+	
+	<update  id="cancelMasterWmReReturnWmNoPop" parameterType="java.util.Map" >
+		<![CDATA[
+		     /*cancelMasterWmReReturnWmNoPop*/
+		     UPDATE BNTWMRE  SET
+		     	    FLAG = #{st_next_flag} 
+		  ]]>
+		<if test='st_cancel_flag_step =="12"'>	
+					,  M_CLOSE_FLAG = ''
+					,  M_CLOSE_DATE =''
+					,  M_CLOSE_USER_ID = ''
+					,  M_CLOSE_REMARK = ''
+		</if>
+		<if test='st_cancel_flag_step =="11"'>	
+					,S_CHDELI_FLAG  = ''
+					,S_CHDELI_DATE = ''
+					,S_CHDELI_USER_ID = '' 
+					,S_CHDELI_REMARK = ''
+		</if>	  
+		<if test='st_cancel_flag_step =="10"'>	
+					,W_CHDELI_FLAG     =''
+					,W_CHDELI_DATE     =''
+					,W_CHDELI_USER_ID  =''
+					,W_CHDELI_REMARK   =''
+		</if>	  
+		<if test='st_cancel_flag_step =="09"'>	
+					 ,W_CHGR_FLAG       =''
+					 ,W_CHGR_DATE       =''
+					 ,W_CHGR_USER_ID   =''
+					 ,W_CHGR_REMARK   =''
+		</if>	  
+		<if test='st_cancel_flag_step =="08"'>	
+					,S_GR_FLAG         =''
+					,S_GR_DATE         =''
+					,S_GR_USER_ID      =''
+					,S_GR_REMARK       = ''
+		</if>	  
+		<if test='st_cancel_flag_step =="06"'>	
+					,W_RIV_FLAG        =''
+					,W_RIV_DATE        =''
+					,W_RIV_USER_ID     =''
+				   , W_IVK_TYPE = ''
+		</if>	  
+		<if test='st_cancel_flag_step =="05"'>
+					 ,W_GR_FLAG         =''
+					 ,W_GR_QTY          =''
+					 ,W_GR_DATE         =''
+					 ,W_GR_USER_ID      =''
+					 ,W_GR_REMARK       =''
+		</if>	 
+		<if test='st_cancel_flag_step =="03"'>
+					 ,S_REC_FLAG         =''
+					 ,S_REC_DATE         =''
+					 ,S_REC_USER_ID      =''
+					 ,S_REC_REMARK       =''
+		</if>	  			 													  
+		  <![CDATA[
+		  		WHERE  WMRE_NO  =#{st_WMRE_NO}
+		  	]]>
+	</update>  
+	
+	
+	
+	<update  id="saveMasterWmReReturnWmNoPop" parameterType="java.util.Map" >
+		<![CDATA[
+		     /*saveMasterWmReReturnWmNoPop*/
+		     UPDATE BNTWMRE  SET
+		  ]]>
+		  <choose>
+		  	<when test ="st_cancel_flag != null and st_cancel_flag !='' ">
+		  			FLAG = '19'
+		  	</when>		  
+		  	<when test ="st_end_flag != null and st_end_flag !='' ">
+		  			FLAG = '13'
+		  	</when>
+		  	<when test ="st_m_close_flag != null and st_m_close_flag !='' ">
+		  			FLAG = '12'
+		  	</when>
+		  	<when test ="st_s_chdeli_flag != null and st_s_chdeli_flag != '' ">
+		  			FLAG = '11'
+		  	</when>
+		  	<when test ="st_w_chdeli_flag != null and st_w_chdeli_flag !='' ">
+		  			FLAG = '10'
+		  	</when>
+		  	<when test ="st_w_chgr_flag != null and st_w_chgr_flag != '' ">
+		  			FLAG = '09'		  	
+		  	</when>
+		  	<when test ="st_s_gr_flag != null and st_s_gr_flag != '' ">
+		  			FLAG = '08'
+		  	</when>
+		  	<when test ="st_w_ivk_flag != null and st_w_ivk_flag != '' ">
+		  			FLAG = '07'
+		  	</when>
+		  	<when test ="st_w_riv_flag != null and st_w_riv_flag !='' ">
+		  			FLAG = '06'
+		  	</when>
+		  	<when test ="st_w_gr_flag != null and st_w_gr_flag != '' ">
+		  			FLAG = '05'
+		  	</when>
+		  	<when test ="st_s_prt_flag != null and st_s_prt_flag != '' ">
+		  			FLAG = '04'
+		  	</when>
+		  	<when test ="st_s_rec_flag != null and st_s_rec_flag !='' ">
+		  			FLAG = '03'
+		  	</when>
+		  	<when test ="st_m_rec_flag != null and st_m_rec_flag !='' ">
+		  			FLAG = '02'
+		  	</when>
+		  	<when test ="st_b_req_flag != null and st_b_req_flag != '' ">
+		  			FLAG = '01'
+		  	</when>		  			  			  			  			  	
+		  </choose>
+		<if test="st_cancel_flag != null and st_cancel_flag != ''">    
+					, CANCEL_FLAG      = '02'
+					<if test="st_CANCEL_DATE != null and st_CANCEL_DATE   != ''">    
+					, CANCEL_DATE      = #{st_CANCEL_DATE}
+					</if>
+					<if test="st_CANCEL_USER_ID  != null and st_CANCEL_USER_ID  != ''"  >    
+					, CANCEL_USER_ID  =#{st_CANCEL_USER_ID}
+					</if>
+		</if>		  
+		<if test="st_end_flag != null and st_end_flag != ''">    
+					, END_FLAG      = '03'
+					<if test="st_END_DATE  != null and st_END_DATE != ''">    
+					, END_DATE      = #{st_END_DATE}
+					</if>
+					<if test="st_END_USER_ID != null and st_END_USER_ID != ''">    
+					, END_USER_ID  =#{st_END_USER_ID}
+					</if>
+		</if>
+		<if test="st_m_close_flag != null and st_m_close_flag != ''">    
+					,  M_CLOSE_FLAG = '02'
+					<if test="st_M_CLOSE_DATE != null and st_M_CLOSE_DATE != ''">      
+					,  M_CLOSE_DATE = #{st_M_CLOSE_DATE}
+					</if>
+					<if test="st_M_CLOSE_USER_ID != null and st_M_CLOSE_USER_ID != ''">    
+					,  M_CLOSE_USER_ID = #{st_M_CLOSE_USER_ID}
+					</if>
+					,  M_CLOSE_REMARK = #{st_m_close_remark}
+		</if>
+		<if test="st_s_chdeli_flag != null and st_s_chdeli_flag != ''">    
+				,S_CHDELI_FLAG     = '02'
+				 <if test="st_S_CHDELI_DATE != null and S_CHDELI_DATE != ''">                       
+				,S_CHDELI_DATE     = #{st_S_CHDELI_DATE} 
+				</if>
+				<if test="st_S_CHDELI_USER_ID != null and st_S_CHDELI_USER_ID != ''">     
+				,S_CHDELI_USER_ID  = #{st_S_CHDELI_USER_ID} 
+				</if>
+				,S_CHDELI_REMARK   = #{st_s_chdeli_remark} 			
+		</if>		
+		<if test="st_w_chdeli_flag != null and st_w_chdeli_flag != ''">    
+               ,W_CHDELI_FLAG     ='02'
+                 <if test="st_W_CHDELI_DATE != null and st_W_CHDELI_DATE != ''">                       
+               ,W_CHDELI_DATE     = #{st_W_CHDELI_DATE} 
+               </if>
+                  <if test="st_W_CHDELI_USER_ID != null and st_W_CHDELI_USER_ID   != ''">   
+               ,W_CHDELI_USER_ID  = #{st_W_CHDELI_USER_ID} 
+               </if>
+               ,W_CHDELI_REMARK   = #{st_w_chdeli_remark}			
+		</if>
+		<if test="st_w_chgr_flag != null and st_w_chgr_flag != ''">  
+               ,W_CHGR_FLAG       = '02'  
+                <if test="st_W_CHGR_DATE != null and st_W_CHGR_DATE != ''">                  
+               ,W_CHGR_DATE       = #{st_W_CHGR_DATE}    
+               </if>
+				<if test="st_W_CHGR_USER_ID != null and st_W_CHGR_USER_ID != ''">                        
+               ,W_CHGR_USER_ID    = #{st_W_CHGR_USER_ID} 
+               </if>
+               ,W_CHGR_REMARK     = #{st_w_chgr_remark}		  
+		</if>
+		<if test="st_s_gr_flag != null and st_s_gr_flag != ''">   
+               ,S_GR_FLAG         = '02' 
+               <if test="st_S_GR_DATE != null and st_S_GR_DATE != ''">                
+                  ,S_GR_DATE         = #{st_S_GR_DATE}    
+               </if>
+                <if test="st_S_GR_USER_ID != null and st_S_GR_USER_ID != ''">                 
+               ,S_GR_USER_ID      = #{st_S_GR_USER_ID}    
+               </if>
+               ,S_GR_REMARK       = #{st_s_gr_remark}		 
+		</if>
+		<if test="st_w_ivk_flag != null and st_w_ivk_flag != ''"> 
+               ,W_IVK_FLAG        = '02'   
+               ,W_IVK_TYPE        = #{st_w_ivk_type}   
+              <if test="st_W_RIV_DATE != null and st_W_RIV_DATE != ''">   
+              		 ,W_IVK_DATE        = #{st_W_RIV_DATE}    
+              </if>
+               <if test="st_W_IVK_USER_ID != null and st_W_IVK_USER_ID != ''" >
+             		  ,W_IVK_USER_ID     = #{st_W_IVK_USER_ID}  
+               </if>  
+               ,W_IVK_REMARK      = #{st_w_ivk_remark}  
+		</if>		
+		<if test="st_w_riv_flag != null and st_w_riv_flag != ''">    
+               ,W_RIV_FLAG        = '02'
+               <if test="st_W_RIV_DATE != null and st_W_RIV_DATE != ''">  
+              		 ,W_RIV_DATE        = #{st_W_RIV_DATE}    
+               </if>
+               <if test="st_W_RIV_USER_ID != null and st_W_RIV_USER_ID != ''" >
+              		 ,W_RIV_USER_ID     = #{st_W_RIV_USER_ID}    
+               </if>
+               <if test="st_w_ivk_type != null and st_w_ivk_type != ''" >
+               		,  W_IVK_TYPE = #{st_w_ivk_type}
+               </if>
+               ,W_RIV_REMARK      = #{st_w_riv_remark}		
+		</if>
+		<if test="st_w_gr_flag != null and st_w_gr_flag != ''">  
+               ,W_GR_FLAG         ='02' 
+               ,W_GR_QTY          = #{st_w_gr_qty}   
+                <if test="st_W_GR_DATE != null and st_W_GR_DATE != ''">  
+               		,W_GR_DATE         = #{st_W_GR_DATE}   
+               </if>
+               <if test="st_W_GR_USER_ID != null and st_W_GR_USER_ID != ''" >
+              		 ,W_GR_USER_ID      = #{st_W_GR_USER_ID}    
+               </if>
+               ,W_GR_REMARK       = #{st_w_gr_remark}		  
+		</if>
+		<if test="st_s_prt_flag != null and st_s_prt_flag != ''">    
+               ,S_PRT_FLAG        ='02'   
+               <if test="st_S_PRT_DATE != null and st_S_PRT_DATE != ''">     
+                ,S_PRT_DATE        =#{st_S_PRT_DATE}
+               </if>
+               <if test="st_S_PRT_USER_ID != null and st_S_PRT_USER_ID != ''">  
+               ,S_PRT_USER_ID     =#{st_S_PRT_USER_ID}            
+               </if>
+               ,S_PRT_REMARK     =#{st_s_prt_remark}		
+		</if>
+		<if test="st_s_rec_flag != null and st_s_rec_flag != ''">    
+               ,S_REC_FLAG        = '02'  
+  				<if test="st_S_REC_DATE != null and st_S_REC_DATE != ''">                          
+              		 ,S_REC_DATE        = #{st_S_REC_DATE}    
+               </if>
+				<if test="st_S_REC_USER_ID != null and st_S_REC_USER_ID != ''">                   
+               ,S_REC_USER_ID     = #{st_S_REC_USER_ID}    
+               </if>
+               ,S_REC_REMARK      = #{st_s_rec_remark} 
+		</if>				
+		<if test="st_m_rec_flag != null and st_m_rec_flag != ''">    
+               ,M_REC_FLAG        ='02'   
+               <if test="st_M_REC_DATE != null and st_M_REC_DATE != ''">                  
+               		,M_REC_DATE       = #{st_M_REC_DATE}    
+               </if>
+              
+               <if test="st_M_REC_USER_ID != null and st_M_REC_USER_ID != ''">    
+               		 ,M_REC_USER_ID   =  #{st_M_REC_USER_ID}   
+               </if>
+               ,M_REC_REMARK   =   #{st_m_rec_remark} 		
+		</if>		
+		<if test="st_b_req_flag != null and st_b_req_flag != ''">   
+               ,B_REQ_FLAG        ='02'    
+               <if test="st_B_REQ_DATE != null and st_B_REQ_DATE != ''">   
+                              ,B_REQ_DATE       = #{st_B_REQ_DATE}    
+               </if>
+				<if test="st_B_REQ_USER_ID != null and st_B_REQ_USER_ID != ''">   
+							   ,B_REQ_USER_ID    = #{st_B_REQ_USER_ID}    
+				</if>
+
+               ,B_REQ_REMARK    =  #{st_b_req_remark}  		 
+		</if>										
+		  		<![CDATA[
+		  		WHERE  WMRE_NO  =#{st_WMRE_NO}
+		  		]]>
+										
+	</update>
+	
+	<update  id="saveMasterWmReReturnWmNoPop_v2" parameterType="java.util.Map" >
+		<![CDATA[
+		     /*saveMasterWmReReturnWmNoPop_v2*/
+		     UPDATE BNTWMRE  SET
+		  ]]>
+		  <choose>
+		  	<when test ="st_s_gr_flag != null and st_s_gr_flag != '' ">
+		  			FLAG = '08'
+		  	</when>
+		  	<when test ="st_s_rec_flag != null and st_s_rec_flag !='' ">
+		  			FLAG = '03'
+		  	</when>
+		  </choose>
+		<if test="st_s_gr_flag != null and st_s_gr_flag != ''">   
+               ,S_GR_FLAG         = '02' 
+               <if test="st_s_gr_date != null and st_s_gr_date != ''">                
+                  ,S_GR_DATE         = #{st_s_gr_date}    
+               </if>
+                <if test="st_s_gr_user_id != null and st_s_gr_user_id != ''">                 
+               ,S_GR_USER_ID      = #{st_s_gr_user_id}    
+               </if>
+               ,S_GR_REMARK       = #{st_s_gr_remark}		 
+		</if>
+		<if test="st_s_rec_flag != null and st_s_rec_flag != ''">    
+               ,S_REC_FLAG        = '02'  
+  				<if test="st_s_rec_date != null and st_s_rec_date != ''">                          
+              		 ,S_REC_DATE        = #{st_s_rec_date}    
+               </if>
+				<if test="st_s_rec_user_id != null and st_s_rec_user_id != ''">                   
+               ,S_REC_USER_ID     = #{st_s_rec_user_id}    
+               </if>
+               ,S_REC_REMARK      = #{st_s_rec_remark} 
+		</if>				
+		  		<![CDATA[
+		  		WHERE  WMRE_NO  =#{st_WMRE_NO}
+		  		]]>
+										
+	</update>
+	
+	<select id="existMasterWmReReturnEntry" parameterType="java.util.Map" resultType="java.lang.Integer">
+			/*existMasterWmReReturnEntry*/
+			<![CDATA[
+				    SELECT COUNT(*)  EXIST
+                     FROM BNTWMRE
+                    WHERE BUYER =  #{st_buyer_code} 
+                        AND PO_NO =  #{st_po_no}
+                        AND PO_SEQ = #{st_po_seq}
+			]]>
+	</select>	
+	
+	
+	
+	<select id="selectMasterWmReReturnEntryPopForBuyer" parameterType="java.util.Map" resultType="java.util.Map">
+		/*selectMasterWmReReturnEntryPopForBuyer*/
+		<![CDATA[
+    SELECT   A.PO_NO AS PO_NO
+               , A.PO_SEQ AS PO_SEQ               
+               , A.BUYER_ITEM_NO AS BUYER_ITEM_NO
+               , A.DESCRIPTION AS DESCRIPTION
+               , A.SPECIFICATION AS SPECIFICATION
+               , A.ITEM_QTY AS ITEM_QTY
+               , A.UNIT_MEASURE AS UNIT_MEASURE               
+               , DECODE((SELECT NVL(AGENT_OPEN_FLAG,'N') FROM ICOMCMPY WHERE COM_CODE = A.BUYER), 'Y',
+                                                (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = B.AGENT),'코리아이플랫폼(주)') AS AGENT_NAME  
+               ,B.AGENT    
+               ,A.PROCESS_TYPE         
+              --, A.WAREHOUSE_CODE 
+                ,CASE 
+                         WHEN A.PROCESS_TYPE IN ('1','3')  THEN  (SELECT distinct COD2.TEXT1 FROM ICOMCOD2  COD2
+                                                                                           WHERE COD2.COMPANY_CODE = 'KRKORE0001'
+                                                                                               AND COD2.TYPE = 'WR01'
+                                                                                               AND COD2.FLAG = 'Y'
+                                                                                               AND COD2.TEXT2 = B.AGENT ) 
+                         ELSE A.WAREHOUSE_CODE
+                         END AS WAREHOUSE_CODE 
+          FROM ICOMPODT A, ICOMPOHD B
+         WHERE A.BUYER  = B.BUYER 
+           AND A.PO_NO  = B.PO_NO
+           AND A.BUYER  =  #{st_buyer_code} 
+                        AND A.PO_NO =  #{st_po_no}
+                        AND A.PO_SEQ = #{st_po_seq}
+		]]>
+	</select>
+	<select id="getPopBuyer_v2" parameterType="java.util.Map" resultType="java.util.Map">
+		/*getPopBuyer_v2*/
+		<![CDATA[
+    SELECT   A.PO_NO AS PO_NO
+               , A.PO_SEQ AS PO_SEQ               
+               , A.BUYER_ITEM_NO AS BUYER_ITEM_NO
+               , A.DESCRIPTION AS DESCRIPTION
+               , A.SPECIFICATION AS SPECIFICATION
+               , A.ITEM_QTY AS ITEM_QTY
+               , A.UNIT_MEASURE AS UNIT_MEASURE               
+               , (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = B.AGENT) AS AGENT_NAME 
+               , A.REF_PR_NO AS REF_PR_NO
+               , A.UNIT_PRICE AS UNIT_PRICE
+               , A.PR_NO AS PR_NO
+               ,B.AGENT    
+               ,A.PROCESS_TYPE         
+                ,CASE 
+                         WHEN A.PROCESS_TYPE IN ('1','3')  THEN  (SELECT distinct COD2.TEXT1 FROM ICOMCOD2  COD2
+                                                                                           WHERE COD2.COMPANY_CODE = 'KRKORE0001'
+                                                                                               AND COD2.TYPE = 'WR01'
+                                                                                               AND COD2.FLAG = 'Y'
+                                                                                               AND COD2.TEXT2 = B.AGENT ) 
+                         ELSE A.WAREHOUSE_CODE
+                         END AS WAREHOUSE_CODE 
+          FROM ICOMPODT A, ICOMPOHD B
+         WHERE A.BUYER  = B.BUYER 
+           AND A.PO_NO  = B.PO_NO
+           AND A.BUYER  =  #{st_buyer_code} 
+                        AND A.PO_NO =  #{st_po_no}
+                        AND A.PO_SEQ = #{st_po_seq}
+		]]>
+	</select>
+	
+		<update  id="saveMasterWmReReturnEntryForBuyerPop" parameterType="java.util.Map" >
+		<![CDATA[
+		     /*saveMasterWmReReturnEntryForBuyerPop*/
+                   INSERT INTO BNTWMRE
+                   (
+                     WMRE_NO
+                   , BUYER
+                   , PO_NO
+                   , PO_SEQ
+                   , BUYER_ITEM_NO
+                   , DESCRIPTION
+                   , SPECIFICATION
+                   , ITEM_QTY
+                   , UNIT_MEASURE
+                   , PROCESS_TYPE
+                   , SELLER
+                   , BUYER_DEPT_CODE
+                   , BUYER_PERSON_NAME
+                   , BUYER_PERSON_TEL
+                   , WMRE_QTY
+                   , WMRE_TYPE
+                   , WMRE_FILE
+                   , B_REQ_DATE
+                   , B_REQ_USER_ID
+                   , B_REQ_FLAG
+                   , FLAG
+                   , B_REQ_REMARK   
+     			    , WAREHOUSE_CODE
+
+                   )
+                   VALUES
+                   (  
+                     (SELECT   'WM'||TO_CHAR(SYSDATE,'YYMMDD')|| LPAD(COUNT(WMRE_NO)+1,3,0)   AS WMRE_NO
+                        FROM   BNTWMRE
+                        WHERE SUBSTR(WMRE_NO,3,6) = TO_CHAR(SYSDATE,'YYMMDD'))
+                   , #{st_buyer_code}
+                   ,#{st_po_no}
+                   , #{st_po_seq}
+                   ,#{st_buyer_item_no}
+                   , #{st_description}
+                   , #{st_specification}
+                   , #{st_item_qty}
+                   , NVL(#{st_unit_measure},' ')
+                   , #{st_process_type}
+                   ,#{st_seller}
+                   , #{st_buyer_dept_code}
+                   , #{st_buyer_person_name}
+                   , #{st_buyer_person_tel}
+                   , #{st_wmre_qty}
+                   , #{st_wmre_type}
+                   , #{st_wmre_file}
+                    ,#{st_b_req_date}
+                    ,#{st_user_id}
+                    , '02'
+                    , '01'
+                   ,#{st_b_req_remark}
+				   ,#{st_WAREHOUSE_CODE}           
+                   )	                    
+                ]]>   
+	
+	</update>
+		
+	
+	
+		<update  id="saveMasterWmReReturnEntryCancelPop" parameterType="java.util.Map" >
+		<![CDATA[
+		     /*saveMasterWmReReturnEntryCancelPop*/
+                   INSERT INTO BNTWMRE
+                   (
+                     WMRE_NO
+                   , BUYER
+                   , PO_NO
+                   , PO_SEQ
+                   , BUYER_ITEM_NO
+                   , DESCRIPTION
+                   , SPECIFICATION
+                   , ITEM_QTY
+                   , UNIT_MEASURE
+                   , PROCESS_TYPE
+                   , SELLER
+                   , BUYER_DEPT_CODE
+                   , BUYER_PERSON_NAME
+                   , BUYER_PERSON_TEL
+                   , WMRE_TYPE
+                   , WMRE_FILE
+                   , B_REQ_DATE
+                   , B_REQ_USER_ID
+                   , B_REQ_FLAG
+                   , FLAG
+                   , B_REQ_REMARK   
+     			   , WAREHOUSE_CODE
+
+                   )
+                   VALUES
+                   (  
+                     (SELECT  'WM'||TO_CHAR(SYSDATE,'YYMMDD')|| LPAD(COUNT(WMRE_NO)+1,3,0)   AS WMRE_NO
+                        FROM   BNTWMRE
+                        WHERE SUBSTR(WMRE_NO,3,6) = TO_CHAR(SYSDATE,'YYMMDD'))
+                   , #{st_buyer_code}
+                   ,#{st_po_no}
+                   , #{st_po_seq}
+                   ,#{st_buyer_item_no}
+                   , #{st_description}
+                   , #{st_specification}
+                   , #{st_item_qty}
+                   , NVL(#{st_unit_measure},' ')
+                   , #{st_process_type}
+                   ,#{st_seller}
+                   , #{st_buyer_dept_code}
+                   , #{st_buyer_person_name}
+                   , #{st_buyer_person_tel}
+                   , #{st_wmre_type}
+                   , #{st_wmre_file}
+                    ,#{st_b_req_date}
+                    , #{st_user_id}
+                    , '02'
+                    , '01'
+                   ,#{st_b_req_remark}
+           		   ,#{st_WAREHOUSE_CODE}
+                   )	                    
+                ]]>   
+	
+	</update>
+	
+	<update  id="updateMasterWmReReturnEntryPop" parameterType="java.util.Map" >	
+		<![CDATA[
+			 /*updateMasterWmReReturnEntryPop*/
+			 UPDATE BNTWMRE
+			    SET 
+			   WMRE_TYPE_DETAIL          =           #{st_wmre_type_detail}    
+ ,M_REC_DATE                =           #{st_m_rec_date}		
+, WMRE_FILE                 =           #{st_wmre_file}     
+, M_REC_REMARK         			=	        #{st_m_rec_remark}  
+, DELIVERY_FLAG				= #{st_delivery_flag}			    
+			    		]]>    
+<if test='st_wmre_type == "01" or  st_wmre_type == "01"'>
+,  WMRE_TYPE2                =           #{st_wmre_type2}   
+, WMRE_TYPE3                =           #{st_wmre_type3}   
+</if>
+
+		<if test='st_FLAG == "01"'>
+			,  FLAG  = '02'
+			,  ADD_USER_ID               =           #{st_add_user_id}    
+			,  M_REC_FLAG  = '02'
+			,  M_REC_USER_ID = #{st_add_user_id}
+		</if>
+			<![CDATA[
+			 WHERE    WMRE_NO = #{st_wmre_no}
+		]]>  
+	</update>
+
+
+	<update  id="updateMasterWmReReturnEntrySellerPop" parameterType="java.util.Map" >	
+		<![CDATA[
+			 /*updateMasterWmReReturnEntrySellerPop*/
+			 UPDATE BNTWMRE
+			    SET 
+ 
+  WMRE_TYPE2                =           #{st_wmre_type2}   
+, WMRE_TYPE3                =           #{st_wmre_type3}       
+
+, WMRE_TYPE_DETAIL          =           #{st_wmre_type_detail}    
+, WMRE_FILE                 =           #{st_wmre_file}             
+, M_REC_DATE                =           #{st_s_rec_date}		
+, S_REC_DATE                =           #{st_s_rec_date}	          
+, M_REC_USER_ID      				=           #{st_add_user_id}   
+, S_REC_USER_ID      				=           #{st_add_user_id}            
+, M_REC_REMARK         			=	        #{st_m_rec_remark}          
+, S_REC_REMARK         			=	        #{st_m_rec_remark}
+, DELIVERY_FLAG				= #{st_delivery_flag}        
+		]]>   	
+		<if test='st_FLAG == "01"'>
+			,  FLAG  = '03'
+			,  ADD_USER_ID               =           #{st_add_user_id}    
+			,  S_REC_FLAG  = '02'
+			,  M_REC_FLAG  = '02'
+		</if>
+				    
+			<![CDATA[
+			 WHERE    WMRE_NO = #{st_wmre_no}
+		]]>  
+	</update>
+
+
+	
+		     
+	<update  id="saveMasterWmReReturnEntrySellerPop" parameterType="java.util.Map" >
+		<![CDATA[
+		     /*saveMasterWmReReturnEntrySellerPop*/
+                   INSERT INTO BNTWMRE
+                   (
+                     WMRE_NO
+                   , BUYER
+                   , PO_NO
+                   , PO_SEQ
+                   , LEGACY_PO_NO
+                   , LEGACY_PO_SEQ
+                   , BUYER_ITEM_NO
+                   , DESCRIPTION
+                   , SPECIFICATION
+                   , ITEM_QTY
+                   , UNIT_MEASURE
+                   , SELLER
+                   , PROCESS_TYPE
+                   , BUYER_DEPT_CODE
+                   , BUYER_PERSON_NAME
+                   , BUYER_PERSON_TEL
+                   , WAREHOUSE_CODE
+                   , ADD_USER_ID
+                   , PROCESS_USER_NAME
+                   , WMRE_QTY
+                   , WMRE_TYPE
+                     ]]>
+                   <if test="st_wmre_type2 != null and st_wmre_type2 != ''">    
+                   , WMRE_TYPE2
+                   </if>
+                    <if test="st_wmre_type3 != null and st_wmre_type3 != ''">  
+                   , WMRE_TYPE3
+                   </if>
+                   	<![CDATA[
+                   , WMRE_TYPE_DETAIL
+                   , WMRE_FILE
+                   , B_REQ_DATE
+                   , M_REC_DATE 
+                   , S_REC_DATE                                   
+                   , B_REQ_USER_ID
+                   , B_REQ_FLAG
+			       , M_REC_USER_ID
+			       , S_REC_USER_ID			       
+                   , M_REC_FLAG
+                   , S_REC_FLAG                   
+ 				   , FLAG
+                   , B_REQ_REMARK
+                   , M_REC_REMARK
+                   , S_REC_REMARK
+                   , DELIVERY_FLAG                  
+                   )
+                   VALUES
+                   (  
+                     (SELECT  'WM'||TO_CHAR(SYSDATE,'YYMMDD')|| LPAD(COUNT(WMRE_NO)+1,3,0)   AS WMRE_NO
+                        FROM   BNTWMRE
+                        WHERE SUBSTR(WMRE_NO,3,6) = TO_CHAR(SYSDATE,'YYMMDD'))
+                   , #{st_buyer_code}
+                   ,#{st_po_no}
+                   , #{st_po_seq}
+                   , #{st_legacy_po_no}
+                   , #{st_legacy_po_seq}
+                   ,#{st_buyer_item_no}
+                   , #{st_description}
+                   , #{st_specification}
+                   , #{st_item_qty}
+                   , #{st_unit_measure}
+                   , #{st_seller}
+                   , #{st_process_type}
+                   , #{st_buyer_dept_code}
+                   , #{st_buyer_person_name}
+                   , #{st_buyer_person_tel}
+                   , ''
+                   , #{st_add_user_id}
+                   , #{st_process_user_name}
+                   , #{st_wmre_qty}
+                   , #{st_wmre_type}
+                     ]]>
+                   <if test="st_wmre_type2 != null and st_wmre_type2 != ''">    
+                   , #{st_wmre_type2}
+                   </if>
+                    <if test="st_wmre_type3 != null and st_wmre_type3 != ''">    
+                   , #{st_wmre_type3}
+                   </if>
+                   <![CDATA[
+                   , #{st_wmre_type_detail}
+                   , #{st_wmre_file}
+                   ,#{st_b_req_date}
+                   ,#{st_s_rec_date}
+                   ,#{st_s_rec_date}
+                   ,#{st_b_req_user_id}
+                   , '02'
+				   , #{st_add_user_id}
+				   , #{st_add_user_id}				   
+                   , '02'
+  				   ,'02'
+   				   ,'03' 					
+                   , #{st_b_req_remark}
+                   , #{st_m_rec_remark}
+                   , #{st_m_rec_remark}
+                   , #{st_delivery_flag}
+                   )	
+                  
+		  ]]>
+	</update>
+
+
+	<update  id="saveMasterWmReReturnEntryPop" parameterType="java.util.Map" >
+		<![CDATA[
+		     /*saveMasterWmReReturnEntryPop*/
+                   INSERT INTO BNTWMRE
+                   (
+                     WMRE_NO
+                   , BUYER
+                   , PO_NO
+                   , PO_SEQ
+                   , LEGACY_PO_NO
+                   , LEGACY_PO_SEQ
+                   , BUYER_ITEM_NO
+                   , DESCRIPTION
+                   , SPECIFICATION
+                   , ITEM_QTY
+                   , UNIT_MEASURE
+                   , SELLER
+                   , PROCESS_TYPE
+                   , BUYER_DEPT_CODE
+                   , BUYER_PERSON_NAME
+                   , BUYER_PERSON_TEL
+                   , WAREHOUSE_CODE
+                   , ADD_USER_ID
+                   , PROCESS_USER_NAME
+                   , WMRE_QTY
+                   , WMRE_TYPE
+                     ]]>
+                   <if test="st_wmre_type2 != null and st_wmre_type2 != ''">    
+                   , WMRE_TYPE2
+                   </if>
+                    <if test="st_wmre_type3 != null and st_wmre_type3 != ''">  
+                   , WMRE_TYPE3
+                   </if>
+                   	<![CDATA[
+                   , WMRE_TYPE_DETAIL
+                   , WMRE_FILE
+                   , B_REQ_DATE
+                   , M_REC_DATE                
+                   , B_REQ_USER_ID
+                   , B_REQ_FLAG
+			       , M_REC_USER_ID
+                   , M_REC_FLAG
+ 				   , FLAG
+                   , B_REQ_REMARK
+                   , M_REC_REMARK
+                   , DELIVERY_FLAG
+                   )
+                   VALUES
+                   (  
+                     (SELECT  'WM'||TO_CHAR(SYSDATE,'YYMMDD')|| LPAD(COUNT(WMRE_NO)+1,3,0)   AS WMRE_NO
+                        FROM   BNTWMRE
+                        WHERE SUBSTR(WMRE_NO,3,6) = TO_CHAR(SYSDATE,'YYMMDD'))
+                   , #{st_buyer_code}
+                   ,#{st_po_no}
+                   , #{st_po_seq}
+                   , #{st_legacy_po_no}
+                   , #{st_legacy_po_seq}
+                   ,#{st_buyer_item_no}
+                   , #{st_description}
+                   , #{st_specification}
+                   , #{st_item_qty}
+                   , #{st_unit_measure}
+                   , #{st_seller}
+                   , #{st_process_type}
+                   , #{st_buyer_dept_code}
+                   , #{st_buyer_person_name}
+                   , #{st_buyer_person_tel}
+                   , #{st_warehouse_code}
+                   , #{st_add_user_id}
+                   , #{st_process_user_name}
+                   , #{st_wmre_qty}
+                   , #{st_wmre_type}
+                     ]]>
+                   <if test="st_wmre_type2 != null and st_wmre_type2 != ''">    
+                   , #{st_wmre_type2}
+                   </if>
+                    <if test="st_wmre_type3 != null and st_wmre_type3 != ''">    
+                   , #{st_wmre_type3}
+                   </if>
+                   <![CDATA[
+                   , #{st_wmre_type_detail}
+                   , #{st_wmre_file}
+                   , #{st_b_req_date}
+                   , #{st_m_rec_date}				  
+				   , #{st_add_user_id}
+                   , '02'
+				   , #{st_add_user_id}
+                   , '02'
+  				   ,'02'
+                   , #{st_b_req_remark}
+                   , #{st_m_rec_remark}
+                   , #{st_delivery_flag}
+                   )	
+		  ]]>
+	</update>
+	<select id="getMasterWmReReturnPoInfo" parameterType="java.util.Map" resultType="java.util.Map">
+	<![CDATA[
+				/*getMasterWmReReturnPoInfo*/
+        SELECT A.BUYER
+               , (SELECT D.COM_NAME_LOC FROM ICOMCMPY D WHERE D.COM_CODE = A.BUYER) AS BUYER_NAME
+               , A.PO_NO AS PO_NO
+               , A.PO_SEQ AS PO_SEQ
+               , A.LEGACY_PO_NO AS LEGACY_PO_NO
+               , A.LEGACY_PO_SEQ AS LEGACY_PO_SEQ
+               , A.BUYER_ITEM_NO AS BUYER_ITEM_NO
+               , A.DESCRIPTION AS DESCRIPTION
+               , A.SPECIFICATION AS SPECIFICATION
+               , A.ITEM_QTY AS ITEM_QTY
+               , A.UNIT_MEASURE AS UNIT_MEASURE
+               , B.PO_CREATE_DATE AS PO_CREATE_DATE    -- 발주일
+               , A.RD_DATE AS RD_DATE          -- 납기요청일
+               , ( SELECT MAX(C.GR_DATE) 
+                     FROM ICOMGRDT C
+                    WHERE A.BUYER  = C.BUYER
+                      AND A.PO_NO  = C.PO_NO
+                      AND A.PO_SEQ = C.PO_SEQ ) AS GR_DATE         
+               , (DECODE(A.PROCESS_TYPE,'0'                                           
+                                             ,(SELECT MIN(INVOICE_DATE) 
+                                                 FROM ICOMIVDT                                
+                                                WHERE BUYER  = A.BUYER 
+                                                  AND PO_NO  = A.PO_NO                               
+                                                  AND PO_SEQ = A.PO_SEQ 
+                                                  AND STATUS <>'D')                             
+                                             ,(SELECT MIN(INV_DATE) 
+                                                 FROM WMSIVDT                                     
+                                                WHERE BUYER  = A.BUYER   
+                                                  AND PO_NO  = A.PO_NO                            
+                                                  AND PO_SEQ = A.PO_SEQ  
+                                                  AND STATUS <> 'D'))) AS INVOICE_DATE   --납품일
+                , (DECODE(A.PROCESS_TYPE,'0'                                           
+                                              ,(SELECT MIN(DELIVERY_DATE) 
+                                                  FROM ICOMIVDT                               
+                                                 WHERE BUYER = A.BUYER 
+                                                  AND PO_NO  = A.PO_NO                               
+                                                  AND PO_SEQ = A.PO_SEQ 
+                                                  AND STATUS <>'D')                             
+                                              ,(SELECT MIN(DELIVERY_DATE) 
+                                                  FROM WMSIVDT                                
+                                                 WHERE BUYER  = A.BUYER   
+                                                   AND PO_NO  = A.PO_NO                            
+                                                   AND PO_SEQ = A.PO_SEQ  
+                                                   AND STATUS <> 'D'))) AS DELIVERY_DATE  --배송일               
+                , NVL(A.GR_QTY,0) AS GR_QTY
+                , NVL(A.IV_QTY,0) AS INVOICE_QTY                                       
+                , NVL(A.DI_QTY,0) AS DELIVERY_QTY
+                , B.AGENT AS SELLER
+                , (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = B.AGENT) AS SELLER_NAME
+                , A.PROCESS_TYPE AS PROCESS_TYPE                                
+                , (DECODE(A.PROCESS_TYPE,'0','직납','1','재고','2','TR','3','VMI')) AS PROCESS_TYPE_NAME    
+                , (SELECT DISTINCT ADD_USER_NAME FROM ICOMPRDT WHERE BUYER = A.BUYER AND PR_NO = A.PR_NO AND PR_SEQ = A.PR_SEQ ) AS PROCESS_USER_NAME
+                , D.BUYER_DEPT_CODE
+                , D.BUYER_PERSON_NAME
+                , D.BUYER_PERSON_TEL
+                , D.B_REQ_DATE
+                , D.B_REQ_USER_ID
+                , D.WMRE_NO
+                ,(SELECT TEXT1 
+        		   FROM ICOMCOD2 
+                  WHERE TYPE = 'C001' 
+                     AND COMPANY_CODE = A.BUYER 
+                     AND CODE =D.BUYER_DEPT_CODE)  BUYER_DEPT_NAME
+                ,D.WMRE_TYPE
+                ,D.WMRE_QTY
+                ,D.B_REQ_REMARK
+                ,CASE 
+                         WHEN A.PROCESS_TYPE IN ('1','3')  THEN  (SELECT distinct COD2.TEXT1 FROM ICOMCOD2  COD2
+                                                                                           WHERE COD2.COMPANY_CODE = 'KRKORE0001'
+                                                                                               AND COD2.TYPE = 'WR01'
+                                                                                               AND COD2.FLAG = 'Y'
+                                                                                               AND COD2.TEXT2 = B.AGENT ) 
+                         ELSE A.WAREHOUSE_CODE
+                         END AS WAREHOUSE_CODE
+                ,( SELECT BB.COM_NAME_LOC   TEXT1
+                 FROM  ICOMCMPY BB
+                WHERE  BB.COM_CODE  =   (CASE 
+                         WHEN A.PROCESS_TYPE IN ('1','3')  THEN  (SELECT distinct COD2.TEXT1 FROM ICOMCOD2  COD2
+                                                                                           WHERE COD2.COMPANY_CODE = 'KRKORE0001'
+                                                                                               AND COD2.TYPE = 'WR01'
+                                                                                               AND COD2.FLAG = 'Y'
+                                                                                               AND COD2.TEXT2 = B.AGENT ) 
+                         ELSE A.WAREHOUSE_CODE
+                         END)
+                
+                )  WAREHOUSE_NAME 
+               ,NVL((SELECT COUNT(RS.PO_NO) FROM ICOMPORS RS WHERE RS.BUYER =A.BUYER AND RS.PO_NO = A.PO_NO AND RS.PO_SEQ = A.PO_SEQ),0) STATUS_BACK_CODE
+               ,NVL((SELECT SUM(WMRE.WMRE_QTY) FROM BNTWMRE WMRE WHERE WMRE.BUYER = A.BUYER AND WMRE.PO_NO = A.PO_NO AND WMRE.PO_SEQ = A.PO_SEQ),0) TOTAL_WMRE_QTY
+               , PR.ADD_USER_ID AS PR_ADD_USER_ID
+               , PR.ADD_USER_NAME AS PR_ADD_USER_NAME
+               , PR.ADD_USER_TEL AS PR_ADD_USER_TEL
+               , PR.ADD_USER_DEPT AS PR_ADD_USER_DEPT
+               , (SELECT TEXT1 FROM ICOMCOD2
+					WHERE COMPANY_CODE = A.BUYER
+					AND TYPE = 'C001'
+					AND CODE = PR.ADD_USER_DEPT ) AS PR_ADD_USER_DEPT_NM
+          FROM ICOMPODT A, ICOMPOHD B,  BNTWMRE D,ICOMPRDT PR
+         WHERE A.BUYER  = B.BUYER 
+           AND A.PO_NO  = B.PO_NO
+            AND A.BUYER  = D.BUYER(+) 
+            AND A.PO_SEQ = D.PO_SEQ(+)
+            AND A.PO_NO = D.PO_NO(+)
+            AND A.PO_NO = D.PO_NO(+)
+            AND  PR.BUYER          = A.BUYER  
+            AND  PR.PR_NO         = A.PR_NO
+            AND  PR.PR_SEQ        = A.PR_SEQ                  
+           AND A.BUYER =#{st_buyer_code}
+           AND A.PO_NO = #{st_po_no}
+           AND A.PO_SEQ = #{st_po_seq}
+ 		]]>     
+	</select>
+	
+	<select id="getMasterWmReReturnWmreNo" parameterType="java.util.Map" resultType="String">
+		<![CDATA[
+		/* getMasterWmReReturnWmreNo */
+		SELECT	MAX(WMRE_NO) AS WMRE_NO
+		FROM	BNTWMRE
+		WHERE	1=1
+		AND		BUYER = #{st_buyer_code}
+        AND		PO_NO = #{st_po_no}
+		AND		PO_SEQ = #{st_po_seq}
+		]]>
+	</select>
+	
+	<update id="insertMasterWmReBuyerReturnNoticeMail" parameterType="java.util.Map">
+		<![CDATA[
+		/* insertMasterWmReBuyerReturnNoticeMail */
+		INSERT INTO MAILSEND(
+			MAILFORM_ID,
+			SEND_COM_TYPE,
+			RECV_COM_TYPE,
+			SEND_COM_CODE,
+			SEND_USER_ID,
+			KEY1,
+			KEY2,
+			KEY3,
+			KEY4,
+			KEY5,
+			KEY6,
+			CRE_DATE
+		)
+		VALUES(
+			'PO_RETURN_BM',
+			'B',
+			'M',
+			#{st_buyer_code},
+			#{st_user_id},
+			#{wmre_no}, -- 1 WMRE_NO
+			#{st_buyer_code}, -- 2 BUYER
+			#{st_po_no}, -- 3 PO_NO
+			#{st_po_seq}, -- 4 PO_SEQ
+			' ',
+			' ',
+			SYSDATE
+		)
+		]]>
+	</update>
+</mapper>

@@ -1,0 +1,334 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="buyer.mpds">
+	<select id="selectBuyerMpDsOrderManageList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.jsppagestart"/>
+		<![CDATA[
+			SELECT						
+			ROWNUM NO,			-- 0
+			Y.BUYER_ITEM_NO,			-- 1
+			Y.DESCRIPTION,				-- 2
+			Y.PURCHASERNAME,			-- 3
+			Y.ADD_DATE,					-- 4
+			Y.ADD_TIME,
+			Y.DS_QTY,					-- 5
+			Y.PO_DATE,					-- 6
+			Y.GR_DATE,					-- 7
+			Y.REMARK,					-- 8
+		]]>
+		<if test="paging==1">
+			Y.STATUS,					-- 9
+		</if>				
+		<if test="paging==0">
+			CASE WHEN Y.STATUS='PR' THEN '주문'	
+			ELSE CASE WHEN Y.STATUS='PO' THEN '발주'	
+			ELSE CASE WHEN Y.STATUS='DS' THEN '접수'	
+			ELSE CASE WHEN Y.STATUS='IV' THEN '납품'	
+			ELSE CASE WHEN Y.STATUS='GR' THEN '입고'	
+			END END END END END AS STATUS,	
+		</if>				
+		<![CDATA[
+			Y.DS_DATE,					-- 10
+			Y.DELY_TO_LOCATION_TEXT,	-- 11
+			Y.UNIT_MEASURE,				-- 12
+			Y.RD_DATE,					-- 13
+			Y.GR_QTY,					-- 14
+			Y.REF_NO,					-- 15
+
+			Y.BUYER,					-- 16
+			Y.SEQ,						-- 17
+			Y.DS_SEQ,					-- 18
+			Y.DI_QTY,					-- 19
+			Y.PACKAGE_STATUS			-- 20
+			FROM (						
+			SELECT						
+			ROWNUM NUM ,				
+			X.BUYER_ITEM_NO,			
+			X.DESCRIPTION,				
+			X.PURCHASERNAME,			
+			X.ADD_DATE,					
+			X.ADD_TIME,
+			X.DS_QTY,					
+			X.PO_DATE,					
+			X.GR_DATE,					
+			X.REMARK,					
+			X.STATUS,					
+			X.DS_DATE,					
+			X.DELY_TO_LOCATION_TEXT,	
+			X.UNIT_MEASURE,				
+			X.RD_DATE,					
+			X.GR_QTY,					
+			X.REF_NO,					
+	
+			X.BUYER,					
+			X.SEQ,						
+			X.DS_SEQ,					
+			X.DI_QTY,					
+			X.PACKAGE_STATUS			
+
+			FROM (						
+			SELECT						
+			A.BUYER_ITEM_NO AS BUYER_ITEM_NO,	
+			(SELECT DESCRIPTION_LOC FROM ICOMBYIT WHERE BUYER=A.BYIT_COMORG_CODE AND BUYER_ITEM_NO=A.BUYER_ITEM_NO) AS DESCRIPTION,	
+			(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID=A.PURCHASER_ID) AS PURCHASERNAME,	
+			A.ADD_DATE AS ADD_DATE,	
+			A.ADD_TIME AS ADD_TIME,
+			B.DS_QTY AS DS_QTY,	
+			A.PO_DATE AS PO_DATE,	
+			B.GR_DATE AS GR_DATE,	
+			B.BTOA_REMARK AS REMARK,	
+
+			CASE WHEN A.PR_QTY ^=0 AND NVL(B.PO_QTY,0)=0 THEN 'PR'	
+			ELSE CASE WHEN A.PR_QTY ^=0 AND NVL(B.PO_QTY,0) ^=0 AND B.DS_QTY^=0 AND B.DS_DATE IS NULL THEN 'PO'	
+			ELSE CASE WHEN A.PR_QTY ^=0 AND NVL(B.PO_QTY,0) ^=0 AND B.DS_QTY^=0 AND B.DS_DATE IS NOT NULL AND B.INV_DATE IS NULL AND B.INV_USEr_ID IS NULL THEN 'DS'	
+			ELSE CASE WHEN A.PR_QTY ^=0 AND NVL(B.PO_QTY,0) ^=0 AND B.DS_QTY^=0 AND B.DS_DATE IS NOT NULL AND B.INV_DATE IS NOT NULL AND B.INV_USEr_ID IS NOT NULL AND B.GR_USER_ID IS NULL THEN 'IV'	
+			ELSE CASE WHEN A.PR_QTY ^=0 AND NVL(B.PO_QTY,0) ^=0 AND B.DS_QTY^=0 AND B.DS_DATE IS NOT NULL AND B.INV_DATE IS NOT NULL AND B.INV_USEr_ID IS NOT NULL AND B.GR_USER_ID IS NOT NULL THEN 'GR'	
+			END END END END END AS STATUS,	
+
+			TO_CHAR(B.DS_DATE,'YYYYMMDD') AS DS_DATE,	
+			A.DELY_TO_LOCATION_TEXT,	
+			(SELECT UNIT_MEASURE FROM ICOMBYIT WHERE BUYER=A.BYIT_COMORG_CODE AND BUYER_ITEM_NO=A.BUYER_ITEM_NO) AS UNIT_MEASURE,	
+			B.RD_DATE AS RD_DATE,	
+			B.GR_QTY AS GR_QTY,	
+			A.REF_NO AS REF_NO,	
+
+			B.BUYER AS BUYER,	
+			B.SEQ AS SEQ,	
+			B.DS_SEQ AS DS_SEQ,	
+			B.DI_QTY AS DI_QTY,	
+
+			CASE WHEN C.RECV_FLAG='GB' THEN '반려'	
+			ELSE CASE WHEN C.RECV_FLAG='FY' THEN '취소'	
+			ELSE CASE WHEN C.RECV_FLAG='NW' THEN '등록중'	
+			ELSE CASE WHEN C.RECV_FLAG='ED' THEN '완료'	
+			ELSE CASE WHEN C.RECV_FLAG='IG' AND C.MM_STATUS='ED' AND C.DD_STATUS ^='ED' THEN '마케팅'	
+			ELSE CASE WHEN C.RECV_FLAG='IG' AND C.MM_STATUS='ED' AND C.DD_STATUS='ED' AND C.EE_STATUS ^='ED' THEN '문안'	
+			ELSE CASE WHEN C.RECV_FLAG='IG' AND C.MM_STATUS='ED' AND C.DD_STATUS='ED' AND C.EE_STATUS='ED' AND (C.ES_MK1_STATUS='N' OR C.ES_PD1_STATUS='N' AND C.ES_QA1_STATUS ='N')THEN '디자인'	
+			ELSE CASE WHEN C.RECV_FLAG='IG' AND C.MM_STATUS='ED' AND C.DD_STATUS='ED' AND C.EE_STATUS='ED' AND C.ES_MK1_STATUS='Y' AND C.ES_PD1_STATUS='Y' AND C.ES_QA1_STATUS='Y' THEN '최종확인'	
+			END END END END END END END END AS PACKAGE_STATUS	
+
+			FROM DB_OFF_PO A, DB_OFF_IV B, DONGOPKG C	
+			WHERE 1=1
+			]]>
+			<!-- 요청공장 -->
+		        <if test="st_buyer_code != null and st_buyer_code != 'ALL'">
+	                    AND A.BUYER = #{st_buyer_code}	
+		        </if>
+		        <if test="st_buyer_code != null and st_buyer_code == 'ALL'">
+	                    AND A.BUYER IN ('KRDONG0110','KRDONG0107','KRDONG0128')	
+		        </if>
+
+			<!-- 조회기준일자 -->
+		        <if test="st_date_type != null and st_date_type == 'ADD_DATE'">
+	                    AND A.ADD_DATE BETWEEN #{st_from_date} AND #{st_to_date}	
+		        </if>
+		        <if test="st_date_type != null and st_date_type == 'PO_DATE'">
+	                    AND A.PO_DATE BETWEEN #{st_from_date} AND #{st_to_date}	
+		        </if>
+		        <if test="st_date_type != null and st_date_type == 'RD_DATE'">
+	                    AND B.RD_DATE BETWEEN #{st_from_date} AND #{st_to_date}	
+		        </if>
+				 <!-- 품목코드 -->       	
+		        <if test="st_buyer_item_no != null and st_buyer_item_no != ''">
+	                    AND A.BUYER_ITEM_NO LIKE '%' || #{st_buyer_item_no} || '%'
+		        </if>	
+		        <!-- 품명 -->
+		        <if test="st_description != null and st_description != ''">
+                        AND (SELECT DESCRIPTION_LOC FROM ICOMBYIT WHERE BUYER=A.BYIT_COMORG_CODE AND BUYER_ITEM_NO=A.BUYER_ITEM_NO) LIKE  '%' || #{st_description} || '%'      
+		        </if>
+				<!-- 발주자 -->
+		        <if test="st_purchaser_name != null and st_purchaser_name != ''">
+                        AND (SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID=A.PURCHASER_ID) LIKE  '%' || #{st_purchaser_name} || '%'      
+		        </if>		        		        	        
+		        <!-- 진행상태 -->
+		        <if test="st_po_status != null and st_po_status != 'ALL'">
+			        AND CASE WHEN A.PR_QTY ^=0 AND NVL(B.PO_QTY,0)=0 THEN 'PR'	
+			        ELSE CASE WHEN A.PR_QTY ^=0 AND NVL(B.PO_QTY,0) ^=0 AND B.DS_QTY^=0 AND B.DS_DATE IS NULL THEN 'PO'	
+			        ELSE CASE WHEN A.PR_QTY ^=0 AND NVL(B.PO_QTY,0) ^=0 AND B.DS_QTY^=0 AND B.DS_DATE IS NOT NULL AND B.INV_DATE IS NULL AND B.INV_USEr_ID IS NULL THEN 'DS'	
+			        ELSE CASE WHEN A.PR_QTY ^=0 AND NVL(B.PO_QTY,0) ^=0 AND B.DS_QTY^=0 AND B.DS_DATE IS NOT NULL AND B.INV_DATE IS NOT NULL AND B.INV_USEr_ID IS NOT NULL AND B.GR_USER_ID IS NULL THEN 'IV'	
+			        ELSE CASE WHEN A.PR_QTY ^=0 AND NVL(B.PO_QTY,0) ^=0 AND B.DS_QTY^=0 AND B.DS_DATE IS NOT NULL AND B.INV_DATE IS NOT NULL AND B.INV_USEr_ID IS NOT NULL AND B.GR_USER_ID IS NOT NULL THEN 'GR'	
+			        END END END END END = #{st_po_status}
+		        </if>
+		        <if test="st_gr_exception != null and st_gr_exception == 'on'">
+				        AND CASE WHEN A.PR_QTY ^=0 AND NVL(B.PO_QTY,0)=0 THEN 'PR'	
+				        ELSE CASE WHEN A.PR_QTY ^=0 AND NVL(B.PO_QTY,0) ^=0 AND B.DS_QTY^=0 AND B.DS_DATE IS NULL THEN 'PO'	
+				        ELSE CASE WHEN A.PR_QTY ^=0 AND NVL(B.PO_QTY,0) ^=0 AND B.DS_QTY^=0 AND B.DS_DATE IS NOT NULL AND B.INV_DATE IS NULL AND B.INV_USEr_ID IS NULL THEN 'DS'	
+				        ELSE CASE WHEN A.PR_QTY ^=0 AND NVL(B.PO_QTY,0) ^=0 AND B.DS_QTY^=0 AND B.DS_DATE IS NOT NULL AND B.INV_DATE IS NOT NULL AND B.INV_USEr_ID IS NOT NULL AND B.GR_USER_ID IS NULL THEN 'IV'	
+				        ELSE CASE WHEN A.PR_QTY ^=0 AND NVL(B.PO_QTY,0) ^=0 AND B.DS_QTY^=0 AND B.DS_DATE IS NOT NULL AND B.INV_DATE IS NOT NULL AND B.INV_USEr_ID IS NOT NULL AND B.GR_USER_ID IS NOT NULL THEN 'GR'	
+				        END END END END END IN ('PR','PO','DS','IV')	
+		        </if>
+
+			<![CDATA[
+				AND A.STATUS ^='D'	
+				AND A.BUYER=B.BUYER	
+				AND A.ADD_DATE=B.ADD_DATE	
+				AND A.SEQ=B.SEQ	
+				AND B.STATUS ^='D' 
+				AND B.CLOSE_FLAG||NVL(B.GR_QTY,0) ^='Y0'	
+				AND C.BYCA_COMORG_CODE(+)=A.BYIT_COMORG_CODE	
+				AND C.RD_DATE(+)=A.OPKG_RD_DATE	
+				AND C.OPKG_SEQ(+)=A.OPKG_SEQ	
+				AND C.BUYER_ITEM_NO(+)=A.BUYER_ITEM_NO	 ) X ) Y
+				ORDER BY Y.ADD_DATE, Y.ADD_TIME, Y.PO_DATE DESC,  Y.BUYER_ITEM_NO 	
+ 		]]>  
+		<include refid="common.ibsheet.xml.jsppageend"/>	
+	</select> 
+	
+	
+	<!-- 부분입고 1 -->
+	<update id="updateSelectedDataGrNextMonth_1" parameterType="java.util.Map">
+		<![CDATA[
+        /*updateSelectedDataGrNextMonth_1*/
+			UPDATE DB_OFF_IV A	
+               SET A.DS_QTY=DECODE( NVL( A.GR_QTY, 0), 0, ${st_gr_qty}, A.GR_QTY),    
+                   A.PO_QTY=DECODE( NVL( A.GR_QTY, 0), 0, ${st_gr_qty}, A.GR_QTY),    
+                   A.GR_QTY=DECODE( NVL( A.GR_QTY, 0), 0, ${st_gr_qty}, A.GR_QTY),
+                   A.GR_DATE = #{st_gr_date},
+				   A.GR_USER_ID =#{st_user_id},
+				   A.BTOA_REMARK = #{st_remark},
+			   	   A.REASON_REMARK=#{st_remark}	
+
+			 WHERE A.BUYER=#{st_buyer}	
+			   AND A.ADD_DATE=#{st_add_date}	
+			   AND A.SEQ=#{st_seq}		
+			   AND A.DS_SEQ=#{st_ds_seq}	
+							
+		]]>
+	</update> 
+	
+	
+	<!-- 부분입고 2 -->
+	<update id="updateSelectedDataGrNextMonth_2" parameterType="java.util.Map">
+		<![CDATA[
+        /*updateSelectedDataGrNextMonth_2*/
+					INSERT INTO DB_OFF_IV	
+			(						
+				BUYER,				
+				ADD_DATE,			
+				SEQ,				
+				DS_SEQ,				
+				STATUS,				
+				ADD_TIME,			
+				BUYER_ITEM_NO,		
+				BYIT_COMORG_CODE,	
+				CONTRACT_NO,		
+				CONTRACT_SEQ,		
+				DS_QTY,				
+				RD_DATE,			
+				CLOSE_FLAG,			
+				PO_QTY,
+				BTOA_REMARK,
+				ATOS_REMARK,
+				ATOA_REMARK
+								
+			)						
+			(SELECT					
+			A.BUYER,				
+			A.ADD_DATE,				
+			A.SEQ,					
+			SEQ_DB_OFF_IV.NEXTVAL,	
+			A.STATUS,				
+			A.ADD_TIME,				
+			A.BUYER_ITEM_NO,		
+			A.BYIT_COMORG_CODE,		
+			A.CONTRACT_NO,			
+			A.CONTRACT_SEQ,			
+			#{st_next_po_qty},						-- 1 : DS_QTY
+			TO_CHAR((TO_DATE(A.RD_DATE, 'YYYYMMDD') +3),'YYYYMMDD'),			
+			'N',					
+			#{st_next_po_qty},						-- 2 : PO_QTY
+			#{st_remark},
+			A.ATOS_REMARK,
+			A.ATOA_REMARK
+			FROM DB_OFF_IV A		
+			WHERE A.BUYER=#{st_buyer}			-- 3 : BUYER
+			AND A.ADD_DATE=#{st_add_date}		-- 4 : ADD_DATE
+			AND A.SEQ=#{st_seq}				-- 5 : SEQ
+			AND A.DS_SEQ=#{st_ds_seq}	)		-- 6 : DS_SEQ
+							
+		]]>
+	</update> 
+	
+	<!-- 부분입고 3 -->
+	<update id="updateSelectedDataGrNextMonth_3" parameterType="java.util.Map">
+		<![CDATA[
+        /*updateSelectedDataGrNextMonth_3*/
+			UPDATE DB_OFF_PO A	
+			   SET A.DO_QTY=A.DO_QTY-${st_next_po_qty},	
+				   A.IV_QTY=A.IV_QTY-${st_next_po_qty},	
+				   A.CHANGE_DATE=TO_CHAR(SYSDATE, 'YYYYMMDD'),	
+				   A.CHANGE_TIME=TO_CHAR(SYSDATE, 'HH24MISS')	
+			 WHERE A.BUYER=#{st_buyer}	
+			   AND A.ADD_DATE=#{st_add_date}	
+			   AND A.SEQ=#{st_seq}		
+		]]>
+	</update> 	
+	
+
+
+		<!-- 입고취소 1 -->
+	<update id="updateSelectedDataGrCancelReg_1" parameterType="java.util.Map">
+		<![CDATA[
+        /*updateSelectedDataGrCancelReg_1*/
+			UPDATE DB_OFF_IV A					
+			   SET A.GR_DATE=NULL,				
+			   	   A.GR_QTY=NVL(A.GR_QTY,0)-${st_gr_qty},	
+				   A.CLOSE_FLAG='N',			
+				   A.GR_USER_ID=NULL,			
+				   A.GR_ADD_DATE=NULL,			
+				   A.GR_ADD_TIME=NULL			
+			 WHERE A.BUYER=#{st_buyer}	
+			   AND A.ADD_DATE=#{st_add_date}	
+			   AND A.SEQ=#{st_seq}		
+			   AND A.DS_SEQ=#{st_ds_seq}	
+
+		]]>
+	</update> 	
+	
+	<!-- 입고취소 2 -->
+	<update id="updateSelectedDataGrCancelReg_2" parameterType="java.util.Map">
+		<![CDATA[
+        /*updateSelectedDataGrCancelReg_2*/
+			UPDATE DB_OFF_PO A	
+			   SET A.GR_QTY=NVL(A.GR_QTY,0)-${st_gr_qty}	
+			 WHERE A.BUYER=#{st_buyer}	
+			   AND A.ADD_DATE=#{st_add_date}	
+			   AND A.SEQ=#{st_seq}		
+		]]>
+	</update> 	
+	
+	<!-- 입고실적등록 1 -->
+	<update id="updateSelectedDataGrRegBuyer_1" parameterType="java.util.Map">
+		<![CDATA[
+        /*updateSelectedDataGrRegBuyer_1*/
+			UPDATE DB_OFF_IV A					
+			   SET A.GR_DATE=#{st_gr_date},					
+			   	   A.GR_QTY=NVL(A.GR_QTY,0)+${st_gr_qty},	
+				   A.GR_USER_ID=#{st_user_id},				
+				   A.CLOSE_FLAG='Y',			
+				   A.GR_ADD_DATE=TO_CHAR(SYSDATE, 'YYYYMMDD'),	
+				   A.GR_ADD_TIME=TO_CHAR(SYSDATE, 'HH24MISS')	
+
+			 WHERE A.BUYER=#{st_buyer}	
+			   AND A.ADD_DATE=#{st_add_date}	
+			   AND A.SEQ=#{st_seq}		
+			   AND A.DS_SEQ=#{st_ds_seq}	
+							
+		]]>
+	</update> 	
+
+
+	<!-- 입고실적등록 2 -->
+	<update id="updateSelectedDataGrRegBuyer_2" parameterType="java.util.Map">
+		<![CDATA[
+        /*updateSelectedDataGrRegBuyer_2*/
+			UPDATE DB_OFF_PO A	
+			   SET A.GR_QTY=NVL(A.GR_QTY,0)+${st_gr_qty},	
+			   A.CLOSE_FLAG=DECODE((SELECT COUNT(*) FROM DB_OFF_IV WHERE BUYER=A.BUYER AND ADD_DATE=A.ADD_DATE AND SEQ=A.SEQ AND STATUS ^='D' AND CLOSE_FLAG='N'),0,'Y','N')	
+			 WHERE A.BUYER=#{st_buyer}	
+			   AND A.ADD_DATE=#{st_add_date}	
+			   AND A.SEQ=#{st_seq}		
+
+		]]>
+	</update> 		
+</mapper>

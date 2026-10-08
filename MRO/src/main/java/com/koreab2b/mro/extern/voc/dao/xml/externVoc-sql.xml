@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="extern.voc">
+	<select id="selectDomainKeywordList" resultType="java.util.Map">
+	<![CDATA[
+	/*extern.voc.selectDomainKeywordList*/
+	SELECT TEXT1 AS KEY_WORD
+	  FROM ICOMCOD1
+	 WHERE TYPE = 'EX01' 
+	   AND FLAG = 'Y'
+	]]>
+	</select>
+	
+	<update id="insertExternVoc" parameterType="java.util.Map">
+		INSERT INTO KEPAVCDT (                         
+			VC_NO, REQ_USER_ID, BUYER, 
+			RECV_FLAG, REQ_DATE, PH_DATE, 
+			CD_USER_ID, CD_DATE, CLAIM_MASTER,
+			PO_NO, BUYER_ITEM_NO, REQ_REMARK,
+			CD_DEPT, REQ_USER_TEL, REQ_USER_NAME,
+			DS_USER_ID, DS_DEPT, REQ_USER_EMAIL
+		) (
+			SELECT                           
+					#{vc_no}, #{st_user_email}, CODE,                                     -- vc_no, req_user_id, buyer
+					'DC',
+					TO_DATE(TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'),'YYYYMMDDHH24MISS'),
+					TO_DATE(TO_CHAR(SYSDATE+5, 'YYYYMMDDHH24MISS'),'YYYYMMDDHH24MISS'),       -- recv_flag , req_date, ph_date
+					text1,
+					TO_DATE(TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'),'YYYYMMDDHH24MISS'),			
+					#{st_voc_type},                                                          -- cd_user_id, cd_date, claim_master
+					#{st_legacy_po_no}, #{st_buyer_item_no}, #{st_req_remark},                -- po_no, buyer_item_no, req_remark
+					text2, SUBSTR(#{st_user_email} ||'/'|| #{st_user_telno}, 1, 100), #{st_user_name},
+					text1, text2, #{st_user_email}
+			  FROM ICOMCOD1
+			 WHERE TYPE = 'EX02'
+			   AND CODE = #{st_buyer}
+		)
+	</update>
+	
+	<select id="selectExternVocCount" parameterType="java.util.Map" resultType="java.lang.Integer">
+	<![CDATA[
+	/* extern.voc.selectExternVocCount */
+	SELECT COUNT(*) AS CNT
+	  FROM KEPAVCDT A
+	 WHERE A.REQ_USER_ID = #{st_user_email}
+	]]>
+	<if test="st_search_text != null and st_search_text != ''">
+		<![CDATA[	AND A.REQ_REMARK LIKE '%' || #{st_search_text} || '%'	]]>
+	</if>
+	<if test="st_voc_type != null and st_voc_type != ''">
+		<![CDATA[	AND A.CLAIM_MASTER = #{st_voc_type}	]]>
+	</if>
+	<![CDATA[			
+	]]>
+	</select>
+	
+	<select id="selectExternVocList" parameterType="java.util.Map" resultType="java.util.Map">
+	<![CDATA[
+	/* extern.voc.selectExternVocList */
+	SELECT *
+	  FROM (
+		SELECT VC.*, ROWNUM AS RNUM
+		  FROM (
+			SELECT A.VC_NO,
+		           (SELECT COM_NAME_LOC FROM V_VOC_ICOMCMPY
+		            WHERE COM_CODE = A.BUYER AND SYS_TYPE=A.SYS_TYPE AND BUSINESS_COND LIKE '%B%') AS BUYER_NAME,
+		           (SELECT USER_NAME_LOC FROM V_VOC_ICOMLUSR WHERE USER_ID = A.CD_USER_ID AND SYS_TYPE='KA') AS CD_USER_NAME,
+		           TO_CHAR(A.CD_DATE,'YYYY/MM/DD') AS CD_DATE,
+		           A.PO_NO,
+		           A.REQ_USER_NAME,
+		           TO_CHAR(A.REQ_DATE,'YYYY/MM/DD') AS REQ_DATE,
+		           A.BUYER_ITEM_NO,
+		           (SELECT USER_NAME_LOC FROM V_VOC_ICOMLUSR WHERE USER_ID = A.DS_USER_ID AND SYS_TYPE='KA') AS DS_USER_NAME,
+		           TO_CHAR(A.DF_DATE,'YYYY/MM/DD HH24:MI:SS')  AS DF_DATE,
+		           (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'VC01' AND CODE = A.CLAIM_TYPE) AS CLAIM_TEXT,
+		           (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'VC02' AND CODE = A.RECV_FLAG) AS RECV_FLAG_TEXT,
+		           A.REQ_REMARK AS REQ_REMARK,
+		           CASE
+		             WHEN LENGTH(A.REQ_REMARK) > 30 THEN SUBSTR(A.REQ_REMARK, 1, 30) || '...'
+		             ELSE A.REQ_REMARK
+		           END AS SUBJECT,
+		           A.DS_REMARK_A,
+		           A.DS_REMARK_B,
+		           A.DS_REMARK_C,
+		           A.DF_REMARK,
+		           A.DS_DEPT,
+		           A.CLAIM_TYPE,
+		           A.RECV_FLAG,
+		           A.CD_USER_ID,
+		           A.DS_USER_ID,
+		           A.BUYER,
+		           A.CLAIM_GRADE,
+		           A.REQ_USER_ID,
+		           A.IMPUTE_TYPE,
+		           A.IMPUTE_AGENT,
+		           (SELECT COM_NAME_LOC FROM V_VOC_ICOMCMPY
+		             WHERE COM_CODE = A.IMPUTE_AGENT AND SYS_TYPE=A.SYS_TYPE AND BUSINESS_COND LIKE '%S%') AS AGENT_NAME,
+		           A.REQ_USER_TEl,
+		           (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'VC03' AND CODE = A.CLAIM_MASTER) AS CLAIM_MASTER,
+		           A.MRO_AREA_TEXT,
+		           DECODE(A.IMPUTE_TYPE,'SS','공급사','MS','KeP/공급사','MM','KeP','ET','기타') AS  IMPUTE_TEXT,
+		           TO_CHAR(A.CD_DATE,'HH24:MI') AS CD_TIME,
+		           TO_CHAR(A.REQ_DATE,'HH24:MI') AS REQ_TIME
+			  FROM KEPAVCDT A
+			 WHERE A.REQ_USER_ID = #{st_user_email}
+	]]>
+	<if test="st_search_text != null and st_search_text != ''">
+		<![CDATA[	AND A.REQ_REMARK LIKE '%' || #{st_search_text} || '%'	]]>
+	</if>
+	<if test="st_voc_type != null and st_voc_type != ''">
+		<![CDATA[	AND A.CLAIM_MASTER = #{st_voc_type}	]]>
+	</if>
+	<![CDATA[			
+			 ORDER BY A.VC_NO DESC
+		  ) VC	  
+	  ) L
+	 WHERE L.RNUM BETWEEN #{st_st_no} AND #{st_ed_no}
+	]]>
+	</select>
+</mapper>

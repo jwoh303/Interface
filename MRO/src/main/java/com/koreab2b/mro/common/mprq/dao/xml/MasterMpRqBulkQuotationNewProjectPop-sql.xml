@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mprq">
+	<!-- PM 리스트 조회 -->
+	<select id="selectPMList" parameterType="java.util.Map" resultType="java.util.Map">
+		/*selectPMList*/
+		SELECT USER_ID AS CODE,
+				USER_NAME_LOC AS TEXT1
+		FROM ICOMLUSR 
+		WHERE COM_CODE = 'KRKORE0001' 
+		AND STATUS != 'D'
+		AND USER_TYPE = 'SM'
+	</select>
+	
+	<!-- 채번 -->
+	<select id="selectMaxBurqNo" parameterType="java.util.Map" resultType="String">
+		<![CDATA[ 
+		/*selectMaxBurqNo*/
+			SELECT 'BURQ'||TO_CHAR(SYSDATE,'YYYY')|| BURQ_NO
+			FROM (
+				SELECT TO_CHAR(LPAD((NVL(TO_NUMBER(MAX(SUBSTR(BURQ_NO,9))),0)+1),4,'0')) AS BURQ_NO
+				FROM KEP_BURQ_MNG
+				WHERE BURQ_NO LIKE 'BURQ'||TO_CHAR(SYSDATE,'YYYY')||'%'
+			)
+			WHERE TO_NUMBER(BURQ_NO) < 10000
+		]]>	
+	</select>
+	
+	<!--벌크소싱 신규 프로젝트 저장 -->
+	<update id="insertBulkQuotationNewProject" parameterType="java.util.Map" >
+		<![CDATA[
+		/*insertBulkQuotationNewProject*/
+			INSERT INTO KEP_BURQ_MNG
+			(BURQ_NO,PROJECT_NAME,PROJECT_TYPE,PROJECT_MNG_USER,PROJECT_UNIT,PROJECT_START_DATE,PROJECT_END_DATE,KEP_DEPT,PROJECT_STATUS,
+			SG_START_SCHD_DATE,RFQ_START_SCHD_DATE,RFQ_END_SCHD_DATE,RFQ_MERGE_SCHD_DATE,RFQ_SUBMIT_SCHD_DATE,RFQ_APPROVAL_SCHD_DATE,
+			BURQ_INPUT_IMAGE_KEY,ADD_DATE,ADD_USER_ID,CHANGE_DATE,CHANGE_USER_ID,TOTAL_ITEM_CNT,TOTAL_AMT)
+			VALUES (
+			#{BURQ_NO},
+			#{st_project_name},
+			#{st_project_type},
+			#{st_project_mng_user},
+			#{st_project_unit},
+			#{st_sg_start_schd_date},
+			#{st_rfq_approval_schd_date},
+			#{st_kep_dept},
+			'A',  -- SG 분류 개시 상태값
+			#{st_sg_start_schd_date},
+			#{st_rfq_start_schd_date},
+			#{st_rfq_end_schd_date},
+			#{st_rfq_merge_schd_date},
+			#{st_rfq_submit_schd_date},
+			#{st_rfq_approval_schd_date},
+			#{st_image_key},
+			SYSDATE,
+			#{st_add_user_id},
+			SYSDATE,
+			#{st_add_user_id},
+			'0',
+			'0'
+			)
+		]]>
+	</update>
+	
+	<!--벌크소싱 신규 프로젝트 유의사항 저장 -->
+	<update id="insertBulkQuotationNewProjectNotice" parameterType="java.util.Map" >
+		<![CDATA[
+		/*insertBulkQuotationNewProjectNotice*/
+			INSERT INTO KEP_BURQ_NOTC
+			(BURQ_NO,NOTICE_TYPE,SEQ,NOTICE_STATUS,NOTICE_REMARK,ADD_DATE,ADD_USER_ID,CHANGE_DATE,CHANGE_USER_ID)
+			VALUES (
+			#{st_burq_no},
+			#{NOTICE_TYPE},
+			#{SEQ},
+			'C',
+			#{REMARK},
+			SYSDATE,
+			#{st_add_user_id},
+			SYSDATE,
+			#{st_add_user_id}
+			)
+		]]>
+	</update>
+	
+	<!--벌크소싱 신규 프로젝트 고객사코드 저장 -->
+	<update id="insertBulkQuotationNewProjectBuyer" parameterType="java.util.Map" >
+		<![CDATA[
+		/*insertBulkQuotationNewProjectBuyer*/
+			INSERT INTO ICOMCOD2
+			(TYPE,CODE,COMPANY_CODE,TEXT1,TEXT2,TEXT3,FLAG,ADD_DATE)
+			VALUES (
+				'BURQ', 
+				#{st_burq_no},
+				#{BUYER},
+				#{PROCESS_TYPE},
+				#{PARCEL_YN},
+				#{WAREHOUSE},
+				'Y',
+				TO_CHAR(SYSDATE,'YYYYMMDD')
+			)
+		]]>
+	</update>
+	
+</mapper>   
+   

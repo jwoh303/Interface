@@ -1,0 +1,233 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="common.mpso">
+
+
+	<select id="selectDeptSelect" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*selectDeptSelect*/
+		SELECT																						        
+			X.DEPT_NAME AS DEPT_NAME,                                           -- 0        
+			X.ACCOUNT_NAME AS ACCOUNT_NAME,                                        -- 1                
+			DECODE(X.AVAIL_AMT,NULL,0,X.AVAIL_AMT) AS AVAIL_AMT,	 	-- 2                
+			DECODE(X.AVAIL_AMT,NULL,'N','Y') AS PLAN_AMT_FLAG,               -- 3                
+			X.BDGT_FLAG AS BDGT_FLAG2,                                        -- 4                
+			X.DEPT_CODE AS DEPT_CODE,				 	-- 5                
+			X.ACCOUNT_TYPE AS ACCOUNT_TYPE,			 	 	-- 6                
+			X.PLAN_AMT,						 	-- 7                
+			X.RESULT_TEMP_AMT,				 	-- 8
+			X.MNG_FLAG ,
+			X.MNG_DEPT_CD ,
+			X.MNG_DEPT_NM ,
+			X.MGMT_NO_REQ_YN ,
+			X.REMARK  ,
+			X.VIEW_FLAG             
+		FROM                                                                                                
+		(                                                                                                   
+		SELECT                                                                                              
+			(SELECT TEXT1 FROM ICOMCOD2                                                                     
+			WHERE COMPANY_CODE = B.BUYER                                                            
+			AND TYPE = 'C001'                                                                     
+			AND  CODE = B.CODE1)   AS DEPT_NAME,                                          
+			(SELECT TEXT2 FROM ICOMCOD2                                                                     
+			WHERE COMPANY_CODE = B.BUYER                                                            
+			AND TYPE = 'Z014'                                                                     
+			AND  CODE = B.CODE2)   AS ACCOUNT_NAME,                                       
+			PLAN_AMT - (RESULT_AMT+TEMP_AMT) AS AVAIL_AMT,											
+			(SELECT FLAG FROM ICOMCOD2                                                                      
+			WHERE COMPANY_CODE = B.BUYER                                                            
+			AND TYPE = 'Z014'                                                                     
+			AND  CODE = B.CODE2)   AS BDGT_FLAG,                                                  
+			B.CODE1 DEPT_CODE,							                                                    
+			B.CODE2 ACCOUNT_TYPE,						                                                    
+			G.PLAN_AMT AS PLAN_AMT,						                                                    
+			(G.RESULT_AMT + G.TEMP_AMT) AS RESULT_TEMP_AMT,
+			B.TEXT4 AS MNG_FLAG,
+			(SELECT COD.TEXT5 FROM ICOMCOD2 COD                                                                      
+			WHERE COD.COMPANY_CODE = B.BUYER                                                            
+			AND COD.TYPE = 'Z014'                                                                     
+			AND  COD.CODE = B.CODE2)   AS MNG_DEPT_CD,
+			(SELECT COD.TEXT6 FROM ICOMCOD2 COD
+			WHERE COD.COMPANY_CODE = B.BUYER
+			AND COD.TYPE = 'Z014'
+			AND  COD.CODE = B.CODE2)   AS MNG_DEPT_NM,
+			(SELECT COD.TEXT4 FROM ICOMCOD2 COD
+			WHERE COD.COMPANY_CODE = B.BUYER
+			AND COD.TYPE = 'Z014'
+			AND  COD.CODE = B.CODE2)   AS MGMT_NO_REQ_YN,
+			G.REMARK ,
+			G.VIEW_FLAG
+		]]>
+		<if test='st_categ_acnt_set == "N"'>
+			<![CDATA[
+			FROM ICOMCOD3 A , ICOMCOD3 B, ICOMBDGT G
+			]]>
+		</if>
+		<if test='st_categ_acnt_set == "Y"'>
+			<![CDATA[
+			FROM ICOMCOD3 A , ICOMCOD3 B, ICOMBDGT G, ICOMCOD3 C
+			]]>
+		</if>
+		<![CDATA[
+			WHERE A.BUYER = #{st_com_code}
+			AND A.CODE1 = #{st_dept_code}                                                                            
+			AND A.TYPE  ='DTOD'                                                                               
+			AND A.BUYER = B.BUYER                                                                             
+			AND A.CODE2 = B.CODE1                                                                             
+			AND B.TYPE  = 'DTOA'                                                                              
+			AND DECODE(B.FLAG,'Y',DECODE( #{st_dept_code}   , B.CODE1,'N','Y'),'N') = 'N'											        
+			AND B.BUYER = G.BUYER(+)                                                                          
+			AND B.CODE1 = G.DEPT(+)                                                                           
+			AND B.CODE2 = G.ACCOUNT_TYPE(+)															        
+			AND G.FROM_DATE(+) <= TO_CHAR(SYSDATE,'YYYYMMDD')											        
+			AND G.TO_DATE(+) >= TO_CHAR(SYSDATE,'YYYYMMDD')
+		]]>
+		<if test='st_categ_acnt_set == "Y"'>
+			<![CDATA[
+			AND B.BUYER = C.BUYER
+			AND B.CODE2 = C.CODE2
+			AND C.TYPE = 'BDCT'
+			AND C.CODE1 = #{st_categ}
+			]]>
+		</if>
+		<![CDATA[
+		) X
+		WHERE	1=1
+		AND		X.DEPT_CODE || ' ' || X.DEPT_NAME LIKE '%' || #{st_budget_dept} || '%'
+		AND		X.ACCOUNT_TYPE || ' ' || X.ACCOUNT_NAME LIKE '%' || #{st_account} || '%'
+		]]> 
+		<if test='st_account_flg != null and st_account_flg != "" and st_account_flg == "A"'>
+		<![CDATA[
+		AND X.MNG_DEPT_CD = 'A'
+		]]>
+		</if>
+		<if test='st_account_flg != null and st_account_flg != "" and st_account_flg == "J"'>
+		<![CDATA[
+		AND X.MNG_DEPT_CD = 'J'
+		]]>
+		</if>
+		<if test='st_account_flg != null and st_account_flg != "" and st_account_flg != "A"'>
+		<![CDATA[
+		AND X.MNG_DEPT_CD <> 'A'
+		]]>
+		</if>
+		<![CDATA[
+		ORDER BY X.MNG_DEPT_CD, X.DEPT_NAME, X.ACCOUNT_NAME
+		]]> 
+	</select>
+	
+	<select id="selectAccountDivideList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*selectAccountDivideList*/
+		 
+		 
+		 			SELECT	
+				A.CODE2	 -- 0
+				, A.TEXT1 -- 1
+				, A.TEXT4 -- 2
+				, A.TEXT2 -- 3
+				, B.TEXT4 TEXT44 -- 4
+				, B.TEXT3 -- 5 
+			FROM ICOMCOD3 A, ICOMCOD2 B	
+			WHERE 1=1	
+				AND A.BUYER = B.COMPANY_CODE	
+				AND A.CODE2 = B.CODE	
+				AND A.BUYER = #{st_com_code}
+				AND A.TYPE = 'ATOM'	
+				AND A.FLAG = 'Y'	
+				AND B.FLAG = 'Y'	
+				AND A.CODE1 =  #{st_pa_account_type}             
+			ORDER BY A.VALUE1	
+		
+		
+		]]> 
+	</select>	
+	
+	
+
+
+	
+	<select id="getCod2C001DDLB" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*getCod2C001DDLB*/
+		 
+		 
+        	SELECT	
+        		CODE	as CODE
+        		, TEXT1	as TEXT1
+        	FROM ICOMCOD2	
+        	WHERE 1=1	
+        		AND COMPANY_CODE =  #{com_code}       
+        		AND TYPE = 'C001'	
+				AND FLAG = 'Y'	
+        	ORDER BY TEXT1	
+		
+		
+		]]> 
+	</select>	
+	
+	
+	
+	
+	<select id="getLusrDDLB" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*getLusrDDLB*/
+		 
+        	SELECT	
+        		A.LEGACY_USER_ID 
+        		, A.USER_NAME_LOC	
+        		, A.USER_ID	as CODE
+        		, B.USER_ID	        		
+        		, deocde(A.USER_ID,B.USER_ID ,  A.USER_NAME_LOC	 ,  A.LEGACY_USER_ID	) as TEXT1
+        	FROM ICOMLUSR A, ICOMLUSR B	
+        	WHERE 1=1	
+        		AND A.USER_ID = B.USER_ID(+)	
+        		AND A.COM_CODE =  #{com_code}       
+        		AND B.USER_ID(+) = #{SessionUserId}       
+        		AND A.STATUS IN ('C','R')	
+        		AND (B.STATUS IN ('C','R') OR B.STATUS IS NULL)	
+        	ORDER BY A.USER_NAME_LOC	
+		
+		
+		]]> 
+	</select>	
+	
+	
+	<select id="getCod2Z014DDLB" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*getCod2Z014DDLB*/
+		 
+        	SELECT	
+        		CODE	as CODE
+        		, TEXT2 as TEXT1
+        	FROM ICOMCOD2	
+        	WHERE 1=1	
+        		AND COMPANY_CODE = #{com_code}       
+        		AND TYPE = 'Z014'	
+        	ORDER BY TEXT2	
+		
+		]]> 
+	</select>	
+	
+	<select id="getCod3DDLB" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*getCod3DDLB*/
+		 
+        	SELECT	
+        		CODE2	 as CODE
+        		, TEXT1	 as TEXT1
+        	FROM ICOMCOD3	
+        	WHERE 1=1	
+        		AND BUYER = #{com_code}       
+        		AND TYPE = 'MTOC'	
+				AND FLAG = 'Y'	
+        		AND CODE1 = #{code2}       
+        	ORDER BY TEXT1	
+		
+		]]> 
+	</select>	
+	
+	
+		
+								
+</mapper>

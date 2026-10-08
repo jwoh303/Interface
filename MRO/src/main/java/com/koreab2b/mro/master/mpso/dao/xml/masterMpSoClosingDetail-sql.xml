@@ -1,0 +1,670 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mpso">
+	<!-- 조회 -->
+	<select id="selectMasterMpSoClosingDetailList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.pagestart"/>	
+			<![CDATA[
+ 
+  /*selectMasterMpSoClosingDetailList*/ 
+ 
+     SELECT                     
+               A.BUYER_NAME,       --[01]
+               DECODE(STOCK_CNT,0,A.STATUS_TEXT,'*'||A.STATUS_TEXT) STATUS_TEXT,      --[02]
+               A.PO_NO,            --[03]
+               A.LEGACY_PO_NO,     --[04]
+               A.AGENT_NAME,       --[05]
+               A.BUYER_ITEM_NO,    --[06]
+               A.REF_PR_NO,        --[07]
+               A.PO_DATE,          --[08]
+               A.RD_DATE,          --[09]
+               A.GR_DATE,  --[10]
+               A.DS_DATE,          --[11]
+               A.INVOICE_DATE,  --[12]
+               A.DELIVERY_DATE,    --[13]
+               A.DESCRIPTION,      --[14]
+               A.SPECIFICATION,    --[15]
+               A.MAKER_NAME,       --[16]
+               A.UNIT_MEASURE,     --[17]
+               NVL(A.ITEM_QTY,0) PO_QTY,         --[18]
+               NVL(A.GR_QTY,0) GR_QTY1,           --[19]
+               NVL(A.INV_QTY,0) INV_QTY,          --[20]
+               NVL(A.DELIVERY_QTY,0) DELIVERY_QTY,     --[21]
+               NVL(A.UNIT_PRICE,0) UNIT_PRICE,       --[22]
+               (NVL(A.UNIT_PRICE,0) * NVL(A.ITEM_QTY,0)) AS UNIT_SUM,       --[23]
+               NVL(A.AGENT_PRICE,0) AGENT_PRICE,      --[24]
+               (NVL(A.AGENT_PRICE,0) * NVL(A.ITEM_QTY,0)) AS AGENT_SUM,       --[25]
+               A.PO_DEPT_NAME CHANGE_USER_DEPT,     --[26]
+               A.PO_USER_NAME CHANGE_USER_NAME,     --[27]
+               A.REQ_DEPT_NAME,    --[28]
+               A.REQ_USER_NAME,    --[29]
+               A.PO_SEQ,           --[30]
+               A.LEGACY_PO_SEQ,    --[31]
+               A.AGENT_CODE,       --[32]
+               A.CONTRACT_NO,      --[33]
+               A.CONTRACT_SEQ,     --[34]
+               A.BUYER,            --[35]
+               A.BYIT_COMORG_CODE, --[36]
+               A.PO_USER_ID,       --[37]
+               A.REQ_USER_ID,      --[38]
+               A.GR_NO,            --[39]
+               A.GR_SEQ,           --[40]
+               A.REG_NO,           --[41]
+               A.PR_NO,            --[42]
+               A.PR_SEQ,           --[43]
+               A.CLOSE_DATE,       --[44] 
+               A.AR_BILL_FLAG,		  --[46]
+               A.AP_BILL_FLAG		  --[47]               
+               ,GR_DATE H_GR_DATE
+               ,CLOSE_DATE H_CLOSE_DATE
+              ,(SELECT COUNT(GR.GR_NO)
+              		FROM ICOMGRDT GR
+              		WHERE GR.BUYER = A.BUYER
+              		AND  GR.PO_NO = A.PO_NO
+              		AND GR.PO_SEQ = A.PO_SEQ AND GR.STATUS != 'D') GR_CNT
+               
+        FROM (                     
+        SELECT                     
+                MAX((SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = H.BUYER)) AS BUYER_NAME, 
+                D.PO_NO PO_NO,     
+                MAX((SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = H.AGENT)) AS AGENT_NAME,  
+                MAX(H.PO_CREATE_DATE) AS PO_DATE,                                      
+                MAX(D.RD_DATE) AS RD_DATE,                                             
+                NULL AS GR_DATE,                                             
+                MAX(D.ITEM_QTY) AS ITEM_QTY,                                           
+                0 AS GR_QTY,                                      
+                MAX(D.UNIT_PRICE) AS UNIT_PRICE,                                       
+                MAX((SELECT C2.TEXT1 FROM ICOMCOD2 C2 WHERE C2.TYPE = 'C001'           
+                      AND C2.COMPANY_CODE = D.BUYER                                    
+                      AND C2.CODE = R.PURCHASER_DEPT)) AS PO_DEPT_NAME,                
+                MAX(H.PURCHASER_NAME) AS PO_USER_NAME,                                 
+                D.PO_SEQ AS PO_SEQ,                                                    
+                MAX(D.REF_PR_NO) AS REF_PR_NO,                                         
+                MAX(D.BUYER_ITEM_NO) AS BUYER_ITEM_NO,                                 
+	    			MAX(DECODE(D.PROCESS_TYPE,'0'                                   		
+      			,(SELECT MIN(INVOICE_DATE) FROM ICOMIVDT                       		    
+      			WHERE BUYER = D.BUYER AND PO_NO = D.PO_NO                       		
+        			AND PO_SEQ = D.PO_SEQ AND STATUS <>'D')                     		
+      			,(SELECT MIN(INV_DATE) FROM WMSIVDT		   								
+      			WHERE BUYER  = D.BUYER   AND PO_NO = D.PO_NO                    		
+        			AND PO_SEQ = D.PO_SEQ  AND STATUS <> 'D'))) AS INVOICE_DATE, 		            
+                MAX(D.DS_DATE) AS DS_DATE,                                                         
+      			MAX(DECODE(D.PROCESS_TYPE,'0'                                   		
+      			,(SELECT MIN(DELIVERY_DATE) FROM ICOMIVDT                        		
+      			WHERE BUYER = D.BUYER AND PO_NO = D.PO_NO                       		
+        			AND PO_SEQ = D.PO_SEQ AND STATUS <>'D')                     		
+      			,(SELECT MIN(DELIVERY_DATE) FROM WMSIVDT		   						
+      			WHERE BUYER  = D.BUYER   AND PO_NO = D.PO_NO                    		
+        			AND PO_SEQ = D.PO_SEQ  AND STATUS <> 'D'))) AS DELIVERY_DATE, 		
+                MAX(NVL(D.IV_QTY,0)) AS INV_QTY,                                       
+                MAX(NVL(D.DI_QTY,0)) AS DELIVERY_QTY,                                  
+                MAX(D.AGENT_PRICE) AS AGENT_PRICE,                                     
+                MAX((SELECT C2.TEXT1 FROM ICOMCOD2 C2 WHERE C2.TYPE = 'C001'           
+                      AND C2.COMPANY_CODE = D.BUYER                                    
+                      AND C2.CODE = R.REQ_DEPT)) AS REQ_DEPT_NAME,                     
+                MAX((SELECT L.USER_NAME_LOC FROM ICOMLUSR L WHERE L.COM_CODE = D.BUYER 
+                       AND L.USER_ID = R.REQ_USER_ID)) AS REQ_USER_NAME,               
+                MAX(D.LEGACY_PO_SEQ) AS LEGACY_PO_SEQ,                                 
+                MAX(F_GET_PO_STTS(D.BUYER, D.PO_NO , D.PO_SEQ , 1)) STATUS_TEXT,  
+                MAX(D.DESCRIPTION) AS DESCRIPTION,                         
+                MAX(D.SPECIFICATION) AS SPECIFICATION,                     
+                MAX(D.MAKER_NAME) AS MAKER_NAME,                           
+                MAX(D.UNIT_MEASURE) AS UNIT_MEASURE,                       
+                MAX(D.LEGACY_PO_NO) AS LEGACY_PO_NO,                       
+                MAX(D.BYIT_COMORG_CODE) AS BYIT_COMORG_CODE,               
+                MAX(H.AGENT) AS AGENT_CODE,                                
+                MAX(R.PURCHASER_DEPT) AS PO_DEPT_CODE,                     
+                MAX(H.PURCHASER_ID) AS PO_USER_ID,                         
+                MAX(R.REQ_DEPT) AS REQ_DEPT_CODE,                          
+                MAX(R.REQ_USER_ID) AS REQ_USER_ID,                         
+                MAX(D.CONTRACT_NO) AS CONTRACT_NO,                         
+                MAX(D.CONTRACT_SEQ) AS CONTRACT_SEQ,                       
+                D.BUYER AS BUYER,                                           
+                MAX((SELECT COUNT(*) FROM ICOMGRDT WHERE BUYER = D.BUYER AND PO_NO = D.PO_NO AND PO_SEQ = D.PO_SEQ AND STATUS <> 'D' AND AGENT = 'KR00000002')) STOCK_CNT,     
+                NULL AS GR_NO,                           
+                NULL AS GR_SEQ,                         
+                MAX(D.REG_NO) AS REG_NO,                         
+                MAX(D.PR_NO) AS PR_NO,                           
+                MAX(D.PR_SEQ) AS PR_SEQ,                         
+                MAX((SELECT LAST_CLOSE_DATE FROM MIS_CLOSDATE WHERE BUYER = H.BUYER)) CLOSE_DATE,	
+			    'N' AS AR_BILL_FLAG,			
+                'N' AS AP_BILL_FLAG			
+          FROM  ICOMPODT D, ICOMPOHD H, ICOMPRDT R 
+         WHERE  D.BUYER = H.BUYER                   
+         	]]>
+         	    <if test="st_buyer_code != null and st_buyer_code != ''">
+	    	<![CDATA[
+	    		AND  D.BUYER IN
+	    	]]>
+					<foreach item="status" collection="st_buyer_codeList"
+						open="(" separator="," close=")">
+					 	#{status}
+					</foreach>
+	    </if>      
+  <![CDATA[                  
+           AND  D.PO_NO = H.PO_NO       
+           AND  D.BUYER = R.BUYER                                  
+           AND  D.PR_NO = R.PR_NO                                  
+           AND  D.PR_SEQ = R.PR_SEQ
+ 		   AND  D.GR_QTY = 0          
+
+			]]>
+	 
+				<if test='st_gr_flag  == "GR" '>
+					<![CDATA[
+						AND  D.ITEM_QTY ^= D.GR_QTY           
+					]]>
+				</if>		
+       		<if test='st_date_type  == "GR" '>
+					<![CDATA[
+						AND  H.PO_CREATE_DATE                      
+					]]>
+				</if>
+       		<if test='st_date_type  == "PO" '>
+			<![CDATA[
+				AND  H.PO_CREATE_DATE                   
+			]]>
+		</if>                 
+ 		<![CDATA[
+                     BETWEEN #{st_from_date} AND #{st_to_date}           
+                            
+           	]]>
+        <if test="st_agent_code != null and st_agent_code != ''">
+			<![CDATA[
+				AND  H.AGENT =#{st_agent_code}           
+			]]>
+		</if>                 
+ 
+	    <if test="st_status != null and st_status != ''">
+	    	<![CDATA[
+	    		AND  F_GET_PO_STTS(D.BUYER, D.PO_NO , D.PO_SEQ , 0) IN
+	    	]]>
+					<foreach item="status" collection="st_status_all"
+						open="(" separator="," close=")">
+					 	#{status}
+					</foreach>
+	    </if>               
+       <if test="st_search_po_no != null and st_search_po_no != ''">
+			<![CDATA[
+				AND  H.PO_NO LIKE UPPER('%'|| #{st_search_po_no} ||'%')          
+			]]>
+		</if>       
+       <if test="st_search_buyer_item_no != null and st_search_buyer_item_no != ''">
+			<![CDATA[
+				AND  D.BUYER_ITEM_NO LIKE UPPER('%'|| #{st_search_buyer_item_no} ||'%') 
+			]]>
+		</if>       
+       <if test="st_search_desc_spec != null and st_search_desc_spec != ''">
+			<![CDATA[
+				AND  (D.DESCRIPTION LIKE '%'|| #{st_search_desc_spec} || '%' OR D.SPECIFICATION LIKE  '%'|| #{st_search_desc_spec} || '%' )                    
+			]]>
+		</if>       				                                      
+
+
+       		<if test='st_off_status  == "OFFICE" '>
+			<![CDATA[
+				 AND  D.REG_NO = 'OF'           
+			]]>
+		</if>
+       		<if test='st_off_status  == "MR" '>
+			<![CDATA[
+				 AND  D.REG_NO != 'OF'                   
+			]]>
+		</if>          
+		
+ 
+			<![CDATA[
+        GROUP BY D.BUYER, D.PO_NO, D.PO_SEQ 
+               
+        UNION ALL
+
+        SELECT
+                MAX((SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = H.BUYER)) AS BUYER_NAME,
+                D.PO_NO PO_NO,
+                MAX((SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = H.AGENT)) AS AGENT_NAME,
+                MAX(H.PO_CREATE_DATE) AS PO_DATE,
+                MAX(D.RD_DATE) AS RD_DATE,
+                MAX(G.GR_DATE) AS GR_DATE,
+                MAX(D.ITEM_QTY) AS ITEM_QTY,
+                SUM(NVL(G.ITEM_QTY,0)) AS GR_QTY,
+                MAX(D.UNIT_PRICE) AS UNIT_PRICE,
+                MAX((SELECT C2.TEXT1 FROM ICOMCOD2 C2 WHERE C2.TYPE = 'C001'
+                      AND C2.COMPANY_CODE = D.BUYER
+                      AND C2.CODE = R.PURCHASER_DEPT)) AS PO_DEPT_NAME,
+                MAX(H.PURCHASER_NAME) AS PO_USER_NAME,
+                D.PO_SEQ AS PO_SEQ,
+                MAX(D.REF_PR_NO) AS REF_PR_NO,
+                MAX(D.BUYER_ITEM_NO) AS BUYER_ITEM_NO,
+	    			MAX(DECODE(D.PROCESS_TYPE,'0'
+      			,(SELECT MIN(INVOICE_DATE) FROM ICOMIVDT
+      			WHERE BUYER = D.BUYER AND PO_NO = D.PO_NO
+        			AND PO_SEQ = D.PO_SEQ AND STATUS <>'D')
+      			,(SELECT MIN(INV_DATE) FROM WMSIVDT
+      			WHERE BUYER  = D.BUYER   AND PO_NO = D.PO_NO
+        			AND PO_SEQ = D.PO_SEQ  AND STATUS <> 'D'))) AS INVOICE_DATE,
+                MAX(D.DS_DATE) AS DS_DATE,
+      			MAX(DECODE(D.PROCESS_TYPE,'0'
+      			,(SELECT MIN(DELIVERY_DATE) FROM ICOMIVDT
+      			WHERE BUYER = D.BUYER AND PO_NO = D.PO_NO
+        			AND PO_SEQ = D.PO_SEQ AND STATUS <>'D')
+      			,(SELECT MIN(DELIVERY_DATE) FROM WMSIVDT
+      			WHERE BUYER  = D.BUYER   AND PO_NO = D.PO_NO
+        			AND PO_SEQ = D.PO_SEQ  AND STATUS <> 'D'))) AS DELIVERY_DATE,
+                MAX(NVL(D.IV_QTY,0)) AS INV_QTY,
+                MAX(NVL(D.DI_QTY,0)) AS DELIVERY_QTY,
+                MAX(D.AGENT_PRICE) AS AGENT_PRICE,
+                MAX((SELECT C2.TEXT1 FROM ICOMCOD2 C2 WHERE C2.TYPE = 'C001'
+                      AND C2.COMPANY_CODE = D.BUYER
+                      AND C2.CODE = R.REQ_DEPT)) AS REQ_DEPT_NAME,
+                MAX((SELECT L.USER_NAME_LOC FROM ICOMLUSR L WHERE L.COM_CODE = D.BUYER
+                       AND L.USER_ID = R.REQ_USER_ID)) AS REQ_USER_NAME,
+                MAX(D.LEGACY_PO_SEQ) AS LEGACY_PO_SEQ,
+                MAX(F_GET_PO_STTS(D.BUYER, D.PO_NO , D.PO_SEQ , 1)) STATUS_TEXT,
+                MAX(D.DESCRIPTION) AS DESCRIPTION,
+                MAX(D.SPECIFICATION) AS SPECIFICATION,
+                MAX(D.MAKER_NAME) AS MAKER_NAME,
+                MAX(D.UNIT_MEASURE) AS UNIT_MEASURE,
+                MAX(D.LEGACY_PO_NO) AS LEGACY_PO_NO,
+                MAX(D.BYIT_COMORG_CODE) AS BYIT_COMORG_CODE,
+                MAX(H.AGENT) AS AGENT_CODE,
+                MAX(R.PURCHASER_DEPT) AS PO_DEPT_CODE,
+                MAX(H.PURCHASER_ID) AS PO_USER_ID,
+                MAX(R.REQ_DEPT) AS REQ_DEPT_CODE,
+                MAX(R.REQ_USER_ID) AS REQ_USER_ID,
+                MAX(D.CONTRACT_NO) AS CONTRACT_NO,
+                MAX(D.CONTRACT_SEQ) AS CONTRACT_SEQ,
+                D.BUYER AS BUYER,
+                MAX((SELECT COUNT(*) FROM ICOMGRDT WHERE BUYER = D.BUYER AND PO_NO = D.PO_NO AND PO_SEQ = D.PO_SEQ AND STATUS <> 'D' AND AGENT = 'KR00000002')) STOCK_CNT,
+                MAX(G.GR_NO) AS GR_NO,
+                MAX(G.GR_SEQ) AS GR_SEQ,
+                MAX(D.REG_NO) AS REG_NO,
+                MAX(D.PR_NO) AS PR_NO,
+                MAX(D.PR_SEQ) AS PR_SEQ,
+                MAX((SELECT LAST_CLOSE_DATE FROM MIS_CLOSDATE WHERE BUYER = H.BUYER)) CLOSE_DATE,
+			          MAX(NVL(G.AR_BILL_FLAG,'N')) AS AR_BILL_FLAG,
+                MAX(NVL(G.AP_BILL_FLAG,'N')) AS AP_BILL_FLAG
+          FROM  ICOMPODT D, ICOMGRDT G, ICOMPOHD H, ICOMPRDT R
+         WHERE  D.BUYER = H.BUYER
+         ]]>
+         	    <if test="st_buyer_code != null and st_buyer_code != ''">
+	    	<![CDATA[
+	    		AND  D.BUYER IN
+	    	]]>
+					<foreach item="status" collection="st_buyer_codeList"
+						open="(" separator="," close=")">
+					 	#{status}
+					</foreach>
+	    </if>      
+  <![CDATA[                  
+           AND  D.PO_NO = H.PO_NO
+           AND  D.BUYER = G.BUYER
+           AND  D.PO_NO = G.PO_NO
+           AND  D.PO_SEQ = G.PO_SEQ       
+           AND  D.BUYER = R.BUYER                                  
+           AND  D.PR_NO = R.PR_NO                                  
+           AND  D.PR_SEQ = R.PR_SEQ
+ 		   AND	G.AR_BILL_FLAG = 'N'
+ 		   AND  G.STATUS <> 'D'        
+
+			]]>
+	 
+				<if test='st_gr_flag  == "GR" '>
+					<![CDATA[
+						AND  D.ITEM_QTY ^= D.GR_QTY           
+					]]>
+				</if>
+				<if test='st_date_type  == "GR" '>
+					<![CDATA[
+						AND  G.GR_DATE                     
+					]]>
+				</if>
+       		<if test='st_date_type  == "PO" '>
+			<![CDATA[
+				AND  H.PO_CREATE_DATE                   
+			]]>
+		</if>                 
+ 		<![CDATA[
+                     BETWEEN #{st_from_date} AND #{st_to_date}           
+                            
+           	]]>
+        <if test="st_agent_code != null and st_agent_code != ''">
+			<![CDATA[
+				AND  H.AGENT =#{st_agent_code}           
+			]]>
+		</if>                 
+ 
+	    <if test="st_status != null and st_status != ''">
+	    	<![CDATA[
+	    		AND  F_GET_PO_STTS(D.BUYER, D.PO_NO , D.PO_SEQ , 0) IN
+	    	]]>
+					<foreach item="status" collection="st_status_all"
+						open="(" separator="," close=")">
+					 	#{status}
+					</foreach>
+	    </if>               
+       <if test="st_search_po_no != null and st_search_po_no != ''">
+			<![CDATA[
+				AND  H.PO_NO LIKE UPPER('%'|| #{st_search_po_no} ||'%')          
+			]]>
+		</if>       
+       <if test="st_search_buyer_item_no != null and st_search_buyer_item_no != ''">
+			<![CDATA[
+				AND  D.BUYER_ITEM_NO LIKE UPPER('%'|| #{st_search_buyer_item_no} ||'%') 
+			]]>
+		</if>       
+       <if test="st_search_desc_spec != null and st_search_desc_spec != ''">
+			<![CDATA[
+				AND  (D.DESCRIPTION LIKE '%'|| #{st_search_desc_spec} || '%' OR D.SPECIFICATION LIKE  '%'|| #{st_search_desc_spec} || '%' )                    
+			]]>
+		</if>       				                                      
+
+
+       		<if test='st_off_status  == "OFFICE" '>
+			<![CDATA[
+				 AND  D.REG_NO = 'OF'           
+			]]>
+		</if>
+       		<if test='st_off_status  == "MR" '>
+			<![CDATA[
+				 AND  D.REG_NO != 'OF'                   
+			]]>
+		</if>
+         <![CDATA[
+         GROUP BY D.BUYER, D.PO_NO, D.PO_SEQ
+         
+          )A      
+ 		  ORDER BY A.BUYER, A.PO_NO, A.PO_SEQ
+ 
+ 
+ 						
+				]]> 
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+
+
+	<update  id="setNewPODelete_Item1" parameterType="java.util.Map" >
+		<![CDATA[
+			 
+			 /*setNewPODelete_Item1*/ 
+			 
+			         UPDATE ICOMPRDT                                                 
+           SET STATUS        = 'D',                                     
+               CHANGE_DATE   = TO_CHAR(SYSDATE, 'YYYYMMDD'),            
+               CHANGE_TIME   = TO_CHAR(SYSDATE, 'HH24MISS')             
+         WHERE BUYER   = #{BUYER}                                              
+           AND PR_NO   =  #{PR_NO}                                         
+           AND PR_SEQ  = #{PR_SEQ}                                                    
+			  
+		]]> 
+	</update>
+
+	<update  id="setNewPODelete_Item2" parameterType="java.util.Map" >
+		<![CDATA[
+			 
+			 /*setNewPODelete_Item2*/ 
+			 
+        UPDATE ICOMPODT                                                 
+           SET STATUS       = 'D',                                      
+               SEND_DATE    = ' ',                                      
+               SEND_TIME    = ' ',                                      
+               CHANGE_DATE  = TO_CHAR(SYSDATE, 'YYYYMMDD'),             
+               CHANGE_TIME  = TO_CHAR(SYSDATE, 'HH24MISS')              
+         WHERE BUYER   = #{BUYER}                                              
+           AND PO_NO   =  #{PO_NO}                                         
+           AND PO_SEQ  = #{PO_SEQ}                                                
+			  
+		]]> 
+	</update>
+	
+	<update  id="setNewPODelete_Item3" parameterType="java.util.Map" >
+		<![CDATA[
+			 
+			 /*setNewPODelete_Item3*/ 
+			 
+        UPDATE ICOMPORS                                                 
+           SET  STATUS        = 'D',                                    
+                CHANGE_DATE   = TO_CHAR(SYSDATE, 'YYYYMMDD'),           
+                CHANGE_TIME   = TO_CHAR(SYSDATE, 'HH24MISS')            
+         WHERE BUYER   = #{BUYER}                                              
+           AND PO_NO   =  #{PO_NO}                                         
+           AND PO_SEQ  = #{PO_SEQ}                                                     
+			  
+		]]> 
+	</update>
+	
+	<update  id="setNewPODelete_Item4" parameterType="java.util.Map" >
+		<![CDATA[
+			 
+			 /*setNewPODelete_Item4*/ 
+			 
+        UPDATE ICOMIVDT                                                 
+           SET STATUS        = 'D',                                     
+               CHANGE_DATE   = TO_CHAR(SYSDATE, 'YYYYMMDD'),            
+               CHANGE_TIME   = TO_CHAR(SYSDATE, 'HH24MISS')             
+         WHERE BUYER   = #{BUYER}                                              
+           AND PO_NO   =  #{PO_NO}                                         
+           AND PO_SEQ  = #{PO_SEQ}                                                 
+           AND STATUS != 'D'                                            
+			  
+		]]> 
+	</update>
+	
+	<update  id="setNewPODelete_Item5" parameterType="java.util.Map" >
+		<![CDATA[
+			 
+			 /*setNewPODelete_Item5*/ 
+			 
+          UPDATE ICOMIVHD HD                                                                    
+             SET HD.STATUS  = DECODE((SELECT NVL(COUNT(*),0) FROM ICOMIVDT                      
+                                           WHERE BUYER   = HD.BUYER                             
+                                             AND INV_NO  = HD.INV_NO                            
+                                             AND STATUS != 'D'), 0, 'D','R'),                   
+                 HD.INV_AMT =                                                                   
+                            (SELECT NVL(SUM(DT.ITEM_AMT),0)                                     
+                               FROM ICOMIVDT DT                                                 
+                              WHERE HD.BUYER   = DT.BUYER                                       
+                                AND HD.INV_NO  = DT.INV_NO                                      
+                                AND DT.STATUS != 'D'),                                          
+                 HD.INV_TAX_RATE_1 = 0.1,                                                       
+                 HD.INV_TAX_AMT_1 =                                                             
+                            (SELECT NVL(TRUNC(SUM(DT.ITEM_AMT) * 0.1, 0),0)                     
+                               FROM ICOMIVDT DT                                                 
+                              WHERE HD.BUYER   = DT.BUYER                                       
+                                AND HD.INV_NO  = DT.INV_NO                                      
+                                AND DT.STATUS != 'D'),                                          
+                 HD.INV_TTL_AMT =                                                               
+                            (SELECT NVL(SUM(DT.ITEM_AMT) + TRUNC(SUM(DT.ITEM_AMT) * 0.1, 0),0)  
+                               FROM ICOMIVDT DT                                                 
+                              WHERE HD.BUYER   = DT.BUYER                                       
+                                AND HD.INV_NO  = DT.INV_NO                                      
+                                AND DT.STATUS != 'D'),                                          
+                 HD.CHANGE_USER_ID = #{st_user_id},                                                         
+                 HD.CHANGE_DATE   = TO_CHAR(SYSDATE, 'YYYYMMDD'),                               
+                 HD.CHANGE_TIME   = TO_CHAR(SYSDATE, 'HH24MISS')                                
+           WHERE HD.BUYER = #{BUYER}                                                                       
+             AND HD.INV_NO IN                                                                   
+                (SELECT DISTINCT INV_NO                                                         
+                   FROM ICOMIVDT                                                                
+         WHERE BUYER   = #{BUYER}                                              
+           AND PO_NO   =  #{PO_NO}                                         
+           AND PO_SEQ  = #{PO_SEQ}             
+                    
+                        )                                                       
+			  
+		]]> 
+	</update>
+	
+	
+	
+	
+		<update  id="setNewPODelete_Item6" parameterType="java.util.Map" >
+		<![CDATA[
+			 
+			 /*setNewPODelete_Item6*/ 
+			 
+         UPDATE ICOMPRHD 
+            SET STATUS = DECODE((SELECT COUNT(*) FROM ICOMPRDT WHERE BUYER = #{BUYER}    AND PR_NO = #{PR_NO}      AND STATUS IN ('C','R')),0,'D','R'),  
+                CHANGE_DATE   = TO_CHAR(SYSDATE, 'YYYYMMDD'),   
+                CHANGE_TIME   = TO_CHAR(SYSDATE,'HH24MISS')     
+         WHERE BUYER   = #{BUYER}                                              
+           AND PR_NO   =  #{PR_NO}                                         
+			  
+		]]> 
+	</update>
+	
+	
+			<update  id="setNewPODelete_Item7" parameterType="java.util.Map" >
+		<![CDATA[
+			 
+			 /*setNewPODelete_Item7*/ 
+			 
+        UPDATE ICOMPOHD PH                                                      
+           SET STATUS           = DECODE((SELECT NVL(COUNT(*),0) FROM ICOMPODT  
+                                           WHERE BUYER   = PH.BUYER             
+                                             AND PO_NO   = PH.PO_NO             
+                                             AND STATUS != 'D'), 0, 'D','R'),   
+               PO_TTL_AMT       = (SELECT NVL(SUM(PD.ITEM_AMT),0)               
+                                     FROM ICOMPODT PD                           
+                                    WHERE PH.BUYER   = PD.BUYER                 
+                                      AND PH.PO_NO   = PD.PO_NO                 
+                                      AND PD.STATUS != 'D'),                    
+               PO_TAX_TTL_AMT   = (SELECT NVL(SUM(PD.ITEM_AMT),0)               
+                                     FROM ICOMPODT PD                           
+                                    WHERE PH.BUYER   = PD.BUYER                 
+                                      AND PH.PO_NO   = PD.PO_NO                 
+                                      AND PD.STATUS != 'D'),                    
+               AGENT_PO_TTL_AMT = (SELECT NVL(SUM(PD.AGENT_ITEM_AMT),0)         
+                                     FROM ICOMPODT PD                           
+                                    WHERE PH.BUYER   = PD.BUYER                 
+                                      AND PH.PO_NO   = PD.PO_NO                 
+                                      AND PD.STATUS != 'D'),                    
+               CHANGE_USER_ID =  #{st_user_id},                                                   
+               SEND_DATE = ' ',                                                 
+               SEND_TIME = ' ',                                                 
+               CHANGE_DATE   = TO_CHAR(SYSDATE, 'YYYYMMDD'),                    
+               CHANGE_TIME   = TO_CHAR(SYSDATE, 'HH24MISS')                     
+         WHERE BUYER   = #{BUYER}                                              
+           AND PO_NO   =  #{PO_NO}                                                      
+			  
+		]]> 
+	</update>
+	
+	
+				<update  id="setNewOfficeChange_Item" parameterType="java.util.Map" >
+		<![CDATA[
+			 
+			 /*setNewOfficeChange_Item*/ 
+			 
+			  UPDATE  ICOMPODT                                        
+           SET  REG_NO  = #{REG_NO} ,                                   
+                STATUS         = 'R',                           
+                CHANGE_DATE    = TO_CHAR(SYSDATE,'YYYYMMDD'),   
+                CHANGE_TIME    = TO_CHAR(SYSDATE,'HH24MISS')    
+         WHERE  BUYER   =  #{BUYER}                                         
+           AND  PO_NO   =  #{PO_NO}                                            
+           AND  PO_SEQ  =  #{PO_SEQ}                                            
+           AND  BUYER_ITEM_NO  =  #{BUYER_ITEM_NO}                                    
+
+			  
+		]]> 
+	</update>
+	
+	
+	
+	
+	<select  id="setNewGrDelChange_Item1" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			 
+			 /*setNewGrDelChange_Item1*/ 
+			 
+			   SELECT HD.PROCESS_TYPE,WMS.WAREHOUSE_CODE	  
+         FROM ICOMPODT PO, ICOMPOHD HD, WMSIVDT WMS  
+         WHERE PO.BUYER = #{BUYER}                                    
+         AND PO.PO_NO=#{PO_NO}                                         
+         AND PO.PO_SEQ = #{PO_SEQ}                                      
+         AND PO.BUYER = HD.BUYER                     
+         AND PO.PO_NO = HD.PO_NO                     
+         AND PO.BUYER = WMS.BUYER(+)                 
+         AND PO.PO_NO = WMS.PO_NO(+)                 
+         AND PO.PO_SEQ = WMS.PO_SEQ(+)               
+         AND WMS.STATUS(+) <> 'D'                    
+         AND PO.STATUS <> 'D'                        
+         AND HD.STATUS <> 'D'                        
+
+			  
+		]]> 
+	</select>
+	
+	
+	
+	<update  id="setNewGrDelChange_Item2" parameterType="java.util.Map" >
+		<![CDATA[
+			 
+			 /*setNewGrDelChange_Item2*/ 
+			 
+		 UPDATE  WMSIVDT A SET						  
+		  A.BUYER_GR_QTY = 0,							  
+		  A.CHANGE_DATE = TO_CHAR(SYSDATE,'YYYYMMDD'),  
+		  A.CHANGE_TIME = TO_CHAR(SYSDATE,'HH24MISS')   
+		  WHERE  A.BUYER  =  #{BUYER}         					
+		  AND  A.WAREHOUSE_CODE   = #{WAREHOUSE_CODE} 					
+		  AND  A.SELLER   = 'KRKORE0001'				
+		  AND  A.PO_NO   =  #{PO_NO}         						
+		  AND  A.PO_SEQ  =  #{PO_SEQ}         					
+		  AND  A.STATUS  != 'D'							
+
+			  
+		]]> 
+	</update>	
+	
+	
+	<update  id="setNewGrDelChange_Item3" parameterType="java.util.Map" >
+		<![CDATA[
+        /*setNewGrDelChange_Item3*/
+        UPDATE ICOMGRDT
+           SET STATUS         = 'D',
+               SEND_DATE      = ' ',
+               SEND_TIME      = ' ',
+               CHANGE_DATE    = TO_CHAR(SYSDATE,'YYYYMMDD'),
+               CHANGE_TIME    = TO_CHAR(SYSDATE,'HH24MISS'),
+               CHANGE_USER_ID = #{st_user_id}
+         WHERE BUYER   = #{BUYER}
+           AND PO_NO   = #{PO_NO}
+           AND PO_SEQ  = #{PO_SEQ}
+           AND (AR_BILL_FLAG != 'Y' OR AP_BILL_FLAG != 'Y')
+           AND STATUS != 'D'
+		]]>
+	</update>	
+
+	<update  id="setNewGrDelChange_Item4" parameterType="java.util.Map" >
+		<![CDATA[
+		/*setNewGrDelChange_Item4*/
+        UPDATE ICOMPODT
+           SET GR_QTY  = NVL(GR_QTY,0) - NVL( #{GR_QTY1}  , 0)
+         WHERE BUYER   = #{BUYER}
+           AND PO_NO   = #{PO_NO}
+           AND PO_SEQ  = #{PO_SEQ}
+		]]>
+	</update>	
+	
+	
+	<update  id="setNewGrDelChange_Item5" parameterType="java.util.Map" >
+		<![CDATA[
+		/*master.mpso.setNewGrDelChange_Item5*/
+		UPDATE ICOMIVDT A
+		   SET GR_QTY  = DECODE((SELECT B.PROCESS_TYPE FROM ICOMGRDT B
+		                          WHERE B.BUYER   = #{BUYER}
+		                            AND B.PO_NO   = #{PO_NO}
+		                            AND B.PO_SEQ  = #{PO_SEQ}
+		                            AND B.INV_NO  = A.INV_NO
+		                            AND B.INV_SEQ = A.INV_SEQ
+		                            AND ROWNUM = 1
+		                            ),'0',0,'G1',0, A.GR_QTY)
+		 WHERE BUYER   = #{BUYER}
+		   AND PO_NO   = #{PO_NO}
+		   AND PO_SEQ  = #{PO_SEQ}
+		   AND A.STATUS != 'D'
+		]]>
+	</update>	
+</mapper>   
+   

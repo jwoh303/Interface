@@ -1,0 +1,321 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mdam">
+
+	<!-- 코드 조회 -->
+	<select id="selectMasterMdAmMasterCodeManageList" parameterType="java.util.Map" resultType="java.util.Map">
+	/*selectMasterMdAmMasterCodeManageList*/
+		<include refid="common.ibsheet.xml.pagestart"/>	
+		<![CDATA[
+		    SELECT
+		        CODE
+		      , TEXT1
+		      , TEXT2
+		      , TEXT3
+		      , TEXT4
+		      , TYPE
+		      , A.TEXT5
+		      , A.TEXT6
+		      , CODE AS ORG_CODE
+		]]>
+		<if test="st_type == 'Z014' or st_type == 'M014' ">
+		      , FLAG
+			  , (
+			        SELECT
+			            DECODE(COUNT(*),0,'XX','OO') AS MODIFY_FLAG
+			        FROM
+			            ICOMBDGT /* 부서별 예산관리 */
+			        WHERE 1=1
+			        AND BUYER = #{st_com_code}
+			        AND ACCOUNT_TYPE = A.CODE
+			        AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN FROM_DATE AND TO_DATE
+			    ) AS MODIFY_FLAG
+		</if>
+		<![CDATA[
+		    FROM 
+		        ICOMCOD2 A /* 회사별 코드관리 */
+		    WHERE 1=1
+		    AND TYPE = #{st_type}
+		]]>
+		<choose>
+			<when test='SESSION_BUSINESS_COND == "B"'>
+				<![CDATA[
+					AND A.COMPANY_CODE = #{SESSION_BUYER_CODE}
+				]]>
+			</when>
+			<otherwise>
+				<![CDATA[
+					AND A.COMPANY_CODE = #{st_com_code}					
+				]]>
+			</otherwise>
+		</choose>
+		<if test="st_code != null and st_code != '' ">
+		    AND CODE = #{st_code}
+		</if>
+		<if test="st_name != null and st_name != '' ">
+		    AND UPPER(TEXT1) LIKE UPPER( '%' || #{st_name} || '%')
+		</if>
+		<![CDATA[
+		    ORDER BY 
+		        CODE
+		]]>
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+	
+	<!-- 부서코드 조회 -->
+	<select id="selectMasterMdAmMasterCodeManageList_Dept" parameterType="java.util.Map" resultType="java.util.Map">
+		/*selectMasterMdAmMasterCodeManageList_Dept*/
+		<include refid="common.ibsheet.xml.pagestart"/>	
+		<![CDATA[
+			SELECT	DE.CODE
+			,		DE.TEXT1
+			,		DE.TEXT2
+			,		DE.TEXT3
+			,		DE.TEXT4
+			,		DE.CODE AS ORG_CODE
+		]]>
+		<choose>
+			<when test='SESSION_BUSINESS_COND == "B"'>
+				<if test='SESSION_BUDGET_FLAG == "Y"'>
+					,	DECODE(NVL(PS.CODE, '0'), '0', DECODE(DE.TYPE_FLAG, 'A', 'N', DE.TYPE_FLAG), 'Y') AS DEPT_TYPE
+		      		,	DECODE(NVL(PS.CODE, '0'), '0', DECODE(DE.TYPE_FLAG, 'A', 'N', DE.TYPE_FLAG), 'Y') AS ORG_DEPT_TYPE
+				</if>
+				<if test='SESSION_BUDGET_FLAG == "N"'>
+					,	DECODE(NVL(PS.CODE, '0'), '0', 'N', 'Y') AS DEPT_TYPE
+		      		,	DECODE(NVL(PS.CODE, '0'), '0', 'N', 'Y') AS ORG_DEPT_TYPE
+				</if>
+			</when>
+			<otherwise>
+				,	DECODE(NVL(PS.CODE, '0'), '0', DECODE(DE.TYPE_FLAG, 'A', 'N', DE.TYPE_FLAG), 'Y') AS DEPT_TYPE
+	      		,	DECODE(NVL(PS.CODE, '0'), '0', DECODE(DE.TYPE_FLAG, 'A', 'N', DE.TYPE_FLAG), 'Y') AS ORG_DEPT_TYPE					
+			</otherwise>
+		</choose>
+		<![CDATA[		      
+		    FROM 
+		        ICOMCOD2 DE /* 회사별 코드관리 */
+		      , ICOMCOD2 PS /* 회사별 코드관리 */
+		    WHERE 1=1
+		    AND DE.CODE = PS.CODE(+)
+		    AND DE.COMPANY_CODE = PS.COMPANY_CODE(+)
+		    AND DE.TYPE = #{st_type}
+		    AND PS.TYPE(+) ='C004'
+		]]>
+		<choose>
+			<when test='SESSION_BUSINESS_COND == "B"'>
+				<![CDATA[
+					AND DE.COMPANY_CODE = #{SESSION_BUYER_CODE}
+				]]>
+			</when>
+			<otherwise>
+				<![CDATA[
+					AND DE.COMPANY_CODE = #{st_com_code}					
+				]]>
+			</otherwise>
+		</choose>
+		<if test="st_code != null and st_code != '' ">
+		    AND DE.CODE = #{st_code}
+		</if>
+		<if test="st_name != null and st_name != '' ">
+		    AND UPPER(DE.TEXT1) LIKE UPPER('%' || #{st_name} || '%')
+		</if>
+		<if test="st_dept_type != null and st_dept_type != '' ">
+		    AND DECODE(NVL(PS.CODE, '0'), '0', 'N', 'Y') = #{st_dept_type}
+		</if>
+		<![CDATA[
+		    ORDER BY 
+		        DEPT_TYPE DESC
+		      , DE.CODE
+		]]>
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+	<select id="selectMasterMdAmMasterCodeManageList_Dept_v2" parameterType="java.util.Map" resultType="java.util.Map">
+		/*selectMasterMdAmMasterCodeManageList_Dept_v2*/
+		<include refid="common.ibsheet.xml.pagestart"/>	
+		<![CDATA[
+			SELECT	DE.CODE
+			,		DE.TEXT1
+			,		DE.TEXT2
+			,		DE.TEXT3
+			,		DE.TEXT4
+			,		DE.CODE AS ORG_CODE
+			,	DECODE(NVL(PS.CODE, '0'), '0', 'N', 'Y') AS DEPT_TYPE
+			,	DECODE(NVL(PS.CODE, '0'), '0', 'N', 'Y') AS DEPT_TYPE_TEXT
+		    ,	DECODE(NVL(PS.CODE, '0'), '0', 'N', 'Y') AS ORG_DEPT_TYPE
+		    FROM 
+		        ICOMCOD2 DE /* 회사별 코드관리 */
+		      , ICOMCOD2 PS /* 회사별 코드관리 */
+		    WHERE 1=1
+		    AND DE.CODE = PS.CODE(+)
+		    AND DE.COMPANY_CODE = PS.COMPANY_CODE(+)
+		    AND DE.TYPE = #{st_type}
+		    AND PS.TYPE(+) ='C004'
+		]]>
+		<choose>
+			<when test='SESSION_BUSINESS_COND == "B"'>
+				<![CDATA[
+					AND DE.COMPANY_CODE = #{SESSION_BUYER_CODE}
+				]]>
+			</when>
+			<otherwise>
+				<![CDATA[
+					AND DE.COMPANY_CODE = #{st_com_code}					
+				]]>
+			</otherwise>
+		</choose>
+		<if test="st_code != null and st_code != '' ">
+		    AND DE.CODE = #{st_code}
+		</if>
+		<if test="st_name != null and st_name != '' ">
+		    AND UPPER(DE.TEXT1) LIKE UPPER('%' || #{st_name} || '%')
+		</if>
+		<if test="st_dept_type != null and st_dept_type != '' ">
+		    AND DECODE(NVL(PS.CODE, '0'), '0', 'N', 'Y') = #{st_dept_type}
+		</if>
+		<![CDATA[
+		    ORDER BY 
+		        DEPT_TYPE DESC
+		      , DE.CODE
+		]]>
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+	
+	<!-- 코드 트랜잭션 체크 -->
+	<select id="selectMasterMdAmMasterCodeManageCheck" parameterType="java.util.Map" resultType="java.lang.String">
+	/*selectMasterMdAmMasterCodeManageCheck*/
+		<![CDATA[
+			SELECT
+			    CODE
+			FROM  ICOMCOD2 /* 회사별 코드관리 */
+			WHERE 1=1
+			AND COMPANY_CODE = #{st_com_code}
+			AND TYPE = #{st_type}
+			AND CODE = #{CODE}
+		]]>
+	</select>
+	
+	<!-- 계정코드 트랜잭션 체크 -->
+	<select id="selectMasterMdAmMasterCodeManageAccountCheck" parameterType="java.util.Map" resultType="java.lang.String">
+	/*selectMasterMdAmMasterCodeManageAccountCheck*/
+		<![CDATA[
+			SELECT
+			    DECODE(COUNT(*),0,'XX','OO') AS MODIFY_FLAG
+			FROM
+			    ICOMBDGT /* 부서별 예산관리 */
+			WHERE 1=1
+			AND BUYER = #{st_com_code}
+			AND ACCOUNT_TYPE = #{CODE}
+			AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN FROM_DATE AND TO_DATE
+		]]>
+	</select>
+
+
+
+	<!-- 코드 생성 -->
+	<update  id="insertMasterMdAmMasterCodeManage" parameterType="java.util.Map" >
+	/*insertMasterMdAmMasterCodeManage*/
+		<![CDATA[
+			INSERT INTO ICOMCOD2 /* 회사별 코드관리 */
+			(
+			    TYPE
+			  , CODE
+			  , COMPANY_CODE
+			  , TEXT1
+			  , TEXT2
+			  , FLAG
+			  , TEXT3
+			  , TEXT4
+			  , ADD_DATE
+		]]>
+		<if test="st_type == 'Z014'  ">
+			  , TEXT5
+			  , TEXT6
+		</if>
+		<if test="st_type == 'C001'">
+			<if test="DEPT_TYPE != null and DEPT_TYPE != '' ">
+			  , TYPE_FLAG
+			</if>
+		</if>
+		<![CDATA[
+			)
+			VALUES
+			(
+			    #{st_type}
+			  , #{CODE}
+			  , #{st_com_code}
+			  , #{TEXT1}
+			  , #{TEXT2}
+		]]>
+		<if test="st_type != 'Z014' and st_type != 'M014' ">
+			  , 'Y'
+		</if>
+		<if test="st_type == 'Z014' or st_type == 'M014' ">
+			  , #{FLAG}
+		</if>
+		<![CDATA[
+			  , #{TEXT3}
+			  , #{TEXT4}
+			  , TO_CHAR(SYSDATE , 'YYYYMMDD')
+		]]>
+		<if test="st_type == 'Z014'  ">
+			  , #{TEXT5}
+			  , #{TEXT6}
+		</if>
+		<if test="st_type == 'C001'">
+			<if test="DEPT_TYPE != null and DEPT_TYPE != '' ">
+			  , DECODE(#{DEPT_TYPE}, 'N', 'A', 'Y', 'A', #{DEPT_TYPE})
+			</if>
+		</if>
+		<![CDATA[
+			)
+		]]>
+	</update>
+
+
+
+	<!-- 코드 수정 -->
+	<update  id="updateMasterMdAmMasterCodeManage" parameterType="java.util.Map" >
+	/*updateMasterMdAmMasterCodeManage*/
+		<![CDATA[
+			UPDATE ICOMCOD2 /* 회사별 코드관리 */
+			SET CODE  = #{CODE}
+			  , TEXT1 = #{TEXT1}
+			  , TEXT2 = #{TEXT2}
+			  , TEXT3 = #{TEXT3}
+			  , TEXT4 = #{TEXT4}
+		]]>
+		<if test="st_type == 'Z014'  ">
+			  , TEXT5 = #{TEXT5}
+			  , TEXT6 = #{TEXT6}
+		</if>
+		<if test="st_type == 'Z014' or st_type == 'M014' ">
+			  , FLAG = #{FLAG}
+		</if>
+		<if test="st_type == 'C001'">
+			<if test="DEPT_TYPE != null and DEPT_TYPE != '' ">
+			  , TYPE_FLAG = DECODE(#{DEPT_TYPE}, 'N', 'A', 'Y', 'A', #{DEPT_TYPE})
+			</if>
+		</if>
+		<![CDATA[
+			WHERE 1=1
+			AND TYPE  = #{st_type}
+			AND CODE  = #{ORG_CODE}
+			AND COMPANY_CODE = #{st_com_code}
+		]]>
+	</update>
+
+
+
+	<!-- 코드 삭제 -->
+	<update id="deleteMasterMdAmMasterCodeManage"  parameterType="java.util.Map">
+	/*deleteMasterMdAmMasterCodeManage*/
+		<![CDATA[
+			DELETE FROM ICOMCOD2 /* 회사별 코드관리 */
+			WHERE 1=1
+			AND TYPE  = #{st_type}
+			AND CODE  = #{ORG_CODE}
+			AND COMPANY_CODE = #{st_com_code}
+		]]>
+	</update>
+
+</mapper>   
+   

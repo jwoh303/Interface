@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="seller.mpiv">
+	<select id="selectSellerMpIvDeliveryRecordDeleteList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.jsppagestart"/>
+		<![CDATA[
+			/*selectSellerMpIvDeliveryRecordDeleteList*/
+			SELECT
+				  F_GET_EXPORT_BUYER_NAME(C.BUYER, C.PO_NO, C.DELY_TO_LOCATION) AS BUYER_NAME	--구매사
+				, B.PO_NO					--발주번호
+				, B.DS_DATE					--납품예정일
+				, B.INV_NO					--거래명세서번호
+				, C.LEGACY_PO_NO			--구매사발주번호
+				, B.BUYER_ITEM_NO			--품목코드
+				, C.DESCRIPTION				--품명
+				, C.SPECIFICATION			--규격
+				, C.AGENT_PRICE				--단가
+				, C.UNIT_MEASURE			--단위
+				, C.ITEM_QTY				--발주수량
+				, B.DELIVERY_QTY			--납품수량
+				, B.DELIVERY_DATE			--납품일
+				, C.GR_QTY					--입고수량
+				, NVL((	SELECT MAX(GR_DATE) 
+						FROM ICOMGRDT
+						WHERE 	BUYER = C.BUYER 
+							AND PO_NO = C.PO_NO
+							AND PO_SEQ = C.PO_SEQ
+							AND STATUS <> 'D'),'') AS BUYER_GR_DATE		--구매사입고일
+				, B.BUYER
+				, B.PO_SEQ
+				, B.INV_SEQ
+				, C.BYIT_COMORG_CODE AS BYIT_COMORG_CODE
+				, C.CONTRACT_NO AS CONTRACT_NO
+				, C.CONTRACT_SEQ AS CONTRACT_SEQ
+				, C.SELLER
+				, A.LEGACY_IV_SERIAL
+				, DECODE((SELECT DOC_TYPE FROM ICOMPOHD WHERE BUYER = C.BUYER AND PO_NO = C.PO_NO),'S','선입고','') AS BFRE_STCK_YN
+				, F_GET_CMCD_NAME('C019', A.PARCEL_COM_CODE) AS PARCEL_COM_NAME
+				, A.PARCEL_INV_NO
+				, DECODE(C.PROCESS_TYPE,'2',C.WAREHOUSE_CODE,B.BUYER) AS TR_BUYER
+				, F_GET_HIDDEN_BUYER_NAME(B.BUYER, '01') AS BUYER2
+				, A.IMAGE_KEY_SIGN
+				, A.IMAGE_KEY_INV
+				, DECODE(C.PROCESS_TYPE,'0','고객사 직접납품','1','재고','2','KeP 물류센터 납품','3','VMI','') AS PROCESS_TYPE_TEXT
+				, A.PARCEL_PRO_STATUS
+				, DECODE(NVL(A.PARCEL_YN, 'N'), 'N', '자차', '택배') AS PARCEL_YN_TEXT
+				, REPLACE(INV_NO_URL,'param',PARCEL_INV_NO) AS PARCEL_REAL_URL
+			FROM ICOMIVHD A , ICOMIVDT B , ICOMPODT C,
+				(SELECT CODE, TEXT5 AS INV_NO_URL FROM ICOMCOD1 WHERE TYPE = 'C019') D  
+			WHERE  
+					A.AGENT  = #{st_com_code}
+				AND A.INV_DATE BETWEEN #{st_from_date} AND #{st_to_date}
+		]]>
+		<!-- 고객사 -->
+		<if test="st_buyer_code != null and st_buyer_code != ''">
+			<![CDATA[
+				AND A.BUYER = #{st_buyer_code}
+			]]>
+		</if>
+		
+		<!-- 거래명세서번호 -->
+		<if test="st_inv_no != null and st_inv_no != ''">
+			<![CDATA[
+				AND A.INV_NO LIKE UPPER(#{st_inv_no}||'%')
+			]]>
+		</if>
+		
+		<!-- 발주번호 -->
+		<if test="st_po_no != null and st_po_no != ''">
+			<![CDATA[
+				AND (C.PO_NO  LIKE UPPER(#{st_po_no}||'%') OR C.LEGACY_PO_NO LIKE UPPER(#{st_po_no}||'%'))
+			]]>
+		</if>	
+		<![CDATA[
+				AND B.DELIVERY_DATE IS NOT NULL
+				AND A.BUYER  = B.BUYER
+				AND A.INV_NO = B.INV_NO
+				AND B.BUYER  = C.BUYER
+				AND B.PO_NO  = C.PO_NO
+				AND B.PO_SEQ = C.PO_SEQ	
+				AND A.PARCEL_COM_CODE = D.CODE (+)
+				AND A.STATUS <> 'D'
+				AND B.STATUS <> 'D'
+				AND C.STATUS <> 'D'
+			ORDER BY BUYER_NAME, PO_NO
+		]]>
+		<include refid="common.ibsheet.xml.jsppageend"/>	
+	</select> 
+	
+	<!-- 납품실적삭제 1 -->
+	<update id="updateDeliveryRecordDeleteIvdt" parameterType="java.util.Map">
+		<![CDATA[    
+			/*updateDeliveryRecordDeleteIvdt*/
+			UPDATE ICOMIVDT
+			SET
+				  DELIVERY_QTY  = 0
+				, DELIVERY_DATE = NULL
+				, DELIVERY_ADD_DATE = NULL
+				, DELIVERY_ADD_USER_ID = NULL
+			WHERE 
+					BUYER   = #{buyer}
+				AND INV_NO  = #{inv_no}
+				AND INV_SEQ = #{inv_seq}
+				AND STATUS != 'D'
+		]]>
+	</update> 
+	
+	<!-- 납품실적삭제 2 -->
+	<update id="updateDeliveryRecordDeletePodt" parameterType="java.util.Map">
+		<![CDATA[
+			/*updateDeliveryRecordDeletePodt*/
+			UPDATE ICOMPODT A
+			SET  A.DI_QTY = DECODE(A.PROCESS_TYPE,'2',A.DI_QTY,(SELECT SUM(DELIVERY_QTY)
+																FROM ICOMIVDT
+																WHERE
+																		BUYER  = A.BUYER
+																	AND PO_NO  = A.PO_NO
+																	AND PO_SEQ = A.PO_SEQ
+																AND STATUS != 'D'))
+			WHERE
+					A.BUYER   = #{buyer}
+				AND A.PO_NO   = #{po_no}
+				AND A.PO_SEQ  = #{po_seq}
+				AND A.STATUS != 'D'
+		]]>
+	</update> 
+	
+</mapper>

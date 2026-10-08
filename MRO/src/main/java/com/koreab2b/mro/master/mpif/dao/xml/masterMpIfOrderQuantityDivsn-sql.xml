@@ -1,0 +1,905 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mpif">
+	<!-- 조회 -->
+	<select id="selectMasterMpIfOrderQuantityDivsnList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.pagestart"/>	
+			<![CDATA[
+			/* selectMasterMpIfOrderQuantityDivsnList */
+		    	SELECT
+					DECODE(MAX((SELECT COUNT(*) FROM ICOMPODT WHERE BUYER = A.BUYER AND LEGACY_PO_NO = A.LEGACY_PO_NO AND LEGACY_PO_SEQ= A.LEGACY_PO_SEQ)),0 , '신규', '수정') AS STATUS,
+					A.LEGACY_PO_NO,						/* 요청번호*/
+					A.LEGACY_PO_SEQ,						/* 항번 */
+					A.REF_IF_NO,								/* 관리번호 */
+					A.BUYER_ITEM_NO,						/* 품목코드 */
+					A.ITEM_QTY,								/* 요청수량 */
+					A.ADD_DATE,							/* 등록일 */
+					A.RD_DATE,								/* 요구일 */
+					COUNT(B.AGENT) AS AGNET_CNT,	/* 공급사계 */
+					A.ERROR_MSG,							/* 에러내용 */
+					A.BUYER,
+					'' AS YEAR,
+					SUM(B.ITEM_QTY) AS DIVIDE_ITEM_QTY
+				FROM IF_PODT A, POIFLOAD_DAEW B
+				WHERE A.BUYER = 'KRDAEW0016'
+				AND A.IF_FLAG = 'S'
+				AND A.BUYER = B.COM_CODE(+)
+				AND A.LEGACY_PO_NO = B.LEGACY_PO_NO(+)
+				AND A.LEGACY_PO_SEQ = B.LEGACY_PO_SEQ(+)
+				GROUP BY A.BUYER,A.LEGACY_PO_NO,A.LEGACY_PO_SEQ,A.REF_IF_NO,A.BUYER_ITEM_NO,A.ITEM_QTY,A.ADD_DATE,A.RD_DATE,A.ERROR_MSG
+				ORDER BY A.LEGACY_PO_NO,A.LEGACY_PO_SEQ
+			]]>
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+	
+	<select id="selectMasterMpIfOrderQuantityDivsnExcel" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/* selectMasterMpIfOrderQuantityDivsnExcel */
+	    	SELECT
+				MAX(DECODE((SELECT COUNT(*) FROM ICOMPODT WHERE BUYER = A.BUYER AND LEGACY_PO_NO = A.LEGACY_PO_NO AND LEGACY_PO_SEQ = A.LEGACY_PO_SEQ),0,'신규','수정')) AS STATUS,		/* 상태 */
+				MAX(A.LEGACY_PO_NO) AS LEGACY_PO_NO,											/* 주문번호 */
+				MAX(A.LEGACY_PO_SEQ) AS LEGACY_PO_SEQ,											/* 주문순번 */
+				MAX(A.BUYER_ITEM_NO) AS BUYER_ITEM_NO,										/* 품목코드 */
+				MAX(B.DESCRIPTION) AS DESCRIPTION,													/* 품명 */
+				MAX(B.SPECIFICATION) AS SPECIFICATION,												/* 규격 */
+				MAX(B.UNIT_MEASURE) AS UNIT_MEASURE,											/* 단위 */
+				MAX(B.MAKER_NAME) AS MAKER_NAME,												/* 제조사 */
+				MAX(A.ITEM_QTY) AS ITEM_QTY,															/* 주문수량 */
+				MAX(A.UNIT_PRICE) AS ORDER_UNIT_PRICE,											/* 주문단가 */
+				MAX(B.UNIT_PRICE) AS SALE_UNIT_PRICE,												/* 판매단가 */
+				MAX(A.REMARK) AS REMARK,															/* 비고 */
+				TO_CHAR(TO_DATE(MAX(A.ADD_DATE)), 'YYYY/MM/DD') AS ADD_DATE,			/* 주문일 */
+				TO_CHAR(TO_DATE(MAX(A.RD_DATE)), 'YYYY/MM/DD') AS RD_DATE				/* 납기요구일 */
+			FROM IF_PODT A, ICOMCQDT B
+			WHERE A.BUYER = 'KRDAEW0016'
+			AND A.IF_FLAG = 'S'
+			AND A.STATUS <> 'D'
+			AND B.STATUS <> 'D'
+			AND A.BUYER = B.BUYER
+			AND A.BUYER_ITEM_NO = B.BUYER_ITEM_NO
+			GROUP BY LEGACY_PO_NO, LEGACY_PO_SEQ
+			ORDER BY LEGACY_PO_NO, LEGACY_PO_SEQ
+		]]>
+	</select>
+	
+	<select id="selectMasterMpIfOrderQuantityDivsnSaveList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/* 	selectMasterMpIfOrderQuantityDivsnSaveList */
+			SELECT
+		        '' AS YEAR,
+		        A.BUYER,
+		        A.STATUS,
+		        A.LEGACY_PO_NO,
+		        A.LEGACY_PO_SEQ,
+		        A.BUYER_ITEM_NO,
+		        A.CURRENCY_CODE,
+		        A.UNIT_PRICE,
+		        A.ITEM_QTY,
+		        A.ITEM_AMT,
+		        A.ADD_DATE,
+		        A.RD_DATE,
+		        A.DELY_TO_LOCATION,
+		        A.PURCHASER_USER_ID,
+		        A.PURCHASER_USER_DEPT,
+		        A.AGENT,
+		        A.LEGACY_SELLER_CODE,
+		        A.LEGACY_PR_NO,
+		        A.REQ_USER_ID,
+		        A.REQ_USER_NAME,
+		        A.REQ_USER_DEPT,
+		        A.REQ_USER_DEPT_NAME,
+		        A.REMARK,
+		        A.REMARK2,
+		        A.ERROR_MSG,
+		        A.REF_IF_NO,
+		        A.DOC_TYPE,
+		        A.FILE_NAME,
+		        A.SELLER,
+		        A.LOAD_DATE,
+		        A.LOAD_TIME,
+		        A.IF_FLAG,
+		        A.BYIT_COMORG_CODE,
+		        A.REQ_USER_INFO,
+		        NVL(B.AGENT, '') AS PO_AGENT,
+		        B.CONTRACT_NO,
+		        B.CONTRACT_SEQ,
+		        B.UNIT_PRICE
+			FROM IF_PODT A, POIFLOAD_DAEW B
+			WHERE A.BUYER				= 'KRDAEW0016'
+			AND A.IF_FLAG				= 'S'
+			AND A.BUYER				= B.COM_CODE
+			AND A.LEGACY_PO_NO	= B.LEGACY_PO_NO
+			AND A.LEGACY_PO_SEQ	= B.LEGACY_PO_SEQ
+			AND A.BUYER_ITEM_NO	= B.BUYER_ITEM_NO
+		]]>	
+			AND B.LEGACY_PO_NO|| '^' ||B.LEGACY_PO_SEQ|| '^' ||B.BUYER_ITEM_NO IN
+			<foreach collection="if_divsn_array" item="item" index="i" open="(" separator=","  close=")" >	
+				#{item}
+			</foreach>
+			ORDER BY B.LEGACY_PO_NO ,B.LEGACY_PO_SEQ , B.AGENT_SEQ
+	</select>
+	
+	<update  id="updateMasterMpIfOrderQuantityDivsnIfPodt" parameterType="java.util.Map" >
+		<![CDATA[
+			UPDATE  IF_PODT SET
+				ERROR_MSG			= NVL(#{ERROR_MSG}, ''),
+				STATUS				= #{STATUS},
+				IF_FLAG				= #{IF_FLAG},
+				LOAD_DATE			= TO_CHAR(SYSDATE,'YYYYMMDD'),
+				LOAD_TIME			= TO_CHAR(SYSDATE,'HH24MISS')
+			WHERE  BUYER			= #{BUYER}
+			AND LEGACY_PO_NO	= #{LEGACY_PO_NO}
+			AND LEGACY_PO_SEQ	= #{LEGACY_PO_SEQ}
+			AND BUYER_ITEM_NO	= #{BUYER_ITEM_NO}
+		]]>
+	</update>
+	
+	<select id="getMasterMpIfOrderQuantityDivsnIcomprdtCnt" parameterType="java.util.Map" resultType="String">
+	/* getMasterMpIfOrderQuantityDivsnIcomprdtCnt */
+		SELECT
+			COUNT(*) CNT
+		FROM ICOMPRDT
+		WHERE BUYER			= #{BUYER}
+		AND LEGACY_PO_NO	= #{LEGACY_PO_NO}
+		AND LEGACY_PO_SEQ	= #{LEGACY_PO_SEQ}
+		AND BUYER_ITEM_NO	= #{BUYER_ITEM_NO}
+		AND SAVE_FLAG		= 'PX'
+		AND STATUS IN ('C','R')
+	</select>
+	
+	<select id="getMasterMpIfOrderQuantityDivsnIcomprdtCnt2" parameterType="java.util.Map" resultType="String">
+	/* getMasterMpIfOrderQuantityDivsnIcomprdtCnt2 */
+		SELECT
+			COUNT(*)
+		FROM ICOMPRDT
+		WHERE BUYER			= #{BUYER}
+		AND LEGACY_PO_NO	= #{LEGACY_PO_NO}
+		AND LEGACY_PO_SEQ	= #{LEGACY_PO_SEQ}
+		AND BUYER_ITEM_NO	= #{BUYER_ITEM_NO}
+		AND SAVE_FLAG		= 'PX'
+		AND STATUS IN ('C','R')
+		AND AGENT				= #{PO_AGENT}
+		AND CONTRACT_NO	= #{CONTRACT_NO}
+		AND CONTRACT_SEQ	= #{CONTRACT_SEQ}
+	</select>
+	
+	<select id="getMasterMpIfOrderQuantityDivsnBycaComorg" parameterType="java.util.Map" resultType="java.util.Map">
+		/* getMasterMpIfOrderQuantityDivsnBycaComorg */
+		SELECT
+ 	       BYCA_COMORG_CODE,
+    	    COUNT(*) CNT
+		FROM ICOMCMPY
+		WHERE COM_CODE  = #{BUYER}
+		GROUP BY BYCA_COMORG_CODE
+	</select>
+	
+	<select id="getMasterMpIfOrderQuantityDivsnPurchaserUserId" parameterType="java.util.Map" resultType="java.util.Map">
+		/* getMasterMpIfOrderQuantityDivsnPurchaserUserId */
+		SELECT
+			NVL(USER_ID,' ') AS USER_ID,
+            NVL(DEPARTMENT,' ') AS DEPARTMENT
+		FROM ICOMLUSR WHERE USER_ID = #{PURCHASER_USER_ID}
+	</select>
+	
+	<select id="getMasterMpIfOrderQuantityDivsnKepbyit" parameterType="java.util.Map" resultType="java.util.Map">
+		SELECT
+			NVL(MAX(PRODUCT_CLOSE_FLAG), '') AS PRODUCT_CLOSE_FLAG,
+			NVL(MAX(REMARK), '') AS REMARK
+		FROM V_KEPBYIT
+		WHERE COM_CODE			= #{BUYER}
+		AND BUYER_ITEM_NO		= #{BUYER_ITEM_NO}
+	</select>
+	
+	<select id="getMasterMpIfOrderQuantityDivsnKepbyit2" parameterType="java.util.Map" resultType="java.util.Map">
+		/* getMasterMpIfOrderQuantityDivsnKepbyit2 */
+		SELECT
+			NVL(UNIT_PRICE,0) UNIT_PRICE,
+			NVL(AGENT, '') AGENT,
+			NVL(CONTRACT_NO, '') CONTRACT_NO,
+			NVL(CONTRACT_SEQ, '') CONTRACT_SEQ
+		FROM V_KEPBYIT
+		WHERE COM_CODE				= #{BUYER}
+		AND BUYER_ITEM_NO			= #{BUYER_ITEM_NO}
+		AND PRODUCT_CLOSE_FLAG	= 'N'
+	</select>
+	
+	<select id="getMasterMpIfOrderQuantityDivsnUnitPrice" parameterType="java.util.Map" resultType="java.util.Map">
+		/* getMasterMpIfOrderQuantityDivsnUnitPrice */
+		SELECT
+			NVL(UNIT_PRICE,0) UNIT_PRICE
+		FROM V_KEPBYIT
+		WHERE COM_CODE				= #{BUYER}      
+		AND BUYER_ITEM_NO			= #{BUYER_ITEM_NO}      
+		AND AGENT						= #{PO_AGENT}      
+		AND CONTRACT_NO			= #{CONTRACT_NO}      
+		AND CONTRACT_SEQ			= #{CONTRACT_SEQ}      
+		AND PRODUCT_CLOSE_FLAG	= 'N'
+	</select>
+	
+	<select id="getMasterMpIfOrderQuantityDivsnUnitPrice2" parameterType="java.util.Map" resultType="java.util.Map">
+		/* getMasterMpIfOrderQuantityDivsnUnitPrice2 */
+		SELECT
+			NVL(UNIT_PRICE,0) AS UNIT_PRICE,
+			CONTRACT_NO,
+			CONTRACT_SEQ
+		FROM V_KEPBYIT
+		WHERE COM_CODE				= #{BUYER}
+		AND BUYER_ITEM_NO			= #{BUYER_ITEM_NO}
+		AND AGENT						= #{PO_AGENT}
+		AND PRODUCT_CLOSE_FLAG	= 'N'
+	</select>
+	
+	<select id="getMasterMpIfOrderQuantityDivsnDelyToLocation" parameterType="java.util.Map" resultType="String">
+		/* getMasterMpIfOrderQuantityDivsnDelyToLocation */
+		SELECT COUNT(*) CNT FROM ICOMCOD2 WHERE COMPANY_CODE = #{BUYER} AND CODE = #{DELY_TO_LOCATION} AND TYPE = 'C012'
+	</select>
+	
+	<select id="getMasterMpIfOrderQuantityDivsnIcompodtCnt" parameterType="java.util.Map" resultType="String">
+		/* getMasterMpIfOrderQuantityDivsnIcompodtCnt */
+		SELECT
+			COUNT(*) CNT
+		FROM ICOMPODT A, ICOMPORS B
+		WHERE A.BUYER				= B.BUYER
+		AND A.PO_NO				= B.PO_NO
+		AND A.PO_SEQ				= B.PO_SEQ
+		AND A.BUYER				= #{BUYER}
+		AND A.LEGACY_PO_NO	= #{LEGACY_PO_NO}
+		AND A.LEGACY_PO_SEQ	= #{LEGACY_PO_SEQ}
+		AND A.BUYER_ITEM_NO	= #{BUYER_ITEM_NO}
+	</select>
+	
+	<select id="getMasterMpIfOrderQuantityDivsnIcomprdtCnt3" parameterType="java.util.Map" resultType="String">
+		<![CDATA[
+		/* getMasterMpIfOrderQuantityDivsnIcomprdtCnt3 */
+			SELECT
+		        COUNT(*) CNT
+			FROM ICOMPRDT
+			WHERE BUYER			= #{BUYER}
+			AND LEGACY_PO_NO	= #{LEGACY_PO_NO}
+			AND LEGACY_PO_SEQ	= #{LEGACY_PO_SEQ}
+			AND BUYER_ITEM_NO	= #{BUYER_ITEM_NO}
+			AND AGENT				=  'KRIFFI0001'
+			AND SAVE_FLAG		= 'PX'
+			AND RECV_FLAG		= 'GA'
+			AND STATUS				<> 'D'
+		]]>	
+	</select>
+	
+	
+	<select id="selectMasterMpIfOrderQuantityDivsnSaveList2" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/* selectMasterMpIfOrderQuantityDivsnSaveList2 */	
+			SELECT
+				MAX(A.BUYER) BUYER ,
+				MAX(A.STATUS) STATUS ,
+				MAX(A.LEGACY_PO_NO) LEGACY_PO_NO ,
+				MAX(A.LEGACY_PO_SEQ) LEGACY_PO_SEQ ,
+				MAX(A.BUYER_ITEM_NO) BUYER_ITEM_NO ,
+				MAX(B.SELLER_ITEM_NO) SELLER_ITEM_NO,
+				MAX(B.DESCRIPTION) DESCRIPTION ,
+				MAX(B.SPECIFICATION) SPECIFICATION ,
+				MAX(B.UNIT_MEASURE) UNIT_MEASURE ,
+				MAX(A.CURRENCY_CODE) CURRENCY_CODE ,
+				NVL(MAX(A.UNIT_PRICE), 0) UNIT_PRICE,
+				NVL(MAX(D.ITEM_QTY), 0) ITEM_QTY,
+				NVL(MAX(A.UNIT_PRICE * D.ITEM_QTY) ,0) TOTAL_PRICE,
+				MAX(A.ADD_DATE) ADD_DATE ,
+				MAX(A.RD_DATE) RD_DATE ,
+				MAX(B.MAKER_CODE) MAKER_CODE ,
+				MAX(B.MAKER_NAME) MAKER_NAME ,
+				MAX(B.MAKER_PART_NO) MAKER_PART_NO ,
+				NVL(MAX(A.DELY_TO_LOCATION), '') DELY_TO_LOCATION ,
+				MAX(A.LEGACY_SELLER_CODE) LEGACY_SELLER_CODE,
+				MAX(A.LEGACY_PR_NO) LEGACY_PR_NO ,
+				MAX(B.CONTRACT_NO) CONTRACT_NO ,
+				MAX(B.CONTRACT_SEQ) CONTRACT_SEQ ,
+				MAX(A.REQ_USER_ID) REQ_USER_ID ,
+				MAX(A.REQ_USER_NAME) REQ_USER_NAME ,
+				MAX(A.REQ_USER_DEPT) REQ_USER_DEPT ,
+				MAX(A.REQ_USER_DEPT_NAME) REQ_USER_DEPT_NAME,
+				MAX(A.REQ_USER_INFO) REQ_USER_INFO ,
+				NVL(MAX(B.LIST_PRICE),0) LIST_PRICE,
+				MAX(B.AGENT) AGENT ,
+				MAX(A.PURCHASER_USER_ID) PURCHASER_USER_ID ,
+				MAX(C.USER_NAME_LOC) USER_NAME_LOC ,
+				MAX(C.PHONE_NUMBER) PHONE_NUMBER ,
+				MAX(C.DEPARTMENT) DEPARTMENT ,
+				MAX(A.REMARK) REMARK ,
+				MAX(A.REMARK2) REMARK2 ,
+				MAX(A.REF_IF_NO) REF_IF_NO ,
+				MAX(A.SELLER) SELLER ,
+				MAX(A.DOC_TYPE) DOC_TYPE ,
+				MAX(A.BYIT_COMORG_CODE) BYIT_COMORG_CODE ,
+				MAX(B.PROCESS_TYPE) PROCESS_TYPE ,
+				MAX(E.CATEGORY_NO) CATEGORY_NO,	 
+				NVL(MAX(E.CMS_CATEG_ID), ' ') CMS_CATEG_ID,	 
+				NVL(MAX(E.CMS_CATLG_ID), ' ') CMS_CATLG_ID,	 
+				NVL(MAX(E.ITEM_GROUP), ' ') ITEM_GROUP 
+			FROM IF_PODT A, ICOMCQDT B, ICOMLUSR C, POIFLOAD_DAEW D, ICOMBYIT E
+			WHERE A.BUYER = 'KRDAEW0016'
+			AND A.BUYER = D.COM_CODE
+			AND A.LEGACY_PO_NO = D.LEGACY_PO_NO
+			AND A.LEGACY_PO_SEQ = D.LEGACY_PO_SEQ
+			AND A.BUYER_ITEM_NO = D.BUYER_ITEM_NO
+			AND A.IF_FLAG = 'S'
+			AND A.BYIT_COMORG_CODE = B.BUYER
+			AND D.BUYER_ITEM_NO = B.BUYER_ITEM_NO
+			AND D.CONTRACT_NO = B.CONTRACT_NO
+			AND D.CONTRACT_SEQ = B.CONTRACT_SEQ
+			AND D.AGENT = B.AGENT
+			AND A.BYIT_COMORG_CODE = E.BUYER
+			AND A.BUYER_ITEM_NO = E.BUYER_ITEM_NO
+			AND A.PURCHASER_USER_ID = C.USER_ID(+)
+		]]>	
+			AND D.LEGACY_PO_NO|| '^' || D.LEGACY_PO_SEQ|| '^' || D.BUYER_ITEM_NO IN
+		<foreach collection="if_divsn_array" item="item" index="i" open="(" separator=","  close=")" >	
+			#{item}
+		</foreach>
+			GROUP BY D.COM_CODE , D.LEGACY_PO_NO ,D.LEGACY_PO_SEQ , D.AGENT_SEQ
+			ORDER BY D.LEGACY_PO_NO ,D.LEGACY_PO_SEQ , D.AGENT_SEQ
+	</select>
+	
+	<select id="selectMasterMpIfOrderQuantityDivsnSaveList3" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/* selectMasterMpIfOrderQuantityDivsnSaveList3 */
+			SELECT /*+index(A ICOMPRDT_11)*/
+				 NVL(A.BUYER ,' ') AS BUYER,
+				' ' AS PO_NO,
+				' ' AS PO_SEQ,
+				NVL(A.SELLER ,' ') AS SELLER,
+				'C' AS STATUS,
+				TO_CHAR(SYSDATE,'YYYYMMDD') AS ADD_DATE,
+				TO_CHAR(SYSDATE,'HH24MISS') AS ADD_TIME,
+				TO_CHAR(SYSDATE,'YYYYMMDD') AS CHANGE_DATE,
+				TO_CHAR(SYSDATE,'HH24MISS') AS CHANGE_TIME,
+				NVL(A.BUYER_ITEM_NO ,' ') AS BUYER_ITEM_NO,
+				NVL(A.SELLER_ITEM_NO ,' ') AS SELLER_ITEM_NO,
+				NVL(A.DESCRIPTION ,' ') AS DESCRIPTION,
+				NVL(A.SPECIFICATION ,' ') AS SPECIFICATION,
+				NVL(A.UNIT_MEASURE ,' ') AS UNIT_MEASURE,
+				NVL(A.PO_QTY ,0 ) AS ITEM_QTY,
+				NVL(A.TARGET_PRICE ,0 ) AS UNIT_PRICE,
+				NVL(A.PO_QTY * A.TARGET_PRICE ,0 ) AS ITEM_AMT,
+				NVL(A.RD_DATE ,' ') AS RD_DATE,
+				NVL(A.MAKER_CODE ,' ') AS MAKER_CODE,
+				NVL(A.MAKER_NAME ,' ') AS MAKER_NAME,
+				'DO' AS DOM_EXP_FLAG,
+				NVL(A.DELY_TO_LOCATION ,' ') AS DELY_TO_LOCATION,
+				'N' AS COMPLETE_MARK,
+				NVL(A.PR_NO ,' ') AS PR_NO,
+				NVL(A.PR_SEQ ,' ') AS PR_SEQ,
+				NVL(A.REF_PR_NO ,' ') AS REF_PR_NO,
+				NVL(A.CONTRACT_NO ,' ') AS CONTRACT_NO,
+				NVL(A.CONTRACT_SEQ ,' ') AS CONTRACT_SEQ,
+				'PX' AS PROXY_BUY_FLAG,
+				NVL(A.LIST_PRICE ,0 ) AS AGENT_PRICE,
+				NVL(A.PO_QTY * A.LIST_PRICE ,0 ) AS AGENT_ITEM_AMT,
+				NVL(A.CHANGE_USER_DEPT ,' ') AS CHANGE_USER_DEPT,
+				NVL(A.LEGACY_PO_NO ,' ') AS LEGACY_PO_NO,
+				NVL(A.CHANGE_USER_ID ,' ') AS CHANGE_USER_ID,
+				NVL(A.LEGACY_PO_SEQ ,' ') AS LEGACY_PO_SEQ,
+				NVL(A.REF_IF_NO ,' ') AS REF_IF_NO,
+				'N' AS DS_FLAG,
+				NVL(A.BYIT_COMORG_CODE ,' ') AS BYIT_COMORG_CODE,
+				NVL(A.PROCESS_TYPE ,' ') AS PROCESS_TYPE,
+				NVL((SELECT ORIGIN_AGENT FROM ICOMCQDT WHERE BUYER = A.BUYER AND BUYER_ITEM_NO = A.BUYER_ITEM_NO AND CONTRACT_NO = A.CONTRACT_NO AND CONTRACT_SEQ = A.CONTRACT_SEQ), ' ') AS WAREHOUSE_CODE,
+				A.AGENT,
+				A.REQ_USER_INFO,
+				A.DOC_TYPE,
+				A.CATEG_ID,
+				A.REMARK,
+				NVL((SELECT CMS_CATEG_ID FROM ICOMBYIT WHERE BUYER = A.BUYER AND BUYER_ITEM_NO = A.BUYER_ITEM_NO AND STATUS <> 'D'), ' ') AS CMS_CATEG_ID,
+				NVL((SELECT CMS_CATLG_ID FROM ICOMBYIT WHERE BUYER = A.BUYER AND BUYER_ITEM_NO = A.BUYER_ITEM_NO AND STATUS <> 'D'), ' ') AS CMS_CATLG_ID,
+				NVL((SELECT ITEM_GROUP FROM ICOMBYIT WHERE BUYER = A.BUYER AND BUYER_ITEM_NO = A.BUYER_ITEM_NO AND STATUS <> 'D'), ' ') AS ITEM_GROUP,
+				NVL((SELECT KEP_PRICE FROM ICOMCQDT WHERE BUYER = A.BUYER AND BUYER_ITEM_NO = A.BUYER_ITEM_NO AND CONTRACT_NO = A.CONTRACT_NO AND CONTRACT_SEQ = A.CONTRACT_SEQ), 0) AS KEP_PRICE
+			FROM ICOMPRDT A
+			WHERE BUYER = 'KRDAEW0016'
+			AND A.RECV_FLAG = 'PC'
+			AND A.STATUS <> 'D'
+			AND A.PR_NO|| '^' || TO_NUMBER(A.PR_SEQ) IN
+		]]>
+		<foreach collection="if_divsn_array" item="item" index="i" open="(" separator=","  close=")" >	
+			#{item}
+		</foreach>	
+			ORDER BY BUYER, SELLER, LEGACY_PO_NO, PROCESS_TYPE, DELY_TO_LOCATION, AGENT, REQ_USER_INFO, DOC_TYPE, LEGACY_PO_SEQ, BUYER_ITEM_NO
+	</select>
+		
+	<select id="getMasterMpIfOrderQuantityDivsnIcomprdtSeq" parameterType="java.util.Map" resultType="java.util.Map">
+		/* getMasterMpIfOrderQuantityDivsnIcomprdtSeq */
+		SELECT
+			PR_NO,
+			COUNT(*) PR_SEQ
+		FROM ICOMPRDT
+		WHERE BUYER ='KRDAEW0016'
+		AND LEGACY_PO_NO = #{LEGACY_PO_NO}
+		GROUP BY PR_NO
+	</select>
+	
+	<select id="getMasterMpIfOrderQuantityDivsnOrderNo" parameterType="java.util.Map" resultType="java.util.Map">
+		/* getMasterMpIfOrderQuantityDivsnOrderNo */
+		SELECT DOC_TYPE||SUBSTR(YEAR,3,2)||LPAD(CUR_NO,6,0) AS ORDER_NO FROM ICOMSQMT WHERE COMPANY = #{COMPANY} AND DOC_TYPE = #{DOC_TYPE}
+	</select>
+	
+	<update  id="insertMasterMpIfOrderQuantityDivsnOrderNo" parameterType="java.util.Map" >
+		INSERT INTO ICOMSQMT (COMPANY,DOC_TYPE,YEAR,CUR_NO) VALUES (#{COMPANY}, #{DOC_TYPE}, TO_CHAR(SYSDATE,'YYYY'), 2)
+	</update>
+	
+	<update  id="updateMasterMpIfOrderQuantityDivsnOrderNo" parameterType="java.util.Map" >
+		UPDATE ICOMSQMT SET
+			YEAR = DECODE(YEAR,TO_CHAR(SYSDATE,'YYYY'), YEAR, TO_CHAR(SYSDATE,'YYYY')) ,
+			CUR_NO = DECODE(YEAR,TO_CHAR(SYSDATE,'YYYY'),CUR_NO+1,1)
+		WHERE COMPANY = #{COMPANY}
+		AND DOC_TYPE = #{DOC_TYPE}
+	</update>	
+                
+		
+	<update  id="insertMasterMpIfOrderQuantityDivsnIcomprdt" parameterType="java.util.Map" >
+		<![CDATA[
+		/* insertMasterMpIfOrderQuantityDivsnIcomprdt */
+			INSERT INTO ICOMPRDT
+			(
+				BUYER,
+				PR_NO,
+				PR_SEQ,
+				STATUS,
+				ADD_DATE,
+				ADD_TIME,
+				CHANGE_DATE,
+				CHANGE_TIME,
+				BUYER_ITEM_NO,
+				SELLER_ITEM_NO,
+				SELLER,
+				DESCRIPTION,
+				SPECIFICATION,
+				UNIT_MEASURE,
+				CUR,
+				RD_DATE,
+				TARGET_QTY,
+				TARGET_PRICE,
+				MAKER_CODE,
+				MAKER_NAME,
+				MAKER_PART_NO,
+				DELY_TO_LOCATION,
+				PURCHASER_DEPT,
+				ADD_USER_ID,
+				ADD_USER_NAME,
+				ADD_USER_TEL,
+				ADD_USER_DEPT,
+				CHANGE_USER_ID,
+				CHANGE_USER_NAME,
+				CHANGE_USER_TEL,
+				CHANGE_USER_DEPT,
+				CATALOG_ITEM_NO,
+				ITEM_TYPE,
+				ACCOUNT_TYPE,
+				PURCHASING_AGENT_FLAG,
+				RECV_FLAG,
+				REF_PR_NO,
+				REF_ADD_USER_ID,
+				REQ_USER_ID,
+				REQ_DEPT,
+				SAVE_FLAG,
+				PO_QTY,
+				AGENT,
+				CONTRACT_NO,
+				CONTRACT_SEQ,
+				LEGACY_PO_NO,
+				LEGACY_PO_SEQ,
+				REMARK,
+				LIST_PRICE,
+				DOC_TYPE,
+				REQ_USER_INFO,
+				REF_IF_NO,
+				BYIT_COMORG_CODE,
+				PROCESS_TYPE,
+				REF_NO,
+				REF_SEQ,
+				RECV_QTY,
+				CATEG_ID,
+				PURCHASER_ID,
+				CMS_CATEG_ID,
+				CMS_CATLG_ID,
+				ITEM_GROUP
+			) VALUES (
+				#{BUYER},
+				#{PR_NO},
+				TO_CHAR(#{PR_SEQ},'FM000000'),
+				'C',
+				TO_CHAR(SYSDATE,'YYYYMMDD'),
+				TO_CHAR(SYSDATE,'HH24MISS'),
+				TO_CHAR(SYSDATE,'YYYYMMDD'),
+				TO_CHAR(SYSDATE,'HH24MISS'),
+				#{BUYER_ITEM_NO},
+				#{SELLER_ITEM_NO},
+				'KRKORE0001',
+				#{DESCRIPTION},
+				#{SPECIFICATION},
+				#{UNIT_MEASURE},
+				#{CURRENCY_CODE},
+				#{RD_DATE},
+				#{ITEM_QTY},
+				#{UNIT_PRICE},
+				#{MAKER_CODE},
+				#{MAKER_NAME},
+				NVL(#{MAKER_PART_NO},''),
+				NVL(#{DELY_TO_LOCATION}, ' '),
+				#{DEPARTMENT},
+				#{PURCHASER_USER_ID},
+				#{USER_NAME_LOC},
+				#{PHONE_NUMBER},
+				#{DEPARTMENT},
+				#{PURCHASER_USER_ID},
+				#{USER_NAME_LOC},
+				#{PHONE_NUMBER},
+				#{DEPARTMENT},
+				'',
+				'BC',
+				'M',
+				'Y',
+				'PC',
+				#{LEGACY_PO_NO},
+				#{PURCHASER_USER_ID},
+				DECODE(NVL(#{REQ_USER_ID},' '),' ',NVL(#{PURCHASER_USER_ID},' ')),
+				#{DEPARTMENT},
+				'PX',
+				#{ITEM_QTY},
+				#{AGENT},
+				#{CONTRACT_NO},
+				#{CONTRACT_SEQ},
+				#{LEGACY_PO_NO},
+				#{LEGACY_PO_SEQ},
+				#{REMARK},
+				#{LIST_PRICE},
+				NVL(#{DOC_TYPE},'N'),
+				#{REQ_USER_INFO},
+				#{REF_IF_NO},
+				#{BYIT_COMORG_CODE},
+				#{PROCESS_TYPE},
+				#{PX_NO},
+				TO_CHAR(#{PR_SEQ},'FM000000'),
+				#{ITEM_QTY},
+				#{CATEGORY_NO},
+				#{PURCHASER_USER_ID},
+				#{CMS_CATEG_ID},
+				#{CMS_CATLG_ID},
+				#{ITEM_GROUP}
+			)									
+		]]>
+	</update>
+	
+	<update  id="insertMasterMpIfOrderQuantityDivsnIcomprhd" parameterType="java.util.Map" >
+		<![CDATA[
+			INSERT INTO ICOMPRHD
+			(
+				BUYER,
+				PR_NO,
+				STATUS,
+				ADD_DATE,
+				ADD_TIME,
+				CHANGE_DATE,
+				CHANGE_TIME,
+				NOTIFY,
+				PR_SUBJECT,
+				PURCHASER_DEPT,
+				ADD_USER_ID,
+				ADD_USER_NAME,
+				ADD_USER_TEL,
+				ADD_USER_DEPT,
+				CHANGE_USER_ID,
+				CHANGE_USER_NAME,
+				CHANGE_USER_TEL,
+				CHANGE_USER_DEPT,
+				RECV_FLAG,
+				ACCOUNT_TYPE,
+				DELY_TO_LOCATION,
+				SAVE_FLAG
+			) 
+			(
+				SELECT
+					BUYER,
+					PR_NO,
+					'C',
+					ADD_DATE,
+					ADD_TIME,
+					CHANGE_DATE,
+					CHANGE_TIME,
+					BUYER,
+					SUBSTRB(NVL(TO_SINGLE_BYTE(RTRIM(DESCRIPTION )),' '),1,40),
+					PURCHASER_DEPT,
+					ADD_USER_ID,
+					ADD_USER_NAME,
+					ADD_USER_TEL,
+					ADD_USER_DEPT,
+					CHANGE_USER_ID,
+					CHANGE_USER_NAME ,
+					CHANGE_USER_TEL,
+					CHANGE_USER_DEPT,
+					'GA',
+					ACCOUNT_TYPE,
+					(SELECT MAX(TEXT2) FROM ICOMCOD2 WHERE COMPANY_CODE = BUYER AND TYPE='C012' AND CODE = DELY_TO_LOCATION)  DELY_TO_LOCATION ,
+					SAVE_FLAG
+				FROM  ICOMPRDT
+				WHERE BUYER = #{BUYER}
+				AND PR_NO = #{PR_NO}
+				AND PR_SEQ = TO_CHAR(#{PR_SEQ},'FM000000')
+			)
+		]]>
+	</update>
+	
+	<update  id="updateMasterMpIfOrderQuantityDivsnIcomprhd" parameterType="java.util.Map" >
+		<![CDATA[
+			UPDATE  ICOMPRHD SET
+			CHANGE_DATE =  TO_CHAR(SYSDATE,'YYYYMMDD'),
+			CHANGE_TIME =  TO_CHAR(SYSDATE,'HH24MISS')
+			WHERE BUYER = #{BUYER}
+			AND PR_NO = #{PR_NO}
+		]]>
+	</update>
+	
+	<update  id="updateMasterMpIfOrderQuantityDivsnIfPodt2" parameterType="java.util.Map" >
+		<![CDATA[
+			UPDATE  IF_PODT
+			SET IF_FLAG = 'Y'
+			WHERE BUYER			= #{BUYER}
+			AND LEGACY_PO_NO	= #{LEGACY_PO_NO}
+			AND LEGACY_PO_SEQ	= #{LEGACY_PO_SEQ}
+			AND BUYER_ITEM_NO	= #{BUYER_ITEM_NO}
+		]]>	
+	</update>
+	
+	<update  id="insertMasterMpIfOrderQuantityDivsnIcompodt" parameterType="java.util.Map" >
+		<![CDATA[
+		/* insertMasterMpIfOrderQuantityDivsnIcompodt */
+			INSERT INTO ICOMPODT
+			(
+				BUYER,
+				PO_NO,
+				PO_SEQ,
+				SELLER,
+				STATUS,
+				ADD_DATE,
+				ADD_TIME,
+				CHANGE_DATE,
+				CHANGE_TIME,
+				BUYER_ITEM_NO,
+				SELLER_ITEM_NO,
+				DESCRIPTION,
+				SPECIFICATION,
+				UNIT_MEASURE,
+				ITEM_QTY,
+				UNIT_PRICE,
+				ITEM_AMT,
+				RD_DATE,
+				MAKER_CODE,
+				MAKER_NAME,
+				DOM_EXP_FLAG,
+				DELY_TO_LOCATION,
+				COMPLETE_MARK,
+				PR_NO,
+				PR_SEQ,
+				REF_PR_NO,
+				CONTRACT_NO,
+				CONTRACT_SEQ,
+				PROXY_BUY_FLAG,
+				AGENT_PRICE,
+				AGENT_ITEM_AMT,
+				CHANGE_USER_DEPT,
+				LEGACY_PO_NO,
+				CHANGE_USER_ID,
+				LEGACY_PO_SEQ,
+				REF_IF_NO,
+				DS_FLAG,
+				BYIT_COMORG_CODE,
+				PROCESS_TYPE,
+				WAREHOUSE_CODE,
+				CATEG_ID,
+				PO_REMARK,
+				CMS_CATEG_ID,
+				CMS_CATLG_ID,
+				ITEM_GROUP,
+				KEP_PRICE,
+				ST_DATE,
+				DELIVERY_LT
+			) VALUES (
+				#{BUYER},
+				#{PO_NO},
+				TO_CHAR(#{PO_SEQ},'FM000000'),
+				#{SELLER},
+				#{STATUS},
+				#{ADD_DATE},
+				#{ADD_TIME},
+				#{CHANGE_DATE},
+				#{CHANGE_TIME},
+				#{BUYER_ITEM_NO},
+				#{SELLER_ITEM_NO},
+				#{DESCRIPTION},
+				#{SPECIFICATION},
+				#{UNIT_MEASURE},
+				#{ITEM_QTY},
+				#{UNIT_PRICE},
+				#{ITEM_AMT},
+				#{RD_DATE},
+				#{MAKER_CODE},
+				#{MAKER_NAME},
+				#{DOM_EXP_FLAG},
+				#{DELY_TO_LOCATION},
+				#{COMPLETE_MARK},
+				#{PR_NO},
+				#{PR_SEQ},
+				#{REF_PR_NO},
+				#{CONTRACT_NO},
+				#{CONTRACT_SEQ},
+				#{PROXY_BUY_FLAG},
+				#{AGENT_PRICE},
+				#{AGENT_ITEM_AMT},
+				#{CHANGE_USER_DEPT},
+				#{LEGACY_PO_NO},
+				#{CHANGE_USER_ID},
+				#{LEGACY_PO_SEQ},
+				#{REF_IF_NO},
+				#{DS_FLAG},
+				#{BYIT_COMORG_CODE},
+				#{PROCESS_TYPE},
+				#{WAREHOUSE_CODE},
+				#{CATEG_ID},
+				#{REMARK},
+				#{CMS_CATEG_ID},
+				#{CMS_CATLG_ID},
+				#{ITEM_GROUP},
+				#{KEP_PRICE},
+				F_GET_DELIVERY_INFO(#{BUYER}, #{CONTRACT_NO}, #{CONTRACT_SEQ}, #{RD_DATE}, 'D'),
+				NVL((SELECT DELIVERY_LT FROM ICOMCQDT WHERE BELOW_COMORG_CODE = #{BUYER} AND CONTRACT_NO = #{CONTRACT_NO} AND CONTRACT_SEQ = #{CONTRACT_SEQ} AND STATUS != 'D'), 15) 
+			)
+		]]>
+	</update>
+	
+	<update  id="insertMasterMpIfOrderQuantityDivsnIcompohd" parameterType="java.util.Map" >
+		<![CDATA[
+			INSERT INTO ICOMPOHD
+			(
+				BUYER,
+				PO_NO,
+				STATUS,
+				ADD_DATE,
+				ADD_TIME,
+				CHANGE_DATE,
+				CHANGE_TIME,
+				PO_CREATE_DATE,
+				BUYER_GROUP,
+				AGENT,
+				PAYER,
+				NOTIFY,
+				SELLER,
+				PAYEE,
+				PAY_TERMS,
+				USANCE_DAYS,
+				DELY_TERMS,
+				CUR,
+				PO_TTL_AMT,
+				PO_TAX_TTL_AMT,
+				PURCHASER_ID,
+				PURCHASER_NAME,
+				PROCESS_TYPE,
+				ACCOUNT_TYPE,
+				SHIPPER_TYPE,
+				PO_REMARK,
+				VERSION,
+				EMAIL_FLAG,
+				ADD_USER_ID,
+				CHANGE_USER_ID,
+				DELY_TO_LOCATION,
+				CHANGE_USER_DEPT,
+				PR_TYPE,
+				AGENT_PO_TTL_AMT,
+				LEGACY_AGENT_CODE,
+				PO_SUBJECT
+			)
+			(
+				SELECT
+					MAX(D.BUYER),
+					MAX(E.PO_NO),
+					'C',
+					TO_CHAR(SYSDATE,'YYYYMMDD'),
+					TO_CHAR(SYSDATE,'HH24MISS'),
+					TO_CHAR(SYSDATE,'YYYYMMDD'),
+					TO_CHAR(SYSDATE,'HH24MISS'),
+					MAX(D.ADD_DATE),
+					MAX(D.BUYER),
+					MAX(C.AGENT),
+					MAX(D.BUYER),
+					MAX(D.BUYER),
+					MAX(D.SELLER),
+					MAX(D.SELLER),
+					'AP',
+					0,
+					'OST',
+					'KRW',
+					SUM(D.TARGET_PRICE * D.TARGET_QTY),
+					SUM(D.TARGET_PRICE * D.TARGET_QTY),
+					MAX(D.ADD_USER_ID),
+					MAX(D.ADD_USER_NAME),
+					MAX(E.PROCESS_TYPE),
+					'M',
+					' ',
+					MAX(TRIM(D.REQ_USER_INFO||' 발주번호:' || D.LEGACY_PO_NO)),
+					'1',
+					'N',
+					MAX(D.ADD_USER_ID),
+					MAX(D.ADD_USER_ID),
+					MAX((SELECT DELY_TO_LOCATION FROM ICOMPRHD WHERE BUYER = D.BUYER AND PR_NO = D.PR_NO)),
+					MAX(D.ADD_USER_DEPT),
+					'PX',
+					SUM(C.LIST_PRICE * D.TARGET_QTY),
+					' ',
+					SUBSTRB(REPLACE(REPLACE(REPLACE(MAX(D.DESCRIPTION),'\"',' '),'''',' '),'#',' '),1,40)
+				FROM ICOMCQDT C, ICOMPRDT D, ICOMPODT E
+				WHERE E.BUYER = #{BUYER}
+				AND E.PO_NO = #{PO_NO}
+				AND E.LEGACY_PO_NO = #{LEGACY_PO_NO}
+				AND E.BUYER = D.BUYER
+				AND E.PR_NO = D.PR_NO
+				AND E.PR_SEQ = D.PR_SEQ
+				AND D.RECV_FLAG = 'PC'
+				AND D.STATUS <> 'D'
+				AND E.BYIT_COMORG_CODE = C.BUYER
+				AND E.CONTRACT_NO = C.CONTRACT_NO
+				AND E.CONTRACT_SEQ = C.CONTRACT_SEQ
+				AND E.BUYER_ITEM_NO = C.BUYER_ITEM_NO
+				AND C.INFO_CREATE_FLAG = 'N'
+				AND C.STATUS <> 'D'
+				AND D.AGENT = C.AGENT
+			)
+		]]>
+	</update>		
+	
+	<update  id="call_PKG_MAIL_REQ_PROC_MAIL_SEND_PO" parameterType="java.util.Map" >
+		<![CDATA[
+				/*call_PKG_MAIL_REQ_PROC_MAIL_SEND_PO*/
+				call PKG_MAIL_REQ.PROC_MAIL_SEND_PO(#{BUYER}, #{PO_NO} , 'PO_NEW', 'ASDF') 
+		]]>
+	</update>		
+	
+	<update  id="updateMasterMpIfOrderQuantityDivsnIcomcqdt" parameterType="java.util.Map" >
+		<![CDATA[
+			UPDATE ICOMCQDT SET
+				PO_QTY				= NVL(PO_QTY,0) + #{ITEM_QTY},
+				LAST_PO_PRICE		= #{UNIT_PRICE},
+				LAST_PO_QTY		= #{ITEM_QTY},
+				LAST_PO_DATE		= TO_CHAR(SYSDATE,'YYYYMMDD')
+			WHERE BUYER			= #{BUYER}
+			AND SELLER				= #{SELLER}
+			AND CONTRACT_NO	= #{CONTRACT_NO}
+			AND CONTRACT_SEQ	= #{CONTRACT_SEQ}		
+		]]>
+	</update>	
+
+	<!-- 삭제 -->
+	<update id="deleteMasterMpIfOrderQuantityDivsn"  parameterType="java.util.Map">
+		<![CDATA[
+			UPDATE  IF_PODT SET
+				CHANGE_USER_ID	=  #{st_user_id},
+				CHANGE_DATE		=  TO_CHAR(SYSDATE,'YYYYMMDD'),
+				CHANGE_TIME		=  TO_CHAR(SYSDATE,'HH24MISS'),
+				IF_FLAG				=  'D'
+			WHERE BUYER			= #{BUYER}
+			AND LEGACY_PO_NO	= #{LEGACY_PO_NO}
+			AND LEGACY_PO_SEQ	= #{LEGACY_PO_SEQ}
+		]]>
+	</update>
+
+	<select id="selectLastLoginIdWithIfInfo" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/* selectLastLoginIdWithIfInfo */
+			SELECT	PURCHASER_USER_ID
+			,			REQ_USER_ID
+			FROM	IF_PODT
+			WHERE	1=1
+			AND		BUYER = #{BUYER}
+			AND		LEGACY_PO_NO = #{LEGACY_PO_NO}
+			AND		LEGACY_PO_SEQ = #{LEGACY_PO_SEQ}
+			AND		IF_FLAG <> 'D'
+		]]>
+	</select>
+	
+</mapper>   
+   

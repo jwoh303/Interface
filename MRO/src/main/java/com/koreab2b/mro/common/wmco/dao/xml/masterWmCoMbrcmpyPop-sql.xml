@@ -1,0 +1,848 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="common.wmco">
+
+	<select id="selectMasterWmCoMbrcmpySinglePopList" parameterType="java.util.Map" resultType="java.util.Map">
+				   <![CDATA[	/*selectMasterWmCoMbrcmpySinglePopList*/
+                                                 SELECT                                     
+                                                         MAX(A.BUYER_NAME) AS BUYER_NAME,                                     
+                                                         A.BUYER,                                     
+                                                         COUNT(A.INV_NO) INV_NO_COUNT,
+                                                         MIN(ORDERBY)                                     
+                                                   FROM (  				          
+					]]>	
+
+  <![CDATA[	 						
+											SELECT                                     
+			                                              MAX(CMPY.COM_NAME_LOC) AS BUYER_NAME,                                     
+			                                              WIDT.INV_NO AS INV_NO,                                     
+			                                              WIDT.BUYER AS BUYER , 10 AS ORDERBY                                    
+			                                         FROM WMSIVDT WIDT , ICOMCMPY CMPY                                     
+			                                        WHERE WIDT.WAREHOUSE_CODE = #{st_warehouse_code}                                     
+			                                          AND WIDT.INV_QTY <> WIDT.DELIVERY_QTY                                     
+			                                   	   AND WIDT.SELLER = 'KRKORE0001'	                                   
+			                                          AND WIDT.STATUS <> 'D'                                     
+			                                   	   AND WIDT.BUYER = CMPY.COM_CODE                                    
+			                                   	   AND WIDT.INV_DATE BETWEEN #{st_from_date}  AND #{st_to_date}    
+		           		]]>	          	
+		          <if test="st_com_name != null and st_com_name != ''">  
+		          AND CMPY.COM_NAME_LOC LIKE  '%'||#{st_com_name}||'%'   
+		          </if>	         		                                   	                             
+		
+		      	<![CDATA[
+		      	  GROUP BY WIDT.BUYER, WIDT.INV_NO) A    
+                GROUP BY A.BUYER  
+                ORDER BY 4,1  
+                ]]>	
+	</select>
+
+
+	<select id="selectMasterWmCoMbrcmpyCountPopList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[	 /*selectMasterWmCoMbrcmpyCountPopList*/
+                 SELECT  
+                         MAX(A.BUYER_NAME) AS BUYER_NAME,  
+                         A.BUYER AS BUYER,  
+                         SUM(A.PO_CNT) AS PO_CNT,  
+                         MAX(A.SEQ) AS SEQ  
+                  FROM (  
+                  SELECT  
+                         MAX((SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = PODT.BUYER)) AS BUYER_NAME,  
+                         COUNT(PODT.PO_NO) AS PO_CNT,  
+                         PODT.BUYER AS BUYER,  
+                         '2' AS SEQ  
+                    FROM ICOMPODT PODT  
+                   WHERE PODT.ITEM_QTY > PODT.IV_QTY  
+                     AND PODT.COMPLETE_MARK = 'N'  
+                     AND PODT.STATUS <> 'D'  
+                     AND PODT.PROCESS_TYPE = '2'  
+                     AND PODT.WAREHOUSE_CODE =  #{st_warehouse_code} 
+                     AND PODT.RD_DATE BETWEEN #{st_from_date} AND TO_CHAR(TO_DATE(#{st_to_date},'YYYYMMDD') + 2,'YYYYMMDD')  
+                     GROUP BY PODT.BUYER,PODT.PO_NO  
+                  UNION ALL  
+                  SELECT  
+                         MAX((SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = PODT.BUYER)) AS BUYER_NAME,  
+                         COUNT(PODT.PO_NO) AS PO_CNT,  
+                         PODT.BUYER AS BUYER,  
+                         '2' AS SEQ  
+                    FROM ICOMPODT PODT, ICOMIVDT IVDT  
+                   WHERE PODT.BUYER = IVDT.BUYER  
+                     AND PODT.PO_NO = IVDT.PO_NO  
+                     AND PODT.PO_SEQ = IVDT.PO_SEQ  
+                     AND IVDT.WMS_GR_QTY = 0  
+                     AND PODT.STATUS <> 'D'  
+                     AND IVDT.STATUS <> 'D'  
+                     AND PODT.PROCESS_TYPE = '2'  
+                     AND PODT.WAREHOUSE_CODE = #{st_warehouse_code} 
+                     AND PODT.RD_DATE BETWEEN #{st_from_date} AND TO_CHAR(TO_DATE(#{st_to_date},'YYYYMMDD') + 2,'YYYYMMDD')  
+                     GROUP BY PODT.BUYER,PODT.PO_NO,IVDT.INV_NO ) A  
+                     		]]>
+               		<if test="st_com_name != null and st_com_name != ''">
+						<![CDATA[
+					  		WHERE A.BUYER_NAME LIKE  '%'||#{st_com_name}||'%' 
+				 		 ]]>	
+		      		</if>
+		      	<![CDATA[
+                GROUP BY A.BUYER  
+                ORDER BY 4,1  
+                ]]>	
+	</select>
+
+
+	<!-- 선입고(입고등록) -->
+	<select id="selectMasterWmCoMbrcmpyCountPopList_JOB_01" parameterType="java.util.Map" resultType="java.util.Map">
+	/*selectMasterWmCoMbrcmpyCountPopList_JOB_01*/
+		<![CDATA[
+			SELECT
+			    MAX(A.BUYER_NAME) AS BUYER_NAME
+			  , A.BUYER AS BUYER
+			  , SUM(A.PO_CNT) AS PO_CNT
+			  , MAX(A.SEQ) AS SEQ
+			FROM
+			(
+			    SELECT
+			        MAX((SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = PODT.BUYER)) AS BUYER_NAME
+			      , COUNT(PODT.BS_NO) AS PO_CNT
+			      , PODT.BUYER AS BUYER
+			      , '1' AS SEQ
+			    FROM
+			        KEP_BEFORE_STOCKED_MNG PODT /* 선입고관리 */
+			    WHERE 1=1
+			    AND PODT.ITEM_QTY > NVL(PODT.GR_QTY ,0)
+			    AND PODT.STATUS <> 'D'
+			    AND PODT.PROCESS_TYPE = '2'
+        ]]>
+        <if test="st_warehouse_code != null and st_warehouse_code != '' ">
+                AND PODT.WAREHOUSE_CODE = #{st_warehouse_code} 
+        </if>
+		<![CDATA[
+                AND PODT.ADD_DATE BETWEEN #{st_from_date} AND TO_CHAR(TO_DATE(#{st_to_date},'YYYYMMDD') + 2,'YYYYMMDD')  
+			    GROUP BY
+			        PODT.BUYER
+			      , PODT.PO_NO
+			) A
+			GROUP BY
+			    A.BUYER
+			ORDER BY
+			    BUYER_NAME
+			  , SEQ
+        ]]>
+	</select>
+	
+	<!-- 선입고(출고등록) -->
+	<select id="selectMasterWmCoMbrcmpyCountPopList_JOB_02" parameterType="java.util.Map" resultType="java.util.Map">
+	/*selectMasterWmCoMbrcmpyCountPopList_JOB_02*/
+		<![CDATA[
+			SELECT
+			    MAX(A.BUYER_NAME) AS BUYER_NAME
+			  , A.BUYER AS BUYER
+			  , SUM(A.PO_CNT) AS PO_CNT
+			  , MAX(A.SEQ) AS SEQ
+			FROM
+			(
+			    SELECT
+			        (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = A.BUYER) AS BUYER_NAME
+			      , (SELECT COUNT(C.BS_NO) FROM KEP_BEFORE_STOCKED_MNG C WHERE C.BUYER = A.BUYER AND C.BS_NO = A.BS_NO ) AS PO_CNT
+			      , A.BUYER AS BUYER
+			      , '1' AS SEQ
+			    FROM
+			        KEP_BEFORE_STOCKED_MNG A /* 선입고관리 */
+			      , KEP_BEFORE_STOCKED_IVDT B /* 선입고송장상세 */
+			    WHERE 1=1
+			    AND A.BUYER = B.BUYER
+			    AND A.BS_NO = B.BS_NO
+			    AND A.ITEM_QTY = NVL(A.GR_QTY ,0)
+			    AND A.ITEM_QTY > NVL(A.IV_QTY ,0)
+			    AND A.STATUS <> 'D'
+			    AND A.PROCESS_TYPE = '2'
+		]]>
+		<if test="st_warehouse_code != null and st_warehouse_code != '' ">
+			    AND A.WAREHOUSE_CODE = #{st_warehouse_code}
+		</if>
+		<if test="st_date_type == 'rd_date' ">
+		<![CDATA[
+			    /* 요청일 기준 */
+			    AND A.ADD_DATE BETWEEN #{st_from_date} AND TO_CHAR(TO_DATE(#{st_to_date},'YYYYMMDD') + 2,'YYYYMMDD')
+		]]>
+		</if>
+		<if test="st_date_type == 'sc_date' ">
+		<![CDATA[
+			    /* 납품일 기준 */
+			    AND B.ADD_DATE BETWEEN #{st_from_date} AND TO_CHAR(TO_DATE(#{st_to_date},'YYYYMMDD') + 2,'YYYYMMDD')
+		]]>
+		</if>
+		<![CDATA[
+			    GROUP BY
+			        A.BUYER
+			      , A.BS_NO
+			) A
+			GROUP BY
+			    A.BUYER
+			ORDER BY
+			    SEQ
+			  , BUYER_NAME
+        ]]>
+	</select>
+	
+	<!-- 선입고(배송확정) -->
+	<select id="selectMasterWmCoMbrcmpyCountPopList_JOB_03" parameterType="java.util.Map" resultType="java.util.Map">
+	/*selectMasterWmCoMbrcmpyCountPopList_JOB_03*/
+		<![CDATA[
+			SELECT
+			    MAX(A.BUYER_NAME) AS BUYER_NAME
+			  , A.BUYER AS BUYER
+			  , SUM(A.PO_CNT) AS PO_CNT
+			  , MAX(A.SEQ) AS SEQ
+			FROM
+			(
+			    SELECT
+			        (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = A.BUYER) AS BUYER_NAME
+			      , (SELECT COUNT(C.BS_NO) FROM KEP_BEFORE_STOCKED_MNG C WHERE C.BUYER = A.BUYER AND C.BS_NO = A.BS_NO ) AS PO_CNT
+			      , A.BUYER AS BUYER
+			      , '1' AS SEQ
+			    FROM 
+			        KEP_BEFORE_STOCKED_MNG A /* 선입고관리 */
+			      , KEP_BEFORE_STOCKED_IVDT B /* 선입고송장상세 */
+			    WHERE 1=1
+			    AND A.BUYER = B.BUYER
+			    AND A.BS_NO = B.BS_NO
+			    AND A.ITEM_QTY = NVL(A.GR_QTY ,0)
+			    AND A.ITEM_QTY = NVL(A.IV_QTY ,0)
+			    AND A.ITEM_QTY > NVL(A.DI_QTY ,0)
+			    AND A.STATUS <> 'D'
+			    AND A.PROCESS_TYPE = '2'
+		]]>
+		<if test="st_warehouse_code != null and st_warehouse_code != '' ">
+			    AND A.WAREHOUSE_CODE = #{st_warehouse_code}
+		</if>
+		<if test="st_date_type == 'rd_date' ">
+		<![CDATA[
+			    /* 요청일 기준 */
+			    AND A.ADD_DATE BETWEEN #{st_from_date} AND TO_CHAR(TO_DATE(#{st_to_date},'YYYYMMDD') + 2,'YYYYMMDD')
+		]]>
+		</if>
+		<if test="st_date_type == 'sc_date' ">
+		<![CDATA[
+			    /* 출고일 기준 */
+			    AND B.WMS_IVK_DATE BETWEEN #{st_from_date} AND TO_CHAR(TO_DATE(#{st_to_date},'YYYYMMDD') + 2,'YYYYMMDD')
+		]]>
+		</if>
+		<![CDATA[
+			    GROUP BY
+			        A.BUYER
+			      , A.BS_NO
+			) A
+			GROUP BY 
+			    A.BUYER
+			ORDER BY
+			    SEQ
+			  , BUYER_NAME
+        ]]>
+	</select>
+	
+
+	<select id="selectMasterWmCoMbrcmpyPopList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[	  /*selectMasterWmCoMbrcmpyPopList*/
+		SELECT '구매대행구매사 전체' AS BUYER_NAME,  
+                       '구매대행' AS BUYER,             
+                       '구매대행구매사' AS IRS_NO,         
+                        '구매대행' BUYER_CODE, 
+                       '2' AS SEQ                     
+                FROM DUAL  
+                UNION ALL     
+                 SELECT /*+INDEX(CM ICOMCMPY_PK)*/
+                       CM.COM_NAME_LOC AS BUYER_NAME,
+                       CM.COM_CODE AS BUYER,
+                       CM.IRS_NO AS IRS_NO,
+                       CM.COM_CODE BUYER_CODE,
+                       '3' AS SEQ
+                  FROM ICOMCMPY CM
+            ]]>    
+            <choose >
+            	 <when test='st_date_flag =="IV"'>
+            	 	<![CDATA[	
+            	 WHERE CM.COM_CODE IN (SELECT /*+LEADING(W) USE_NL(W P) INDEX(W WMSIVDT_05)*/
+                                              P.BUYER
+                                         FROM ICOMPODT P, ICOMPOHD H, WMSIVDT W
+                                        WHERE P.PROCESS_TYPE IN('1','2','3')
+                                          AND (P.WAREHOUSE_CODE = '${st_warehouse_code}' OR H.AGENT = '${st_wareHouse_agent}')
+                                          AND W.INV_DATE BETWEEN '${st_from_date}'  AND '${st_to_date}'
+                                          AND P.STATUS <> 'D'
+                                          AND H.STATUS <> 'D'
+                                          AND W.STATUS(+) <> 'D'    
+                                          AND W.WAREHOUSE_CODE(+) = '${st_warehouse_code}'                               
+                                          AND P.BUYER = W.BUYER(+)
+                                          AND P.PO_NO = W.PO_NO(+)
+                                          AND P.PO_SEQ = W.PO_SEQ(+)
+                                          AND P.BUYER = H.BUYER
+                                          AND P.PO_NO = H.PO_NO         )    
+  					]]>  
+            	 </when>
+            	 <when test='st_date_flag =="DL"'>
+            	 	<![CDATA[	
+                 WHERE CM.COM_CODE IN (SELECT /*+LEADING(W) USE_NL(W P) INDEX(W WMSIVDT_05)*/ 
+                                              P.BUYER
+                                         FROM ICOMPODT P, ICOMPOHD H, WMSIVDT W
+                                        WHERE P.PROCESS_TYPE IN('1','2','3')
+                                          AND (P.WAREHOUSE_CODE ='${st_warehouse_code}' OR H.AGENT = '${st_wareHouse_agent}')
+                                          AND W.DELIVERY_DATE BETWEEN  '${st_from_date}'  AND '${st_to_date}'
+                                          AND P.STATUS <> 'D'
+                                          AND H.STATUS <> 'D'
+                                          AND W.STATUS(+) <> 'D'   
+                                          AND W.WAREHOUSE_CODE(+) = '${st_warehouse_code}'                                          
+                                          AND P.BUYER = W.BUYER(+)
+                                          AND P.PO_NO = W.PO_NO(+)
+                                          AND P.PO_SEQ = W.PO_SEQ(+)
+                                          AND P.BUYER = H.BUYER
+                                          AND P.PO_NO = H.PO_NO         )  
+                  ]]>                                     	 
+            	 </when>
+            	<when test='st_date_flag =="SD"'>   
+            		<![CDATA[	
+                  WHERE CM.COM_CODE IN (SELECT /*+LEADING(W) USE_NL(W P) INDEX(W WMSIVDT_05)*/  
+                                              P.BUYER
+                                         FROM ICOMPODT P, ICOMPOHD H, WMSIVDT W
+                                        WHERE P.PROCESS_TYPE IN('1','2','3')
+                                          AND (P.WAREHOUSE_CODE ='${st_warehouse_code}' OR H.AGENT = '${st_wareHouse_agent}')
+                                          AND W.SCHEDULED_DATE  BETWEEN '${st_from_date}'  AND '${st_to_date}'
+                                          AND P.STATUS <> 'D'
+                                          AND H.STATUS <> 'D'
+                                          AND W.STATUS(+) <> 'D'  
+                                          AND W.WAREHOUSE_CODE(+) = '${st_warehouse_code}'                                         
+                                          AND P.BUYER = W.BUYER(+)
+                                          AND P.PO_NO = W.PO_NO(+)
+                                          AND P.PO_SEQ = W.PO_SEQ(+)
+                                          AND P.BUYER = H.BUYER
+                                          AND P.PO_NO = H.PO_NO         )    
+                  ]]>                                	
+            	</when>  
+           		<when test='st_date_flag =="RD"'>
+           		<![CDATA[	
+                 WHERE CM.COM_CODE IN (SELECT /*+LEADING(P H)*/ 
+                                              P.BUYER
+                                         FROM ICOMPODT P, ICOMPOHD H
+                                        WHERE P.PROCESS_TYPE IN('1','2','3')
+                                          AND (P.WAREHOUSE_CODE ='${st_warehouse_code}' OR H.AGENT = '${st_wareHouse_agent}')
+                                          AND P.RD_DATE  BETWEEN '${st_from_date}'  AND '${st_to_date}'
+                                          AND P.STATUS <> 'D'
+                                          AND H.STATUS <> 'D'
+                                          AND P.BUYER = H.BUYER
+                                          AND P.PO_NO = H.PO_NO         )              
+                       ]]>                     		
+           		</when>
+           		<when test='st_date_flag =="PO"'>
+           		<![CDATA[	
+                  WHERE CM.COM_CODE IN (SELECT /*+LEADING(H) USE_NL(H P)*/  
+                                              P.BUYER
+                                         FROM ICOMPODT P, ICOMPOHD H
+                                        WHERE P.PROCESS_TYPE IN('1','2','3')
+                                          AND (P.WAREHOUSE_CODE ='${st_warehouse_code}' OR H.AGENT = '${st_wareHouse_agent}')
+                                          AND H.PO_CREATE_DATE  BETWEEN  '${st_from_date}'  AND '${st_to_date}'
+                                          AND P.STATUS <> 'D'
+                                          AND H.STATUS <> 'D'                                         
+                                          AND P.BUYER = H.BUYER
+                                          AND P.PO_NO = H.PO_NO         )          
+                  ]]>                           		
+           		</when> 
+           		<otherwise>
+           		<![CDATA[	
+                  WHERE CM.COM_CODE IN (SELECT /*+LEADING(H) USE_NL(H P)*/  
+                                              P.BUYER
+                                         FROM ICOMPODT P, ICOMPOHD H
+                                        WHERE P.PROCESS_TYPE IN('1','2','3')
+                                          AND (P.WAREHOUSE_CODE ='${st_warehouse_code}' OR H.AGENT = '${st_wareHouse_agent}')
+                                          AND H.PO_CREATE_DATE  BETWEEN  '${st_from_date}'  AND '${st_to_date}'
+                                          AND P.STATUS <> 'D'
+                                          AND H.STATUS <> 'D'                                       
+                                          AND P.BUYER = H.BUYER
+                                          AND P.PO_NO = H.PO_NO         )    
+                                          ]]>            		
+           		</otherwise>          		            	      	 
+            </choose>	      
+				 <if test="st_com_name != null and st_com_name != ''">
+			      AND CM.COM_NAME_LOC LIKE '%'||'${st_com_name}'||'%' 
+			      </if>
+			   <![CDATA[	  
+
+                ORDER BY 5,1  
+               ]]>
+	</select>
+	
+	
+	<select id="selectMasterWmCoMbrcmpyPopListSingle" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[	  /*selectMasterWmCoMbrcmpyPopListSingle*/
+		     SELECT /*+INDEX(CM ICOMCMPY_PK)*/
+                      CM.COM_CODE AS BUYER
+                  FROM ICOMCMPY CM
+            ]]>         
+             <choose >
+            	 <when test='st_date_flag =="IV"'>
+            	 	<![CDATA[	
+            	 WHERE CM.COM_CODE IN (SELECT /*+LEADING(W) USE_NL(W P) INDEX(W WMSIVDT_05)*/
+                                              P.BUYER
+                                         FROM ICOMPODT P, ICOMPOHD H, WMSIVDT W
+                                        WHERE P.PROCESS_TYPE IN('1','2','3')
+                                          AND (P.WAREHOUSE_CODE = '${st_warehouse_code}' OR H.AGENT = '${st_wareHouse_agent}')
+                                          AND W.INV_DATE BETWEEN '${st_from_date}'  AND '${st_to_date}'
+                                          AND P.STATUS <> 'D'
+                                          AND H.STATUS <> 'D'
+                                          AND W.STATUS(+) <> 'D'    
+                                          AND W.WAREHOUSE_CODE(+) = '${st_warehouse_code}'                               
+                                          AND P.BUYER = W.BUYER(+)
+                                          AND P.PO_NO = W.PO_NO(+)
+                                          AND P.PO_SEQ = W.PO_SEQ(+)
+                                          AND P.BUYER = H.BUYER
+                                          AND P.PO_NO = H.PO_NO         )    
+  					]]>  
+            	 </when>
+            	 <when test='st_date_flag =="DL"'>
+            	 	<![CDATA[	
+                 WHERE CM.COM_CODE IN (SELECT /*+LEADING(W) USE_NL(W P) INDEX(W WMSIVDT_05)*/ 
+                                              P.BUYER
+                                         FROM ICOMPODT P, ICOMPOHD H, WMSIVDT W
+                                        WHERE P.PROCESS_TYPE IN('1','2','3')
+                                          AND (P.WAREHOUSE_CODE ='${st_warehouse_code}' OR H.AGENT = '${st_wareHouse_agent}')
+                                          AND W.DELIVERY_DATE BETWEEN  '${st_from_date}'  AND '${st_to_date}'
+                                          AND P.STATUS <> 'D'
+                                          AND H.STATUS <> 'D'
+                                          AND W.STATUS(+) <> 'D'   
+                                          AND W.WAREHOUSE_CODE(+) = '${st_warehouse_code}'                                          
+                                          AND P.BUYER = W.BUYER(+)
+                                          AND P.PO_NO = W.PO_NO(+)
+                                          AND P.PO_SEQ = W.PO_SEQ(+)
+                                          AND P.BUYER = H.BUYER
+                                          AND P.PO_NO = H.PO_NO         )  
+                  ]]>                                     	 
+            	 </when>
+            	<when test='st_date_flag =="SD"'>   
+            		<![CDATA[	
+                  WHERE CM.COM_CODE IN (SELECT /*+LEADING(W) USE_NL(W P) INDEX(W WMSIVDT_05)*/  
+                                              P.BUYER
+                                         FROM ICOMPODT P, ICOMPOHD H, WMSIVDT W
+                                        WHERE P.PROCESS_TYPE IN('1','2','3')
+                                          AND (P.WAREHOUSE_CODE ='${st_warehouse_code}' OR H.AGENT = '${st_wareHouse_agent}')
+                                          AND W.SCHEDULED_DATE  BETWEEN '${st_from_date}'  AND '${st_to_date}'
+                                          AND P.STATUS <> 'D'
+                                          AND H.STATUS <> 'D'
+                                          AND W.STATUS(+) <> 'D'  
+                                          AND W.WAREHOUSE_CODE(+) = '${st_warehouse_code}'                                         
+                                          AND P.BUYER = W.BUYER(+)
+                                          AND P.PO_NO = W.PO_NO(+)
+                                          AND P.PO_SEQ = W.PO_SEQ(+)
+                                          AND P.BUYER = H.BUYER
+                                          AND P.PO_NO = H.PO_NO         )    
+                  ]]>                                	
+            	</when>  
+           		<when test='st_date_flag =="RD"'>
+           		<![CDATA[	
+                 WHERE CM.COM_CODE IN (SELECT /*+LEADING(P H)*/ 
+                                              P.BUYER
+                                         FROM ICOMPODT P, ICOMPOHD H
+                                        WHERE P.PROCESS_TYPE IN('1','2','3')
+                                          AND (P.WAREHOUSE_CODE ='${st_warehouse_code}' OR H.AGENT = '${st_wareHouse_agent}')
+                                          AND P.RD_DATE  BETWEEN '${st_from_date}'  AND '${st_to_date}'
+                                          AND P.STATUS <> 'D'
+                                          AND H.STATUS <> 'D'
+                                          AND P.BUYER = H.BUYER
+                                          AND P.PO_NO = H.PO_NO         )              
+                       ]]>                     		
+           		</when>
+           		<when test='st_date_flag =="PO"'>
+           		<![CDATA[	
+                  WHERE CM.COM_CODE IN (SELECT /*+LEADING(H) USE_NL(H P)*/  
+                                              P.BUYER
+                                         FROM ICOMPODT P, ICOMPOHD H
+                                        WHERE P.PROCESS_TYPE IN('1','2','3')
+                                          AND (P.WAREHOUSE_CODE ='${st_warehouse_code}' OR H.AGENT = '${st_wareHouse_agent}')
+                                          AND H.PO_CREATE_DATE  BETWEEN  '${st_from_date}'  AND '${st_to_date}'
+                                          AND P.STATUS <> 'D'
+                                          AND H.STATUS <> 'D'                                         
+                                          AND P.BUYER = H.BUYER
+                                          AND P.PO_NO = H.PO_NO         )          
+                  ]]>                           		
+           		</when> 
+           		<otherwise>
+           		<![CDATA[	
+                  WHERE CM.COM_CODE IN (SELECT /*+LEADING(H) USE_NL(H P)*/  
+                                              P.BUYER
+                                         FROM ICOMPODT P, ICOMPOHD H
+                                        WHERE P.PROCESS_TYPE IN('1','2','3')
+                                          AND (P.WAREHOUSE_CODE ='${st_warehouse_code}' OR H.AGENT = '${st_wareHouse_agent}')
+                                          AND H.PO_CREATE_DATE  BETWEEN  '${st_from_date}'  AND '${st_to_date}'
+                                          AND P.STATUS <> 'D'
+                                          AND H.STATUS <> 'D'                                       
+                                          AND P.BUYER = H.BUYER
+                                          AND P.PO_NO = H.PO_NO         )    
+                                          ]]>            		
+           		</otherwise>          		            	      	 
+            </choose>	      
+				 <if test="st_com_name != null and st_com_name != ''">
+			      AND CM.COM_NAME_LOC LIKE '%'||'${st_com_name}'||'%' 
+			      </if>
+	</select>
+	
+			
+	<select id="selectMasterWmCoMbrcmpyIKPopList" parameterType="java.util.Map" resultType="java.util.Map">			
+			<![CDATA[	 	
+			/*selectMasterWmCoMbrcmpyIKPopList*/
+										SELECT BUYER 
+										         , BUYER_CODE
+										         , TO_CHAR(MAX(TRCOUNT)) AS TRCOUNT
+										         , TO_CHAR(MAX(STCKCOUNT)) AS STCKCOUNT 
+										 FROM(                                            
+														SELECT                                                                                                                           
+			        												MAX((SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = TR.BUYER)) AS BUYER,     
+			        												MAX(TR.BUYER) AS BUYER_CODE,                                                                                                                                   
+			        												COUNT(TR.INV_SEQ) TRCOUNT,                                                                                               
+			        												0 AS STCKCOUNT  , MIN(ORDERBY) AS ORDERBY                                                                                
+															FROM(                                                                                                                            
+																		SELECT   
+                ]]>																		                   
+			  	      <if test='date_type =="sc_date"'>
+			  	      															/*+LEADING(IV) INDEX(IV ICOMIVDT_11)*/
+			  	      </if>
+			  	      <if test='date_type =="rd_date"'>
+			  	      															/*+LEADING(PO IV)*/
+			  	      </if>			  	      	
+			  	<![CDATA[	 	      																																                                                                                                
+			        																PO.BUYER AS BUYER,                                                                                                       
+			        																IV.INV_SEQ AS INV_SEQ,                                                                                                   
+			        																0 AS STCKCOUNT,                                                                                                          
+			        																10 AS ORDERBY                                                                                                            
+																			FROM ICOMPOHD HD,ICOMPODT PO, ICOMIVDT IV  , ICOMCMPY CM                                                                 
+																		  WHERE HD.BUYER = PO.BUYER                                                                                                        
+			  																 AND HD.PO_NO = PO.PO_NO                                                                                                        
+			 																 AND PO.BUYER = IV.BUYER                                                                                                        
+			  																 AND PO.PO_NO = IV.PO_NO                                                                                                        
+			  																 AND PO.PO_SEQ = IV.PO_SEQ                                                                                                      
+			  																 AND PO.BUYER = CM.COM_CODE                                                                                                  
+			  																 AND HD.STATUS <> 'D'                                                                                                           
+			  																 AND PO.STATUS <> 'D'                                                                                                           
+			  																  AND IV.STATUS <> 'D'                                                                                                           
+			  																  AND HD.PROCESS_TYPE = '2'                               
+			     ]]> 	
+			  <choose>
+			  	      <when test='date_type =="rd_date"'>
+			  	      	 														AND PO.RD_DATE BETWEEN #{st_from_date} AND #{st_to_date}
+			  	      </when>
+			  	      <when test='date_type =="sc_date"'>
+			  	      															AND IV.SCHEDULED_DATE BETWEEN #{st_from_date} AND  #{st_to_date}
+			  	      </when>
+			  	      <when test='date_type =="po_create_date"'>
+			  	      															AND HD.PO_CREATE_DATE BETWEEN #{st_from_date}  AND #{st_to_date}		
+			  	      </when>			  	      
+			  	      <otherwise>
+			  	      															AND HD.PO_CREATE_DATE BETWEEN #{st_from_date}  AND #{st_to_date}		
+			  	      </otherwise>
+			  </choose>  
+			 <![CDATA[	
+			 																	 AND IV.WMS_GR_QTY > 0                                                                                                          
+			  																	AND IV.WMS_GR_QTY <> IV.WMS_IVK_QTY                                                                                            
+			  																	AND PO.WAREHOUSE_CODE = #{st_warehouse_code}	
+			     ]]>  		
+			  <if test="st_com_name != null and st_com_name != ''">
+			  																	AND CM.COM_NAME_LOC LIKE  '%'|| #{st_com_name}||'%'
+			  </if>	
+			  <![CDATA[			  											                                                                                          
+			  																	AND PO.BUYER NOT IN                                                                                                            
+			  																		(SELECT DISTINCT TEXT1 
+			  																		   FROM ICOMCOD2                                                                                           
+																				     WHERE COMPANY_CODE = 'KRKORE0001'                                                                                               
+			   																			AND TYPE = 'WR01'                                                                                                             
+			   																		     AND FLAG = 'Y')                                                                                                               
+																			) TR GROUP BY BUYER                                                                                                              
+															UNION ALL                                                                                                                        
+																SELECT                                                                                                                           
+			       														 MAX((SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = STCK.BUYER)) AS BUYER, 
+			       														 MAX(STCK.BUYER) AS BUYER_CODE,                                                                                                                                                                                       
+			       													     0 AS TRCOUNT,                                                                                                            
+			       														 COUNT(STCK.INV_SEQ) AS STCKCOUNT , MIN(ORDERBY) AS ORDERBY                                                               
+																FROM(                                                                                                                            
+																			SELECT 
+				]]>															   
+			  	      <if test='date_type =="sc_date"'>
+			  	      															/*+LEADING(HD) INDEX(IV ICOMIVDT_11)*/
+			  	      </if>
+			  	      <if test='date_type =="rd_date"'>
+			  	      															/*+LEADING(HD)*/    
+			  	      </if>				  	      
+			  	      		  <![CDATA[																							                                                                                      
+			        																	PO.BUYER AS BUYER,                                                                                                       
+			        																	IV.INV_SEQ AS INV_SEQ,                                                                                                   
+			        																    0 AS TRCOUNT,                                                                                                            
+			        																	10 AS ORDERBY                                                                                                            
+																			FROM ICOMPOHD HD,ICOMPODT PO, ICOMIVDT IV  , ICOMCMPY CM                                                                      
+																			WHERE HD.BUYER = PO.BUYER                                                                                                        
+			  														           AND HD.PO_NO = PO.PO_NO                                                                                                        
+			  																	AND PO.BUYER = IV.BUYER                                                                                                        
+			                                                                    AND PO.PO_NO = IV.PO_NO                                                                                                        
+			                                                                    AND PO.PO_SEQ = IV.PO_SEQ                                                                                                      
+			                                                                    AND PO.BUYER = CM.COM_CODE                                                                                                   
+			                                                                    AND HD.STATUS <> 'D'                                                                                                           
+			                                                                    AND PO.STATUS <> 'D'                                                                                                           
+			                                                                    AND IV.STATUS <> 'D'                                                                                                           
+			                                                                     AND HD.PROCESS_TYPE IN('1','3')  			 
+			     ]]> 
+			  <choose>
+			  	      <when test='date_type =="rd_date"'>
+			  	      	                                                          AND PO.RD_DATE BETWEEN  #{st_from_date} AND #{st_to_date}
+			  	      </when>
+			  	      <when test='date_type =="sc_date"'>
+			  	      															AND IV.SCHEDULED_DATE BETWEEN #{st_from_date} AND  #{st_to_date}
+			  	      </when>			  	      
+			  	      <otherwise>
+			  	      	                                                          AND HD.PO_CREATE_DATE BETWEEN #{st_from_date}  AND #{st_to_date}		
+			  	      </otherwise>
+			  </choose>
+			  <if test="st_com_name != null and st_com_name != ''">
+			  	                                                                  AND CM.COM_NAME_LOC LIKE '%'|| #{st_com_name}||'%'
+			  </if>         
+			   <![CDATA[	                                                                                   
+			                                                                       AND IV.WMS_GR_QTY > 0                                                                                                          
+			                                                                       AND IV.WMS_GR_QTY <> IV.WMS_IVK_QTY                                                                                            
+			                                                                       AND HD.AGENT = #{st_wareHouse_agent}																								 
+			                                                           ) STCK GROUP BY BUYER                                                                                                                   
+			                                              ) GROUP BY BUYER,BUYER_CODE     ORDER BY MIN(ORDERBY), TRCOUNT+STCKCOUNT DESC                	
+			    ]]> 		     			  	   
+	</select>		
+	<select id="selectMasterWmCoMbrcmpyBpIKPopList" parameterType="java.util.Map" resultType="java.util.Map">			
+			<![CDATA[	 	
+			/*selectMasterWmCoMbrcmpyBpIKPopList*/
+										SELECT BUYER 
+										         , BUYER_CODE
+										         , TO_CHAR(MAX(TRCOUNT)) AS TRCOUNT
+										         , TO_CHAR(MAX(STCKCOUNT)) AS STCKCOUNT 
+										 FROM(                                            
+														SELECT                                                                                                                           
+			        												MAX((SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = TR.BUYER)) AS BUYER,     
+			        												MAX(TR.BUYER) AS BUYER_CODE,                                                                                                                                   
+			        												COUNT(TR.INV_SEQ) TRCOUNT,                                                                                               
+			        												0 AS STCKCOUNT  , MIN(ORDERBY) AS ORDERBY                                                                                
+															FROM(                                                                                                                            
+																		SELECT   
+                ]]>																		                   
+			  	      <if test='date_type =="sc_date"'>
+			  	      															/*+LEADING(IV) INDEX(IV ICOMIVDT_11)*/
+			  	      </if>
+			  	      <if test='date_type =="rd_date"'>
+			  	      															/*+LEADING(PO IV)*/
+			  	      </if>			  	      	
+			  	<![CDATA[	 	      																																                                                                                                
+			        																PO.BUYER AS BUYER,                                                                                                       
+			        																IV.INV_SEQ AS INV_SEQ,                                                                                                   
+			        																0 AS STCKCOUNT,                                                                                                          
+			        																10 AS ORDERBY                                                                                                            
+																			FROM ICOMPOHD HD,ICOMPODT PO, ICOMIVDT IV  , ICOMCMPY CM , KEP_BUYER_FLAG FLAG                                                                
+																		  WHERE HD.BUYER = PO.BUYER                                                                                                        
+			  																 AND HD.PO_NO = PO.PO_NO                                                                                                        
+			 																 AND PO.BUYER = IV.BUYER                                                                                                        
+			  																 AND PO.PO_NO = IV.PO_NO                                                                                                        
+			  																 AND PO.PO_SEQ = IV.PO_SEQ                                                                                                      
+			  																 AND PO.BUYER = CM.COM_CODE     
+			  																 AND CM.COM_CODE = FLAG.COM_CODE
+			  																 AND FLAG.INVOICE_PRINT_FLAG = 'Y'                                                                                             
+			  																 AND HD.STATUS <> 'D'                                                                                                           
+			  																 AND PO.STATUS <> 'D'                                                                                                           
+			  																  AND IV.STATUS <> 'D'                                                                                                           
+			  																  AND HD.PROCESS_TYPE = '2'                               
+			     ]]> 	
+			  <choose>
+			  	      <when test='date_type =="rd_date"'>
+			  	      	 														AND PO.RD_DATE BETWEEN #{st_from_date} AND #{st_to_date}
+			  	      </when>
+			  	      <when test='date_type =="sc_date"'>
+			  	      															AND IV.SCHEDULED_DATE BETWEEN #{st_from_date} AND  #{st_to_date}
+			  	      </when>
+			  	      <when test='date_type =="po_create_date"'>
+			  	      															AND HD.PO_CREATE_DATE BETWEEN #{st_from_date}  AND #{st_to_date}		
+			  	      </when>			  	      
+			  	      <otherwise>
+			  	      															AND HD.PO_CREATE_DATE BETWEEN #{st_from_date}  AND #{st_to_date}		
+			  	      </otherwise>
+			  </choose>  
+			 <![CDATA[	
+			 																	 AND IV.WMS_GR_QTY > 0                                                                                                          
+			  																	AND IV.WMS_GR_QTY <> IV.WMS_IVK_QTY                                                                                            
+			  																	AND PO.WAREHOUSE_CODE = #{st_warehouse_code}	
+			     ]]>  		
+			  <if test="st_com_name != null and st_com_name != ''">
+			  																	AND CM.COM_NAME_LOC LIKE  '%'|| #{st_com_name}||'%'
+			  </if>	
+			  <![CDATA[			  											                                                                                          
+			  																	AND PO.BUYER NOT IN                                                                                                            
+			  																		(SELECT DISTINCT TEXT1 
+			  																		   FROM ICOMCOD2                                                                                           
+																				     WHERE COMPANY_CODE = 'KRKORE0001'                                                                                               
+			   																			AND TYPE = 'WR01'                                                                                                             
+			   																		     AND FLAG = 'Y')                                                                                                               
+																			) TR GROUP BY BUYER                                                                                                              
+															UNION ALL                                                                                                                        
+																SELECT                                                                                                                           
+			       														 MAX((SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = STCK.BUYER)) AS BUYER, 
+			       														 MAX(STCK.BUYER) AS BUYER_CODE,                                                                                                                                                                                       
+			       													     0 AS TRCOUNT,                                                                                                            
+			       														 COUNT(STCK.INV_SEQ) AS STCKCOUNT , MIN(ORDERBY) AS ORDERBY                                                               
+																FROM(                                                                                                                            
+																			SELECT 
+				]]>															   
+			  	      <if test='date_type =="sc_date"'>
+			  	      															/*+LEADING(HD) INDEX(IV ICOMIVDT_11)*/
+			  	      </if>
+			  	      <if test='date_type =="rd_date"'>
+			  	      															/*+LEADING(HD)*/    
+			  	      </if>				  	      
+			  	      		  <![CDATA[																							                                                                                      
+			        																	PO.BUYER AS BUYER,                                                                                                       
+			        																	IV.INV_SEQ AS INV_SEQ,                                                                                                   
+			        																    0 AS TRCOUNT,                                                                                                            
+			        																	10 AS ORDERBY                                                                                                            
+																			FROM ICOMPOHD HD,ICOMPODT PO, ICOMIVDT IV  , ICOMCMPY CM , KEP_BUYER_FLAG FLAG                                                                      
+																			WHERE HD.BUYER = PO.BUYER                                                                                                        
+			  														           AND HD.PO_NO = PO.PO_NO                                                                                                        
+			  																	AND PO.BUYER = IV.BUYER                                                                                                        
+			                                                                    AND PO.PO_NO = IV.PO_NO                                                                                                        
+			                                                                    AND PO.PO_SEQ = IV.PO_SEQ                                                                                                      
+			                                                                    AND PO.BUYER = CM.COM_CODE
+			  																 	AND CM.COM_CODE = FLAG.COM_CODE
+			  																 	AND FLAG.INVOICE_PRINT_FLAG = 'Y'                                                                                                         
+			                                                                    AND HD.STATUS <> 'D'                                                                                                           
+			                                                                    AND PO.STATUS <> 'D'                                                                                                           
+			                                                                    AND IV.STATUS <> 'D'                                                                                                           
+			                                                                     AND HD.PROCESS_TYPE IN('1','3')  			 
+			     ]]> 
+			  <choose>
+			  	      <when test='date_type =="rd_date"'>
+			  	      	                                                          AND PO.RD_DATE BETWEEN  #{st_from_date} AND #{st_to_date}
+			  	      </when>
+			  	      <when test='date_type =="sc_date"'>
+			  	      															AND IV.SCHEDULED_DATE BETWEEN #{st_from_date} AND  #{st_to_date}
+			  	      </when>			  	      
+			  	      <otherwise>
+			  	      	                                                          AND HD.PO_CREATE_DATE BETWEEN #{st_from_date}  AND #{st_to_date}		
+			  	      </otherwise>
+			  </choose>
+			  <if test="st_com_name != null and st_com_name != ''">
+			  	                                                                  AND CM.COM_NAME_LOC LIKE '%'|| #{st_com_name}||'%'
+			  </if>         
+			   <![CDATA[	                                                                                   
+			                                                                       AND IV.WMS_GR_QTY > 0                                                                                                          
+			                                                                       AND IV.WMS_GR_QTY <> IV.WMS_IVK_QTY                                                                                            
+			                                                                       AND HD.AGENT = #{st_wareHouse_agent}																								 
+			                                                           ) STCK GROUP BY BUYER                                                                                                                   
+			                                              ) GROUP BY BUYER,BUYER_CODE     ORDER BY MIN(ORDERBY), TRCOUNT+STCKCOUNT DESC                	
+			    ]]> 		     			  	   
+	</select>
+	
+	<select id="selectMasterWmCoMbrcmpyNewIKPopList" parameterType="java.util.Map" resultType="java.util.Map">			
+			<![CDATA[	 	
+			/*selectMasterWmCoMbrcmpyIKPopList*/
+										SELECT DISTINCT BUYER 
+										         , BUYER_CODE
+										 FROM(                                            
+														SELECT                                                                                                                           
+			        												(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = TR.BUYER) AS BUYER,     
+			        												TR.BUYER AS BUYER_CODE                                                                               
+															FROM(                                                                                                                            
+																		SELECT   
+                ]]>																		                   
+			  	      <if test='date_type =="sc_date"'>
+			  	      															/*+LEADING(IV) INDEX(IV ICOMIVDT_11)*/
+			  	      </if>
+			  	      <if test='date_type =="rd_date"'>
+			  	      															/*+LEADING(PO IV)*/
+			  	      </if>			  	      	
+			  	<![CDATA[	 	      																																                                                                                                
+			        																PO.BUYER AS BUYER,                                                                                                       
+			        																IV.INV_SEQ AS INV_SEQ                                                                                                        
+																			FROM ICOMPOHD HD,ICOMPODT PO, ICOMIVDT IV  , ICOMCMPY CM                                                                 
+																		  WHERE HD.BUYER = PO.BUYER                                                                                                        
+			  																 AND HD.PO_NO = PO.PO_NO                                                                                                        
+			 																 AND PO.BUYER = IV.BUYER                                                                                                        
+			  																 AND PO.PO_NO = IV.PO_NO                                                                                                        
+			  																 AND PO.PO_SEQ = IV.PO_SEQ                                                                                                      
+			  																 AND PO.BUYER = CM.COM_CODE                                                                                                  
+			  																 AND HD.STATUS <> 'D'                                                                                                           
+			  																 AND PO.STATUS <> 'D'                                                                                                           
+			  																  AND IV.STATUS <> 'D'                                                                                                           
+			  																  AND HD.PROCESS_TYPE = '2'                               
+			     ]]> 	
+			  <choose>
+			  	      <when test='date_type =="rd_date"'>
+			  	      	 														AND PO.RD_DATE BETWEEN #{st_from_date} AND #{st_to_date}
+			  	      </when>
+			  	      <when test='date_type =="sc_date"'>
+			  	      															AND IV.SCHEDULED_DATE BETWEEN #{st_from_date} AND  #{st_to_date}
+			  	      </when>
+			  	      <when test='date_type =="po_create_date"'>
+			  	      															AND HD.PO_CREATE_DATE BETWEEN #{st_from_date}  AND #{st_to_date}		
+			  	      </when>			  	      
+			  	      <otherwise>
+			  	      															AND HD.PO_CREATE_DATE BETWEEN #{st_from_date}  AND #{st_to_date}		
+			  	      </otherwise>
+			  </choose>  
+			 <![CDATA[	
+			 																	 AND IV.WMS_GR_QTY != 0                                                                                                          
+			  																	AND IV.WMS_GR_QTY <> IV.WMS_IVK_QTY                                                                                            
+			  																	AND PO.WAREHOUSE_CODE = #{st_warehouse_code}	
+			     ]]>  		
+			  <if test="st_com_name != null and st_com_name != ''">
+			  																	AND CM.COM_NAME_LOC LIKE  '%'|| #{st_com_name}||'%'
+			  </if>	
+			  <![CDATA[			  											                                                                                          
+			  																	AND PO.BUYER NOT IN                                                                                                            
+			  																		(SELECT DISTINCT TEXT1 
+			  																		   FROM ICOMCOD2                                                                                           
+																				     WHERE COMPANY_CODE = 'KRKORE0001'                                                                                               
+			   																			AND TYPE = 'WR01'                                                                                                             
+			   																		     AND FLAG = 'Y')                                                                                                               
+																			) TR                                                                                                              
+															UNION ALL                                                                                                                        
+																SELECT                                                                                                                           
+			       														 (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = STCK.BUYER) AS BUYER, 
+			       														 STCK.BUYER AS BUYER_CODE                                                               
+																FROM(                                                                                                                            
+																			SELECT 
+				]]>															   
+			  	      <if test='date_type =="sc_date"'>
+			  	      															/*+LEADING(HD) INDEX(IV ICOMIVDT_11)*/
+			  	      </if>
+			  	      <if test='date_type =="rd_date"'>
+			  	      															/*+LEADING(HD)*/    
+			  	      </if>				  	      
+			  	      		  <![CDATA[																							                                                                                      
+			        																	PO.BUYER AS BUYER,                                                                                                       
+			        																	IV.INV_SEQ AS INV_SEQ
+																			FROM ICOMPOHD HD,ICOMPODT PO, ICOMIVDT IV  , ICOMCMPY CM                                                                      
+																			WHERE HD.BUYER = PO.BUYER                                                                                                        
+			  														           AND HD.PO_NO = PO.PO_NO                                                                                                        
+			  																	AND PO.BUYER = IV.BUYER                                                                                                        
+			                                                                    AND PO.PO_NO = IV.PO_NO                                                                                                        
+			                                                                    AND PO.PO_SEQ = IV.PO_SEQ                                                                                                      
+			                                                                    AND PO.BUYER = CM.COM_CODE                                                                                                   
+			                                                                    AND HD.STATUS <> 'D'                                                                                                           
+			                                                                    AND PO.STATUS <> 'D'                                                                                                           
+			                                                                    AND IV.STATUS <> 'D'                                                                                                           
+			                                                                     AND HD.PROCESS_TYPE IN('1','3')  			 
+			     ]]> 
+			  <choose>
+			  	      <when test='date_type =="rd_date"'>
+			  	      	                                                          AND PO.RD_DATE BETWEEN  #{st_from_date} AND #{st_to_date}
+			  	      </when>
+			  	      <when test='date_type =="sc_date"'>
+			  	      															AND IV.SCHEDULED_DATE BETWEEN #{st_from_date} AND  #{st_to_date}
+			  	      </when>			  	      
+			  	      <otherwise>
+			  	      	                                                          AND HD.PO_CREATE_DATE BETWEEN #{st_from_date}  AND #{st_to_date}		
+			  	      </otherwise>
+			  </choose>
+			  <if test="st_com_name != null and st_com_name != ''">
+			  	                                                                  AND CM.COM_NAME_LOC LIKE '%'|| #{st_com_name}||'%'
+			  </if>         
+			   <![CDATA[	                                                                                   
+			                                                                       AND IV.WMS_GR_QTY != 0                                                                                                          
+			                                                                       AND IV.WMS_GR_QTY <> IV.WMS_IVK_QTY                                                                                            
+			                                                                       AND HD.AGENT = #{st_wareHouse_agent}																								 
+			                                                           ) STCK                                                                                                                   
+			                                              )                	
+			    ]]> 		     			  	   
+	</select>		
+</mapper>

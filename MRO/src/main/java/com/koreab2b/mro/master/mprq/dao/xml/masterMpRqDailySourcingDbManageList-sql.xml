@@ -1,0 +1,174 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mprq">
+
+	<select id="selectMasterMpRqDailySourcingDbManageList" parameterType="java.util.Map" resultType="java.util.LinkedHashMap">
+		<include refid="common.ibsheet.xml.pagestart"/>
+			<![CDATA[
+	    		SELECT /*selectMasterMpRqDailySourcingDbManageList*/
+						   (ROWNUM) AS NO,
+				           X.BUYER,
+						   DECODE(TRIM(X.PLANT),'',X.BUYER_NAME,X.BUYER_NAME || ' (' || X.PLANT || ')') AS BUYER_NAME,
+				           X.QUOTATION_NO,
+				           X.QUOTATION_SEQ,
+				           X.REVISION,
+				           X.QUOTATION_KEY,
+				           '' AS SOURCING_STATUS,
+				           '' AS SOURCING_STATUS_CODE,
+				           DECODE(X.IS_REG_ITEM_NO, '기등록', '4', '') AS ITEM_GUBUN,
+				           X.BUYER_ITEM_NO,
+				           X.CATEG_PATH,
+				           X.SG_NAME,
+				           X.DESCRIPTION,
+				           X.MAKER_PART_NO,
+				           X.SPECIFICATION,
+				           X.MAKER_NAME,
+				           X.ORIGIN_NAME,
+				           X.ITEM_QTY,
+				           X.UNIT_MEASURE,
+				           X.BTOA_USER_ID,
+				           X.BTOA_USER_NAME,
+				           X.REMARK_URL,
+				           X.BTOA_REMARK,
+				           X.IMAGE_KEY,
+				           DECODE(X.IMAGE_KEY, '', 2, 3) AS IMAGE_KEY_IMG,
+				           DECODE(X.BUYER_ASSIGN_AGENT_CODE, '', '', (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = X.BUYER_ASSIGN_AGENT_CODE)) AS BUYER_ASSIGN_AGENT_NAME,
+				           DECODE(NVL(X.PRE_GR_FLAG, 'Y'), 'Y', '1', '0') AS PRE_GR_FLAG,
+				           DECODE(X.ASSIGN_AGENT_CODE, '', '', (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = X.ASSIGN_AGENT_CODE) || '(' || X.ASSIGN_AGENT_CODE || ')') AS ASSIGN_AGENT_NAME,
+				           DECODE(X.NOTE_MNG, 0, 5, 6) AS NOTE_MNG_IMG,
+				           X.ATOA_REMARK,
+				           '' AS DELAY_REASON,
+				           X.DELAY_REASON_CODE,
+				           '' AS REPROC_REQ_YN,
+				           '' AS REPROC_REQ_DATM,
+				           '' AS DB_MNG_USER_NM,
+				           (SELECT MAX(USR.USER_NAME_LOC)
+				              FROM ICOMCOD3 COD, ICOMLUSR USR
+				             WHERE COD.BUYER = 'KRKORE0001'
+				               AND COD.TYPE = 'CMSM'
+				               AND COD.CODE2 = '1'
+				               AND COD.FLAG = 'Y'
+				               AND COD.CODE1 = X.SG_ID
+				               AND USR.USER_ID = TRIM(COD.TEXT1)) AS SM_MNG_NM,
+				           '' AS STOA_SUBMIT_USER_NM,
+				           '' AS STOA_SUBMIT_DATM,
+				           X.BTOA_DATE,
+				           X.BTOA_END_DATE,
+				           '' AS BIZ_TEAM_NM
+				      FROM
+				           (
+				      SELECT A.BUYER,
+				             CP.COM_NAME_LOC AS BUYER_NAME,
+				             A.PLANT,
+				             A.QUOTATION_NO,
+				             A.QUOTATION_SEQ,
+				             A.REVISION,
+				             A.KEP_QUOTATION_NO AS QUOTATION_KEY,
+				             CASE WHEN (SELECT COUNT(*)
+				                          FROM ICOMBYIT
+				                         WHERE BUYER = CP.BYCA_COMORG_CODE
+				                           AND BUYER_ITEM_NO = A.BUYER_ITEM_NO
+				                           AND STATUS IN ('C','R')) = 0
+				                  THEN '신규'
+				                  ELSE '기등록'
+				             END AS IS_REG_ITEM_NO,
+				             A.BUYER_ITEM_NO,
+				             (SELECT Z2.CATEG_PATH FROM CMSCATEG Z2 WHERE Z2.CMS_CATEG_ID = A.CMS_CATEG_ID AND ROWNUM = 1) AS CATEG_PATH,
+				             A.SG_ID,
+				             SG.SG_NAME,
+				             A.DESCRIPTION,
+				             NVL(A.MAKER_PART_NO, (SELECT MAKER_PART_NO FROM ICOMBYIT WHERE BUYER = CP.BYCA_COMORG_CODE AND BUYER_ITEM_NO = A.BUYER_ITEM_NO AND STATUS IN ('C','R'))) AS MAKER_PART_NO,
+				             A.SPECIFICATION,
+				             A.MAKER_NAME,
+				             OG.TEXT2 AS ORIGIN_NAME,
+				             A.ITEM_QTY,
+				             A.UNIT_MEASURE,
+				             NVL(LR.USER_ID, '') AS BTOA_USER_ID,
+				             A.BTOA_USER_NAME,
+				             A.REMARK_URL,
+				             A.BTOA_REMARK,
+				             A.IMAGE_KEY,
+				             A.BUYER_ASSIGN_AGENT_CODE,
+				             A.PRE_GR_FLAG,
+				             A.ASSIGN_AGENT_CODE,
+				             (SELECT COUNT(MNG.ADD_NOTE) FROM KEP_RQDT_NOTE_MNG MNG
+				               WHERE MNG.BUYER = A.BUYER
+				                 AND MNG.QUOTATION_NO = A.QUOTATION_NO
+				                 AND MNG.QUOTATION_SEQ = A.QUOTATION_SEQ
+				                 AND MNG.REVISION = A.REVISION
+				                 AND MNG.STATUS != 'D') AS NOTE_MNG,
+				             A.ATOA_REMARK,
+				             A.DELAY_REASON_CODE,
+				             A.BTOA_DATE,
+				             A.BTOA_END_DATE
+				        FROM KEPRQDT A
+				             LEFT OUTER JOIN ICOMCMPY CP ON (1 = 1
+				               AND CP.COM_CODE = A.BUYER
+				               AND CP.STATUS IN ('C','R')
+				             )
+				             LEFT OUTER JOIN ICOMCOD1 OG ON (1 = 1
+				               AND OG.TYPE = 'M001'
+				               AND OG.CODE = A.ORIGIN_CODE
+				               AND OG.FLAG = 'Y'
+				             )
+				             LEFT OUTER JOIN ICOMLUSR LR ON (1 = 1
+				               AND LR.USER_ID = A.BTOA_USER_ID
+				             )
+				             LEFT OUTER JOIN KEPSGMG SG ON (1 = 1
+				               AND SG.SG_ID = A.SG_ID
+				             )
+				       WHERE 1 = 1
+				         AND A.SO_CA_FLAG = 'SO'
+				         AND A.BTOA_NEGO_PRICE = 0
+				         AND A.RECV_FLAG IN ('NW', 'GA')
+				         AND A.STATUS IN ('C','R')
+				         AND A.SG_ID IS NOT NULL
+				         AND A.KEP_USER_ID IS NULL
+			]]>
+			<if test='st_period_ignore != "Y" or ((st_quotation_no == null or st_quotation_no == "") and (st_quotation_key == null or st_quotation_key == "") and st_quotation_keyArr == null and st_quotation_noArr == null)'>
+				<if test='st_date_type == "REQ"'>
+					AND A.BTOA_DATE BETWEEN #{st_from_date} AND #{st_to_date}
+				</if>
+				<if test='st_date_type != "REQ"'>
+					AND A.BTOA_END_DATE BETWEEN #{st_from_date} AND #{st_to_date}
+				</if>
+			</if>
+			<if test="st_buyerArr != null">
+				AND A.BUYER IN
+				<foreach item="item" collection="st_buyerArr" open="(" separator="," close=")">
+				#{item}
+				</foreach>
+			</if>
+			<choose>
+				<when test="st_quotation_noArr != null">
+					AND A.QUOTATION_NO IN
+					<foreach item="item" collection="st_quotation_noArr" open="(" separator="," close=")">
+					#{item}
+					</foreach>
+				</when>
+				<when test="st_quotation_no != null and st_quotation_no != ''">
+					AND A.QUOTATION_NO LIKE '%' || #{st_quotation_no} || '%'
+				</when>
+			</choose>
+			<choose>
+				<when test="st_quotation_keyArr != null">
+					AND A.KEP_QUOTATION_NO IN
+					<foreach item="item" collection="st_quotation_keyArr" open="(" separator="," close=")">
+					#{item}
+					</foreach>
+				</when>
+				<when test="st_quotation_key != null and st_quotation_key != ''">
+					AND A.KEP_QUOTATION_NO LIKE UPPER(TRIM(#{st_quotation_key})) || '%'
+				</when>
+			</choose>
+			<if test="st_maker_code != null and st_maker_code != ''">
+				AND A.MAKER_CODE = #{st_maker_code}
+			</if>
+		<![CDATA[
+				       ORDER BY A.BTOA_DATE, A.QUOTATION_NO, A.QUOTATION_SEQ
+				           ) X
+		]]>
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+
+</mapper>

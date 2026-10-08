@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mprq">
+	<!-- 일괄담당자 초기화 -->
+	<update  id="initBntTrxlBuRqItemInfoReg" parameterType="java.util.Map" >
+		<![CDATA[
+			/*initBntTrxlBuRqItemInfoReg*/			
+           DELETE FROM BNTTRXL
+           WHERE DOC_NAME = 'BURQ_INFO'
+             AND TARGET = #{USER_ID}
+             AND KEY_1 = #{st_burq_no}
+		]]>
+	</update>
+	
+	<update  id="setBntTrxlBuRqItemInfoReg" parameterType="java.util.Map" >
+		<![CDATA[
+			/*setBntTrxlBuRqItemInfoReg*/
+			INSERT INTO BNTTRXL  (  
+				  DOC_NAME
+				, TARGET
+				, KEY_1
+				, KEY_2
+				, KEY_3
+				, KEY_4
+				, KEY_5
+				, KEY_6
+				, KEY_7
+				, KEY_8
+				, KEY_9
+				, KEY_10
+				, KEY_11
+				, KEY_12
+				, KEY_13
+				, KEY_14
+				, KEY_15
+				, KEY_16
+				, KEY_17
+				, KEY_18
+				, KEY_19
+				, KEY_20
+				, KEY_21
+				, KEY_22
+				, KEY_23
+				, KEY_24
+			) VALUES (
+				'BURQ_INFO',					-- DOC_NAME
+				#{USER_ID},					-- TARGET	USER_ID    
+				#{st_burq_no},				-- KEY_1    BURQ_NO
+				#{SEQ},						-- KEY_2    
+				NVL(#{ITEM_KEY_ID}, ' '),	-- KEY_3	
+				NVL(#{SM_DESCRIPTION},' '),	-- KEY_4	
+				NVL(#{SM_SPECIFICATION}, ' '),	-- KEY_5	
+				NVL(#{SM_MAKER_PART_NO}, ' '),					-- KEY_6
+				NVL(#{SM_MAKER_CODE}, ' '),						-- KEY_7
+				NVL((SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'M104' AND FLAG = 'Y' AND CODE = #{SM_MAKER_CODE}), ' '),						-- KEY_8
+				NVL(#{SM_MIN_ORDER_QTY}, ' '),						-- KEY_9
+				NVL(#{SM_PUR_UNIT_QTY}, ' '),						-- KEY_10
+				NVL(#{SM_UNIT_MEASURE}, ' '),						-- KEY_11
+				' ',						-- KEY_12
+				' ',						-- KEY_13
+				' ', 						-- LEY_14
+				' ', 						-- KEY_15
+				' ', 						-- KEY_16
+				' ', 						-- KEY_17
+				' ', 						-- KEY_18
+				' ', 						-- KEY_19
+				' ', 						-- KEY_20
+				' ', 						-- KEY_21
+				' ', 						-- KEY_22
+				' ', 						-- KEY_23
+				' ' 						-- KEY_24
+			)
+		]]> 
+	</update>
+		
+	<select id="selectMasterMpRqBulkQuotationItemInfoReg" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/*selectMasterMpRqBulkQuotationItemInfoReg*/
+			SELECT
+				SEQ,
+				ITEM_KEY_ID,
+				DESCRIPTION,
+				SM_DESCRIPTION,
+				SM_SPECIFICATION,
+				SM_MAKER_PART_NO,
+				SM_MAKER_CODE,
+				SM_MAKER_NAME,
+				SM_MIN_ORDER_QTY,
+				SM_PUR_UNIT_QTY,
+				SM_UNIT_MEASURE,
+				CASE WHEN STATUS = 'K2' THEN '견적마감'
+					 WHEN DESCRIPTION IS NULL THEN '키값 오류'
+					 WHEN SM_DESCRIPTION IS NULL AND SM_SPECIFICATION IS NULL AND SM_MAKER_PART_NO IS NULL AND SM_MAKER_CODE IS NULL AND SM_MAKER_NAME IS NULL AND SM_MIN_ORDER_QTY IS NULL AND SM_PUR_UNIT_QTY IS NULL
+					 		AND SM_UNIT_MEASURE IS NULL THEN '필수정보 누락'
+					 WHEN UNIT_FLAG = 'N' THEN '단위 오류'
+					 WHEN IS_NUMBER(SM_MIN_ORDER_QTY) != 0 THEN '최소주문수량 오류'
+					 WHEN IS_NUMBER(SM_PUR_UNIT_QTY) != 0 THEN '주문배수수량 오류'
+				ELSE '정상' END AS RESULT
+			FROM (
+				SELECT
+					KEY_2 AS SEQ,
+					KEY_3 AS ITEM_KEY_ID,
+					TRIM(KEY_4) AS SM_DESCRIPTION,
+					TRIM(KEY_5) AS SM_SPECIFICATION,
+					TRIM(KEY_6) AS SM_MAKER_PART_NO,
+					TRIM(KEY_7) AS SM_MAKER_CODE,
+				 	TRIM(KEY_8) AS SM_MAKER_NAME,
+					TRIM(KEY_9) AS SM_MIN_ORDER_QTY,
+					TRIM(KEY_10) AS SM_PUR_UNIT_QTY,
+					TRIM(KEY_11) AS SM_UNIT_MEASURE,
+					(SELECT MAX(KEP_DESCRIPTION) FROM KEP_BURQ_RFQ RFQ WHERE RFQ.BURQ_NO = KEY_1 AND RFQ.ITEM_KEY_ID = KEY_3) AS DESCRIPTION,
+					(SELECT MAX(STATUS) FROM KEP_BURQ_RFQ RFQ WHERE RFQ.BURQ_NO = KEY_1 AND RFQ.ITEM_KEY_ID = KEY_3) AS STATUS,
+					DECODE( TRIM(KEY_11), NULL, 'Y',
+						DECODE( (SELECT COUNT(*) FROM ICOMCOD2 WHERE COMPANY_CODE IN (SELECT COM_CODE FROM ICOMCMPY WHERE BYCA_COMORG_CODE = SUBSTR(KEY_3, 10)) AND CODE = TRIM(KEY_1) AND TYPE = 'UNIT' AND FLAG = 'Y'), 0,
+							DECODE( (SELECT COUNT(*) FROM ICOMCOD1 WHERE TYPE = 'M007' AND FLAG = 'Y' AND CODE = KEY_11), 0 ,'N', 'Y')
+						)
+					) AS UNIT_FLAG
+				FROM BNTTRXL A
+				WHERE A.DOC_NAME = 'BURQ_INFO'
+				AND	A.TARGET = #{USER_ID}
+				AND A.KEY_1 = #{st_burq_no}
+		     )
+			ORDER BY TO_NUMBER(SEQ)
+		]]>
+	</select>
+	
+	<update  id="updateMasterMpRqBulkQuotationItemInfoReg" parameterType="java.util.Map" >
+		<![CDATA[
+			/*updateMasterMpRqBulkQuotationItemInfoReg*/
+			MERGE INTO KEP_BURQ_RFQ
+			USING BNTTRXL
+			ON (KEY_1 = BURQ_NO AND KEY_3 = ITEM_KEY_ID AND DOC_NAME = 'BURQ_INFO' AND TARGET = #{USER_ID} AND KEY_1 = #{st_burq_no})
+			WHEN MATCHED THEN 
+			UPDATE SET	SM_DESCRIPTION = NVL(TRIM(KEY_4),SM_DESCRIPTION),
+		                SM_SPECIFICATION = NVL(TRIM(KEY_5),SM_SPECIFICATION),
+		                SM_MAKER_PART_NO = NVL(TRIM(KEY_6),SM_MAKER_PART_NO),
+		                SM_MAKER_CODE = NVL(TRIM(KEY_7),SM_MAKER_CODE),
+		                SM_MIN_ORDER_QTY = NVL(TRIM(KEY_9),SM_MIN_ORDER_QTY),
+		                SM_PUR_UNIT_QTY = NVL(TRIM(KEY_10),SM_PUR_UNIT_QTY),
+		                SM_UNIT_MEASURE = NVL(TRIM(KEY_11),SM_UNIT_MEASURE),
+		                CHANGE_DATE = SYSDATE,
+		                CHANGE_USER_ID = #{USER_ID}				
+		]]> 
+	</update>
+</mapper>   
+   

@@ -1,0 +1,231 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.cmcl">
+	<!-- 조회 -->
+	<select id="selectMasterLogisRateDetailList" parameterType="java.util.Map" resultType="java.util.Map">		
+			<![CDATA[
+			 /*selectMasterLogisRateDetailList*/
+			 SELECT
+				X.BUYER,
+				X.BUYER_IRS_NO,
+				X.BUYER_NAME,
+				X.AGENT_IRS_NO,
+				X.AGENT_NAME,
+				X.AGENT,
+				X.GR_AMT,
+				X.LOGIS_PRICE,
+				X.SUPP_PRICE,
+			 	DECODE(X.RANK, 1, X.TAX_PRICE, 0) AS TAX_PRICE,
+			 	X.SUPP_PRICE + DECODE(X.RANK, 1, X.TAX_PRICE, 0) AS AMT,
+				X.DEPT_NAME,
+				X.LOGIS_TYPE,
+				X.KEP_USER_NAME,
+				X.LOGIS_TAX_BILL_NO,
+				DECODE(X.EXP_FLAG, 'Y', '해외','국내') AS EXP_FLAG
+			FROM
+			 (
+		    	 SELECT
+		    			GR.BUYER AS BUYER,
+		    			AR.IRS_NO AS BUYER_IRS_NO,
+					 	(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = GR.BUYER) AS BUYER_NAME,
+						(SELECT IRS_NO FROM ICOMCMPY WHERE COM_CODE = GR.AGENT) AS AGENT_IRS_NO,
+						(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = GR.AGENT) AS AGENT_NAME,
+						GR.AGENT AS AGENT,
+						SUM(GR.AGENT_ITEM_AMT) AS GR_AMT,
+						SUM(GR.LOGIS_AMT) AS LOGIS_PRICE,
+						SUM(GR.LOGIS_AMT) AS SUPP_PRICE,
+					    MAX(LOGIS.TAX_PRICE) AS TAX_PRICE,
+						(SELECT TEXT1 FROM ICOMCOD2 WHERE TYPE = 'C001' AND COMPANY_CODE = 'KRKORE0001' AND CODE = LOGIS.DEPT_CODE) AS DEPT_NAME,
+						'자동' AS LOGIS_TYPE,
+						MAX((SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = LOGIS.ADD_USER_ID)) AS KEP_USER_NAME,
+						MAX(GR.LOGIS_TAX_BILL_NO) AS LOGIS_TAX_BILL_NO,
+						MAX(LOGIS.EXP_FLAG) AS EXP_FLAG,
+						DENSE_RANK() OVER (PARTITION BY  LOGIS.DEPT_CODE, LOGIS.TAX_BILL_NO ORDER BY LOGIS.DEPT_CODE, LOGIS.TAX_BILL_NO, AR.IRS_NO, GR.BUYER) AS RANK
+						FROM ICOMGRDT GR, KEPTARDT LOGIS, KEPTARDT AR						
+						WHERE 1=1
+						AND GR.LOGIS_TAX_BILL_NO = LOGIS.TAX_BILL_NO
+                       	AND GR.AP_CLOSE_DEPT = LOGIS.DEPT_CODE
+                       	AND GR.AR_TAX_BILL_NO = AR.TAX_BILL_NO
+                       	AND GR.AR_CLOSE_DEPT = AR.DEPT_CODE
+						AND GR.STATUS IN ('C', 'R')
+						AND LOGIS.STATUS IN ('C', 'R')
+						AND AR.STATUS IN ('C', 'R')
+						AND GR.GR_DATE BETWEEN #{st_from_date} || '01' AND #{st_from_date} || '31'
+					]]>	
+					
+					<if test="st_buyer_code != null and st_buyer_code != '' ">
+					    AND GR.BUYER = #{st_buyer_code}
+					</if>
+					<if test="st_agent_code != null and st_agent_code != '' ">
+					    AND GR.AGENT = #{st_agent_code}
+					</if>				
+					<if test='st_logis_type != null and st_logis_type == "B" '>
+					    AND GR.GR_NO = 'XX'
+					</if>
+					<if test="st_user_name != null and st_user_name != ''">
+						AND (SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = LOGIS.ADD_USER_ID) LIKE '%' || #{st_user_name} || '%'
+		    		</if>
+						 GROUP BY AR.IRS_NO, GR.BUYER,GR.AGENT,LOGIS.TAX_BILL_NO,LOGIS.DEPT_CODE
+				<![CDATA[
+				UNION	
+	    			
+		    		 SELECT
+		    			A.BUYER AS BUYER,
+		    			MAX(A.BUYER_IRS_NO) AS BUYER_IRS_NO,
+						MAX((SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = A.BUYER)) AS BUYER_NAME,
+						MAX(A.AGENT_IRS_NO) AS AGENT_IRS_NO,
+						MAX((SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = A.AGENT)) AS AGENT_NAME,
+						A.AGENT AS AGENT,
+						MAX((SELECT SUM(AGENT_ITEM_AMT) FROM ICOMGRDT WHERE BUYER = A.BUYER AND AGENT = A.AGENT AND GR_DATE BETWEEN  #{st_from_date} || '01' AND #{st_from_date} || '31' AND STATUS <> 'D'))  AS GR_AMT,
+						SUM(A.PAY_AMT) AS LOGIS_PRICE,
+						SUM(A.PAY_AMT) AS SUPP_PRICE,
+						SUM(A.TAX_AMT) AS TAX_PRICE,
+						MAX((SELECT TEXT1 FROM ICOMCOD2 WHERE TYPE = 'C001' AND COMPANY_CODE = 'KRKORE0001' AND CODE =
+							(SELECT DEPARTMENT FROM ICOMLUSR WHERE USER_ID = A.ADD_USER_ID)
+						 )) AS DEPT_NAME,
+						'수기' AS LOGIS_TYPE,
+						MAX(A.ADD_USER_NAME) AS KEP_USER_NAME,
+						'' AS LOGIS_TAX_BILL_NO,
+						'N' AS EXP_FLAG,
+						1 AS RANK
+						FROM PAY_REG_MNG A
+						WHERE A.STATUS IN ('C','R')
+						AND A.PAY_REG_TYPE = 'C'
+						AND A.PAY_REG_STATUS = 'C'						
+						AND SCHD_CLOSE_MONTH = #{st_from_date}										
+				]]>
+				
+				<if test="st_buyer_code != null and st_buyer_code != '' ">
+				    AND A.BUYER = #{st_buyer_code}
+				</if>
+				<if test="st_agent_code != null and st_agent_code != '' ">
+				    AND A.AGENT = #{st_agent_code}
+				</if>				
+				<if test='st_logis_type != null and st_logis_type == "A" '>
+				    AND A.PAY_REG_TYPE = 'XX'
+				</if>
+				<if test="st_user_name != null and st_user_name != ''">
+					AND A.ADD_USER_NAME LIKE '%' || #{st_user_name} || '%'
+	    		</if>
+    			<![CDATA[
+	    	
+	    			GROUP BY A.BUYER, A.AGENT
+	    			
+	    			) X
+	    			ORDER BY X.LOGIS_TAX_BILL_NO, X.DEPT_NAME, X.RANK
+	    			
+   			]]>
+	    			
+	</select>
+	<select id="selectMasterLogisRateDetailList_v2" parameterType="java.util.Map" resultType="java.util.Map">		
+			<![CDATA[
+			 /*selectMasterLogisRateDetailList_v2*/
+			 SELECT
+				X.BUYER,
+				X.BUYER_NAME,
+				X.AGENT_IRS_NO,
+				X.AGENT_NAME,
+				X.AGENT,
+				X.INV_AMT,
+				X.LOGIS_PRICE,
+				X.SUPP_PRICE,
+			 	DECODE(X.RANK, 1, X.TAX_PRICE, 0) AS TAX_PRICE,
+			 	X.SUPP_PRICE + DECODE(X.RANK, 1, X.TAX_PRICE, 0) AS AMT,
+				X.DEPT_NAME,
+				X.LOGIS_TYPE,
+				X.KEP_USER_NAME,
+				X.LOGIS_TAX_BILL_NO,
+				DECODE(X.EXP_FLAG, 'Y', '해외','국내') AS EXP_FLAG
+			FROM
+			 (
+		    	 SELECT
+		    			IV.BUYER AS BUYER,
+					 	(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = IV.BUYER) AS BUYER_NAME,
+						(SELECT IRS_NO FROM ICOMCMPY WHERE COM_CODE = IV.AGENT) AS AGENT_IRS_NO,
+						(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = IV.AGENT) AS AGENT_NAME,
+						IV.AGENT AS AGENT,
+						SUM(IV.AGENT_ITEM_AMT) AS INV_AMT,
+						SUM(IV.LOGIS_AMT) AS LOGIS_PRICE,
+						SUM(IV.LOGIS_AMT) AS SUPP_PRICE,
+					    MAX(LOGIS.TAX_PRICE) AS TAX_PRICE,
+						(SELECT TEXT1 FROM ICOMCOD2 WHERE TYPE = 'C001' AND COMPANY_CODE = 'KRKORE0001' AND CODE = LOGIS.DEPT_CODE) AS DEPT_NAME,
+						'자동' AS LOGIS_TYPE,
+						MAX((SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = LOGIS.ADD_USER_ID)) AS KEP_USER_NAME,
+						MAX(IV.LOGIS_TAX_BILL_NO) AS LOGIS_TAX_BILL_NO,
+						MAX(LOGIS.EXP_FLAG) AS EXP_FLAG,
+						DENSE_RANK() OVER (PARTITION BY  LOGIS.DEPT_CODE, LOGIS.TAX_BILL_NO ORDER BY LOGIS.DEPT_CODE, LOGIS.TAX_BILL_NO, LOGIS.IRS_NO, IV.BUYER) AS RANK
+						FROM KEPTARDT LOGIS, ICOMIVDT IV						
+						WHERE 1=1
+						AND IV.LOGIS_TAX_BILL_NO = LOGIS.TAX_BILL_NO
+                       	AND IV.AP_CLOSE_DEPT = LOGIS.DEPT_CODE
+						AND LOGIS.STATUS IN ('C', 'R')
+						AND IV.STATUS IN ('C','R')
+						AND IV.DELIVERY_DATE BETWEEN #{st_from_date} || '01' AND #{st_from_date} || '31'
+					]]>	
+					
+					<if test="st_buyer_code != null and st_buyer_code != '' ">
+					    AND IV.BUYER = #{st_buyer_code}
+					</if>
+					<if test="st_agent_code != null and st_agent_code != '' ">
+					    AND IV.AGENT = #{st_agent_code}
+					</if>				
+					<if test='st_logis_type != null and st_logis_type == "B" '>
+					    AND IV.GR_NO = 'XX'
+					</if>
+					<if test="st_user_name != null and st_user_name != ''">
+						AND (SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = LOGIS.ADD_USER_ID) LIKE '%' || #{st_user_name} || '%'
+		    		</if>
+						 GROUP BY LOGIS.IRS_NO, IV.BUYER,IV.AGENT,LOGIS.TAX_BILL_NO,LOGIS.DEPT_CODE
+				<![CDATA[
+				UNION	
+	    			
+		    		 SELECT
+		    			A.BUYER AS BUYER,
+						MAX((SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = A.BUYER)) AS BUYER_NAME,
+						MAX(A.AGENT_IRS_NO) AS AGENT_IRS_NO,
+						MAX((SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = A.AGENT)) AS AGENT_NAME,
+						A.AGENT AS AGENT,
+						MAX((SELECT SUM(AGENT_ITEM_AMT) FROM ICOMGRDT WHERE BUYER = A.BUYER AND AGENT = A.AGENT AND GR_DATE BETWEEN  #{st_from_date} || '01' AND #{st_from_date} || '31' AND STATUS <> 'D'))  AS GR_AMT,
+						SUM(A.PAY_AMT) AS LOGIS_PRICE,
+						SUM(A.PAY_AMT) AS SUPP_PRICE,
+						SUM(A.TAX_AMT) AS TAX_PRICE,
+						MAX((SELECT TEXT1 FROM ICOMCOD2 WHERE TYPE = 'C001' AND COMPANY_CODE = 'KRKORE0001' AND CODE =
+							(SELECT DEPARTMENT FROM ICOMLUSR WHERE USER_ID = A.ADD_USER_ID)
+						 )) AS DEPT_NAME,
+						'수기' AS LOGIS_TYPE,
+						MAX(A.ADD_USER_NAME) AS KEP_USER_NAME,
+						'' AS LOGIS_TAX_BILL_NO,
+						'N' AS EXP_FLAG,
+						1 AS RANK
+						FROM PAY_REG_MNG A
+						WHERE A.STATUS IN ('C','R')
+						AND A.PAY_REG_TYPE = 'C'
+						AND A.PAY_REG_STATUS = 'C'						
+						AND SCHD_CLOSE_MONTH = #{st_from_date}										
+				]]>
+				
+				<if test="st_buyer_code != null and st_buyer_code != '' ">
+				    AND A.BUYER = #{st_buyer_code}
+				</if>
+				<if test="st_agent_code != null and st_agent_code != '' ">
+				    AND A.AGENT = #{st_agent_code}
+				</if>				
+				<if test='st_logis_type != null and st_logis_type == "A" '>
+				    AND A.PAY_REG_TYPE = 'XX'
+				</if>
+				<if test="st_user_name != null and st_user_name != ''">
+					AND A.ADD_USER_NAME LIKE '%' || #{st_user_name} || '%'
+	    		</if>
+    			<![CDATA[
+	    	
+	    			GROUP BY A.BUYER, A.AGENT
+	    			
+	    			) X
+	    			ORDER BY X.LOGIS_TAX_BILL_NO, X.DEPT_NAME, X.RANK
+	    			
+   			]]>
+	    			
+	</select>
+
+</mapper>   
+   

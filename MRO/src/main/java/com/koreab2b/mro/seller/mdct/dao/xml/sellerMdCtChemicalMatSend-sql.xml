@@ -1,0 +1,416 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="seller.mdct">
+	<!-- 조회 -->
+	<select id="selectSellerMdCtChemicalMatSendList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.pagestart"/>	
+			<![CDATA[
+				/*selectSellerMdCtChemicalMatSendList*/
+				SELECT
+				 REQ.REQ_NO
+				 ,REQ.BYIT_COMORG_CODE
+				 ,REQ.BUYER
+				 ,(SELECT CMPY.COM_NAME_LOC
+				  FROM ICOMCMPY CMPY
+				  WHERE CMPY.COM_CODE = REQ.BUYER) AS BUYER_NM
+				 ,REQ.BUYER_ITEM_NO
+				 ,DECODE(D.DESCRIPTION, NULL, B.DESCRIPTION_LOC, D.DESCRIPTION) AS DESCRIPTION_LOC
+				 ,DECODE(D.SPECIFICATION, NULL, B.SPECIFICATION, D.SPECIFICATION) AS SPECIFICATION
+				 ,DECODE(D.MAKER_NAME, NULL, B.MAKER_NAME, D.MAKER_NAME) AS MAKER_NAME
+				 ,REQ.REQ_DATE
+				 ,REQ.REQ_USER_ID
+				 ,C.USER_NAME_LOC
+				 ,C.PHONE_NUMBER
+				 ,REQ.REQ_STATUS
+				 ,(SELECT TEXT1 FROM ICOMCOD1 COD
+					WHERE COD.TYPE = 'CM01'
+					AND COD.CODE = REQ.REQ_STATUS) AS STATUS_NM
+				 ,DECODE(TRIM(REQ.CMC_HARMFUL_YN),'','0','1') AS MAKE_IMG
+				, CASE WHEN
+					 TRUNC(SYSDATE) - TO_DATE(TO_CHAR(REQ.REQ_DATE,'YYYYMMDD'),'YYYYMMDD') < 3 THEN '2'
+					 WHEN  TRUNC(SYSDATE) - TO_DATE(TO_CHAR(REQ.REQ_DATE,'YYYYMMDD'),'YYYYMMDD') < 6 THEN '3'
+						ELSE '4'
+					END AS REQ_NO_IMG 
+				,(SELECT DECODE(COUNT(PO_NO),0,'N','Y') FROM ICOMPODT PODT
+					WHERE PODT.BUYER = REQ.BUYER
+					AND PODT.BUYER_ITEM_NO = REQ.BUYER_ITEM_NO
+					AND PODT.ADD_DATE BETWEEN TO_CHAR(SYSDATE-30,'YYYYMMDD') AND TO_CHAR(SYSDATE,'YYYYMMDD')
+					AND PODT.STATUS != 'D') AS PO_YN
+				,REQ.QUOTATION_NO
+                 ,REQ.QUOTATION_SEQ
+                 ,REQ.REVISION
+				FROM KEP_CMC_REQ REQ, ICOMBYIT B, ICOMLUSR C, KEPRQDT D
+				WHERE REQ.BYIT_COMORG_CODE = B.BUYER(+)
+				AND REQ.BUYER_ITEM_NO = B.BUYER_ITEM_NO(+)
+				AND REQ.REQ_USER_ID = C.USER_ID
+				AND REQ.REQ_STATUS IN ('Q','R')
+				AND B.STATUS(+) != 'D'
+				
+				AND REQ.BUYER = D.BUYER(+)
+				AND REQ.QUOTATION_NO = D.QUOTATION_NO(+)
+                AND REQ.QUOTATION_SEQ = D.QUOTATION_SEQ(+)
+                
+				AND REQ.AGENT = #{st_com_code}
+				AND TO_CHAR(REQ.REQ_DATE,'YYYYMMDD')  BETWEEN #{st_from_date} AND #{st_to_date}
+				
+			]]>
+			<if test="st_req_no != null and st_req_no != ''">
+				AND UPPER(REQ.REQ_NO) LIKE UPPER(#{st_req_no}) || '%'
+			</if>
+			<if test="st_buyer_item_no != null and st_buyer_item_no != ''">
+				AND REQ.BUYER_ITEM_NO LIKE  #{st_buyer_item_no} || '%' 
+			</if>
+			<if test="st_desc != null and st_desc != ''">
+				AND (B.DESCRIPTION_LOC LIKE '%'||#{st_desc}||'%' OR D.DESCRIPTION LIKE '%'||#{st_desc}||'%') 
+			</if>
+			<if test="st_spec != null and st_spec != ''">
+				AND (B.SPECIFICATION LIKE '%'||#{st_spec}||'%' OR D.SPECIFICATION LIKE '%'||#{st_spec}||'%') 
+			</if>
+			<![CDATA[
+				ORDER BY  REQ.REQ_NO		
+			]]>
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+	<select id="selectSellerChemicalMatRegPopList" parameterType="java.util.Map" resultType="java.util.Map">
+			<![CDATA[
+				/*selectSellerChemicalMatRegPopList*/
+				SELECT
+				 MAK.REQ_NO
+				 ,MAK.STATUS
+				 ,MAK.OPEN_FLAG
+				 ,MAK.CAS_NO
+				 ,MAK.COMPONENT_TYPE_CODE
+				 ,MAK.MIN_MAKE_RATE
+				 ,MAK.MAX_MAKE_RATE
+				 ,MAK.AVG_MAKE_RATE
+				 ,DECODE(NVL(MAK.CML_HARMFUL_YN,'N'),'Y','1','0') AS CML_HARMFUL_YN
+				 ,DECODE(NVL(MAK.CML_PRE_TROUBLE_YN,'N'),'Y','1','0') AS CML_PRE_TROUBLE_YN
+				 ,DECODE(NVL(MAK.CML_BAN_OBJECT_YN,'N'),'Y','1','0') AS CML_BAN_OBJECT_YN
+				 ,DECODE(NVL(MAK.CML_LIMIT_OBJECT_YN,'N'),'Y','1','0') AS CML_LIMIT_OBJECT_YN
+				 ,'1' AS SELECTED
+				FROM KEP_CMC_REQ_MAKE MAK
+				WHERE MAK.REQ_NO  =  #{st_req_no}
+			]]>
+	</select>
+	<select id="selectSellerMdCtChemicalMatRegPopHd" parameterType="java.util.Map"  resultType="java.util.Map">
+		<![CDATA[
+				/*selectSellerMdCtChemicalMatRegPopHd*/
+				SELECT
+				 REQ.REQ_NO
+				 ,REQ.BYIT_COMORG_CODE
+				 ,REQ.BUYER
+				 ,REQ.BUYER_ITEM_NO
+				 ,B.DESCRIPTION_LOC
+				 ,B.SPECIFICATION
+				 ,B.MAKER_NAME
+				 ,(SELECT TEXT2 FROM ICOMCOD1 WHERE TYPE = 'M001' AND CODE = B.ORIGIN_CODE) ORIGIN_NM				 
+				 ,REQ.REQ_DATE
+				 ,REQ.REQ_USER_ID
+				 ,REQ.MSDS_NO_FILEKEY
+				 ,NVL(TRIM(B.MSDS_NO), REQ.MSDS_NO) AS MSDS_NO
+				 ,REQ.CMC_HARMFUL_YN
+				 ,REQ.CMC_HARMFUL_DESCRIPTION
+				 ,REQ.CMC_USE_CODE
+				 ,REQ.CMC_USE_NOTE
+				 ,REQ.DANGER_CLASS_CODE
+				 ,REQ.CMC_INFO_CODE
+				 ,REQ.CMC_INFO_LEVEL
+				 ,REQ.CMC_INFO_UNIT
+				 ,REQ.CMC_INFO_KEEP_CODE
+				 ,REQ.CMC_INFO_IMAGE_KEY
+				 ,REQ.CMC_INFO_NOT_IMAGE_CODE
+				 ,REQ.LOC_IMAGE_KEY
+				 ,REQ.AGENT_NOTE
+				 ,REQ.KEP_NOTE
+				 ,REQ.KEP_CMC_NOTE
+				 ,REQ.CMC_INFO_REMARK
+				 ,(SELECT DECODE(COUNT(CATEG.CMS_CATEG_ID),0,'N','Y')
+				    FROM CMSCATEG CATEG, ICOMCOD1 COD1
+					WHERE CATEG.SG_ID IN ('SG118','SG153','SG163')					
+					AND  CATEG.CMS_CATEG_ID = B.CMS_CATEG_ID
+					AND CATEG.STATUS != 'D') AS SG118_YN
+				,(SELECT DECODE(COUNT(CODE),0,'N','Y')
+					FROM ICOMCOD1 COD
+					WHERE COD.TYPE = 'CM10'
+					AND COD.CODE = #{st_session_id}
+					AND COD.FLAG = 'Y') AS CMC_USR_YN
+				,(SELECT DECODE(COUNT(RESULT.BUYER_ITEM_NO),0,'N','Y') FROM KEP_CMC_RESULT RESULT
+						WHERE  RESULT.BYIT_COMORG_CODE = REQ.BYIT_COMORG_CODE
+						AND RESULT.BUYER_ITEM_NO =  REQ.BUYER_ITEM_NO ) AS CMC_RESULT_YN
+				, C.DESCRIPTION_LOC AS CMS_DESCRIPTION_LOC
+				, C.SPECIFICATION AS CMS_SPECIFICATION
+				, C.MAKER_NAME AS CMS_MAKER_NAME
+				, C.ORIGIN_CODE AS CMS_ORIGIN_CODE
+   			    ,(SELECT TEXT2 FROM ICOMCOD1 WHERE TYPE = 'M001' AND CODE = C.ORIGIN_CODE)  AS CMS_ORIGIN_NM
+   			    , B.CMS_CATEG_ID
+   			    , (SELECT CAT.CATEG_NAME FROM CMSCATEG CAT
+					WHERE CAT.CMS_CATEG_ID = B.CMS_CATEG_ID) AS CMS_CATEG_NM
+				, REQ.QUOTATION_NO
+				, REQ.QUOTATION_SEQ
+				, REQ.REVISION
+				, REQ.TEMP_COND
+				, REQ.TEMP_RANGE
+				, REQ.REQ_STATUS
+				FROM KEP_CMC_REQ REQ, ICOMBYIT B, CMSCATLG C
+				WHERE  REQ.BYIT_COMORG_CODE = B.BUYER
+				AND   REQ.BUYER_ITEM_NO = B.BUYER_ITEM_NO
+				AND B.CMS_CATLG_ID = C.CMS_CATLG_ID(+)
+				AND C.STATUS (+) != 'D'
+				AND B.BUYER_ITEM_NO = #{st_buyer_item_no}
+				AND REQ.REQ_NO =  #{st_req_no}
+		]]>
+	</select>
+	
+	<select id="selectSellerMdCtChemicalMatRegRfqPopHd" parameterType="java.util.Map"  resultType="java.util.Map">
+		<![CDATA[
+		/*selectSellerMdCtChemicalMatRegRfqPopHd*/
+		SELECT	REQ.REQ_NO,
+				REQ.BYIT_COMORG_CODE,
+				REQ.BUYER,
+				REQ.BUYER_ITEM_NO,
+				B.DESCRIPTION AS DESCRIPTION_LOC,
+				B.SPECIFICATION,
+				B.MAKER_NAME,
+				(SELECT TEXT2 FROM ICOMCOD1 WHERE TYPE = 'M001' AND CODE = B.ORIGIN_CODE) AS ORIGIN_NM,
+				REQ.REQ_DATE,
+				REQ.REQ_USER_ID,
+				REQ.MSDS_NO_FILEKEY,
+				NVL(TRIM(B.MSDS_NO), REQ.MSDS_NO) AS MSDS_NO,
+				REQ.CMC_HARMFUL_YN,
+				REQ.CMC_HARMFUL_DESCRIPTION,
+				REQ.CMC_USE_CODE,
+				REQ.CMC_USE_NOTE,
+				REQ.DANGER_CLASS_CODE,
+				REQ.CMC_INFO_CODE,
+				REQ.CMC_INFO_LEVEL,
+				REQ.CMC_INFO_UNIT,
+				REQ.CMC_INFO_KEEP_CODE,
+				REQ.CMC_INFO_IMAGE_KEY,
+				REQ.CMC_INFO_NOT_IMAGE_CODE,
+				REQ.LOC_IMAGE_KEY,
+				REQ.AGENT_NOTE,
+				REQ.KEP_NOTE,
+				REQ.KEP_CMC_NOTE,
+				REQ.CMC_INFO_REMARK,
+				(SELECT DECODE(COUNT(CATEG.CMS_CATEG_ID),0,'N','Y') FROM CMSCATEG CATEG
+					WHERE CATEG.SG_ID IN ('SG118','SG153','SG163')
+					AND CATEG.CMS_CATEG_ID = B.CMS_CATEG_ID
+					AND CATEG.STATUS != 'D') AS SG118_YN,
+				(SELECT DECODE(COUNT(CODE),0,'N','Y') FROM ICOMCOD1 COD
+					WHERE COD.TYPE = 'CM10'
+					AND COD.CODE = #{st_session_id}
+					AND COD.FLAG = 'Y') AS CMC_USR_YN,
+				(SELECT DECODE(COUNT(RESULT.BUYER_ITEM_NO),0,'N','Y') FROM KEP_CMC_RESULT RESULT
+					WHERE RESULT.BYIT_COMORG_CODE = REQ.BYIT_COMORG_CODE
+					AND RESULT.BUYER_ITEM_NO =  REQ.BUYER_ITEM_NO ) AS CMC_RESULT_YN,
+				C.DESCRIPTION_LOC AS CMS_DESCRIPTION_LOC,
+				C.SPECIFICATION AS CMS_SPECIFICATION,
+				C.MAKER_NAME AS CMS_MAKER_NAME,
+				C.ORIGIN_CODE AS CMS_ORIGIN_CODE,
+				(SELECT TEXT2 FROM ICOMCOD1 WHERE TYPE = 'M001' AND CODE = C.ORIGIN_CODE)  AS CMS_ORIGIN_NM,
+				B.CMS_CATEG_ID,
+				(SELECT CAT.CATEG_NAME FROM CMSCATEG CAT WHERE CAT.CMS_CATEG_ID = B.CMS_CATEG_ID) AS CMS_CATEG_NM,
+				REQ.QUOTATION_NO,
+				REQ.QUOTATION_SEQ,
+				REQ.REVISION,
+				REQ.TEMP_COND,
+				REQ.TEMP_RANGE,
+				REQ.REQ_STATUS
+		FROM	KEP_CMC_REQ REQ, KEPRQDT B, CMSCATLG C
+		WHERE	1=1
+		AND		REQ.BUYER = B.BUYER
+		AND		REQ.QUOTATION_NO = B.QUOTATION_NO
+		AND		REQ.QUOTATION_SEQ = B.QUOTATION_SEQ
+		AND		REQ.REVISION = B.REVISION
+		AND		B.CMS_CATLG_ID = C.CMS_CATLG_ID(+)
+		AND		C.STATUS (+) != 'D'
+		AND		B.BUYER = #{st_buyer}
+		AND		B.QUOTATION_NO = #{st_quotation_no}
+		AND		B.QUOTATION_SEQ = #{st_quotation_seq}
+		AND		B.REVISION = #{st_revision}
+		AND		REQ.REQ_NO =  #{st_req_no}
+		]]>
+	</select>
+	
+	<select id="selectSellerMdCtKepCmcReqStatus" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+				/*selectSellerMdCtKepCmcReqStatus*/
+				SELECT
+				REQ.REQ_STATUS
+				FROM KEP_CMC_REQ REQ
+				WHERE REQ.REQ_NO = #{st_req_no}
+        ]]>
+	</select>
+	<update  id="updateSellerMdCmChemicalMatSend" parameterType="java.util.Map" >
+		<![CDATA[
+		     /*updateSellerMdCmChemicalMatSend*/
+                   UPDATE KEP_CMC_REQ REQ
+                   SET REQ_STATUS = 'S'  
+                     , STOA_DATE = SYSDATE
+                     , STOA_USER_ID = #{USER_ID}
+                     , MSDS_NO = #{st_msds_no}
+                     , MSDS_NO_FILEKEY = #{st_msds_file_key}
+                     , CMC_HARMFUL_YN = #{st_harmful_yn}
+                     , CMC_USE_CODE = DECODE(#{st_harmful_yn},'Y',#{st_use_cd},NULL)
+                     , CMC_INFO_LEVEL = DECODE(#{st_harmful_yn},'Y',#{st_info_level},NULL)
+                     , CMC_INFO_UNIT = DECODE(#{st_harmful_yn},'Y',#{st_info_unit},NULL)
+                     , AGENT_NOTE = #{st_agent_note}
+                     , KEP_NOTE = #{st_kep_note}
+                     , TEMP_COND = #{st_temp_cond}
+                     , TEMP_RANGE = REPLACE(#{st_temp_range}, '''')
+                     , CHANGE_DATE = SYSDATE
+                     , CHANGE_USER_ID = #{USER_ID}
+                 WHERE REQ.REQ_NO = #{st_req_no}
+		  ]]>
+	</update>
+	<update  id="updateSellerMdCmChemicalMatSendV2" parameterType="java.util.Map" >
+		<![CDATA[
+		     /*updateSellerMdCmChemicalMatSendV2*/
+                   UPDATE KEP_CMC_REQ REQ
+                   SET REQ_STATUS = 'S'
+                     , STOA_DATE = SYSDATE
+                     , STOA_USER_ID = #{USER_ID}
+                     , MSDS_NO = #{st_msds_no}
+                     , MSDS_NO_FILEKEY = #{st_msds_file_key}
+                     , CMC_HARMFUL_YN = #{st_harmful_yn}
+                     , CMC_USE_CODE = DECODE(#{st_harmful_yn},'Y',#{st_use_cd},NULL)
+                     , CMC_INFO_LEVEL = DECODE(#{st_harmful_yn},'Y',#{st_info_level},NULL)
+                     , CMC_INFO_UNIT = DECODE(#{st_harmful_yn},'Y',#{st_info_unit},NULL)
+                     , AGENT_NOTE = #{st_agent_note}
+                     , KEP_NOTE = #{st_kep_note}
+                     , TEMP_COND = #{st_temp_cond}
+                     , TEMP_RANGE = REPLACE(#{st_temp_range}, '''')
+                     , CHANGE_DATE = SYSDATE
+                     , CHANGE_USER_ID = #{USER_ID}
+                 WHERE REQ.REQ_NO = #{st_req_no}
+		  ]]>
+	</update>
+	<update id="deleteSellerMdCmChemicalMatMakeSend"  parameterType="java.util.Map">
+		<![CDATA[
+			/* deleteSellerMdCmChemicalMatMakeSend */
+			DELETE KEP_CMC_REQ_MAKE MAK
+			 WHERE MAK.REQ_NO =#{st_req_no}
+		]]>
+	</update>
+	<update id="saveSellerMdCmChemicalMatMakeSend"  parameterType="java.util.Map">
+		<![CDATA[
+			/* saveSellerMdCmChemicalMatMakeSend */
+			INSERT INTO KEP_CMC_REQ_MAKE
+			(
+				REQ_NO
+				,SEQ
+				,STATUS
+				,OPEN_FLAG
+				,CAS_NO
+				,COMPONENT_TYPE_CODE
+				,MIN_MAKE_RATE
+				,MAX_MAKE_RATE
+				,AVG_MAKE_RATE
+				,CML_HARMFUL_YN
+				,CML_PRE_TROUBLE_YN
+				,CML_BAN_OBJECT_YN
+				,CML_LIMIT_OBJECT_YN
+				,ADD_DATE
+				,ADD_USER_ID
+				,CHANGE_DATE
+				,CHANGE_USER_ID
+			) VALUES
+			(
+				#{st_req_no}
+				,(SELECT NVL(COUNT(A.SEQ),0)+1 
+					FROM KEP_CMC_REQ_MAKE A WHERE A.REQ_NO =#{st_req_no}) 
+				, 'C'
+				, #{OPEN_FLAG}
+				, #{CAS_NO}
+				, #{COMPONENT_TYPE_CODE}
+				, #{MIN_MAKE_RATE}
+				, #{MAX_MAKE_RATE}
+				, #{AVG_MAKE_RATE}
+				, DECODE(#{CML_HARMFUL_YN},'0','N','Y')
+				, DECODE(#{CML_PRE_TROUBLE_YN},'0','N','Y')
+				, DECODE(#{CML_BAN_OBJECT_YN},'0','N','Y')
+				, DECODE(#{CML_LIMIT_OBJECT_YN},'0','N','Y')
+				, SYSDATE
+				, #{USER_ID}
+				, SYSDATE
+				, #{USER_ID}
+			)				
+		]]>
+	</update>
+	<update  id="returnSellerMdCtChemicalMatSendList" parameterType="java.util.Map" >
+		<![CDATA[
+			/*returnSellerMdCtChemicalMatSendList*/
+			UPDATE	KEP_CMC_REQ
+			SET		REQ_STATUS = 'P',
+					STOA_DATE = SYSDATE,
+					STOA_USER_ID = #{USER_ID},
+					AGENT_NOTE = #{rdo_agent_note_value},
+					CHANGE_DATE = SYSDATE,
+					CHANGE_USER_ID = #{USER_ID},
+					CMC_HARMFUL_YN = 'N',
+					CMC_USE_CODE = NULL,
+					CMC_USE_NOTE = NULL,
+					CMC_INFO_LEVEL = NULL,
+					TEMP_COND = #{st_temp_cond},
+					TEMP_RANGE = REPLACE(#{st_temp_range}, '''')
+			WHERE	REQ_NO = #{st_req_no}
+		]]>
+	</update>
+	<update  id="returnSellerMdCtChemicalMatSendListV2" parameterType="java.util.Map" >
+		<![CDATA[
+			/*returnSellerMdCtChemicalMatSendListV2*/
+			UPDATE	KEP_CMC_REQ
+			SET		REQ_STATUS = 'P',
+					STOA_DATE = SYSDATE,
+					STOA_USER_ID = #{USER_ID},
+					MSDS_NO_FILEKEY = #{st_msds_file_key},
+					AGENT_NOTE = #{st_agent_note},
+					KEP_NOTE = #{st_kep_note},
+					CHANGE_DATE = SYSDATE,
+					CHANGE_USER_ID = #{USER_ID},
+					CMC_HARMFUL_YN = 'N',
+					CMC_USE_CODE = NULL,
+					CMC_USE_NOTE = NULL,
+					CMC_INFO_LEVEL = NULL,
+					TEMP_COND = #{st_temp_cond},
+					TEMP_RANGE = REPLACE(#{st_temp_range}, '''')
+			WHERE	REQ_NO = #{st_req_no}
+		]]>
+	</update>
+		<update  id="afterSellerMdCtChemicalMatSendList" parameterType="java.util.Map" >
+		<![CDATA[
+			/*afterSellerMdCtChemicalMatSendList*/
+			UPDATE	KEP_CMC_REQ
+			SET		REQ_STATUS = 'A',
+					STOA_DATE = SYSDATE,
+					STOA_USER_ID = #{USER_ID},
+					AGENT_NOTE = #{rdo_agent_note_value},
+					CHANGE_DATE = SYSDATE,
+					CHANGE_USER_ID = #{USER_ID},
+					CMC_HARMFUL_YN = 'N',
+					CMC_USE_CODE = NULL,
+					CMC_USE_NOTE = NULL,
+					CMC_INFO_LEVEL = NULL
+			WHERE	REQ_NO = #{st_req_no}
+		]]>
+	</update>
+	<update  id="afterSellerMdCtChemicalMatSendListV2" parameterType="java.util.Map" >
+		<![CDATA[
+			/*afterSellerMdCtChemicalMatSendListV2*/
+			UPDATE	KEP_CMC_REQ
+			SET		REQ_STATUS = 'A',
+					STOA_DATE = SYSDATE,
+					STOA_USER_ID = #{USER_ID},
+					MSDS_NO_FILEKEY = #{st_msds_file_key},
+					AGENT_NOTE = #{st_agent_note},
+					KEP_NOTE = #{st_kep_note},
+					CHANGE_DATE = SYSDATE,
+					CHANGE_USER_ID = #{USER_ID},
+					CMC_HARMFUL_YN = 'N',
+					CMC_USE_CODE = NULL,
+					CMC_USE_NOTE = NULL,
+					CMC_INFO_LEVEL = NULL
+			WHERE	REQ_NO = #{st_req_no}
+		]]>
+	</update>
+</mapper>

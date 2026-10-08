@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="buyer.mpst">
+
+	<!-- 조회 -->
+	<select id="selectBuyerMpStRecinpayListList" parameterType="java.util.Map" resultType="java.util.Map">
+	/*selectBuyerMpStRecinpayListList*/
+		<include refid="common.ibsheet.xml.jsppagestart"/>
+		<![CDATA[
+			SELECT
+			    X.BUYER
+			  , X.BYCA_COMORG_CODE
+			  , X.JOB_TYPE
+			  , DECODE(X.JOB_TYPE, 'CHUL', '출고', 'JO', '조정', '입고') AS JOB_TYPE_TEXT
+			  , X.JOB_NO
+			  , X.ITEM_NO
+			  , X.DESCRIPTION
+			  , X.SPECIFICATION
+			  , X.MAKER_CODE
+			  , X.MAKER_NAME
+			  , X.UNIT_MEASURE
+			  , SUBSTR(X.JOB_DATE, 0, 4)||'/'||SUBSTR(X.JOB_DATE, 5, 2)||'/'||SUBSTR(X.JOB_DATE, 7, 2) 
+				|| ' ' || SUBSTR(X.JOB_TIME, 0, 2)||':'||SUBSTR(X.JOB_TIME, 3, 2)||':'||SUBSTR(X.JOB_TIME, 5, 2) AS JOB_DAY 
+			  , X.ITEM_QTY
+			  , X.JOB_USER_ID
+			  , (SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = X.JOB_USER_ID) AS JOB_USER_NAME
+			  , X.JOB_DEPT_CD
+			  , (SELECT TEXT1 FROM ICOMCOD2 WHERE COMPANY_CODE = X.BUYER AND TYPE = 'C001' AND CODE = X.JOB_DEPT_CD) AS JOB_DEPT_NAME
+			  , X.JOB_NOTE
+			  , X.CONTRACT_NO
+			  , X.CONTRACT_SEQ
+			  , X.MAX_CONT
+			FROM 
+			(
+			    SELECT
+			        A.BUYER
+			      , B.BUYER AS BYCA_COMORG_CODE
+			      , A.JOB_TYPE
+			      , A.JOB_NO
+			      , A.ITEM_NO
+			      , B.DESCRIPTION
+			      , B.SPECIFICATION
+			      , B.MAKER_CODE
+			      , B.MAKER_NAME
+			      , B.UNIT_MEASURE
+			      , A.JOB_DATE
+			      , A.JOB_TIME
+			      , A.ITEM_QTY
+			      , A.JOB_USER_ID
+			      , A.JOB_DEPT_CD
+			      , A.JOB_NOTE
+			      , B.CONTRACT_NO
+			      , B.CONTRACT_SEQ
+			      , ROW_NUMBER() OVER(PARTITION BY A.JOB_TYPE, A.JOB_NO ORDER BY B.BUYER, B.BUYER_ITEM_NO, B.CONTRACT_NO DESC, B.CONTRACT_SEQ DESC) AS MAX_CONT
+			    FROM
+			        BUYER_STOCK_LIST A /* 구매사 수불 상세내역 */
+			      , ICOMCQDT B /* 구매사별 계약서 가격정보 */
+			      , ICOMCMPY C /* 회원사정보 */
+			    WHERE 1=1
+			    AND A.BUYER = C.COM_CODE
+			    AND C.BYCA_COMORG_CODE = B.BUYER
+			    AND A.ITEM_NO = B.BUYER_ITEM_NO
+			    AND A.BUYER = #{st_com_code}
+			    AND A.JOB_DATE BETWEEN #{st_from_date} AND #{st_to_date}
+			    AND A.STATUS <> 'D'
+			    AND B.STATUS <> 'D'
+		]]>
+		<if test="st_job_type != null and st_job_type != '' ">
+			    AND A.JOB_TYPE = #{st_job_type}
+		</if>
+		<if test="st_buyer_item_no != null and st_buyer_item_no != '' ">
+			    AND A.ITEM_NO LIKE '%' || #{st_buyer_item_no} || '%'
+		</if>
+		<if test="st_job_user_id != null and st_job_user_id != '' ">
+			    AND A.JOB_USER_ID = #{st_job_user_id}
+		</if>
+		<if test="st_job_dept_cd != null and st_job_dept_cd != '' ">
+			    AND A.JOB_DEPT_CD = #{st_job_dept_cd}
+		</if>
+		<if test="st_description != null and st_description != '' ">
+			    AND B.DESCRIPTION LIKE '%' || #{st_description} || '%'
+		</if>
+		<if test="st_specification != null and st_specification != '' ">
+			    AND B.SPECIFICATION LIKE '%' || #{st_specification} || '%'
+		</if>
+		<![CDATA[
+			) X
+			WHERE 
+			    X.MAX_CONT = 1 /* 계약데이터는 마지막 계약을 기준으로 한다 */
+			ORDER BY 
+			    X.JOB_DATE DESC
+ 		]]>
+		<include refid="common.ibsheet.xml.jsppageend"/>	
+	</select> 
+	
+	<select id="selectBuyerMpStRecinpayListList_userList" parameterType="java.util.Map" resultType="java.util.Map">
+	/*selectBuyerMpStRecinpayListList_userList*/
+		<![CDATA[
+			SELECT
+			    USER_ID
+			  , USER_NAME_LOC AS USER_NAME
+			  , LEGACY_USER_ID
+			FROM
+			    ICOMLUSR /* 사용자정보 */
+			WHERE 1=1
+			AND COM_CODE = #{st_com_code}
+			AND STATUS IN ('C','R')
+			ORDER BY
+			    USER_NAME_LOC
+        ]]> 
+	</select>
+	
+	<select id="selectBuyerMpStRecinpayListList_deptList" parameterType="java.util.Map" resultType="java.util.Map">
+	/*selectBuyerMpStRecinpayListList_deptList*/
+		<![CDATA[
+			SELECT
+			    CODE
+			  , TEXT1
+			FROM
+			    ICOMCOD2 /* 회사별 코드관리 */
+			WHERE 1=1
+			AND COMPANY_CODE = #{st_com_code}
+			AND TYPE = 'C001'
+			AND FLAG = 'Y'
+        ]]> 
+	</select>
+	
+</mapper>

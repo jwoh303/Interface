@@ -1,0 +1,210 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="common.mpso">
+
+
+<select id="getSysopOrderChangePoAfterDTPopQty" parameterType="java.util.Map" resultType="java.util.Map">
+<![CDATA[
+/*getSysopOrderChangePoAfterDTPopQty*/
+ 
+
+              SELECT                                                                                                           
+                     (SELECT MIN(INV_NO) FROM ICOMIVDT WHERE BUYER = R.BUYER                                                   
+                                 AND PO_NO = R.PO_NO AND PO_SEQ = R.PO_SEQ AND DS_DATE = R.DS_DATE AND STATUS <> 'D') INV_NO,   --[00]
+                     (SELECT COM_NAME_LOC FROM ICOMCMPY                                                                        
+                         WHERE COM_CODE = H.AGENT) AS 공급회원사,                                                               --[01]
+                     H.PO_CREATE_DATE 발주일,                                                                                   --[02]
+                     D.RD_DATE 납기요청일,                                                                                      --[03]
+                     (SELECT MIN(GR_DATE) FROM ICOMGRDT                                                                        
+                         WHERE BUYER = D.BUYER AND PO_NO = D.PO_NO AND PO_SEQ = D.PO_SEQ AND STATUS <> 'D') AS 입고일,          --[04]
+                     D.ITEM_QTY ,                                                                                               --[05]
+                     D.GR_QTY,                                                                                                  --[06]
+                     D.UNIT_PRICE ,                                                                                             --[07]
+                     D.PO_SEQ,                                                                                                  --[08]
+                     D.MAKER_NAME,                                                                                              --[09]
+                     D.REF_PR_NO ,                                                                                              --[10]
+                     D.BUYER_ITEM_NO,                                                                                           --[11]
+                     (SELECT MIN(INVOICE_DATE) FROM ICOMIVDT WHERE BUYER = R.BUYER                                             
+                         AND PO_NO = R.PO_NO AND PO_SEQ = R.PO_SEQ  AND DS_DATE = R.DS_DATE AND STATUS <> 'D') AS 송장일,       --[12]
+                     R.DS_DATE 납품예정일,                                                                                      --[13]
+                     (SELECT MIN(DELIVERY_DATE) FROM ICOMIVDT WHERE BUYER = R.BUYER                                            
+                         AND PO_NO = R.PO_NO AND PO_SEQ = R.PO_SEQ  AND DS_DATE = R.DS_DATE AND STATUS <> 'D') AS 납품일,       --[14]      
+                     (SELECT NVL(SUM(INV_QTY),0) FROM ICOMIVDT WHERE BUYER = R.BUYER                                           
+                         AND PO_NO = R.PO_NO AND PO_SEQ = R.PO_SEQ AND DS_DATE = R.DS_DATE  AND STATUS <> 'D') 송장수량,        --[15]
+                     (SELECT NVL(SUM(DELIVERY_QTY),0) FROM ICOMIVDT WHERE BUYER = R.BUYER                                      
+                         AND PO_NO = R.PO_NO AND PO_SEQ = R.PO_SEQ  AND DS_DATE = R.DS_DATE AND STATUS <> 'D') AS 납품수량,     --[16]      
+                     D.AGENT_PRICE,                                                                                             --[17]
+                     D.LEGACY_PO_NO,                                                                                            --[18]
+                     (SELECT MAKER_PART_NO FROM ICOMCQDT                                                                       
+                         WHERE BUYER = D.BYIT_COMORG_CODE AND CONTRACT_NO = D.CONTRACT_NO AND CONTRACT_SEQ = D.CONTRACT_SEQ),   --[19]
+                     D.DESCRIPTION ,                                                                                            --[20]
+                     D.SPECIFICATION ,                                                                                          --[21]
+                     D.UNIT_MEASURE,                                                                                            --[22]
+                     D.PO_REMARK,                                                                                               --[23]
+                     H.BUYER ,                                                                                                  --[24]
+                     D.BYIT_COMORG_CODE,                                                                                        --[25]
+                     D.CONTRACT_NO,                                                                                             --[26]
+                     D.CONTRACT_SEQ,                                                                                            --[27]
+                     H.AGENT,                                                                                                   --[28]
+                     (SELECT LAST_CLOSE_DATE FROM MIS_CLOSDATE WHERE BUYER = H.BUYER),                                          --[29]
+                     TRUNC(D.UNIT_PRICE  * R.CD_QTY,2),                                                                         --[30]
+                     TRUNC(D.AGENT_PRICE * R.CD_QTY,2),                                                                         --[31]
+                     D.PO_NO,                                                                                                   --[32]
+                     D.PR_NO,                                                                                                   --[33]
+                     D.PR_SEQ,                                                                                                  --[34]
+                     D.DO_QTY,                                                                                                  --[35]
+                     D.LEGACY_PO_SEQ,                                                                                           --[36]
+                     R.CD_QTY,                                                                                                  --[37]
+                     H.DS_FLAG,                                                                                                 --[38]
+                     D.DS_DATE  AS MAX_DS_DATE,                                                                                 --[39]
+                     R.DS_SEQ,                                                                                                  --[40]
+                     D.SELLER,                                                                                                  --[41]
+                     DECODE(D.GR_QTY, 0,DECODE(D.IV_QTY,0, DECODE(D.DO_QTY,0,'발주','수주접수'),'송장생성'),                   
+                                          DECODE(( NVL(D.ITEM_QTY,0) - NVL((D.GR_QTY),0)),0,'입고완료','부분입고')) 진행상태,   --[42]
+                     DECODE(NVL(D.PO_REMARK ,'icon') , 'icon' ,'icon2.gif' ,'icon.gif') 비고이미지,                              --[43]                  
+                     (SELECT TEXT2 FROM ICOMCOD1 WHERE TYPE = 'M034' AND CODE = D.PROCESS_TYPE) AS PROCESS_NAME,               --[44]
+                     (SELECT NVL(SUM(WMS_IVK_QTY),0) FROM ICOMIVDT WHERE BUYER = R.BUYER  
+                         AND PO_NO = R.PO_NO AND PO_SEQ = R.PO_SEQ  AND DS_DATE = R.DS_DATE AND STATUS <> 'D') AS 납품수량2,   --[45]
+                     (SELECT NVL(SUM(WMS_GR_QTY),0) FROM ICOMIVDT WHERE BUYER = R.BUYER  
+                         AND PO_NO = R.PO_NO AND PO_SEQ = R.PO_SEQ  AND DS_DATE = R.DS_DATE AND STATUS <> 'D') AS 납품수량3,   --[46]
+         D.PROCESS_TYPE   --[47]
+
+
+                FROM ICOMPOHD H, ICOMPODT D,ICOMPORS R                                                                         
+               WHERE H.BUYER = #{value}                                                                                            
+                 AND H.PO_NO = #{value}                                                                                            
+                 AND H.BUYER = D.BUYER                                                                                         
+                 AND H.PO_NO = D.PO_NO                                                                                         
+                 AND D.BUYER = R.BUYER                                                                                         
+                 AND D.PO_NO = R.PO_NO                                                                                         
+                 AND D.PO_SEQ= R.PO_SEQ                                                                                        
+                 AND H.STATUS <> 'D'                                                                                           
+                 AND D.STATUS <> 'D'                                                                                           
+                 AND R.STATUS <> 'D'                                                                                           
+                 ORDER BY R.PO_SEQ , R.DS_DATE                                                                                 
+
+]]>
+ 
+
+</select>
+
+
+
+
+<update id="setSysopOrderChangeAfterQtyChange1" parameterType="java.util.Map">
+<![CDATA[
+
+/*setSysopOrderChangeAfterQtyChange1*/
+
+            UPDATE ICOMPORS
+               SET STATUS        = DECODE(#{value},0,'D','R') ,
+       CD_QTY     = #{value},
+       CHANGE_DATE   = TO_CHAR(SYSDATE, 'YYYYMMDD'),
+                   CHANGE_TIME   = TO_CHAR(SYSDATE, 'HH24MISS')
+             WHERE BUYER   = #{value}
+               AND PO_NO   = #{value}
+               AND PO_SEQ  = #{value}
+               AND DS_DATE = #{value}
+
+
+]]>
+</update> 
+
+
+<update id="setSysopOrderChangeAfterQtyChange2" parameterType="java.util.Map">
+<![CDATA[
+
+/*setSysopOrderChangeAfterQtyChange2*/
+
+            UPDATE ICOMPRDT
+               SET STATUS        =  DECODE(#{value},0,'D','R') ,
+       PO_QTY = #{value},
+       RECV_QTY = #{value},
+       TARGET_QTY = DECODE(DOC_TYPE,'X',#{value},TARGET_QTY),
+       CHANGE_DATE   = TO_CHAR(SYSDATE, 'YYYYMMDD'),
+                   CHANGE_TIME   = TO_CHAR(SYSDATE, 'HH24MISS')
+             WHERE BUYER   = #{value}
+               AND PR_NO   = #{value}
+               AND PR_SEQ  = #{value}
+
+
+]]>
+</update> 
+
+
+<update id="setSysopOrderChangeAfterQtyChange3" parameterType="java.util.Map">
+<![CDATA[
+
+/*setSysopOrderChangeAfterQtyChange3*/
+
+            UPDATE ICOMIVDT                                                 
+               SET STATUS        = DECODE(#{value},0,'D','R') ,
+                   INV_QTY = #{value},
+                   ITEM_AMT = TRUNC( #{value} * UNIT_PRICE,2),
+                   CHANGE_DATE   = TO_CHAR(SYSDATE, 'YYYYMMDD'),
+                   CHANGE_TIME   = TO_CHAR(SYSDATE, 'HH24MISS')
+             WHERE BUYER   = #{value}
+               AND PO_NO   = #{value}
+               AND PO_SEQ  = #{value}
+               AND DS_DATE = #{value}
+               AND STATUS != 'D'                                            
+
+
+]]>
+</update> 
+
+
+
+<update id="setSysopOrderChangeAfterQtyChange4" parameterType="java.util.Map">
+<![CDATA[
+
+/*setSysopOrderChangeAfterQtyChange4*/
+
+            UPDATE ICOMPODT DT
+               SET STATUS           =  DECODE(#{value},0,'D','R') ,
+   ITEM_QTY= #{value},
+               ITEM_AMT= TRUNC(UNIT_PRICE   * #{value} ,2),
+               AGENT_ITEM_AMT= TRUNC(AGENT_PRICE  * #{value} ,2),
+               DO_QTY   = (SELECT NVL(SUM(CD_QTY),0)  FROM ICOMPORS WHERE BUYER = DT.BUYER AND PO_NO = DT.PO_NO AND PO_SEQ = DT.PO_SEQ AND STATUS <> 'D'),
+               IV_QTY= DECODE(DT.PROCESS_TYPE,'0',(SELECT NVL(SUM(INV_QTY),0) FROM ICOMIVDT WHERE BUYER = DT.BUYER AND PO_NO = DT.PO_NO AND PO_SEQ = DT.PO_SEQ AND STATUS <> 'D'),DT.IV_QTY),
+       SEND_DATE= ' ',
+       SEND_TIME= ' ',
+                   CHANGE_DATE= TO_CHAR(SYSDATE, 'YYYYMMDD'),
+                   CHANGE_TIME= TO_CHAR(SYSDATE, 'HH24MISS')
+             WHERE BUYER   = #{value}
+               AND PO_NO   = #{value}
+               AND PO_SEQ  = #{value}
+
+
+]]>
+</update> 
+
+
+
+<update id="setSysopOrderChangeAfterQtyChange5" parameterType="java.util.Map">
+<![CDATA[
+
+/*setSysopOrderChangeAfterQtyChange5*/
+
+             UPDATE ICOMPRHD 
+                SET STATUS = DECODE((SELECT COUNT(*) FROM ICOMPRDT WHERE BUYER = #{value}  AND PR_NO = #{value}  AND STATUS IN ('C','R')),0,'D','R'),  
+                    CHANGE_DATE   = TO_CHAR(SYSDATE, 'YYYYMMDD'),
+                    CHANGE_TIME   = TO_CHAR(SYSDATE,'HH24MISS')
+              WHERE BUYER = #{value}
+                AND PR_NO = #{value}
+
+
+]]>
+</update> 
+
+ 
+
+
+
+
+
+
+
+
+
+</mapper>

@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="common.mdsr">
+
+	<select id="selectMasterMdSrSrProcWritePop" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/* common.mdsr.selectMasterMdSrSrProcWritePop */
+			SELECT A.SR_NO AS SR_NO,
+			       DECODE (
+			          A.RECV_FLAG,
+			          'GP', DECODE (#{st_user_id},
+			                        A.REQ_CONFIRM_ID, '결재대상',
+			                        '결재중'),
+			          'GB', '결재반려',
+			          'GA', '요청',
+			          'GS', '요청취소',
+			          'DS', '접수',
+			          'PS', '처리중',
+			          'PA', '처리완료',
+			          'PB', '보류처리',
+			          'GG', '완료')
+			          AS RECV_TEXT,
+			       (SELECT USER_NAME_LOC
+			          FROM ICOMLUSR
+			         WHERE USER_ID = A.USER_ID)
+			          AS REQ_USER_NAME,
+			       (SELECT TEXT1
+			          FROM ICOMCOD1
+			         WHERE TYPE = 'SR01' AND CODE = A.SYS_TYPE)
+			          AS SYS_TEXT,
+			       (SELECT TEXT1
+			          FROM ICOMCOD1
+			         WHERE TYPE = 'SR02' AND CODE = A.REQ_TYPE)
+			       || (SELECT ' / ' || TEXT1
+			             FROM ICOMCOD1
+			            WHERE TYPE = 'SR05' AND CODE = A.REQ_SR_TYPE)
+			          AS REQ_TEXT,
+			       TO_CHAR (A.REQ_DATE, 'YYYYMMDD') AS REQ_DATE,
+			       TO_CHAR (A.REQ_DATE, 'HH24:MI') AS REQ_TIME,
+			       TO_CHAR (A.PH_DATE, 'YYYYMMDD') AS PH_DATE,
+			       TO_CHAR (A.PH_DATE, 'HH24:MI') AS PH_TIME,
+			       NVL (TO_CHAR (A.FF_DATE, 'YYYYMMDD'), '') AS FF_DATE,
+			       NVL (TO_CHAR (A.DF_DATE, 'YYYYMMDD'), '') AS DF_DATE,
+			       TO_CHAR (A.DF_DATE, 'HH24:MI') AS DF_TIME,
+			       (SELECT USER_NAME_LOC
+			          FROM ICOMLUSR
+			         WHERE USER_ID = A.REQ_CONFIRM_ID)
+			          AS REQ_CONFIRM_NAME,
+			       NVL (TO_CHAR (A.REQ_CONFIRM_DATE, 'YYYYMMDD'), '') AS REQ_CONFIRM_DATE,
+			       (SELECT USER_NAME_LOC
+			          FROM ICOMLUSR
+			         WHERE USER_ID = A.DS_USER_ID)
+			          AS DS_USER_NAME,
+			       A.REQ_REMARK AS REQ_REMARK,
+			       A.REQ_ATTKEY,
+			       A.DF_REMARK,
+			       A.FF_ATTKEY,
+			       A.USER_ID AS USER_ID,
+			       A.RECV_FLAG AS RECV_FLAG,
+			       A.REQ_CONFIRM_ID AS REQ_CONFIRM_ID,
+			       TO_CHAR (A.REQ_CONFIRM_DATE, 'HH24:MI') AS REQ_CONFIRM_TIME,
+			       (SELECT TEXT1
+			          FROM ICOMCOD2
+			         WHERE     COMPANY_CODE = 'KRKORE0001'
+			               AND TYPE = 'C001'
+			               AND CODE = A.REQ_DEPT)
+			          REQ_DEPT_NAME,
+			          A.SR_SUBJECT,
+			       (SELECT MAX(TARGET) FROM ICOMTRGW WHERE COM_CODE = 'KRKORE0001' AND DOC_NAME = 'SR' AND KEY_1 = A.SR_NO) AS DOCU_NO
+			  FROM KEPASRDT A
+			WHERE A.USER_ID = #{st_sr_user_id} AND A.SR_NO = #{st_sr_no}
+		]]>
+	</select>
+
+	
+	<update id="updateMasterMdSrSrProcWritePop" parameterType="java.util.Map">
+		<![CDATA[
+		/* common.mdsr.updateMasterMdSrSrProcWritePop */
+			UPDATE KEPASRDT SET
+				CD_DATE=TO_DATE(TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'), 'YYYYMMDDHH24MISS'),
+				CD_USER_ID=#{st_user_id},
+				DS_REMARK=#{st_ds_remark},
+				DS_DATE=TO_DATE(REPLACE(#{st_ds_date}, '/')||#{st_ds_time}, 'YYYYMMDDHH24MISS'),
+				RECV_FLAG='DS'
+			WHERE USER_ID=#{st_sr_user_id}    
+               AND SR_NO=#{st_sr_no}
+		]]>
+	</update>
+								
+</mapper>

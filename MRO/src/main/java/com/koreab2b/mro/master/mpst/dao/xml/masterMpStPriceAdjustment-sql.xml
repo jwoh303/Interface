@@ -1,0 +1,221 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mpst">
+	
+	<!-- 견적 최저가 예외 현황 -->
+	<select id="selectMasterMpStQuotExceptionList" parameterType="java.util.Map" resultType="java.util.Map">
+			<![CDATA[
+			/* selectMasterMpStQuotExceptionList */
+			SELECT 
+				(SELECT TEXT1 FROM ICOMCOD2
+         		WHERE COMPANY_CODE = 'KRKORE0001'
+         		AND TYPE = 'C001'
+         		AND CODE = X.KEP_DEPT)   AS TEAM_NM
+      			, (SELECT TEXT1 FROM ICOMCOD1
+        		WHERE TYPE = 'M106'
+        		AND CODE = X.BID_SUCCESS_CODE ) AS GUBUN
+      			, COUNT(*) AS RE_CNT
+      			, SUM(ITEM_QTY) AS TOT_QTY
+      			, TRUNC(SUM(ITEM_QTY * LOW_PRICE),0)   AS LOW_AMT
+      			, TRUNC(SUM(ITEM_QTY * BUY_PRICE),0)   AS BUY_AMT
+      			, TRUNC(SUM(ITEM_QTY * BUY_PRICE - ITEM_QTY * LOW_PRICE),0) AS DIF_AMT
+      			, TRUNC(SUM(X.ITEM_QTY*BUY_PRICE)/ SUM(X.ITEM_QTY*LOW_PRICE) *100 - 100,1) AS AMT_RATE
+			FROM KEP_RE_PRICE_VERITY X
+			WHERE X.YYYYMM BETWEEN #{st_from_date} AND #{st_to_date}
+			AND X.KEP_DEPT = DECODE(#{st_dept},'',X.KEP_DEPT,#{st_dept})
+			GROUP BY X.KEP_DEPT, X.BID_SUCCESS_CODE
+			ORDER BY TEAM_NM,GUBUN
+			]]>
+	</select>
+	
+	<!-- 견적 최저가 예외 상세 -->
+	<select id="selectMasterMpStQuotExceptionDetailList" parameterType="java.util.Map" resultType="java.util.Map">
+			<![CDATA[
+			/* selectMasterMpStQuotExceptionDetailList */
+			SELECT 
+				(SELECT TEXT1 FROM ICOMCOD2
+        	 	WHERE COMPANY_CODE = 'KRKORE0001'
+         		AND TYPE = 'C001'
+         		AND CODE = X.KEP_DEPT)   AS TEAM_NM
+      			, (SELECT USER_NAME_LOC FROM ICOMLUSR
+         		WHERE COM_CODE = 'KRKORE0001'
+         		AND USER_ID = X.KEP_USER_ID) AS KEP_USER_NM
+      			, (SELECT COM_NAME_LOC FROM ICOMCMPY
+         		WHERE COM_CODE = X.BUYER)  AS BUYER_NM
+      			, QUOTATION_NO
+      			, QUOTATION_SEQ
+      			, (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = X.AGENT) AS AGENT_NM
+      			, DESCRIPTION
+      			, ITEM_QTY
+      			, (SELECT TEXT1 FROM ICOMCOD1
+        		WHERE TYPE = 'M106'
+        		AND CODE = X.BID_SUCCESS_CODE ) AS GUBUN
+      			, TRUNC(X.ITEM_QTY*X.LOW_PRICE,0)   AS LOW_AMT
+      			, TRUNC(X.ITEM_QTY*X.BUY_PRICE,0)   AS BUY_AMT
+      			, TRUNC(X.ITEM_QTY*X.BUY_PRICE - X.ITEM_QTY*X.LOW_PRICE,0) AS DIF_AMT
+      			, X.BID_SUCCESS_REASON
+      			, X.BUYER AS BUYER_CODE
+			FROM KEP_RE_PRICE_VERITY X
+			WHERE X.YYYYMM BETWEEN #{st_from_date} AND #{st_to_date}
+			AND X.KEP_DEPT = DECODE(#{st_dept},'',X.KEP_DEPT,#{st_dept})
+			]]>
+			<if test="st_buyer.size() == 0">
+				AND X.BUYER IN (
+					SELECT COM_CODE FROM ICOMCMPY CMPY
+							WHERE  BUSINESS_COND IN ('B','M')
+							AND STATUS IN ('R','C')
+							AND COM_CODE IN (SELECT CMPY.COM_CODE
+							                 FROM ICOMCOD3 COD3
+							                 WHERE COD3.BUYER = 'KRKORE0001'
+							                 AND   COD3.TYPE = 'CMPY'
+							                 AND   COD3.CODE1= 'ALL'
+							                 AND   COD3.CODE2 = #{st_user_id}
+							                 UNION ALL
+							                 SELECT MNG.BUYER
+							                 FROM  ICOMCOD3 COD3, MIS_BUYER_MNG MNG
+							                 WHERE COD3.BUYER = 'KRKORE0001'
+							                 AND   COD3.TYPE = 'CMPY'
+							                 AND   COD3.CODE1= MNG.KEP_DEPT
+							                 AND   COD3.CODE2 = #{st_user_id}
+							                 AND   MNG.YEAR = TO_CHAR(SYSDATE,'YYYY')	
+							                 AND   MNG.STATUS = 'C'
+							                 UNION ALL
+							                 SELECT BUYER
+							                 FROM  MIS_BUYER_MNG
+							                 WHERE YEAR = TO_CHAR(SYSDATE,'YYYY')
+							                 AND   STATUS = 'C'
+							                 AND   KEP_USER_ID = #{st_user_id}
+							                 UNION ALL
+							                 SELECT COD.CODE1
+											FROM ICOMCOD3 COD , ICOMCMPY CMPY
+											WHERE  COD.BUYER = 'KRKORE0001'
+											AND COD.TYPE = 'CMPY'
+											AND COD.CODE1 = CMPY.COM_CODE
+											AND COD.CODE2 = #{st_user_id}
+											AND TO_CHAR(SYSDATE,'YYYYMMDD') BETWEEN TEXT2 AND TEXT3
+											)
+							)
+			</if>
+			<if test="st_buyer.size() > 0">
+				AND X.BUYER IN
+				<foreach item="item" collection="st_buyer" open="(" separator="," close=")">
+					#{item}
+				</foreach>
+			</if>
+			<![CDATA[
+			
+			ORDER BY BUYER_NM,QUOTATION_NO,QUOTATION_SEQ,REVISION
+
+			]]>
+	</select>
+	
+	<!-- 주문 단가조정 현황-->
+	<select id="selectMasterMpStPoPriceAdjustList" parameterType="java.util.Map" resultType="java.util.Map">
+			<![CDATA[
+			/* selectMasterMpStPoPriceAdjustList */
+			SELECT  
+				(SELECT TEXT1 FROM ICOMCOD2
+         		WHERE COMPANY_CODE = 'KRKORE0001'
+         		AND TYPE = 'C001'
+         		AND CODE = KEP_DEPT) AS TEAM_NAME
+       			, DECODE(UP_DOWN_FLAG,'U','인상','인하') AS UP_DOWN
+       			, COUNT(*) AS PO_CNT
+       			, SUM(ITEM_QTY) AS TOT_QTY
+       			, TRUNC(SUM(ITEM_QTY * BEFOR_AGENT_PRICE ),0)  AS BEFOR_AMT
+       			, TRUNC(SUM(ITEM_QTY * CURRENT_AGENT_PRICE),0) AS CURRENT_AMT
+       			, TRUNC(SUM(ITEM_QTY * CURRENT_AGENT_PRICE - ITEM_QTY * BEFOR_AGENT_PRICE),0) AS DIF_AMT
+       			, TRUNC(TRUNC(SUM(ITEM_QTY * CURRENT_AGENT_PRICE),0) / TRUNC(SUM(ITEM_QTY * BEFOR_AGENT_PRICE),0) *100 -100,1) AS AMT_RATE
+			FROM KEP_PO_PRICE_VERITY X
+			WHERE X.YYYYMM BETWEEN #{st_from_date} AND #{st_to_date}
+			AND X.KEP_DEPT = DECODE(#{st_dept},'',X.KEP_DEPT,#{st_dept})
+			GROUP BY KEP_DEPT, UP_DOWN_FLAG
+			ORDER BY TEAM_NAME,UP_DOWN
+			]]>
+	</select>
+	
+	<!-- 주문 단가조정 상세-->
+	<select id="selectMasterMpStPoPriceAdjustDetailList" parameterType="java.util.Map" resultType="java.util.Map">
+			<![CDATA[
+			/* selectMasterMpStPoPriceAdjustDetailList */
+			SELECT 
+				(SELECT TEXT1 FROM ICOMCOD2
+        		WHERE COMPANY_CODE = 'KRKORE0001'
+        		AND TYPE = 'C001'
+        		AND CODE = KEP_DEPT) AS TEAM_NAME
+      			, (SELECT USER_NAME_LOC FROM ICOMLUSR
+         		WHERE COM_CODE = 'KRKORE0001'
+        		AND USER_ID = X.KEP_USER_ID) AS KEP_USER_NM
+      			, (SELECT COM_NAME_LOC FROM ICOMCMPY
+         		WHERE COM_CODE = X.BUYER)  AS BUYER_NM
+      			, X.PO_NO
+      			, X.PO_SEQ
+      			, (SELECT COM_NAME_LOC FROM ICOMCMPY
+         		WHERE COM_CODE = X.AGENT)  AS AGENT_NM
+      			, X.DESCRIPTION
+      			, X.ITEM_QTY
+      			, TRUNC(X.ITEM_QTY * BEFOR_AGENT_PRICE,0)   AS BEFOR_AMT
+      			, TRUNC(X.ITEM_QTY * CURRENT_AGENT_PRICE,0) AS CURRENT_AMT
+      			, TRUNC(X.ITEM_QTY * CURRENT_AGENT_PRICE - X.ITEM_QTY * BEFOR_AGENT_PRICE,0) AS DIF_AMT
+      			, TRUNC(TRUNC(ITEM_QTY * CURRENT_AGENT_PRICE,0) / DECODE(TRUNC(ITEM_QTY * BEFOR_AGENT_PRICE,0),0,1,TRUNC(ITEM_QTY * BEFOR_AGENT_PRICE,0)) *100 -100,1) AS AMT_RATE
+      			, CASE CA_FLAG
+        			WHEN 'Y' THEN
+             		'O'
+        			WHEN 'N' THEN
+             		'X'
+        			ELSE 'S' END AS CA_FLAG
+     			, X.CA_EXCEPT_REASON
+			FROM KEP_PO_PRICE_VERITY X
+			WHERE X.YYYYMM BETWEEN #{st_from_date} AND #{st_to_date}
+			AND X.KEP_DEPT = DECODE(#{st_dept},'',X.KEP_DEPT,#{st_dept})
+			]]>
+			<if test="st_buyer.size() == 0">
+				AND X.BUYER IN (
+					SELECT COM_CODE FROM ICOMCMPY CMPY
+							WHERE  BUSINESS_COND IN ('B','M')
+							AND STATUS IN ('R','C')
+							AND COM_CODE IN (SELECT CMPY.COM_CODE
+							                 FROM ICOMCOD3 COD3
+							                 WHERE COD3.BUYER = 'KRKORE0001'
+							                 AND   COD3.TYPE = 'CMPY'
+							                 AND   COD3.CODE1= 'ALL'
+							                 AND   COD3.CODE2 = #{st_user_id}
+							                 UNION ALL
+							                 SELECT MNG.BUYER
+							                 FROM  ICOMCOD3 COD3, MIS_BUYER_MNG MNG
+							                 WHERE COD3.BUYER = 'KRKORE0001'
+							                 AND   COD3.TYPE = 'CMPY'
+							                 AND   COD3.CODE1= MNG.KEP_DEPT
+							                 AND   COD3.CODE2 = #{st_user_id}
+							                 AND   MNG.YEAR = TO_CHAR(SYSDATE,'YYYY')	
+							                 AND   MNG.STATUS = 'C'
+							                 UNION ALL
+							                 SELECT BUYER
+							                 FROM  MIS_BUYER_MNG
+							                 WHERE YEAR = TO_CHAR(SYSDATE,'YYYY')
+							                 AND   STATUS = 'C'
+							                 AND   KEP_USER_ID = #{st_user_id}
+							                 UNION ALL
+							                 SELECT COD.CODE1
+											FROM ICOMCOD3 COD , ICOMCMPY CMPY
+											WHERE  COD.BUYER = 'KRKORE0001'
+											AND COD.TYPE = 'CMPY'
+											AND COD.CODE1 = CMPY.COM_CODE
+											AND COD.CODE2 = #{st_user_id}
+											AND TO_CHAR(SYSDATE,'YYYYMMDD') BETWEEN TEXT2 AND TEXT3
+											)
+							)
+			</if>
+			<if test="st_buyer.size() > 0">
+				AND X.BUYER IN
+				<foreach item="item" collection="st_buyer" open="(" separator="," close=")">
+					#{item}
+				</foreach>
+			</if>
+			<![CDATA[
+			
+			ORDER BY TEAM_NAME,BUYER_NM,PO_NO,PO_SEQ
+
+			]]>
+	</select>
+</mapper>   
+   

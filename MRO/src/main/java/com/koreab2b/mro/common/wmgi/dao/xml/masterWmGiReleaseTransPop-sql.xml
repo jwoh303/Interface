@@ -1,0 +1,614 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="common.wmgi">
+	<resultMap id="hanjinItemHd" type="java.util.HashMap">
+		<result javaType="java.lang.String" property="custEdiCd" column="CUSTEDICD"/>
+		<result javaType="java.lang.String" property="svcCatCd" column="SVCCATCD"/>
+		<result javaType="java.lang.String" property="custOrdNo" column="CUSTORDNO"/>
+		<result javaType="java.lang.String" property="wblNo" column="WBLNO"/>		
+		<result javaType="java.lang.String" property="cntractNo" column="CNTRACTNO"/>
+		<result javaType="java.lang.String" property="pickupAskDt" column="PICKUPASKDT"/>
+		<result javaType="java.lang.String" property="sndrZip" column="SNDRZIP"/>
+		<result javaType="java.lang.String" property="sndrBaseAddr" column="SNDRBASEADDR"/>
+		<result javaType="java.lang.String" property="sndrDtlAddr" column="SNDRDTLADDR"/>
+		<result javaType="java.lang.String" property="sndrNm" column="SNDRNM"/>
+		<result javaType="java.lang.String" property="sndrTelNo" column="SNDRTELNO"/>	
+		<result javaType="java.lang.String" property="rcvrZip" column="RCVRZIP"/>
+		<result javaType="java.lang.String" property="rcvrBaseAddr" column="RCVRBASEADDR"/>
+		<result javaType="java.lang.String" property="rcvrDtlAddr" column="RCVRDTLADDR"/>
+		<result javaType="java.lang.String" property="rcvrNm" column="RCVRNM"/>
+		<result javaType="java.lang.String" property="rcvrTelNo" column="RCVRTELNO"/>
+		<result javaType="java.lang.String" property="rcvrMobileNo" column="RCVRMOBILENO"/>
+		<result javaType="java.lang.String" property="rcvrAskCntent" column="RCVRASKCNTENT"/>
+		<result javaType="java.lang.String" property="rcvrRefCntent" column="RCVRREFCNTENT"/>
+		<result javaType="java.lang.String" property="payTypCd" column="PAYTYPCD"/>
+		<result javaType="java.lang.String" property="boxTypCd" column="BOXTYPCD"/>
+		<result javaType="java.lang.String" property="comodityNm" column="COMODITYNM"/>	
+	</resultMap>	
+	<resultMap id="hanjinItem" type="java.util.HashMap">
+		<result javaType="java.lang.String" property="comodityCd" column="COMODITYCD"/>
+		<result javaType="java.lang.String" property="comodityNm" column="COMODITYNM"/>
+		<result javaType="java.lang.String" property="comodityCnt" column="COMODITYCNT"/>
+	</resultMap>
+	
+	<select id="checkMasterWmGiReleaseTransPopDuplicate" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+					SELECT INV_QTY, WMS_IVK_QTY FROM ICOMIVDT                                  
+	                                 WHERE BUYER = #{BUYER}                                     
+	                                     AND INV_NO = #{INV_NO}                                     
+	                                     AND INV_SEQ = #{INV_SEQ}  
+		]]>
+	</select>	
+
+
+	<update id="updateMasterWmGiReleaseTransPopWMSSTCK2" parameterType="java.util.Map" >
+		<![CDATA[
+						 			UPDATE WMSSTCK SET 
+				AVAIL_QTY = NVL(AVAIL_QTY,0)- (#{IVK_QTY}) ,
+				ALLOC_QTY = NVL(ALLOC_QTY,0)+#{IVK_QTY} ,
+				CHANGE_DATE = TO_CHAR(SYSDATE,'YYYYMMDD'),
+				CHANGE_USER =#{st_user_id} 
+			WHERE WAREHOUSE_CODE = #{st_warehouse_code}
+				 AND STDCATLG_ID    =  #{STDCATLG_ID}
+			  AND AGENT    = DECODE(#{PROCESS_TYPE},'1','KRKORE0001',(SELECT WAREHOUSE_CODE FROM ICOMPODT WHERE BUYER = #{BUYER}   AND PO_NO = #{PO_NO} AND PO_SEQ = #{PO_SEQ}))
+		]]>
+	</update>
+
+	<update id="updateMasterWmGiReleaseTransPopWMSSTCK" parameterType="java.util.Map" >
+		<![CDATA[
+		/*updateMasterWmGiReleaseTransPopWMSSTCK*/
+							UPDATE WMSSTCK SET  
+								  AVAIL_QTY = NVL(AVAIL_QTY,0)-(#{IVK_QTY})   ,
+								  ALLOC_QTY = NVL(ALLOC_QTY,0)+#{IVK_QTY}   ,
+								  STC_SELLER_PRICE = DECODE(NVL(AVAIL_QTY,0)-(#{WMS_GW_QTY}) ,0,0,STC_SELLER_PRICE), 
+				CHANGE_DATE = TO_CHAR(SYSDATE,'YYYYMMDD'),
+				CHANGE_USER =#{st_user_id} 
+			WHERE WAREHOUSE_CODE =#{st_warehouse_code}
+				 AND STDCATLG_ID    = #{STDCATLG_ID}
+		]]>
+	</update>
+
+	<update id="updateMasterWmGiReleaseTransPopICOMIVDT" parameterType="java.util.Map" >
+			<![CDATA[
+			/*updateMasterWmGiReleaseTransPopICOMIVDT*/
+			     UPDATE ICOMIVDT                                  
+        SET WMS_IVK_QTY   = NVL(WMS_IVK_QTY,0) +#{IVK_QTY}     
+      WHERE BUYER   =#{BUYER}                                 
+        AND INV_NO   = #{INV_NO}                            
+        AND INV_SEQ  = #{INV_SEQ}                               
+        AND STATUS != 'D'                             
+			
+			]]>
+	</update>
+
+	<update id="updateMasterWmGiReleaseTransPopICOMPODT" parameterType="java.util.Map" >
+			<![CDATA[
+			/*updateMasterWmGiReleaseTransPopICOMPODT*/
+			  UPDATE ICOMPODT                           
+    			    SET IV_QTY   = NVL(IV_QTY,0) +  #{IVK_QTY}    
+                 WHERE BUYER   = #{BUYER}                      
+                   AND PO_NO   =#{PO_NO}                          
+                  AND PO_SEQ  =#{PO_SEQ} 
+                  AND STATUS != 'D'                      
+			
+			]]>
+	</update>
+
+	<update id="insertMasterWmGiReleaseTransPopList" parameterType="java.util.Map" >
+			<![CDATA[
+			/*insertMasterWmGiReleaseTransPopList*/
+ INSERT INTO WMSIVDT ( 
+                                   WAREHOUSE_CODE,    
+                                   SELLER,            
+                                   INV_NO,            
+                                   INV_SEQ,           
+                                   BUYER,             
+                                   STATUS,            
+                                   SEND_DATE,         
+                                   SEND_TIME,         
+                                   ADD_DATE,          
+                                   ADD_TIME,          
+                                   CHANGE_DATE,       
+                                   CHANGE_TIME,       
+                                   CONFIRM_DATE,      
+                                   CONFIRM_TIME,      
+                                   BUYER_ITEM_NO,     
+                                   SELLER_ITEM_NO,    
+                                   STDCATLG_ID,       
+                                   DESCRIPTION,       
+                                   SPECIFICATION,     
+                                   UNIT_MEASURE,      
+                                   PROCESS_TYPE,      
+                                   PO_QTY,            
+                                   GR_QTY,            
+                                   INV_QTY,           
+                                   UNIT_PRICE,        
+                                   LIST_PRICE,        
+                                   UNIT_AMT,          
+                                   LIST_AMT,          
+                                   ORIGIN_CODE,       
+                                   MAKER_NAME,        
+                                   AGENT,             
+                                   PO_NO,             
+                                   PO_SEQ,            
+                                   S_INV_NO,          
+                                   S_INV_SEQ,         
+                                   REF_PR_NO,         
+                                   PR_NO,             
+                                   PR_SEQ,            
+                                   LEGACY_PO_NO,      
+                                   LEGACY_PO_SEQ,     
+                                   DELY_TO_LOCATION,  
+                                   PO_DATE,           
+                                   GR_DATE,           
+                                   INV_DATE,          
+                                   DELIVERY_QTY,      
+                                   DELIVERY_DATE,     
+                                   ADD_USER_ID,       
+                                   CHANGE_USER_ID,    
+                                   DELIVERY_USER_ID,  
+                                   LEGACY_IV_SERIAL,  
+                                   DELIVERY_COMPANY,  
+                                   DELIVERY_NO ,      
+			                       CMS_CATLG_ID,
+			                        SCHEDULED_DATE,
+        			  CAR_ID,
+        			  CAR_NO,
+        			  CAR_PERSON_NAME,
+        			  CAR_PERSON_TEL,
+        			  BOX_QTY ,
+        			      
+									  DELIVERY_PERSON,
+									  TAG_NO	 
+                                  )  ( 
+								SELECT 
+                                             #{st_warehouse_code}  AS WAREHOUSE_CODE,               
+                                             IVDT.SELLER AS SELLER, 
+                                              #{INVK_NO} AS INV_NO,                       
+                                             (SELECT TO_CHAR(NVL(TO_NUMBER(MAX(WD.INV_SEQ)),0)+1,'FM000000') FROM WMSIVDT WD
+												WHERE   WD.WAREHOUSE_CODE = #{st_warehouse_code}
+												AND WD.INV_NO =  #{INVK_NO}
+												                                             )AS INV_SEQ,  
+                                             IVDT.BUYER AS BUYER, 
+                                             'C' AS STATUS, 
+                                             '' AS SEND_DATE, 
+                                             '' AS SEND_TIME, 
+                                             TO_CHAR(SYSDATE,'YYYYMMDD') AS ADD_DATE, 
+                                             TO_CHAR(SYSDATE,'HH24MISS') AS ADD_TIME, 
+                                             TO_CHAR(SYSDATE,'YYYYMMDD') AS CHANGE_DATE, 
+                                             TO_CHAR(SYSDATE,'HH24MISS') AS CHANGE_TIME, 
+                                             TO_CHAR(SYSDATE,'YYYYMMDD') AS CONFIRM_DATE, 
+                                             TO_CHAR(SYSDATE,'HH24MISS') AS CONFIRM_TIME, 
+                                             IVDT.BUYER_ITEM_NO AS BUYER_ITEM_NO, 
+                                             IVDT.SELLER_ITEM_NO AS SELLER_ITEM_NO, 
+											 PODT.CMS_CATLG_ID AS STDCATLG_ID,
+                                             PODT.DESCRIPTION AS DESCRIPTION, 
+                                             PODT.SPECIFICATION AS SPECIFICATION, 
+                                             PODT.UNIT_MEASURE AS UNIT_MEASURE, 
+                                             PODT.PROCESS_TYPE AS PROCESS_TYPE, 
+                                             PODT.ITEM_QTY AS PO_QTY, 
+                                             IVDT.WMS_GR_QTY AS GR_QTY, 
+                                             #{IVK_QTY}  AS INV_QTY,                            
+                                             PODT.UNIT_PRICE AS UNIT_PRICE, 
+                                             DECODE(PODT.PROCESS_TYPE,'1',(SELECT NVL(STC_SELLER_PRICE,0) FROM WMSSTCK WHERE WAREHOUSE_CODE=#{st_warehouse_code} 
+                                             AND STDCATLG_ID = #{STDCATLG_ID} AND PROCESS_TYPE = '1'),NVL(PODT.AGENT_PRICE,0)) AS LIST_PRICE, 
+                                             ROUND(#{IVK_QTY} * NVL(PODT.UNIT_PRICE,0)) AS UNIT_AMT,  
+                                             ROUND(#{IVK_QTY} * DECODE(PODT.PROCESS_TYPE,'1',(SELECT NVL(STC_SELLER_PRICE,0) FROM WMSSTCK WHERE WAREHOUSE_CODE=#{st_warehouse_code}
+                                              AND STDCATLG_ID =#{STDCATLG_ID} AND PROCESS_TYPE = '1'),NVL(PODT.AGENT_PRICE,0))) AS LIST_AMT, 
+                                             PODT.ORIGIN_CODE AS ORIGIN_CODE, 
+                                             PODT.MAKER_NAME AS MAKER_NAME, 
+                                             DECODE(PODT.PROCESS_TYPE,'1','KRKORE0001','2',POHD.AGENT,'3',PODT.WAREHOUSE_CODE) AS AGENT, 
+                                             PODT.PO_NO AS PO_NO, 
+                                             PODT.PO_SEQ AS PO_SEQ, 
+                                             IVDT.INV_NO AS S_INV_NO, 
+                                             IVDT.INV_SEQ AS S_INV_SEQ, 
+                                             PODT.REF_PR_NO AS REF_PR_NO, 
+                                             PODT.PR_NO AS PR_NO, 
+                                             PODT.PR_SEQ AS PR_SEQ, 
+                                             PODT.LEGACY_PO_NO AS LEGACY_PO_NO, 
+                                             PODT.LEGACY_PO_SEQ AS LEGACY_PO_SEQ, 
+                                             PODT.DELY_TO_LOCATION AS DELY_TO_LOCATION, 
+                                             POHD.PO_CREATE_DATE AS PO_DATE, 
+                                             IVDT.WMS_GR_DATE AS GR_DATE, 
+                                             #{IVK_DATE}  AS INV_DATE,                           
+                                             0 AS DELIVERY_QTY, 
+                                             '' AS DELIVERY_DATE, 
+                                             #{st_user_id} AS ADD_USER_ID,                        
+                                             #{st_user_id} AS CHANGE_USER_ID,                     
+                                             '' AS DELIVERY_USER_ID, 
+                                             #{LEGACY_IV_SERIAL},                                      
+                                             '' AS DELIVERY_COMPANY, 
+                                             '' AS DELIVERY_NO, 
+			                                 PODT.CMS_CATLG_ID AS CMS_CATELG_ID, 
+			                                 NVL(#{SCHEDULED_DATE},F_GET_WORKINGDAY(to_char(sysdate,'YYYYMMDD'),1)) AS SCHEDULED_DATE,
+        			  #{CAR_ID},
+        			  #{CAR_NO},
+        			  #{CAR_PERSON_NAME},
+        			  #{CAR_PERSON_TEL},
+        			  #{BOX_QTY},
+        			 												'' DELIVERY_PERSON,
+				IVDT.TAG_NO AS TAG_NO	
+                                        FROM ICOMPODT PODT, ICOMPOHD POHD, ICOMIVDT IVDT, ICOMIVHD IVHD 
+                                       WHERE PODT.BUYER =  #{BUYER}        
+                                         AND PODT.PO_NO = #{PO_NO}      
+                                         AND PODT.PO_SEQ = #{PO_SEQ}      
+                                         AND IVDT.INV_NO =#{INV_NO}  
+                                         AND IVDT.INV_SEQ =#{INV_SEQ}  
+                                         AND PODT.BUYER = POHD.BUYER 
+                                         AND PODT.PO_NO = POHD.PO_NO 
+                                         AND PODT.BUYER = IVDT.BUYER 
+                                         AND PODT.PO_NO = IVDT.PO_NO 
+                                         AND PODT.PO_SEQ = IVDT.PO_SEQ 
+
+                                         AND IVDT.SELLER = IVHD.SELLER 
+                                         AND IVDT.BUYER = IVHD.BUYER 
+                                         AND IVDT.INV_NO = IVHD.INV_NO 
+
+                                         AND PODT.STATUS <> 'D' 
+                                         AND IVDT.STATUS <> 'D' 
+                                         AND IVHD.STATUS <> 'D' 
+                                  )                                   
+					]]>
+	</update>
+
+
+	<select id="selectMasterWmGiReleaseTransPopList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.pagestart"/>
+			<![CDATA[
+				/* selectMasterWmGiReleaseTransPopList */
+				SELECT	PODT.CMS_CATLG_ID AS STDCATLG_ID,
+						PODT.DESCRIPTION AS DESCRIPTION,
+						PODT.ITEM_QTY AS PO_QTY,
+						DECODE(PODT.PROCESS_TYPE,'2',(NVL(IVDT.WMS_GR_QTY,0) - NVL(IVDT.WMS_IVK_QTY,0)),(NVL(PODT.ITEM_QTY,0)-NVL(PODT.IV_QTY,0))) AS WMS_GW_QTY,
+						TO_CHAR(SYSDATE,'YYYYMMDD') AS IVK_DATE,
+						PODT.UNIT_PRICE AS UNIT_PRICE,
+						PODT.PO_REMARK AS PO_REMARK,
+						PODT.BUYER_ITEM_NO AS BUYER_ITEM_NO,
+						PODT.SPECIFICATION AS SPECIFICATION,
+						DECODE(#{st_hub_yn}, 'Y', (SELECT HUB_GR_QTY FROM HUBIVDT WHERE BUYER = IVDT.BUYER AND S_INV_NO = IVDT.INV_NO AND S_INV_SEQ = IVDT.INV_SEQ AND STATUS <> 'D'), 
+							DECODE(PODT.PROCESS_TYPE, '2', IVDT.WMS_GR_QTY, (SELECT AVAIL_QTY FROM WMSSTCK WHERE WAREHOUSE_CODE = #{st_warehouse_code} AND STDCATLG_ID = PODT.CMS_CATLG_ID AND AGENT = DECODE(PODT.PROCESS_TYPE, '1', 'KRKORE0001', '3', PODT.WAREHOUSE_CODE)))
+						) AS WMS_GR_QTY,
+						PODT.IV_QTY AS IV_QTY,
+						PODT.UNIT_MEASURE AS UNIT_MEASURE,
+						PODT.UNIT_PRICE * (NVL(IVDT.WMS_GR_QTY,0) - NVL(IVDT.WMS_IVK_QTY,0)) AS WMS_IVK_AMT,
+						PODT.BUYER AS BUYER,
+						PODT.PO_NO AS PO_NO,
+						PODT.PO_SEQ AS PO_SEQ,
+						IVDT.INV_NO AS INV_NO,
+						PODT.BYIT_COMORG_CODE AS BYIT_COMORG_CODE,
+						PODT.CONTRACT_NO AS CONTRACT_NO,
+						PODT.CONTRACT_SEQ AS CONTRACT_SEQ,
+						PODT.PROCESS_TYPE AS PROCESS_TYPE,
+						IVDT.INV_SEQ AS INV_SEQ,
+						(SELECT DOC_TYPE FROM ICOMPOHD WHERE BUYER= PODT.BUYER AND PO_NO=PODT.PO_NO) AS DOC_TYPE,
+						DECODE((SELECT MAX(DOC_TYPE) FROM ICOMPOHD WHERE BUYER = PODT.BUYER AND PO_NO = PODT.PO_NO), 'X', (SELECT NVL(TRIM(IMG_NO),'0') FROM ITEMMAST WHERE STDCATLG_ID = SUBSTR(PODT.BUYER_ITEM_NO,1,7)),'') AS IMG_NO, F_GET_WORKINGDAY(to_char(sysdate,'YYYYMMDD'),1) AS SCHEDULED_DATE,
+						CASE WHEN IVDT.BOX_QTY IS NULL OR IVDT.BOX_QTY = 0 THEN 1 ELSE IVDT.BOX_QTY END AS BOX_QTY,
+						IVDT.CAR_ID,
+						IVDT.CAR_NO,
+						IVDT.CAR_PERSON_NAME,
+						IVDT.CAR_PERSON_TEL,
+						PODT.DELAY_REMARK,
+						(
+							SELECT	DECODE(COUNT(*),0,'N','Y') FROM BNTSLGDEF A, BNTSLGIMP B
+							WHERE	A.SLG_ID = B.SLG_ID
+							AND		TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN A.OPEN_DATE AND A.CLOSE_DATE
+							AND		TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN B.OPEN_DATE AND B.CLOSE_DATE
+							AND		B.COM_CODE ='KRFAGB0002'
+							AND		A.SLG_ID = 'P06-0000054'   --K TAG         : ?      
+						) AS KTAG_USE_FLAG,
+						F_GET_MSDS_INFO(PODT.BUYER, PODT.BUYER_ITEM_NO ,1) AS MSDS_NO,
+						DECODE(#{st_hub_yn}, 'Y', INV_QTY, 0) AS IVK_QTY
+				FROM	ICOMPODT PODT, ICOMIVDT IVDT
+				WHERE	PODT.BUYER = #{st_BUYER}
+				AND		PODT.PO_NO = #{st_PO_NO}
+				AND		IVDT.INV_NO = #{st_INV_NO}
+				AND		PODT.BUYER = IVDT.BUYER
+				AND		PODT.PO_NO = IVDT.PO_NO
+				AND		PODT.PO_SEQ = IVDT.PO_SEQ
+				AND		PODT.STATUS <> 'D'
+				AND		IVDT.STATUS <> 'D'
+				ORDER BY WMS_GW_QTY DESC, PODT.BUYER, PODT.PO_NO, PODT.PO_SEQ  					 
+			]]>
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+	
+	<select id="selectMasterWmIyangLogisHawb" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+				 /*selectMasterWmIyangLogisHawb*/
+					SELECT DECODE(COUNT(CODE1),0,'N','Y') AS IY_SEND_YN
+					FROM ICOMCOD3 COD
+					WHERE COD.TYPE = 'IYUR'
+					AND COD.BUYER = 'KRKORE0001'
+					AND COD.CODE1 = #{BUYER}
+					AND COD.FLAG = 'Y'
+        ]]> 
+	</select> 
+	
+	<select id="selectHanjinSendYn" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+				 /*selectHanjinSendYn*/
+					SELECT DECODE(COUNT(CODE1),0,'N','Y') AS HJ_SEND_YN
+					FROM ICOMCOD3 COD
+					WHERE COD.TYPE = 'HJUR'
+					AND COD.BUYER = 'KRKORE0001'
+					AND COD.CODE1 = #{BUYER}
+					AND COD.FLAG = 'Y'
+        ]]> 
+	</select> 
+	
+	<update id="insertMasterWmIyangLogisHawb" parameterType="java.util.Map" >
+		<![CDATA[
+		/*insertMasterWmIyangLogisHawb*/
+			INSERT INTO KEP_COURIER_MNG (
+				BUYER
+				, INV_NO
+				, BOX_SEQ
+				, COURIER_NO
+				, SENDER_POINT_CODE
+				, SENDER_POINT_NAME
+				, SENDER_NAME
+				, SENDER_PHONE_NUMBER
+				, SENDER_ZIP_CODE
+				, SENDER_ADDRESS
+				, RECEIVER_POINT_CODE
+				, RECEIVER_POINT_NAME
+				, ADD_DATE
+				, ADD_USER_ID
+				, IF_FLAG
+			) 
+			 SELECT
+			 	#{BUYER}
+			 	, #{INV_NO}
+			 	, #{BOX_SEQ}
+			 	, (SELECT F_GET_SEQ('SEQ_ILYANGLOGIS') FROM DUAL) AS COURIER_NO
+			 	, (SELECT TEXT2 FROM ICOMCOD1 COD
+					WHERE COD.TYPE = 'IYPC'
+					AND COD.CODE = USR.ZIP_CODE) AS SENDER_POINT_CODE
+			 	, (SELECT TEXT1 FROM ICOMCOD1 COD
+					WHERE COD.TYPE = 'IYPC'
+					AND COD.CODE = USR.ZIP_CODE) AS SENDER_POINT_NAME
+			 	, (SELECT CMPY.COM_NAME_LOC 
+			 		FROM ICOMCMPY CMPY 
+			 		WHERE CMPY.COM_CODE = 'KRKORE0001') AS COM_NAME
+			 	, USR.PHONE_NUMBER
+			 	, USR.ZIP_CODE
+			 	, (SELECT COD2.TEXT2 FROM ICOMCOD2 COD2
+			 		WHERE COD2.TYPE ='C012'
+			 		AND   COD2.COMPANY_CODE ='KRKORE0001'
+			 		AND   COD2.FLAG ='Y'
+			 		AND CODE = (SELECT DELY_TO_LOCATION FROM ICOMLUSR LUSR WHERE LUSR.USER_ID = USR.USER_ID)) AS SENDER_ADDRESS
+			 	, (SELECT TEXT2 FROM ICOMCOD1 COD
+					WHERE COD.TYPE = 'IYPC'
+					AND COD.CODE IN (
+						SELECT SUBSTR(POHD.DELY_TO_LOCATION,0,5) FROM ICOMPOHD POHD
+							WHERE POHD.BUYER = #{BUYER}
+							AND POHD.PO_NO = #{PO_NO}
+					)) AS RECEIVER_POINT_CODE
+			 	, (SELECT TEXT1 FROM ICOMCOD1 COD
+					WHERE COD.TYPE = 'IYPC'
+					AND COD.CODE IN (
+						SELECT SUBSTR(POHD.DELY_TO_LOCATION,0,5) FROM ICOMPOHD POHD
+							WHERE POHD.BUYER = #{BUYER}
+							AND POHD.PO_NO = #{PO_NO}
+					)) AS RECEIVER_POINT_NAME
+				, SYSDATE
+				, #{USER_ID}
+				, 'N'
+			 FROM ICOMLUSR USR
+			 WHERE USR.USER_ID = #{USER_ID}
+		]]>
+	</update>	
+	
+	<update id="insertHanjinHd" parameterType="java.util.Map" >
+		<![CDATA[
+		/*insertHanjinHd*/
+			INSERT INTO KEP_PARCEL_HJ (
+					CUSTEDICD,
+					SVCCATCD,
+					CUSTORDNO,
+					WBLNO,
+					CNTRACTNO,
+					PICKUPASKDT,
+					SNDRZIP,
+					SNDRBASEADDR,
+					SNDRDTLADDR,
+					SNDRNM,
+					SNDRTELNO,
+					RCVRZIP,
+					RCVRBASEADDR,
+					RCVRDTLADDR,
+					RCVRNM,
+					RCVRTELNO,
+					RCVRMOBILENO,
+					RCVRASKCNTENT,
+					RCVRREFCNTENT,
+					PAYTYPCD,
+					BOXTYPCD,
+					COMODITYNM,
+					IF_FLAG
+			)
+			SELECT 'KORB2B' AS CUSTEDICD, 
+			       'S' AS SVCCATCD,        
+			       A.BUYER||A.INV_NO AS CUSTORDNO, 
+			       (SELECT F_GET_SEQ('SEQ_HANJINLOGIS') FROM DUAL) AS WBLNO,
+			       '6479237' AS CNTRACTNO,
+			       TO_CHAR(SYSDATE,'YYYYMMDD') AS PICKUPASKDT,
+			       F.ZIP_CODE AS SNDRZIP, 
+			       F.ADDRESS_LOC AS SNDRBASEADDR, 
+			       NVL(F.ADDRESS_LOC2,'.') AS SNDRDTLADDR, 
+			       F.COM_NAME_LOC AS SNDRNM, 
+			       F.TEL_NO AS SNDRTELNO, 
+			       TRIM(SUBSTR(C.DELY_TO_LOCATION,1,6)) AS RCVRZIP,			       			       			       
+			       TRIM(SUBSTRB(SUBSTR(C.DELY_TO_LOCATION,7),1,100)) AS RCVRBASEADDR,  -- 바이트 초과 문제 수정
+			       NVL(TRIM(SUBSTRB(SUBSTR(C.DELY_TO_LOCATION,7),101,100)),'.') AS RCVRDTLADDR, 
+			       NVL(TRIM(D.RECIPIENT_NAME), E.USER_NAME_LOC) AS RCVRNM, 
+			       NVL(TRIM(D.RECIPIENT_PHONE), E.PHONE_NUMBER) AS RCVRTELNO, 
+			       NVL(TRIM(D.RECIPIENT_PHONE), E.MOBILE_PHONE) AS RCVRMOBILENO, 
+			       SUBSTRB(C.PO_REMARK,1,150) AS RCVRASKCNTENT, 
+			       E.USER_NAME_LOC  AS RCVRREFCNTENT, 
+			       'CD' AS PAYTYPCD, 
+			       'A' AS BOXTYPCD,        
+			       C.PO_NO || ', ' || A.S_INV_NO || ', ' || B.DESCRIPTION AS COMODITYNM,
+			       'N' AS IF_FLAG
+              FROM WMSIVDT A, ICOMPODT B, ICOMPOHD C, ICOMPRDT D, ICOMLUSR E, ICOMCMPY F, ICOMPRHD G
+             WHERE A.BUYER  = #{BUYER}
+               AND A.INV_NO = #{INV_NO}
+               AND A.STATUS != 'D'
+               AND A.BUYER  = B.BUYER
+               AND A.PO_NO  = B.PO_NO
+               AND A.PO_SEQ = B.PO_SEQ
+               AND B.STATUS != 'D'
+               AND A.BUYER  = C.BUYER
+               AND A.PO_NO  = C.PO_NO
+               AND C.STATUS != 'D'
+               AND B.BUYER  = D.BUYER
+               AND B.PR_NO  = D.PR_NO
+               AND B.PR_SEQ = D.PR_SEQ
+               AND D.STATUS != 'D'
+               AND D.REQ_USER_ID = E.USER_ID
+               AND C.BUYER       = E.COM_CODE               
+               AND D.BUYER  = G.BUYER
+               AND D.PR_NO  = G.PR_NO
+               AND A.WAREHOUSE_CODE = F.COM_CODE
+               AND ROWNUM = 1
+		]]>
+	</update>
+	
+	<select id="selectHanjinItemHdLst" parameterType="java.util.Map" resultMap="hanjinItemHd">
+		<![CDATA[
+		 	/*selectHanjinItemHdLst*/
+			SELECT CUSTEDICD,      SVCCATCD,       CUSTORDNO,      WBLNO,
+				   CNTRACTNO,      PICKUPASKDT,    SNDRZIP,        SNDRBASEADDR,   
+				   SNDRDTLADDR,    SNDRNM,         SNDRTELNO,      RCVRZIP,        
+				   RCVRBASEADDR,   RCVRDTLADDR,    RCVRNM,         RCVRTELNO,      
+				   RCVRMOBILENO,   RCVRASKCNTENT,  RCVRREFCNTENT,  PAYTYPCD,       
+				   BOXTYPCD,       COMODITYNM
+			  FROM KEP_PARCEL_HJ
+			 WHERE IF_FLAG = 'N'
+			   AND CUSTORDNO = #{BUYER}||#{INV_NO}
+        ]]> 
+	</select> 
+	
+	<select id="selectHanjinItemLst" parameterType="java.util.Map" resultMap="hanjinItem">
+		<![CDATA[
+		 	/*selectHanjinItemLst*/
+			SELECT COMODITYCD,    COMODITYNM,     COMODITYCNT
+			  FROM KEP_PARCEL_HJ_DT
+			 WHERE CUSTEDICD = 'KORB2B'
+			   AND CUSTORDNO = #{custOrdNo}
+        ]]> 
+	</select> 
+	
+	<update id="updateMasterWmIyangWmsivdt" parameterType="java.util.Map" >
+		<![CDATA[
+		/*updateMasterWmIyangWmsivdt*/
+			UPDATE WMSIVDT IVDT
+     			SET DELIVERY_COMPANY =  'D008'
+                    , DELIVERY_NO = (SELECT MIN(MNG.COURIER_NO) FROM KEP_COURIER_MNG MNG
+												WHERE MNG.BUYER = IVDT.BUYER
+												AND MNG.INV_NO = IVDT.INV_NO)
+					, PARCEL_ADD_DATE = SYSDATE 
+					, PARCEL_ADD_USER_ID = #{USER_ID}
+           WHERE INV_NO = #{INV_NO}
+               AND BUYER = #{BUYER}
+		]]>
+	</update>
+	
+	<update id="updateHanjinParcelLb" parameterType="java.util.Map" >
+		<![CDATA[
+		/*updateHanjinParcelLb*/
+			INSERT INTO KEP_PARCEL_HJ_LB
+			(
+				RESULT_CODE,
+				RESULT_MESSAGE,
+				MSG_KEY,
+				MSG_SEQ,
+				S_TML_NAM,
+				S_TML_COD,
+				ZIP_COD,
+				TML_NAM,
+				TML_COD,
+				CEN_NAM,
+				CEN_COD,
+				PD_TIM,
+				DOM_RGN,
+				HUB_COD,
+				DOM_MID,
+				ES_COD,
+				GRP_RNK,
+				ES_NAM,
+				PRT_ADD,
+				PARCEL_NO				
+			)
+			VALUES
+			(
+				#{result_code},
+				#{result_message},
+				#{msg_key},
+				#{msg_seq},
+				#{s_tml_nam},
+				#{s_tml_cod},
+				#{zip_cod},
+				#{tml_nam},
+				#{tml_cod},
+				#{cen_nam},
+				#{cen_cod},
+				#{pd_tim},
+				#{dom_rgn},
+				#{hub_cod},
+				#{dom_mid},
+				#{es_cod},
+				#{grp_rnk},
+				#{es_nam},
+				#{prt_add},
+				#{parcelNo}
+			)
+		]]>
+	</update>
+	
+	<update id="updateHanjinWmsivdt" parameterType="java.util.Map" >
+		<![CDATA[
+		/*updateHanjinWmsivdt*/
+		UPDATE WMSIVDT IVDT
+   		   SET DELIVERY_COMPANY = 'D011'
+             , DELIVERY_NO = #{wblNo}
+         WHERE BUYER = #{buyer}
+           AND INV_NO = #{inv_no}
+           AND DELIVERY_NO IS NULL
+		]]>
+	</update>
+	
+	<update id="updateHanjinItemHd" parameterType="java.util.Map" >
+		<![CDATA[
+		/*updateHanjinItemHd*/
+		UPDATE KEP_PARCEL_HJ 
+		   SET WBLNO = #{wblNo},
+		   	   IF_FLAG = #{flag},
+		       IF_DATE = SYSDATE,
+		       IF_MSG = #{resultMessage}
+		 WHERE CUSTORDNO = #{custOrdNo}
+		   AND IF_FLAG = 'N'
+		]]>
+	</update>
+	
+	<update id="updateMasterWmGiReleaseTransPopHUBIVDT" parameterType="java.util.Map" >
+		<![CDATA[
+			/* updateMasterWmGiReleaseTransPopHUBIVDT */
+			UPDATE	HUBIVDT HUB
+			SET		HUB.STATUS = 'R',
+					HUB.SCHEDULED_DATE = #{SCHEDULED_DATE},
+					HUB.HUB_IV_DATE = #{IVK_DATE},
+					HUB.TOT_BOX_QTY = #{BOX_QTY},
+					HUB.HUB_IV_QTY = NVL(HUB.HUB_GR_QTY, 0),
+					HUB.HUB_IV_CREATE_DATE = SYSDATE,
+					HUB.HUB_IV_USER_ID = #{st_user_id},
+					HUB.CHANGE_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD'),
+					HUB.CHANGE_TIME = TO_CHAR(SYSDATE, 'HH24MISS'), 
+					HUB.CHANGE_USER_ID = #{st_user_id}
+			WHERE	HUB.BUYER = #{BUYER}
+			AND		HUB.S_INV_NO = #{INV_NO}
+			AND		HUB.S_INV_SEQ = #{INV_SEQ}
+			AND		HUB.STATUS <> 'D'
+		]]>
+	</update>
+</mapper>

@@ -1,0 +1,247 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mpif">
+	<resultMap id="NewMpifErr" type = "hashmap">
+			<result property="JOB_NOTE" column="JOB_NOTE" jdbcType="CLOB" javaType="java.lang.String" />
+	</resultMap>
+
+	<!-- 조회 -->
+	<select id="selectMasterMpifErrList" parameterType="java.util.Map" resultType="java.util.Map">
+	/*master.mpif.selectMasterMpifErrList*/
+		<include refid="common.ibsheet.xml.pagestart"/>
+		<![CDATA[
+		SELECT Z.BUYER_ID,
+				Z.COM_CODE,
+				Z.IF_TYPE,
+				Z.ERR_CNT,
+				SUBSTR(Z.EX_TERM,2,10)||DECODE(SUBSTR(Z.EX_TERM,1,1),'D','일','H','시간','M','분') AS EX_TERM,
+				Z.IF_DIRECTION,
+				Z.PROGRAM_ID,
+				Z.IF_STATUS_IMG,
+			    Z.IF_STATUS,
+                TO_CHAR(Z.LAST_UPDATE_DATE,'YYYY/MM/DD HH24:MI:SS') AS LAST_UPDATE_DATE,
+				Z.TASK_GUBUN,
+				Z.TASK_ORDER,
+				Z.PROCESS_GUBUN,
+				Z.CHECKING_IMG,
+				Z.CHECKING
+		FROM (
+			SELECT	
+				A.BUYER_ID,
+				A.COM_CODE,
+				A.IF_TYPE,
+				A.ERR_CNT,
+				A.EX_TERM,
+				A.IF_DIRECTION,
+				A.PROGRAM_ID,
+				CASE WHEN A.IF_STATUS = 'ON'
+                      AND A.LAST_UPDATE_DATE >= SYSDATE-(DECODE(SUBSTR(EX_TERM,1,1),'D',1,'H',1/24,'M',1/60/24))*SUBSTR(EX_TERM,2,10) THEN '0'
+			            ELSE '2' END AS IF_STATUS_IMG,
+			    CASE WHEN A.IF_STATUS = 'ON' 
+                      AND LAST_UPDATE_DATE >= SYSDATE-(DECODE(SUBSTR(EX_TERM,1,1),'D',1,'H',1/24,'M',1/60/24))*SUBSTR(EX_TERM,2,10) THEN 'ON'
+			            ELSE 'OFF' END AS IF_STATUS,
+                A.LAST_UPDATE_DATE,
+				A.TASK_GUBUN,
+				A.TASK_ORDER,
+				A.PROCESS_GUBUN,
+				CASE WHEN (SELECT COUNT(1)
+			      			   FROM ICOMTRXL
+							  WHERE DOC_NAME = 'IF_CHECK'
+							    AND TARGET = A.BUYER_ID
+							    AND KEY_1 = A.IF_TYPE
+							    AND KEY_2 = A.TASK_GUBUN
+							    AND KEY_9 = ' ') > 0 THEN '1'
+					WHEN (SELECT COUNT(1)
+		      			   FROM ICOMTRXL
+						  WHERE DOC_NAME = 'IF_CHECK'
+						    AND TARGET = 'ALL'
+						    AND KEY_9 = ' ') > 0 THEN '1'
+					ELSE '0' END	AS CHECKING_IMG,
+				CASE WHEN (SELECT COUNT(1)
+			      			   FROM ICOMTRXL
+							  WHERE DOC_NAME = 'IF_CHECK'
+							    AND TARGET = A.BUYER_ID
+							    AND KEY_1 = A.IF_TYPE
+							    AND KEY_2 = A.TASK_GUBUN
+							    AND KEY_9 = ' ') > 0 THEN '1'
+					 WHEN (SELECT COUNT(1)
+		      			   FROM ICOMTRXL
+						  WHERE DOC_NAME = 'IF_CHECK'
+						    AND TARGET = 'ALL'
+						    AND KEY_9 = ' ') > 0  THEN '1'
+					   ELSE '0' END	AS CHECKING
+			FROM	EAI.IF_ERR_MNG A
+			WHERE	1 = 1
+		]]>
+		<if test="buyer_code_array != null and buyer_code_array != '' ">
+				AND A.BUYER_ID IN (SELECT DISTINCT BUYER_ID FROM IF_ADMIN WHERE BUYER IN
+			<foreach item="item" index="index" collection="buyer_code_array" open="(" separator="," close=")">
+			    #{item}
+			</foreach>
+			)
+		</if>
+		<if test="st_buyer_id != null and st_buyer_id != '' ">
+			  AND A.BUYER_ID = UPPER(#{st_buyer_id})
+		</if>
+		<if test='st_error_flag == "Y"'>
+			  AND A.ERR_CNT > 0
+		</if>
+		<if test='st_error_flag == "N"'>
+			  AND A.ERR_CNT = 0
+		</if>
+		<![CDATA[
+			) Z
+			WHERE 1 = 1
+		]]>
+		<if test="st_if_status_flag != null and st_if_status_flag != '' ">
+			  AND Z.IF_STATUS = #{st_if_status_flag}
+		</if>
+		<![CDATA[
+		ORDER BY Z.COM_CODE, Z.IF_TYPE
+		]]>
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+	
+	<update id="insertMasterMpIfErrMngTotal" parameterType="java.util.Map">
+		<![CDATA[
+		INSERT INTO ICOMTRXL (DOC_NAME, TARGET, KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6, KEY_7, KEY_8, KEY_9, KEY_10)  
+		              VALUES ('IF_CHECK', #{BUYER_ID}, #{IF_TYPE}, #{TASK_GUBUN},' ',' ',' ',' ',' ',' ',' ',' ')
+		]]>
+	</update>
+	
+	<select id="selectMasterNewMpifErrList" parameterType="java.util.Map"  resultType="java.util.Map" resultMap="NewMpifErr">
+	/*master.mpif.selectMasterMpifErrList*/
+	<include refid="common.ibsheet.xml.pagestart"/>	
+		<![CDATA[
+		SELECT
+			A.PGM_ID,
+			A.PGM_NAME,
+			B.SEQ,
+			B.CREATE_DATE,
+			B.CREATE_TIME,
+            CASE
+                WHEN B.ERR_TYPE = 'A'                       THEN '0' /* 작업대기 */
+                WHEN B.ERR_TYPE = 'B'                       THEN '1' /* 정상 */
+                WHEN B.ERR_TYPE = 'C'                       THEN '2' /* I/F오류 */
+            END ERR_TYPEIMG /* 상태 Image */,
+            CASE
+                WHEN B.ERR_TYPE = 'A'                       THEN '장애' /* 작업대기 */
+                WHEN B.ERR_TYPE = 'B'                       THEN '데이터 이슈' /* 정상 */
+                WHEN B.ERR_TYPE = 'C'                       THEN 'I/F오류' /* I/F오류 */
+            END ERR_TYPE ,
+			B.ERR_TITLE,
+			B.ERR_NOTE,
+			A.JOB_NOTE,
+             CASE
+                WHEN B.STATUS = 'E'                       THEN '오류' /* 오류 */
+                WHEN B.STATUS = 'R'                       THEN '접수' /* 접수 */
+                WHEN B.STATUS = 'C'                       THEN '완료' /* 완료 */
+            END STATUS /* 상태값 */,
+            CASE
+                WHEN B.STATUS = 'E'                       THEN '0' /* 오류 */
+                WHEN B.STATUS = 'R'                       THEN '2' /* 접수 */
+                WHEN B.STATUS = 'C'                       THEN '3' /* 완료 */
+            END STATUSIMG /* 상태 Image */,
+			B.RECEIPT_USER_ID,
+			B.RECEIPT_DATE,
+			B.COMPLETE_USER_ID,
+			B.COMPLETE_DATE
+		FROM IF_PGM_HD A , IF_PGM_DT B
+		WHERE A.PGM_ID = B.PGM_ID
+		]]>
+		<if test='st_date_flag_value == "N" '>
+			AND B.CREATE_DATE BETWEEN #{st_from_date} AND #{st_to_date}
+		</if>
+		<if test="st_pgm_id != null and st_pgm_id != '' ">
+			    AND A.PGM_ID LIKE '%' || #{st_pgm_id} || '%'
+		</if>
+		<if test="st_error_flag != null and st_error_flag != '' ">
+			  AND B.ERR_TYPE = #{st_error_flag}
+		</if>
+		<if test="st_if_status_flag != null and st_if_status_flag != '' ">
+			  AND B.STATUS = #{st_if_status_flag}
+		</if>
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+	
+	<select id="selectMpifNewErrMngPop" parameterType="java.util.Map"  resultType="java.util.Map" resultMap="NewMpifErr">
+	/*master.mpif.selectMpifNewErrMngPop*/
+		<![CDATA[
+		SELECT
+			A.PGM_ID,
+			A.PGM_NAME,
+			B.SEQ,
+			B.CREATE_DATE,
+			B.CREATE_TIME,
+            CASE
+                WHEN B.ERR_TYPE = 'A'                       THEN '0' /* 작업대기 */
+                WHEN B.ERR_TYPE = 'B'                       THEN '1' /* 정상 */
+                WHEN B.ERR_TYPE = 'C'                       THEN '2' /* I/F오류 */
+            END ERR_TYPEIMG /* 상태 Image */,
+            CASE
+                WHEN B.ERR_TYPE = 'A'                       THEN '장애' /* 작업대기 */
+                WHEN B.ERR_TYPE = 'B'                       THEN '데이터 이슈' /* 정상 */
+                WHEN B.ERR_TYPE = 'C'                       THEN 'I/F오류' /* I/F오류 */
+            END ERR_TYPE ,
+			B.ERR_TITLE,
+			B.ERR_NOTE,
+			A.JOB_NOTE,
+             CASE
+                WHEN B.STATUS = 'E'                       THEN '오류' /* 오류 */
+                WHEN B.STATUS = 'R'                       THEN '접수' /* 접수 */
+                WHEN B.STATUS = 'C'                       THEN '완료' /* 완료 */
+            END STATUS /* 상태값 */,
+            CASE
+                WHEN B.STATUS = 'E'                       THEN '0' /* 오류 */
+                WHEN B.STATUS = 'R'                       THEN '2' /* 접수 */
+                WHEN B.STATUS = 'C'                       THEN '3' /* 완료 */
+            END STATUSIMG /* 상태 Image */,
+			B.RECEIPT_USER_ID,
+			B.RECEIPT_DATE,
+			B.COMPLETE_USER_ID,
+			B.COMPLETE_DATE
+		FROM IF_PGM_HD A , IF_PGM_DT B
+		WHERE A.PGM_ID = B.PGM_ID
+		AND B.SEQ  = #{seq}
+		]]>
+	</select>
+	
+	
+	<!-- 인터페이스 오류 접수 -->
+	<update  id="updateReceiptMpifNewErrMngPop" parameterType="java.util.Map" >
+	/*updateReceiptMpifNewErrMngPop*/
+		<![CDATA[
+			UPDATE IF_PGM_DT
+			SET RECEIPT_USER_ID = #{st_user_id}
+			  , STATUS = 'R'
+			  , RECEIPT_DATE = SYSDATE
+			WHERE 1=1
+			AND SEQ = #{err_seq}
+		]]>
+	</update>
+	
+	
+	<!-- 인터페이스 오류 완료 -->
+	<update  id="updateCompleteMpifNewErrMngPop" parameterType="java.util.Map" >
+	/*updateCompleteMpifNewErrMngPop*/
+		<![CDATA[
+			UPDATE IF_PGM_DT
+			SET COMPLETE_USER_ID = #{st_user_id}
+			  , STATUS = 'C'
+			  , COMPLETE_DATE = SYSDATE
+			WHERE 1=1
+			AND SEQ = #{err_seq}
+		]]>
+	</update>
+	
+	
+		<update  id="updatejobNoteMpifNewErrMngPop" parameterType="java.util.Map" >
+	/*updateCompleteMpifNewErrMngPop*/
+		<![CDATA[
+			UPDATE IF_PGM_HD
+			SET JOB_NOTE    = #{st_df_remark}
+			WHERE 1=1
+			AND PGM_ID = #{PGM_ID}
+		]]>
+	</update>
+</mapper>

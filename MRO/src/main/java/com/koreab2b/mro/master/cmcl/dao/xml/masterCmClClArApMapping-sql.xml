@@ -1,0 +1,504 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.cmcl">
+	<!-- 조회 -->
+	<select id="selectMasterCmClClArApMappingList" parameterType="java.util.Map" resultType="java.util.Map">
+	<include refid="common.ibsheet.xml.pagestart"/>
+	/*selectMasterCmClClArApMappingList*/
+		<![CDATA[
+				SELECT
+				 	MAPPING_STATUS, ACCURACY, CONFIRM_CLS_TEXT, ACODE, SAUPJ, SITE, REFNO2, GROUP_KEY, MAPPING_TYPE
+				 	,TOTAL_PRIN_AMOUNT , TOTAL_TAX, C_CHARGETOTAL , C_TAXTOTAL, ACCNO, ACCSEQ, ISSUE_DATE, CURRENCY
+				 	,PRIN_AMOUNT, CREDIT, ACODENM, REMARK, A01_REGNO, A01_CUSTOMERNM, KEP_DEPT_CD, KEP_DEPT_NM, A01_CCODE
+				 	,CT01_NAME, A01_REFNO2, ENTRY_DATE, CREATE_DATE, EMPLOYEE,  USER_NM, ISSUE_ID, IP_NAME     
+				 	,ISSUE_DT, TYPE_CODE, CHARGETOTAL, TAXTOTAL, ASP_CODE, SU_EMAIL, SU_PERSNAME, IP_EMAIL1, IP_PERSNAME1
+				    ,DESC_TEXT1, AMEND_CODE, M_STATUS, CONFIRM_CLS, KEP_EMAIL, RNK, IMAGE_KEY, IMAGE_KEY_YN
+				FROM
+				(
+				SELECT 					
+				       DECODE(B.MAPPING_STATUS,NULL,'미매핑','A','자동매핑','O','수동매핑','E','수기매핑')  AS MAPPING_STATUS
+				       ,DECODE(B.ACCURACY,'Y','금액일치','N','금액불일치','') AS ACCURACY
+				       ,DECODE(A.CONFIRM_CLS,'Y','확정','미확정') CONFIRM_CLS_TEXT
+				       ,DECODE(A.ACODE,'1114805','매입','2112605','매출') AS ACODE
+				       ,A.SAUPJ AS SAUPJ
+				       ,DECODE(SUBSTR(A.REFNO2,1,2),'TP','건설유통','TS','건설유통','AP','구매대행','AR','구매대행','일반') AS SITE				
+				       ,DECODE(SUBSTR(A.REFNO2,1,2),'TP','건설유통매입','TS','건설유통매출','AP','구매대행매입','AR','구매대행매출') AS REFNO2
+				       ,NVL(B.GROUP_KEY,A.ACCNO||A.ACCSEQ) GROUP_KEY
+				       ,B.MAPPING_TYPE
+				       ,SUM(A.PRIN_AMOUNT) OVER (PARTITION BY NVL(B.GROUP_KEY,A.ACCNO||A.ACCSEQ) ) TOTAL_PRIN_AMOUNT
+				       ,SUM(DECODE(A.ACODE,'2112605',CREDIT, '1114805',DEBIT)) OVER (PARTITION BY NVL(B.GROUP_KEY,A.ACCNO||A.ACCSEQ) ) TOTAL_TAX
+				       ,SUM(C.CHARGETOTAL) OVER (PARTITION BY NVL(B.GROUP_KEY,A.ACCNO||A.ACCSEQ) ) C_CHARGETOTAL
+				       ,SUM(C.TAXTOTAL) OVER (PARTITION BY NVL(B.GROUP_KEY,A.ACCNO||A.ACCSEQ) ) C_TAXTOTAL
+				       ,A.ACCNO   
+				       ,A.ACCSEQ  
+				       ,A.ISSUE_DATE 
+				       ,A.CURRENCY 
+				       ,A.PRIN_AMOUNT
+				       ,DECODE(A.ACODE,'2112605',CREDIT, '1114805',DEBIT) CREDIT
+				       ,A.ACODENM
+				       ,A.REMARK 
+				       ,A.A01_REGNO 
+				       ,A.A01_CUSTOMERNM
+				       ,D.CODE KEP_DEPT_CD
+				       ,D.TEXT2 KEP_DEPT_NM
+				       ,A.A01_CCODE
+				       ,A.CT01_NAME
+				       ,A.REFNO2 A01_REFNO2
+				       ,A.ENTRY_DATE
+				       ,A.CREATE_DATE 
+				       ,E.USER_ID EMPLOYEE
+				       ,E.USER_NAME_LOC USER_NM 
+				       ,DECODE(B.MAPPING_TYPE,'NN',B.ISSUE_ID||'외 다수건',B.ISSUE_ID)  ISSUE_ID
+				       ,DECODE(C.ARAP,'AP',C.SU_NAME,'AR',IP_NAME) AS IP_NAME
+				       ,C.ISSUE_DT
+				       ,DECODE(C.TYPE_CODE,'0101','일반 세금계산서' ,'0102','영세율 세금계산서' ,'0201', '수정 일반 세금계산서' ,'0202','수정 영세율 세금계산서' ,'0301','일반 계산서') TYPE_CODE 
+				       ,C.CHARGETOTAL
+				       ,C.TAXTOTAL
+				       ,(SELECT COD1.TEXT1 FROM ICOMCOD1 COD1 WHERE COD1.TYPE='TX09' AND COD1.CODE=C.ASP_CODE AND ROWNUM=1 ) ASP_CODE 
+				       ,C.SU_EMAIL
+				       ,C.SU_PERSNAME
+				       ,C.IP_EMAIL1
+				       ,C.IP_PERSNAME1
+				       ,C.DESC_TEXT1
+				       ,C.AMEND_CODE
+				       ,B.STATUS AS M_STATUS
+				       ,A.CONFIRM_CLS
+				       ,E.EMAIL KEP_EMAIL
+				       ,DECODE(B.MAPPING_TYPE, NULL,1,'11',1,'1N',1,'N1',1, RANK() OVER ( PARTITION BY B.GROUP_KEY||B.ACCNO||B.ACCSEQ, B.MAPPING_TYPE ORDER BY B.ACCNO||B.ACCSEQ||B.ISSUE_ID)) RNK
+				       ,B.IMAGE_KEY
+				       ,DECODE(B.IMAGE_KEY,NULL,'2','3') AS IMAGE_KEY_YN				       
+				FROM TACCOUNT_TAX_IF A, TACCOUNT_TAX_MAPPING B, KEPTAX.ZDTV3T_NTS C, ICOMCOD1 D, ICOMLUSR E				
+				WHERE A.ACCNO = B.ACCNO(+)		
+				AND A.ACCSEQ = B.ACCSEQ(+)					
+				AND B.ISSUE_ID = C.ISSUE_ID(+)					
+				AND B.STATUS(+) = 'C'					
+				AND E.COM_CODE='KRKORE0001' AND E.OFFICE_YN IS NULL AND E.LEGACY_USER_ID IS NOT NULL
+				AND A.ISSUE_DATE BETWEEN #{st_from_date} AND #{st_to_date}
+				AND A.A01_CCODE=D.TEXT1	
+				AND D.TYPE='TX06'
+				AND ( CASE
+				        WHEN SUBSTR(A.REFNO2,1,2) = 'AR'
+				        THEN
+				          (SELECT ARDT.ADD_USER_ID FROM KEPTARDT ARDT WHERE ARDT.TAX_BILL_NO=A.REFNO2 AND ROWNUM=1) 
+				        WHEN SUBSTR(A.REFNO2,1,2) = 'AP'
+				        THEN
+				          (SELECT APDT.ADD_USER_ID FROM KEPTAPDT APDT WHERE APDT.TAX_BILL_NO=A.REFNO2 AND ROWNUM=1 ) 
+				        WHEN SUBSTR(A.REFNO2,1,2) = 'TS'
+				        THEN
+				          (SELECT APDT.RESGTR_ID FROM KEPCMCL01@KEPCON APDT WHERE APDT.SLS_TAX_BILL_NO=A.REFNO2 AND ROWNUM=1) 
+				        WHEN SUBSTR(A.REFNO2,1,2) = 'TP'
+				        THEN
+				          (SELECT APDT.RESGTR_ID FROM KEPCMCL03@KEPCON APDT WHERE APDT.PRCHS_TAX_BILL_NO=A.REFNO2 AND ROWNUM=1) 
+				        WHEN A.REFNO2 IS NULL
+				        THEN (SELECT LUSR.USER_ID FROM ICOMLUSR LUSR WHERE LUSR.COM_CODE='KRKORE0001' AND LUSR.OFFICE_YN IS NULL AND LUSR.LEGACY_USER_ID=A.EMPLOYEE AND ROWNUM=1)
+				      END)                          = E.USER_ID 		
+		]]>
+		<if test="st_a_code != 'ALL' ">
+		    AND A.ACODE = #{st_a_code}
+		</if>
+		<choose>
+		<when test='st_site == "B2B" '>
+			<if test="st_site != null and st_site != ''"> 
+			    AND SUBSTR(A.REFNO2,1,2) IN ('AR','AP')
+			</if>
+		</when>
+		<when test='st_site == "CMRO" '> 
+			<if test="st_site != null and st_site != ''">
+			    AND SUBSTR(A.REFNO2,1,2) IN ('TP','TS')
+			</if>
+		</when>
+		<when test='st_site == "NON" '> 
+			<if test="st_site != null and st_site != ''">
+			    AND A.REFNO2 IS NULL
+			</if>
+		</when>
+		</choose>
+		<choose>
+		<when test='st_status_cd == "R" '> 
+			<if test="st_status_cd != null and st_status_cd != ''">
+			    AND A.STATUS in ( 'C' ,'R')		
+			</if>
+		</when>
+		<when test='st_status_cd == "D" '> 
+			<if test="st_status_cd != null and st_status_cd != ''">
+			    AND A.STATUS = 'D'		
+			</if>
+		</when>
+		</choose>
+		<if test="st_accno != null and st_accno != '' ">
+		    AND A.ACCNO LIKE #{st_accno}||'%'
+		</if>
+		<if test="st_issue_id != null and st_issue_id != '' ">
+		    AND C.ISSUE_ID LIKE #{st_issue_id}||'%'
+		</if>
+		<if test="st_a01_regno != null and st_a01_regno != '' ">
+		    AND A.A01_REGNO LIKE #{st_a01_regno}||'%'
+		</if>
+		<if test="st_a01_customer_nm != null and st_a01_customer_nm != '' ">
+		    AND A.A01_CUSTOMERNM LIKE #{st_a01_customer_nm}||'%'
+		</if>
+		<if test="st_user_dept != null and st_user_dept != '' ">
+		    AND D.CODE = #{st_user_dept}
+		</if>
+		<if test="st_add_user_id != null and st_add_user_id != '' ">
+		    AND E.USER_ID = #{st_add_user_id}
+		</if>
+		<if test="st_tax_bill_no != null and st_tax_bill_no != '' ">
+		    AND A.REFNO2 = #{st_tax_bill_no}
+		</if>
+		<if test="st_group_key != null and st_group_key != '' ">
+		    AND B.GROUP_KEY = #{st_group_key}
+		</if>
+		<if test="st_issue_id != null and st_issue_id != '' ">
+		    AND C.ISSUE_ID = #{st_issue_id}
+		</if>
+		<choose>
+		<when test='st_confirm_cls == "Y" '>
+			AND A.CONFIRM_CLS = 'Y'
+		</when>
+		<when test='st_confirm_cls == "N" '>
+			AND A.CONFIRM_CLS IS NULL
+		</when>
+		</choose>
+		<if test="st_accuracy != null and st_accuracy != '' ">
+		    AND B.ACCURACY = #{st_accuracy}
+		</if>
+		<if test="st_mapping_type != null and st_mapping_type != '' ">
+		    AND B.MAPPING_TYPE = #{st_mapping_type}
+		</if>
+		<choose>
+		<when test='st_mapping == "M" '> 
+			<if test="st_mapping != null and st_mapping != ''">
+			    AND B.MAPPING_STATUS IN ('A','O','E')
+			</if>
+		</when>
+		<when test='st_mapping == "N" '> 
+			<if test="st_mapping != null and st_mapping != ''">
+			    AND B.MAPPING_STATUS IS NULL
+			</if>
+		</when>
+		<when test='st_mapping == "A" '> 
+			<if test="st_mapping != null and st_mapping != ''">
+			    AND B.MAPPING_STATUS = 'A'
+			</if>
+		</when>
+		<when test='st_mapping == "B" '> 
+			<if test="st_mapping != null and st_mapping != ''">
+			    AND B.MAPPING_STATUS = 'B'
+			</if>
+		</when>
+		<when test='st_mapping == "O" '> 
+			<if test="st_mapping != null and st_mapping != ''">
+			    AND B.MAPPING_STATUS = 'O'
+			</if>
+		</when>
+		<when test='st_mapping == "E" '> 
+			<if test="st_mapping != null and st_mapping != ''">
+			    AND B.MAPPING_STATUS = 'E'
+			</if>
+		</when>
+		</choose>
+		
+		) WHERE RNK = 1
+		ORDER BY MAPPING_STATUS, ACODE, ACCNO, ACCSEQ, ISSUE_ID
+		<include refid="common.ibsheet.xml.pageend"/>											
+	</select>
+	
+	<!-- 저장 -->
+	<update  id="inserMasterCmClArApMapping" parameterType="java.util.Map" >
+	/*inserMasterCmClArApMapping*/
+		<![CDATA[
+			INSERT INTO TACCOUNT_TAX_MAPPING
+			(
+			    ACCNO
+			    ,ACCSEQ
+			    ,ISSUE_ID
+			    ,CONVERSATION_ID
+			    ,MAPPING_STATUS
+			    ,STATUS
+			    ,ADD_DATE
+			    ,ADD_TIME
+			    ,ADD_USER_ID
+			    ,CHANGE_DATE
+			    ,CHANGE_TIME
+			    ,CHANGE_USER_ID
+			    ,ACCURACY
+			    ,GROUP_KEY
+			    ,MAPPING_TYPE
+			)
+			VALUES
+			(
+			   #{st_acc_no}
+			   ,#{st_acc_seq}
+			  , #{ISSUE_ID}
+			  , ''
+			  , 'O' 
+			  , 'C' 
+			  , TO_CHAR(SYSDATE,'YYYYMMDD') 
+			  , TO_CHAR(SYSDATE,'HH24MISS') 
+			  , #{st_user_id} 
+			  , TO_CHAR(SYSDATE,'YYYYMMDD') 
+			  , TO_CHAR(SYSDATE,'HH24MISS') 
+			  , #{st_user_id}
+			  , #{st_accuracy}
+			  , #{st_group_key}
+			  , #{st_mapping_type}
+			)				
+		]]>
+	</update>
+	
+	<!-- 저장 -->
+	<update  id="inserExcepMasterCmClArApMapping" parameterType="java.util.Map" >
+	/*inserExcepMasterCmClArApMapping*/
+		<![CDATA[
+			INSERT INTO TACCOUNT_TAX_MAPPING
+			(
+			    ACCNO
+			    ,ACCSEQ
+			    ,ISSUE_ID
+			    ,CONVERSATION_ID
+			    ,MAPPING_STATUS
+			    ,STATUS
+			    ,ADD_DATE
+			    ,ADD_TIME
+			    ,ADD_USER_ID
+			    ,CHANGE_DATE
+			    ,CHANGE_TIME
+			    ,CHANGE_USER_ID
+			    ,ACCURACY
+			    ,GROUP_KEY
+			    ,MAPPING_TYPE
+			    ,IMAGE_KEY
+			)
+			VALUES
+			(
+			   #{ACCNO}
+			  ,#{ACCSEQ}
+			  , 'T0001'
+			  , ''
+			  , 'E' 
+			  , 'C' 
+			  , TO_CHAR(SYSDATE,'YYYYMMDD') 
+			  , TO_CHAR(SYSDATE,'HH24MISS') 
+			  , #{st_user_id} 
+			  , TO_CHAR(SYSDATE,'YYYYMMDD') 
+			  , TO_CHAR(SYSDATE,'HH24MISS') 
+			  , #{st_user_id}
+			  , ''
+			  , #{ACCNO}||#{ACCSEQ}
+			  , '11'
+			  , #{IMAGE_KEY}
+			)				
+		]]>
+	</update>
+	
+	<!-- 확정 -->
+	<update  id="confirmtMasterCmClArApMappingList" parameterType="java.util.Map" >
+	/*confirmtMasterCmClArApMappingList*/
+		<![CDATA[
+			UPDATE TACCOUNT_TAX_IF
+			SET CONFIRM_USER_ID = #{st_user_id} 
+			, CONFIRM_DATE = TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+			, CONFIRM_CLS='Y' 
+			WHERE ACCNO = #{ACCNO}
+			AND ACCSEQ = 	#{ACCSEQ}	
+		]]>
+	</update>
+	
+	<!-- 매핑취소 -->
+	<update  id="cancleMappingMasterCmClArApMappingList" parameterType="java.util.Map" >
+	/*cancleMappingMasterCmClArApMappingList*/
+		<![CDATA[
+			DELETE TACCOUNT_TAX_MAPPING
+			WHERE GROUP_KEY = #{GROUP_KEY}
+		]]>
+	</update>
+	
+	<!--확정취소 -->
+	<update  id="cancleMasterCmClArApMappingList" parameterType="java.util.Map" >
+	/*cancleMasterCmClArApMappingList*/
+		<![CDATA[
+			UPDATE TACCOUNT_TAX_IF
+			SET CONFIRM_USER_ID = '' 
+			, CONFIRM_DATE = ''
+			, CONFIRM_CLS='' 
+			WHERE ACCNO = #{ACCNO}
+			AND ACCSEQ = 	#{ACCSEQ}	
+		]]>
+	</update>
+	
+	<!--  부서조회 -->
+	<select id="selectMasterCmClArApDeptList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/* selectMasterCmClArApDeptList */
+			SELECT	CODE,
+			    		TEXT1
+			FROM	ICOMCOD2
+			WHERE	1=1
+			AND		COMPANY_CODE = 'KRKORE0001'
+			AND		TYPE = 'C001'
+			AND		TEXT3 = 'ARAP'
+			ORDER BY TEXT1
+		]]>
+	</select>
+	
+	<!-- 세금계산서 조회 -->
+	<select id="selectMasterCmClTaxMappingList" parameterType="java.util.Map" resultType="java.util.Map">
+	<include refid="common.ibsheet.xml.pagestart"/>
+	/*selectMasterCmClTaxMappingList*/
+		<![CDATA[				
+				SELECT
+					 ISSUE_ID, ARAP, ARAP_CODE,  ISSUE_DT, ISSUE_DATE, ASP_CODE, TYPE_CODE, PURP_CODE, AMEND_CODE, ISSUE_ID_OLD, DESC_TEXT1,  
+					 SU_ID, SU_MIN, SU_NAME, SU_REPRES, SU_ADDR, SU_BUSTYPE, SU_INDTYPE, SU_DEPTNAME, SU_PERSNAME, SU_TELNO, SU_HPNO, SU_EMAIL, 
+					 IP_TYPECODE, IP_ID, IP_MIN, IP_NAME, IP_REPRES, IP_ADDR, IP_BUSTYPE, IP_INDTYPE, IP_DEPTNAME1, IP_PERSNAME1, IP_TELNO1, IP_HPNO1, IP_EMAIL1,
+					 IP_DEPTNAME2, IP_PERSNAME2, IP_TELNO2, IP_HPNO2, IP_EMAIL2, CHARGETOTAL, TAXTOTAL, GRANDTOTAL, ERDAT, ERZET, ERNAM, TRANS_DATE, ACCNO, ACCSEQ,
+					 USER_ID, USER_NAME_LOC, DEPARTMENT, NTS_GROUP_KEY, MAP_ISSUE_ID  
+				FROM (
+				SELECT 					
+				     NTS.ISSUE_ID
+					,DECODE(NTS.ARAP,'AR','매출','매입') ARAP
+					,NTS.ARAP AS ARAP_CODE
+					,NTS.ISSUE_DT
+					,NTS.ISSUE_DATE
+					,(SELECT COD1.TEXT1 FROM ICOMCOD1 COD1 WHERE COD1.TYPE='TX09' AND COD1.CODE=NTS.ASP_CODE  AND ROWNUM=1  ) ASP_CODE
+					,DECODE(NTS.TYPE_CODE,'0101','일반 세금계산서' ,'0102','영세율 세금계산서' ,'0201', '수정 일반 세금계산서' ,'0202','수정 영세율 세금계산서' ,'0301','일반 계산서')TYPE_CODE
+					,(SELECT COD1.TEXT1 FROM ICOMCOD1 COD1 WHERE COD1.TYPE='TX10' AND COD1.CODE=NTS.PURP_CODE ) PURP_CODE
+					,(SELECT COD1.TEXT1 FROM ICOMCOD1 COD1 WHERE COD1.TYPE='TX14' AND COD1.CODE=NTS.AMEND_CODE ) AMEND_CODE
+					,NTS.ISSUE_ID_OLD
+					,NTS.DESC_TEXT1
+					,NTS.SU_ID
+					,NTS.SU_MIN
+					,NTS.SU_NAME
+					,NTS.SU_REPRES
+					,NTS.SU_ADDR
+					,NTS.SU_BUSTYPE
+					,NTS.SU_INDTYPE
+					,NTS.SU_DEPTNAME
+					,NTS.SU_PERSNAME
+					,NTS.SU_TELNO
+					,NTS.SU_HPNO
+					,NTS.SU_EMAIL
+					,NTS.IP_TYPECODE
+					,NTS.IP_ID
+					,NTS.IP_MIN
+					,NTS.IP_NAME
+					,NTS.IP_REPRES
+					,NTS.IP_ADDR
+					,NTS.IP_BUSTYPE
+					,NTS.IP_INDTYPE
+					,NTS.IP_DEPTNAME1
+					,NTS.IP_PERSNAME1
+					,NTS.IP_TELNO1
+					,NTS.IP_HPNO1
+					,NTS.IP_EMAIL1
+					,NTS.IP_DEPTNAME2
+					,NTS.IP_PERSNAME2
+					,NTS.IP_TELNO2
+					,NTS.IP_HPNO2
+					,NTS.IP_EMAIL2
+					,NTS.CHARGETOTAL
+					,NTS.TAXTOTAL
+					,NTS.GRANDTOTAL
+					,NTS.ERDAT
+					,NTS.ERZET
+					,NTS.ERNAM
+					,NTS.TRANS_DATE
+					,MAP.ACCNO
+					,MAP.ACCSEQ
+					,LUSR.USER_ID
+					,LUSR.USER_NAME_LOC
+					,(SELECT COD2.TEXT1 FROM ICOMCOD2 COD2 WHERE COD2.CODE=LUSR.DEPARTMENT AND COMPANY_CODE='KRKORE0001' AND TYPE='C001' )DEPARTMENT  
+					, ROW_NUMBER() OVER (PARTITION BY NTS.ISSUE_ID ORDER BY MAP.ACCNO, MAP.ACCSEQ) ISSUE_CNT
+					, NTS.GROUP_KEY AS NTS_GROUP_KEY
+					, MAP.ISSUE_ID AS MAP_ISSUE_ID
+				FROM  ZDTV3T_NTS NTS, TACCOUNT_TAX_MAPPING MAP, ICOMLUSR LUSR
+				WHERE 1=1
+				AND   NTS.ISSUE_ID = MAP.ISSUE_ID(+) 
+				AND   LUSR.COM_CODE(+)='KRKORE0001' AND LUSR.STATUS(+) <> 'D' AND LUSR.OFFICE_YN IS NULL AND LUSR.LEGACY_USER_ID(+) IS NOT NULL
+				AND   LUSR.EMAIL(+) = DECODE(NTS.ARAP,'AR',REPLACE(NTS.SU_EMAIL,'kolon.com','koreab2b.com'), 'AP',REPLACE(NTS.IP_EMAIL1,'kolon.com','koreab2b.com'))
+				AND   NTS.ISSUE_DATE BETWEEN #{st_from_date} AND #{st_to_date} 		
+		]]>
+		<if test="st_arap != null and st_arap != '' ">
+		    AND NTS.ARAP = #{st_arap}
+		</if>
+		<if test="st_add_user_id != null and st_add_user_id != '' ">
+		    AND LUSR.USER_ID = #{st_add_user_id}
+		</if>
+		<if test="st_user_dept != null and st_user_dept != '' ">
+		    AND LUSR.DEPARTMENT = #{st_user_dept}
+		</if>
+		<if test="st_ip_id != null and st_ip_id != '' ">
+		    AND NTS.IP_ID LIKE #{st_ip_id}||'%'
+		</if>
+		<if test="st_ip_name != null and st_ip_name != '' ">
+		    AND NTS.IP_NAME LIKE #{st_ip_name}||'%'
+		</if>
+		<if test="st_ip_email != null and st_ip_email != '' ">
+		    AND NTS.IP_EMAIL1 LIKE #{st_ip_email}||'%'
+		</if>
+		<if test="st_su_id != null and st_su_id != '' ">
+		    AND NTS.SU_ID LIKE #{st_su_id}||'%'
+		</if>
+		<if test="st_su_name != null and st_su_name != '' ">
+		    AND NTS.SU_NAME LIKE #{st_su_name}||'%'
+		</if>
+		<if test="st_su_email != null and st_su_email != '' ">
+		    AND NTS.SU_EMAIL LIKE #{st_su_email}||'%'
+		</if>
+		<if test="st_accno != null and st_accno != '' ">
+		    AND MAP.ACCNO = #{st_accno}
+		</if>
+		<if test="st_issue_id != null and st_issue_id != '' ">
+		    AND NTS.ISSUE_ID = #{st_issue_id}
+		</if>
+		<choose>
+		<when test='st_mapping == "Y" '>
+		    AND MAP.ISSUE_ID IS NOT NULL
+		    AND NTS.GROUP_KEY IS NULL
+		</when>
+		<when test='st_mapping == "N" '> 
+		    AND MAP.ISSUE_ID IS NULL
+		    AND NTS.GROUP_KEY IS NULL
+		</when>
+		<when test='st_mapping == "E" '> 
+		    AND NTS.GROUP_KEY IS NOT NULL
+		</when>
+		</choose>
+		) WHERE ISSUE_CNT = 1
+		ORDER BY ARAP, SU_ID, IP_ID 
+		<include refid="common.ibsheet.xml.pageend"/>											
+	</select>
+	
+	<update id="call_PROC_TAX_SKIP" parameterType="java.util.Map">
+		<![CDATA[
+				/* call_PROC_TAX_SKIP */
+				call PROC_TAX_SKIP()
+		]]>
+	</update>
+	
+	<update id="manual_PROC_TAX_SKIP" parameterType="java.util.Map">
+		<![CDATA[
+			/* manual_PROC_TAX_SKIP */
+			UPDATE	ZDTV3T_NTS
+			SET		GROUP_KEY = #{NTS_GROUP_KEY}
+			WHERE	1=1
+			AND		ISSUE_ID = #{ISSUE_ID}
+			AND		ARAP = #{ARAP_CODE}
+		]]>
+	</update>
+	
+	<update id="call_PROC_TAX_MAPPING_AR" parameterType="java.util.Map">
+		<![CDATA[
+				/* call_PROC_TAX_MAPPING_AR */
+				call PROC_TAX_MAPPING_AR()
+		]]>
+	</update>
+	
+	<update id="call_PROC_TAX_MAPPING_AP" parameterType="java.util.Map">
+		<![CDATA[
+				/* call_PROC_TAX_MAPPING_AP */
+				call PROC_TAX_MAPPING_AP()
+		]]>
+	</update>
+</mapper>   
+   

@@ -1,0 +1,274 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mpso">
+	<!-- 조회 -->
+	<select id="getMasterMpSoSellerDiList_v2" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.pagestart"/>	
+			<![CDATA[
+ 
+  			/*getMasterMpSoSellerDiList_v2*/ 
+ 			SELECT
+ 			DECODE(A.SCM_REMARK,NULL,'','메모') AS SCM_REMARK
+            ,A.SCM_REMARK AS SCM_REMARK_TEXT
+            ,DECODE(
+            		(SELECT COUNT(*) FROM KEP_PO_MNG WHERE BUYER = A.BUYER AND PO_NO = A.PO_NO AND PO_SEQ IN ('000000', A.PO_SEQ)), 0, '',
+					(SELECT DECODE(COUNT(*), 0, '11', '10') FROM KEP_PO_MNG WHERE BUYER = A.BUYER AND PO_NO = A.PO_NO AND PO_SEQ IN ('000000', A.PO_SEQ) AND STATUS = 'S' AND NOTICE_DATE  <= TO_CHAR(SYSDATE, 'YYYYMMDD'))
+			) AS ISSUE_IMG
+ 			,NVL(C.AP_BILL_FLAG,'N') AS AP_BILL_FLAG
+ 			,NVL(F.AR_BILL_FLAG,'N') AS AR_BILL_FLAG
+ 			,A.BUYER
+ 			,(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = A.BUYER) AS BUYER_NAME
+ 			,DECODE(A.PROCESS_TYPE,'1',A.WAREHOUSE_CODE,'3',A.WAREHOUSE_CODE,B.AGENT) AS AGENT_CODE
+ 			,(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = DECODE(A.PROCESS_TYPE,'1',A.WAREHOUSE_CODE,'3',A.WAREHOUSE_CODE,B.AGENT)) AS AGENT_NAME
+ 			,A.PO_NO
+ 			,A.PO_SEQ
+ 			,A.LEGACY_PO_NO
+ 			,A.BUYER_ITEM_NO
+ 			,A.DESCRIPTION
+ 			,A.SPECIFICATION
+ 			,A.MAKER_NAME
+ 			,C.DELIVERY_QTY
+ 			,A.UNIT_PRICE
+ 			,(C.DELIVERY_QTY * A.UNIT_PRICE) AS UNIT_SUM
+ 			,A.AGENT_PRICE
+ 			,(C.DELIVERY_QTY * A.AGENT_PRICE) AS AGENT_SUM
+ 			,A.PROCESS_TYPE
+ 			,(SELECT TEXT2 FROM ICOMCOD1 WHERE TYPE = 'M034' AND CODE = A.PROCESS_TYPE AND FLAG = 'Y') AS PROCESS_TEXT
+ 			,C.DELIVERY_DATE
+ 			,DECODE(A.PROCESS_TYPE,'0',E.IMAGE_KEY_INV,D.IMAGE_KEY_INV) AS IMAGE_KEY_INV
+ 			,DECODE(DECODE(A.PROCESS_TYPE,'0',E.IMAGE_KEY_INV,D.IMAGE_KEY_INV),'',2,3) AS IMAGE_KEY_INV_IMG
+ 			,DECODE(A.PROCESS_TYPE,'0',E.IMAGE_KEY_SIGN,D.IMAGE_KEY_SIGN) AS IMAGE_KEY_SIGN
+ 			,DECODE(DECODE(A.PROCESS_TYPE,'0',E.IMAGE_KEY_SIGN,D.IMAGE_KEY_SIGN),'',2,3) AS IMAGE_KEY_SIGN_IMG
+ 			,(SELECT L.USER_NAME_LOC
+ 				FROM MIS_BUYER_MNG M , ICOMLUSR L
+ 				WHERE M.BUYER = A.BUYER
+ 				AND M.YEAR = TO_CHAR(SYSDATE,'YYYY')
+ 				AND M.STATUS = 'C'
+ 				AND M.PRIORITY = 'Y'
+ 				AND M.KEP_USER_ID = L.USER_ID) AS KEP_AR_USER_ID
+ 			,(SELECT L.USER_NAME_LOC
+ 				FROM ICOMLUSR L
+ 				WHERE L.USER_ID = (SELECT TEXT1 
+ 									FROM ICOMCOD3 
+ 									WHERE TYPE = 'CMSM' 
+ 									AND CODE2 = '1' 
+ 									AND FLAG = 'Y' 
+ 									AND CODE1 = (SELECT SG_ID FROM SUPLINFO2 WHERE SUPPLIER = DECODE(A.PROCESS_TYPE,'1',A.WAREHOUSE_CODE,'3',A.WAREHOUSE_CODE,B.AGENT)))) AS KEP_AP_USER_ID
+ 			
+ 			,C.INV_NO
+ 			,C.INV_SEQ
+ 			,(SELECT IT.TAX_TYPE FROM ICOMBYIT IT WHERE IT.BUYER = A.BUYER AND IT.BUYER_ITEM_NO = A.BUYER_ITEM_NO) AS TAX_TYPE
+ 			,(SELECT IT.TAX_TYPE FROM ICOMBYIT IT WHERE IT.BUYER = A.BUYER AND IT.BUYER_ITEM_NO = A.BUYER_ITEM_NO) AS ORG_TAX_TYPE
+ 			,(SELECT COD.TEXT1
+ 				FROM ICOMCOD1 COD , ICOMBYIT IT
+ 				WHERE IT.BUYER = A.BUYER
+ 				AND IT.BUYER_ITEM_NO = A.BUYER_ITEM_NO
+ 				AND COD.TYPE = 'TX17'
+ 				AND COD.CODE = IT.TAX_TYPE) AS TAX_TYPE_NAME
+ 			,(SELECT DECODE(COUNT(*),0,'N','Y') 
+ 				FROM PAY_REG_MNG PRM
+ 				WHERE PRM.BUYER = A.BUYER
+ 				AND PRM.PO_NO = A.PO_NO
+ 				AND PRM.PO_SEQ = A.PO_SEQ
+ 				AND PRM.STATUS != 'D') AS PRE_PAY_YN
+ 			,CASE 
+ 				WHEN A.WAREHOUSE_CODE = 'KRKORE0668' THEN 'Y'
+ 				WHEN (SELECT R.EXP_CUR
+ 						FROM ICOMPRDT R
+ 						WHERE R.BUYER = A.BUYER
+ 						AND R.PR_NO = A.PR_NO
+ 						AND R.PR_SEQ = A.PR_SEQ
+ 						AND R.STATUS != 'D') IS NOT NULL THEN 'Y'
+ 				ELSE 'N'
+ 			END AS EXPORT_YN
+ 			,(SELECT (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'TX03' AND CODE = CM.BILL_TYPE)
+ 				FROM ICOMCMPY CM
+ 				WHERE CM.COM_CODE = DECODE(A.PROCESS_TYPE,'1',A.WAREHOUSE_CODE,'3',A.WAREHOUSE_CODE,B.AGENT)) AS BILL_TYPE_NM
+ 			,C.AP_TAX_BILL_NO
+ 			,A.CONTRACT_NO
+ 			,A.CONTRACT_SEQ
+ 			,A.BYIT_COMORG_CODE
+ 			FROM ICOMPODT A, ICOMPOHD B, ICOMIVDT C, WMSIVDT D, ICOMIVHD E
+ 			,(SELECT 
+ 				BUYER
+ 				,INV_NO
+ 				,INV_SEQ
+ 				,MAX(NVL(AR_BILL_FLAG,'N')) AS AR_BILL_FLAG
+ 			  FROM ICOMGRDT
+ 			  WHERE STATUS != 'D'
+ 			  GROUP BY BUYER,INV_NO,INV_SEQ) F
+ 			WHERE A.BUYER = B.BUYER
+ 			AND A.PO_NO = B.PO_NO
+ 			AND A.BUYER = C.BUYER
+ 			AND A.PO_NO = C.PO_NO
+ 			AND A.PO_SEQ = C.PO_SEQ
+ 			AND C.BUYER = D.BUYER(+)
+ 			AND C.INV_NO = D.S_INV_NO(+)
+ 			AND C.INV_SEQ = D.S_INV_SEQ(+)
+ 			AND C.BUYER = E.BUYER
+ 			AND C.INV_NO = E.INV_NO
+ 			AND C.BUYER = F.BUYER(+)
+ 			AND DECODE(A.PROCESS_TYPE,'0',C.INV_NO,D.INV_NO) = F.INV_NO(+)
+ 			AND DECODE(A.PROCESS_TYPE,'0',C.INV_SEQ,D.INV_SEQ) = F.INV_SEQ(+)
+ 			AND A.STATUS != 'D'
+ 			AND B.STATUS != 'D'
+ 			AND C.STATUS != 'D'
+ 			AND D.STATUS(+) != 'D'
+ 			AND E.STATUS != 'D'
+ 			]]>
+ 			<if test="st_checkbox == null or st_checkbox == ''">
+	 			AND C.DELIVERY_DATE BETWEEN #{st_from_date}||'01' AND TO_CHAR(LAST_DAY(TO_DATE(#{st_to_date}||'01','YYYYMMDD')),'YYYYMMDD')
+ 			</if>
+ 			<if test="st_buyer_code != null and st_buyer_code != ''">
+ 				AND A.BUYER = #{st_buyer_code}
+ 			</if>
+ 			<if test="st_ap_bill_flag != null and st_ap_bill_flag != ''">
+ 				AND NVL(C.AP_BILL_FLAG,'N') = #{st_ap_bill_flag}
+ 			</if>
+ 			<if test="st_ar_bill_flag != null and st_ar_bill_flag != ''">
+ 				AND NVL(F.AR_BILL_FLAG,'N') = #{st_ar_bill_flag}
+ 			</if>
+ 			<if test="st_agent_code != null and st_agent_code != ''">
+ 				AND DECODE(A.PROCESS_TYPE,'1',A.WAREHOUSE_CODE,'3',A.WAREHOUSE_CODE,B.AGENT) = #{st_agent_code}
+ 			</if>
+ 			<if test="st_po_no != null and st_po_no != ''">
+ 				AND C.PO_NO LIKE UPPER('%'||#{st_po_no}||'%')
+ 			</if>
+ 			<![CDATA[
+ 			ORDER BY C.DELIVERY_DATE DESC , C.PO_NO , C.INV_NO , C.INV_SEQ
+ 			
+ 
+    		]]>
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+
+
+	<update  id="updateByitTaxType_v2" parameterType="java.util.Map" >
+		<![CDATA[
+			 
+			 /*updateByitTaxType_v2*/ 
+			 
+			         UPDATE ICOMBYIT                                                 
+           SET TAX_TYPE	     = #{TAX_TYPE},                                     
+               CHANGE_DATE   = TO_CHAR(SYSDATE, 'YYYYMMDD'),            
+               CHANGE_USER_ID   = #{st_user_id},
+               CHANGE_USER_TEL = (SELECT PHONE_NUMBER FROM ICOMLUSR WHERE USER_ID = #{st_user_id}),
+               CHANGE_USER_NAME = (SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = #{st_user_id}),
+               CHANGE_USER_DEPT = (SELECT DEPARTMENT FROM ICOMLUSR WHERE USER_ID = #{st_user_id})           
+         WHERE BUYER   = #{BUYER}                                              
+           AND BUYER_ITEM_NO   = #{BUYER_ITEM_NO}                                         
+			  
+		]]> 
+	</update>
+	<update  id="updateIvDtTaxType_v2" parameterType="java.util.Map" >
+		<![CDATA[
+			 
+			 /*updateIvDtTaxType_v2*/ 
+			 
+			         UPDATE ICOMIVDT                                                 
+           SET TAX_TYPE	     = #{TAX_TYPE},
+           	   TAX_TYPE_USER_ID = #{st_user_id},
+           	   CHANGE_DATE   = TO_CHAR(SYSDATE, 'YYYYMMDD'),            
+               CHANGE_TIME   = TO_CHAR(SYSDATE, 'HH24MISS')                                     
+         WHERE BUYER   = #{BUYER}                                              
+           AND INV_NO   =  #{INV_NO}                                         
+           AND INV_SEQ  = #{INV_SEQ}                                                    
+			  
+		]]> 
+	</update>
+	<update  id="insertIvDtTaxTypeHist_v2" parameterType="java.util.Map" >
+		<![CDATA[
+			 
+			 /*insertIvDtTaxTypeHist_v2*/ 
+			 INSERT INTO ICOMIVDT_HIST(
+			 	CHG_SEQ
+			 	,BUYER
+			 	,INV_NO
+			 	,INV_SEQ
+			 	,BYCA_COMORG_CODE
+			 	,BUYER_ITEM_NO
+			 	,REG_USER_ID
+			 	,REG_DATE
+			 	,OLD_CONTENT
+			 	,NEW_CONTENT
+			 ) VALUES (
+			 	(
+			 	SELECT NVL(MAX(CHG_SEQ),0)+1
+			 		FROM ICOMIVDT_HIST
+			 		WHERE BUYER = #{BUYER}
+			 		AND INV_NO = #{INV_NO}
+			 		AND INV_SEQ = #{INV_SEQ}
+			 	)
+			 	,#{BUYER}
+			 	,#{INV_NO}
+			 	,#{INV_SEQ}
+			 	,(SELECT BYCA_COMORG_CODE FROM ICOMCMPY WHERE COM_CODE = #{BUYER})
+			 	,#{BUYER_ITEM_NO}
+			 	,#{st_user_id}
+			 	,SYSDATE
+			 	,#{ORG_TAX_TYPE}
+			 	,#{TAX_TYPE}
+			 ) 
+			  
+		]]> 
+	</update>
+
+	<select id="getMasterMpSoSellerDiStockSumPopList_v2" parameterType="java.util.Map" resultType="java.util.Map">
+			<![CDATA[
+ 
+  			/*getMasterMpSoSellerDiStockSumPopList_v2*/ 
+	 		SELECT TT.* FROM (
+	 			SELECT 
+		 				T.COM_CODE
+		 				,(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = T.COM_CODE) AS COM_NAME_LOC
+		 				,NVL(SUM(T.STOCK_AMT),0) AS TOT_STOCK_AMT
+		 				,NVL(SUM(CASE WHEN T.MONTH_DIFF <= 0 THEN T.STOCK_AMT END),0) AS STOCK_AMT_1M
+		 				,NVL(SUM(CASE WHEN T.MONTH_DIFF = 1 THEN T.STOCK_AMT END),0) AS STOCK_AMT_2M
+		 				,NVL(SUM(CASE WHEN T.MONTH_DIFF = 2 THEN T.STOCK_AMT END),0) AS STOCK_AMT_3M
+		 				,NVL(SUM(CASE WHEN T.MONTH_DIFF = 3 THEN T.STOCK_AMT END),0) AS STOCK_AMT_4M
+		 				,NVL(SUM(CASE WHEN T.MONTH_DIFF = 4 THEN T.STOCK_AMT END),0) AS STOCK_AMT_5M
+		 				,NVL(SUM(CASE WHEN T.MONTH_DIFF = 5 THEN T.STOCK_AMT END),0) AS STOCK_AMT_6M
+		 				,NVL(SUM(CASE WHEN T.MONTH_DIFF >= 6 THEN T.STOCK_AMT END),0) AS STOCK_AMT_7M_BF
+		 			FROM (
+		 				SELECT 
+		 				]]>
+		 				<if test='st_business_cond =="B"'>
+		 					A.BUYER AS COM_CODE
+		 				</if>
+		 				<if test='st_business_cond =="S"'>
+		 					DECODE(A.PROCESS_TYPE,'1',A.WAREHOUSE_CODE,'3',A.WAREHOUSE_CODE,B.AGENT) AS COM_CODE
+		 				</if>
+		 				<![CDATA[	
+		 					,NVL(C.AGENT_ITEM_AMT, NVL(C.DELIVERY_QTY,0) * NVL(C.AGENT_PRICE,0)) AS STOCK_AMT
+		 					,TRUNC(MONTHS_BETWEEN(
+		 						TO_DATE(#{st_to_date}||'01','YYYYMMDD'), TO_DATE(SUBSTR(C.DELIVERY_DATE,1,6)||'01','YYYYMMDD')
+		 					)) AS MONTH_DIFF
+		 			
+		 		FROM ICOMPODT A , ICOMPOHD B , ICOMIVDT C
+		 		WHERE 	A.BUYER = B.BUYER
+		 		AND		A.PO_NO = B.PO_NO
+		 		AND 	A.BUYER = C.BUYER
+		 		AND 	A.PO_NO = C.PO_NO
+		 		AND		A.PO_SEQ = C.PO_SEQ
+		 		AND		A.STATUS != 'D'
+		 		AND 	B.STATUS != 'D'
+		 		AND		C.STATUS != 'D'
+		 		AND 	NVL(C.AP_BILL_FLAG,'N') = 'Y'
+		 		/*AND		NVL(C.AR_BILL_FLAG_IMSI,'N') = 'N'*/
+		 		AND		C.DELIVERY_DATE <= TO_CHAR(LAST_DAY(TO_DATE(#{st_to_date}||'01','YYYYMMDD')),'YYYYMMDD')
+		 		]]>
+		 		<if test="st_buyer_code != null and st_buyer_code != ''">
+ 					AND A.BUYER = #{st_buyer_code}
+	 			</if>
+	 			<if test="st_agent_code != null and st_agent_code != ''">
+	 				AND DECODE(A.PROCESS_TYPE,'1',A.WAREHOUSE_CODE,'3',A.WAREHOUSE_CODE,B.AGENT) = #{st_agent_code}
+	 			</if>
+		 		<![CDATA[
+		 		)T
+		 		GROUP BY T.COM_CODE
+		 	)TT
+	 		ORDER BY TT.TOT_STOCK_AMT DESC, TT.COM_NAME_LOC ASC
+    		]]>
+	</select>
+</mapper>   
+   

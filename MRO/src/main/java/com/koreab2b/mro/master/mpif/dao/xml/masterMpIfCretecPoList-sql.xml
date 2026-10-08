@@ -1,0 +1,463 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mpif">
+	<select id="selectMasterMpIfCretecPoList" parameterType="java.util.Map" resultType="java.util.Map">
+		/*selectMasterMpIfCretecPoList*/
+		<include refid="common.ibsheet.xml.pagestart"/>	
+		<![CDATA[
+		    SELECT A.AGENT
+		         , A.BUYER
+		         , (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = A.BUYER) AS BUYER_NAME
+		         , A.PR_NO
+		         , A.PR_SEQ
+		         , A.PO_NO
+		         , A.PO_SEQ
+		         , NVL(A.REVISION, 0) AS REVISION
+		         , CASE
+			            WHEN A.IF_FLAG = 'S' THEN '0'
+			            WHEN A.IF_FLAG = 'N' THEN '1'
+			            WHEN A.IF_FLAG = 'F' THEN '2'
+			            WHEN A.IF_FLAG = 'D' THEN '6'
+			      END AS IF_FLAG
+		         , A.IF_MSG
+		         , A.AGENT_PO_NO
+		         , A.LEGACY_PO_NO
+		         , A.LEGACY_PO_SEQ
+		         , A.BUYER_ITEM_NO
+		         , A.SELLER_ITEM_NO
+		         , A.DESCRIPTION
+		         , A.SPECIFICATION
+		         , A.UNIT_MEASURE
+		         , A.ITEM_QTY
+		         , A.AGENT_PRICE
+		         , A.AGENT_ITEM_AMT
+		         , A.WAREHOUSE_CODE
+		         , A.IF_FLAG AS IF_FLAG_RAW
+		         , TO_CHAR(A.CREATE_DATE, 'YYYY-MM-DD HH24:MI:SS') AS CREATE_DATE
+		         , TO_CHAR(A.IF_DATE, 'YYYY-MM-DD HH24:MI:SS') AS IF_DATE
+		         , A.DATA09
+		         , A.DATA10
+		         , CASE
+		               WHEN NVL(A.REVISION, 0) = MAX(NVL(A.REVISION, 0)) OVER (
+		                   PARTITION BY A.BUYER, A.PR_NO, A.PR_SEQ
+		               )
+		               THEN 'Y'
+		               ELSE 'N'
+		           END AS LATEST_YN
+		         ,CASE
+          			WHEN EXISTS(
+		              SELECT 1
+		                FROM ICOMPRDT P
+		               WHERE P.BUYER=A.BUYER
+		                 AND P.PR_NO=A.PR_NO
+		                 AND P.PR_SEQ=A.PR_SEQ
+		                 AND P.STATUS<>'D'
+			          ) THEN 'Y'
+			          ELSE 'N'
+      			 END AS ORDER_EXISTS_YN
+      			 ,CASE
+				    WHEN EXISTS(
+				        SELECT 1
+				          FROM ICOMIVDT D
+				         WHERE D.BUYER=A.BUYER
+				           AND D.PR_NO=A.PR_NO
+				           AND D.PR_SEQ=A.PR_SEQ
+				           AND D.STATUS<>'D'
+				    ) THEN 'Y'
+				    ELSE 'N'
+				 END AS DELIVERY_EXISTS_YN
+		      FROM EAI.IF_SUPPLY_PO_SEND A
+		     WHERE A.BUYER = #{st_buyer_code}
+		       AND A.PR_NO = #{st_pr_no}
+		       AND A.PR_SEQ = #{st_pr_seq}
+		     ORDER BY NVL(A.REVISION, 0) DESC
+		            , A.CREATE_DATE DESC
+		]]>
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+	<select id="selectMpIfCretecPoListPop" parameterType="java.util.Map" resultType="java.util.Map">
+		/*selectMpIfCretecPoListPop*/
+			<![CDATA[
+			SELECT O.BUYER
+	      ,(SELECT COM_NAME_LOC
+	          FROM ICOMCMPY
+	         WHERE COM_CODE=O.BUYER) AS BUYER_NAME
+	      ,O.PR_NO
+	      ,O.PR_SEQ
+	      ,O.REVISION
+	      ,O.IF_FLAG
+	      ,O.IF_MSG
+	      ,O.AGENT_PO_NO
+	      ,TO_CHAR(O.CREATE_DATE,'YYYY-MM-DD HH24:MI:SS') AS CREATE_DATE
+	      ,TO_CHAR(O.IF_DATE,'YYYY-MM-DD HH24:MI:SS') AS IF_DATE
+	      ,O.AGENT AS OLD_AGENT
+	      ,O.PO_NO AS OLD_PO_NO
+	      ,O.PO_SEQ AS OLD_PO_SEQ
+	      ,O.SELLER_ITEM_NO AS OLD_SELLER_ITEM_NO
+	      ,O.DESCRIPTION AS OLD_DESCRIPTION
+	      ,O.SPECIFICATION AS OLD_SPECIFICATION
+	      ,O.ITEM_QTY AS OLD_ITEM_QTY
+	      ,O.AGENT_PRICE AS OLD_AGENT_PRICE
+	      ,O.AGENT_ITEM_AMT AS OLD_AGENT_ITEM_AMT
+	      ,O.UNIT_MEASURE AS OLD_UNIT_MEASURE
+		  ,O.WAREHOUSE_CODE AS OLD_WAREHOUSE_CODE
+	      ,C.AGENT AS CURRENT_AGENT
+	      ,C.PO_NO AS CURRENT_PO_NO
+	      ,C.PO_SEQ AS CURRENT_PO_SEQ
+	      ,C.UNIT_MEASURE AS CURRENT_UNIT_MEASURE
+		  ,C.WAREHOUSE_CODE AS CURRENT_WAREHOUSE_CODE
+	      ,C.SELLER_ITEM_NO AS CURRENT_SELLER_ITEM_NO
+	      ,C.DESCRIPTION AS CURRENT_DESCRIPTION
+	      ,C.SPECIFICATION AS CURRENT_SPECIFICATION
+	      ,C.ITEM_QTY AS CURRENT_ITEM_QTY
+	      ,C.AGENT_PRICE AS CURRENT_AGENT_PRICE
+	      ,C.AGENT_ITEM_AMT AS CURRENT_AGENT_ITEM_AMT
+	      ,CASE
+	          WHEN O.REVISION=(
+	              SELECT MAX(X.REVISION)
+	                FROM EAI.IF_SUPPLY_PO_SEND X
+	               WHERE X.BUYER=O.BUYER
+	                 AND X.PR_NO=O.PR_NO
+	                 AND X.PR_SEQ=O.PR_SEQ
+	          ) THEN 'Y'
+	          ELSE 'N'
+	       END AS LATEST_YN
+	      ,CASE
+	          WHEN EXISTS(
+	              SELECT 1
+	                FROM ICOMPRDT P
+	               WHERE P.BUYER=O.BUYER
+	                 AND P.PR_NO=O.PR_NO
+	                 AND P.PR_SEQ=O.PR_SEQ
+	                 AND P.STATUS!='D'
+	          ) THEN 'Y'
+	          ELSE 'N'
+	       END AS ORDER_EXISTS_YN
+	      ,CASE
+	          WHEN O.IF_FLAG='N' THEN 'Y'
+	          ELSE 'N'
+	       END AS WAIT_YN
+	      ,CASE
+	          WHEN EXISTS(
+	              SELECT 1
+	                FROM ICOMIVDT V
+	               WHERE V.BUYER=O.BUYER
+	                 AND V.PR_NO=O.PR_NO
+	                 AND V.PR_SEQ=O.PR_SEQ
+	                 AND V.STATUS!='D'
+	          ) THEN 'Y'
+	          ELSE 'N'
+	       END AS DELIVERY_EXISTS_YN
+	      ,CASE
+	          WHEN TRIM(C.SELLER_ITEM_NO) IS NOT NULL THEN 'Y'
+	          ELSE 'N'
+	       END AS SELLER_ITEM_EXISTS_YN
+	  FROM EAI.IF_SUPPLY_PO_SEND O
+	  LEFT OUTER JOIN(
+	        SELECT A.AGENT
+	              ,B.BUYER
+	              ,B.PR_NO
+	              ,B.PR_SEQ
+	              ,B.PO_NO
+	              ,B.PO_SEQ
+	              ,B.SELLER_ITEM_NO
+	              ,B.DESCRIPTION
+	              ,B.SPECIFICATION
+	              ,B.ITEM_QTY
+	              ,B.AGENT_PRICE
+	              ,B.AGENT_ITEM_AMT
+	              ,B.UNIT_MEASURE
+				  ,CASE
+				    WHEN B.PROCESS_TYPE='0' THEN ''
+				    ELSE B.WAREHOUSE_CODE
+				  END AS WAREHOUSE_CODE
+	          FROM ICOMPOHD A
+	              ,ICOMPODT B
+	              ,ICOMPRDT P
+	         WHERE A.BUYER=B.BUYER
+	           AND A.PO_NO=B.PO_NO
+	           AND A.STATUS!='D'
+	           AND A.AGENT IN('KRCRET0001','KRCRET0002')
+	           AND B.BUYER=P.BUYER
+	           AND B.PR_NO=P.PR_NO
+	           AND B.PR_SEQ=P.PR_SEQ
+	           AND B.STATUS!='D'
+	           AND P.STATUS!='D'
+	           AND B.ITEM_QTY>0
+	           AND B.BUYER=#{st_buyer}
+	           AND B.PR_NO=#{st_pr_no}
+	           AND B.PR_SEQ=#{st_pr_seq}
+	      ) C
+	    ON C.BUYER=O.BUYER
+	   AND C.PR_NO=O.PR_NO
+	   AND C.PR_SEQ=O.PR_SEQ
+	 WHERE O.AGENT=#{st_agent}
+	   AND O.BUYER=#{st_buyer}
+	   AND O.PO_NO=#{st_po_no}
+	   AND O.PO_SEQ=#{st_po_seq}
+	   AND O.STATUS='C'
+	   AND O.REVISION=#{st_revision}
+	   AND O.PR_NO=#{st_pr_no}
+	   AND O.PR_SEQ=#{st_pr_seq}
+			]]>
+	</select>
+	
+	<select id="selectMpIfCretecPoResendCheck" parameterType="map" resultType="map">
+		SELECT O.IF_FLAG
+		      ,O.REVISION
+		      ,CASE
+		          WHEN O.REVISION=(
+		              SELECT MAX(X.REVISION)
+		                FROM EAI.IF_SUPPLY_PO_SEND X
+		               WHERE X.BUYER=O.BUYER
+		                 AND X.PR_NO=O.PR_NO
+		                 AND X.PR_SEQ=O.PR_SEQ
+		          ) THEN 'Y'
+		          ELSE 'N'
+		       END AS LATEST_YN
+		      ,CASE WHEN O.IF_FLAG='N' THEN 'Y' ELSE 'N' END AS WAIT_YN
+		      ,CASE
+		          WHEN EXISTS(
+		              SELECT 1
+		                FROM ICOMPRDT P
+		               WHERE P.BUYER=O.BUYER
+		                 AND P.PR_NO=O.PR_NO
+		                 AND P.PR_SEQ=O.PR_SEQ
+		                 AND P.STATUS!='D'
+		          ) THEN 'Y'
+		          ELSE 'N'
+		       END AS ORDER_EXISTS_YN
+		      ,CASE
+		          WHEN EXISTS(
+		              SELECT 1
+		                FROM ICOMIVDT V
+		               WHERE V.BUYER=O.BUYER
+		                 AND V.PR_NO=O.PR_NO
+		                 AND V.PR_SEQ=O.PR_SEQ
+		                 AND V.STATUS!='D'
+		          ) THEN 'Y'
+		          ELSE 'N'
+		       END AS DELIVERY_EXISTS_YN
+		      ,CASE
+		          WHEN EXISTS(
+		              SELECT 1
+		                FROM ICOMPOHD A
+		                    ,ICOMPODT B
+		                    ,ICOMPRDT P
+		               WHERE A.BUYER=B.BUYER
+		                 AND A.PO_NO=B.PO_NO
+		                 AND A.STATUS!='D'
+		                 AND A.AGENT IN('KRCRET0001','KRCRET0002')
+		                 AND B.BUYER=P.BUYER
+		                 AND B.PR_NO=P.PR_NO
+		                 AND B.PR_SEQ=P.PR_SEQ
+		                 AND B.STATUS!='D'
+		                 AND P.STATUS!='D'
+		                 AND B.ITEM_QTY>0
+		                 AND TRIM(B.SELLER_ITEM_NO) IS NOT NULL
+		                 AND B.BUYER=O.BUYER
+		                 AND B.PR_NO=O.PR_NO
+		                 AND B.PR_SEQ=O.PR_SEQ
+		          ) THEN 'Y'
+		          ELSE 'N'
+		       END AS SELLER_ITEM_EXISTS_YN
+		      ,(SELECT MAX(X.REVISION)+1
+		          FROM EAI.IF_SUPPLY_PO_SEND X
+		         WHERE X.BUYER=O.BUYER
+		           AND X.PR_NO=O.PR_NO
+		           AND X.PR_SEQ=O.PR_SEQ) AS NEXT_REVISION
+		  FROM EAI.IF_SUPPLY_PO_SEND O
+		 WHERE O.AGENT=#{st_agent}
+		   AND O.BUYER=#{st_buyer}
+		   AND O.PO_NO=#{st_po_no}
+		   AND O.PO_SEQ=#{st_po_seq}
+		   AND O.STATUS='C'
+		   AND O.REVISION=#{st_revision}
+		   AND O.PR_NO=#{st_pr_no}
+		   AND O.PR_SEQ=#{st_pr_seq}
+		</select>
+		
+		<update id="updateMpIfCretecPoOld" parameterType="map">
+			UPDATE EAI.IF_SUPPLY_PO_SEND O
+			   SET O.IF_FLAG='D'
+			      ,O.DATA09=#{st_user_id}
+			      ,O.DATA10=#{resendReason}
+			 WHERE O.AGENT=#{st_agent}
+			   AND O.BUYER=#{st_buyer}
+			   AND O.PO_NO=#{st_po_no}
+			   AND O.PO_SEQ=#{st_po_seq}
+			   AND O.STATUS='C'
+			   AND O.REVISION=#{st_revision}
+			   AND O.PR_NO=#{st_pr_no}
+			   AND O.PR_SEQ=#{st_pr_seq}
+			   AND O.IF_FLAG IN('S','F')
+			   AND O.REVISION=(
+			       SELECT MAX(X.REVISION)
+			         FROM EAI.IF_SUPPLY_PO_SEND X
+			        WHERE X.BUYER=O.BUYER
+			          AND X.PR_NO=O.PR_NO
+			          AND X.PR_SEQ=O.PR_SEQ
+			   )
+		</update>
+		<update id="insertMpIfCretecPoNew" parameterType="java.util.Map">
+			<![CDATA[
+			INSERT INTO EAI.IF_SUPPLY_PO_SEND(
+			    AGENT,BUYER,PO_NO,PO_SEQ,STATUS,
+			    PR_NO,PR_SEQ,LEGACY_PO_NO,LEGACY_PO_SEQ,
+			    AGENT_PO_NO,AGENT_PO_SEQ,BUYER_ITEM_NO,
+			    SELLER_ITEM_NO,DESCRIPTION,SPECIFICATION,
+			    UNIT_MEASURE,MAKER_NAME,ITEM_QTY,
+			    UNIT_PRICE,ITEM_AMT,AGENT_PRICE,
+			    AGENT_ITEM_AMT,WAREHOUSE_CODE,DELY_TO_ADDRESS,
+			    REQ_USER_NAME,REQ_USER_TEL,REQ_USER_EMAIL,
+			    REMARK,CREATE_DATE,IF_FLAG,
+			    IF_DATE,IF_MSG,DATA01,
+			    DATA09,DATA10,ZIP_CODE,
+			    ADDR1,ADDR2,REVISION
+			)
+			SELECT K.AGENT
+			      ,K.BUYER
+			      ,K.PO_NO
+			      ,K.PO_SEQ
+			      ,'C'
+			      ,K.PR_NO
+			      ,K.PR_SEQ
+			      ,K.LEGACY_PO_NO
+			      ,K.LEGACY_PO_SEQ
+			      ,''
+			      ,''
+			      ,K.BUYER_ITEM_NO
+			      ,K.SELLER_ITEM_NO
+			      ,K.DESCRIPTION
+			      ,K.SPECIFICATION
+			      ,K.UNIT_MEASURE
+			      ,K.MAKER_NAME
+			      ,K.ITEM_QTY
+			      ,K.UNIT_PRICE
+			      ,K.ITEM_AMT
+			      ,K.AGENT_PRICE
+			      ,K.AGENT_ITEM_AMT
+			      ,K.WAREHOUSE_CODE
+			      ,K.DELY_TO_ADDRESS
+			      ,''
+			      ,''
+			      ,''
+			      ,K.REMARK
+			      ,SYSDATE
+			      ,'N'
+			      ,NULL
+			      ,NULL
+			      ,K.DATA01
+			      ,NULL
+			      ,NULL
+			      ,K.ZIP_CODE
+			      ,K.ADDR1
+			      ,K.ADDR2
+			      ,#{new_revision}
+			  FROM(
+			        SELECT J.*
+			              ,SUBSTR(J.DELY_TO_ADDRESS,1,INSTR(J.DELY_TO_ADDRESS,' ')-1) AS ZIP_CODE
+			              ,CASE
+			                  WHEN INSTR(J.DELY_TO_ADDRESS,'리 ')>0 THEN TRIM(SUBSTR(J.DELY_TO_ADDRESS,INSTR(J.DELY_TO_ADDRESS,' '),INSTR(J.DELY_TO_ADDRESS,'리 ')-INSTR(J.DELY_TO_ADDRESS,' ')+1))
+			                  WHEN INSTR(J.DELY_TO_ADDRESS,'동 ')>0 THEN TRIM(SUBSTR(J.DELY_TO_ADDRESS,INSTR(J.DELY_TO_ADDRESS,' '),INSTR(J.DELY_TO_ADDRESS,'동 ')-INSTR(J.DELY_TO_ADDRESS,' ')+1))
+			                  WHEN INSTR(J.DELY_TO_ADDRESS,'면 ')>0 THEN TRIM(SUBSTR(J.DELY_TO_ADDRESS,INSTR(J.DELY_TO_ADDRESS,' '),INSTR(J.DELY_TO_ADDRESS,'면 ')-INSTR(J.DELY_TO_ADDRESS,' ')+1))
+			                  WHEN INSTR(J.DELY_TO_ADDRESS,'읍 ')>0 THEN TRIM(SUBSTR(J.DELY_TO_ADDRESS,INSTR(J.DELY_TO_ADDRESS,' '),INSTR(J.DELY_TO_ADDRESS,'읍 ')-INSTR(J.DELY_TO_ADDRESS,' ')+1))
+			                  WHEN INSTR(J.DELY_TO_ADDRESS,'구 ')>0 THEN TRIM(SUBSTR(J.DELY_TO_ADDRESS,INSTR(J.DELY_TO_ADDRESS,' '),INSTR(J.DELY_TO_ADDRESS,'구 ')-INSTR(J.DELY_TO_ADDRESS,' ')+1))
+			                  WHEN INSTR(J.DELY_TO_ADDRESS,'군 ')>0 THEN TRIM(SUBSTR(J.DELY_TO_ADDRESS,INSTR(J.DELY_TO_ADDRESS,' '),INSTR(J.DELY_TO_ADDRESS,'군 ')-INSTR(J.DELY_TO_ADDRESS,' ')+1))
+			                  WHEN INSTR(J.DELY_TO_ADDRESS,'시 ')>0 THEN TRIM(SUBSTR(J.DELY_TO_ADDRESS,INSTR(J.DELY_TO_ADDRESS,' '),INSTR(J.DELY_TO_ADDRESS,'시 ')-INSTR(J.DELY_TO_ADDRESS,' ')+1))
+			                  WHEN INSTR(J.DELY_TO_ADDRESS,'도 ')>0 THEN TRIM(SUBSTR(J.DELY_TO_ADDRESS,INSTR(J.DELY_TO_ADDRESS,' '),INSTR(J.DELY_TO_ADDRESS,'도 ')-INSTR(J.DELY_TO_ADDRESS,' ')+1))
+			               END AS ADDR1
+			              ,CASE
+			                  WHEN INSTR(J.DELY_TO_ADDRESS,'리 ')>0 THEN TRIM(SUBSTR(J.DELY_TO_ADDRESS,INSTR(J.DELY_TO_ADDRESS,'리 ')+1,LENGTH(J.DELY_TO_ADDRESS)))
+			                  WHEN INSTR(J.DELY_TO_ADDRESS,'동 ')>0 THEN TRIM(SUBSTR(J.DELY_TO_ADDRESS,INSTR(J.DELY_TO_ADDRESS,'동 ')+1,LENGTH(J.DELY_TO_ADDRESS)))
+			                  WHEN INSTR(J.DELY_TO_ADDRESS,'면 ')>0 THEN TRIM(SUBSTR(J.DELY_TO_ADDRESS,INSTR(J.DELY_TO_ADDRESS,'면 ')+1,LENGTH(J.DELY_TO_ADDRESS)))
+			                  WHEN INSTR(J.DELY_TO_ADDRESS,'읍 ')>0 THEN TRIM(SUBSTR(J.DELY_TO_ADDRESS,INSTR(J.DELY_TO_ADDRESS,'읍 ')+1,LENGTH(J.DELY_TO_ADDRESS)))
+			                  WHEN INSTR(J.DELY_TO_ADDRESS,'구 ')>0 THEN TRIM(SUBSTR(J.DELY_TO_ADDRESS,INSTR(J.DELY_TO_ADDRESS,'구 ')+1,LENGTH(J.DELY_TO_ADDRESS)))
+			                  WHEN INSTR(J.DELY_TO_ADDRESS,'군 ')>0 THEN TRIM(SUBSTR(J.DELY_TO_ADDRESS,INSTR(J.DELY_TO_ADDRESS,'군 ')+1,LENGTH(J.DELY_TO_ADDRESS)))
+			                  WHEN INSTR(J.DELY_TO_ADDRESS,'시 ')>0 THEN TRIM(SUBSTR(J.DELY_TO_ADDRESS,INSTR(J.DELY_TO_ADDRESS,'시 ')+1,LENGTH(J.DELY_TO_ADDRESS)))
+			                  WHEN INSTR(J.DELY_TO_ADDRESS,'도 ')>0 THEN TRIM(SUBSTR(J.DELY_TO_ADDRESS,INSTR(J.DELY_TO_ADDRESS,'도 ')+1,LENGTH(J.DELY_TO_ADDRESS)))
+			               END AS ADDR2
+			          FROM(
+			                SELECT A.AGENT
+			                      ,B.BUYER
+			                      ,B.PO_NO
+			                      ,B.PO_SEQ
+			                      ,B.PR_NO
+			                      ,B.PR_SEQ
+			                      ,B.LEGACY_PO_NO
+			                      ,B.LEGACY_PO_SEQ
+			                      ,B.BUYER_ITEM_NO
+			                      ,B.SELLER_ITEM_NO
+			                      ,B.DESCRIPTION
+			                      ,B.SPECIFICATION
+			                      ,B.UNIT_MEASURE
+			                      ,B.MAKER_NAME
+			                      ,B.ITEM_QTY
+			                      ,B.UNIT_PRICE
+			                      ,B.ITEM_AMT
+			                      ,B.AGENT_PRICE
+			                      ,B.AGENT_ITEM_AMT
+			                      ,CASE
+			                          WHEN B.PROCESS_TYPE='0' THEN ''
+			                          ELSE B.WAREHOUSE_CODE
+			                       END AS WAREHOUSE_CODE
+			                      ,CASE
+			                          WHEN B.BUYER='KRSAMS0123' THEN F_SPLIT(P.IV_COLUMN,'^',15)||' '||F_SPLIT(P.IV_COLUMN,'^',16)
+			                          WHEN B.BUYER='KRSAMS0192' THEN F_SPLIT(P.IV_COLUMN,'^',15)||' '||F_SPLIT(P.IV_COLUMN,'^',16)
+			                          WHEN B.BUYER='KRSAMS0140' THEN F_SPLIT(P.IV_COLUMN,'^',8)||' '||F_SPLIT(P.IV_COLUMN,'^',9)
+			                          ELSE A.DELY_TO_LOCATION
+			                       END AS DELY_TO_ADDRESS
+			                      ,CASE
+			                          WHEN B.BUYER='KRSAMS0123' THEN F_SPLIT(P.IV_COLUMN,'^',10)||' '||F_SPLIT(P.IV_COLUMN,'^',11)
+			                          WHEN B.BUYER='KRSAMS0192' THEN F_SPLIT(P.IV_COLUMN,'^',10)||' '||F_SPLIT(P.IV_COLUMN,'^',11)
+			                          WHEN B.BUYER='KRSAMS0140' THEN F_SPLIT(P.IV_COLUMN,'^',3)||' '||F_SPLIT(P.IV_COLUMN,'^',4)
+			                          WHEN B.BUYER='KRHANH0008' THEN A.PO_REMARK||'/ '||P.REF_PR_NO
+			                          WHEN B.BUYER='KRHANH0009' THEN A.PO_REMARK||'/ '||P.REF_PR_NO
+			                          ELSE A.PO_REMARK
+			                       END AS REMARK
+			                      ,SUBSTRB(
+			                           CASE
+			                               WHEN B.BUYER='KRSAMS0123' THEN(
+			                                   SELECT COD2.TEXT1
+			                                     FROM ICOMCOD2 COD2
+			                                    WHERE COD2.TYPE='I001'
+			                                      AND COD2.COMPANY_CODE=B.BUYER
+			                                      AND COD2.TEXT4 LIKE '%'||NVL(F_SPLIT(P.IV_COLUMN,'^',13),'AJ01')||'%'
+			                               )
+			                               ELSE(
+			                                   SELECT COM_NAME_LOC
+			                                     FROM ICOMCMPY
+			                                    WHERE COM_CODE=B.BUYER
+			                               )
+			                           END,1,30
+			                       ) AS DATA01
+			                  FROM ICOMPOHD A
+			                      ,ICOMPODT B
+			                      ,ICOMPRDT P
+			                 WHERE A.BUYER=B.BUYER
+			                   AND A.PO_NO=B.PO_NO
+			                   AND A.STATUS!='D'
+			                   AND A.AGENT IN('KRCRET0001','KRCRET0002')
+			                   AND B.BUYER=P.BUYER
+			                   AND B.PR_NO=P.PR_NO
+			                   AND B.PR_SEQ=P.PR_SEQ
+			                   AND B.STATUS!='D'
+			                   AND P.STATUS!='D'
+			                   AND B.ITEM_QTY>0
+			                   AND TRIM(B.SELLER_ITEM_NO) IS NOT NULL
+			                   AND B.BUYER=#{st_buyer}
+			                   AND B.PR_NO=#{st_pr_no}
+			                   AND B.PR_SEQ=#{st_pr_seq}
+			                   AND NOT EXISTS(
+			                       SELECT 1
+			                         FROM ICOMIVDT V
+			                        WHERE V.BUYER=B.BUYER
+			                          AND V.PR_NO=B.PR_NO
+			                          AND V.PR_SEQ=B.PR_SEQ
+			                          AND V.STATUS!='D'
+			                   )
+			              ) J
+			      ) K
+			 ]]>	
+		</update>
+</mapper>

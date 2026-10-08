@@ -1,0 +1,304 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="common.wmst">
+
+
+	<select id="selectExcelMasterWmStDailyReleaseListPopList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*selectExcelMasterWmStDailyReleaseListPopList*/
+	   SELECT 
+					ST.STDCATLG_ID, 
+					IT.DESCRIPTION_LOC, 
+					IT.SPECIFICATION, 
+					IT.MAKER_PART_NO, 
+					NVL(CL.TOT_QTY, 0) + NVL(GR.GR_QTY, 0) - NVL(IV.IV_QTY, 0) + NVL(AS_GR.GR_QTY, 0) - NVL(AS_IV.IV_QTY, 0) AS YESTERDAY_QTY, 
+					NVL(TO_GR.GR_QTY, 0) + NVL(AS_TO_GR.GR_QTY, 0) AS TO_GR_QTY, 
+					NVL(TO_IV.IV_QTY, 0) + NVL(AS_TO_IV.IV_QTY, 0) AS TO_IV_QTY, 
+					NVL(CL.TOT_QTY, 0) + NVL(GR.GR_QTY, 0) - NVL(IV.IV_QTY, 0) + NVL(TO_GR.GR_QTY, 0) - NVL(TO_IV.IV_QTY, 0) 
+						+ NVL(AS_GR.GR_QTY, 0) - NVL(AS_IV.IV_QTY, 0) + NVL(AS_TO_GR.GR_QTY, 0) - NVL(AS_TO_IV.IV_QTY, 0) AS CUR_QTY, 
+					ST.SAFE_STOCK_QTY, 
+					ST.MAX_STOCK_QTY, 
+					ST.SAFE_STOCK_QTY + (IT.DELIVERY_LT * ST.DAILY_AVG_PO_QTY) AS PO_LIMIT_QTY, 
+					DECODE(ST.MAX_STOCK_QTY, 0, 0, ST.MAX_STOCK_QTY - ST.TOT_QTY - NVL(PO.PRE_GR_QTY, 0)) AS TO_PO_QTY, 
+					(SELECT MAX(COM_NAME_LOC) 
+					   FROM ICOMCMPY A, ICOMCQDT B 
+					  WHERE B.BUYER = IT.BUYER 
+					    AND B.BUYER_ITEM_NO = IT.BUYER_ITEM_NO 
+					    AND A.COM_CODE = B.AGENT 
+					    AND B.STATUS <> 'D') AS AGENT_NAME, 
+					ST.DAILY_AVG_PO_QTY * 30 AS MONTHLY_AVG_PO_QTY, 
+					ST.DAILY_AVG_PO_QTY, 
+					TRUNC(DECODE(ST.DAILY_AVG_PO_QTY, 0, 0, ST.TOT_QTY / ST.DAILY_AVG_PO_QTY)) AS STCOK_DAY, 
+					NVL(PO.PRE_GR_QTY, 0) AS PRE_GR_QTY 
+			  FROM WMSSTCK ST, ICOMBYIT IT, ICOMSTCL CL, 
+				(SELECT 
+						BUYER_ITEM_NO, 
+						SUM(ITEM_QTY) GR_QTY 
+				  FROM ICOMGRDT GR 
+				 WHERE BUYER = #{st_warehouse_code}
+				   AND GR_DATE >= '20070101'
+				   AND GR_DATE <=TO_CHAR((TO_DATE(#{st_cur_date})-1 ),'YYYYMMDD')
+				   AND STATUS <> 'D' 
+				 GROUP BY BUYER_ITEM_NO 
+				) GR, 															-- 현재까지 입고 수량
+				(SELECT 
+						CMS_CATLG_ID, 
+						SUM(NVL(DELIVERY_QTY, 0)) IV_QTY 
+				  FROM WMSIVDT IV 
+				 WHERE WAREHOUSE_CODE =#{st_warehouse_code}
+				   AND PROCESS_TYPE = '1' 
+				   AND STATUS <> 'D' 
+				   AND INV_DATE >= '20070101'
+				   AND INV_DATE <= TO_CHAR((TO_DATE(#{st_cur_date})-1 ),'YYYYMMDD')
+				 GROUP BY CMS_CATLG_ID 
+				) IV, 															-- 현재까지 출고 수량
+				(SELECT 
+						BUYER_ITEM_NO, 
+						SUM(ITEM_QTY) GR_QTY 
+				  FROM ICOMGRDT GR 
+				 WHERE BUYER = #{st_warehouse_code}
+				   AND GR_DATE = #{st_cur_date}
+				   AND STATUS <> 'D' 
+				 GROUP BY BUYER_ITEM_NO 
+				) TO_GR, 														-- 당일 입고 수량
+				(SELECT 
+						CMS_CATLG_ID, 
+						SUM(NVL(DELIVERY_QTY, 0)) IV_QTY 
+				  FROM WMSIVDT IV 
+				 WHERE PROCESS_TYPE = '1' 
+				   AND WAREHOUSE_CODE =#{st_warehouse_code}
+				   AND STATUS <> 'D' 
+				   AND INV_DATE  =  #{st_cur_date}
+				 GROUP BY CMS_CATLG_ID 
+				) TO_IV, 														--당일 출고 수량
+				(SELECT 
+						BOM_ID, 
+						SUM(GR_QTY) AS GR_QTY 
+				  FROM ( 
+					SELECT 
+						BOM_ID, 
+						MAX(DECODE(ASSEMB_DATE, '', 0, BOM_QTY)) AS GR_QTY 
+					  FROM WMSASSEMB GR 
+					 WHERE WAREHOUSE_CODE = #{st_warehouse_code}
+					   AND ADD_DATE >= '20070101'
+					   AND ADD_DATE <=  TO_CHAR((TO_DATE(#{st_cur_date})-1 ),'YYYYMMDD')
+					   AND STATUS <> 'D' 
+					 GROUP BY AS_NO, BOM_ID 
+					) 
+				 GROUP BY BOM_ID 
+				) AS_GR, 														-- 현재까지 조립입고 수량
+				(SELECT 
+						SUB_ID, 
+						SUM(DECODE(ASSEMB_DATE, '', 0, SUB_QTY)) AS IV_QTY 
+				  FROM WMSASSEMB IV 
+				 WHERE WAREHOUSE_CODE =#{st_warehouse_code}
+				   AND STATUS <> 'D' 
+				   AND ADD_DATE >=  '20070101'
+				   AND ADD_DATE <= TO_CHAR((TO_DATE(#{st_cur_date})-1 ),'YYYYMMDD')
+				 GROUP BY SUB_ID 
+				) AS_IV, 														-- 현재까지 조립출고 수량
+				(SELECT 
+						BOM_ID, 
+						SUM(GR_QTY) AS GR_QTY 
+				  FROM ( 
+					SELECT 
+						BOM_ID, 
+						MAX(DECODE(ASSEMB_DATE, '', 0, BOM_QTY)) AS GR_QTY 
+					  FROM WMSASSEMB GR 
+					 WHERE WAREHOUSE_CODE =#{st_warehouse_code}
+					   AND ADD_DATE = #{st_cur_date}
+					   AND STATUS <> 'D' 
+					 GROUP BY AS_NO, BOM_ID 
+					) 
+				 GROUP BY BOM_ID 
+				) AS_TO_GR, 												-- 당일 조립입고 수량
+				(SELECT 
+						SUB_ID, 
+						SUM(DECODE(ASSEMB_DATE, '', 0, SUB_QTY)) IV_QTY 
+				  FROM WMSASSEMB IV 
+				 WHERE WAREHOUSE_CODE =#{st_warehouse_code}
+				   AND STATUS <> 'D' 
+				   AND ADD_DATE =#{st_cur_date}
+				 GROUP BY SUB_ID 
+				) AS_TO_IV, 													-- 당일 조립출고 수량
+				(SELECT 
+						BUYER_ITEM_NO, 
+						SUM(ITEM_QTY - GR_QTY) AS PRE_GR_QTY 
+				  FROM ICOMPODT 
+				 WHERE BUYER =#{st_warehouse_code}
+				   AND STATUS <> 'D' 
+				 GROUP BY BUYER_ITEM_NO 
+				) PO 															-- 입고 예정 수량
+			 WHERE IT.BUYER = ST.WAREHOUSE_CODE 
+			   AND IT.BUYER_ITEM_NO = ST.STDCATLG_ID 
+			   AND ST.WAREHOUSE_CODE = #{st_warehouse_code}
+			   AND ST.WAREHOUSE_CODE = CL.WAREHOUSE_CODE(+) 
+			   AND ST.STDCATLG_ID = CL.ITEM_NO(+) 
+			   AND ST.PROCESS_TYPE = '1' 
+			   AND ST.STATUS <> 'D' 
+			   AND CL.CL_MON(+) = '200612'
+			   AND ST.STDCATLG_ID = GR.BUYER_ITEM_NO(+) 
+			   AND ST.STDCATLG_ID = IV.CMS_CATLG_ID(+) 
+			   AND ST.STDCATLG_ID = TO_GR.BUYER_ITEM_NO(+) 
+			   AND ST.STDCATLG_ID = TO_IV.CMS_CATLG_ID(+) 
+			   AND ST.STDCATLG_ID = AS_GR.BOM_ID(+) 
+			   AND ST.STDCATLG_ID = AS_IV.SUB_ID(+) 
+			   AND ST.STDCATLG_ID = AS_TO_GR.BOM_ID(+) 
+			   AND ST.STDCATLG_ID = AS_TO_IV.SUB_ID(+) 
+			   AND ST.STDCATLG_ID = PO.BUYER_ITEM_NO(+) 		
+		
+		
+		]]>
+	    <if test='st_isZero == "Y"'  >
+		<![CDATA[
+			AND NVL(CL.TOT_QTY, 0) + NVL(GR.GR_QTY, 0) - NVL(IV.IV_QTY, 0) + NVL(TO_GR.GR_QTY, 0) - NVL(TO_IV.IV_QTY, 0)
+			+ NVL(AS_GR.GR_QTY, 0) - NVL(AS_IV.IV_QTY, 0) + NVL(AS_TO_GR.GR_QTY, 0) - NVL(AS_TO_IV.IV_QTY, 0) <> 0
+		 ]]>
+		</if>
+		ORDER BY ST.STDCATLG_ID
+		
+	</select>	
+
+
+	<select id="selectMasterWmStDailyReleaseListPopList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*selectMasterWmStDailyReleaseListPopList*/
+       SELECT /*+LEADING(ST)*/
+				ST.STDCATLG_ID, ST.CONTRACT_NO, ST.CONTRACT_SEQ,
+				IT.DESCRIPTION_LOC, 
+				IT.SPECIFICATION, 
+				IT.MAKER_PART_NO, 
+				NVL(CL.TOT_QTY, 0) + NVL(GR.GR_QTY, 0) - NVL(IV.IV_QTY, 0) + NVL(AS_GR.GR_QTY, 0) - NVL(AS_IV.IV_QTY, 0) AS YESTERDAY_QTY, 
+				NVL(TO_GR.GR_QTY, 0) + NVL(AS_TO_GR.GR_QTY, 0) AS TO_GR_QTY, 
+				NVL(TO_IV.IV_QTY, 0) + NVL(AS_TO_IV.IV_QTY, 0) AS TO_IV_QTY, 
+				NVL(CL.TOT_QTY, 0) + NVL(GR.GR_QTY, 0) - NVL(IV.IV_QTY, 0) + NVL(TO_GR.GR_QTY, 0) - NVL(TO_IV.IV_QTY, 0) 
+					+ NVL(AS_GR.GR_QTY, 0) - NVL(AS_IV.IV_QTY, 0) + NVL(AS_TO_GR.GR_QTY, 0) - NVL(AS_TO_IV.IV_QTY, 0) AS CUR_QTY, 
+				ST.SAFE_STOCK_QTY, 
+				TRUNC(DECODE(ST.DAILY_AVG_PO_QTY, 0, 0, ST.TOT_QTY / ST.DAILY_AVG_PO_QTY)) AS STCOK_DAY 
+		  FROM WMSSTCK ST, ICOMBYIT IT, ICOMSTCL CL, 
+			(SELECT 
+					BUYER_ITEM_NO, 
+					SUM(ITEM_QTY) GR_QTY 
+			  FROM ICOMGRDT GR 
+			 WHERE BUYER = #{st_warehouse_code}
+			   AND GR_DATE >=  '20070101'
+			   AND GR_DATE <=  TO_CHAR((TO_DATE(#{st_cur_date},'YYYYMMDD')-1 ),'YYYYMMDD')
+			   AND STATUS <> 'D' 
+			 GROUP BY BUYER_ITEM_NO 
+			) GR, 															-- 현재까지 입고 수량
+			(SELECT 
+					CMS_CATLG_ID, 
+					SUM(NVL(DELIVERY_QTY, 0)) IV_QTY 
+			  FROM WMSIVDT IV 
+			 WHERE WAREHOUSE_CODE = #{st_warehouse_code}
+			   AND PROCESS_TYPE = '1' 
+			   AND STATUS <> 'D' 
+			   AND INV_DATE >= '20070101'
+			   AND INV_DATE <=   TO_CHAR(( TO_DATE(#{st_cur_date},'YYYYMMDD')-1 ),'YYYYMMDD')
+			 GROUP BY CMS_CATLG_ID 
+			) IV, 															-- 현재까지 출고 수량
+			(SELECT 
+					BUYER_ITEM_NO, 
+					SUM(ITEM_QTY) GR_QTY 
+			  FROM ICOMGRDT GR 
+			 WHERE BUYER = #{st_warehouse_code}
+			   AND GR_DATE = #{st_cur_date}
+			   AND STATUS <> 'D' 
+			 GROUP BY BUYER_ITEM_NO 
+			) TO_GR, 														-- 당일 입고 수량
+			(SELECT 
+					CMS_CATLG_ID, 
+					SUM(NVL(DELIVERY_QTY, 0)) IV_QTY 
+			  FROM WMSIVDT IV 
+			 WHERE PROCESS_TYPE = '1' 
+			   AND WAREHOUSE_CODE = #{st_warehouse_code}
+			   AND STATUS <> 'D' 
+			   AND INV_DATE  = #{st_cur_date}
+			 GROUP BY CMS_CATLG_ID 
+			) TO_IV, 														-- 당일 출고 수량
+			(SELECT 
+					BOM_ID, 
+					SUM(GR_QTY) AS GR_QTY 
+			  FROM ( 
+				SELECT 
+					BOM_ID, 
+					MAX(DECODE(ASSEMB_DATE, '', 0, BOM_QTY)) AS GR_QTY 
+				  FROM WMSASSEMB GR 
+				 WHERE WAREHOUSE_CODE = #{st_warehouse_code}
+				   AND ADD_DATE >=   '20070101'
+				   AND ADD_DATE <=  TO_CHAR(( TO_DATE(#{st_cur_date},'YYYYMMDD')-1 ),'YYYYMMDD')
+				   AND STATUS <> 'D' 
+				 GROUP BY AS_NO, BOM_ID 
+				) 
+			 GROUP BY BOM_ID 
+			) AS_GR, 														-- 현재까지 조립입고 수량
+			(SELECT 
+					SUB_ID, 
+					SUM(DECODE(ASSEMB_DATE, '', 0, SUB_QTY)) AS IV_QTY 
+			  FROM WMSASSEMB IV 
+			 WHERE WAREHOUSE_CODE = #{st_warehouse_code}
+			   AND STATUS <> 'D' 
+			   AND ADD_DATE >=  '20070101'
+			   AND ADD_DATE <=   TO_CHAR(( TO_DATE(#{st_cur_date},'YYYYMMDD')-1 ),'YYYYMMDD')
+			 GROUP BY SUB_ID 
+			) AS_IV, 														-- 현재까지 조립출고 수량
+			(SELECT 
+					BOM_ID, 
+					SUM(GR_QTY) AS GR_QTY 
+			  FROM ( 
+				SELECT 
+					BOM_ID, 
+					MAX(DECODE(ASSEMB_DATE, '', 0, BOM_QTY)) AS GR_QTY 
+				  FROM WMSASSEMB GR 
+				 WHERE WAREHOUSE_CODE = #{st_warehouse_code}
+				   AND ADD_DATE =  #{st_cur_date}
+				   AND STATUS <> 'D' 
+				 GROUP BY AS_NO, BOM_ID 
+				) 
+			 GROUP BY BOM_ID 
+			) AS_TO_GR, 													-- 당일 조립입고 수량
+			(SELECT 
+					SUB_ID, 
+					SUM(DECODE(ASSEMB_DATE, '', 0, SUB_QTY)) IV_QTY 
+			  FROM WMSASSEMB IV 
+			 WHERE WAREHOUSE_CODE =#{st_warehouse_code}
+			   AND STATUS <> 'D' 
+			   AND ADD_DATE =  #{st_cur_date}
+			 GROUP BY SUB_ID 
+			) AS_TO_IV, 													-- 당일 조립출고 수량
+			(SELECT 
+					BUYER_ITEM_NO, 
+					SUM(ITEM_QTY - GR_QTY) AS PRE_GR_QTY 
+			  FROM ICOMPODT 
+			 WHERE BUYER = #{st_warehouse_code}
+			   AND STATUS <> 'D' 
+			 GROUP BY BUYER_ITEM_NO 
+			) PO 															-- 입고 예정 수량
+		 WHERE IT.BUYER = ST.WAREHOUSE_CODE 
+		   AND IT.BUYER_ITEM_NO = ST.STDCATLG_ID 
+		   AND ST.WAREHOUSE_CODE = #{st_warehouse_code}
+		   AND ST.WAREHOUSE_CODE = CL.WAREHOUSE_CODE(+) 
+		   AND ST.STDCATLG_ID = CL.ITEM_NO(+) 
+		   AND ST.PROCESS_TYPE = '1' 
+		   AND ST.STATUS <> 'D' 
+		   AND CL.CL_MON(+) = '200612'
+		   AND ST.STDCATLG_ID = GR.BUYER_ITEM_NO(+) 
+		   AND ST.STDCATLG_ID = IV.CMS_CATLG_ID(+) 
+		   AND ST.STDCATLG_ID = TO_GR.BUYER_ITEM_NO(+) 
+		   AND ST.STDCATLG_ID = TO_IV.CMS_CATLG_ID(+) 
+		   AND ST.STDCATLG_ID = AS_GR.BOM_ID(+) 
+		   AND ST.STDCATLG_ID = AS_IV.SUB_ID(+) 
+		   AND ST.STDCATLG_ID = AS_TO_GR.BOM_ID(+) 
+		   AND ST.STDCATLG_ID = AS_TO_IV.SUB_ID(+) 
+		   AND ST.STDCATLG_ID = PO.BUYER_ITEM_NO(+) 						 
+		]]>
+		<if test='st_isZero == "Y"'  >
+		<![CDATA[
+			AND NVL(CL.TOT_QTY, 0) + NVL(GR.GR_QTY, 0) - NVL(IV.IV_QTY, 0) + NVL(TO_GR.GR_QTY, 0) - NVL(TO_IV.IV_QTY, 0)
+			+ NVL(AS_GR.GR_QTY, 0) - NVL(AS_IV.IV_QTY, 0) + NVL(AS_TO_GR.GR_QTY, 0) - NVL(AS_TO_IV.IV_QTY, 0) <> 0
+		 ]]>
+		</if>
+		ORDER BY ST.STDCATLG_ID
+	</select>
+								
+</mapper>

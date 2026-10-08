@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="buyer.mpso">
+
+	<select id="getCowayReturnPeriod" parameterType="java.util.Map" resultType="java.util.Map">
+		/*buyer.mpso.getCowayReturnPeriod*/
+		SELECT
+		       CODE,
+		       SUBSTR(TEXT1,1,4) || '/' || SUBSTR(TEXT1,5,2) || '/' || SUBSTR(TEXT1,7,2) AS TEXT1,
+		       SUBSTR(TEXT2,1,4) || '/' || SUBSTR(TEXT2,5,2) || '/' || SUBSTR(TEXT2,7,2) AS TEXT2,
+		       SUBSTR(TEXT3,1,4) || '/' || SUBSTR(TEXT3,5,2) || '/' || SUBSTR(TEXT3,7,2) AS TEXT3,
+		       SUBSTR(TEXT4,1,4) || '/' || SUBSTR(TEXT4,5,2) || '/' || SUBSTR(TEXT4,7,2) AS TEXT4
+		  FROM ICOMCOD2
+		 WHERE TYPE = 'C008'
+		   AND CODE = #{st_rtn_yyyymm}
+		   AND COMPANY_CODE = #{st_buyer}  
+	</select>
+	
+	<update id="setCowayReturnPeriod" parameterType="java.util.Map">
+	/* buyer.mpso.setCowayReturnPeriod */
+	MERGE INTO ICOMCOD2 A
+	USING (
+	  SELECT 
+	         'C008'           AS TYPE,
+	         #{st_rtn_yyyymm} AS CODE,
+	         #{st_buyer}      AS COMPANY_CODE
+	    FROM DUAL
+	) B ON (1 = 1
+	  AND B.TYPE         = A.TYPE
+	  AND B.CODE         = A.CODE
+	  AND B.COMPANY_CODE = A.COMPANY_CODE
+	)
+	WHEN MATCHED THEN
+		UPDATE SET
+			TEXT1 = REPLACE(#{st_rtn_from_date},'/',''),
+			TEXT2 = REPLACE(#{st_rtn_to_date},'/',''),
+			TEXT3 = REPLACE(#{st_po_from_date},'/',''),
+			TEXT4 = REPLACE(#{st_po_to_date},'/',''),
+			ADD_DATE = TO_CHAR(SYSDATE,'YYYYMMDD')
+	WHEN NOT MATCHED THEN
+		INSERT (TYPE, CODE, COMPANY_CODE, TEXT1, TEXT2, TEXT3, TEXT4, FLAG, ADD_DATE)
+		VALUES (
+			'C008',
+			#{st_rtn_yyyymm},
+			#{st_buyer},
+			REPLACE(#{st_rtn_from_date},'/',''),
+			REPLACE(#{st_rtn_to_date},'/',''),
+			REPLACE(#{st_po_from_date},'/',''),
+			REPLACE(#{st_po_to_date},'/',''),
+			'Y',
+			TO_CHAR(SYSDATE,'YYYYMMDD')
+		)
+	</update>
+</mapper>

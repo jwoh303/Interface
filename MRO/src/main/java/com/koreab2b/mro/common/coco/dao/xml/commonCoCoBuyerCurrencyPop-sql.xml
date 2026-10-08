@@ -1,0 +1,181 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="common.coco">
+
+	<select id="selectCommonCoCoBuyerCurrencyPop" parameterType="java.util.Map" resultType="java.util.Map">
+		/*common.coco.selectCommonCoCoBuyerCurrencyPop*/
+		<![CDATA[
+				SELECT
+				 DT.EXP_CODE
+				 ,HD.EXP_CUR
+				 ,DECODE(HD.EXP_PRICE_FLAG,'S','매출','P','매입') AS EXP_PRICE_NM
+				 ,HD.EXP_CUR_PRICE
+				 ,DT.BUYER
+				 ,DT.BUYER_ITEM_NO
+				 ,DT.CONTRACT_NO
+				 ,DT.CONTRACT_SEQ
+				 ,DT.STATUS
+				 ,DT.EXP_FOR_UNIT_PRICE
+				 ,DT.EXP_KR_UNIT_PRICE
+				 ,DT.EXP_INC_EXPENSE
+				 ,DT.ADD_USER_ID
+				 , (SELECT USR.USER_NAME_LOC 
+				 	FROM ICOMLUSR USR 
+				 	WHERE USR.USER_ID = DT.ADD_USER_ID) AS ADD_USER_NM
+				 ,DT.ADD_DATE
+				 ,DT.ADD_TIME
+				 ,DT.CHANGE_USER_ID
+				 , (SELECT USR.USER_NAME_LOC 
+				 	FROM ICOMLUSR USR 
+				 	WHERE USR.USER_ID = DT.CHANGE_USER_ID) AS CHANGE_USER_NM
+				 ,DT.CHANGE_DATE
+				 ,DT.CHANGE_TIME
+				 ,HD.ADD_DATE AS CURRENCY_ADD_DATE
+				 ,HD.CHANGE_DATE AS CURRENCY_CHANGE_DATE
+				FROM  KEP_CURRENCY_HD HD, KEP_CURRENCY_DT DT
+				WHERE HD.EXP_CODE = DT.EXP_CODE
+				AND DT.STATUS IN ('C','R')
+				AND DT.BUYER = #{st_buyer}
+				AND DT.CONTRACT_NO = #{st_contract_no}
+				AND DT.CONTRACT_SEQ = #{st_contract_seq}
+				AND DT.BUYER_ITEM_NO = #{st_buyer_item_no}
+		]]>
+	</select>
+	<select id="selectExpInfo" parameterType="java.util.Map" resultType="java.util.Map">
+	/*selectExpInfo*/
+			SELECT
+		<choose>
+			<when test="com_code == 'KRISUC0004' or com_code == 'KRISUC0005' or com_code == 'KRISUC0006' "> 
+				(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = 'KRISUC0005')  IRS_NAME
+			  , (SELECT CEO_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = 'KRISUC0005') CEO_NAME_LOC
+			  , (SELECT INDUSTRY_TYPE FROM ICOMCMPY WHERE COM_CODE = 'KRISUC0005') INDUSTRY_TYPE
+			  , (SELECT BUSINESS_ITEMS FROM ICOMCMPY WHERE COM_CODE = 'KRISUC0005') BUSINESS_ITEMS
+			  , (SELECT ADDRESS_LOC FROM ICOMCMPY WHERE COM_CODE = 'KRISUC0005') ADDRESS_LOC
+			</when>
+			<when test="com_code == 'KRCOWA0001' or com_code == 'KRCOWA0005' or com_code == 'KRCOWA0006' "> 
+				(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = 'KRCOWA0001')  IRS_NAME
+			  , (SELECT CEO_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = 'KRCOWA0001') CEO_NAME_LOC
+			  , (SELECT INDUSTRY_TYPE FROM ICOMCMPY WHERE COM_CODE = 'KRCOWA0001') INDUSTRY_TYPE
+			  , (SELECT BUSINESS_ITEMS FROM ICOMCMPY WHERE COM_CODE = 'KRCOWA0001') BUSINESS_ITEMS
+			  , (SELECT ADDRESS_LOC FROM ICOMCMPY WHERE COM_CODE = 'KRCOWA0001') ADDRESS_LOC
+			</when>
+			<otherwise>
+			    DECODE(IR.IRS_NO,NULL,CM.COM_NAME_LOC,IR.IRS_NAME) IRS_NAME
+			  , DECODE(IR.IRS_NO,NULL,CM.CEO_NAME_LOC,IR.CEO_NAME_LOC) CEO_NAME_LOC
+			  , DECODE(IR.IRS_NO,NULL,CM.INDUSTRY_TYPE,IR.INDUSTRY_TYPE) INDUSTRY_TYPE
+			  , DECODE(IR.IRS_NO,NULL,CM.BUSINESS_ITEMS,IR.BUSINESS_ITEMS) BUSINESS_ITEMS
+			  , DECODE(IR.IRS_NO,NULL,CM.ADDRESS_LOC,IR.ADDRESS_LOC) ADDRESS_LOC
+			</otherwise>
+		</choose>
+		<![CDATA[
+			FROM
+			    KEPTIRSN IR /* 고객사 사업자정보 */
+			  , V_VOC_ICOMCMPY CM /* (ICOMCMPY - 회원사정보, MIS_BUYER_MNG - 고객사별 담당자 정보), KEPMDCP02@kepcon(주석처리됨) */
+			WHERE 1=1
+			AND CM.SYS_TYPE IN ('KA', 'KK')
+			AND IR.IRS_NO(+) = #{irs_no}
+			AND CM.SYS_TYPE = IR.SITE(+)
+			AND CM.COM_CODE = IR.COM_CODE(+)
+			AND LPAD(CM.COM_CODE , 10, 0) = LPAD(#{com_code}, 10, 0)
+			AND CM.BUSINESS_COND <> 'S'
+		]]>
+	</select>
+	<update id="insertCommonCoCoBuyerCurrency"  parameterType="java.util.Map">
+		<![CDATA[
+		/*insertCommonCoCoBuyerCurrency*/
+				INSERT INTO KEP_CURRENCY_DT
+				(EXP_CODE
+				,BUYER
+				,BUYER_ITEM_NO
+				,CONTRACT_NO
+				,CONTRACT_SEQ
+				,STATUS
+				,EXP_FOR_UNIT_PRICE
+				,EXP_KR_UNIT_PRICE
+				,EXP_INC_EXPENSE
+				,ADD_USER_ID
+				,ADD_DATE
+				,ADD_TIME
+				,CHANGE_USER_ID
+				,CHANGE_DATE
+				,CHANGE_TIME
+				)
+				VALUES
+				(
+					#{EXP_CODE}
+					,#{st_buyer}
+					,#{st_buyer_item_no}
+					,#{st_contract_no}
+					,#{st_contract_seq}
+					,'C'
+					,F_GET_EXCHANGE_RATE(#{st_below_code},#{st_unit_price},#{EXP_CODE},'01')
+					,F_GET_EXCHANGE_RATE(#{st_below_code},#{st_unit_price},#{EXP_CODE},'03')
+					,F_GET_EXCHANGE_RATE(#{st_below_code},#{st_unit_price},#{EXP_CODE},'02')
+					,#{st_user_id}
+					,TO_CHAR(SYSDATE, 'YYYYMMDD')
+					,TO_CHAR(SYSDATE, 'HH24MISS')
+					,#{st_user_id}
+					,TO_CHAR(SYSDATE, 'YYYYMMDD')
+					,TO_CHAR(SYSDATE, 'HH24MISS')
+				)
+		]]>
+	</update>
+	<update id="insertCommonCoCoBuyerCurrencyHist"  parameterType="java.util.Map">
+		<![CDATA[
+		/*insertCommonCoCoBuyerCurrencyHist*/
+				INSERT INTO KEP_CURRENCY_HIST
+				(EXP_CODE
+				,BUYER
+				,BUYER_ITEM_NO
+				,CONTRACT_NO
+				,CONTRACT_SEQ
+				,EXP_SEQ
+				,STATUS
+				,EXP_FOR_UNIT_PRICE
+				,EXP_KR_UNIT_PRICE
+				,EXP_INC_EXPENSE
+				,ADD_USER_ID
+				,ADD_DATE
+				,ADD_TIME
+				,CHANGE_USER_ID
+				,CHANGE_DATE
+				,CHANGE_TIME
+				)
+				VALUES
+				(
+					#{EXP_CODE}
+					,#{st_buyer}
+					,#{st_buyer_item_no}
+					,#{st_contract_no}
+					,#{st_contract_seq}
+					,NVL((SELECT TO_NUMBER(MAX(A.EXP_SEQ)) 
+						FROM KEP_CURRENCY_HIST A
+						 WHERE A.EXP_CODE =#{EXP_CODE} 
+						 AND A.BUYER =#{st_buyer}
+						 AND A.CONTRACT_NO =#{st_contract_no}
+						 AND A.CONTRACT_SEQ = #{st_contract_seq}),0)  +1
+					,'C'
+					,F_GET_EXCHANGE_RATE(#{st_below_code},#{st_unit_price},#{EXP_CODE},'01')
+					,F_GET_EXCHANGE_RATE(#{st_below_code},#{st_unit_price},#{EXP_CODE},'03')
+					,F_GET_EXCHANGE_RATE(#{st_below_code},#{st_unit_price},#{EXP_CODE},'02')
+					,#{st_user_id}
+					,TO_CHAR(SYSDATE, 'YYYYMMDD')
+					,TO_CHAR(SYSDATE, 'HH24MISS')
+					,#{st_user_id}
+					,TO_CHAR(SYSDATE, 'YYYYMMDD')
+					,TO_CHAR(SYSDATE, 'HH24MISS')
+				)
+		]]>
+	</update>
+	<update id="deleteCommonCoCoBuyerCurrency"  parameterType="java.util.Map">
+		<![CDATA[
+		/*"deleteCommonCoCoBuyerCurrency"*/
+				DELETE KEP_CURRENCY_DT
+				WHERE EXP_CODE = #{EXP_CODE}
+				AND BUYER = #{BUYER} 
+				AND BUYER_ITEM_NO = #{BUYER_ITEM_NO}
+				AND CONTRACT_NO = #{CONTRACT_NO}
+				AND CONTRACT_SEQ = #{CONTRACT_SEQ}
+		]]>
+	</update>
+</mapper>

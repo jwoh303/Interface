@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mpsm">
+	
+	<select  id="selectClosingStatsList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/* selectClosingStatsList */
+			SELECT		(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE=BUYER) AS BUYER
+						, NVL((SELECT TEXT1 FROM ICOMCOD2
+        						WHERE COMPANY_CODE = BUYER
+        						AND TYPE = 'C001'
+        						AND CODE = DEPT),DEPT) AS DEPT_NAME
+     					, NVL((SELECT TEXT1 FROM ICOMCOD2
+        						WHERE COMPANY_CODE = BUYER
+        						AND TYPE = 'Z014'
+        						AND CODE = ACCOUNT_TYPE),ACCOUNT_TYPE) AS ACCOUNT_NAME
+     					, ROUND(SUM_AMT/#{st_money_unit},0) AS SUM_AMT
+     					, PO_CNT
+     					, ROUND(AMT/#{st_money_unit},0) AS AMT
+     					, RATE
+     					, decode(AMT,0,null,DECODE(BF_M_AMT,0,NULL,ROUND((AMT-BF_M_AMT)/BF_M_AMT*100,0)))       AS BF_M_INCR_RATE
+     					, decode(AMT,0,null,DECODE(BF_Y_AMT,0,NULL,ROUND((AMT-BF_Y_AMT)/BF_Y_AMT*100,0))) AS BF_Y_INCR_RATE
+     					, ROUND(BF_M_AMT/#{st_money_unit},0)   AS BF_M_AMT
+     					, ROUND(BF_Y_AMT/#{st_money_unit},0) AS BF_Y_AMT
+     					, DEPT
+     					, ACCOUNT_TYPE
+			FROM (
+						SELECT	BUYER
+     								, DEPT
+									, ACCOUNT_TYPE
+     								, SUM(DECODE(SUBSTR(X.YYYYMM,1,4),SUBSTR(#{st_yyyy_mm},1,4),X.AR_AMT,0)) AS SUM_AMT
+     								, SUM(DECODE(X.YYYYMM,#{st_yyyy_mm},X.PO_CNT,0)) AS PO_CNT
+     								, SUM(DECODE(X.YYYYMM,#{st_yyyy_mm},X.AR_AMT,0)) AS AMT
+     								, SUM(ROUND(X.AR_AMT/Y.AR_AMT *100,2))       AS RATE
+     								, SUM(DECODE(X.YYYYMM,TO_CHAR(ADD_MONTHS(TO_DATE(#{st_yyyy_mm},'YYYYMM'),-1),'YYYYMM'),X.AR_AMT,0)) AS  BF_M_AMT
+     								, SUM(DECODE(X.YYYYMM,TO_CHAR(ADD_MONTHS(TO_DATE(#{st_yyyy_mm},'YYYYMM'),-12),'YYYYMM'),X.AR_AMT,0)) AS  BF_Y_AMT
+						FROM (
+									SELECT	BUYER
+     											, YYYYMM
+     											, DECODE(#{st_view_type},'C',NULL,DECODE(#{st_dept_type},'A',REQ_DEPT,BUDGET_DEPT)) AS DEPT
+     											, DECODE(#{st_view_type},'B',NULL,ACCOUNT_TYPE) AS ACCOUNT_TYPE
+     											, AR_AMT
+     											, PO_CNT
+									FROM	KEP_BUYER_ST01
+									WHERE	1=1
+		]]>
+			<if test='st_group_mng_flag == "N"'>
+				AND	BUYER = #{st_com_code}
+			</if>
+			<if test='st_group_mng_flag == "Y"'>
+				AND	BUYER IN (SELECT COD3.CODE2 FROM ICOMCOD3 COD3 WHERE COD3.TYPE = 'TGCM' AND COD3.CODE1 = #{st_user_id} AND COD3.FLAG = 'Y')
+			</if>
+		<![CDATA[									
+									AND ( YYYYMM  IN ( TO_CHAR(ADD_MONTHS(TO_DATE(#{st_yyyy_mm},'YYYYMM'),-1),'YYYYMM'),
+                													TO_CHAR(ADD_MONTHS(TO_DATE(#{st_yyyy_mm},'YYYYMM'),-12),'YYYYMM')) OR
+      																YYYYMM like substr(#{st_yyyy_mm},1,4)||'%')
+									) X,
+									(SELECT	YYYYMM
+           										, SUM(AR_AMT) AR_AMT
+      								FROM KEP_BUYER_ST01
+      								WHERE 1=1
+		]]>
+			<if test='st_group_mng_flag == "N"'>
+				AND	BUYER = #{st_com_code}
+			</if>
+			<if test='st_group_mng_flag == "Y"'>
+				AND	BUYER IN (SELECT COD3.CODE2 FROM ICOMCOD3 COD3 WHERE COD3.TYPE = 'TGCM' AND COD3.CODE1 = #{st_user_id} AND COD3.FLAG = 'Y')
+			</if>
+		<![CDATA[      								
+      								AND YYYYMM = #{st_yyyy_mm}
+      								GROUP BY YYYYMM) Y
+						WHERE X.YYYYMM = Y.YYYYMM(+)
+						GROUP BY	BUYER
+     									, DEPT
+     									, ACCOUNT_TYPE
+			)
+			WHERE	1=1
+		]]>
+		<if test="st_dept_code != null and st_dept_code != ''">
+			AND		DEPT = #{st_dept_code}
+		</if>
+		<if test="st_account_code != null and st_account_code != ''">
+			AND		ACCOUNT_TYPE = #{st_account_code}
+		</if>
+		<![CDATA[
+			ORDER BY 1,2
+		]]>
+	</select>
+	
+	<select  id="selectClosingStatsList1" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/* selectClosingStatsList1 */
+			SELECT		ROUND(SUM(DECODE(YYYYMM,LAST_YEAR||'01',AR_AMT,0))/#{st_money_unit},0) AS LAST_YEAR01
+     					, ROUND(SUM(DECODE(YYYYMM,THIS_YEAR||'01',AR_AMT,0))/#{st_money_unit},0) AS THIS_YEAR01
+     					, ROUND(SUM(DECODE(YYYYMM,LAST_YEAR||'02',AR_AMT,0))/#{st_money_unit},0) AS LAST_YEAR02
+     					, ROUND(SUM(DECODE(YYYYMM,THIS_YEAR||'02',AR_AMT,0))/#{st_money_unit},0) AS THIS_YEAR02
+     					, ROUND(SUM(DECODE(YYYYMM,LAST_YEAR||'03',AR_AMT,0))/#{st_money_unit},0) AS LAST_YEAR03
+     					, ROUND(SUM(DECODE(YYYYMM,THIS_YEAR||'03',AR_AMT,0))/#{st_money_unit},0) AS THIS_YEAR03
+     					, ROUND(SUM(DECODE(YYYYMM,LAST_YEAR||'04',AR_AMT,0))/#{st_money_unit},0) AS LAST_YEAR04
+     					, ROUND(SUM(DECODE(YYYYMM,THIS_YEAR||'04',AR_AMT,0))/#{st_money_unit},0) AS THIS_YEAR04
+     					, ROUND(SUM(DECODE(YYYYMM,LAST_YEAR||'05',AR_AMT,0))/#{st_money_unit},0) AS LAST_YEAR05
+     					, ROUND(SUM(DECODE(YYYYMM,THIS_YEAR||'05',AR_AMT,0))/#{st_money_unit},0) AS THIS_YEAR05
+     					, ROUND(SUM(DECODE(YYYYMM,LAST_YEAR||'06',AR_AMT,0))/#{st_money_unit},0) AS LAST_YEAR06
+     					, ROUND(SUM(DECODE(YYYYMM,THIS_YEAR||'06',AR_AMT,0))/#{st_money_unit},0) AS THIS_YEAR06
+     					, ROUND(SUM(DECODE(YYYYMM,LAST_YEAR||'07',AR_AMT,0))/#{st_money_unit},0) AS LAST_YEAR07
+     					, ROUND(SUM(DECODE(YYYYMM,THIS_YEAR||'07',AR_AMT,0))/#{st_money_unit},0) AS THIS_YEAR07
+    					, ROUND(SUM(DECODE(YYYYMM,LAST_YEAR||'08',AR_AMT,0))/#{st_money_unit},0) AS LAST_YEAR08
+					    , ROUND(SUM(DECODE(YYYYMM,THIS_YEAR||'08',AR_AMT,0))/#{st_money_unit},0) AS THIS_YEAR08
+     					, ROUND(SUM(DECODE(YYYYMM,LAST_YEAR||'09',AR_AMT,0))/#{st_money_unit},0) AS LAST_YEAR09
+     					, ROUND(SUM(DECODE(YYYYMM,THIS_YEAR||'09',AR_AMT,0))/#{st_money_unit},0) AS THIS_YEAR09
+     					, ROUND(SUM(DECODE(YYYYMM,LAST_YEAR||'10',AR_AMT,0))/#{st_money_unit},0) AS LAST_YEAR10
+						, ROUND(SUM(DECODE(YYYYMM,THIS_YEAR||'10',AR_AMT,0))/#{st_money_unit},0) AS THIS_YEAR10
+						, ROUND(SUM(DECODE(YYYYMM,LAST_YEAR||'11',AR_AMT,0))/#{st_money_unit},0) AS LAST_YEAR11
+						, ROUND(SUM(DECODE(YYYYMM,THIS_YEAR||'11',AR_AMT,0))/#{st_money_unit},0) AS THIS_YEAR11
+						, ROUND(SUM(DECODE(YYYYMM,LAST_YEAR||'12',AR_AMT,0))/#{st_money_unit},0) AS LAST_YEAR12
+						, ROUND(SUM(DECODE(YYYYMM,THIS_YEAR||'12',AR_AMT,0))/#{st_money_unit},0) AS THIS_YEAR12
+			FROM	KEP_BUYER_ST01
+						, (
+						SELECT	TO_CHAR(ADD_MONTHS(TO_DATE(#{st_yyyy},'YYYY'),-12),'YYYY') AS LAST_YEAR
+                        			, #{st_yyyy} AS THIS_YEAR
+                      	FROM	DUAL
+                      	)
+			WHERE	1=1
+		]]>
+			<if test='st_group_mng_flag == "N"'>
+				AND	BUYER = #{st_com_code}
+			</if>
+			<if test='st_group_mng_flag == "Y"'>
+				AND	BUYER IN (SELECT COD3.CODE2 FROM ICOMCOD3 COD3 WHERE COD3.TYPE = 'TGCM' AND COD3.CODE1 = #{st_user_id} AND COD3.FLAG = 'Y')
+			</if>
+		<![CDATA[
+			AND		YYYYMM BETWEEN LAST_YEAR||'01' AND THIS_YEAR||'12'
+		]]>
+	</select>
+</mapper>

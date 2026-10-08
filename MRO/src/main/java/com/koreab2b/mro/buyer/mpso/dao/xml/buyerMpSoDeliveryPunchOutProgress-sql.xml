@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="buyer.mpso">
+	<select id="selectBuyerMpSoDlvryCmnPunchOutProgressList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.jsppagestart"/>
+		<![CDATA[
+		
+		/*selectBuyerMpSoDlvryCmnPunchOutProgressList*/
+		     SELECT                                                                                       
+		           B.PO_NO,                                                                               
+		           B.PO_SEQ,                                                                              
+		           B.LEGACY_PO_NO,                                                                        
+		           B.LEGACY_PO_SEQ,                                                                       
+		           B.REF_PR_NO,                                                                           
+		           B.BUYER_ITEM_NO,                                                                       
+		           B.DESCRIPTION,                                                                         
+		           B.SPECIFICATION,                                                                       
+		           B.UNIT_MEASURE,                                                                        
+		           B.ITEM_QTY,                                                                            
+		           B.UNIT_PRICE,                                                                          
+		           B.ITEM_AMT,                                                                            
+		           TO_DATE(C.DS_DATE,'YYYYMMDD') - TO_DATE(B.RD_DATE,'YYYYMMDD') DELAY_TIMES,             
+		           B.DS_DELAY_REASON DELAY_REASON,                                                        
+		            (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = A.AGENT) AGENT_NAME,              
+		            A.PO_CREATE_DATE,                                                                     
+		            B.RD_DATE,                                                                            
+		            C.DS_DATE,                                                                            
+		            D.ADD_USER_NAME,                                                                      
+		            B.BUYER,                                                                              
+		            D.CHANGE_USER_ID,                                                                     
+		            B.DS_DELAY_REASON,                                                                    
+		            A.AGENT,                                                                              
+		            C.CD_QTY,                                                                             
+		            (C.CD_QTY * B.UNIT_PRICE) AS CD_AMT   ,
+		            B.CONTRACT_NO,
+		            B.CONTRACT_SEQ                                               
+		       FROM ICOMPOHD A , ICOMPODT B , ICOMPORS C , ICOMPRDT D                                     
+		      WHERE A.BUYER = B.BUYER                                                                     
+		        AND A.BUYER =#{st_com_code}                                                                         
+		        AND B.RD_DATE BETWEEN TO_CHAR(SYSDATE , 'YYYYMMDD') and TO_CHAR(SYSDATE +5 , 'YYYYMMDD')  
+		        AND A.PO_NO = B.PO_NO                                                                     
+		        AND NVL(B.ITEM_QTY,0) <> NVL(B.GR_QTY,0)                                                  
+		        AND NVL(B.ITEM_QTY,0) <> NVL(B.DI_QTY,0)                                                  
+		        AND D.CHANGE_USER_ID = #{st_user_id}
+         ]]>  
+		<!-- 발주번호 -->
+		 <if test="st_legacy_po_no != null and st_legacy_po_no != ''">
+			<![CDATA[
+	 			AND B.LEGACY_PO_NO LIKE '%'||#{st_legacy_po_no}||'%'
+	 		]]>	 
+		</if>
+		<!-- 품목코드 -->
+		 <if test="st_buyer_item_no != null and st_buyer_item_no != ''">
+			<![CDATA[
+	 			AND B.BUYER_ITEM_NO LIKE '%'||#{st_buyer_item_no}||'%'
+	 		]]>	 
+		</if>
+		<![CDATA[                                                            
+		        AND C.ADMIN_FLAG2 != 'Y'                                                                  
+		        AND B.BUYER = C.BUYER                                                                     
+		        AND B.PO_NO = C.PO_NO                                                                     
+		        AND B.PO_SEQ = C.PO_SEQ                                                                   
+		        AND B.BUYER  = D.BUYER                                                                    
+		        AND B.PR_NO  = D.PR_NO                                                                    
+		        AND B.PR_SEQ = D.PR_SEQ                                                                   
+		        AND A.STATUS <> 'D'                                                                       
+		        AND B.STATUS <> 'D'                                                                       
+		        AND C.STATUS <> 'D'                                                                       
+		        AND D.STATUS <> 'D'                                                                       
+		        ORDER BY  B.LEGACY_PO_NO 
+         ]]>  
+		<include refid="common.ibsheet.xml.jsppageend"/>	
+	</select> 	
+	<select id="selectBuyerMpSoDlvryDlyPunchOutProgressList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.jsppagestart"/>
+		<![CDATA[
+		/*selectBuyerMpSoDlvryDlyPunchOutProgressList*/
+          SELECT  
+                 PR.REF_PR_NO REF_PR_NO,  
+                 PR.PR_NO PR_NO,  
+                 PR.BUYER_ITEM_NO BUYER_ITEM_NO,	
+                 PR.DESCRIPTION DESCRIPTION,  
+                 PR.SPECIFICATION SPECIFICATION,  
+                 PR.UNIT_MEASURE UNIT_MEASURE,  
+                 PO.ITEM_QTY ITEM_QTY,  
+                 TRUNC(SYSDATE - TO_DATE(PO.RD_DATE,'YYYYMMDD'),0) DELAY_DAY,  
+                 PR.CHANGE_DATE CHANGE_DATE,  
+                 PH.PO_CREATE_DATE PO_CREATE_DATE,  
+                 PO.RD_DATE RD_DATE,  
+                 (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = PH.AGENT) AGENT_TEXT,  
+                 PH.PURCHASER_NAME PURCHASER_NAME,  
+                 PR.BUYER BUYER,  
+                 PR.PR_SEQ PR_SEQ,  
+                 PH.AGENT AGENT,  
+                 PH.PURCHASER_ID PURCHASER_ID,  
+                 PR.BYIT_COMORG_CODE BYIT_COMORG_CODE,  
+                 PO.UNIT_PRICE UNIT_PRICE,  
+                 TRUNC(NVL(PO.ITEM_QTY * PO.UNIT_PRICE,0)) PO_SUM,  
+                 PO.LEGACY_PO_NO LEGACY_PO_NO,  
+                 PO.LEGACY_PO_SEQ LEGACY_PO_SEQ, 
+                 TRIM(PR.BUYER_ITEM_NO) KEP_BUYER_ITEM_NO	
+            FROM ICOMPODT PO, ICOMPOHD PH, ICOMPRDT PR  
+           WHERE PO.BUYER = #{st_com_code}
+             AND PO.RD_DATE < TO_CHAR(SYSDATE - 1, 'YYYYMMDD')  
+             AND NVL(PO.GR_QTY,0) < PO.ITEM_QTY  
+             AND NVL(PO.DI_QTY,0) < PO.ITEM_QTY  
+             AND PR.SAVE_FLAG = 'PX'  
+            AND PR.CHANGE_USER_ID = #{st_user_id}  
+             AND PO.BUYER = PH.BUYER  
+             AND PO.PO_NO = PH.PO_NO  
+             AND PO.BUYER = PR.BUYER  
+             AND PO.PR_NO = PR.PR_NO  
+             AND PO.PR_SEQ = PR.PR_SEQ  
+             AND PO.BUYER_ITEM_NO = PR.BUYER_ITEM_NO  
+             AND PR.STATUS IN ('C','R')  
+             AND PO.STATUS IN ('C','R')  
+             AND PH.STATUS IN ('C','R')  
+         ]]>  
+		<!-- 발주번호 -->
+		 <if test="st_legacy_po_no != null and st_legacy_po_no != ''">
+			<![CDATA[
+	 			AND UPPER(PR.LEGACY_PO_NO) LIKE UPPER('%'||#{st_legacy_po_no}||'%')
+	 		]]>	 
+		</if>
+		<!-- 품목코드 -->
+		 <if test="st_buyer_item_no != null and st_buyer_item_no != ''">
+			<![CDATA[
+	 			AND UPPER(PR.BUYER_ITEM_NO) LIKE UPPER('%'||#{st_buyer_item_no}||'%')
+	 		]]>	 
+		</if>
+		<![CDATA[                                                            
+		           ORDER BY  PO.LEGACY_PO_NO   
+         ]]>  
+		<include refid="common.ibsheet.xml.jsppageend"/>	
+	</select> 	
+</mapper>

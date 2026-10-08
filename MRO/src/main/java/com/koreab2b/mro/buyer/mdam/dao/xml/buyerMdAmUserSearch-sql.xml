@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="buyer.mdam">
+	<select id="selectBuyerMdAmUserSearchList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.jsppagestart"/>
+		<![CDATA[
+		/* selectBuyerMdAmUserSearchList */
+		SELECT
+			S.ROWM,
+			S.USER_ID,
+			S.USER_NAME_LOC,
+			S.PHONE_NUMBER,
+			S.EMAIL,
+			S.DEPARTMENT,
+			S.DEPT_NAME,
+			S.STATUS,
+			S.STATUS_TEXT,
+			S.REJECT_REASON,
+			S.COM_CODE,
+			(SELECT CMPY.COM_NAME_LOC FROM ICOMCMPY CMPY WHERE CMPY.COM_CODE = S.COM_CODE) AS COM_NAME_LOC
+		FROM (
+			SELECT
+				ROWNUM ROWM,																																														/* 순번 */
+				L.USER_ID,																																																	/* 사용자 ID */
+				L.USER_NAME_LOC,																																														/* 사용자 이름 */
+				L.PHONE_NUMBER,																																														/* 핸드폰번호 */
+				L.EMAIL,																																																		/* 이메일 */
+				L.DEPARTMENT,																																															/* 부서코드 */
+				(SELECT TEXT1 FROM ICOMCOD2 WHERE COMPANY_CODE = L.COM_CODE AND TYPE='C001' AND CODE = L.DEPARTMENT) DEPT_NAME,					/* 부서명 */
+				L.STATUS,																																																	/* 상태 */
+				decode(L.STATUS,'D','삭제','사용') AS STATUS_TEXT,																																			/* 상태값 */
+				L.REJECT_REASON,																																														/* 거절사유 (전체 탭에서 거절/삭제 구분용) */
+				L.COM_CODE
+			FROM ICOMLUSR L
+			WHERE 1=1
+		]]>
+		<choose>
+				<when test='st_group_mng_flag == "Y"'>
+				<choose>
+					<when test="st_group_info != null and st_group_info != '' ">
+					<![CDATA[
+						AND	L.COM_CODE IN (SELECT COD3.CODE2 FROM ICOMCOD3 COD3 WHERE COD3.TYPE = 'BGCM' AND COD3.CODE1 = #{st_user_id} AND COD3.TEXT1 = #{st_group_info}  AND 	COD3.FLAG = 'Y')
+					]]>
+					</when>
+					<otherwise>
+						<choose>
+							<when test="st_com_code != null and st_com_code != '' ">
+							<![CDATA[
+								AND	L.COM_CODE = #{st_com_code}
+							]]>
+							</when>
+							<otherwise>
+							<![CDATA[
+								AND	L.COM_CODE  IN (SELECT COD3.CODE2 FROM ICOMCOD3 COD3 WHERE COD3.TYPE = 'TGCM' AND COD3.CODE1 = #{st_user_id} AND COD3.FLAG = 'Y')
+							]]>
+							</otherwise>
+						</choose>
+					</otherwise>
+				</choose>
+				</when>
+				<when test='st_group_mng_flag == "N"'>
+				<![CDATA[
+					AND	L.COM_CODE = #{SESSION_BUYER_CODE}
+				]]>
+				</when>
+		</choose>
+		<choose>
+			<when test='st_del_yn == "Y"'>
+				<![CDATA[
+					AND	L.STATUS IN ('C','R','D')
+				]]>
+			</when>
+			<when test='st_del_yn == "N"'>
+				<![CDATA[
+					AND	L.STATUS IN ('C','R')
+				]]>
+			</when>
+		</choose>
+		<if test="st_search_user_id != null and st_search_user_id != ''">
+		<![CDATA[	
+			AND L.USER_ID = UPPER(#{st_search_user_id})
+		]]>
+		</if>
+		<if test="st_search_user_name != null and st_search_user_name != ''">
+		<![CDATA[		
+			AND L.USER_NAME_LOC LIKE '%'||#{st_search_user_name}||'%'
+		]]>
+		</if>
+		<if test="st_btoa_user_dept_code != null and st_btoa_user_dept_code != ''">
+		<![CDATA[
+			AND L.DEPARTMENT = #{st_btoa_user_dept_code}
+		]]>
+		</if>
+		<!-- _v2 자유입력 부서명 LIKE 검색 (레거시는 _code를 보내므로 미해당) -->
+		<if test="(st_btoa_user_dept_code == null or st_btoa_user_dept_code == '') and st_btoa_user_dept_name != null and st_btoa_user_dept_name != ''">
+		<![CDATA[
+			AND (SELECT TEXT1 FROM ICOMCOD2 WHERE COMPANY_CODE = L.COM_CODE AND TYPE='C001' AND CODE = L.DEPARTMENT)
+			    LIKE '%'||#{st_btoa_user_dept_name}||'%'
+		]]>
+		</if>
+		<![CDATA[		
+			ORDER BY L.REG_DATE DESC
+		) S 
+ 		]]>  
+		<include refid="common.ibsheet.xml.jsppageend"/>	
+	</select> 
+	
+	
+	
+	<!-- 사용자상태 수정-->
+	<update id="updateBuyerMdAmUserSearchList" parameterType="java.util.Map">
+		<![CDATA[
+ 		 	/*updateBuyerMdAmUserSearchList*/
+ 		 	UPDATE ICOMLUSR
+			SET
+				STATUS					= #{st_status},
+				EXPIRE_DATE			= TO_CHAR(SYSDATE,'YYYYMMDD'),
+				CONFIRM_USER_ID	= #{st_user_id}
+			WHERE USER_ID = #{st_change_user_id}
+		]]>
+	</update> 
+</mapper>

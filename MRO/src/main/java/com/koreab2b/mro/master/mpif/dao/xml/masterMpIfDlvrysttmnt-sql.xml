@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mpif">
+
+	<!-- 조회 -->
+	<select id="selectMasterMpIfDlvrysttmntList" parameterType="java.util.Map" resultType="java.util.Map">
+	/*selectMasterMpIfDlvrysttmntList*/
+		<include refid="common.ibsheet.xml.pagestart"/>	
+		<![CDATA[
+			SELECT /*+USE_NL(A B)  
+			          INDEX(A IF_IVDT_T01)
+			          INDEX(AA SYS_C009853)
+			       */
+			    (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = A.BUYER) AS BUYER_NAME /* 고객사명 */
+			  , A.BUYER /* 고객사코드 */
+			  , CASE
+			        WHEN AA.IF_FLAG = 'C'                       THEN '1' /* 작업대기 */
+			        WHEN AA.IF_FLAG <> 'C'  AND A.IF_FLAG = 'N' THEN '0' /* 정상 */
+			        WHEN AA.IF_FLAG IS NULL AND A.IF_FLAG = 'N' THEN '0' /* 정상 */
+			        WHEN AA.IF_FLAG <> 'C'  AND A.IF_FLAG = 'E' THEN '2' /* 오류건 */
+			        WHEN AA.IF_FLAG IS NULL AND A.IF_FLAG = 'E' THEN '2' /* 오류건 */
+			    END IF_PROGRESS_IVDT /* 인터페이스상태 Image */
+			  , AA.IF_FLAG AS IF_FLAG_PROGRESS /* 인터페이스상태 Flag */
+			  , A.LEGACY_IV_NO   AS LEGACY_IV_NO /* 납품번호 */
+			  , A.LEGACY_IV_SEQ  AS LEGACY_IV_SEQ /* 납품항번 */
+			  , DECODE(A.STATUS, 'C', '3', 'R','4', 'D', '5') AS IV_STATUS /* 납품상태 */
+			  , DECODE(B.STATUS, 'C', '3', 'R','4', 'D', '5', '', '6') AS PO_STATUS /* 발주상태 */
+			  , A.STATUS AS IV_EXCEL /* 납품상태 */
+			  , B.STATUS AS PO_EXCEL /* 발주상태 */
+			  , A.ERROR_MSG      AS ERROR_MSG /* 오류내역 */
+			  , A.BUYER_ITEM_NO  AS BUYER_ITEM_NO /* 품목코드 */
+			  , B.DESCRIPTION    AS DESCRIPTION /* 품명 */
+			  , B.SPECIFICATION  AS SPECIFICATION /* 규격 */
+			  , B.ITEM_QTY       AS ITEM_QTY /* 발주수량 */
+			  , A.INV_QTY        AS INV_QTY /* 납품수량 */
+			  , B.IV_QTY         AS IV_QTY /* 기납품수량 */
+			  , B.GR_QTY         AS GR_QTY /* 입고수량 */
+			  , A.INVOICE_DATE   AS INVOICE_DATE /* 납품일 */
+			  , C.PO_CREATE_DATE AS PO_CREATE_DATE /* 발주일 */
+			  , (SELECT TEXT2 FROM ICOMCOD1 WHERE TYPE='M034' AND CODE=B.PROCESS_TYPE) AS PROCESS_TYPE_NM /* 거래유형 */
+			  , A.LEGACY_PO_NO   AS LEGACY_PO_NO /* 주문번호 */
+			  , A.LEGACY_PO_SEQ  AS LEGACY_PO_SEQ /* 주문항번 */
+			  , B.PR_NO          AS PR_NO /* PR번호 */
+			  , B.PR_SEQ         AS PR_SEQ /* PR항번 */
+			  , B.PO_NO          AS PO_NO /* 발주번호 */
+			  , B.PO_SEQ         AS PO_SEQ /* 발주항번 */
+			  , (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = C.AGENT ) AS AGENT_NAME /* 협력사명 */
+			  , A.CREATE_DATE    AS CREATE_DATE /* 생성일자 */
+			  , A.CREATE_TIME    AS CREATE_TIME /* 생성시간 */
+			  , A.LOAD_DATE      AS LOAD_DATE /* 작업일자 */
+			  , A.LOAD_TIME      AS LOAD_TIME /* 작업시간 */
+			FROM
+			    IF_IVDT A /* 인터페이스 송장(납품)내역 */
+			  , ICOMPODT B /* 발주 제품정보 */
+			  , ICOMPOHD C /* 발주 마스터정보 */
+			  , IF_PROGRESS AA /* 오류 현황 메인 */
+			WHERE 1=1
+			AND A.BUYER = B.BUYER(+)
+			AND A.LEGACY_PO_NO = B.LEGACY_PO_NO(+)
+			AND A.LEGACY_PO_SEQ = B.LEGACY_PO_SEQ(+)
+			AND A.BUYER = C.BUYER(+)
+			AND A.PO_NO = C.PO_NO(+)
+			AND A.BUYER = AA.BUYER(+)
+			AND A.LEGACY_IV_NO = AA.LEGACY_NO(+)
+			AND A.BUYER IN
+			(
+			    SELECT /*+INDEX(MIS_BUYER_MNG MIS_BUYER_MNG_IDX)*/ DISTINCT
+			        BUYER
+			    FROM
+			        MIS_BUYER_MNG /* 고객사별 담당자 정보 */
+			    WHERE 1 = 1
+			    AND YEAR = TO_CHAR(SYSDATE,'YYYY')
+			    AND STATUS = 'C'
+			    -- AND PRIORITY = 'Y'
+		]]>
+		<if test="buyer_code_array != null and buyer_code_array != '' ">
+			    AND BUYER IN
+			<foreach item="item" index="index" collection="buyer_code_array" open="(" separator="," close=")">
+			        #{item}
+			</foreach>
+		</if>
+		<if test="st_user_dept != null and st_user_dept != '' ">
+			    AND KEP_DEPT = #{st_user_dept}
+		</if>
+        <if test='st_user_check_value == "N" '>
+			    AND KEP_USER_ID = #{st_user_id}
+		</if>
+		<![CDATA[
+			)
+			AND A.IF_FLAG   != 'D'
+			AND B.STATUS(+) ^= 'D'
+			AND C.STATUS(+) ^= 'D'
+			AND AA.GUBUN     = 'IV'
+		]]>
+		<if test="st_legacy_iv_no != null and st_legacy_iv_no != '' ">
+			AND A.LEGACY_IV_NO  LIKE '%' || #{st_legacy_iv_no} || '%'
+		</if>
+		<if test="st_legacy_po_no != null and st_legacy_po_no != '' ">
+			AND A.LEGACY_PO_NO  LIKE '%' || #{st_legacy_po_no} || '%'
+		</if>
+		<if test="st_buyer_item_no != null and st_buyer_item_no != '' ">
+			AND A.BUYER_ITEM_NO LIKE '%' || #{st_buyer_item_no} || '%'
+		</if>
+		<if test="buyer_code_array != null and buyer_code_array != '' ">
+			AND A.BUYER IN
+			<foreach item="item" index="index" collection="buyer_code_array" open="(" separator="," close=")">
+			    #{item}
+			</foreach>
+		</if>
+		<if test='st_date_flag_value == "N" '>
+			AND A.INVOICE_DATE BETWEEN #{st_from_date} AND #{st_to_date}
+		</if>
+		<if test='st_if_flag_value == "Y" '>
+			AND A.IF_FLAG = 'E'
+		</if>
+		<if test='st_if_flag_value == "N" '>
+			AND A.IF_FLAG IN ('E','N')
+		</if>
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+
+
+	<!-- 실행 -->
+	<update  id="updateMasterMpIfDlvrysttmnt_IF_PROGRESS" parameterType="java.util.Map" >
+	/*updateMasterMpIfDlvrysttmnt_IF_PROGRESS*/
+		<![CDATA[
+			UPDATE IF_PROGRESS /* 오류 현황 메인 */
+			SET IF_FLAG     = 'C'
+			  , CHANGE_DATE = TO_CHAR(SYSDATE,'YYYYMMDD')
+			  , CHANGE_TIME = TO_CHAR(SYSDATE,'HH24MISS')
+			WHERE 1=1
+			AND BUYER       = #{BUYER}
+			AND LEGACY_NO   = #{LEGACY_IV_NO}
+			AND GUBUN       = 'IV'
+		]]>
+	</update>
+
+
+	<!-- 납품 삭제(종결) -->
+	<update id="updateMasterMpIfDlvrysttmnt_IF_IVDT"  parameterType="java.util.Map">
+	/*updateMasterMpIfDlvrysttmnt_IF_IVDT*/
+		<![CDATA[
+			UPDATE IF_IVDT /* 인터페이스 송장(납품)내역 */
+			SET IF_FLAG       = 'D'
+			  , CANCEL_DATE   = SYSDATE
+			  , CANCEL_RSON   = #{st_cancel_remark}
+			  , CANCEL_ID     = #{st_user_id}
+			WHERE 1=1
+			AND BUYER         = #{BUYER}
+			AND LEGACY_IV_NO  = #{LEGACY_IV_NO}
+			AND LEGACY_IV_SEQ = #{LEGACY_IV_SEQ}
+		]]>
+	</update>
+
+</mapper>   
+   

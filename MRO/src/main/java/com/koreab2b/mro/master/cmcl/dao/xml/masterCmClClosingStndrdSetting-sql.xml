@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.cmcl">
+	<!-- 조회 -->
+	<select id="selectMasterCmClClosingStndrdSettingList" parameterType="java.util.Map" resultType="java.util.Map">
+	/*selectMasterCmClClosingStndrdSettingList*/
+		<![CDATA[
+	    	SELECT                            
+			    (SELECT TEXT4 FROM ICOMCOD1 WHERE TYPE = 'VC04' AND CODE = CM.SYS_TYPE) KEP_IRS_NAME /*당사사업장*/
+			  , (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'VC04' AND CODE = CM.SYS_TYPE) SITE_GUBUN_NAME /*사이트구분*/
+			  , (SELECT TEXT2 FROM ICOMCOD1 WHERE TYPE = 'TX06' AND CODE = DECODE(CM.SYS_TYPE,'KW',(select legacy_department_code from tbl_department WHERE CUSTOMER_CODE=1418 and department_code = CM.KEP_DEPT),CM.KEP_DEPT)) KEP_DEPT /*팀구분*/
+			  , DECODE(IR.IRS_NAME,NULL,CM.COM_NAME_LOC,IR.IRS_NAME) COM_NAME /*거래처*/
+			  , DECODE(IR.IRS_NO,NULL,CM.IRS_NO,IR.IRS_NO) BUYER_IRS_NO /*사업자등록번호*/
+			  , CM.CLOSE_CNT CLOSE_CNT /*마감횟수*/
+			  , CM.BILL_TYPE BILL_TYPE /*발행주체*/
+			  , nvl(CM.BILL_CODE,'99') BILL_CODE /*전자세금계산서_발행사이트*/
+			  , (SELECT USER_NAME_LOC FROM V_VOC_ICOMLUSR WHERE SYS_TYPE = 'KA' AND USER_ID = CM.KEP_USER1_ID) KEP_USER1_NAME /*담당자(정)*/
+			  , (SELECT USER_NAME_LOC FROM V_VOC_ICOMLUSR WHERE SYS_TYPE = 'KA' AND USER_ID = CM.KEP_USER2_ID) KEP_USER2_NAME /*담당자(부)*/
+			  , (SELECT MAX(C.USER_NAME_LOC) FROM BILL_ACCOUNTING C WHERE C.PRIORITY='Y' AND C.COM_CODE=NVL(IR.COM_CODE,CM.COM_CODE) AND C.IRS_NO=NVL(IR.IRS_NO,CM.IRS_NO)) AS AC_USER_NAME
+			  , (SELECT MAX(C.PHONE_NUMBER) FROM BILL_ACCOUNTING C WHERE C.PRIORITY='Y' AND C.COM_CODE=NVL(IR.COM_CODE,CM.COM_CODE) AND C.IRS_NO=NVL(IR.IRS_NO,CM.IRS_NO)) AS AC_USER_PHONE
+			  , (SELECT MAX(C.FAX_NUMBER) FROM BILL_ACCOUNTING C WHERE C.PRIORITY='Y' AND C.COM_CODE=NVL(IR.COM_CODE,CM.COM_CODE) AND C.IRS_NO=NVL(IR.IRS_NO,CM.IRS_NO)) AS AC_USER_FAX
+			  , (SELECT MAX(C.EMAIL) FROM BILL_ACCOUNTING C WHERE C.PRIORITY='Y' AND C.COM_CODE=NVL(IR.COM_CODE,CM.COM_CODE) AND C.IRS_NO=NVL(IR.IRS_NO,CM.IRS_NO)) AS AC_USER_EMAIL
+			  , (SELECT MAX(C.ZIP_CODE) FROM BILL_ACCOUNTING C WHERE C.PRIORITY='Y' AND C.COM_CODE=NVL(IR.COM_CODE,CM.COM_CODE) AND C.IRS_NO=NVL(IR.IRS_NO,CM.IRS_NO)) AS AC_USER_ZIP
+			  , (SELECT MAX(C.ADDRESS_LOC) FROM BILL_ACCOUNTING C WHERE C.PRIORITY='Y' AND C.COM_CODE=NVL(IR.COM_CODE,CM.COM_CODE) AND C.IRS_NO=NVL(IR.IRS_NO,CM.IRS_NO)) AS  AC_USER_ADD
+			  , (SELECT MAX(C.ACCOUNTING_CODE) FROM BILL_ACCOUNTING C WHERE C.PRIORITY='Y' AND C.COM_CODE=NVL(IR.COM_CODE,CM.COM_CODE) AND C.IRS_NO=NVL(IR.IRS_NO,CM.IRS_NO)) AS AC_CODE
+			  , CM.COM_CODE /*거래처코드*/
+			  , CM.SYS_TYPE /*사이트구분*/
+			  , TRIM(REPLACE(REPLACE(REPLACE(REPLACE(COM_NAME_LOC,'(유)',''),'(사)',''),'(주)',''),'㈜','')) AS COM_NAME_LOC_ORDER
+			  , CM.BUSINESS_COND
+			FROM
+			    V_VOC_ICOMCMPY CM
+			  , KEPTIRSN IR /* 고객사 사업자정보 */
+			WHERE 1=1
+			AND CM.SYS_TYPE IN( 'KA' ,'KK')/* 조회조건 : 사이트(site) : KA 로 고정 */
+			AND CM.STATUS <> 'D'
+			AND CM.COM_CODE = IR.COM_CODE(+)
+		]]>
+	    <if test="st_com_name != null and st_com_name != ''">
+	    	 AND (CM.COM_NAME_LOC LIKE '%' || #{st_com_name} || '%' OR IR.IRS_NAME LIKE '%' || #{st_com_name} || '%' ) /*조회조건 : 회원사(comName)*/	
+	    </if>
+	    <if test="st_dept != null and st_dept != ''">
+	    	AND CM.KEP_DEPT = #{st_dept} /*조회조건 : 해당팀(dept)*/
+	    </if>
+	    <if test="st_close_cnt != null and st_close_cnt != ''">
+	    	AND CM.CLOSE_CNT = #{st_close_cnt} /*조회조건 : 마감횟수(closeCnt)*/
+	    </if>
+	    <if test="st_bill_type != null and st_bill_type != ''">
+	    	AND CM.BILL_TYPE = #{st_bill_type} /*조회조건 : 발행방법(billType)*/
+	    </if>
+	    <if test="st_user != null and st_user != ''">
+	    	AND (CM.KEP_USER1_ID = #{st_user} OR CM.KEP_USER2_ID= #{st_user}) /*조회조건 : 담당자(user)*/
+	    </if>
+	    <if test="st_irs_no != null and st_irs_no != ''">
+	    	AND (CM.IRS_NO LIKE '%' || #{st_irs_no} || '%' OR IR.IRS_NO LIKE '%' || #{st_irs_no} || '%' )
+	    </if>
+			ORDER BY
+			    COM_NAME_LOC_ORDER
+	</select>
+
+	<!-- 저장 -->
+	<update  id="insertMasterCmClClosingStndrdSetting" parameterType="java.util.Map" >
+	/*insertMasterCmClClosingStndrdSetting*/
+		<![CDATA[
+			INSERT INTO BILL_ACCOUNTING /* 회원사경리담당자관리 */
+			(
+			    ACCOUNTING_CODE
+			  , SITE
+			  , COM_CODE
+			  , IRS_NO
+			  , USER_NAME_LOC
+			  , PHONE_NUMBER
+			  , FAX_NUMBER
+			  , EMAIL
+			  , ZIP_CODE
+			  , ADDRESS_LOC
+			  , CREATE_USER_ID
+			  , PRIORITY
+			)
+			VALUES
+			(
+			    (SELECT MAX(ACCOUNTING_CODE)+1 FROM BILL_ACCOUNTING)
+			  , #{SYS_TYPE}
+			  , #{COM_CODE}
+			  , #{BUYER_IRS_NO}
+			  , #{AC_USER_NAME} 
+			  , #{AC_USER_PHONE} 
+			  , #{AC_USER_FAX} 
+			  , #{AC_USER_EMAIL} 
+			  , #{AC_USER_ZIP} 
+			  , #{AC_USER_ADD} 
+			  , #{st_user_id} 
+			  ,'Y'
+			)				
+		]]>
+	</update>
+
+	<update id="updateMasterCmClClosingStndrdSetting01"  parameterType="java.util.Map">
+	/*updateMasterCmClClosingStndrdSetting01*/
+		<![CDATA[
+			UPDATE
+			    BILL_ACCOUNTING /* 회원사경리담당자관리 */
+			SET
+			    USER_NAME_LOC   = #{AC_USER_NAME}
+			  , PHONE_NUMBER    = #{AC_USER_PHONE}
+			  , FAX_NUMBER      = #{AC_USER_FAX}
+			  , EMAIL           = #{AC_USER_EMAIL}
+			  , ZIP_CODE        = #{AC_USER_ZIP}
+			  , ADDRESS_LOC     = #{AC_USER_ADD}
+			  , CREATE_USER_ID  = #{st_user_id}
+			WHERE
+			    ACCOUNTING_CODE = #{AC_CODE}
+		]]>
+	</update>
+	
+	<update id="updateMasterCmClClosingStndrdSetting02"  parameterType="java.util.Map">
+	/*updateMasterCmClClosingStndrdSetting02*/
+		<![CDATA[
+			UPDATE 
+			    ICOMCMPY /* 회원사정보 */
+			SET	
+			    CLOSE_CNT = #{CLOSE_CNT}
+			  , BILL_TYPE = #{BILL_TYPE}
+			  , BILL_CODE = #{BILL_CODE}
+			WHERE 
+			    COM_CODE  = #{COM_CODE}
+		]]>
+	</update>
+
+</mapper>   
+   

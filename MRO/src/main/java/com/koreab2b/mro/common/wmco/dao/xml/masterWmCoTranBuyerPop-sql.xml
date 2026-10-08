@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="common.wmco">
+
+	<!-- 조회 -->
+	<select id="selectMasterWmCoTranBuyerPopList" parameterType="java.util.Map" resultType="java.util.Map">
+	/*selectMasterWmCoTranBuyerPopList*/
+		<![CDATA[
+			SELECT
+                    B.COM_CODE  BUYER
+                  , B.COM_NAME_LOC AS BUYER_NAME
+         ]]>    
+          <choose > 
+                <when test='st_gubun == "PO"' >
+                	   <![CDATA[     
+                 , NVL(SUM(DECODE(A.GUBUN,'PO',DECODE(A.IF_FLAG,'N',1,'A',1,'E',1,NULL),NULL)),0) || '('
+                  || NVL(SUM(DECODE(A.GUBUN,'PO',NULL,DECODE(A.IF_FLAG,'N',1,'A',1,'E',1,NULL))),0) || ')' AS ERR_CNT
+                                             ]]>
+                </when>
+                <when test='st_gubun == "IV"' >
+                	                		<![CDATA[     
+                   , NVL(SUM(DECODE(A.GUBUN,'IV',DECODE(A.IF_FLAG,'N',1,'A',1,'E',1,NULL),NULL)),0) || '('
+                  || NVL(SUM(DECODE(A.GUBUN,'IV',NULL,DECODE(A.IF_FLAG,'N',1,'A',1,'E',1,NULL))),0) || ')' AS ERR_CNT
+                                             ]]>
+                </when>
+                <when test='st_gubun == "RE"' >
+                                		<![CDATA[     
+                    , NVL(SUM(DECODE(A.GUBUN,'RE',DECODE(A.IF_FLAG,'N',1,'A',1,'E',1,NULL),NULL)),0) || '('
+                  || NVL(SUM(DECODE(A.GUBUN,'RE',NULL,DECODE(A.IF_FLAG,'N',1,'A',1,'E',1,NULL))),0) || ')' AS ERR_CNT              
+                           ]]>
+                </when>
+                <when test='st_gubun == "GR"' >
+                                		<![CDATA[     
+                     , NVL(SUM(DECODE(A.GUBUN,'GR',DECODE(A.IF_FLAG,'N',1,'A',1,'E',1,NULL),NULL)),0) || '('
+                  || NVL(SUM(DECODE(A.GUBUN,'GR',NULL,DECODE(A.IF_FLAG,'N',1,'A',1,'E',1,NULL))),0) || ')' AS ERR_CNT        
+                           ]]>             
+                </when>
+                <when test='st_gubun == "XX"' >
+                                		<![CDATA[     
+                   , NVL(SUM(DECODE(A.GUBUN,'XX',DECODE(A.IF_FLAG,'N',1,'A',1,'E',1,NULL),NULL)),0) || '('
+                  || NVL(SUM(DECODE(A.GUBUN,'XX',NULL,DECODE(A.IF_FLAG,'N',1,'A',1,'E',1,NULL))),0) || ')' AS ERR_CNT        
+                                             ]]>
+                </when>
+                <otherwise>
+                		<![CDATA[     
+                   , NVL(SUM(DECODE(A.GUBUN,'PO',DECODE(A.IF_FLAG,'N',1,'A',1,'E',1,NULL),NULL)),0) || '('
+                  || NVL(SUM(DECODE(A.GUBUN,'PO',NULL,DECODE(A.IF_FLAG,'N',1,'A',1,'E',1,NULL))),0) || ')' AS ERR_CNT
+                           ]]>
+                </otherwise>   
+            </choose>                                                                                             
+		<![CDATA[                  
+         FROM IF_PROGRESS A /* 오류 현황 메인 */
+                 , ICOMCMPY B /* 회원사정보 */
+       WHERE 1=1
+          AND A.BUYER  = B.COM_CODE
+          AND B.COM_CODE  IN (SELECT C.BUYER
+                                     FROM MIS_BUYER_MNG C /* 고객사별 담당자 정보 */
+                                   WHERE C.YEAR   = TO_CHAR(SYSDATE,'YYYY')
+         ]]>                              
+         						<if test="st_user_dept != null and st_user_dept != '' ">
+										AND C.KEP_DEPT = #{st_user_dept}
+								</if>
+								<if test='st_user_check == "N" '>
+										AND C.KEP_USER_ID = #{st_user_id}
+								</if>
+       <![CDATA[                        
+                                      AND C.STATUS = 'C'
+                                      )
+
+		]]>
+   		<if test="st_com_name != null and st_com_name != '' ">
+			AND B.COM_NAME_LOC LIKE '%' || #{st_com_name} || '%'
+		</if>
+		<if test="st_user_id != null and st_user_id != ''">	     
+					   <![CDATA[
+					   AND  B.COM_CODE  IN (
+													SELECT B.COM_CODE
+									                 FROM ICOMCOD3 COD3
+									                 WHERE COD3.BUYER = 'KRKORE0001'
+									                 AND   COD3.TYPE = 'CMPY'
+									                 AND   COD3.CODE1= 'ALL'
+									                 AND   COD3.CODE2 = #{st_user_id}
+									                 UNION ALL
+									                 SELECT MNG.BUYER
+									                 FROM  ICOMCOD3 COD3, MIS_BUYER_MNG MNG
+									                 WHERE COD3.BUYER = 'KRKORE0001'
+									                 AND   COD3.TYPE = 'CMPY'
+									                 AND   COD3.CODE1= MNG.KEP_DEPT
+									                 AND   COD3.CODE2 = #{st_user_id}
+									                 AND   MNG.YEAR = TO_CHAR(SYSDATE,'YYYY')	
+									                 AND   MNG.STATUS = 'C'
+									                 UNION ALL
+									                 SELECT BUYER
+									                 FROM  MIS_BUYER_MNG
+									                 WHERE YEAR = TO_CHAR(SYSDATE,'YYYY')
+									                 AND   STATUS = 'C'
+									                 AND   KEP_USER_ID = #{st_user_id}
+									                 UNION ALL
+									                 SELECT COD.CODE1
+													FROM ICOMCOD3 COD , ICOMCMPY CMPY
+													WHERE  COD.BUYER = 'KRKORE0001'
+													AND COD.TYPE = 'CMPY'
+													AND COD.CODE1 = CMPY.COM_CODE
+													AND COD.CODE2 = #{st_user_id}
+													AND TO_CHAR(SYSDATE,'YYYYMMDD') BETWEEN TEXT2 AND TEXT3
+									                 )
+					   ]]>  
+		</if>  
+      <![CDATA[                 
+		GROUP BY B.COM_CODE, B.COM_NAME_LOC
+
+		]]>
+
+
+	</select>
+								
+</mapper>

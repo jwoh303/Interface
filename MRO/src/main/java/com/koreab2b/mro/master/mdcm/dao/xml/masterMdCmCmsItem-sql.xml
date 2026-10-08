@@ -1,0 +1,802 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mdcm">
+
+	<select id="selectMasterMdCmCmsItemList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.pagestart"/>
+			<![CDATA[
+				/*selectMasterMdCmCmsItemList*/
+				SELECT
+				  CMS_CATLG_ID																					/* 상품정보코드 */
+				 ,DECODE(STATUS, 'D', '미사용', '사용') AS STATUS_NM												/* 상품상태 */
+				 ,STATUS																						/* 상품상태(원값) */
+				 ,DESCRIPTION_LOC																				/* 품목명 */
+				 ,MODEL_INFO																					/* 모델번호 */
+				 ,SPECIFICATION																					/* 규격 */
+				 ,MAKER_NAME																					/* 제조사명 */
+				 ,MAKER_CODE																					/* 제조사코드 */
+				 ,(SELECT TEXT2 FROM ICOMCOD1 WHERE TYPE = 'M001' AND CODE = ORIGIN_CODE) AS ORIGIN_CODE_NAME	/* 원산지명 */
+				 ,ORIGIN_CODE																					/* 원산지코드 */
+				 ,ORDER_MEASURE																					/* 단위 */
+				 ,DECODE(ITEM_GUBUN, 'G', '표준품', '비표준품') AS ITEM_GUBUN_NM									/* 상품구분(ICOMCOD1 M118: A전용품/G표준품/M MAKER/S제작품) */
+				 ,ITEM_GUBUN																					/* 상품구분(원코드) */
+				 ,DECODE(NVL(ONETIME_YN,'N'), 'Y', '일회성', '일반') AS ONETIME_NM								/* 일회성구분 (Y=일회성 / N·미입력=일반) */
+				 ,(SELECT MD.TEXT1 FROM ICOMCOD1 MD
+				     WHERE MD.TYPE = 'M181' AND MD.CODE = CMSCATLG.TR_HANDLE_TYPE) AS TR_HANDLE_NM				/* TR취급가능여부 */
+				 ,(SELECT SG.SG_NAME
+				     FROM CMSCATEG CG, KEPSGMG SG
+				    WHERE CG.CMS_CATEG_ID = CMSCATLG.CMS_CATEG_ID
+				      AND CG.STATUS <> 'D'
+				      AND CG.SG_ID = SG.SG_ID) AS SG_NAME													/* 카테고리(=SG명) */
+				 ,(SELECT CG.SG_ID
+				     FROM CMSCATEG CG
+				    WHERE CG.CMS_CATEG_ID = CMSCATLG.CMS_CATEG_ID
+				      AND CG.STATUS <> 'D') AS SG_ID															/* 카테고리(=SG코드) */
+				 ,CMS_CATEG_ID																					/* 상세분류코드 */
+				 ,(SELECT CATEG_NAME FROM CMSCATEG WHERE CMS_CATEG_ID = CMSCATLG.CMS_CATEG_ID AND STATUS <> 'D') AS CMS_CATEG_NAME	/* 상세분류명(리프) */
+				 /* 구매담당자 = 카테고리(SG) 담당 SM. 표시는 정담당(CMSM 1순위) 한 명 — CODE2='1' 이 SG 당 유일해서 스칼라로 안전하다. */
+				 ,(SELECT MD.TEXT4
+				     FROM CMSCATEG CG, ICOMCOD3 MD
+				    WHERE CG.CMS_CATEG_ID = CMSCATLG.CMS_CATEG_ID
+				      AND CG.STATUS <> 'D'
+				      AND MD.BUYER = 'KRKORE0001'
+				      AND MD.TYPE = 'CMSM'
+				      AND MD.CODE2 = '1'
+				      AND MD.FLAG = 'Y'
+				      AND MD.CODE1 = CG.SG_ID) AS KEP_USER_NAME												/* 구매담당자(정담당 SM 이름) */
+				 ,(SELECT MD.TEXT1
+				     FROM CMSCATEG CG, ICOMCOD3 MD
+				    WHERE CG.CMS_CATEG_ID = CMSCATLG.CMS_CATEG_ID
+				      AND CG.STATUS <> 'D'
+				      AND MD.BUYER = 'KRKORE0001'
+				      AND MD.TYPE = 'CMSM'
+				      AND MD.CODE2 = '1'
+				      AND MD.FLAG = 'Y'
+				      AND MD.CODE1 = CG.SG_ID) AS KEP_USER_NO												/* 구매담당자 USER_ID */
+				 ,BASE_PRICE																					/* 기준가(원값 - 그리드 Float 포맷) */
+				 ,(SELECT MD.TEXT1 FROM ICOMCOD1 MD
+				     WHERE MD.TYPE = 'M183' AND MD.CODE = CMSCATLG.BASE_PRICE_TYPE) AS BASE_PRICE_TYPE			/* 기준가유형(명칭) */
+				 /* 미사용 변경사유 : 상품상태가 '미사용'인 행에서만 노출 (사용 행은 공란) */
+				 ,CASE WHEN STATUS = 'D'
+				       THEN (SELECT MD.TEXT1 FROM ICOMCOD1 MD
+				               WHERE MD.TYPE = 'M182' AND MD.CODE = CMSCATLG.CHANGE_REASON_CODE)
+				       ELSE '' END AS UNUSE_REASON														/* 미사용 변경사유 */
+				 /* 대체코드 : 변경사유가 '중복존재'(DUP)일 때만 노출 (그 외 사유는 공란) */
+				 ,CASE WHEN STATUS = 'D' AND CHANGE_REASON_CODE = 'DUP'
+				       THEN ALT_CATLG_ID
+				       ELSE '' END AS ALT_CODE															/* 대체코드 */
+				 ,NVL(TRIM(MSDS_NO), TRIM(AC_NO)) AS CHEM_INFO_NO												/* 화학물질정보 No.(MSDS 우선, 없으면 AC) */
+				 ,(SELECT A.CMC_HARMFUL_YN FROM KEPMSDSHD A WHERE A.MSDS_NO = CMSCATLG.MSDS_NO) AS HARMFUL_YN	/* 유해화학물질 */
+				 ,MSDS_NO																						/* MSDS No.(원값 - 셀 클릭 분기용) */
+				 ,AC_NO																							/* 안전확인대상 생활화학제품 No.(원값 - 셀 클릭 분기용) */
+				 ,1 AS PRINT																					/* MSDS 등록·매핑 아이콘(SetImageList 1) */
+				 ,5 AS ERASE_MSDS_NO																			/* MSDS 매핑해제 아이콘(SetImageList 5) */
+				 ,DECODE(SAFE_STATUS, 'CERT', '인증', 'UNCERT', '미인증', 'EXCL', '비대상', '') AS SAFE_STATUS_NM	/* 안전인증여부 : 공란(NONE·NULL)/인증/미인증/비대상 */
+				 ,SAFE_TYPE																						/* 안전인증구분(KC/KCS/KFI) */
+				 ,ADD_DATE																						/* 상품정보등록일(YYYYMMDD) */
+				 ,NVL((SELECT 'Y' FROM CMSCATLG_HST H
+				         WHERE H.CMS_CATLG_ID = CMSCATLG.CMS_CATLG_ID AND ROWNUM = 1), 'N') AS HISTORY		/* 변경이력 : 이력이 1건이라도 있으면 Y. PK 선두가 CMS_CATLG_ID 라 인덱스로 끝난다 */
+				 ,CHANGE_DATE																					/* 최종변경일(YYYYMMDD) */
+				FROM CMSCATLG
+				WHERE 1=1
+			--	AND STD_FLAG = 'M' /* 상품정보 조회 및 관리 */
+			]]>
+			<!-- 상품상태 : 사용(USE) = STATUS<>'D' / 미사용(UNUSE) = STATUS='D'. 미지정(전체)이면 필터 없음 -->
+			<!-- ⚠ 코드값을 한 글자로 두지 말 것 — OGNL이 'U' 를 Character로 파싱해 String 비교가 항상 거짓이 된다 -->
+			<choose>
+				<when test="st_status == 'USE'">
+					AND NVL(STATUS,'C') != 'D'
+				</when>
+				<when test="st_status == 'UNUSE'">
+					AND STATUS = 'D'
+				</when>
+			</choose>
+			
+			<choose>
+				<when test="st_cmscatlg_multi != null and st_cmscatlg_multi.size() > 0">
+					AND CMS_CATLG_ID IN
+					<foreach item="item" collection="st_cmscatlg_multi" open="(" separator="," close=")">
+						UPPER(#{item})
+					</foreach>
+				</when>
+				<when test="st_cmscatlg != null and st_cmscatlg != ''">
+					AND CMS_CATLG_ID = UPPER(#{st_cmscatlg})
+				</when>
+			</choose>
+			<!-- 카테고리 = SG (팝업 복수선택, '@' 구분 문자열을 DaoImpl 이 List 로 변환) -->
+			<if test="st_sg_id_multi != null and st_sg_id_multi.size() > 0">
+				AND EXISTS (SELECT 1 FROM CMSCATEG CG
+				             WHERE CG.CMS_CATEG_ID = CMSCATLG.CMS_CATEG_ID
+				               AND CG.STATUS != 'D'
+				               AND CG.SG_ID IN
+				               <foreach item="item" collection="st_sg_id_multi" open="(" separator="," close=")">
+				               	#{item}
+				               </foreach>
+				            )
+			</if>
+			<!-- 상세분류 (팝업 복수선택, '@' 구분 문자열을 DaoImpl 이 List 로 변환) -->
+			<if test="st_categ_id_multi != null and st_categ_id_multi.size() > 0">
+				AND CMS_CATEG_ID IN
+				<foreach item="item" collection="st_categ_id_multi" open="(" separator="," close=")">
+					#{item}
+				</foreach>
+			</if>
+			<!-- 품목명 / 모델번호 / 규격 : 각각 독립 입력칸(AND 결합), 2글자 이상은 화면에서 검사 -->
+			<if test="st_item_name != null and st_item_name != ''">
+				AND DESCRIPTION_LOC LIKE '%' || #{st_item_name} || '%'
+			</if>
+			<if test="st_model_info != null and st_model_info != ''">
+				AND MODEL_INFO LIKE '%' || #{st_model_info} || '%'
+			</if>
+			<if test="st_specification != null and st_specification != ''">
+				AND SPECIFICATION LIKE '%' || #{st_specification} || '%'
+			</if>
+			<!-- 표준품구분 : STD=표준품(ITEM_GUBUN='G') / NSTD=비표준품(G 외 전부). ⚠ 위와 같은 이유로 한 글자 코드 금지 -->
+			<choose>
+				<when test="st_item_gubun == 'STD'">
+					AND ITEM_GUBUN = 'G'
+				</when>
+				<when test="st_item_gubun == 'NSTD'">
+					AND NVL(ITEM_GUBUN,'X') != 'G'
+				</when>
+			</choose>
+			<!-- 일회성구분 : 전체(공백) / N=일반 / Y=일회성
+			     ⚠ 값이 한 글자지만 OGNL 리터럴 비교를 쓰지 않고 파라미터 바인딩만 하므로 Character 파싱 함정에 걸리지 않는다
+			     ⚠ NVL 필수 : 컬럼에 DEFAULT 가 없어 기존 232만 행이 NULL 이다. NVL 이 없으면 '일반' 조회가 0건이 된다 -->
+			<if test="st_onetime_yn != null and st_onetime_yn != ''">
+				AND NVL(ONETIME_YN,'N') = #{st_onetime_yn}
+			</if>
+			<!-- 제조사  -->
+			<if test="st_maker_code != null and st_maker_code != ''">
+				AND MAKER_CODE = #{st_maker_code}
+			</if>
+			<!-- 구매담당자 : 그 사람이 담당하는 카테고리(SG)에 걸린 상품만. 정담당(CMSM)·부담당(CMDSM) 순위 무관하게 모두 인정한다. -->
+			<!-- ⚠ 담당 카테고리의 정본은 ICOMCOD3(CODE1=SG_ID, TEXT1=USER_ID, TEXT4=이름)다. 상세분류 팝업의 [담당 카테고리] 라디오와 같은 소스. -->
+			<!-- ⚠ TEXT1 은 사번이 아니라 ICOMLUSR.USER_ID(KEP+사번) 다. 팝업이 USER_ID 를 반환하는 이유. -->
+			<choose>
+				<when test="st_kep_user_no != null and st_kep_user_no != ''">
+					AND EXISTS (SELECT 1 FROM CMSCATEG CG, ICOMCOD3 MD
+					             WHERE CG.CMS_CATEG_ID = CMSCATLG.CMS_CATEG_ID
+					               AND CG.STATUS != 'D'
+					               AND MD.BUYER = 'KRKORE0001'
+					               AND MD.TYPE IN ('CMSM','CMDSM')
+					               AND MD.FLAG = 'Y'
+					               AND MD.CODE1 = CG.SG_ID
+					               AND UPPER(TRIM(MD.TEXT1)) = UPPER(#{st_kep_user_no}))
+				</when>
+				<when test="st_kep_user_name != null and st_kep_user_name != ''">
+					AND EXISTS (SELECT 1 FROM CMSCATEG CG, ICOMCOD3 MD
+					             WHERE CG.CMS_CATEG_ID = CMSCATLG.CMS_CATEG_ID
+					               AND CG.STATUS != 'D'
+					               AND MD.BUYER = 'KRKORE0001'
+					               AND MD.TYPE IN ('CMSM','CMDSM')
+					               AND MD.FLAG = 'Y'
+					               AND MD.CODE1 = CG.SG_ID
+					               AND MD.TEXT4 LIKE '%' || #{st_kep_user_name} || '%')
+				</when>
+			</choose>
+			<!-- 화학물질정보 No. (MSDS No. 또는 AC No.) : 대량입력(다건) 우선, 없으면 단건 -->
+			<choose>
+				<when test="st_chem_no_multi != null and st_chem_no_multi.size() > 0">
+					AND (   UPPER(TRIM(MSDS_NO)) IN
+					        <foreach item="item" collection="st_chem_no_multi" open="(" separator="," close=")">
+					        	UPPER(#{item})
+					        </foreach>
+					     OR UPPER(TRIM(AC_NO)) IN
+					        <foreach item="item" collection="st_chem_no_multi" open="(" separator="," close=")">
+					        	UPPER(#{item})
+					        </foreach>
+					    )
+				</when>
+				<when test="st_chem_no != null and st_chem_no != ''">
+					AND (   UPPER(TRIM(MSDS_NO)) = UPPER(#{st_chem_no})
+					     OR UPPER(TRIM(AC_NO))   = UPPER(#{st_chem_no}) )
+				</when>
+			</choose>
+			<!-- 유해화학물질 Y/N -->
+			<if test="st_harmful_yn != null and st_harmful_yn != ''">
+				AND NVL((SELECT A.CMC_HARMFUL_YN FROM KEPMSDSHD A WHERE A.MSDS_NO = CMSCATLG.MSDS_NO),'N') = #{st_harmful_yn}
+			</if>
+			<if test="(st_checkbox == null or st_checkbox == '') and st_from_date != null and st_from_date != '' and st_to_date != null and st_to_date != ''">
+				<choose>
+					<when test="st_date_type == 'CHG'">
+						AND CHANGE_DATE BETWEEN #{st_from_date} AND #{st_to_date}
+					</when>
+					<otherwise>
+						AND ADD_DATE BETWEEN #{st_from_date} AND #{st_to_date}
+					</otherwise>
+				</choose>
+			</if>
+			<![CDATA[
+				ORDER BY CMS_CATLG_ID
+			]]>
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+
+	<!-- 상품정보 상세 단건 조회 (CMS_CATLG_ID 유니크 키, 페이징 래퍼 없음)
+	     STD_FLAG 조건은 목록 SQL과 맞춰 걸지 않는다 - 목록에 뜬 행이 상세에서 0건이 되어 전 항목이 공백으로 보였다 -->
+	<!-- 표시 파생식(상품상태·상품구분·카테고리(SG)·SG담당자·화학물질정보No.·안전인증여부)은 목록 SQL과 동일하게 맞춘다 -->
+	<select id="selectMasterMdCmCmsItemDetail" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/*selectMasterMdCmCmsItemDetail*/
+			SELECT
+			  CMS_CATLG_ID																					/* 상품정보코드 */
+			 ,DECODE(STATUS, 'D', '미사용', '사용') AS STATUS_NM												/* 상품상태 */
+			 ,STATUS																						/* 상품상태(원값) */
+			 ,CMS_CATEG_ID																					/* 상세분류코드 */
+			 ,(SELECT CATEG_PATH FROM CMSCATEG WHERE CMS_CATEG_ID = CMSCATLG.CMS_CATEG_ID AND STATUS <> 'D') AS CMS_CATEG_PATH	/* 상세분류 전체 경로 */
+			 ,(SELECT CATEG_NAME FROM CMSCATEG WHERE CMS_CATEG_ID = CMSCATLG.CMS_CATEG_ID AND STATUS <> 'D') AS CMS_CATEG_NAME	/* 상세분류명(리프) */
+			 ,(SELECT SG.SG_NAME
+			     FROM CMSCATEG CG, KEPSGMG SG
+			    WHERE CG.CMS_CATEG_ID = CMSCATLG.CMS_CATEG_ID
+			      AND CG.STATUS <> 'D'
+			      AND CG.SG_ID = SG.SG_ID) AS SG_NAME														/* 카테고리(=SG명) */
+			 ,(SELECT CG.SG_ID
+			     FROM CMSCATEG CG
+			    WHERE CG.CMS_CATEG_ID = CMSCATLG.CMS_CATEG_ID
+			      AND CG.STATUS <> 'D') AS SG_ID																/* 카테고리(=SG코드) */
+			 ,DESCRIPTION_LOC																				/* 품목명 */
+			 ,MODEL_INFO																					/* 모델번호 */
+			 ,SPECIFICATION																					/* 규격 */
+			 ,MAKER_NAME																					/* 제조사 */
+			 ,MAKER_CODE																					/* 제조사코드 */
+			 ,(SELECT TEXT2 FROM ICOMCOD1 WHERE TYPE = 'M001' AND CODE = ORIGIN_CODE) AS ORIGIN_CODE_NAME	/* 원산지명 */
+			 ,ORIGIN_CODE																					/* 원산지코드 */
+			 ,ORDER_MEASURE																					/* 단위 */
+			 ,DECODE(ITEM_GUBUN, 'G', '표준품', '비표준품') AS ITEM_GUBUN_NM									/* 상품구분(ICOMCOD1 M118) */
+			 ,ITEM_GUBUN																					/* 상품구분(원코드) */
+			 ,ONETIME_YN																					/* 일회성구분(원값 Y/N) */
+			 ,DECODE(NVL(ONETIME_YN,'N'), 'Y', '일회성', '일반') AS ONETIME_NM								/* 일회성구분 (Y=일회성 / N·미입력=일반) */
+			 ,TR_HANDLE_TYPE																				/* TR취급가능여부(원코드 - 셀렉트 selected 판정용) */
+			 ,(SELECT MD.TEXT1 FROM ICOMCOD1 MD
+			     WHERE MD.TYPE = 'M181' AND MD.CODE = CMSCATLG.TR_HANDLE_TYPE) AS TR_HANDLE_NM					/* TR취급가능여부(명칭) */
+			 /* 담당자 = 카테고리(SG) 담당 SM. 목록과 같은 정담당(CMSM 1순위) 기준. */
+			 ,(SELECT MD.TEXT4
+			     FROM CMSCATEG CG, ICOMCOD3 MD
+			    WHERE CG.CMS_CATEG_ID = CMSCATLG.CMS_CATEG_ID
+			      AND CG.STATUS <> 'D'
+			      AND MD.BUYER = 'KRKORE0001'
+			      AND MD.TYPE = 'CMSM'
+			      AND MD.CODE2 = '1'
+			      AND MD.FLAG = 'Y'
+			      AND MD.CODE1 = CG.SG_ID) AS KEP_USER_NAME													/* 담당자(정담당 SM 이름) */
+			 ,(SELECT MD.TEXT1
+			     FROM CMSCATEG CG, ICOMCOD3 MD
+			    WHERE CG.CMS_CATEG_ID = CMSCATLG.CMS_CATEG_ID
+			      AND CG.STATUS <> 'D'
+			      AND MD.BUYER = 'KRKORE0001'
+			      AND MD.TYPE = 'CMSM'
+			      AND MD.CODE2 = '1'
+			      AND MD.FLAG = 'Y'
+			      AND MD.CODE1 = CG.SG_ID) AS KEP_USER_NO													/* 담당자 USER_ID */
+			 ,NVL(TRIM(MSDS_NO), TRIM(AC_NO)) AS CHEM_INFO_NO												/* 화학물질정보 No.(MSDS 우선, 없으면 AC) */
+			 ,(SELECT A.CMC_HARMFUL_YN FROM KEPMSDSHD A WHERE A.MSDS_NO = CMSCATLG.MSDS_NO) AS HARMFUL_YN	/* 유해화학물질 */
+			 ,DECODE(SAFE_STATUS, 'CERT', '인증', 'UNCERT', '미인증', 'EXCL', '비대상', '') AS SAFE_STATUS_NM	/* 안전인증여부 : 공란(NONE·NULL)/인증/미인증/비대상 */
+			 ,SAFE_STATUS																					/* 안전인증여부(원코드) */
+			 ,DECODE(SAFE_TYPE, 'KC', 'KC인증', 'KCS', 'KCS인증', 'KFI', 'KFI인증', SAFE_TYPE) AS SAFE_TYPE_NM	/* 안전인증구분(상세분류에 따라 자동 지정) */
+			 ,SAFE_TYPE																						/* 안전인증구분(원코드) */
+			 ,SAFE_NO																						/* 안전인증번호 */
+			 ,IMGFILE_DIR																					/* 상품이미지 S3 경로 */
+			 ,IMGFILE_NAME																					/* 상품이미지 파일명 */
+			 ,NVL2(TRIM(IMGFILE_DIR), 'https://keps3.koreab2b.com/'||IMGFILE_DIR||'/'||IMGFILE_NAME, '') AS ITEM_IMAGE	/* 상품이미지 URL (미등록이면 공백) */
+			 ,DETAIL_IMGFILE_DIR											/* 상세이미지 S3 경로 */
+			 ,DETAIL_IMGFILE_NAME											/* 상세이미지 파일명 */
+			 ,NVL2(TRIM(DETAIL_IMGFILE_DIR), 'https://keps3.koreab2b.com/'||DETAIL_IMGFILE_DIR||'/'||DETAIL_IMGFILE_NAME, '') AS DETAIL_ITEM_IMAGE	/* 상세이미지 URL (미등록이면 공백) */
+			 ,ADD_DATE																						/* 최초등록일 */
+			 ,CHANGE_DATE																					/* 최종변경일 */
+			 ,(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = CMSCATLG.ADD_USER_ID)    AS ADD_USER_NAME		/* 등록담당자 */
+			 ,(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = CMSCATLG.CHANGE_USER_ID) AS CHANGE_USER_NAME	/* 변경담당자 */
+			 ,QUOTATION_NO																					/* 등록견적번호(Key) 예: RE26xxxxxxxx */
+			 ,TRIM(TO_CHAR(BASE_PRICE)) AS BASE_PRICE														/* 기준가(원값 - 화면에서 콤마 포맷) */
+			 ,BASE_PRICE_TYPE																				/* 기준가유형(원코드 - 셀렉트 selected 판정용) */
+			 ,(SELECT MD.TEXT1 FROM ICOMCOD1 MD
+			     WHERE MD.TYPE = 'M183' AND MD.CODE = CMSCATLG.BASE_PRICE_TYPE) AS BASE_PRICE_TYPE_NM			/* 기준가유형(명칭) */
+			 ,NVL((SELECT 'Y' FROM CMSCATLG_HST H
+			         WHERE H.CMS_CATLG_ID = CMSCATLG.CMS_CATLG_ID
+			           AND H.JOB_COLUMN = 'BASE_PRICE' AND ROWNUM = 1), 'N') AS BASE_PRICE_CHG_YN	/* 기준가 변경여부 : BASE_PRICE 이력이 1건이라도 있으면 Y */
+			FROM CMSCATLG
+			WHERE CMS_CATLG_ID = #{st_msds_no}
+		--	AND STD_FLAG = 'M' /* 상품정보 조회 및 관리 */
+		]]>
+	</select>
+
+	<!-- 상품정보 상세 - 규격 상세 속성 (상세분류가 정의한 속성명 + 그 상품의 속성값 + 필수여부)
+	     선례 : common.mdcm.selectMasterMdCmGoodsInfoDetailPopList2 (CMSCATTR × CMSCATLG ATTB1~20 세로전개)
+	     여기서는 CMSCATTR.ATTBn_FLAG(Y=필수) 와 단위를 함께 반환한다.
+	     ⚠ 속성명(CMSCATTR)이 있으면 값이 비어도 행을 남긴다 — 필수 미기재를 화면에서 보이게 하기 위함 -->
+	<select id="selectMasterMdCmCmsItemDetailAttrList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/*selectMasterMdCmCmsItemDetailAttrList*/
+			SELECT SEQ, ATTR_NM, ATTR_VAL, ESS_FLAG, ATTR_UNIT
+			  FROM (
+			SELECT  1 AS SEQ, X.ATTB1_NM  AS ATTR_NM, Y.ATTB1_NM  AS ATTR_VAL, NVL(X.ATTB1_FLAG ,'N') AS ESS_FLAG, X.ATTB1_UNIT_MEASURE  AS ATTR_UNIT
+			  FROM CMSCATTR X, CMSCATLG Y
+			 WHERE X.CMS_CATEG_ID = Y.CMS_CATEG_ID AND Y.CMS_CATLG_ID = #{st_msds_no} AND X.STATUS <> 'D' AND Y.STATUS <> 'D' AND X.ATTB1_NM  IS NOT NULL
+			 UNION ALL
+			SELECT  2 AS SEQ, X.ATTB2_NM  AS ATTR_NM, Y.ATTB2_NM  AS ATTR_VAL, NVL(X.ATTB2_FLAG ,'N') AS ESS_FLAG, X.ATTB2_UNIT_MEASURE  AS ATTR_UNIT
+			  FROM CMSCATTR X, CMSCATLG Y
+			 WHERE X.CMS_CATEG_ID = Y.CMS_CATEG_ID AND Y.CMS_CATLG_ID = #{st_msds_no} AND X.STATUS <> 'D' AND Y.STATUS <> 'D' AND X.ATTB2_NM  IS NOT NULL
+			 UNION ALL
+			SELECT  3 AS SEQ, X.ATTB3_NM  AS ATTR_NM, Y.ATTB3_NM  AS ATTR_VAL, NVL(X.ATTB3_FLAG ,'N') AS ESS_FLAG, X.ATTB3_UNIT_MEASURE  AS ATTR_UNIT
+			  FROM CMSCATTR X, CMSCATLG Y
+			 WHERE X.CMS_CATEG_ID = Y.CMS_CATEG_ID AND Y.CMS_CATLG_ID = #{st_msds_no} AND X.STATUS <> 'D' AND Y.STATUS <> 'D' AND X.ATTB3_NM  IS NOT NULL
+			 UNION ALL
+			SELECT  4 AS SEQ, X.ATTB4_NM  AS ATTR_NM, Y.ATTB4_NM  AS ATTR_VAL, NVL(X.ATTB4_FLAG ,'N') AS ESS_FLAG, X.ATTB4_UNIT_MEASURE  AS ATTR_UNIT
+			  FROM CMSCATTR X, CMSCATLG Y
+			 WHERE X.CMS_CATEG_ID = Y.CMS_CATEG_ID AND Y.CMS_CATLG_ID = #{st_msds_no} AND X.STATUS <> 'D' AND Y.STATUS <> 'D' AND X.ATTB4_NM  IS NOT NULL
+			 UNION ALL
+			SELECT  5 AS SEQ, X.ATTB5_NM  AS ATTR_NM, Y.ATTB5_NM  AS ATTR_VAL, NVL(X.ATTB5_FLAG ,'N') AS ESS_FLAG, X.ATTB5_UNIT_MEASURE  AS ATTR_UNIT
+			  FROM CMSCATTR X, CMSCATLG Y
+			 WHERE X.CMS_CATEG_ID = Y.CMS_CATEG_ID AND Y.CMS_CATLG_ID = #{st_msds_no} AND X.STATUS <> 'D' AND Y.STATUS <> 'D' AND X.ATTB5_NM  IS NOT NULL
+			 UNION ALL
+			SELECT  6 AS SEQ, X.ATTB6_NM  AS ATTR_NM, Y.ATTB6_NM  AS ATTR_VAL, NVL(X.ATTB6_FLAG ,'N') AS ESS_FLAG, X.ATTB6_UNIT_MEASURE  AS ATTR_UNIT
+			  FROM CMSCATTR X, CMSCATLG Y
+			 WHERE X.CMS_CATEG_ID = Y.CMS_CATEG_ID AND Y.CMS_CATLG_ID = #{st_msds_no} AND X.STATUS <> 'D' AND Y.STATUS <> 'D' AND X.ATTB6_NM  IS NOT NULL
+			 UNION ALL
+			SELECT  7 AS SEQ, X.ATTB7_NM  AS ATTR_NM, Y.ATTB7_NM  AS ATTR_VAL, NVL(X.ATTB7_FLAG ,'N') AS ESS_FLAG, X.ATTB7_UNIT_MEASURE  AS ATTR_UNIT
+			  FROM CMSCATTR X, CMSCATLG Y
+			 WHERE X.CMS_CATEG_ID = Y.CMS_CATEG_ID AND Y.CMS_CATLG_ID = #{st_msds_no} AND X.STATUS <> 'D' AND Y.STATUS <> 'D' AND X.ATTB7_NM  IS NOT NULL
+			 UNION ALL
+			SELECT  8 AS SEQ, X.ATTB8_NM  AS ATTR_NM, Y.ATTB8_NM  AS ATTR_VAL, NVL(X.ATTB8_FLAG ,'N') AS ESS_FLAG, X.ATTB8_UNIT_MEASURE  AS ATTR_UNIT
+			  FROM CMSCATTR X, CMSCATLG Y
+			 WHERE X.CMS_CATEG_ID = Y.CMS_CATEG_ID AND Y.CMS_CATLG_ID = #{st_msds_no} AND X.STATUS <> 'D' AND Y.STATUS <> 'D' AND X.ATTB8_NM  IS NOT NULL
+			 UNION ALL
+			SELECT  9 AS SEQ, X.ATTB9_NM  AS ATTR_NM, Y.ATTB9_NM  AS ATTR_VAL, NVL(X.ATTB9_FLAG ,'N') AS ESS_FLAG, X.ATTB9_UNIT_MEASURE  AS ATTR_UNIT
+			  FROM CMSCATTR X, CMSCATLG Y
+			 WHERE X.CMS_CATEG_ID = Y.CMS_CATEG_ID AND Y.CMS_CATLG_ID = #{st_msds_no} AND X.STATUS <> 'D' AND Y.STATUS <> 'D' AND X.ATTB9_NM  IS NOT NULL
+			 UNION ALL
+			SELECT 10 AS SEQ, X.ATTB10_NM AS ATTR_NM, Y.ATTB10_NM AS ATTR_VAL, NVL(X.ATTB10_FLAG,'N') AS ESS_FLAG, X.ATTB10_UNIT_MEASURE AS ATTR_UNIT
+			  FROM CMSCATTR X, CMSCATLG Y
+			 WHERE X.CMS_CATEG_ID = Y.CMS_CATEG_ID AND Y.CMS_CATLG_ID = #{st_msds_no} AND X.STATUS <> 'D' AND Y.STATUS <> 'D' AND X.ATTB10_NM IS NOT NULL
+			 UNION ALL
+			SELECT 11 AS SEQ, X.ATTB11_NM AS ATTR_NM, Y.ATTB11_NM AS ATTR_VAL, NVL(X.ATTB11_FLAG,'N') AS ESS_FLAG, X.ATTB11_UNIT_MEASURE AS ATTR_UNIT
+			  FROM CMSCATTR X, CMSCATLG Y
+			 WHERE X.CMS_CATEG_ID = Y.CMS_CATEG_ID AND Y.CMS_CATLG_ID = #{st_msds_no} AND X.STATUS <> 'D' AND Y.STATUS <> 'D' AND X.ATTB11_NM IS NOT NULL
+			 UNION ALL
+			SELECT 12 AS SEQ, X.ATTB12_NM AS ATTR_NM, Y.ATTB12_NM AS ATTR_VAL, NVL(X.ATTB12_FLAG,'N') AS ESS_FLAG, X.ATTB12_UNIT_MEASURE AS ATTR_UNIT
+			  FROM CMSCATTR X, CMSCATLG Y
+			 WHERE X.CMS_CATEG_ID = Y.CMS_CATEG_ID AND Y.CMS_CATLG_ID = #{st_msds_no} AND X.STATUS <> 'D' AND Y.STATUS <> 'D' AND X.ATTB12_NM IS NOT NULL
+			 UNION ALL
+			SELECT 13 AS SEQ, X.ATTB13_NM AS ATTR_NM, Y.ATTB13_NM AS ATTR_VAL, NVL(X.ATTB13_FLAG,'N') AS ESS_FLAG, X.ATTB13_UNIT_MEASURE AS ATTR_UNIT
+			  FROM CMSCATTR X, CMSCATLG Y
+			 WHERE X.CMS_CATEG_ID = Y.CMS_CATEG_ID AND Y.CMS_CATLG_ID = #{st_msds_no} AND X.STATUS <> 'D' AND Y.STATUS <> 'D' AND X.ATTB13_NM IS NOT NULL
+			 UNION ALL
+			SELECT 14 AS SEQ, X.ATTB14_NM AS ATTR_NM, Y.ATTB14_NM AS ATTR_VAL, NVL(X.ATTB14_FLAG,'N') AS ESS_FLAG, X.ATTB14_UNIT_MEASURE AS ATTR_UNIT
+			  FROM CMSCATTR X, CMSCATLG Y
+			 WHERE X.CMS_CATEG_ID = Y.CMS_CATEG_ID AND Y.CMS_CATLG_ID = #{st_msds_no} AND X.STATUS <> 'D' AND Y.STATUS <> 'D' AND X.ATTB14_NM IS NOT NULL
+			 UNION ALL
+			SELECT 15 AS SEQ, X.ATTB15_NM AS ATTR_NM, Y.ATTB15_NM AS ATTR_VAL, NVL(X.ATTB15_FLAG,'N') AS ESS_FLAG, X.ATTB15_UNIT_MEASURE AS ATTR_UNIT
+			  FROM CMSCATTR X, CMSCATLG Y
+			 WHERE X.CMS_CATEG_ID = Y.CMS_CATEG_ID AND Y.CMS_CATLG_ID = #{st_msds_no} AND X.STATUS <> 'D' AND Y.STATUS <> 'D' AND X.ATTB15_NM IS NOT NULL
+			 UNION ALL
+			SELECT 16 AS SEQ, X.ATTB16_NM AS ATTR_NM, Y.ATTB16_NM AS ATTR_VAL, NVL(X.ATTB16_FLAG,'N') AS ESS_FLAG, X.ATTB16_UNIT_MEASURE AS ATTR_UNIT
+			  FROM CMSCATTR X, CMSCATLG Y
+			 WHERE X.CMS_CATEG_ID = Y.CMS_CATEG_ID AND Y.CMS_CATLG_ID = #{st_msds_no} AND X.STATUS <> 'D' AND Y.STATUS <> 'D' AND X.ATTB16_NM IS NOT NULL
+			 UNION ALL
+			SELECT 17 AS SEQ, X.ATTB17_NM AS ATTR_NM, Y.ATTB17_NM AS ATTR_VAL, NVL(X.ATTB17_FLAG,'N') AS ESS_FLAG, X.ATTB17_UNIT_MEASURE AS ATTR_UNIT
+			  FROM CMSCATTR X, CMSCATLG Y
+			 WHERE X.CMS_CATEG_ID = Y.CMS_CATEG_ID AND Y.CMS_CATLG_ID = #{st_msds_no} AND X.STATUS <> 'D' AND Y.STATUS <> 'D' AND X.ATTB17_NM IS NOT NULL
+			 UNION ALL
+			SELECT 18 AS SEQ, X.ATTB18_NM AS ATTR_NM, Y.ATTB18_NM AS ATTR_VAL, NVL(X.ATTB18_FLAG,'N') AS ESS_FLAG, X.ATTB18_UNIT_MEASURE AS ATTR_UNIT
+			  FROM CMSCATTR X, CMSCATLG Y
+			 WHERE X.CMS_CATEG_ID = Y.CMS_CATEG_ID AND Y.CMS_CATLG_ID = #{st_msds_no} AND X.STATUS <> 'D' AND Y.STATUS <> 'D' AND X.ATTB18_NM IS NOT NULL
+			 UNION ALL
+			SELECT 19 AS SEQ, X.ATTB19_NM AS ATTR_NM, Y.ATTB19_NM AS ATTR_VAL, NVL(X.ATTB19_FLAG,'N') AS ESS_FLAG, X.ATTB19_UNIT_MEASURE AS ATTR_UNIT
+			  FROM CMSCATTR X, CMSCATLG Y
+			 WHERE X.CMS_CATEG_ID = Y.CMS_CATEG_ID AND Y.CMS_CATLG_ID = #{st_msds_no} AND X.STATUS <> 'D' AND Y.STATUS <> 'D' AND X.ATTB19_NM IS NOT NULL
+			 UNION ALL
+			SELECT 20 AS SEQ, X.ATTB20_NM AS ATTR_NM, Y.ATTB20_NM AS ATTR_VAL, NVL(X.ATTB20_FLAG,'N') AS ESS_FLAG, X.ATTB20_UNIT_MEASURE AS ATTR_UNIT
+			  FROM CMSCATTR X, CMSCATLG Y
+			 WHERE X.CMS_CATEG_ID = Y.CMS_CATEG_ID AND Y.CMS_CATLG_ID = #{st_msds_no} AND X.STATUS <> 'D' AND Y.STATUS <> 'D' AND X.ATTB20_NM IS NOT NULL
+			      )
+			 ORDER BY SEQ
+		]]>
+	</select>
+
+	<!-- 상품정보 변경이력 목록  : CMSCATLG_HST 컬럼 단위 세로전개.
+	     한 번 저장에 3컬럼이 바뀌면 3행이고, 각 행은 자기 칸만 채운다.
+	     최상단 = 등록 초기값 — 저장하지 않고 컬럼별 '가장 오래된 OLD_DATA' 로 되감아 만든다. 이력 없는 컬럼은 CMSCATLG 현재값.
+	 -->
+	<select id="selectMasterMdCmCmsItemHistoryList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.pagestart"/>
+			<![CDATA[
+				/*selectMasterMdCmCmsItemHistoryList*/
+				SELECT
+				  CASE WHEN V.SORT_SEQ = 0 THEN '최초등록'
+				       WHEN V.JOB_DATE IS NULL THEN ''
+				       ELSE SUBSTR(V.JOB_DATE,1,4)||'-'||SUBSTR(V.JOB_DATE,5,2)||'-'||SUBSTR(V.JOB_DATE,7,2)
+				       || CASE WHEN V.ADD_TIME IS NULL OR LENGTH(TRIM(V.ADD_TIME)) < 6 THEN ''
+				               ELSE ' '||SUBSTR(V.ADD_TIME,1,2)||':'||SUBSTR(V.ADD_TIME,3,2)||':'||SUBSTR(V.ADD_TIME,5,2) END
+				  END AS CHANGE_DATE																			/* 변경일자 : 첫 줄은 날짜 대신 '최초등록' */
+				 ,CASE WHEN V.STATUS_V IS NULL THEN '' ELSE DECODE(V.STATUS_V, 'D', '미사용', '사용') END AS CMS_STATUS	/* 상품상태 */
+				 ,V.DESCRIPTION_V AS DESCRIPTION_LOC																	/* 품목명 */
+				 ,V.MODEL_V       AS MODEL_INFO																		/* 모델번호 */
+				 ,V.SPEC_V        AS SPECIFICATION																	/* 규격 */
+				 ,(SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'M104' AND CODE = V.MAKER_V)  AS MAKER_NAME				/* 제조사 : 코드만 추적, 표시는 M104 */
+				 ,(SELECT TEXT2 FROM ICOMCOD1 WHERE TYPE = 'M001' AND CODE = V.ORIGIN_V) AS ORIGIN_CODE_NAME		/* 원산지 */
+				 ,V.MEASURE_V     AS ORDER_MEASURE																	/* 단위 */
+				 ,(SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'M181' AND CODE = V.TR_V)     AS TR_HANDLE_NM			/* TR취급가능여부 */
+				 ,CASE WHEN V.GUBUN_V IS NULL THEN '' ELSE DECODE(V.GUBUN_V, 'G', '표준품', '비표준품') END AS ITEM_GUBUN_NM	/* 상품구분 */
+				 ,(SELECT CATEG_NAME FROM CMSCATEG WHERE CMS_CATEG_ID = V.CATEG_V AND STATUS <> 'D') AS CMS_CATEG_NAME	/* 상세분류 */
+				 ,NVL((SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'M182' AND CODE = V.CHANGE_REASON_CODE)
+				      , V.CHANGE_REASON_REMARK) AS CHANGE_REASON													/* 변경사유 : 상품상태는 코드(M182), 그 외는 텍스트 */
+				 ,V.ALT_CATLG_ID  AS ALT_CATLG_ID																	/* 대체코드 */
+				 ,(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = V.ADD_USER_ID) AS CHANGE_USER					/* 변경담당자 */
+				FROM (
+					SELECT 0 AS SORT_SEQ, C.ADD_DATE AS JOB_DATE, '000000' AS ADD_TIME, 0 AS JOB_SEQ
+					     , CASE WHEN F.STATUS_H      = 'Y' THEN F.STATUS_O      ELSE C.STATUS          END AS STATUS_V
+					     , CASE WHEN F.DESCRIPTION_H = 'Y' THEN F.DESCRIPTION_O ELSE C.DESCRIPTION_LOC END AS DESCRIPTION_V
+					     , CASE WHEN F.MODEL_H       = 'Y' THEN F.MODEL_O       ELSE C.MODEL_INFO      END AS MODEL_V
+					     , CASE WHEN F.SPEC_H        = 'Y' THEN F.SPEC_O        ELSE C.SPECIFICATION   END AS SPEC_V
+					     , CASE WHEN F.MAKER_H       = 'Y' THEN F.MAKER_O       ELSE C.MAKER_CODE      END AS MAKER_V
+					     , CASE WHEN F.ORIGIN_H      = 'Y' THEN F.ORIGIN_O      ELSE C.ORIGIN_CODE     END AS ORIGIN_V
+					     , CASE WHEN F.MEASURE_H     = 'Y' THEN F.MEASURE_O     ELSE C.ORDER_MEASURE   END AS MEASURE_V
+					     , CASE WHEN F.TR_H          = 'Y' THEN F.TR_O          ELSE C.TR_HANDLE_TYPE  END AS TR_V
+					     , CASE WHEN F.GUBUN_H       = 'Y' THEN F.GUBUN_O       ELSE C.ITEM_GUBUN      END AS GUBUN_V
+					     , CASE WHEN F.CATEG_H       = 'Y' THEN F.CATEG_O       ELSE C.CMS_CATEG_ID    END AS CATEG_V
+					     , CAST(NULL AS VARCHAR2(10))  AS CHANGE_REASON_CODE
+					     , CAST(NULL AS VARCHAR2(500)) AS CHANGE_REASON_REMARK
+					     , CAST(NULL AS VARCHAR2(20))  AS ALT_CATLG_ID
+					     , C.ADD_USER_ID
+					  FROM CMSCATLG C
+					     , (SELECT MAX(CASE WHEN JOB_COLUMN = 'STATUS'          THEN FIRST_OLD END) AS STATUS_O
+					             , MAX(CASE WHEN JOB_COLUMN = 'STATUS'          THEN 'Y'       END) AS STATUS_H
+					             , MAX(CASE WHEN JOB_COLUMN = 'DESCRIPTION_LOC' THEN FIRST_OLD END) AS DESCRIPTION_O
+					             , MAX(CASE WHEN JOB_COLUMN = 'DESCRIPTION_LOC' THEN 'Y'       END) AS DESCRIPTION_H
+					             , MAX(CASE WHEN JOB_COLUMN = 'MODEL_INFO'      THEN FIRST_OLD END) AS MODEL_O
+					             , MAX(CASE WHEN JOB_COLUMN = 'MODEL_INFO'      THEN 'Y'       END) AS MODEL_H
+					             , MAX(CASE WHEN JOB_COLUMN = 'SPECIFICATION'   THEN FIRST_OLD END) AS SPEC_O
+					             , MAX(CASE WHEN JOB_COLUMN = 'SPECIFICATION'   THEN 'Y'       END) AS SPEC_H
+					             , MAX(CASE WHEN JOB_COLUMN = 'MAKER_CODE'      THEN FIRST_OLD END) AS MAKER_O
+					             , MAX(CASE WHEN JOB_COLUMN = 'MAKER_CODE'      THEN 'Y'       END) AS MAKER_H
+					             , MAX(CASE WHEN JOB_COLUMN = 'ORIGIN_CODE'     THEN FIRST_OLD END) AS ORIGIN_O
+					             , MAX(CASE WHEN JOB_COLUMN = 'ORIGIN_CODE'     THEN 'Y'       END) AS ORIGIN_H
+					             , MAX(CASE WHEN JOB_COLUMN = 'ORDER_MEASURE'   THEN FIRST_OLD END) AS MEASURE_O
+					             , MAX(CASE WHEN JOB_COLUMN = 'ORDER_MEASURE'   THEN 'Y'       END) AS MEASURE_H
+					             , MAX(CASE WHEN JOB_COLUMN = 'TR_HANDLE_TYPE'  THEN FIRST_OLD END) AS TR_O
+					             , MAX(CASE WHEN JOB_COLUMN = 'TR_HANDLE_TYPE'  THEN 'Y'       END) AS TR_H
+					             , MAX(CASE WHEN JOB_COLUMN = 'ITEM_GUBUN'      THEN FIRST_OLD END) AS GUBUN_O
+					             , MAX(CASE WHEN JOB_COLUMN = 'ITEM_GUBUN'      THEN 'Y'       END) AS GUBUN_H
+					             , MAX(CASE WHEN JOB_COLUMN = 'CMS_CATEG_ID'    THEN FIRST_OLD END) AS CATEG_O
+					             , MAX(CASE WHEN JOB_COLUMN = 'CMS_CATEG_ID'    THEN 'Y'       END) AS CATEG_H
+					          FROM (SELECT JOB_COLUMN
+					                     , MIN(OLD_DATA) KEEP (DENSE_RANK FIRST ORDER BY JOB_DATE, ADD_TIME, JOB_SEQ) AS FIRST_OLD
+					                  FROM CMSCATLG_HST
+					                 WHERE CMS_CATLG_ID = #{st_catlg_id}
+					                 GROUP BY JOB_COLUMN)) F
+					 WHERE C.CMS_CATLG_ID = #{st_catlg_id}
+					UNION ALL
+					SELECT 1 AS SORT_SEQ, H.JOB_DATE, H.ADD_TIME, H.JOB_SEQ
+					     , CASE WHEN H.JOB_COLUMN = 'STATUS'          THEN H.NEW_DATA END
+					     , CASE WHEN H.JOB_COLUMN = 'DESCRIPTION_LOC' THEN H.NEW_DATA END
+					     , CASE WHEN H.JOB_COLUMN = 'MODEL_INFO'      THEN H.NEW_DATA END
+					     , CASE WHEN H.JOB_COLUMN = 'SPECIFICATION'   THEN H.NEW_DATA END
+					     , CASE WHEN H.JOB_COLUMN = 'MAKER_CODE'      THEN H.NEW_DATA END
+					     , CASE WHEN H.JOB_COLUMN = 'ORIGIN_CODE'     THEN H.NEW_DATA END
+					     , CASE WHEN H.JOB_COLUMN = 'ORDER_MEASURE'   THEN H.NEW_DATA END
+					     , CASE WHEN H.JOB_COLUMN = 'TR_HANDLE_TYPE'  THEN H.NEW_DATA END
+					     , CASE WHEN H.JOB_COLUMN = 'ITEM_GUBUN'      THEN H.NEW_DATA END
+					     , CASE WHEN H.JOB_COLUMN = 'CMS_CATEG_ID'    THEN H.NEW_DATA END
+					     , H.CHANGE_REASON_CODE
+					     , H.CHANGE_REASON_REMARK
+					     , H.ALT_CATLG_ID
+					     , H.ADD_USER_ID
+					  FROM CMSCATLG_HST H
+					 WHERE H.CMS_CATLG_ID = #{st_catlg_id}
+					   AND H.JOB_COLUMN <> 'BASE_PRICE'
+				) V
+				ORDER BY V.SORT_SEQ, V.JOB_DATE, V.ADD_TIME, V.JOB_SEQ
+			]]>
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+
+	<!-- 기준가 변경이력 목록
+	     상품정보 변경이력과 같은 CMSCATLG_HST 를 쓰되 JOB_COLUMN='BASE_PRICE' 한 줄만 남긴다.
+	     기준가유형은 별도 JOB_COLUMN 으로 쪼개지 않고 그 행의 CHANGE_REASON_REMARK 에 텍스트로 넣는다	   
+	     변경사유는 CHANGE_REASON_CODE. -->
+	<select id="selectMasterMdCmCmsItemBasePriceHistoryList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.pagestart"/>
+			<![CDATA[
+				/*selectMasterMdCmCmsItemBasePriceHistoryList*/
+				SELECT
+				  CASE WHEN V.SORT_SEQ = 0 THEN '최초등록'
+				       WHEN V.JOB_DATE IS NULL THEN ''
+				       ELSE SUBSTR(V.JOB_DATE,1,4)||'-'||SUBSTR(V.JOB_DATE,5,2)||'-'||SUBSTR(V.JOB_DATE,7,2)
+				       || CASE WHEN V.ADD_TIME IS NULL OR LENGTH(TRIM(V.ADD_TIME)) < 6 THEN ''
+				               ELSE ' '||SUBSTR(V.ADD_TIME,1,2)||':'||SUBSTR(V.ADD_TIME,3,2)||':'||SUBSTR(V.ADD_TIME,5,2) END
+				  END AS CHANGE_DATE																			/* 변경일자 : 첫 줄은 날짜 대신 '최초등록' */
+				 ,CASE WHEN V.BASE_PRICE IS NULL OR TRIM(V.BASE_PRICE) IS NULL THEN ''
+				       ELSE TRIM(TO_CHAR(TO_NUMBER(V.BASE_PRICE), 'FM999,999,999,990')) END AS BASE_PRICE			/* 기준가 */
+				 ,V.BASE_PRICE_TYPE_NM AS BASE_PRICE_TYPE_NM														/* 기준가유형 */
+				 ,(SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'M184' AND CODE = V.CHANGE_REASON_CODE) AS CHANGE_REASON	/* 변경사유 (M184 미채번 - 적재 전까지 공백) */
+				 ,(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = V.ADD_USER_ID) AS CHANGE_USER					/* 변경담당자 */
+				FROM (
+					SELECT 0 AS SORT_SEQ, C.ADD_DATE AS JOB_DATE, '000000' AS ADD_TIME, 0 AS JOB_SEQ
+					     , CASE WHEN F.PRICE_H = 'Y' THEN F.PRICE_O ELSE TRIM(TO_CHAR(C.BASE_PRICE)) END AS BASE_PRICE
+					     /* 최초등록 시점의 유형은 HST 에 남지 않는다(REMARK 는 '변경 후' 값이라서).
+					        이력이 한 건도 없을 때만 현재값이 곧 최초값이므로 그때만 채우고, 아니면 공백. */
+					     , CASE WHEN F.PRICE_H = 'Y' THEN ''
+					            ELSE (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'M183' AND CODE = C.BASE_PRICE_TYPE) END AS BASE_PRICE_TYPE_NM
+					     , CAST(NULL AS VARCHAR2(10)) AS CHANGE_REASON_CODE
+					     , C.ADD_USER_ID
+					  FROM CMSCATLG C
+					     , (SELECT MAX(CASE WHEN JOB_COLUMN = 'BASE_PRICE' THEN FIRST_OLD END) AS PRICE_O
+					             , MAX(CASE WHEN JOB_COLUMN = 'BASE_PRICE' THEN 'Y'       END) AS PRICE_H
+					          FROM (SELECT JOB_COLUMN
+					                     , MIN(OLD_DATA) KEEP (DENSE_RANK FIRST ORDER BY JOB_DATE, ADD_TIME, JOB_SEQ) AS FIRST_OLD
+					                  FROM CMSCATLG_HST
+					                 WHERE CMS_CATLG_ID = #{st_catlg_id}
+					                   AND JOB_COLUMN = 'BASE_PRICE'
+					                 GROUP BY JOB_COLUMN)) F
+					 WHERE C.CMS_CATLG_ID = #{st_catlg_id}
+					UNION ALL
+					SELECT 1 AS SORT_SEQ, H.JOB_DATE, H.ADD_TIME, H.JOB_SEQ
+					     , H.NEW_DATA
+					     , H.CHANGE_REASON_REMARK
+					     , H.CHANGE_REASON_CODE
+					     , H.ADD_USER_ID
+					  FROM CMSCATLG_HST H
+					 WHERE H.CMS_CATLG_ID = #{st_catlg_id}
+					   AND H.JOB_COLUMN = 'BASE_PRICE'
+				) V
+				ORDER BY V.SORT_SEQ, V.JOB_DATE, V.ADD_TIME, V.JOB_SEQ
+			]]>
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+
+	<!-- 상세 - 구매정보 리스트 : 해당 상품정보코드에 걸린 구매정보 전체 -->
+	<select id="selectMasterMdCmCmsItemDetailBuyInfoList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/*selectMasterMdCmCmsItemDetailBuyInfoList*/
+			SELECT
+			  P.CMS_CATLG_ID || '-' || LPAD(P.CATLG_SEQ, 5, '0') AS BUY_INFO_ID					/* 구매정보코드 (키) */
+			 ,LPAD(P.CATLG_SEQ, 5, '0') AS BUY_INFO_SEQ											/* 구매정보코드 : 화면 표기는 순번만 쓴다(상품정보코드는 옆 열에 있다) */
+			 ,(SELECT CMPY.COM_NAME_LOC FROM ICOMCMPY CMPY WHERE CMPY.COM_CODE = P.AGENT) AS VENDOR_NAME	/* 협력사명 */
+			 /* TO_CHAR 필수 : 이 팝업은 스크립틀릿이라 Map 값을 String 으로 캐스팅한다.
+			    NUMBER 를 그대로 내리면 BigDecimal 이 담겨 ClassCastException 이 난다(값이 NULL 인 동안은 통과한다). */
+			 ,RTRIM(TO_CHAR(P.BUY_PRICE, 'FM999,999,999,990.99999'), '.') AS UNIT_PRICE											/* 매입단가 */
+			 ,TRIM(TO_CHAR(P.MIN_ORDER_QTY)) AS MOQ												/* 최소주문수량 */
+			 ,TRIM(TO_CHAR(P.PUR_UNIT_QTY)) AS ORDER_MULTIPLE									/* 주문배수수량 */
+			 ,(SELECT MD.TEXT2 FROM ICOMCOD1 MD
+			     WHERE MD.TYPE = 'M034' AND MD.CODE = P.PROCESS_TYPE) AS TRADE_TYPE				/* 거래유형 */
+			 ,(SELECT MD.TEXT1 FROM ICOMCOD1 MD
+			     WHERE MD.TYPE = 'M186' AND MD.CODE = P.DELIVERY_TYPE) AS DELIVERY_TYPE			/* 배송유형 */
+			 /* 입고TR : 저장은 센터 회사코드다. 화면엔 센터명으로 보여야 하므로
+			    W001(TEXT1=코드 / TEXT2=명 / TEXT4=B 구매사측)에서 되찾는다.
+			    목록에 없는 코드는 코드 그대로 남긴다 - 빈칸이면 값이 있는지조차 안 보인다. */
+			 ,NVL((SELECT MAX(MD.TEXT2) FROM ICOMCOD1 MD
+			        WHERE MD.TYPE = 'W001' AND MD.TEXT4 = 'B' AND MD.TEXT1 = P.WAREHOUSE_CODE)
+			      , P.WAREHOUSE_CODE) AS IN_TR							/* 입고TR(센터명) */
+			 ,TRIM(TO_CHAR(P.DELIVERY_LT)) AS LEADTIME											/* 배송일수 */
+			 ,P.BUY_OPEN_DATE AS VALID_FROM														/* 유효기간 시작일 */
+			 ,P.BUY_CLOSE_DATE AS VALID_TO														/* 유효기간 종료일 */
+			FROM CMSPRICE P
+			WHERE P.CMS_CATLG_ID = #{st_msds_no}
+			ORDER BY P.CATLG_SEQ
+		]]>
+	</select>
+
+	<!-- MSDS 매핑(등록·변경). 'MS88888888'(해당없음 센티널) 은 번호를 지우는 것으로 처리하는 기존 관례를 따른다 -->
+	<update id="updateMasterMdCmCmsItemMsdsMapping" parameterType="java.util.Map">
+		<![CDATA[
+			/*updateMasterMdCmCmsItemMsdsMapping*/
+			UPDATE	CMSCATLG
+			SET		MSDS_NO = DECODE(#{MSDS_NO}, 'MS88888888', '', #{MSDS_NO}),
+					CHANGE_USER_ID = #{st_user_id},
+					CHANGE_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD'),
+					CHANGE_TIME = TO_CHAR(SYSDATE, 'HH24MISS')
+			WHERE	CMS_CATLG_ID = #{CMS_CATLG_ID}
+		]]>
+	</update>
+
+	<!-- MSDS 매핑해제. AC_NO 는 이 화면의 대상이 아니므로 건드리지 않는다 -->
+	<update id="updateMasterMdCmCmsItemMsdsClean" parameterType="java.util.Map">
+		<![CDATA[
+			/*updateMasterMdCmCmsItemMsdsClean*/
+			UPDATE	CMSCATLG
+			SET		MSDS_NO = '',
+					CHANGE_USER_ID = #{st_user_id},
+					CHANGE_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD'),
+					CHANGE_TIME = TO_CHAR(SYSDATE, 'HH24MISS')
+			WHERE	CMS_CATLG_ID = #{CMS_CATLG_ID}
+		]]>
+	</update>
+
+	<!-- ============================================================================
+	     화면 셀렉트용 공통코드 목록 (CommonUtil.getCodeComboQueryIdList 가 CODE/TEXT1 을 읽는다)
+	     ⚠ 호출 시 statement id 를 반드시 풀네임(master.mdcm.xxx)으로 넘길 것 —
+	        CommonCodeDao.codeQueryIdList 는 받은 문자열을 그대로 selectList 에 넘기므로
+	        짧은 id 를 쓰면 다른 네임스페이스와 충돌할 수 있다.
+	     ============================================================================ -->
+
+	<!-- ※ 일회성구분은 ONETIME_YN 이 Y/N 2값이라 코드콤보가 없다(화면 셀렉트는 JSP 하드코딩 전체/일반/일회성). -->
+
+	<!-- TR취급가능여부 (M181) -->
+	<select id="getCmsItemTrHandleCodeList" resultType="java.util.Map">
+		/*master.mdcm.getCmsItemTrHandleCodeList*/
+		<![CDATA[
+			SELECT CODE, TEXT1
+			  FROM ICOMCOD1
+			 WHERE TYPE = 'M181'
+			   AND FLAG = 'Y'
+			 ORDER BY VALUE1
+		]]>
+	</select>
+
+	<!-- 상품 변경사유 (M182) : TEXT3 = OUT(사용→미사용) / IN(미사용→사용) / SYS(시스템 자동)
+	     방향 미지정이면 전체. -->
+	<select id="getCmsItemChangeReasonCodeList" parameterType="java.util.Map" resultType="java.util.Map">
+		/*master.mdcm.getCmsItemChangeReasonCodeList*/
+		SELECT CODE, TEXT1
+		  FROM ICOMCOD1
+		 WHERE TYPE = 'M182'
+		   AND FLAG = 'Y'
+		<if test="st_reason_dir != null and st_reason_dir != ''">
+		   AND TEXT3 = #{st_reason_dir}
+		</if>
+		 ORDER BY VALUE1
+	</select>
+
+	<!-- 기준가유형 (M183) : AVG / REC -->
+	<select id="getCmsItemBasePriceTypeCodeList" resultType="java.util.Map">
+		/*master.mdcm.getCmsItemBasePriceTypeCodeList*/
+		<![CDATA[
+			SELECT CODE, TEXT1
+			  FROM ICOMCOD1
+			 WHERE TYPE = 'M183'
+			   AND FLAG = 'Y'
+			 ORDER BY VALUE1
+		]]>
+	</select>
+
+	<!-- 기준가 변경사유
+	     ⚠ 사유 List 가 "구매팀 취합 후 전달 예정"이라 TYPE='M184' 는 아직 적재 0건이다.
+	        셀렉트는 미리 배선해 두었으므로 코드행만 넣으면 되고 JSP 는 건드리지 않는다(M181~M183 때와 동일). -->
+	<select id="getCmsItemBasePriceReasonCodeList" resultType="java.util.Map">
+		/*master.mdcm.getCmsItemBasePriceReasonCodeList*/
+		<![CDATA[
+			SELECT CODE, TEXT1
+			  FROM ICOMCOD1
+			 WHERE TYPE = 'M184'
+			   AND FLAG = 'Y'
+			 ORDER BY VALUE1
+		]]>
+	</select>
+
+	<!-- 기준가 변경 팝업  진입 시 [기존] 값 + 결재화면에 찍을 상품기본정보.
+	     ⚠ BASE_PRICE 는 NUMBER 라 반드시 TRIM(TO_CHAR()) 로 문자열화한다 —
+	        Map<String,String> 에 BigDecimal 이 들어가면 컴파일은 통과하고 런타임에 CCE 가 난다. -->
+	<select id="selectMasterMdCmCmsItemBasePriceInfo" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/*selectMasterMdCmCmsItemBasePriceInfo*/
+			SELECT
+			  CMS_CATLG_ID
+			 ,DESCRIPTION_LOC
+			 ,MODEL_INFO
+			 ,SPECIFICATION
+			 ,(SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'M104' AND CODE = CMSCATLG.MAKER_CODE) AS MAKER_NAME
+			 ,ORDER_MEASURE
+			 ,TRIM(TO_CHAR(BASE_PRICE)) AS BASE_PRICE
+			 ,TRIM(TO_CHAR(BASE_PRICE, 'FM999,999,999,990')) AS BASE_PRICE_VIEW
+			 ,BASE_PRICE_TYPE
+			 ,(SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'M183' AND CODE = CMSCATLG.BASE_PRICE_TYPE) AS BASE_PRICE_TYPE_NM
+			  FROM CMSCATLG
+			 WHERE CMS_CATLG_ID = #{st_catlg_id}
+		]]>
+	</select>
+
+	<!-- 기준가 즉시 반영. 인하는 WHERE 가 걸러 0건이 되고, 호출부가 0건을 보고 결재 신청으로 돌린다.
+	     이력은 SET 절의 F_HST_CMSCATLG 가 남긴다 — JOB_COLUMN='BASE_PRICE' 한 줄이고,
+	     기준가유형은 그 행의 CHANGE_REASON_REMARK 에 명칭 텍스트로 들어간다.
+	     ⚠ BASE_PRICE_TYPE 자체는 JOB_COLUMN 으로 추적하지 않는다(추적하면 한 번 변경이 두 줄이 된다).
+	     ⚠ st_new_price 는 콤마를 제거한 숫자문자열로 넘겨야 한다 — 함수가 MAX(TO_CHAR(BASE_PRICE)) 와 문자열 비교한다. -->
+	<update id="updateMasterMdCmCmsItemBasePriceApply" parameterType="java.util.Map">
+		<![CDATA[
+			/*updateMasterMdCmCmsItemBasePriceApply*/
+			UPDATE CMSCATLG
+			   SET BASE_PRICE      = TO_NUMBER(F_HST_CMSCATLG(CMS_CATLG_ID
+			                                                , 'BASE_PRICE'
+			                                                , #{st_new_price}
+			                                                , #{st_user_id}
+			                                                , #{st_reason_code}
+			                                                , #{st_new_type_nm}
+			                                                , NULL))
+			     , BASE_PRICE_TYPE = #{st_new_type}
+			     , CHANGE_USER_ID  = #{st_user_id}
+			     , CHANGE_DATE     = TO_CHAR(SYSDATE,'YYYYMMDD')
+			     , CHANGE_TIME     = TO_CHAR(SYSDATE,'HH24MISS')
+			 WHERE CMS_CATLG_ID = #{st_catlg_id}
+			   AND (BASE_PRICE IS NULL OR TO_NUMBER(#{st_new_price}) >= BASE_PRICE)
+		]]>
+	</update>
+
+	<!-- 기준가 일괄 반영(즉시분). 단건과 달리 그리드가 **명칭**을 넘기므로 코드 복원을 여기서 한다.
+	     인하 행은 WHERE 가 걸러 0건이 되고, 호출부가 그 행을 결재 신청으로 돌린다.
+	     ⚠ 빈 문자열은 Oracle 에서 NULL 이라 NVL 로 '미입력 = 기존 유지'가 그대로 성립한다.
+	     ⚠ M184(변경사유)는 아직 적재 0건이라 명칭을 넣어도 코드가 안 잡히고 NULL 이 들어간다. -->
+	<update id="updateMasterMdCmCmsItemBasePriceApplyBulk" parameterType="java.util.Map">
+		<![CDATA[
+			/*updateMasterMdCmCmsItemBasePriceApplyBulk*/
+			UPDATE CMSCATLG
+			   SET BASE_PRICE      = TO_NUMBER(F_HST_CMSCATLG(CMS_CATLG_ID
+			                                                , 'BASE_PRICE'
+			                                                , NVL(#{PRICE_AFTER}, TRIM(TO_CHAR(BASE_PRICE)))
+			                                                , #{st_user_id}
+			                                                , (SELECT MIN(CODE) FROM ICOMCOD1
+			                                                    WHERE TYPE = 'M184' AND FLAG = 'Y' AND TEXT1 = #{CHG_REASON})
+			                                                , NVL(#{PRICE_TYPE_AFTER}
+			                                                    , (SELECT MIN(TEXT1) FROM ICOMCOD1
+			                                                        WHERE TYPE = 'M183' AND CODE = CMSCATLG.BASE_PRICE_TYPE))
+			                                                , NULL))
+			     , BASE_PRICE_TYPE = NVL((SELECT MIN(CODE) FROM ICOMCOD1
+			                               WHERE TYPE = 'M183' AND FLAG = 'Y' AND TEXT1 = #{PRICE_TYPE_AFTER})
+			                            , BASE_PRICE_TYPE)
+			     , CHANGE_USER_ID  = #{st_user_id}
+			     , CHANGE_DATE     = TO_CHAR(SYSDATE,'YYYYMMDD')
+			     , CHANGE_TIME     = TO_CHAR(SYSDATE,'HH24MISS')
+			 WHERE CMS_CATLG_ID = #{CMS_CATLG_ID}
+			   AND (#{PRICE_AFTER} IS NULL OR BASE_PRICE IS NULL OR TO_NUMBER(#{PRICE_AFTER}) >= BASE_PRICE)
+		]]>
+	</update>
+
+	<!-- 기준가 인하 일괄 상신 디테일. [기존] 값은 화면이 보낸 것이 아니라 CMSCATLG 현재값을 쓴다. -->
+	<update id="insertMasterMdCmCmsItemBasePriceReqDtBulk" parameterType="java.util.Map">
+		<![CDATA[
+			/*insertMasterMdCmCmsItemBasePriceReqDtBulk*/
+			INSERT INTO KEPMGPDT (
+			   BUYER, PM_NO, PM_SEQ, STATUS, REG_DATE, CHANGE_DATE, REG_USER_ID
+			 , CMS_CATLG_ID
+			 , RE_BASE_PRICE, CH_BASE_PRICE
+			 , RE_BASE_PRICE_TYPE, CH_BASE_PRICE_TYPE
+			 , BASE_PRICE_CHANGE_REASON
+			)
+			SELECT #{st_com_code}, #{st_pm_no}, #{st_pm_seq}, 'C', SYSDATE, SYSDATE, #{st_user_id}
+			     , C.CMS_CATLG_ID
+			     , C.BASE_PRICE, TO_NUMBER(#{PRICE_AFTER})
+			     , C.BASE_PRICE_TYPE
+			     , NVL((SELECT MIN(CODE) FROM ICOMCOD1
+			             WHERE TYPE = 'M183' AND FLAG = 'Y' AND TEXT1 = #{PRICE_TYPE_AFTER})
+			          , C.BASE_PRICE_TYPE)
+			     , (SELECT MIN(CODE) FROM ICOMCOD1
+			         WHERE TYPE = 'M184' AND FLAG = 'Y' AND TEXT1 = #{CHG_REASON})
+			  FROM CMSCATLG C
+			 WHERE C.CMS_CATLG_ID = #{CMS_CATLG_ID}
+		]]>
+	</update>
+
+	<!-- 기준가 인하 상신 : 승인 전까지 CMSCATLG 에 쓰지 않고 신청 대기 테이블에 담는다.
+	     매입단가 변경(GUBUN='PO')이 이미 쓰는 테이블이라 RE_*(기존)/CH_*(변경) 관례를 그대로 따른다. -->
+	<update id="insertMasterMdCmCmsItemBasePriceReqHd" parameterType="java.util.Map">
+		<![CDATA[
+			/*insertMasterMdCmCmsItemBasePriceReqHd*/
+			INSERT INTO KEPMGPHD (
+			   BUYER, PM_NO, STATUS, REG_DATE, CHANGE_DATE
+			 , REG_USER_ID, REG_USER_DEPT, GUBUN, CA_FLAG, SUBJECT, REMARK
+			) VALUES (
+			   #{st_com_code}, #{st_pm_no}, 'C', SYSDATE, SYSDATE
+			 , #{st_user_id}, #{st_user_dept}, #{st_gubun}, 'N', #{st_subject}, #{st_remark}
+			)
+		]]>
+	</update>
+
+	<update id="insertMasterMdCmCmsItemBasePriceReqDt" parameterType="java.util.Map">
+		<![CDATA[
+			/*insertMasterMdCmCmsItemBasePriceReqDt*/
+			INSERT INTO KEPMGPDT (
+			   BUYER, PM_NO, PM_SEQ, STATUS, REG_DATE, CHANGE_DATE, REG_USER_ID
+			 , CMS_CATLG_ID
+			 , RE_BASE_PRICE, CH_BASE_PRICE
+			 , RE_BASE_PRICE_TYPE, CH_BASE_PRICE_TYPE
+			 , BASE_PRICE_CHANGE_REASON
+			)
+			SELECT #{st_com_code}, #{st_pm_no}, #{st_pm_seq}, 'C', SYSDATE, SYSDATE, #{st_user_id}
+			     , C.CMS_CATLG_ID
+			     , C.BASE_PRICE, TO_NUMBER(#{st_new_price})
+			     , C.BASE_PRICE_TYPE, #{st_new_type}
+			     , #{st_reason_code}
+			  FROM CMSCATLG C
+			 WHERE C.CMS_CATLG_ID = #{st_catlg_id}
+		]]>
+	</update>
+
+</mapper>

@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mdct">
+	<!-- 조회 -->
+	<select id="selectMasterMdCtNewReBuyerDetailPop" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/* selectMasterMdCtNewReBuyerDetailPop */
+			SELECT	X.ORG_CODE,
+					X.ORG_NAME,
+					X.BUYER,
+					(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = X.BUYER) AS BUYER_NAME,
+					X.TEAM_CODE,
+					(SELECT TEXT1 FROM ICOMCOD2 WHERE COMPANY_CODE = 'KRKORE0001' AND TYPE = 'C001' AND CODE = X.TEAM_CODE ) AS TEAM_NAME,
+					X.KEP_USER_ID,
+					(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = X.KEP_USER_ID) AS MAIN_CLERK,
+					X.START_YEAR,
+					X.YEAR_CNT
+			FROM	(
+					SELECT	A.ORG_CODE,
+							A.ORG_NAME,
+							B.CODE AS BUYER,
+							(SELECT MAX(KEP_DEPT) FROM MIS_BUYER_MNG WHERE YEAR = TO_CHAR(SYSDATE, 'YYYY') AND STATUS = 'C' AND BUYER = B.CODE) AS TEAM_CODE,
+							(SELECT MAX(KEP_USER_ID) FROM MIS_BUYER_MNG WHERE YEAR = TO_CHAR(SYSDATE, 'YYYY') AND STATUS = 'C' AND BUYER = B.CODE AND MAIN_CLERK = 'Y') AS KEP_USER_ID,
+							TO_CHAR(TO_DATE(A.CONTRACT_FIRST_DATE, 'YYYYMMDD'), 'YYYY') START_YEAR,
+							TO_CHAR(SYSDATE, 'YYYY') - TO_CHAR(TO_DATE(A.CONTRACT_FIRST_DATE, 'YYYYMMDD'), 'YYYY') AS YEAR_CNT
+					FROM	KEP_BUYER_ORG_MNG A, ICOMCOD2 B
+					WHERE	1=1
+					AND		A.ORG_CODE = B.TEXT1
+					AND		A.STATUS IN ('C', 'R')
+					AND		B.COMPANY_CODE = 'KRKORE0001'
+					AND		B.TYPE = 'PFMP'
+					AND		B.FLAG = 'Y'
+		]]>
+		
+		<if test='st_contract_type != null and st_contract_type != "" and st_contract_type != "N"'>
+					AND		A.CONTRACT_TYPE = #{st_contract_type}
+		</if>
+		<if test='st_contract_type == "N"'>
+					AND		A.CONTRACT_TYPE IS NULL
+		</if>
+		
+		<if test='st_process_status != null and st_process_status != "" and st_process_status != "N"'>
+					AND		A.PROCESS_STATUS = #{st_process_status}
+		</if>
+		<if test='st_process_status == "N"'>
+					AND		A.PROCESS_STATUS IS NULL
+		</if>
+		
+		<if test='st_contract_kind != null and st_contract_kind != "" and st_contract_kind != "N"'>
+					AND		A.CONTRACT_KIND = #{st_contract_kind}
+		</if>
+		<if test='st_contract_kind == "N"'>
+					AND		A.CONTRACT_KIND IS NULL
+		</if>
+		
+		<![CDATA[
+			) X
+			WHERE	1=1
+		]]>
+		<if test='st_main_clerk != null and st_main_clerk != ""'>
+			AND		X.KEP_USER_ID = #{st_main_clerk}
+		</if>
+		
+		<if test='st_team_code != null and st_team_code != "" and st_team_code != "TOTAL" and st_team_code != "NULL"'>
+			AND		X.TEAM_CODE = #{st_team_code}
+		</if>
+		<if test='st_team_code == "NULL"'>
+			AND		X.TEAM_CODE IS NULL
+		</if>
+		
+		<if test='st_term != null and st_term != "" and st_term == "S"'>
+		<![CDATA[
+			AND		X.YEAR_CNT < 5
+		]]>
+		</if>
+		<if test='st_term != null and st_term != "" and st_term == "M"'>
+			AND		X.YEAR_CNT BETWEEN 5 AND 10
+		</if>
+		<if test='st_term != null and st_term != "" and st_term == "L"'>
+		<![CDATA[
+			AND		X.YEAR_CNT > 10
+		]]>
+		</if>
+		
+		<![CDATA[
+			ORDER BY X.TEAM_CODE, X.ORG_CODE, X.BUYER, X.KEP_USER_ID
+		]]>
+	</select>
+</mapper>

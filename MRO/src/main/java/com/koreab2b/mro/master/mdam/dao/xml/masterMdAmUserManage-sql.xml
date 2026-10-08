@@ -1,0 +1,188 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mdam">
+	<!-- 조회 -->
+	<select id="selectMasterMdAmUserManageList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.pagestart"/>	
+			<![CDATA[
+				/* selectMasterMdAmUserManageList */
+				SELECT DISTINCT
+				    A.COM_CODE,
+				    A.COM_NAME_LOC,
+				    B.DEPARTMENT AS DEPT_CODE,
+				    (SELECT TEXT1 FROM ICOMCOD2 WHERE COMPANY_CODE = B.COM_CODE AND TYPE='C001' AND CODE = B.DEPARTMENT) DEPT_NAME,		/* 부서명 */
+				    B.USER_NAME_LOC,
+				    F_GET_MASKING_RETURN(B.USER_NAME_LOC, 'NAME') AS USER_NAME_LOC_MASK,
+				    B.USER_ID,
+				    F_GET_MASKING_RETURN(B.USER_ID, 'NAME') AS USER_ID_MASK
+				FROM
+				    ICOMCMPY A,
+				    ICOMLUSR B,
+				    KX_USERROLE C,
+				    KX_USERAUTH D
+				WHERE 1=1
+				AND A.COM_CODE = B.COM_CODE
+				AND B.USER_ID = C.USER_ID(+)
+				AND B.USER_ID = D.USER_ID(+)
+				AND A.STATUS IN ('C', 'R')
+				AND A.BUSINESS_COND = #{st_com_gubun}
+				AND B.STATUS IN ('C','R')
+			]]>
+			<if test="st_com_code != null and st_com_code != ''">
+			AND A.COM_CODE = #{st_com_code}
+			</if>
+			<if test="st_dept_code != null and st_dept_code != ''">
+				AND B.DEPARTMENT = #{st_dept_code}
+			</if>
+			<if test="st_user_id != null and st_user_id != ''">
+				AND B.USER_ID = #{st_user_id}
+			</if>
+			<if test="st_user_id != null and st_user_id != ''">
+				AND B.USER_ID = #{st_user_id}
+			</if>
+			
+			<if test='st_auth_type == "G"'>
+				<choose>
+					<when test="st_auth_info != null and st_auth_info != ''">
+						AND D.AUTH_ID = #{st_auth_info}
+					</when>
+					<otherwise>
+						AND	D.AUTH_ID IS NOT NULL
+					</otherwise>
+				</choose>
+			</if>
+			
+			<if test='st_auth_type == "S"'>
+				<choose>
+					<when test="st_auth_info != null and st_auth_info != ''">
+						AND C.ROLE_ID = #{st_auth_info}
+					</when>
+					<otherwise>
+						AND	C.ROLE_ID IS NOT NULL
+					</otherwise>
+				</choose>
+			</if>
+			
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+
+	<!-- 조회 (상세)-->
+	<select id="selectMasterMdAmUserManageDetailList" parameterType="java.util.Map" resultType="java.util.Map">
+<!-- 		<include refid="common.ibsheet.xml.pagestart"/>	 -->
+			<![CDATA[
+		    	SELECT /*selectMasterMdAmUserManageDetailList*/
+				        X.USER_ID, 
+				        X.AUTH_ID,
+				        X.AUTH_NAME,
+				        X.AUTH_DC, 
+				        X.ROLE_FLAG, 
+				        X.USE_FLAG, 
+				        X.CREATE_DT
+				FROM (
+				    SELECT  A.USER_ID, 
+								A.AUTH_ID,
+								B.NAME AS AUTH_NAME,
+								B.AUTH_DC, 
+								B.ROLE_FLAG, 
+								A.USE_FLAG, 
+								A.CREATE_DT
+						FROM KX_USERAUTH A, KX_AUTHINFO B
+						WHERE A.AUTH_ID = B.AUTH_ID
+				UNION                
+					SELECT  A.USER_ID, 
+								A.ROLE_ID AS AUTH_ID,
+								B.NAME AS AUTH_NAME,
+								B.AUTH_DC, 
+								B.ROLE_FLAG, 
+								A.USE_FLAG, 
+								A.CREATE_DT
+						FROM KX_USERROLE A, KX_AUTHINFO B
+						WHERE A.ROLE_ID = B.AUTH_ID
+				) X
+				WHERE 1=1
+				AND X.USER_ID = #{st_user_id_detail}
+				ORDER BY ROLE_FLAG, X.AUTH_NAME
+]]>
+
+<!-- 		<include refid="common.ibsheet.xml.pageend"/> -->
+	</select>
+
+<!-- 추가 (상세-일반) -->
+	<update  id="insertMasterMdAmUserManageDetail" parameterType="java.util.Map" >
+		<![CDATA[ /*insertMasterMdAmUserManageDetail*/
+			INSERT INTO	KX_USERAUTH					
+			(									
+				USER_ID,
+				AUTH_ID,
+				CREATE_DT,
+				USE_FLAG
+			)VALUES									
+			(									
+			    #{USER_ID},
+			    #{AUTH_ID},
+			    SYSDATE,
+			    #{USE_FLAG}
+			)		
+		]]>
+	</update>
+
+<!-- 저장 (상세-일반) -->
+	<update  id="updateMasterMdAmUserManageDetail" parameterType="java.util.Map" >
+		<![CDATA[ /*updateMasterMdAmUserManageDetail*/
+			UPDATE KX_USERAUTH					
+			SET USE_FLAG = #{USE_FLAG}
+			WHERE USER_ID = #{USER_ID}
+			  AND AUTH_ID = #{AUTH_ID}
+		]]>
+	</update>
+
+
+<!-- 삭제 (상세-일반) -->
+	<update id="deleteMasterMdAmUserManageDetail"  parameterType="java.util.Map">
+		<![CDATA[  /* deleteMasterMdAmUserManageDetail */
+			 DELETE FROM  KX_USERAUTH
+			WHERE USER_ID = #{USER_ID}
+			  AND AUTH_ID = #{AUTH_ID}
+		]]>
+	</update>
+	
+<!-- 추가 (상세-특수) -->
+	<update  id="insertMasterMdAmUserManageDetail_S" parameterType="java.util.Map" >
+		<![CDATA[ /*insertMasterMdAmUserManageDetail*/
+			INSERT INTO	KX_USERROLE					
+			(									
+				USER_ID,
+				ROLE_ID,
+				CREATE_DT,
+				USE_FLAG
+			)VALUES									
+			(									
+			    #{USER_ID},
+			    #{AUTH_ID},
+			    SYSDATE,
+			    #{USE_FLAG}
+			)		
+		]]>
+	</update>
+
+<!-- 저장 (상세-특수) -->
+	<update  id="updateMasterMdAmUserManageDetail_S" parameterType="java.util.Map" >
+		<![CDATA[ /*updateMasterMdAmUserManageDetail*/
+			UPDATE KX_USERROLE					
+			SET USE_FLAG = #{USE_FLAG}
+			WHERE USER_ID = #{USER_ID}
+			  AND ROLE_ID = #{AUTH_ID}
+		]]>
+	</update>
+
+
+<!-- 삭제 (상세-특수) -->
+	<update id="deleteMasterMdAmUserManageDetail_S"  parameterType="java.util.Map">
+		<![CDATA[  /* deleteMasterMdAmUserManageDetail */
+			 DELETE FROM  KX_USERROLE
+			WHERE USER_ID = #{USER_ID}
+			  AND ROLE_ID = #{AUTH_ID}
+		]]>
+	</update>	
+</mapper>   
+   

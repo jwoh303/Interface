@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="common.mprq">
+
+
+	<select id="selectMasterMpRqBuyerFinalUnitpriceAgrmntCntPopList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*selectMasterMpRqBuyerFinalUnitpriceAgrmntCntPopList*/
+			SELECT /*+USE_NL(M A) INDEX(A KEPRQDT_03) INDEX(C ICOMBYIT_11) INDEX(M BUYEROWN_T01)*/     
+					A.BUYER,       
+			        (SELECT COM_NAME_LOC       
+					FROM   ICOMCMPY       
+					WHERE  COM_CODE = A.BUYER) AS BUYER_NAME,       
+					COUNT(1) AS CNT       
+			FROM	KEPRQDT A,
+					KEPQTDT B,
+					ICOMBYIT C ,       
+					BUYEROWN M       
+			WHERE	A.BUYER = M.BUYER     
+			AND		A.BUYER=B.BUYER                   
+			AND		A.QUOTATION_NO=B.QUOTATION_NO   
+			AND		A.QUOTATION_SEQ=B.QUOTATION_SEQ   
+			AND 	A.REVISION=B.REVISION   
+			AND		M.USER_ID = #{USR_ID}  
+			AND		A.SO_CA_FLAG='SO'       
+			AND		A.BTOA_DATE>='20070101'       
+			AND		A.ATOB_UNIT_PRICE <> 0     
+			AND		A.ATOB_SEND_FLAG='Y'       
+			AND		A.RECV_FLAG IN('GA','CM')       
+			AND		C.BUYER=(SELECT BYCA_COMORG_CODE FROM   ICOMCMPY WHERE  COM_CODE=A.BUYER AND    STATUS <> 'D')       
+			AND		A.BUYER_ITEM_NO=C.BUYER_ITEM_NO       
+			AND		DECODE(C.PRODUCT_CLOSE_FLAG, 'S', NULL ,'G', NULL, A.CONFIRM_USER_ID) IS NULL      
+			AND		A.STATUS IN ('C','R')     
+			AND 	B.BID_SUCCESS_FLAG='Y'                            
+			AND 	B.STATUS <> 'D'       
+			AND 	B.STATUS <> 'O' 
+				]]>	
+			<if test="USR_ID != null and USR_ID != ''">	     
+							   <![CDATA[
+							   AND  A.BUYER  IN  (
+													SELECT A.BUYER
+									                 FROM ICOMCOD3 COD3
+									                 WHERE COD3.BUYER = 'KRKORE0001'
+									                 AND   COD3.TYPE = 'CMPY'
+									                 AND   COD3.CODE1= 'ALL'
+									                 AND   COD3.CODE2 = #{USR_ID}
+									                 UNION ALL
+									                 SELECT MNG.BUYER
+									                 FROM  ICOMCOD3 COD3, MIS_BUYER_MNG MNG
+									                 WHERE COD3.BUYER = 'KRKORE0001'
+									                 AND   COD3.TYPE = 'CMPY'
+									                 AND   COD3.CODE1= MNG.KEP_DEPT
+									                 AND   COD3.CODE2 = #{USR_ID}
+									                 AND   MNG.YEAR = TO_CHAR(SYSDATE,'YYYY')	
+									                 AND   MNG.STATUS = 'C'
+									                 UNION ALL
+									                 SELECT BUYER
+									                 FROM  MIS_BUYER_MNG
+									                 WHERE YEAR = TO_CHAR(SYSDATE,'YYYY')
+									                 AND   STATUS = 'C'
+									                 AND   KEP_USER_ID = #{USR_ID}
+									                 UNION ALL
+									                 SELECT COD.CODE1
+													FROM ICOMCOD3 COD , ICOMCMPY CMPY
+													WHERE  COD.BUYER = 'KRKORE0001'
+													AND COD.TYPE = 'CMPY'
+													AND COD.CODE1 = CMPY.COM_CODE
+													AND COD.CODE2 = #{USR_ID}
+													AND TO_CHAR(SYSDATE,'YYYYMMDD') BETWEEN TEXT2 AND TEXT3
+									                 )
+							   ]]>  
+			</if>  
+			<![CDATA[
+					   GROUP BY A.BUYER
+				]]>
+	</select>
+								
+</mapper>

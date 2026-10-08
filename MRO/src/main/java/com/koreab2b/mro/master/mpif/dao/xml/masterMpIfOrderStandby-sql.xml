@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mpif">
+	<!-- 조회 -->
+	<select id="selectMasterMpIfOrderStandbyList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.pagestart"/>	
+			<![CDATA[
+		    	SELECT /*selectMasterMpIfOrderStandbyList*/                            
+            		Y.NUM AS  NO,             
+                   Y.BUYER_NAME,                      --[1]구매사명
+                   Y.PR_NO,                           --[2]구매요청번호
+                   Y.LEGACY_PO_NO,                    --[3]구매사발주번호
+                   Y.PR_SUBJECT,                      --[4]제목
+                   Y.PURCHASE_DEPT,                   --[5]발주부서
+                   Y.USER_NAME,                       --[6]발주자명
+                   Y.CHANGE_DATE,                     --[7]접수일
+                   Y.RECV_FLAG,                       --[8]
+                   Y.CHANGE_USER_DEPT,                --[9]
+                   Y.CHANGE_USER_ID,                  --[10]
+                   Y.BUYER,                           --[11]
+                   Y.REF_PR_NO                        --[12]
+              FROM (                                  
+                     SELECT ROWNUM NUM,               
+                            X.BUYER_NAME,             
+                            X.PR_NO,                  
+                            X.LEGACY_PO_NO,           
+                            X.PR_SUBJECT,             
+                            X.PURCHASE_DEPT,          
+                            X.USER_NAME,              
+                            X.CHANGE_DATE,            
+                            X.RECV_FLAG,              
+                            X.CHANGE_USER_DEPT,       
+                            X.CHANGE_USER_ID,         
+                            X.BUYER,                  
+                            X.REF_PR_NO               
+                       FROM (                         
+                              SELECT MAX((SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = A.BUYER)) AS BUYER_NAME,   
+                                     A.PR_NO,                                                                           
+                                     B.LEGACY_PO_NO AS LEGACY_PO_NO,                                                    
+                                     MAX(A.PR_SUBJECT) AS PR_SUBJECT,                                                   
+                                     MAX((SELECT TEXT1 FROM ICOMCOD2  WHERE TYPE='C001' AND CODE = A.PURCHASER_DEPT AND COMPANY_CODE = A.BUYER)) AS PURCHASE_DEPT,  
+                                     MAX((SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = A.CHANGE_USER_ID))  AS USER_NAME,                                      
+                                     MAX(A.CHANGE_DATE) AS CHANGE_DATE,             
+                                     MAX(A.RECV_FLAG) AS RECV_FLAG,                 
+                                     MAX(A.CHANGE_USER_DEPT) AS CHANGE_USER_DEPT,   
+                                     MAX(A.CHANGE_USER_ID) AS CHANGE_USER_ID,       
+                                     MAX(A.BUYER) AS BUYER,                         
+                                     MAX(B.REF_PR_NO) AS REF_PR_NO                  
+                                FROM ICOMPRHD A, ICOMPRDT B                         
+                               WHERE A.RECV_FLAG = 'AT'
+                 ]]>                             
+		        <if test="st_buyer_code != null and st_buyer_code != ''">
+                                AND A.BUYER = #{st_buyer_code}                                 
+		        </if>
+		        <if test="st_pr_no != null and st_pr_no != ''">
+                                AND A.PR_NO LIKE #{st_pr_no} || '%'                                 
+		        </if>
+		        <if test="st_po_no != null and st_po_no != ''">
+                                AND B.LEGACY_PO_NO LIKE #{st_po_no}  || '%'                          
+		        </if>
+		        <if test="st_ref_no != null and st_ref_no != ''">
+                                AND B.REF_PR_NO LIKE #{st_ref_no}  || '%'
+		        </if>
+                <![CDATA[                             
+                                 AND A.PR_NO = B.PR_NO                              
+                                 AND A.BUYER = B.BUYER                              
+                                 AND A.SAVE_FLAG = 'PX'                             
+                                 AND A.STATUS != 'D'                                
+                                 AND B.STATUS != 'D'                                
+                               GROUP BY A.PR_NO, B.LEGACY_PO_NO                     
+                               ORDER BY A.PR_NO DESC     ) X     ) Y                							
+				]]>
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+
+
+	<update  id="insertMasterMpIfOrderStandby" parameterType="java.util.Map" >
+		<![CDATA[
+				INSERT INTO	KEPQTDT					
+				(									
+					BUYER,							
+					QUOTATION_NO,					
+					QUOTATION_SEQ,					
+					REVISION,						
+					AGENT,							
+					AGENT_REVISION,					
+					STATUS,							
+					BUYER_ITEM_NO,					
+					DESCRIPTION,					
+					SPECIFICATION,					
+					UNIT_MEASURE,					
+					MAKER_NAME,						
+					ORIGIN_NAME,					
+					ATOS_DATE,						
+					ATOS_END_DATE,					
+					ATOS_END_TIME,					
+					ITEM_QTY,						
+					IMAGE_KEY,						
+					DSS_FLAG,						
+					DSS_CHOICE						
+				)									
+				(									
+				SELECT								
+					#{BUYER},									/* 1 : BUYER */
+					#{QUOTATION_NO},									/* 2 : QUOTATION_NO */
+					#{QUOTATION_SEQ},									/* 3 : QUOTATION_SEQ */
+					#{REVISION},									/* 4 : REVISION */
+					#{AGENT},									/* 5 : AGENT */
+					#{AGENT_REVISION},								/* 6 : AGENT_REVISION */
+					'C',						
+					BUYER_ITEM_NO,				
+					DESCRIPTION,				
+					SPECIFICATION,				
+					UNIT_MEASURE,				
+					MAKER_NAME,					
+					ORIGIN_CODE,				
+					TO_CHAR(SYSDATE, 'YYYYMMDD')AS ATOS_DATE,
+					#{ATOS_END_DATE},								/* 7 : ATOS_END_DATE */
+					#{ATOS_END_TIME},								/* 8 : ATOS_END_TIME */
+					ITEM_QTY,					
+					IMAGE_KEY,					
+					#{DSS_FLAG},								/*  9 : DSS_FLAG   if(chk_str[1].equals("A") || chk_str[1].equals("B") || chk_str[1].equals("C")|| chk_str[1].equals("S")) : Y , 기타  : N   */
+					#{DSS_CHOICE}								/*    10 : DSS_CHOICE */
+				   FROM KEPRQDT						
+				  WHERE BUYER=#{BUYER}							/* 11 : BUYER */           
+					AND QUOTATION_NO=#{QUOTATION_NO}					/* 12 : QUOTATION_NO     */
+					AND QUOTATION_SEQ=#{QUOTATION_SEQ}					/* 13 : QUOTATION_SEQ    */
+					AND REVISION=#{REVISION}						/* 14 : REVISION  */       
+					AND RECV_FLAG <> 'GD'			
+					AND STATUS IN ('C','R')			
+				)									
+
+		]]>
+							   <!-- /* CMS_USER_ID = 'TEMPUSER', */ -->
+		
+	</update>
+
+
+<!-- 삭제 -->
+	<update id="deleteMasterMpIfOrderStandby"  parameterType="java.util.Map">
+		<![CDATA[
+				UPDATE KEPRQDT					
+				   SET RECV_FLAG      = 'GD' 	
+				     , CANCEL_USER_ID = #{USR_ID}    		/*CANCEL_USER_ID*/
+				     , CANCEL_DATE    = SYSDATE	
+				     , CANCEL_REMARK  = #{CANCEL_REMARK}    		/*CANCEL_REMARK*/
+				 WHERE BUYER          = #{BUYER}			/*BUYER*/
+				   AND QUOTATION_NO   = #{QUOTATION_NO}	 		/*QUOTATION_NO*/
+				   AND QUOTATION_SEQ  = #{QUOTATION_SEQ}			/*QUOTATION_SEQ*/
+				   AND REVISION       = #{REVISION}			/*REVISION*/
+				   AND STATUS IN ('C','R')
+		]]>
+	</update>
+
+</mapper>   
+   

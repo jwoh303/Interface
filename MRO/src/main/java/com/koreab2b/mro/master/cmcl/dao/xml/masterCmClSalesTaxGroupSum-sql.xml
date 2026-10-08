@@ -1,0 +1,1180 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.cmcl">
+	<!-- 조회 -->
+	<select id="selectMasterCmClSalesTaxGroupSumList" parameterType="java.util.Map" resultType="java.util.Map">
+	/*selectMasterCmClSalesTaxGroupSumList*/
+		<![CDATA[
+				SELECT
+				    (SELECT TEXT4 FROM ICOMCOD1 WHERE TYPE = 'VC04' AND CODE = DECODE(GR.BUYER, 'KRKOLO0077', 'KK', 'KA')) AS KEP_IRS_NAME
+				  , (SELECT COD2.TEXT4 FROM ICOMCOD2 COD2
+				  		WHERE COD2.TYPE = 'C001'
+				  		AND COD2.COMPANY_CODE = GR.BUYER
+				  		AND COD2.CODE =  PRDT.REQ_DEPT) AS BUYER_IRS_NO
+				  , MAX(CMPY.COM_NAME_LOC) AS BUYER_NAME
+				  , MAX(NVL(GR.AR_CLOSE_DEPT, MNG.KEP_DEPT)) AS KEP_DEPT
+				  , PRDT.REQ_DEPT
+				  , (SELECT COD2.TEXT1 FROM ICOMCOD2 COD2
+				  		WHERE COD2.TYPE = 'C001'
+				  		AND COD2.COMPANY_CODE = GR.BUYER
+				  		AND COD2.CODE =  PRDT.REQ_DEPT) AS REQ_DEPT_NM
+				  , (SELECT COD2.TEXT3 FROM ICOMCOD2 COD2
+				  		WHERE COD2.TYPE = 'C001'
+				  		AND COD2.COMPANY_CODE = GR.BUYER
+				  		AND COD2.CODE =  PRDT.REQ_DEPT) AS REQ_DEPT_GBN
+				  , (SELECT TEXT1 FROM ICOMCOD2 COD2
+						WHERE COD2.COMPANY_CODE = GR.BUYER
+						AND COD2.TYPE = 'C001'
+						AND COD2.CODE = PRDT.BUDGET_DEPT)  AS BUDGET_DEPT_NM
+				  , PRDT.BUDGET_DEPT
+				  , BYIT.TAX_TYPE
+				  , (SELECT COD.TEXT1 FROM ICOMCOD1 COD
+					WHERE COD.TYPE = 'TX17'
+					AND COD.CODE =BYIT.TAX_TYPE)  AS TAX_TYPE_NM
+				  , SUM(ROUND((GR.ITEM_AMT/F_GET_VATRATE_NEW(GR.BUYER)))) AS GR_AMT
+				  , GR.BUYER
+				  , (SELECT TEXT3 FROM ICOMCOD1 WHERE TYPE = 'VC04' AND CODE = DECODE(GR.BUYER, 'KRKOLO0077', 'KK', 'KA')) AS KEP_IRS_NO
+				  , 'KA' AS SITE_GUBUN_CODE
+				  , MAX(GR.AR_CLOSE_DEPT) AS KEP_DEPT_CODE
+				  , MAX(GR.GR_CREATOR_NAME) AS GR_CREATOR_NAME
+				  , MAX(GR.GR_CREATOR_EMAIL) AS GR_CREATOR_EMAIL
+                  , F_SPLIT(PRDT.REF_IF_NO,'^',1)  AS ASSET_YN
+                  , F_SPLIT(PRDT.REF_IF_NO,'^',2)  AS SYSTEM_ID
+                  , F_GET_CREDIT_LIMIT_STTS(GR.BUYER,PRDT.REQ_DEPT,'','3') AS CREDIT_LIMIT_FLAG
+				]]>	
+			<choose>
+				<when test='st_close_type == "A"'>
+					<![CDATA[
+						, #{st_from_date}||'01' AS  GR_FROM_DATE
+						, #{st_from_date}||'31' AS GR_TO_DATE
+					]]>
+				</when>
+				<when test='st_close_type == "B"'>
+					<![CDATA[
+						, #{st_from_date}||'01' AS  GR_FROM_DATE
+						, #{st_from_date}||'25' AS GR_TO_DATE
+					]]>
+				</when>
+				<when test='st_close_type == "C"'>
+					<![CDATA[
+						, #{st_from_date}||'26' AS  GR_FROM_DATE
+						, #{st_from_date}||'31' AS GR_TO_DATE
+					]]>
+				</when>
+			</choose>
+			<![CDATA[
+				FROM
+				    ICOMGRDT GR
+				  , ICOMPOHD POHD
+				  , ICOMPODT PODT
+				  , ICOMPRDT PRDT
+				  , ICOMCMPY CMPY
+				  , ICOMBYIT BYIT
+	              , ( SELECT DISTINCT BUYER, KEP_DEPT
+	                 FROM MIS_BUYER_MNG
+	                 WHERE 1=1
+	                   AND YEAR = TO_CHAR(SYSDATE,'YYYY')
+	                   AND STATUS = 'C' ) MNG
+				WHERE 1=1
+				AND GR.BUYER = CMPY.COM_CODE
+				AND GR.BUYER = POHD.BUYER
+				AND GR.PO_NO = POHD.PO_NO
+				AND GR.PO_SEQ = PODT.PO_SEQ
+				AND GR.BUYER = MNG.BUYER(+)
+				AND POHD.BUYER = PODT.BUYER
+				AND POHD.PO_NO = PODT.PO_NO
+				AND PODT.BUYER = PRDT.BUYER
+				AND PODT.PR_NO = PRDT.PR_NO
+				AND PODT.PR_SEQ = PRDT.PR_SEQ
+				AND CMPY.BYCA_COMORG_CODE = BYIT.BUYER
+				AND BYIT.BUYER_ITEM_NO = PRDT.BUYER_ITEM_NO
+				AND BYIT.BUYER_ITEM_NO = PODT.BUYER_ITEM_NO
+				AND BYIT.BUYER_ITEM_NO = GR.BUYER_ITEM_NO
+				AND GR.AR_BILL_FLAG = 'N'
+				AND GR.STATUS <> 'D'
+				AND POHD.DOC_TYPE <> 'X'
+				AND GR.BUYER = 'KRSAMS0123'
+				AND GR.BUYER NOT IN (SELECT TEXT3 FROM ICOMCOD1 WHERE TYPE = 'TX08' AND TEXT1 = 'AR' AND TEXT2 IN ('KA', 'KK'))
+				AND PRDT.REQ_DEPT IN (SELECT CODE FROM ICOMCOD2 COD2
+													WHERE COD2.COMPANY_CODE = 'KRSAMS0123'
+													AND COD2.TYPE = 'C001'
+													AND COD2.TEXT3 = 'CCTR'
+													AND COD2.FLAG = 'Y')
+			]]>	
+			<choose>
+				<when test='st_close_type == "A"'>
+					<![CDATA[
+						AND GR.GR_DATE BETWEEN  #{st_from_date}||'01'  AND  #{st_from_date}||'31'
+					]]>
+				</when>
+				<when test='st_close_type == "B"'>
+					<![CDATA[
+						AND GR.GR_DATE BETWEEN  #{st_from_date}||'01' AND #{st_from_date}||'25'
+					]]>
+				</when>
+				<when test='st_close_type == "C"'>
+					<![CDATA[
+						AND GR.GR_DATE BETWEEN  #{st_from_date}||'26' AND #{st_from_date}||'31'
+					]]>
+				</when>
+			</choose>
+           <if test="st_plant != null and st_plant != '' ">
+           		AND PRDT.REQ_DEPT = #{st_plant}
+           </if>
+           <if test="st_plant_cd != null and st_plant_cd != '' ">
+           		AND UPPER(PRDT.REQ_DEPT) LIKE UPPER(#{st_plant_cd})||'%'
+           </if>
+           <if test="st_budgt_cd != null and st_budgt_cd != '' ">
+           		AND UPPER(PRDT.BUDGET_DEPT) LIKE UPPER(#{st_budgt_cd})||'%'
+           </if>
+           <if test="st_tax_type != null and st_tax_type != '' ">
+           		AND BYIT.TAX_TYPE = #{st_tax_type}
+           </if> 
+           <if test="st_ar_mng != null and st_ar_mng != '' ">
+           		AND GR.GR_CREATOR_NAME  LIKE #{st_ar_mng}||'%'
+           </if> 
+           <![CDATA[  
+				GROUP BY GR.BUYER
+				  , PRDT.REQ_DEPT
+				  , PRDT.BUDGET_DEPT
+				  , BYIT.TAX_TYPE
+				  , PRDT.REF_IF_NO
+				  				  
+				UNION ALL
+				SELECT
+				    (SELECT TEXT4 FROM ICOMCOD1 WHERE TYPE = 'VC04' AND CODE = DECODE(GR.BUYER, 'KRKOLO0077','KK', 'KA')) AS KEP_IRS_NAME
+				  , (SELECT COD2.TEXT4 FROM ICOMCOD2 COD2
+				  		WHERE COD2.TYPE = 'C001'
+				  		AND COD2.COMPANY_CODE = GR.BUYER
+				  		AND COD2.CODE =  PRDT.REQ_DEPT) AS BUYER_IRS_NO
+				  , MAX(CMPY.COM_NAME_LOC) AS BUYER_NAME
+				  , MAX(NVL(GR.AR_CLOSE_DEPT, MNG.KEP_DEPT)) AS KEP_DEPT
+				  , PRDT.REQ_DEPT
+				  , (SELECT COD2.TEXT1 FROM ICOMCOD2 COD2
+				  		WHERE COD2.TYPE = 'C001'
+				  		AND COD2.COMPANY_CODE = GR.BUYER
+				  		AND COD2.CODE =  PRDT.REQ_DEPT) AS REQ_DEPT_NM
+				  , (SELECT COD2.TEXT3 FROM ICOMCOD2 COD2
+				  		WHERE COD2.TYPE = 'C001'
+				  		AND COD2.COMPANY_CODE = GR.BUYER
+				  		AND COD2.CODE =  PRDT.REQ_DEPT) AS REQ_DEPT_GBN
+				  , (SELECT TEXT1 FROM ICOMCOD2 COD2
+						WHERE COD2.COMPANY_CODE = GR.BUYER
+						AND COD2.TYPE = 'C001'
+						AND COD2.CODE = PRDT.BUDGET_DEPT)  AS BUDGET_DEPT_NM
+				  , PRDT.BUDGET_DEPT
+				  , BYIT.TAX_TYPE
+				  , (SELECT COD.TEXT1 FROM ICOMCOD1 COD
+					WHERE COD.TYPE = 'TX17'
+					AND COD.CODE =BYIT.TAX_TYPE)  AS TAX_TYPE_NM
+				  , SUM(ROUND((GR.ITEM_AMT/F_GET_VATRATE_NEW(GR.BUYER)))) AS GR_AMT
+				  , GR.BUYER
+				  , (SELECT TEXT3 FROM ICOMCOD1 WHERE TYPE = 'VC04' AND CODE = DECODE(GR.BUYER, 'KRKOLO0077','KK', 'KA')) AS KEP_IRS_NO
+				  , 'KA' AS SITE_GUBUN_CODE
+				  , MAX(GR.AR_CLOSE_DEPT) AS KEP_DEPT_CODE
+				  , MAX(GR.GR_CREATOR_NAME) AS GR_CREATOR_NAME
+				  , MAX(GR.GR_CREATOR_EMAIL) AS GR_CREATOR_EMAIL
+                  , F_SPLIT(PRDT.REF_IF_NO,'^',1)  AS ASSET_YN
+                  , F_SPLIT(PRDT.REF_IF_NO,'^',2)  AS SYSTEM_ID
+                  , F_GET_CREDIT_LIMIT_STTS(GR.BUYER,PRDT.REQ_DEPT,'','3') AS CREDIT_LIMIT_FLAG
+				]]>	
+			<choose>
+				<when test='st_close_type == "A"'>
+					<![CDATA[
+						, #{st_from_date}||'01' AS  GR_FROM_DATE
+						, #{st_from_date}||'31' AS GR_TO_DATE
+					]]>
+				</when>
+				<when test='st_close_type == "B"'>
+					<![CDATA[
+						, #{st_from_date}||'01' AS  GR_FROM_DATE
+						, #{st_from_date}||'25' AS GR_TO_DATE
+					]]>
+				</when>
+				<when test='st_close_type == "C"'>
+					<![CDATA[
+						, #{st_from_date}||'26' AS  GR_FROM_DATE
+						, #{st_from_date}||'31' AS GR_TO_DATE
+					]]>
+				</when>
+			</choose>
+			<![CDATA[
+				FROM
+				    ICOMGRDT GR
+				  , ICOMPOHD POHD
+				  , ICOMPODT PODT
+				  , ICOMPRDT PRDT
+				  , ICOMCMPY CMPY
+				  , ICOMBYIT BYIT
+	              , ( SELECT DISTINCT BUYER, KEP_DEPT
+	                 FROM MIS_BUYER_MNG
+	                 WHERE 1=1
+	                   AND YEAR = TO_CHAR(SYSDATE,'YYYY')
+	                   AND STATUS = 'C' ) MNG
+				WHERE 1=1
+				AND GR.BUYER = CMPY.COM_CODE
+				AND GR.BUYER = POHD.BUYER
+				AND GR.PO_NO = POHD.PO_NO
+				AND GR.PO_SEQ = PODT.PO_SEQ
+				AND GR.BUYER = MNG.BUYER(+)
+				AND POHD.BUYER = PODT.BUYER
+				AND POHD.PO_NO = PODT.PO_NO
+				AND PODT.BUYER = PRDT.BUYER
+				AND PODT.PR_NO = PRDT.PR_NO
+				AND PODT.PR_SEQ = PRDT.PR_SEQ
+				AND CMPY.BYCA_COMORG_CODE = BYIT.BUYER
+				AND BYIT.BUYER_ITEM_NO = PRDT.BUYER_ITEM_NO
+				AND BYIT.BUYER_ITEM_NO = PODT.BUYER_ITEM_NO
+				AND BYIT.BUYER_ITEM_NO = GR.BUYER_ITEM_NO
+				AND GR.AR_BILL_FLAG = 'N'
+				AND GR.STATUS <> 'D'
+				AND POHD.DOC_TYPE <> 'X'
+				AND GR.BUYER = 'KRSAMS0123'
+				AND GR.BUYER NOT IN (SELECT TEXT3 FROM ICOMCOD1 WHERE TYPE = 'TX08' AND TEXT1 = 'AR' AND TEXT2 IN ('KA', 'KK'))
+				AND PRDT.REF_IF_NO = 'Y^'
+				AND PRDT.REQ_DEPT IN (SELECT CODE FROM ICOMCOD2 COD2
+													WHERE COD2.COMPANY_CODE = 'KRSAMS0123'
+													AND COD2.TYPE = 'C001'
+													AND COD2.TEXT3 = 'RCCTR'
+													AND COD2.FLAG = 'Y')
+			]]>	
+			<choose>
+				<when test='st_close_type == "A"'>
+					<![CDATA[
+						AND GR.GR_DATE BETWEEN  #{st_from_date}||'01'  AND  #{st_from_date}||'31'
+					]]>
+				</when>
+				<when test='st_close_type == "B"'>
+					<![CDATA[
+						AND GR.GR_DATE BETWEEN  #{st_from_date}||'01' AND #{st_from_date}||'25'
+					]]>
+				</when>
+				<when test='st_close_type == "C"'>
+					<![CDATA[
+						AND GR.GR_DATE BETWEEN  #{st_from_date}||'26' AND #{st_from_date}||'31'
+					]]>
+				</when>
+			</choose>
+           <if test="st_plant != null and st_plant != '' ">
+           		AND PRDT.REQ_DEPT = #{st_plant}
+           </if>
+           <if test="st_plant_cd != null and st_plant_cd != '' ">
+           		AND UPPER(PRDT.REQ_DEPT) LIKE UPPER(#{st_plant_cd})||'%'
+           </if>
+           <if test="st_budgt_cd != null and st_budgt_cd != '' ">
+           		AND UPPER(PRDT.BUDGET_DEPT) LIKE UPPER(#{st_budgt_cd})||'%'
+           </if>
+           <if test="st_tax_type != null and st_tax_type != '' ">
+           		AND BYIT.TAX_TYPE = #{st_tax_type}
+           </if> 
+           <if test="st_ar_mng != null and st_ar_mng != '' ">
+           		AND GR.GR_CREATOR_NAME  LIKE #{st_ar_mng}||'%'
+           </if> 
+           <![CDATA[  
+				GROUP BY GR.BUYER
+				  , PRDT.REQ_DEPT
+				  , PRDT.BUDGET_DEPT
+				  , BYIT.TAX_TYPE
+				  , PRDT.REF_IF_NO
+				  				  
+				UNION ALL
+				SELECT
+				    (SELECT TEXT4 FROM ICOMCOD1 WHERE TYPE = 'VC04' AND CODE = DECODE(GR.BUYER, 'KRKOLO0077','KK', 'KA')) AS KEP_IRS_NAME
+				  , (SELECT COD2.TEXT4 FROM ICOMCOD2 COD2
+				  		WHERE COD2.TYPE = 'C001'
+				  		AND COD2.COMPANY_CODE = GR.BUYER
+				  		AND COD2.CODE =  PRDT.REQ_DEPT) AS BUYER_IRS_NO
+				  , MAX(CMPY.COM_NAME_LOC) AS BUYER_NAME
+				  , MAX(NVL(GR.AR_CLOSE_DEPT, MNG.KEP_DEPT)) AS KEP_DEPT
+				  , PRDT.REQ_DEPT
+				  , (SELECT COD2.TEXT1 FROM ICOMCOD2 COD2
+				  		WHERE COD2.TYPE = 'C001'
+				  		AND COD2.COMPANY_CODE = GR.BUYER
+				  		AND COD2.CODE =  PRDT.REQ_DEPT) AS REQ_DEPT_NM
+				  , (SELECT COD2.TEXT3 FROM ICOMCOD2 COD2
+				  		WHERE COD2.TYPE = 'C001'
+				  		AND COD2.COMPANY_CODE = GR.BUYER
+				  		AND COD2.CODE =  PRDT.REQ_DEPT) AS REQ_DEPT_GBN
+				  , '' AS BUDGET_DEPT_NM
+				  , '' AS BUDGET_DEPT
+				  , BYIT.TAX_TYPE
+				  , (SELECT COD.TEXT1 FROM ICOMCOD1 COD
+					WHERE COD.TYPE = 'TX17'
+					AND COD.CODE =BYIT.TAX_TYPE)  AS TAX_TYPE_NM
+				  , SUM(ROUND((GR.ITEM_AMT/F_GET_VATRATE_NEW(GR.BUYER)))) AS GR_AMT
+				  , GR.BUYER
+				  , (SELECT TEXT3 FROM ICOMCOD1 WHERE TYPE = 'VC04' AND CODE = DECODE(GR.BUYER, 'KRKOLO0077','KK', 'KA')) AS KEP_IRS_NO
+				  , 'KA' AS SITE_GUBUN_CODE
+				  , MAX(GR.AR_CLOSE_DEPT) AS KEP_DEPT_CODE
+				  , MAX(GR.GR_CREATOR_NAME) AS GR_CREATOR_NAME
+				  , MAX(GR.GR_CREATOR_EMAIL) AS GR_CREATOR_EMAIL
+                  , F_SPLIT(PRDT.REF_IF_NO,'^',1)  AS ASSET_YN
+                  , F_SPLIT(PRDT.REF_IF_NO,'^',2)  AS SYSTEM_ID
+                  ,  F_GET_CREDIT_LIMIT_STTS(GR.BUYER,PRDT.REQ_DEPT,'','3') AS CREDIT_LIMIT_FLAG
+				]]>	
+			<choose>
+				<when test='st_close_type == "A"'>
+					<![CDATA[
+						, #{st_from_date}||'01' AS  GR_FROM_DATE
+						, #{st_from_date}||'31' AS GR_TO_DATE
+					]]>
+				</when>
+				<when test='st_close_type == "B"'>
+					<![CDATA[
+						, #{st_from_date}||'01' AS  GR_FROM_DATE
+						, #{st_from_date}||'25' AS GR_TO_DATE
+					]]>
+				</when>
+				<when test='st_close_type == "C"'>
+					<![CDATA[
+						, #{st_from_date}||'26' AS  GR_FROM_DATE
+						, #{st_from_date}||'31' AS GR_TO_DATE
+					]]>
+				</when>
+			</choose>
+			<![CDATA[
+				FROM
+				    ICOMGRDT GR
+				  , ICOMPOHD POHD
+				  , ICOMPODT PODT
+				  , ICOMPRDT PRDT
+				  , ICOMCMPY CMPY
+				  , ICOMBYIT BYIT
+	              , ( SELECT DISTINCT BUYER, KEP_DEPT
+	                 FROM MIS_BUYER_MNG
+	                 WHERE 1=1
+	                   AND YEAR = TO_CHAR(SYSDATE,'YYYY')
+	                   AND STATUS = 'C' ) MNG
+				WHERE 1=1
+				AND GR.BUYER = CMPY.COM_CODE
+				AND GR.BUYER = POHD.BUYER
+				AND GR.PO_NO = POHD.PO_NO
+				AND GR.PO_SEQ = PODT.PO_SEQ
+				AND GR.BUYER = MNG.BUYER(+)
+				AND POHD.BUYER = PODT.BUYER
+				AND POHD.PO_NO = PODT.PO_NO
+				AND PODT.BUYER = PRDT.BUYER
+				AND PODT.PR_NO = PRDT.PR_NO
+				AND PODT.PR_SEQ = PRDT.PR_SEQ
+				AND CMPY.BYCA_COMORG_CODE = BYIT.BUYER
+				AND BYIT.BUYER_ITEM_NO = PRDT.BUYER_ITEM_NO
+				AND BYIT.BUYER_ITEM_NO = PODT.BUYER_ITEM_NO
+				AND BYIT.BUYER_ITEM_NO = GR.BUYER_ITEM_NO
+				AND GR.AR_BILL_FLAG = 'N'
+				AND GR.STATUS <> 'D'
+				AND POHD.DOC_TYPE <> 'X'
+				AND GR.BUYER = 'KRSAMS0123'
+				AND GR.BUYER NOT IN (SELECT TEXT3 FROM ICOMCOD1 WHERE TYPE = 'TX08' AND TEXT1 = 'AR' AND TEXT2 IN ('KA', 'KK'))
+				AND PRDT.REQ_DEPT IN (SELECT CODE FROM ICOMCOD2 COD2
+													WHERE COD2.COMPANY_CODE = 'KRSAMS0123'
+													AND COD2.TYPE = 'C001'
+													AND COD2.TEXT3 = 'USER'
+													AND COD2.FLAG = 'Y')
+             ]]>
+			<choose>
+				<when test='st_close_type == "A"'>
+					<![CDATA[
+						AND GR.GR_DATE BETWEEN  #{st_from_date}||'01'  AND  #{st_from_date}||'31'
+					]]>
+				</when>
+				<when test='st_close_type == "B"'>
+					<![CDATA[
+						AND GR.GR_DATE BETWEEN  #{st_from_date}||'01' AND #{st_from_date}||'25'
+					]]>
+				</when>
+				<when test='st_close_type == "C"'>
+					<![CDATA[
+						AND GR.GR_DATE BETWEEN  #{st_from_date}||'26' AND #{st_from_date}||'31'
+					]]>
+				</when>
+			</choose>
+           <if test="st_plant != null and st_plant != '' ">
+           		AND PRDT.REQ_DEPT = #{st_plant}
+           </if> 
+           <if test="st_plant_cd != null and st_plant_cd != '' ">
+           		AND UPPER(PRDT.REQ_DEPT) LIKE UPPER(#{st_plant_cd})||'%'
+           </if>
+           <if test="st_budgt_cd != null and st_budgt_cd != '' ">
+           		AND UPPER(PRDT.BUDGET_DEPT) LIKE UPPER(#{st_budgt_cd})||'%'
+           </if>
+           <if test="st_tax_type != null and st_tax_type != '' ">
+           		AND BYIT.TAX_TYPE = #{st_tax_type}
+           </if> 
+           <if test="st_ar_mng != null and st_ar_mng != '' ">
+           		AND GR.GR_CREATOR_NAME  LIKE #{st_ar_mng}||'%'
+           </if> 
+		<![CDATA[  
+			GROUP BY GR.BUYER
+			  , PRDT.REQ_DEPT
+              , GR.GR_CREATOR_NAME
+              , GR.GR_CREATOR_EMAIL
+			  , BYIT.TAX_TYPE
+			  , PRDT.REF_IF_NO
+			  				  
+			UNION ALL
+			SELECT
+				    (SELECT TEXT4 FROM ICOMCOD1 WHERE TYPE = 'VC04' AND CODE = DECODE(GR.BUYER, 'KRKOLO0077','KK', 'KA')) AS KEP_IRS_NAME
+				  , (SELECT COD2.TEXT4 FROM ICOMCOD2 COD2
+				  		WHERE COD2.TYPE = 'C001'
+				  		AND COD2.COMPANY_CODE = GR.BUYER
+				  		AND COD2.CODE =  PRDT.REQ_DEPT) AS BUYER_IRS_NO
+				  , MAX(CMPY.COM_NAME_LOC) AS BUYER_NAME
+				  , MAX(NVL(GR.AR_CLOSE_DEPT, MNG.KEP_DEPT)) AS KEP_DEPT
+				  , PRDT.REQ_DEPT
+				  , (SELECT COD2.TEXT1 FROM ICOMCOD2 COD2
+				  		WHERE COD2.TYPE = 'C001'
+				  		AND COD2.COMPANY_CODE = GR.BUYER
+				  		AND COD2.CODE =  PRDT.REQ_DEPT) AS REQ_DEPT_NM
+				  , (SELECT COD2.TEXT3 FROM ICOMCOD2 COD2
+				  		WHERE COD2.TYPE = 'C001'
+				  		AND COD2.COMPANY_CODE = GR.BUYER
+				  		AND COD2.CODE =  PRDT.REQ_DEPT) AS REQ_DEPT_GBN
+				  , '' AS BUDGET_DEPT_NM
+				  , '' AS BUDGET_DEPT
+				  , BYIT.TAX_TYPE
+				  , (SELECT COD.TEXT1 FROM ICOMCOD1 COD
+					WHERE COD.TYPE = 'TX17'
+					AND COD.CODE =BYIT.TAX_TYPE)  AS TAX_TYPE_NM
+				  , SUM(ROUND((GR.ITEM_AMT/F_GET_VATRATE_NEW(GR.BUYER)))) AS GR_AMT
+				  , GR.BUYER
+				  , (SELECT TEXT3 FROM ICOMCOD1 WHERE TYPE = 'VC04' AND CODE = DECODE(GR.BUYER, 'KRKOLO0077','KK', 'KA')) AS KEP_IRS_NO
+				  , 'KA' AS SITE_GUBUN_CODE
+				  , MAX(GR.AR_CLOSE_DEPT) AS KEP_DEPT_CODE
+				  , MAX(GR.GR_CREATOR_NAME) AS GR_CREATOR_NAME
+				  , MAX(GR.GR_CREATOR_EMAIL) AS GR_CREATOR_EMAIL
+                  , F_SPLIT(PRDT.REF_IF_NO,'^',1)  AS ASSET_YN
+                  , F_SPLIT(PRDT.REF_IF_NO,'^',2)  AS SYSTEM_ID
+                  ,  F_GET_CREDIT_LIMIT_STTS(GR.BUYER,PRDT.REQ_DEPT,'','3') AS CREDIT_LIMIT_FLAG
+				]]>	
+			<choose>
+				<when test='st_close_type == "A"'>
+					<![CDATA[
+						, #{st_from_date}||'01' AS  GR_FROM_DATE
+						, #{st_from_date}||'31' AS GR_TO_DATE
+					]]>
+				</when>
+				<when test='st_close_type == "B"'>
+					<![CDATA[
+						, #{st_from_date}||'01' AS  GR_FROM_DATE
+						, #{st_from_date}||'25' AS GR_TO_DATE
+					]]>
+				</when>
+				<when test='st_close_type == "C"'>
+					<![CDATA[
+						, #{st_from_date}||'26' AS  GR_FROM_DATE
+						, #{st_from_date}||'31' AS GR_TO_DATE
+					]]>
+				</when>
+			</choose>
+			<![CDATA[
+				FROM
+				    ICOMGRDT GR
+				  , ICOMPOHD POHD
+				  , ICOMPODT PODT
+				  , ICOMPRDT PRDT
+				  , ICOMCMPY CMPY
+				  , ICOMBYIT BYIT
+	              , ( SELECT DISTINCT BUYER, KEP_DEPT
+	                 FROM MIS_BUYER_MNG
+	                 WHERE 1=1
+	                   AND YEAR = TO_CHAR(SYSDATE,'YYYY')
+	                   AND STATUS = 'C' ) MNG
+				WHERE 1=1
+				AND GR.BUYER = CMPY.COM_CODE
+				AND GR.BUYER = POHD.BUYER
+				AND GR.PO_NO = POHD.PO_NO
+				AND GR.PO_SEQ = PODT.PO_SEQ
+				AND GR.BUYER = MNG.BUYER(+)
+				AND POHD.BUYER = PODT.BUYER
+				AND POHD.PO_NO = PODT.PO_NO
+				AND PODT.BUYER = PRDT.BUYER
+				AND PODT.PR_NO = PRDT.PR_NO
+				AND PODT.PR_SEQ = PRDT.PR_SEQ
+				AND CMPY.BYCA_COMORG_CODE = BYIT.BUYER
+				AND BYIT.BUYER_ITEM_NO = PRDT.BUYER_ITEM_NO
+				AND BYIT.BUYER_ITEM_NO = PODT.BUYER_ITEM_NO
+				AND BYIT.BUYER_ITEM_NO = GR.BUYER_ITEM_NO
+				AND GR.AR_BILL_FLAG = 'N'
+				AND GR.STATUS <> 'D'
+				AND POHD.DOC_TYPE <> 'X'
+				AND GR.BUYER = 'KRSAMS0123'
+				AND GR.BUYER NOT IN (SELECT TEXT3 FROM ICOMCOD1 WHERE TYPE = 'TX08' AND TEXT1 = 'AR' AND TEXT2 IN ('KA', 'KK'))
+				AND PRDT.REF_IF_NO = 'Y^'
+				AND PRDT.REQ_DEPT IN (SELECT CODE FROM ICOMCOD2 COD2
+													WHERE COD2.COMPANY_CODE = 'KRSAMS0123'
+													AND COD2.TYPE = 'C001'
+													AND COD2.TEXT3 = 'RUSER'
+													AND COD2.FLAG = 'Y')
+             ]]>
+			<choose>
+				<when test='st_close_type == "A"'>
+					<![CDATA[
+						AND GR.GR_DATE BETWEEN  #{st_from_date}||'01'  AND  #{st_from_date}||'31'
+					]]>
+				</when>
+				<when test='st_close_type == "B"'>
+					<![CDATA[
+						AND GR.GR_DATE BETWEEN  #{st_from_date}||'01' AND #{st_from_date}||'25'
+					]]>
+				</when>
+				<when test='st_close_type == "C"'>
+					<![CDATA[
+						AND GR.GR_DATE BETWEEN  #{st_from_date}||'26' AND #{st_from_date}||'31'
+					]]>
+				</when>
+			</choose>
+           <if test="st_plant != null and st_plant != '' ">
+           		AND PRDT.REQ_DEPT = #{st_plant}
+           </if> 
+           <if test="st_plant_cd != null and st_plant_cd != '' ">
+           		AND UPPER(PRDT.REQ_DEPT) LIKE UPPER(#{st_plant_cd})||'%'
+           </if>
+           <if test="st_budgt_cd != null and st_budgt_cd != '' ">
+           		AND UPPER(PRDT.BUDGET_DEPT) LIKE UPPER(#{st_budgt_cd})||'%'
+           </if>
+           <if test="st_tax_type != null and st_tax_type != '' ">
+           		AND BYIT.TAX_TYPE = #{st_tax_type}
+           </if> 
+           <if test="st_ar_mng != null and st_ar_mng != '' ">
+           		AND GR.GR_CREATOR_NAME  LIKE #{st_ar_mng}||'%'
+           </if> 
+		<![CDATA[  
+			GROUP BY GR.BUYER
+			  , PRDT.REQ_DEPT
+              , GR.GR_CREATOR_NAME
+              , GR.GR_CREATOR_EMAIL
+			  , BYIT.TAX_TYPE
+			  , PRDT.REF_IF_NO
+            ORDER BY  REQ_DEPT
+
+		]]>
+	</select>
+	<select id="selectKepIrsGroupInfo" parameterType="java.util.Map" resultType="java.util.Map">
+	/*selectKepIrsGroupInfo*/
+		<![CDATA[
+			SELECT
+			    IRS_NAME
+			  , CEO_NAME_LOC
+			  , INDUSTRY_TYPE
+			  , BUSINESS_ITEMS
+			  , ADDRESS_LOC
+			  , SITE
+			FROM
+			    KEPTIRSN /* 고객사 사업자정보 */
+			WHERE 1=1
+			AND SITE IN ('KA', 'KK')
+			AND LPAD(COM_CODE , 10, 0) = LPAD(#{com_code}, 10, 0)
+			AND IRS_NO = #{irs_no}
+		]]>
+	</select>
+	<select id="selectBuyerIrsGroupInfo" parameterType="java.util.Map" resultType="java.util.Map">
+	/*selectBuyerIrsGroupInfo*/
+			SELECT
+		<choose>
+			<when test="com_code == 'KRISUC0004' or com_code == 'KRISUC0005' or com_code == 'KRISUC0006' "> 
+				(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = 'KRISUC0005')  IRS_NAME
+			  , (SELECT CEO_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = 'KRISUC0005') CEO_NAME_LOC
+			  , (SELECT INDUSTRY_TYPE FROM ICOMCMPY WHERE COM_CODE = 'KRISUC0005') INDUSTRY_TYPE
+			  , (SELECT BUSINESS_ITEMS FROM ICOMCMPY WHERE COM_CODE = 'KRISUC0005') BUSINESS_ITEMS
+			  , (SELECT ADDRESS_LOC FROM ICOMCMPY WHERE COM_CODE = 'KRISUC0005') ADDRESS_LOC
+			</when>
+			<when test="com_code == 'KRCOWA0001' or com_code == 'KRCOWA0005' or com_code == 'KRCOWA0006' "> 
+				(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = 'KRCOWA0001')  IRS_NAME
+			  , (SELECT CEO_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = 'KRCOWA0001') CEO_NAME_LOC
+			  , (SELECT INDUSTRY_TYPE FROM ICOMCMPY WHERE COM_CODE = 'KRCOWA0001') INDUSTRY_TYPE
+			  , (SELECT BUSINESS_ITEMS FROM ICOMCMPY WHERE COM_CODE = 'KRCOWA0001') BUSINESS_ITEMS
+			  , (SELECT ADDRESS_LOC FROM ICOMCMPY WHERE COM_CODE = 'KRCOWA0001') ADDRESS_LOC
+			</when>
+			<otherwise>
+			    DECODE(IR.IRS_NO,NULL,CM.COM_NAME_LOC,IR.IRS_NAME) IRS_NAME
+			  , DECODE(IR.IRS_NO,NULL,CM.CEO_NAME_LOC,IR.CEO_NAME_LOC) CEO_NAME_LOC
+			  , DECODE(IR.IRS_NO,NULL,CM.INDUSTRY_TYPE,IR.INDUSTRY_TYPE) INDUSTRY_TYPE
+			  , DECODE(IR.IRS_NO,NULL,CM.BUSINESS_ITEMS,IR.BUSINESS_ITEMS) BUSINESS_ITEMS
+			  , DECODE(IR.IRS_NO,NULL,CM.ADDRESS_LOC,IR.ADDRESS_LOC) ADDRESS_LOC
+			</otherwise>
+		</choose>
+		<![CDATA[
+			FROM
+			    KEPTIRSN IR /* 고객사 사업자정보 */
+			  , V_VOC_ICOMCMPY CM /* (ICOMCMPY - 회원사정보, MIS_BUYER_MNG - 고객사별 담당자 정보), KEPMDCP02@kepcon(주석처리됨) */
+			WHERE 1=1
+			AND CM.SYS_TYPE IN ('KA', 'KK')
+			AND IR.IRS_NO(+) = #{irs_no}
+			AND CM.SYS_TYPE = IR.SITE(+)
+			AND CM.COM_CODE = IR.COM_CODE(+)
+			AND LPAD(CM.COM_CODE , 10, 0) = LPAD(#{com_code}, 10, 0)
+			AND CM.BUSINESS_COND <> 'S'
+		]]>
+	</select>
+	<!-- 저장 -->
+	<update  id="updateMasterCmClSalesTaxGroupSum" parameterType="java.util.Map" >
+	/*updateMasterCmClSalesTaxGroupSum*/
+		<![CDATA[
+			UPDATE 
+			    ICOMGRDT GR /* 구매사별 입고정보 */
+			SET 
+			    AR_CLOSE_DEPT = LPAD(#{KEP_DEPT},3,0)
+			WHERE 1=1
+			AND GR_DATE BETWEEN #{GR_FROM_DATE} AND #{GR_TO_DATE}
+			AND BUYER = #{BUYER}
+			AND AGENT = #{AGENT_CODE}
+            AND NVL(GR.AR_CLOSE_DEPT, ' ') = NVL(#{KEP_DEPT_CODE}, ' ')
+            AND AR_BILL_FLAG = 'N'
+		]]>
+	</update>
+
+	<!-- 생성 -->
+	<update  id="insertMasterCmClSalesTaxGroupSum_KEPTARDT" parameterType="java.util.Map" >
+	/*insertMasterCmClSalesTaxGroupSum_KEPTARDT*/
+		<![CDATA[
+			INSERT INTO KEPTARDT /* 외상매출_세금계산서 */
+			(
+			    TAX_BILL_NO
+			  , KEP_IRS
+			  , SITE
+			  , DEPT_CODE
+			  , STATUS
+			  , ISSUE_DATE
+			  , CUSTOMER_NAME
+			  , IRS_NO
+			  , BUYER_CODE
+			
+			  , TOT_SUPP_PRICE
+			  , TOT_TAX_PRICE
+			  , TOT_AMT
+			  , SUPP_PRICE
+			  , TAX_PRICE
+			  , AMT
+			
+			  , TAX_TYPE
+			  , BILL_TYPE
+			  , PRINT_DATE
+			  , PRINT_USER_ID
+			  , PRINT_CNT
+			  , PRINT_AVAIL_CNT
+			  , CONFIRM_FLAG
+			  , REMARK_DESCRIPTION
+			  , REMARK_SPECIFICATION
+			  , REMARK_QTY
+			  , REMARK_PRICE
+			
+			  , ASK_TYPE
+			  , ADD_DATE
+			  , ADD_TIME
+			  , ADD_USER_ID
+			  , CHANGE_DATE
+			  , CHANGE_TIME
+			  , CHANGE_USER_ID
+			
+			  , AR_CLOSE_MONTH
+			  , AR_CLOSE_REVISION
+			  , KEP_IRS_NAME
+			  , KEP_CEO_NAME_LOC
+			  , KEP_INDUSTRY_TYPE
+			  , KEP_BUSINESS_ITEMS
+			  , KEP_ADDRESS_LOC
+			  , IRS_NAME
+			  , CEO_NAME_LOC
+			  , INDUSTRY_TYPE
+			  , BUSINESS_ITEMS
+			  , ADDRESS_LOC
+			  , GR_CREATOR_NAME
+			  , GR_CREATOR_EMAIL
+			  , E_TAX_SYSTEM_ID
+			)
+			VALUES
+			(
+			    #{order_no}
+			  , #{KEP_IRS_NO}
+			  , 'KA'
+			  , #{dept_code}
+			  , 'C'
+			  , TO_CHAR(LAST_DAY(TO_DATE(#{issue_date},'YYYYMM')),'YYYYMMDD')
+			  , #{buyer_irs_name}
+			  , #{irs_no}
+			  , #{buyer_code}
+			  , TRUNC(#{tot_amt})
+			  , DECODE(#{tax_type},'11', TRUNC(#{tot_amt} * 0.1), 0)
+			  , DECODE(#{tax_type},'11', TRUNC(#{tot_amt}) + TRUNC(#{tot_amt} * 0.1), TRUNC(#{tot_amt}))
+			  , TRUNC(#{supp_price}) 
+			  , DECODE(#{tax_type},'11', TRUNC(#{tax_price}) ,0)
+			  , DECODE(#{tax_type},'11', TRUNC(#{supp_price}) + TRUNC(#{tax_price})  ,TRUNC(#{supp_price}))
+			  ,DECODE(#{tax_type},'12','13',#{tax_type}) /*TAX_TYPE*/
+			  , '10'
+			  , '' /*PRINT_DATE*/
+			  , '' /*PRINT_USER_ID*/
+			  , 0 /*PRINT_CNT*/
+			  , 1 /*PRINT_AVAIL_CNT*/
+			  , 'N' /*CONFIRM_FLAG*/
+			  , 'MRO용품외'
+			  , 'MRO용품외'
+			  , 1
+			  , #{tot_amt}
+			
+			  , '02' /*ASK_TYPE*/
+			  , TO_CHAR(SYSDATE,'YYYYMMDD')
+			  , TO_CHAR(SYSDATE,'HH24MISS')
+			  , #{st_user_id}
+			  , TO_CHAR(SYSDATE,'YYYYMMDD')
+			  , TO_CHAR(SYSDATE,'HH24MISS')
+			  , #{st_user_id}
+			
+			  , #{issue_date}
+			  , #{st_close_revision}
+			  , #{kep_irs_name}
+			  , #{kep_ceo_name_loc}
+			  , #{kep_industry_type}
+			  , #{kep_business_items}
+			  , #{kep_address_loc}
+			  , #{buyer_irs_name}
+			  , #{buyer_ceo_name_loc}
+			  , #{buyer_industry_type}
+			  , #{buyer_business_items}
+			  , #{buyer_address_loc}
+			  , #{key_gr_creator_name}
+			  , #{key_gr_creator_email}
+			  , #{system_id}
+			)
+		]]>
+	</update>
+	
+	<update  id="insertMasterCmClSalesTaxGroupSum_KEPTITEM" parameterType="java.util.Map" >
+	/*insertMasterCmClSalesTaxGroupSum_KEPTITEM*/
+		<![CDATA[
+			INSERT INTO KEPTITEM /* 세금계산서 품목정보 */
+			(
+			    TAX_BILL_NO
+			  , ITEM_SEQ
+			  , REMARK_DESCRIPTION
+			  , REMARK_SPECIFICATION
+			  , REMARK_QTY
+			  , REMARK_PRICE
+			  , SUPP_PRICE
+			  , TAX_PRICE
+			  , REMARK_DATE
+			)
+			VALUES
+			(
+			    #{order_no}
+			  , '000001'
+			  , 'MRO용품외'
+			  , ''
+			  , ''
+			  , ''
+			  , TRUNC(#{supp_price})
+			  , TRUNC(#{supp_price} * 0.1)
+			  , TO_CHAR(SYSDATE, 'YYYYMMDD')
+			)
+		]]>
+	</update>
+ <select id="selectMasterCmClSalesTaxGroupSum_ICOMGRDT_CCTR" parameterType="java.util.Map" resultType="string">
+		<![CDATA[
+		/*selectMasterCmClSalesTaxGroupSum_ICOMGRDT_CCTR*/
+			SELECT
+			   TO_CHAR(SUM(ROUND((GR.ITEM_AMT/F_GET_VATRATE_NEW(GR.BUYER))))) AS GR_AMT
+			FROM  ICOMGRDT GR 
+			WHERE  GR_DATE BETWEEN #{key_gr_from_date} AND #{key_gr_to_date}
+			AND BUYER = #{buyer_code}
+			AND AR_BILL_FLAG = 'N' 
+			AND STATUS <> 'D'
+			AND (GR.BUYER, GR.GR_NO, GR.GR_SEQ) IN (
+				SELECT
+				    GR.BUYER, GR.GR_NO, GR.GR_SEQ
+				FROM
+				    ICOMGRDT GR
+				  , ICOMPOHD POHD
+				  , ICOMPODT PODT
+				  , ICOMPRDT PRDT
+				  , ICOMCMPY CMPY
+				  , ICOMBYIT BYIT
+				WHERE 1=1
+				AND GR.BUYER = CMPY.COM_CODE
+				AND GR.BUYER = POHD.BUYER
+				AND GR.PO_NO = POHD.PO_NO
+				AND GR.PO_SEQ = PODT.PO_SEQ
+				AND POHD.BUYER = PODT.BUYER
+				AND POHD.PO_NO = PODT.PO_NO
+				AND PODT.BUYER = PRDT.BUYER
+				AND PODT.PR_NO = PRDT.PR_NO
+				AND PODT.PR_SEQ = PRDT.PR_SEQ
+				AND CMPY.BYCA_COMORG_CODE = BYIT.BUYER
+				AND BYIT.BUYER_ITEM_NO = PRDT.BUYER_ITEM_NO
+				AND BYIT.BUYER_ITEM_NO = PODT.BUYER_ITEM_NO
+				AND BYIT.BUYER_ITEM_NO = GR.BUYER_ITEM_NO
+				AND GR.AR_BILL_FLAG = 'N'
+				AND GR.STATUS <> 'D'
+				AND POHD.DOC_TYPE <> 'X'
+				AND GR.BUYER =#{buyer_code}
+				AND GR.GR_DATE BETWEEN   #{key_gr_from_date} AND #{key_gr_to_date}
+				AND PRDT.REQ_DEPT =#{key_req_dept}
+				AND PRDT.BUDGET_DEPT = #{key_budget_dept}
+				AND BYIT.TAX_TYPE = #{tax_type}
+				AND F_SPLIT(PRDT.REF_IF_NO,'^',1)  = #{key_asset_yn} 
+			)
+		]]>
+	</select>
+	<select id="selectMasterCmClSalesTaxGroupSum_ICOMGRDT_USR" parameterType="java.util.Map"  resultType="string">
+		<![CDATA[
+		/*selectMasterCmClSalesTaxGroupSum_ICOMGRDT_USR*/
+			SELECT
+			   TO_CHAR(SUM(ROUND((GR.ITEM_AMT/F_GET_VATRATE_NEW(GR.BUYER))))) AS GR_AMT
+			FROM  ICOMGRDT GR 
+			WHERE GR_DATE BETWEEN #{key_gr_from_date} AND #{key_gr_to_date}
+			AND BUYER = #{buyer_code}
+			AND AR_BILL_FLAG = 'N' 
+			AND STATUS <> 'D'
+			AND (GR.BUYER, GR.GR_NO, GR.GR_SEQ) IN (
+				SELECT
+				    GR.BUYER, GR.GR_NO, GR.GR_SEQ
+				FROM
+				    ICOMGRDT GR
+				  , ICOMPOHD POHD
+				  , ICOMPODT PODT
+				  , ICOMPRDT PRDT
+				  , ICOMCMPY CMPY
+				  , ICOMBYIT BYIT
+				WHERE 1=1
+				AND GR.BUYER = CMPY.COM_CODE
+				AND GR.BUYER = POHD.BUYER
+				AND GR.PO_NO = POHD.PO_NO
+				AND GR.PO_SEQ = PODT.PO_SEQ
+				AND POHD.BUYER = PODT.BUYER
+				AND POHD.PO_NO = PODT.PO_NO
+				AND PODT.BUYER = PRDT.BUYER
+				AND PODT.PR_NO = PRDT.PR_NO
+				AND PODT.PR_SEQ = PRDT.PR_SEQ
+				AND CMPY.BYCA_COMORG_CODE = BYIT.BUYER
+				AND BYIT.BUYER_ITEM_NO = PRDT.BUYER_ITEM_NO
+				AND BYIT.BUYER_ITEM_NO = PODT.BUYER_ITEM_NO
+				AND BYIT.BUYER_ITEM_NO = GR.BUYER_ITEM_NO
+				AND GR.AR_BILL_FLAG = 'N'
+				AND GR.STATUS <> 'D'
+				AND POHD.DOC_TYPE <> 'X'
+				AND GR.BUYER =#{buyer_code}
+				AND GR.GR_DATE BETWEEN   #{key_gr_from_date} AND #{key_gr_to_date}
+				AND PRDT.REQ_DEPT = #{key_req_dept}
+				AND GR.GR_CREATOR_NAME = #{key_gr_creator_name}
+				AND GR.GR_CREATOR_EMAIL = #{key_gr_creator_email}
+				AND BYIT.TAX_TYPE = #{tax_type}
+			)
+		]]>
+	</select>
+	<update  id="updateMasterCmClSalesTaxGroupSum_ICOMGRDT_CCTR" parameterType="java.util.Map" >
+	/*updateMasterCmClSalesTaxGroupSum_ICOMGRDT_CCTR*/
+		<![CDATA[
+			UPDATE 
+			    ICOMGRDT GR /* 구매사별 입고정보 */
+			SET 
+			    AR_TAX_BILL_NO      = #{order_no}
+			  , AR_CLOSE_DEPT       = LPAD(#{dept_code},3,0)
+			  , AR_CLOSE_MONTH      = #{issue_date}
+			  , AR_CLOSE_REVISION   = #{st_close_revision}
+			  , AR_BILL_FLAG        = 'Y'
+			  , CLOSE_USER_ID       = DECODE(CLOSE_USER_ID,NULL,#{st_user_id},CLOSE_USER_ID)
+			WHERE 1=1
+			AND GR_DATE BETWEEN #{key_gr_from_date} AND #{key_gr_to_date}
+			AND BUYER = #{buyer_code}
+			AND AR_BILL_FLAG = 'N' 
+			AND STATUS <> 'D'
+			AND (GR.BUYER, GR.GR_NO, GR.GR_SEQ) IN (
+				SELECT
+				    GR.BUYER, GR.GR_NO, GR.GR_SEQ
+				FROM
+				    ICOMGRDT GR
+				  , ICOMPOHD POHD
+				  , ICOMPODT PODT
+				  , ICOMPRDT PRDT
+				  , ICOMCMPY CMPY
+				  , ICOMBYIT BYIT
+				WHERE 1=1
+				AND GR.BUYER = CMPY.COM_CODE
+				AND GR.BUYER = POHD.BUYER
+				AND GR.PO_NO = POHD.PO_NO
+				AND GR.PO_SEQ = PODT.PO_SEQ
+				AND POHD.BUYER = PODT.BUYER
+				AND POHD.PO_NO = PODT.PO_NO
+				AND PODT.BUYER = PRDT.BUYER
+				AND PODT.PR_NO = PRDT.PR_NO
+				AND PODT.PR_SEQ = PRDT.PR_SEQ
+				AND CMPY.BYCA_COMORG_CODE = BYIT.BUYER
+				AND BYIT.BUYER_ITEM_NO = PRDT.BUYER_ITEM_NO
+				AND BYIT.BUYER_ITEM_NO = PODT.BUYER_ITEM_NO
+				AND BYIT.BUYER_ITEM_NO = GR.BUYER_ITEM_NO
+				AND GR.AR_BILL_FLAG = 'N'
+				AND GR.STATUS <> 'D'
+				AND POHD.DOC_TYPE <> 'X'
+				AND GR.BUYER =#{buyer_code}
+				AND GR.GR_DATE BETWEEN   #{key_gr_from_date} AND #{key_gr_to_date}
+				AND PRDT.REQ_DEPT =#{key_req_dept}
+				AND PRDT.BUDGET_DEPT = #{key_budget_dept}
+				AND BYIT.TAX_TYPE = #{tax_type}
+				AND F_SPLIT(PRDT.REF_IF_NO,'^',1)  = #{key_asset_yn} 
+			)
+		]]>
+	</update>
+	<update  id="updateMasterCmClSalesTaxGroupSum_ICOMGRDT_USR" parameterType="java.util.Map" >
+	/*updateMasterCmClSalesTaxGroupSum_ICOMGRDT_USR*/
+		<![CDATA[
+			UPDATE 
+			    ICOMGRDT GR /* 구매사별 입고정보 */
+			SET 
+			    AR_TAX_BILL_NO      = #{order_no}
+			  , AR_CLOSE_DEPT       = LPAD(#{dept_code},3,0)
+			  , AR_CLOSE_MONTH      = #{issue_date}
+			  , AR_CLOSE_REVISION   = #{st_close_revision}
+			  , AR_BILL_FLAG        = 'Y'
+			  , CLOSE_USER_ID       = DECODE(CLOSE_USER_ID,NULL,#{st_user_id},CLOSE_USER_ID)
+			WHERE 1=1
+			AND GR_DATE BETWEEN #{key_gr_from_date} AND #{key_gr_to_date}
+			AND BUYER = #{buyer_code}
+			AND AR_BILL_FLAG = 'N' 
+			AND STATUS <> 'D'
+			AND (GR.BUYER, GR.GR_NO, GR.GR_SEQ) IN (
+				SELECT
+				    GR.BUYER, GR.GR_NO, GR.GR_SEQ
+				FROM
+				    ICOMGRDT GR
+				  , ICOMPOHD POHD
+				  , ICOMPODT PODT
+				  , ICOMPRDT PRDT
+				  , ICOMCMPY CMPY
+				  , ICOMBYIT BYIT
+				WHERE 1=1
+				AND GR.BUYER = CMPY.COM_CODE
+				AND GR.BUYER = POHD.BUYER
+				AND GR.PO_NO = POHD.PO_NO
+				AND GR.PO_SEQ = PODT.PO_SEQ
+				AND POHD.BUYER = PODT.BUYER
+				AND POHD.PO_NO = PODT.PO_NO
+				AND PODT.BUYER = PRDT.BUYER
+				AND PODT.PR_NO = PRDT.PR_NO
+				AND PODT.PR_SEQ = PRDT.PR_SEQ
+				AND CMPY.BYCA_COMORG_CODE = BYIT.BUYER
+				AND BYIT.BUYER_ITEM_NO = PRDT.BUYER_ITEM_NO
+				AND BYIT.BUYER_ITEM_NO = PODT.BUYER_ITEM_NO
+				AND BYIT.BUYER_ITEM_NO = GR.BUYER_ITEM_NO
+				AND GR.AR_BILL_FLAG = 'N'
+				AND GR.STATUS <> 'D'
+				AND POHD.DOC_TYPE <> 'X'
+				AND GR.BUYER =#{buyer_code}
+				AND GR.GR_DATE BETWEEN   #{key_gr_from_date} AND #{key_gr_to_date}
+				AND PRDT.REQ_DEPT = #{key_req_dept}
+				AND GR.GR_CREATOR_NAME = #{key_gr_creator_name}
+				AND GR.GR_CREATOR_EMAIL = #{key_gr_creator_email}
+				AND BYIT.TAX_TYPE = #{tax_type}
+			)
+		]]>
+	</update>
+	
+	<select id="selectMasterCmClSalesTaxGroupSum_IT_DEPT_AMT" parameterType="java.util.Map" resultType="String">
+		/* selectMasterCmClSalesTaxGroupSum_IT_DEPT_AMT */
+		<![CDATA[
+			SELECT	NVL(TRUNC(SUM(GR.ITEM_AMT)), 0) AS IT_ITEM_AMT
+			FROM	ICOMGRDT GR
+						, ICOMPODT PD
+			WHERE	1=1
+			AND		GR.BUYER = PD.BUYER
+			AND		GR.PO_NO = PD.PO_NO
+			AND		GR.PO_SEQ = PD.PO_SEQ
+			AND		GR.STATUS <> 'D'
+			AND		PD.STATUS <> 'D'
+			AND		GR.BUYER = #{buyer_code}
+			AND		GR.AR_TAX_BILL_NO = #{ar_no}
+			AND		GR.AR_BILL_FLAG = 'Y'
+			AND		PD.CMS_CATEG_ID IN (SELECT CODE1 FROM ICOMCOD3 WHERE TYPE = 'ITGR' AND BUYER = #{buyer_code} AND FLAG = 'Y')
+		]]>
+	</select>
+	
+	<update  id="updateMasterCmClSalesTaxGroupSum_KEPTARDT_ORG" parameterType="java.util.Map" >
+		/* updateMasterCmClSalesTaxGroupSum_KEPTARDT_ORG */
+		<![CDATA[
+			UPDATE KEPTARDT
+			SET		SUPP_PRICE = TOT_SUPP_PRICE - #{it_amt}
+			,			TAX_PRICE = DECODE(TAX_TYPE, '11', TOT_TAX_PRICE - TRUNC(#{it_amt} * 0.1), 0)
+			,			AMT = DECODE(TAX_TYPE, '11', TOT_SUPP_PRICE - #{it_amt} + TOT_TAX_PRICE - TRUNC(#{it_amt} * 0.1), TOT_SUPP_PRICE - #{it_amt})
+			,			REMARK_PRICE = TOT_SUPP_PRICE - #{it_amt} 
+			WHERE	TAX_BILL_NO = #{ar_no}
+		]]>
+	</update>
+	
+	<update  id="insertMasterCmClSalesTaxGroupSum_IT_KEPTARDT" parameterType="java.util.Map" >
+		/* insertMasterCmClSalesTaxGroupSum_IT_KEPTARDT */
+		<![CDATA[
+			INSERT INTO KEPTARDT /* 외상매출_세금계산서 */
+			(
+			    TAX_BILL_NO
+			  , KEP_IRS
+			  , SITE
+			  , DEPT_CODE
+			  , STATUS
+			  , ISSUE_DATE
+			  , CUSTOMER_NAME
+			  , IRS_NO
+			  , BUYER_CODE
+			
+			  , TOT_SUPP_PRICE
+			  , TOT_TAX_PRICE
+			  , TOT_AMT
+			  , SUPP_PRICE
+			  , TAX_PRICE
+			  , AMT
+			
+			  , TAX_TYPE
+			  , BILL_TYPE
+			  , PRINT_DATE
+			  , PRINT_USER_ID
+			  , PRINT_CNT
+			  , PRINT_AVAIL_CNT
+			  , CONFIRM_FLAG
+			  , REMARK_DESCRIPTION
+			  , REMARK_SPECIFICATION
+			  , REMARK_QTY
+			  , REMARK_PRICE
+			
+			  , ASK_TYPE
+			  , ADD_DATE
+			  , ADD_TIME
+			  , ADD_USER_ID
+			  , CHANGE_DATE
+			  , CHANGE_TIME
+			  , CHANGE_USER_ID
+			
+			  , AR_CLOSE_MONTH
+			  , AR_CLOSE_REVISION
+			  , KEP_IRS_NAME
+			  , KEP_CEO_NAME_LOC
+			  , KEP_INDUSTRY_TYPE
+			  , KEP_BUSINESS_ITEMS
+			  , KEP_ADDRESS_LOC
+			  , IRS_NAME
+			  , CEO_NAME_LOC
+			  , INDUSTRY_TYPE
+			  , BUSINESS_ITEMS
+			  , ADDRESS_LOC
+			  , GR_CREATOR_NAME
+			  , GR_CREATOR_EMAIL 
+			)
+			SELECT
+				TAX_BILL_NO
+			  , KEP_IRS
+			  , SITE
+			  , (SELECT MAX(CODE2) FROM ICOMCOD3 WHERE TYPE = 'ITGR' AND BUYER = #{buyer_code} AND FLAG = 'Y')
+			  , STATUS
+			  , ISSUE_DATE
+			  , CUSTOMER_NAME
+			  , IRS_NO
+			  , BUYER_CODE
+			
+			  , TOT_SUPP_PRICE
+			  , TOT_TAX_PRICE
+			  , TOT_AMT
+			  , TRUNC(#{it_amt})
+			  , DECODE(TAX_TYPE, '11', TRUNC(#{it_amt} * 0.1) ,0)
+			  , DECODE(TAX_TYPE, '11', TRUNC(#{it_amt}) + TRUNC(#{it_amt} * 0.1) , TRUNC(#{it_amt}))
+			
+			  , TAX_TYPE
+			  , BILL_TYPE
+			  , PRINT_DATE
+			  , PRINT_USER_ID
+			  , PRINT_CNT
+			  , PRINT_AVAIL_CNT
+			  , CONFIRM_FLAG
+			  , REMARK_DESCRIPTION
+			  , REMARK_SPECIFICATION
+			  , REMARK_QTY
+			  , TRUNC(#{it_amt})
+			
+			  , ASK_TYPE
+			  , ADD_DATE
+			  , ADD_TIME
+			  , ADD_USER_ID
+			  , CHANGE_DATE
+			  , CHANGE_TIME
+			  , CHANGE_USER_ID
+			
+			  , AR_CLOSE_MONTH
+			  , AR_CLOSE_REVISION
+			  , KEP_IRS_NAME
+			  , KEP_CEO_NAME_LOC
+			  , KEP_INDUSTRY_TYPE
+			  , KEP_BUSINESS_ITEMS
+			  , KEP_ADDRESS_LOC
+			  , IRS_NAME
+			  , CEO_NAME_LOC
+			  , INDUSTRY_TYPE
+			  , BUSINESS_ITEMS
+			  , ADDRESS_LOC
+			  , GR_CREATOR_NAME
+			  , GR_CREATOR_EMAIL
+			FROM KEPTARDT
+			WHERE TAX_BILL_NO = #{ar_no}
+		]]>
+	</update>
+	
+	<update  id="updateMasterCmClSalesTaxGroupSum_IT_ICOMGRDT" parameterType="java.util.Map" >
+		/* updateMasterCmClSalesTaxGroupSum_IT_ICOMGRDT */
+		<![CDATA[
+			UPDATE	ICOMGRDT
+			SET		AR_CLOSE_DEPT = (SELECT MAX(CODE2) FROM ICOMCOD3 WHERE TYPE = 'ITGR' AND BUYER = #{buyer_code} AND FLAG = 'Y')
+			WHERE	(BUYER, GR_NO, GR_SEQ) IN (
+						SELECT	DISTINCT GR.BUYER, GR.GR_NO, GR.GR_SEQ
+						FROM	ICOMGRDT GR
+									, ICOMPODT PD
+						WHERE	1=1
+						AND		GR.BUYER = PD.BUYER
+						AND		GR.PO_NO = PD.PO_NO
+						AND		GR.PO_SEQ = PD.PO_SEQ
+						AND		GR.STATUS <> 'D'
+						AND		PD.STATUS <> 'D'
+						AND		GR.BUYER = #{buyer_code}
+						AND		GR.AR_TAX_BILL_NO = #{ar_no}
+						AND		GR.AR_BILL_FLAG = 'Y'
+						AND		PD.CMS_CATEG_ID IN (SELECT CODE1 FROM ICOMCOD3 WHERE TYPE = 'ITGR' AND BUYER = #{buyer_code} AND FLAG = 'Y')
+			)
+		]]>
+	</update>
+	
+	<update  id="insertMasterCmClSalesTaxGroupSum_BillCloseList" parameterType="java.util.Map" >
+	/*insertMasterCmClSalesTaxGroupSum_BillCloseList*/
+		<![CDATA[
+			MERGE INTO BILL_CLOSE_USER_LIST A
+			USING (
+			   SELECT 
+			   (SELECT LEGACY_USER_ID FROM ICOMLUSR WHERE USER_ID = #{st_user_id})	AS LEGACY_USER_ID,
+			   #{issue_date} 	AS BILL_CLOSE_MONTH,
+			   'AR' 			AS CLOSE_TYPE,			   
+			   #{buyer_code} 		AS BUYER_CODE
+			     FROM DUAL
+			) B ON (1 = 1
+			  AND A.LEGACY_USER_ID = B.LEGACY_USER_ID
+			  AND A.BILL_CLOSE_MONTH = B.BILL_CLOSE_MONTH
+			  AND A.CLOSE_TYPE = B.CLOSE_TYPE
+			  AND A.BUYER_CODE = B.BUYER_CODE
+			)			
+			WHEN NOT MATCHED THEN
+			   INSERT (
+			        LEGACY_USER_ID,
+					BILL_CLOSE_MONTH,
+					CLOSE_TYPE,
+					SEQ,
+					KEP_DEPT,
+					BUYER_CODE,
+					AGENT_CODE,
+					CLOSE_CMPL_YN
+			   ) VALUES (
+			       (SELECT LEGACY_USER_ID FROM ICOMLUSR WHERE USER_ID = #{st_user_id}),
+			       #{issue_date},
+			       'AR',
+			       (SELECT NVL(MAX(SEQ),0) +1 FROM BILL_CLOSE_USER_LIST
+			       					WHERE LEGACY_USER_ID = (SELECT LEGACY_USER_ID FROM ICOMLUSR WHERE USER_ID = #{st_user_id})
+			       					AND   BILL_CLOSE_MONTH = #{issue_date}
+			       					AND   CLOSE_TYPE = 'AR' ),
+			       #{dept_code},
+			       #{buyer_code},
+			       '',
+			       'N'			       
+			   )
+		]]>
+	</update>
+</mapper>   
+   

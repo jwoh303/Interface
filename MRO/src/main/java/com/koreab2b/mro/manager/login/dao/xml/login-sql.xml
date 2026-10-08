@@ -1,0 +1,932 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="login">
+
+	<select id="getLogin" parameterType="string" resultType="com.koreab2b.mro.manager.login.domain.Login">
+		<![CDATA[
+		/*getLogin*/
+		       SELECT 	
+			       A.USER_ID AS USERID ,
+			       A.PASSWORD,
+			       A.STATUS,
+			       A.USER_TYPE AS USERTYPE,
+			       A.CHANGE_USER_TYPE AS CHANGEUSERTYPE,
+			       A.COM_TYPE AS COMTYPE,
+			       B.BUSINESS_COND AS BUSINESSCOND,
+			       A.COM_CODE AS COMCODE,
+			       A.LOGIN_ERROR_CNT AS LOGINERRORCNT,
+			       A.PASSWORD_TYPE AS PASSWORD_TYPE,
+			       NVL(A.TWO_FACTOR_YN,'X') AS TWO_FACTOR_YN,
+			       NVL(B.DELY_AREA,'X') AS DELY_AREA,
+			       B.STATUS AS CMPY_STATUS,
+			       CASE WHEN PASSWORD_TYPE = 'T' THEN 'IMSI'   
+                      ELSE CASE WHEN PASSWORD_TYPE = 'C' AND  SYSDATE > (TO_DATE(NVL(PASS_CHANGE_DATE,'20000101'),'YYYYMMDD')+90) THEN 'OLD'   
+                      ELSE CASE WHEN PASSWORD_TYPE = 'C' AND  SYSDATE < (TO_DATE(NVL(PASS_CHANGE_DATE,'20000101'),'YYYYMMDD')+90) THEN 'OK'   
+                      END END END AS PWD_STATUS
+		       FROM 	ICOMLUSR A, ICOMCMPY B
+		       WHERE USER_ID = #{value}
+		       AND	 A.COM_CODE = B.COM_CODE
+		       AND A.STATUS != 'D'
+		       AND B.STATUS != 'D'
+		       AND NVL(TRIM(B.COM_TYPE),B.BUSINESS_COND) <> 'X' 
+		]]>
+	</select>
+	
+	<select id="getSessionInfo" parameterType="string" resultType="com.koreab2b.mro.manager.login.domain.SessionInfo">
+		<![CDATA[
+		/*getSessionInfo*/
+		       SELECT 	
+			       A.USER_ID as userId ,
+			       A.USER_NAME_LOC as userNameLoc, 
+			       A.EMAIL as email, 
+			       A.MOBILE_PHONE as mPhone,
+			       A.ROLE role,	        	--	A:관리자,C:발주+입고, G:입고, P:발주, U:요청, U-:요청제한
+			       (SELECT AUTH_ID FROM KX_USERAUTH WHERE USER_ID = A.USER_ID ) AS userAuth,
+			       A.COM_TYPE as comType, 
+			       A.USER_TYPE as userType, 
+			       A.COM_CODE as comCode, -- buyer			       
+			       A.DEPARTMENT department,
+			       A.POSITION position,
+			       A.IMG_VIEW_FLAG imgViewFlag,
+			       A.FAX_NUMBER fax,
+			       A.PHONE_NUMBER tel,
+			       A.USER_NAME_ENG userNameEng,
+			       A.COUNTRY country,
+			       (SELECT D.TEXT1 FROM ICOMCOD2 D WHERE D.COMPANY_CODE=A.COM_CODE AND D.TYPE='C001' AND D.CODE=A.DEPARTMENT) departmentName,		      
+			       A.STATUS			status,       
+			       A.DELY_TO_LOCATION delyToLocation,
+			       (SELECT TEXT1 FROM ICOMCOD2 WHERE CODE = A.DELY_TO_LOCATION AND COMPANY_CODE = A.COM_CODE AND TYPE = 'C012') delyToLocationCodeName,
+			       (SELECT TEXT2 FROM ICOMCOD2 WHERE CODE = A.DELY_TO_LOCATION AND COMPANY_CODE = A.COM_CODE AND TYPE = 'C012') delyToLocationName,
+			       A.PURCHASE_DEPT purchaseDept,
+			       (SELECT D.TEXT1 FROM ICOMCOD2 D WHERE D.COMPANY_CODE=A.COM_CODE AND D.TYPE='C001' AND D.CODE=A.PURCHASE_DEPT) purchaseDeptName,
+			       A.ZIP_CODE zipCode,
+			       A.PERSON_AUTHOR personAuthor,
+			       A.ROW_CNT rowCnt,
+			       DECODE(NVL(A.OFFICE_YN,'N'),'Y','B',B.BUSINESS_COND) as businessCond,			       
+			       B.USING_CATAL_TYPE usingCatalType,
+			       B.BYCA_COMORG_CODE bycaComorgCode,	
+			       B.BUDGET_FLAG budgetFlag,		       
+			       B.COM_NAME_ENG comNameEng,
+			       B.COM_NAME_LOC comNameLoc,
+			       B.ADDRESS_LOC addressLoc,
+			       B.HP_ADDRESS hpAddress,
+			       B.AGENT_OPEN_FLAG agentOpenFlag,
+			       B.BYCA_COMORG_LEVEL bycaComorgLevel,
+			       A.USER_GROUP userGroup,
+			       CASE WHEN PASSWORD_TYPE = 'T' THEN 'IMSI'   
+                      ELSE CASE WHEN PASSWORD_TYPE = 'C' AND  SYSDATE > (TO_DATE(NVL(PASS_CHANGE_DATE,'20000101'),'YYYYMMDD')+90) THEN 'OLD'   
+                      ELSE CASE WHEN PASSWORD_TYPE = 'C' AND  SYSDATE < (TO_DATE(NVL(PASS_CHANGE_DATE,'20000101'),'YYYYMMDD')+90) THEN 'OK'   
+                      END END END AS pwdStatus,
+			       NVL(DECODE(B.LOGO_YN,'Y','/resources/images/ci/'||B.COM_CODE||'.gif'),'/resources/images/b_h1_logo.gif') AS ciImage,
+                   NVL(A.WAREHOUSE_ADMIN,'N') AS whAdmin,
+                   PASSWORD password,
+                   (SELECT PASSWORD FROM ICOMLUSR WHERE USER_ID = 'O'||A.USER_ID) AS decode_password,    -- 운영사인대 고객사로 로그인 가능자 암호 디코드
+                   (SELECT OFFICE_YN FROM ICOMLUSR WHERE USER_ID = 'O'||A.USER_ID) office_yn, -- 운영사인대 고객사로 로그인 가능자
+                   A.REJECT_REASON as ikenSessionkey,
+                   A.ACCESS_COMORG_LEVEL as accessComorgLevel,
+                   A.LEGACY_USER_ID AS empNo,
+                   A.LANG AS lang,
+                   A.PASSWORD_TYPE AS passwordType,
+                   TO_CHAR(TO_DATE(NVL(A.LAST_LOGIN_DATE||A.LAST_LOGIN_TIME,TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')),'YYYYMMDDHH24MISS'),'YYYY/MM/DD HH24:MI') AS lastLoginDate,
+                   NVL(A.TWO_FACTOR_YN,'X') AS twoFactorYn,
+                   A.CHG_INFO_PWD_YN AS chgInfoPwdYn,
+                   A.PR_MNG_FLAG AS prMngFlag,
+                   (SELECT TEXT1 FROM ICOMCOD2 WHERE COMPANY_CODE = A.COM_CODE AND TYPE = 'ADMIP' AND CODE = A.USER_ID AND FLAG = 'Y') AS kepAdmIpList,
+                   NVL(A.OFFICE_YN,'N') AS ownOfficeYn                
+		       FROM 	ICOMLUSR A, ICOMCMPY B
+		       WHERE USER_ID = #{value}
+		       AND	 A.COM_CODE = B.COM_CODE
+		       AND A.STATUS != 'D'
+		       AND B.STATUS != 'D' 
+		       AND NVL(TRIM(B.COM_TYPE),B.BUSINESS_COND) <> 'X' 
+		]]>
+	</select>
+	
+	<select id="getIRSNo" parameterType="string" resultType="string">
+		<![CDATA[
+		/*getIRSNo*/
+	       SELECT REPLACE (CMPY.IRS_NO, '-', '') AS IRS_NO
+			  FROM ICOMLUSR USR, ICOMCMPY CMPY
+			 WHERE     USR.COM_CODE = CMPY.COM_CODE
+			       AND CMPY.STATUS != 'D'
+			       AND USR.USER_ID = #{st_user_id}
+		]]>
+	</select>
+	
+	<select id="getPWD" parameterType="string" resultType="string">
+		<![CDATA[
+		/*getPWD*/
+	       SELECT  PASSWORD AS PWD
+			  FROM ICOMLUSR
+			 WHERE USER_ID = #{userId}
+		]]>
+	</select>
+	<select id="getLusrYn" parameterType="java.util.Map" resultType="string">
+		<![CDATA[
+		/*getLusrYn*/
+	       SELECT DECODE( COUNT(USER_ID),0,'N','Y') LUSR_YN
+			  FROM ICOMLUSR
+			 WHERE USER_ID = #{USER_ID}
+			 AND COM_CODE = #{COM_CODE}
+		]]>
+	</select>
+	<select id="getComCode" parameterType="string" resultType="string">
+		<![CDATA[
+		/*getComCode*/
+	       SELECT MAX(COMPANY_CODE) AS COMPANY_CODE 
+			FROM ICOMCOD2 
+			 WHERE  TYPE = 'C005' 
+			 AND CODE = #{appUserName}
+		]]>
+	</select>
+		<select id="getRollYn" parameterType="java.util.Map" resultType="string">
+		<![CDATA[
+		/*getRollYn*/
+	       SELECT DECODE( COUNT(CODE),0,'N','Y') LUSR_YN
+			  FROM ICOMCOD1
+			 WHERE TYPE= 'M145' 
+			 AND CODE = #{appUserName}
+			 AND FLAG  = 'Y'
+		]]>
+	</select>
+	<select id="getOldPasswordCheck" parameterType="java.util.Map" resultType="string">
+		<![CDATA[
+		/*getOldPasswordCheck*/
+	       SELECT CASE
+			          WHEN #{st_old_password} = PASSWORD
+			          THEN
+			             'Y'
+			          ELSE
+			             'N'
+			       END
+			          AS FLAG
+			  FROM ICOMLUSR
+			 WHERE USER_ID = #{userId}
+		]]>
+	</select>
+	
+	<update id="setUserPwdUpdate"  parameterType="java.util.Map">
+		<![CDATA[
+			/*setUserPwdUpdate*/
+			UPDATE ICOMLUSR
+			   SET PASSWORD = #{st_password},
+			       PASS_CHANGE_DATE = TO_CHAR (SYSDATE, 'YYYYMMDD'),
+			       PASSWORD_TYPE = 'C'
+			 WHERE USER_ID IN (SELECT CODE2 FROM ICOMCOD3 WHERE TYPE = 'UNID' AND CODE1 = #{userId} AND FLAG = 'Y' UNION SELECT #{userId} FROM DUAL)
+	       ]]>
+	</update>
+	
+	<update id="setPunchoutUserUpdate"  parameterType="java.util.Map">
+		<![CDATA[
+			/*setPunchoutUserUpdate*/
+			UPDATE ICOMLUSR
+			   SET PASSWORD = #{password},
+			       PASS_CHANGE_DATE = TO_CHAR (SYSDATE, 'YYYYMMDD'),
+			       PASSWORD_TYPE = 'C',
+			       EMAIL  = #{userEmail}
+			       ,RETURN_URL = #{returnURL}
+			 WHERE USER_ID = #{appUserName}
+			 
+	       ]]>
+	</update>
+	<update id="setPunchoutRollInsert"  parameterType="java.util.Map">
+		<![CDATA[
+			/*setPunchoutRollInsert*/
+			INSERT INTO	KX_USERAUTH					
+			(									
+				USER_ID,
+				AUTH_ID,
+				CREATE_DT,
+				USE_FLAG
+			)VALUES	(
+		       #{appUserName},
+		       (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE ='M140' AND CODE = #{comcode}),
+		      SYSDATE,
+		      'Y'	       
+		      )
+	       ]]>
+	</update>
+	<update id="setPunchoutAdminRollInsert"  parameterType="java.util.Map">
+		<![CDATA[
+			/*setPunchoutAdminRollInsert*/
+			INSERT INTO	KX_USERAUTH					
+			(									
+				USER_ID,
+				AUTH_ID,
+				CREATE_DT,
+				USE_FLAG
+			)VALUES	(
+		       #{appUserName},
+		       (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE ='M146' AND CODE = #{comcode}),
+		      SYSDATE,
+		      'Y'	       
+		      )
+	       ]]>
+	</update>
+	<update id="setPunchoutRollDel"  parameterType="java.util.Map">
+		<![CDATA[
+			/*setPunchoutRollDel*/
+			DELETE KX_USERAUTH
+			WHERE USER_ID = #{appUserName} 
+	       ]]>
+	</update>
+	<update id="setPunchoutUserInsert"  parameterType="java.util.Map">
+		<![CDATA[
+			/*setPunchoutUserInsert*/
+			INSERT INTO ICOMLUSR		
+			          (USER_ID,
+					   COM_TYPE,
+					   USER_TYPE,
+					   PASSWORD,
+					   LANG,
+					   USER_NAME_ENG,
+					   USER_NAME_LOC,
+					   COM_CODE,
+					   EMAIL,
+					   COUNTRY,
+					   REG_DATE,
+					   STATUS,
+					   PERSON_AUTHOR,
+					   BEGIN_DATE,
+					   PASS_CHANGE_DATE,
+					   USER_GROUP,
+					   CONFIRM_DATE,
+					   CONFIRM_USER_ID,
+					   LEGACY_USER_ID,
+					   ROLE,
+					   MAIL_RECV_FLAG,
+					   ACCESS_COMORG_LEVEL,
+					   SMS_RECV_FLAG,
+					   ROW_CNT,
+					   IMG_VIEW_FLAG,
+					   PASSWORD_TYPE,
+					   PR_MNG_FLAG,
+					   RETURN_URL
+			               )VALUES(
+				       TRIM(#{appUserName}),
+				       'B',
+				       'A',
+				       #{password}
+				       'KR',
+				       #{appUserName},
+				       #{userName},
+				       #{comcode},
+				       #{userEmail},
+				       'KR',
+				       TO_CHAR(SYSDATE,'YYYYMMDD'),
+				       'C',
+				       'PO',
+				       TO_CHAR(SYSDATE,'YYYYMMDD'),
+				       TO_CHAR(SYSDATE,'YYYYMMDD'),
+				       'C',
+				       TO_CHAR(SYSDATE,'YYYYMMDD'),
+				       'PUNCHOUT',
+				       #{appUserName},
+				       'A+',
+				       'N',
+				       '2',
+				       'N',
+				       '10',
+				       'Y',
+				       'C',
+				       'N',
+				       #{returnURL}			       
+				       )
+	       ]]>
+	</update>
+	
+	<select id="getUserPrtysByUserId" parameterType="string" resultType="string">
+		<![CDATA[
+		/*getUserPrtysByUserId*/
+            SELECT REGEXP_SUBSTR (PRTY_VALUES, '[^;]+', 1, lv) AS ROLE_ID
+			  FROM (SELECT USER_ID, LTRIM (RTRIM (PRTY_VALUE, ';'), ';') AS PRTY_VALUES
+			          FROM KX_USERPRTY
+			         WHERE    USE_FLAG = 'Y'
+			         	   AND PRTY_KEY= 'ROLE_LIST'
+			               AND USER_ID = #{userId}) t,
+			       (    SELECT LEVEL lv
+			              FROM DUAL
+			        CONNECT BY LEVEL <= 20)
+			 WHERE LENGTH (PRTY_VALUES) - LENGTH (REPLACE (PRTY_VALUES, ';')) + 1 >= lv
+		]]>
+	</select>
+	
+	<select id="getRoleIdsByUserId" parameterType="string" resultType="string">
+		<![CDATA[
+		/*getRoleIdsByUserId*/
+		SELECT ROLE_ID
+		 FROM KX_USERROLE
+	    WHERE USE_FLAG = 'Y'
+		    AND USER_ID = #{userId}
+		]]>
+	</select>
+	
+	<select id="getRedirectUrlByUserId" parameterType="java.util.Map" resultType="string">
+		<![CDATA[
+		/*getRedirectUrlByUserId*/
+	    SELECT Y.URL||CHR(63)||'upperId='||Y.TOPMENUID AS URL
+		  FROM (SELECT CASE
+		                  WHEN INSTR (B.COL01_DATA, #{USER_ID}) > 0
+		                       OR B.COL01_DATA = 'ALL'
+		                  THEN
+                               REPLACE(REPLACE(COL02_DATA, CHR(10), ''), CHR(13), '')
+		                  WHEN INSTR (B.COL03_DATA, #{USER_ID}) > 0
+		                       OR B.COL01_DATA = 'ALL'
+		                  THEN
+                             REPLACE(REPLACE(COL04_DATA, CHR(10), ''), CHR(13), '')
+		                  ELSE
+		                     NULL
+		               END
+		                  FRST_MENU_ID,
+		               B.IMP_NOTE
+		          FROM BNTSLGDEF A, BNTSLGIMP B
+		         WHERE A.SLG_ID = B.SLG_ID
+		               AND TO_CHAR (SYSDATE, 'YYYYMMDD') BETWEEN A.OPEN_DATE
+		                                                     AND A.CLOSE_DATE
+		               AND TO_CHAR (SYSDATE, 'YYYYMMDD') BETWEEN B.OPEN_DATE
+		                                                     AND B.CLOSE_DATE
+		               AND B.COM_CODE = #{COM_CODE}
+		               AND A.SLG_ID = 'P07-0000020'
+		                                           ) X,
+		       (SELECT B.MENU_ID,
+		               B.NAME,
+		               B.DEPTH,
+		               B.TYPE,
+		               B.URL,
+                       DECODE(SUBSTR(B.MENU_ID, 0, 1), 'b', 'b00100000000', 
+                                DECODE(B.DEPTH,
+                                0,B.MENU_ID,
+                                1,B.MENU_ID,
+                                2,B.UPPER_ID,
+                                3,(SELECT UPPER_ID FROM KX_MENUINFO WHERE MENU_ID = B.UPPER_ID),
+                                4,(SELECT UPPER_ID FROM KX_MENUINFO WHERE MENU_ID = B.UPPER_ID)
+                                )) AS TOPMENUID
+		          FROM KX_MENUAUTH A, KX_MENUINFO B
+		         WHERE A.MENU_ID = B.MENU_ID
+		               AND A.AUTH_ID =
+		                      (SELECT AUTH.AUTH_ID AS AUTHID
+		                         FROM KX_AUTHINFO AUTH, KX_USERAUTH USERAUTH
+		                        WHERE AUTH.AUTH_ID = USERAUTH.AUTH_ID
+		                              AND USERAUTH.USER_ID = #{USER_ID}
+		                                                            )
+		               AND A.USE_FLAG = 'Y'
+		               AND B.USE_FLAG = 'Y') Y
+		 WHERE X.FRST_MENU_ID = Y.MENU_ID
+		]]>
+	</select>
+	
+	<select id="setCowayIkenSsoId" parameterType="java.util.Map" resultType="string">
+		<![CDATA[
+		/*setCowayIkenSsoId*/
+		SELECT USER_ID
+		FROM (
+		SELECT NVL (TRIM (USER_ID), '') AS USER_ID
+		      ,NVL(B.VALUE1,99) AS IDX
+		  FROM ICOMLUSR A
+		  LEFT OUTER JOIN ICOMCOD2 B ON (1 = 1   
+         AND B.TYPE = 'C001'          
+         AND B.CODE = A.DEPARTMENT    
+         AND B.COMPANY_CODE = A.COM_CODE  
+         )     
+		 WHERE 1=1 
+		 AND A.COM_CODE LIKE SUBSTR(#{COM_CODE},1,6)||'%' AND A.LEGACY_USER_ID = #{EMP_NO}
+		 AND A.STATUS IN ('C','R')
+		 AND (A.OFFICE_YN IS NULL OR A.OFFICE_YN <> 'Y' )
+		 ORDER BY IDX, COM_CODE DESC
+		 ) WHERE ROWNUM = 1
+		]]>
+	</select>
+	
+	<select id="setGroupIkenSsoId" parameterType="java.util.Map" resultType="string">
+		<![CDATA[
+		/* setGroupIkenSsoId */
+		SELECT USER_ID
+		FROM (
+			SELECT NVL (TRIM (USER_ID), '') AS USER_ID
+			  FROM ICOMLUSR A
+			     , ICOMCMPY C
+			 WHERE 1=1 
+			   AND C.BYCA_COMORG_CODE = #{COM_CODE}
+			   AND C.COM_CODE = A.COM_CODE
+			   AND A.LEGACY_USER_ID = #{EMP_NO}
+			   AND A.STATUS IN ('C','R')
+            UNION
+			SELECT NVL (TRIM (USER_ID), '') AS USER_ID
+			  FROM ICOMLUSR A
+			 WHERE 1=1
+			   AND A.COM_CODE IN (SELECT TEXT1 FROM ICOMCOD2 WHERE TYPE IN ('C002','PLNT') AND COMPANY_CODE = #{COM_CODE} AND FLAG = 'Y')
+			   AND A.LEGACY_USER_ID = #{EMP_NO}
+			   AND A.STATUS IN ('C','R')
+			UNION
+			SELECT NVL (TRIM (C.USER_ID), '') AS USER_ID
+			  FROM ICOMLUSR C
+			 WHERE 1 = 1
+			   AND C.COM_CODE IN (SELECT TEXT4 FROM ICOMCOD1 WHERE TYPE = 'M127' AND TEXT1 = #{COM_CODE} AND FLAG = 'Y')
+			   AND C.LEGACY_USER_ID = #{EMP_NO}
+			   AND C.STATUS IN ('C','R')
+		 	)
+		WHERE ROWNUM = 1
+		]]>
+	</select>
+	
+	<select id="setIkenSsoId" parameterType="java.util.Map" resultType="string">
+		<![CDATA[
+		/*setIkenSsoId*/
+		SELECT USER_ID
+		  FROM (
+			SELECT NVL (TRIM (A.USER_ID), '') AS USER_ID
+			  FROM ICOMLUSR A
+			 WHERE A.COM_CODE       = #{COM_CODE}
+			   AND A.LEGACY_USER_ID = #{EMP_NO}
+			   AND A.STATUS IN ('C','R')
+			   AND (A.OFFICE_YN IS NULL OR A.OFFICE_YN <> 'Y' )
+			UNION
+			SELECT NVL (TRIM (C.USER_ID), '') AS USER_ID
+			  FROM ICOMCMPY B
+			     , ICOMLUSR C
+			 WHERE B.BYCA_COMORG_CODE = #{COM_CODE}
+			   AND B.STATUS          != 'D'
+			   AND C.COM_CODE       = B.COM_CODE
+			   AND C.LEGACY_USER_ID = #{EMP_NO}
+			   AND C.STATUS IN ('C','R')
+			   AND (C.OFFICE_YN IS NULL OR C.OFFICE_YN <> 'Y' )
+		  )
+		 WHERE ROWNUM = 1
+		]]>
+	</select>
+	<select id="setIkenSsoNm" parameterType="java.util.Map" resultType="string">
+		<![CDATA[
+		/*setIkenSsoNm*/
+		SELECT USER_NAME_LOC
+		  FROM (
+			SELECT NVL (TRIM (A.USER_NAME_LOC), '') AS USER_NAME_LOC
+			  FROM ICOMLUSR A
+			 WHERE A.COM_CODE       = #{COM_CODE}
+			   AND A.LEGACY_USER_ID = #{EMP_NO}
+			   AND A.STATUS IN ('C','R')
+			   AND (A.OFFICE_YN IS NULL OR A.OFFICE_YN <> 'Y' )
+		  )
+		 WHERE ROWNUM = 1
+		]]>
+	</select>
+	
+	<select id="setIkenSsoPw" parameterType="java.util.Map" resultType="string">
+		<![CDATA[
+		/*setIkenSsoPw*/
+		SELECT A.PASSWORD  AS PWD
+		  FROM ICOMLUSR A
+		 WHERE USER_ID = #{KITA_ID}
+		 AND (OFFICE_YN IS NULL OR OFFICE_YN <> 'Y' )
+		]]>
+	</select>
+	
+	<update id="setSessionkey"  parameterType="java.util.Map">
+		<![CDATA[
+		/*setSessionkey*/
+		UPDATE ICOMLUSR
+		   SET REJECT_REASON = #{SESSION_KEY}
+		 WHERE user_id = #{KITA_ID} AND COM_CODE = 'KRKORE0001'
+	       ]]>
+	</update>
+	
+	<select id="getSsoDomainList" parameterType="string" resultType="java.util.HashMap">
+		SELECT 
+		       TEXT2 AS DOMAIN,
+		       TEXT3 AS ATTR1,
+		       TEXT4 AS ATTR2
+		  FROM ICOMCOD1
+		 WHERE TYPE = 'M127'
+		   AND TEXT1 = #{comCode}
+		   AND FLAG  = 'Y'
+	</select>
+
+	<select id="getEncryptedEmpNo" parameterType="string" resultType="string">
+		/* login.getEncryptedEmpNo */
+		SELECT EOM_CRYPTO_KEP_PKG.FN_DECRYPT_AES256( REPLACE(REPLACE(#{empNo}, '%3D', '='), '%2F', '/') )
+		  FROM DUAL
+	</select>
+	
+	<update id="saveLogintime"  parameterType="java.util.Map">
+		<![CDATA[
+		/*saveLogintime*/
+		UPDATE ICOMLUSR
+		   SET LAST_LOGIN_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD')
+		   , LAST_LOGIN_TIME = TO_CHAR(SYSDATE, 'HH24MISS')
+		   , LOGIN_ERROR_CNT = 0
+		   , TWO_FACTOR_SMS = NULL
+		 WHERE USER_ID IN (
+		 	SELECT	DISTINCT CODE2
+			FROM	ICOMCOD3
+			WHERE	1=1
+			AND		TYPE = 'UNID'
+			AND		CODE1 = #{LAST_LOGIN_ID}
+			
+			UNION
+			
+			SELECT	USER_ID
+			FROM	ICOMLUSR
+			WHERE	1=1
+			AND		USER_ID = #{LAST_LOGIN_ID}
+		 ) 
+		 AND STATUS IN ('C', 'R')
+	       ]]>
+	</update>
+	
+	<update id="saveLogintime1"  parameterType="java.util.Map">
+		<![CDATA[
+		/*saveLogintime1*/
+		UPDATE ICOMLUSR
+		   SET LAST_LOGIN_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD')
+		   , LAST_LOGIN_TIME = TO_CHAR(SYSDATE, 'HH24MISS') 
+		   , LOGIN_ERROR_CNT = 0
+		   , TWO_FACTOR_SMS = NULL
+		 WHERE USER_ID = #{LAST_LOGIN_ID1}
+		 AND STATUS IN ('C', 'R')
+	       ]]>
+	</update>
+	<update id="saveLoginErrorCnt"  parameterType="java.util.Map">
+		<![CDATA[
+		/*saveLoginErrorCnt*/
+		UPDATE ICOMLUSR
+		   SET LOGIN_ERROR_CNT = 1+ NVL(LOGIN_ERROR_CNT,0) 
+		 WHERE USER_ID = #{LOGIN_USER_ID}
+	       ]]>
+	</update>	
+	<select id="selectPasswordShaUserInfo" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+				/*selectPasswordShaUserInfo*/
+					SELECT
+					 MAKER_NAME AS USER_ID
+					 ,ORIGIN_CODE AS PWD
+					FROM HMH_TMP
+	       ]]>
+	</select>
+	
+	<update id="updatePasswordShaUserInfo"  parameterType="java.util.Map">
+		<![CDATA[
+		/*updatePasswordShaUserInfo*/
+		UPDATE HMH_TMP
+		   SET REMARK = #{PWD}
+		 WHERE MAKER_NAME = #{USER_ID}
+	       ]]>
+	</update>
+	<update id="saveInfoAgree"  parameterType="java.util.Map">
+		<![CDATA[
+		/*saveInfoAgree*/
+		UPDATE ICOMLUSR
+		   SET INFO_AGREE_YN =#{info_agree_yn}
+		   , INFO_AGREE_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD') 
+		 WHERE USER_ID = #{userId}
+	       ]]>
+	</update>
+	<select id="getIcomlusrLang" parameterType="java.util.Map" resultType="string">
+		<![CDATA[
+		/*getIcomlusrLang*/
+		SELECT LANG FROM ICOMLUSR USR
+		WHERE USR.COM_CODE = #{COM_CODE}
+		AND USR.USER_ID = #{USER_ID}
+		]]>
+	</select>
+	<update id="saveIcomcmpyInfoUpdate"  parameterType="java.util.Map">
+		<![CDATA[
+		/*saveIcomcmpyInfoUpdate*/
+		UPDATE	ICOMCMPY
+		   SET	TEL_NO = #{st_tel_no1} || '-' || #{st_tel_no2} || '-' || #{st_tel_no3},
+	   		 	FAX_NO = #{st_fax_no1} || '-' || #{st_fax_no2} || '-' || #{st_fax_no3},
+	   		 	ADDRESS_LOC = #{st_address} || ' ' || #{st_address_dt},
+	   		 	ADDRESS_LOC1 = #{st_address},
+	   		 	ADDRESS_LOC2 = #{st_address_dt},
+	   		 	ZIP_KEY = #{st_zip_key},
+	   		 	ZIP_CODE = #{st_zip_code},
+	   		 	GR_EMP_NM = #{st_gr_emp_nm},
+	   		 	GR_EMP_EMAIL = #{st_gr_emp_email},
+	   		 	GR_EMP_TEL = #{st_gr_emp_tel_no1} || '-' || #{st_gr_emp_tel_no2} || '-' || #{st_gr_emp_tel_no3},
+	   		 	GR_EMP_MOBILE = #{st_gr_emp_mobile1} || '-' || #{st_gr_emp_mobile2} || '-' || #{st_gr_emp_mobile3},
+	   		 	AC_EMP_NM = #{st_ac_emp_nm},
+	   		 	AC_EMP_EMAIL = #{st_ac_emp_email},
+	   		 	AC_EMP_TEL = #{st_ac_emp_tel_no1} || '-' || #{st_ac_emp_tel_no2} || '-' || #{st_ac_emp_tel_no3},
+	   		 	AC_EMP_MOBILE = #{st_ac_emp_mobile1} || '-' || #{st_ac_emp_mobile2} || '-' || #{st_ac_emp_mobile3},
+	   		 	CHANGE_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD'),
+	   		 	CHANGE_TIME = TO_CHAR(SYSDATE, 'HH24MISS')
+		 WHERE	COM_CODE = #{comCode}
+	       ]]>
+	</update>
+	<update id="saveSuplinfo2InfoUpdate"  parameterType="java.util.Map">
+		<![CDATA[
+		/*saveSuplinfo2InfoUpdate*/
+		UPDATE	SUPLINFO2
+		   SET	EC_USER_NAME = #{st_gr_emp_nm},
+	   		 	EC_USER_EMAIL = #{st_gr_emp_email},
+	   		 	EC_USER_TEL = #{st_gr_emp_mobile1} || '-' || #{st_gr_emp_mobile2} || '-' || #{st_gr_emp_mobile3},
+	   		 	CHANGE_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD'),
+	   		 	CHANGE_TIME = TO_CHAR(SYSDATE, 'HH24MISS'),
+	   		 	CHANGE_USER_ID = #{userId}
+		 WHERE	SUPPLIER = #{comCode}
+	       ]]>
+	</update>
+	<update id="saveIcomlusrInfoUpdate"  parameterType="java.util.Map">
+		<![CDATA[
+		/*saveIcomlusrInfoUpdate*/
+		UPDATE	ICOMLUSR
+		   SET	USER_NAME_LOC = #{st_user_nm},
+		   		PHONE_NUMBER = #{st_user_phone1}||'-'||#{st_user_phone2}||'-'||#{st_user_phone3},
+				EMAIL = #{st_user_email},
+				MOBILE_PHONE = #{st_user_mobile1}||'-'||#{st_user_mobile2}||'-'||#{st_user_mobile3},
+				INFO_UPDATE_YN =#{infoUpdateYn},
+		   		INFO_UPDATE_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD')
+		 WHERE	USER_ID = #{userId}
+	       ]]>
+	</update>
+	<select id="selectLoginInfoList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/* selectLoginInfoList */
+		SELECT	CM.COM_NAME_LOC,
+				CM.COM_CODE,
+				CM.IRS_NO,
+				CM.CEO_NAME_LOC,
+				CM.TEL_NO,
+				CM.FAX_NO,
+				CM.ZIP_KEY,
+				CM.ZIP_CODE,
+				CM.ADDRESS_LOC,
+				NVL(CM.ADDRESS_LOC1, CM.ADDRESS_LOC) AS ADDRESS_LOC1,
+				CM.ADDRESS_LOC2,
+				CM.GR_EMP_NM,
+				CM.GR_EMP_EMAIL,
+				CM.GR_EMP_TEL,
+				CM.GR_EMP_MOBILE,
+				CM.AC_EMP_NM,
+				CM.AC_EMP_EMAIL,
+				CM.AC_EMP_TEL,
+				CM.AC_EMP_MOBILE,
+				AN.BANK_CD,
+				(SELECT TEXT1 FROM ICOMCOD1 WHERE CODE = AN.BANK_CD AND TYPE = 'M005') AS BANK_NAME,
+				AN.BANK_ACCOUNT_NO,
+				AN.DEPOSITOR,
+				USR.USER_ID,
+				USR.USER_NAME_LOC,
+				USR.PHONE_NUMBER,
+				USR.MOBILE_PHONE,
+				USR.EMAIL AS USR_EMAIL,
+				USR.USER_TYPE
+		FROM	ICOMCMPY CM, ICOMLUSR USR, ACNTSUPL AN
+		WHERE	1=1
+		AND		CM.COM_CODE = USR.COM_CODE
+		AND		CM.COM_CODE = AN.SUPPLIER
+		AND		USR.USER_ID = #{st_user_id}
+		]]>
+	</select>
+	
+	<!-- 현재 비밀번호 체크 -->
+	<select id="selectOldPassword" parameterType="java.util.Map" resultType="String">
+		<![CDATA[
+		/* selectOldPassword */
+		SELECT	COUNT(USER_ID) AS COUNT
+		FROM	ICOMLUSR
+		WHERE	USER_ID = #{userId}
+		AND		COM_CODE = #{comCode}
+		AND		PASSWORD = #{st_old_password}
+		]]>
+	</select>
+	
+	<select id="getIdValidCheck" parameterType="java.util.Map" resultType="string">
+		<![CDATA[
+		/*getIdValidCheck*/
+		SELECT	CASE	WHEN A.STATUS = 'S'
+						THEN 'S'
+						WHEN A.STATUS = 'A' AND A.USER_TYPE = 'A' AND A.CHANGE_USER_TYPE = 'A'
+			          	THEN 'A'
+			          	WHEN #{password} <> A.PASSWORD
+			          	THEN 'P'
+						WHEN (SELECT COUNT(*) FROM ICOGPASSLN WHERE COMPANY = A.COM_CODE AND DOCU_NO = #{gw_no} AND USER_ID = A.USER_ID AND PASS_TP IN ('1', '3') AND PASS_KN IS NULL) = 0
+						THEN 'G'
+						WHEN (SELECT COUNT(*) FROM ICOGPASSLN WHERE COMPANY = A.COM_CODE AND DOCU_NO = #{gw_no} AND USER_ID = A.USER_ID AND PASS_TP IN ('1', '3') AND ORDER_NO = (SELECT CUR_ORDER_NO FROM ICOGDOCU WHERE COMPANY = A.COM_CODE AND DOCU_NO = #{gw_no})) = 0
+						THEN 'N'
+			          	ELSE 'Y'
+				END AS FLAG
+		FROM	ICOMLUSR A
+		WHERE	A.USER_ID = #{userId}
+		]]>
+	</select>
+	<update id="saveLoginAddiCertAgree"  parameterType="java.util.Map">
+		<![CDATA[
+		/*saveLoginAddiCertAgree*/
+		UPDATE	ICOMLUSR
+		SET		TWO_FACTOR_YN =#{info_login_cert_yn},
+				TWO_FACTOR_DATE = SYSDATE
+		WHERE	USER_ID = #{userId}
+	       ]]>
+	</update>
+	<select id="getTwoFactorYn" parameterType="string" resultType="string">
+		<![CDATA[
+		/*getTwoFactorYn*/
+       SELECT	NVL(B.BUSINESS_COND,'X') || NVL(A.TWO_FACTOR_YN,'X') AS TWO_FACTOR_YN
+       FROM 	ICOMLUSR A, ICOMCMPY B
+       WHERE	A.USER_ID = #{st_user_id}
+       AND		A.COM_CODE = B.COM_CODE
+       AND		A.STATUS IN ('C', 'R')
+       AND		B.STATUS IN ('C', 'R')
+		]]>
+	</select>
+	<select id="getOldCertSmsCheck" parameterType="java.util.Map" resultType="string">
+		<![CDATA[
+		/*getOldCertSmsCheck*/
+	       SELECT CASE
+			          WHEN #{st_cert_sms_no} = TWO_FACTOR_SMS
+			          THEN
+			             'Y'
+			          ELSE
+			             'N'
+			       END
+			          AS FLAG
+			  FROM ICOMLUSR
+			 WHERE USER_ID = #{userId}
+		]]>
+	</select>
+	<update id="saveLoginHist"  parameterType="java.util.Map">
+		<![CDATA[
+		/*saveLoginHist*/
+		INSERT INTO MRO_LOGIN
+		(
+			LOGIN_DATE,
+			USER_ID, 
+			IP,
+			IP2,
+			TERMINAL,
+			OS_USER,
+			LOGIN_TYPE,
+			TWO_FACTOR_YN 
+		)
+		(
+		SELECT	SYSDATE,
+				#{USER_ID},
+				#{IP},
+				#{IP2},
+				SYS_CONTEXT('USERENV','TERMINAL',30),
+				SYS_CONTEXT('USERENV','OS_USER',30),
+				#{LOGIN_TYPE},
+				#{TWO_FACTOR_YN}
+		FROM	DUAL
+		)
+		]]>
+	</update>
+	<update id="saveDelyArea"  parameterType="java.util.Map">
+		<![CDATA[
+		/*saveDelyArea*/
+		UPDATE ICOMCMPY
+		   SET DELY_AREA = #{dely_area}
+		 WHERE COM_CODE = (SELECT COM_CODE FROM ICOMLUSR WHERE USER_ID = #{userId})
+	       ]]>
+	</update>
+	<select id="setSamkeeSsoId" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*setSamkeeSsoId*/
+		SELECT NVL(MAX(USR.USER_ID), '') AS USER_ID
+		 ,TO_CHAR(COUNT(USR.USER_ID)) AS USER_COUNT
+		FROM ICOMLUSR USR 
+		WHERE USR.COM_CODE IN (
+			SELECT COD.CODE2 FROM ICOMCOD3 COD
+			WHERE COD.TYPE ='SSO'
+			AND COD.CODE1 = #{TYPE} 
+			AND COD.FLAG = 'Y'
+		)
+		AND STATUS != 'D'
+		AND USR.EMAIL = #{EMP_NO}
+		]]>
+	</select>
+	<select id="setCodIkenSsoId" parameterType="java.util.Map" resultType="string">
+		<![CDATA[
+		/*setCodIkenSsoId*/
+		SELECT USER_ID
+	    FROM ICOMLUSR USR 
+	    WHERE USR.COM_CODE IN (
+			SELECT COD.CODE2 FROM ICOMCOD3 COD
+			WHERE COD.TYPE ='SSO'
+			AND COD.CODE1  = #{COM_CODE}
+			AND COD.FLAG = 'Y'
+			)
+	    AND STATUS != 'D'
+	    AND USR.LEGACY_USER_ID = #{EMP_NO}
+	    AND ROWNUM = 1
+    	]]>
+	</select>
+	<select id="setCodIkenKumhSsoId" parameterType="java.util.Map" resultType="string">
+		<![CDATA[
+		/*setCodIkenKumhSsoId*/
+		SELECT 
+			USER_ID
+		FROM (
+			SELECT USER_ID
+		    FROM ICOMLUSR USR 
+		    WHERE USR.COM_CODE IN (
+				SELECT COD.CODE2 FROM ICOMCOD3 COD
+				WHERE COD.TYPE ='SSO'
+				AND COD.CODE1  = #{COM_CODE}
+				AND COD.FLAG = 'Y'
+				)
+		    AND STATUS != 'D'
+		    AND USR.LEGACY_USER_ID = #{EMP_NO}
+		    ORDER BY EXPIRE_DATE DESC NULLS LAST
+		)    
+		WHERE ROWNUM = 1
+    	]]>
+	</select>
+	<select id="setCodIkenSyfSsoId" parameterType="java.util.Map" resultType="string">
+		<![CDATA[
+		/*setCodIkenSyfSsoId*/
+		SELECT 
+			USER_ID
+		FROM (
+			SELECT USER_ID
+		    FROM ICOMLUSR USR 
+		    WHERE USR.COM_CODE IN (
+				SELECT COD.CODE2 FROM ICOMCOD3 COD
+				WHERE COD.TYPE ='SSO'
+				AND COD.CODE1  = #{COM_CODE}
+				AND COD.FLAG = 'Y'
+				)
+		    AND STATUS IN ('C', 'R')
+		    AND USR.EMAIL = #{EMP_NO}
+		)    
+		WHERE ROWNUM = 1
+    	]]>
+	</select>
+	<select id="selectLoginInfoImsiList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/* selectLoginInfoImsiList */
+		SELECT	X.COM_NAME_LOC,
+				X.COM_CODE,
+				X.USER_ID,
+				X.USER_NAME_LOC,
+				X.PHONE_NUMBER,
+				X.MOBILE_PHONE,
+				X.USR_EMAIL,
+				X.USER_TYPE,
+				X.BUSINESS_COND,
+				X.PRIORITY_USER,
+				(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = X.PRIORITY_USER) AS PRIORITY_USER_NAME,
+				(SELECT PHONE_NUMBER FROM ICOMLUSR WHERE USER_ID = X.PRIORITY_USER) AS PRIORITY_USER_NUMBER,
+				(SELECT TEXT1 FROM ICOMCOD2 WHERE COMPANY_CODE = 'KRKORE0001' AND TYPE = 'C001' AND CODE = X.TEAM) AS PRIORITY_USER_TEAM
+		FROM	(
+				SELECT	CM.COM_NAME_LOC,
+						CM.COM_CODE,
+						USR.USER_ID,
+						USR.USER_NAME_LOC,
+						USR.PHONE_NUMBER,
+						USR.MOBILE_PHONE,
+						USR.EMAIL AS USR_EMAIL,
+						USR.USER_TYPE,
+						CM.BUSINESS_COND,
+						(SELECT MAX(KEP_USER_ID) FROM MIS_BUYER_MNG WHERE YEAR = TO_CHAR(SYSDATE, 'YYYY') AND STATUS = 'C' AND BUYER = CM.COM_CODE AND PRIORITY = 'Y') AS PRIORITY_USER,
+						(SELECT MAX(KEP_DEPT) FROM MIS_BUYER_MNG WHERE YEAR = TO_CHAR(SYSDATE, 'YYYY') AND STATUS = 'C' AND BUYER = CM.COM_CODE AND PRIORITY = 'Y') AS TEAM
+				FROM	ICOMCMPY CM, ICOMLUSR USR
+				WHERE	1=1
+				AND		CM.COM_CODE = USR.COM_CODE		
+				AND		USR.USER_ID = #{st_user_id}
+		) X
+		]]>
+	</select>
+	<update id="saveIcomlusrInfoImsiUpdate"  parameterType="java.util.Map">
+		<![CDATA[
+		/*saveIcomlusrInfoImsiUpdate*/
+		UPDATE	ICOMLUSR
+		   SET	USER_NAME_LOC = #{st_user_nm},
+				EMAIL = #{st_user_email},
+		]]>
+			<if test='businessCond == "S"'>
+  				MOBILE_PHONE = #{st_user_mobile1}||'-'||#{st_user_mobile2}||'-'||#{st_user_mobile3},
+ 			</if>
+		<![CDATA[
+				INFO_UPDATE_YN = 'Y'||#{st_mail_recv},
+		   		INFO_UPDATE_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD')
+		WHERE	USER_ID = #{userId}
+		 ]]>
+	</update>
+	<update id="saveIcomlusrInfoImsiUpdate_multi"  parameterType="java.util.Map">
+		<![CDATA[
+		/*saveIcomlusrInfoImsiUpdate_multi*/
+		UPDATE	ICOMLUSR
+		   SET	USER_NAME_LOC = #{st_user_nm},
+				EMAIL = #{st_user_email},
+		]]>
+			<if test='businessCond == "S"'>
+  				MOBILE_PHONE = #{st_user_mobile1}||'-'||#{st_user_mobile2}||'-'||#{st_user_mobile3},
+ 			</if>
+		<![CDATA[
+				INFO_UPDATE_YN = 'Y'||#{st_mail_recv},
+		   		INFO_UPDATE_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD')
+		WHERE	USER_ID IN (SELECT CODE2 FROM ICOMCOD3 WHERE TYPE = 'UNID' AND CODE1 = #{userId})
+		AND		STATUS IN ('C', 'R')
+		 ]]>
+	</update>
+	
+	<select id="getGrounpBoolean"  parameterType="java.util.Map" resultType="java.lang.String">
+		/*getGrounpBoolean*/
+			<![CDATA[
+				SELECT COUNT(*) FROM ICOMCOD3
+				WHERE TYPE ='SSO'
+				AND FLAG = 'Y'
+				AND CODE1 = #{COM_CODE}
+			]]>
+	</select>
+</mapper>

@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="common.wmco">
+
+
+	<select id="selectMasterWmCoTranStatementPopList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*selectMasterWmCoTranStatementPopList*/
+                      SELECT
+                       XX.BUYER
+                       ,XX.WAREHOUSE_CODE
+                       ,XX.PO_NO
+                       ,XX.INV_NO
+                       ,XX.S_INV_NO
+                       ,MAX(XX.LEGACY_PO_NO) AS LEGACY_PO_NO
+                       ,MAX(XX.DOC_TYPE) AS DOC_TYPE
+                       ,(SELECT COM_NAME_LOC FROM ICOMCMPY
+						 WHERE COM_CODE = XX.BUYER) AS BUYER_NAME
+					   ,'거래명세서' AS PRINT_YN
+                       ,MAX(XX.CAR_ID) AS CAR_ID
+                       ,COUNT(XX.INV_SEQ) AS CNT_ITEM
+                      FROM (
+							SELECT
+								IV.BUYER,
+								IV.PO_NO,
+								IV.INV_NO,
+								IV.S_INV_NO,
+								(SELECT PO.LEGACY_PO_NO
+								  FROM ICOMPODT PO
+								  WHERE PO.BUYER = IV.BUYER
+								  AND PO.PO_NO = IV.PO_NO
+								  AND PO.PO_SEQ = IV.PO_SEQ
+								  AND PO.STATUS != 'D' ) AS LEGACY_PO_NO,
+								(SELECT HD.DOC_TYPE
+								  FROM ICOMPOHD HD, ICOMPODT PO
+								  WHERE HD.BUYER = PO.BUYER
+								  AND HD.PO_NO = PO.PO_NO
+								  AND PO.BUYER = IV.BUYER
+								  AND PO.PO_NO = IV.PO_NO
+								  AND PO.PO_SEQ = IV.PO_SEQ
+								  AND PO.STATUS != 'D'
+								  AND PO.STATUS != 'D' ) AS DOC_TYPE,
+							   IV.CAR_ID,
+							   IV.INV_SEQ,
+							   IV.WAREHOUSE_CODE
+							  FROM WMSIVDT IV
+							 WHERE IV.WAREHOUSE_CODE =#{st_warehouse_code}	
+								AND IV.STATUS <> 'D'
+					]]>	
+             <if test='ivkParamCnt == "1"'>       
+                  <![CDATA[															
+								AND IV.INV_NO IN 	
+				     ]]>		
+				<foreach collection="ivkParam" item="st_ivk_list" index="i" open="(" separator=","  close=")" >	
+	    			 	#{st_ivk_list}
+	  			</foreach>
+	  		</if>			
+	  	<![CDATA[		
+
+					)XX
+					GROUP BY XX.WAREHOUSE_CODE, XX.INV_NO, XX.BUYER, XX.PO_NO, XX.S_INV_NO
+					ORDER BY XX.WAREHOUSE_CODE, XX.INV_NO, XX.BUYER, XX.PO_NO, XX.S_INV_NO
+				]]>	
+	</select>
+								
+</mapper>

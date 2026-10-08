@@ -1,0 +1,1813 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.cmcl">
+
+	<!-- 조회 -->
+	<select id="selectMasterCmClSalesLogisTaxSumCreationList" parameterType="java.util.Map" resultType="java.util.Map">
+	/*selectMasterCmClSalesLogisTaxSumCreationList*/
+		<![CDATA[
+			/* ICOMGRDT.PROCESS_TYPE = '2' TR 일 경우 */
+			SELECT
+			    MAX(KEP_IRS_NAME) AS KEP_IRS_NAME
+			  , MAX(SITE_GUBUN_NAME) AS SITE_GUBUN_NAME
+			  , MAX(AGENT_IRS_NO) AS AGENT_IRS_NO
+			  , MAX(AGENT_NAME) AS AGENT_NAME
+			  , KEP_DEPT
+			  , MAX(BUYER_NM) AS BUYER_NAME
+			  , SUM(GR_AMT) AS GR_AMT
+			  , BUYER
+			  , MAX(KEP_IRS_NO) AS KEP_IRS_NO
+			  , KEP_DEPT AS KEP_DEPT_ORG
+			  , AGENT
+			  , MAX(KEP_COM_CODE) AS KEP_COM_CODE
+			  , MAX(CMP_CLOSE_FLAG) AS CMP_CLOSE_FLAG
+			  , SUM(LOGISTICS_AMT) AS LOGISTICS_AMT
+			  , #{st_from_date}  AS  GR_FROM_DATE
+			  , #{st_to_date}     AS  GR_TO_DATE
+			  , MAX(CL_MON) AS CL_MON
+			  , EXPORT_YN
+			FROM
+			(
+			SELECT
+			    (SELECT TEXT4 FROM ICOMCOD1 WHERE TYPE = 'VC04' AND CODE = 'KA') AS KEP_IRS_NAME
+			  , (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'VC04' AND CODE = 'KA') AS SITE_GUBUN_NAME
+			  , CM.IRS_NO AS AGENT_IRS_NO
+			  , CM.COM_NAME_LOC AS AGENT_NAME
+			  , CASE
+			        WHEN GR.AP_CLOSE_DEPT IS NOT NULL THEN GR.AP_CLOSE_DEPT
+			        ELSE (SELECT MAX(KEP_DEPT) FROM MIS_BUYER_MNG WHERE BUYER = GR.BUYER AND YEAR = SUBSTR(GR.GR_DATE,1,4) AND ITEM_GROUP = 'M' AND STATUS ='C')
+			    END AS KEP_DEPT
+			  , GR.GR_DATE AS GR_DATE
+			  , ROUND((GR.AGENT_ITEM_AMT/F_GET_VATRATE_NEW(GR.BUYER))) AS GR_AMT
+			  , GR.PO_NO  AS PO_NO
+			  , GR.GR_NO  AS GR_NO
+			  , GR.GR_SEQ AS GR_SEQ
+			  , GR.BUYER  AS BUYER
+			  , (SELECT CM.COM_NAME_LOC FROM ICOMCMPY CM WHERE CM.COM_CODE = GR.BUYER)  AS BUYER_NM
+			  , (SELECT TEXT3 FROM ICOMCOD1 WHERE TYPE = 'VC04' AND CODE = 'KA') AS KEP_IRS_NO
+			  , CASE
+			        WHEN GR.LOGIS_CLOSE_DEPT IS NOT NULL THEN GR.LOGIS_CLOSE_DEPT
+			        ELSE (SELECT MAX(KEP_DEPT) FROM MIS_BUYER_MNG WHERE BUYER = GR.BUYER AND YEAR = SUBSTR(GR.GR_DATE,1,4) AND ITEM_GROUP = 'M' AND STATUS ='C')
+			    END AS KEP_DEPT_CODE
+			  , GR.AGENT  AS AGENT
+			  , GR.DESCRIPTION AS DESCRIPTION
+			  , GR.SPECIFICATION AS SPECIFICATION
+			  , SUBSTR(GR.GR_DATE,1,6) AS CL_MON
+			  , (SELECT TEXT2 FROM ICOMCOD1 WHERE TYPE = 'VC04' AND CODE = 'KA') AS KEP_COM_CODE
+			  , 'KA' AS SITE_GUBUN_CODE
+			  , GR.NTS_SEND_FLAG AS NTS_SEND_FLAG
+			  , CM.CMP_CLOSE_FLAG AS CMP_CLOSE_FLAG
+			  , F_GET_LOGISTICS_FEE_INFO(PODT.BUYER, PODT.BUYER_ITEM_NO, PODT.PROCESS_TYPE, POHD.AGENT, ROUND((GR.AGENT_ITEM_AMT/F_GET_VATRATE_NEW(GR.BUYER))),'01', PODT.WAREHOUSE_CODE) AS LOGISTICS_AMT
+			  , 'N' AS EXPORT_YN
+			FROM
+			    ICOMGRDT GR /* 구매사별 입고정보 */
+			  , ICOMCMPY CM /* 회원사정보 */
+			  , ICOMPOHD POHD /* 발주 마스터정보 */
+			  , ICOMPODT PODT /* 발주 제품정보 */
+			WHERE 1=1
+			AND GR_DATE BETWEEN #{st_from_date}  AND #{st_to_date}
+			AND GR.STATUS <> 'D'
+			AND POHD.STATUS <> 'D'
+			AND PODT.STATUS <> 'D'
+			AND GR.AGENT = CM.COM_CODE
+			AND GR.AP_BILL_FLAG = 'Y'
+			AND GR.AR_BILL_FLAG = 'Y'
+			AND NVL(GR.LOGIS_BILL_FLAG,'N') = 'N'
+			AND PODT.WAREHOUSE_CODE != 'KRKORE0668' -- 수출검수센터 제외 (SMART팀 국내/해외 세금계산서 분할용)
+			AND GR.BUYER = POHD.BUYER
+			AND GR.PO_NO = POHD.PO_NO
+			AND GR.BUYER = PODT.BUYER
+			AND GR.PO_NO = PODT.PO_NO
+			AND GR.PO_SEQ = PODT.PO_SEQ
+			AND GR.PROCESS_TYPE IN ('2')
+			AND POHD.DOC_TYPE <> 'X'
+			AND GR.AGENT NOT IN (SELECT TEXT3 FROM ICOMCOD1 WHERE TYPE = 'TX08' AND TEXT1 = 'AP' AND TEXT2 = 'KA')
+		]]>
+			<if test="st_buyerArr != null and st_buyerArr != '' ">
+				AND GR.BUYER IN
+				<foreach item="item" collection="st_buyerArr" open="(" separator="," close=")">
+			 	#{item}
+				</foreach>
+			</if>  
+		<if test="st_agent_code != null and st_agent_code != '' ">
+			AND GR.AGENT = #{st_agent_code}
+		</if>
+		<if test="st_po_no != null and st_po_no != '' ">
+			AND (GR.PO_NO LIKE #{st_po_no} || '%' OR GR.GR_NO LIKE #{st_po_no} || '%')
+		</if>
+		<if test="st_ar_add_user_id != null and st_ar_add_user_id != '' ">
+			    AND GR.CLOSE_USER_ID = #{st_ar_add_user_id}
+		</if>
+		<![CDATA[
+			
+			UNION ALL
+			
+			/* ICOMGRDT.PROCESS_TYPE = '3' VMI 일 경우 */
+			SELECT
+			    (SELECT TEXT4 FROM ICOMCOD1 WHERE TYPE = 'VC04' AND CODE = 'KA') AS KEP_IRS_NAME
+			  , (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'VC04' AND CODE = 'KA') AS SITE_GUBUN_NAME
+			  , CM.IRS_NO AS AGENT_IRS_NO
+			  , CM.COM_NAME_LOC AS AGENT_NAME
+			  , CASE
+			        WHEN GR.AP_CLOSE_DEPT IS NOT NULL THEN GR.AP_CLOSE_DEPT
+			        ELSE (SELECT MAX(KEP_DEPT) FROM MIS_BUYER_MNG WHERE BUYER = GR.BUYER AND YEAR = SUBSTR(GR.GR_DATE,1,4)  AND ITEM_GROUP = 'M' AND STATUS ='C')
+			    END AS KEP_DEPT
+			  , GR.GR_DATE AS GR_DATE
+			  , ROUND((GR.AGENT_ITEM_AMT/F_GET_VATRATE_NEW(GR.BUYER))) AS GR_AMT
+			  , GR.PO_NO  AS PO_NO
+			  , GR.GR_NO  AS GR_NO
+			  , GR.GR_SEQ AS GR_SEQ
+			  , GR.BUYER  AS BUYER
+			  , (SELECT CM.COM_NAME_LOC FROM ICOMCMPY CM WHERE CM.COM_CODE = GR.BUYER)  AS BUYER_NM
+			  , (SELECT TEXT3 FROM ICOMCOD1 WHERE TYPE = 'VC04' AND CODE = 'KA') AS KEP_IRS_NO
+			  , CASE
+			        WHEN GR.LOGIS_CLOSE_DEPT IS NOT NULL THEN GR.LOGIS_CLOSE_DEPT
+			        ELSE (SELECT MAX(KEP_DEPT) FROM MIS_BUYER_MNG WHERE BUYER = GR.BUYER AND YEAR = SUBSTR(GR.GR_DATE,1,4)  AND ITEM_GROUP = 'M' AND STATUS ='C')
+			    END AS KEP_DEPT_CODE
+			  , PODT.WAREHOUSE_CODE AS AGENT
+			  , GR.DESCRIPTION AS DESCRIPTION
+			  , GR.SPECIFICATION AS SPECIFICATION
+			  , SUBSTR(GR.GR_DATE,1,6) AS CL_MON
+			  , (SELECT TEXT2 FROM ICOMCOD1 WHERE TYPE = 'VC04' AND CODE = 'KA') AS KEP_COM_CODE
+			  , 'KA' AS SITE_GUBUN_CODE
+			   , GR.NTS_SEND_FLAG AS NTS_SEND_FLAG
+			   , CM.CMP_CLOSE_FLAG AS CMP_CLOSE_FLAG
+			  , F_GET_LOGISTICS_FEE_INFO(PODT.BUYER, PODT.BUYER_ITEM_NO, PODT.PROCESS_TYPE, POHD.AGENT, ROUND((GR.AGENT_ITEM_AMT/F_GET_VATRATE_NEW(GR.BUYER))),'01', PODT.WAREHOUSE_CODE) AS LOGISTICS_AMT
+			  , 'N' AS EXPORT_YN
+			FROM
+			    ICOMGRDT GR /* 구매사별 입고정보 */
+			  , ICOMCMPY CM /* 회원사정보 */
+			  , ICOMPOHD POHD /* 발주 마스터정보 */
+			  , ICOMPODT PODT /* 발주 제품정보 */
+			WHERE 1=1
+			AND GR_DATE BETWEEN #{st_from_date}  AND #{st_to_date}
+			AND GR.STATUS <> 'D'
+			AND POHD.STATUS <> 'D'
+			AND PODT.STATUS <> 'D'
+			AND PODT.WAREHOUSE_CODE = CM.COM_CODE    /* GR.AGENT = '물류센타코드' , PODT.WAREHOUSE_CODE = '실공급사코드' */
+			AND GR.AP_BILL_FLAG = 'Y'
+			AND GR.AR_BILL_FLAG = 'Y'
+			AND NVL(GR.LOGIS_BILL_FLAG,'N') = 'N'
+			AND GR.BUYER = POHD.BUYER
+			AND GR.PO_NO = POHD.PO_NO
+			AND GR.BUYER = PODT.BUYER
+			AND GR.PO_NO = PODT.PO_NO
+			AND GR.PO_SEQ = PODT.PO_SEQ
+			AND GR.PROCESS_TYPE = '3'
+			AND POHD.DOC_TYPE <> 'X'
+			AND PODT.WAREHOUSE_CODE NOT IN (SELECT TEXT3 FROM ICOMCOD1 WHERE TYPE = 'TX08' AND TEXT1 = 'AP' AND TEXT2 = 'KA')
+		]]>
+			<if test="st_buyerArr != null and st_buyerArr != '' ">
+				AND GR.BUYER IN
+				<foreach item="item" collection="st_buyerArr" open="(" separator="," close=")">
+			 	#{item}
+				</foreach>
+			</if> 
+		<if test="st_agent_code != null and st_agent_code != '' ">
+			AND PODT.WAREHOUSE_CODE = #{st_agent_code}    /* PODT.WAREHOUSE_CODE = '실공급사코드' */
+		</if>
+		<if test="st_po_no != null and st_po_no != '' ">
+			AND (GR.PO_NO LIKE #{st_po_no} || '%' OR GR.GR_NO LIKE #{st_po_no} || '%')
+		</if>
+		<if test="st_ar_add_user_id != null and st_ar_add_user_id != '' ">
+			    AND GR.CLOSE_USER_ID = #{st_ar_add_user_id}
+		</if>
+		<![CDATA[
+			) X
+			GROUP BY
+			    AGENT
+			  , KEP_DEPT
+			  , BUYER
+			  , EXPORT_YN
+		UNION ALL
+		
+		SELECT
+			    MAX(KEP_IRS_NAME) AS KEP_IRS_NAME
+			  , MAX(SITE_GUBUN_NAME) AS SITE_GUBUN_NAME
+			  , MAX(AGENT_IRS_NO) AS AGENT_IRS_NO
+			  , MAX(AGENT_NAME) AS AGENT_NAME
+			  , KEP_DEPT
+			  , MAX(BUYER_NM) AS BUYER_NAME
+			  , SUM(GR_AMT) AS GR_AMT
+			  , BUYER
+			  , MAX(KEP_IRS_NO) AS KEP_IRS_NO
+			  , KEP_DEPT AS KEP_DEPT_ORG
+			  , AGENT
+			  , MAX(KEP_COM_CODE) AS KEP_COM_CODE
+			  , MAX(CMP_CLOSE_FLAG) AS CMP_CLOSE_FLAG
+			  , SUM(LOGISTICS_AMT) AS LOGISTICS_AMT
+			  , #{st_from_date}  AS  GR_FROM_DATE
+			  , #{st_to_date}     AS  GR_TO_DATE
+			  , MAX(CL_MON) AS CL_MON
+			  , EXPORT_YN
+			FROM
+			(
+				SELECT
+			    (SELECT TEXT4 FROM ICOMCOD1 WHERE TYPE = 'VC04' AND CODE = 'KA') AS KEP_IRS_NAME
+			  , (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'VC04' AND CODE = 'KA') AS SITE_GUBUN_NAME
+			  , CM.IRS_NO AS AGENT_IRS_NO
+			  , CM.COM_NAME_LOC AS AGENT_NAME
+			  , CASE
+			        WHEN GR.AP_CLOSE_DEPT IS NOT NULL THEN GR.AP_CLOSE_DEPT
+			        ELSE (SELECT MAX(KEP_DEPT) FROM MIS_BUYER_MNG WHERE BUYER = GR.BUYER AND YEAR = SUBSTR(GR.GR_DATE,1,4) AND ITEM_GROUP = 'M' AND STATUS ='C')
+			    END AS KEP_DEPT
+			  , GR.GR_DATE AS GR_DATE
+			  , ROUND((GR.AGENT_ITEM_AMT/F_GET_VATRATE_NEW(GR.BUYER))) AS GR_AMT
+			  , GR.PO_NO  AS PO_NO
+			  , GR.GR_NO  AS GR_NO
+			  , GR.GR_SEQ AS GR_SEQ
+			  , GR.BUYER  AS BUYER
+			  , (SELECT CM.COM_NAME_LOC FROM ICOMCMPY CM WHERE CM.COM_CODE = GR.BUYER)  AS BUYER_NM
+			  , (SELECT TEXT3 FROM ICOMCOD1 WHERE TYPE = 'VC04' AND CODE = 'KA') AS KEP_IRS_NO
+			  , CASE
+			        WHEN GR.LOGIS_CLOSE_DEPT IS NOT NULL THEN GR.LOGIS_CLOSE_DEPT
+			        ELSE (SELECT MAX(KEP_DEPT) FROM MIS_BUYER_MNG WHERE BUYER = GR.BUYER AND YEAR = SUBSTR(GR.GR_DATE,1,4) AND ITEM_GROUP = 'M' AND STATUS ='C')
+			    END AS KEP_DEPT_CODE
+			  , GR.AGENT  AS AGENT
+			  , GR.DESCRIPTION AS DESCRIPTION
+			  , GR.SPECIFICATION AS SPECIFICATION
+			  , SUBSTR(GR.GR_DATE,1,6) AS CL_MON
+			  , (SELECT TEXT2 FROM ICOMCOD1 WHERE TYPE = 'VC04' AND CODE = 'KA') AS KEP_COM_CODE
+			  , 'KA' AS SITE_GUBUN_CODE
+			  , GR.NTS_SEND_FLAG AS NTS_SEND_FLAG
+			  , CM.CMP_CLOSE_FLAG AS CMP_CLOSE_FLAG
+			  , F_GET_LOGISTICS_FEE_INFO(PODT.BUYER, PODT.BUYER_ITEM_NO, PODT.PROCESS_TYPE, POHD.AGENT, ROUND((GR.AGENT_ITEM_AMT/F_GET_VATRATE_NEW(GR.BUYER))),'01', PODT.WAREHOUSE_CODE) AS LOGISTICS_AMT
+			  , 'Y' AS EXPORT_YN
+			FROM
+			    ICOMGRDT GR /* 구매사별 입고정보 */
+			  , ICOMCMPY CM /* 회원사정보 */
+			  , ICOMPOHD POHD /* 발주 마스터정보 */
+			  , ICOMPODT PODT /* 발주 제품정보 */
+			WHERE 1=1
+			AND GR_DATE BETWEEN #{st_from_date}  AND #{st_to_date}
+			AND GR.STATUS <> 'D'
+			AND POHD.STATUS <> 'D'
+			AND PODT.STATUS <> 'D'
+			AND PODT.WAREHOUSE_CODE = 'KRKORE0668' -- 수출검수센터만 (SMART팀 국내/해외 세금계산서 분할용)
+			AND GR.AGENT = CM.COM_CODE
+			AND GR.AP_BILL_FLAG = 'Y'
+			AND GR.AR_BILL_FLAG = 'Y'
+			AND NVL(GR.LOGIS_BILL_FLAG,'N') = 'N'
+			AND GR.BUYER = POHD.BUYER
+			AND GR.PO_NO = POHD.PO_NO
+			AND GR.BUYER = PODT.BUYER
+			AND GR.PO_NO = PODT.PO_NO
+			AND GR.PO_SEQ = PODT.PO_SEQ
+			AND GR.PROCESS_TYPE IN ('2')
+			AND POHD.DOC_TYPE <> 'X'
+			AND GR.AGENT NOT IN (SELECT TEXT3 FROM ICOMCOD1 WHERE TYPE = 'TX08' AND TEXT1 = 'AP' AND TEXT2 = 'KA')
+		]]>
+			<if test="st_buyerArr != null and st_buyerArr != '' ">
+				AND GR.BUYER IN
+				<foreach item="item" collection="st_buyerArr" open="(" separator="," close=")">
+			 	#{item}
+				</foreach>
+			</if>  
+		<if test="st_agent_code != null and st_agent_code != '' ">
+			AND GR.AGENT = #{st_agent_code}
+		</if>
+		<if test="st_po_no != null and st_po_no != '' ">
+			AND (GR.PO_NO LIKE #{st_po_no} || '%' OR GR.GR_NO LIKE #{st_po_no} || '%')
+		</if>
+		<if test="st_ar_add_user_id != null and st_ar_add_user_id != '' ">
+			    AND GR.CLOSE_USER_ID = #{st_ar_add_user_id}
+		</if>
+		<![CDATA[
+		) Y
+			GROUP BY
+			    AGENT
+			  , KEP_DEPT
+			  , BUYER
+			  , EXPORT_YN		  
+			ORDER BY   AGENT
+			  , KEP_DEPT
+			  , BUYER
+
+		]]>
+	</select>
+	<select id="selectMasterCmClSalesLogisTaxSumCreationList_v2" parameterType="java.util.Map" resultType="java.util.Map">
+	/*selectMasterCmClSalesLogisTaxSumCreationList_v2*/
+		<![CDATA[
+			/* ICOMIVDT.PROCESS_TYPE = '2' TR 일 경우 */
+			SELECT
+			    MAX(KEP_IRS_NAME) AS KEP_IRS_NAME
+			  , MAX(SITE_GUBUN_NAME) AS SITE_GUBUN_NAME
+			  , MAX(AGENT_IRS_NO) AS AGENT_IRS_NO
+			  , MAX(AGENT_NAME) AS AGENT_NAME
+			  , KEP_DEPT
+			  , MAX(BUYER_NM) AS BUYER_NAME
+			  , SUM(INV_AMT) AS INV_AMT
+			  , BUYER
+			  , MAX(KEP_IRS_NO) AS KEP_IRS_NO
+			  , KEP_DEPT AS KEP_DEPT_ORG
+			  , AGENT
+			  , MAX(KEP_COM_CODE) AS KEP_COM_CODE
+			  , MAX(CMP_CLOSE_FLAG) AS CMP_CLOSE_FLAG
+			  , SUM(LOGISTICS_AMT) AS LOGISTICS_AMT
+			  , #{st_from_date}  AS  INV_FROM_DATE
+			  , #{st_to_date}     AS  INV_TO_DATE
+			  , MAX(CL_MON) AS CL_MON
+			  , EXPORT_YN
+			FROM
+			(
+			SELECT
+			    (SELECT TEXT4 FROM ICOMCOD1 WHERE TYPE = 'VC04' AND CODE = 'KA') AS KEP_IRS_NAME
+			  , (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'VC04' AND CODE = 'KA') AS SITE_GUBUN_NAME
+			  , CM.IRS_NO AS AGENT_IRS_NO
+			  , CM.COM_NAME_LOC AS AGENT_NAME
+			  , CASE
+			        WHEN IV.AP_CLOSE_DEPT IS NOT NULL THEN IV.AP_CLOSE_DEPT
+			        ELSE (SELECT MAX(KEP_DEPT) FROM MIS_BUYER_MNG WHERE BUYER = IV.BUYER AND YEAR = SUBSTR(IV.DELIVERY_DATE,1,4) AND ITEM_GROUP = 'M' AND STATUS ='C')
+			    END AS KEP_DEPT
+			  , IV.DELIVERY_DATE AS DELIVERY_DATE
+			  , ROUND((IV.AGENT_ITEM_AMT/F_GET_VATRATE_NEW(IV.BUYER))) AS INV_AMT
+			  , IV.PO_NO  AS PO_NO
+			  , IV.INV_NO  AS INV_NO
+			  , IV.INV_SEQ AS INV_SEQ
+			  , IV.BUYER  AS BUYER
+			  , (SELECT CM.COM_NAME_LOC FROM ICOMCMPY CM WHERE CM.COM_CODE = IV.BUYER)  AS BUYER_NM
+			  , (SELECT TEXT3 FROM ICOMCOD1 WHERE TYPE = 'VC04' AND CODE = 'KA') AS KEP_IRS_NO
+			  , CASE
+			        WHEN IV.LOGIS_CLOSE_DEPT IS NOT NULL THEN IV.LOGIS_CLOSE_DEPT
+			        ELSE (SELECT MAX(KEP_DEPT) FROM MIS_BUYER_MNG WHERE BUYER = IV.BUYER AND YEAR = SUBSTR(IV.DELIVERY_DATE,1,4) AND ITEM_GROUP = 'M' AND STATUS ='C')
+			    END AS KEP_DEPT_CODE
+			  , IV.AGENT  AS AGENT
+			  , IV.DESCRIPTION AS DESCRIPTION
+			  , IV.SPECIFICATION AS SPECIFICATION
+			  , SUBSTR(IV.DELIVERY_DATE,1,6) AS CL_MON
+			  , (SELECT TEXT2 FROM ICOMCOD1 WHERE TYPE = 'VC04' AND CODE = 'KA') AS KEP_COM_CODE
+			  , 'KA' AS SITE_GUBUN_CODE
+			  , CM.CMP_CLOSE_FLAG AS CMP_CLOSE_FLAG
+			  , F_GET_LOGISTICS_FEE_INFO(PODT.BUYER, PODT.BUYER_ITEM_NO, PODT.PROCESS_TYPE, POHD.AGENT, ROUND((IV.AGENT_ITEM_AMT/F_GET_VATRATE_NEW(IV.BUYER))),'01', PODT.WAREHOUSE_CODE) AS LOGISTICS_AMT
+			  , 'N' AS EXPORT_YN
+			FROM
+			    ICOMIVDT IV /* 구매사별 납품정보 */
+			  , ICOMCMPY CM /* 회원사정보 */
+			  , ICOMPOHD POHD /* 발주 마스터정보 */
+			  , ICOMPODT PODT /* 발주 제품정보 */
+			WHERE 1=1
+			AND IV.DELIVERY_DATE BETWEEN #{st_from_date} AND #{st_to_date}
+			AND IV.STATUS <> 'D'
+			AND POHD.STATUS <> 'D'
+			AND PODT.STATUS <> 'D'
+			AND IV.AGENT = CM.COM_CODE
+			AND IV.AP_BILL_FLAG = 'Y'
+			AND NVL(IV.LOGIS_BILL_FLAG,'N') = 'N'
+			AND PODT.WAREHOUSE_CODE != 'KRKORE0668' -- 수출검수센터 제외 (SMART팀 국내/해외 세금계산서 분할용)
+			AND IV.BUYER = POHD.BUYER
+			AND IV.PO_NO = POHD.PO_NO
+			AND IV.BUYER = PODT.BUYER
+			AND IV.PO_NO = PODT.PO_NO
+			AND IV.PO_SEQ = PODT.PO_SEQ
+			AND IV.PROCESS_TYPE = '2'
+			AND POHD.DOC_TYPE <> 'X'
+			AND IV.AGENT NOT IN (SELECT TEXT3 FROM ICOMCOD1 WHERE TYPE = 'TX08' AND TEXT1 = 'AP' AND TEXT2 = 'KA')
+		]]>
+			<if test="st_buyerArr != null and st_buyerArr != '' ">
+				AND IV.BUYER IN
+				<foreach item="item" collection="st_buyerArr" open="(" separator="," close=")">
+			 	#{item}
+				</foreach>
+			</if>  
+		<if test="st_agent_code != null and st_agent_code != '' ">
+			AND IV.AGENT = #{st_agent_code}
+		</if>
+		<if test="st_po_no != null and st_po_no != '' ">
+			AND IV.PO_NO LIKE #{st_po_no}
+		</if>
+		<if test="st_ar_add_user_id != null and st_ar_add_user_id != '' ">
+			   AND DECODE(IV.PROCESS_TYPE,'0',(SELECT GR.CLOSE_USER_ID FROM ICOMGRDT GR WHERE GR.BUYER = IV.BUYER AND GR.INV_NO = IV.INV_NO AND GR.INV_SEQ = IV.INV_SEQ AND GR.STATUS != 'D')
+				,(SELECT GR.CLOSE_USER_ID FROM ICOMGRDT GR WHERE (GR.BUYER,GR.INV_NO,GR.INV_SEQ) = (SELECT WMS.BUYER,WMS.INV_NO,WMS.INV_SEQ FROM WMSIVDT WMS WHERE WMS.BUYER = IV.BUYER AND WMS.S_INV_NO = IV.INV_NO AND WMS.S_INV_SEQ = IV.INV_SEQ AND WMS.STATUS != 'D') AND GR.STATUS != 'D')) = #{st_ar_add_user_id}
+		</if>
+		<![CDATA[
+			
+			UNION ALL
+			
+			/* ICOMIVDT.PROCESS_TYPE = '3' VMI 일 경우 */
+			SELECT
+			    (SELECT TEXT4 FROM ICOMCOD1 WHERE TYPE = 'VC04' AND CODE = 'KA') AS KEP_IRS_NAME
+			  , (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'VC04' AND CODE = 'KA') AS SITE_GUBUN_NAME
+			  , CM.IRS_NO AS AGENT_IRS_NO
+			  , CM.COM_NAME_LOC AS AGENT_NAME
+			  , CASE
+			        WHEN IV.AP_CLOSE_DEPT IS NOT NULL THEN IV.AP_CLOSE_DEPT
+			        ELSE (SELECT MAX(KEP_DEPT) FROM MIS_BUYER_MNG WHERE BUYER = IV.BUYER AND YEAR = SUBSTR(IV.DELIVERY_DATE,1,4)  AND ITEM_GROUP = 'M' AND STATUS ='C')
+			    END AS KEP_DEPT
+			  , IV.DELIVERY_DATE AS DELIVERY_DATE
+			  , ROUND((IV.AGENT_ITEM_AMT/F_GET_VATRATE_NEW(IV.BUYER))) AS INV_AMT
+			  , IV.PO_NO  AS PO_NO
+			  , IV.INV_NO  AS INV_NO
+			  , IV.INV_SEQ AS INV_SEQ
+			  , IV.BUYER  AS BUYER
+			  , (SELECT CM.COM_NAME_LOC FROM ICOMCMPY CM WHERE CM.COM_CODE = IV.BUYER)  AS BUYER_NM
+			  , (SELECT TEXT3 FROM ICOMCOD1 WHERE TYPE = 'VC04' AND CODE = 'KA') AS KEP_IRS_NO
+			  , CASE
+			        WHEN IV.LOGIS_CLOSE_DEPT IS NOT NULL THEN IV.LOGIS_CLOSE_DEPT
+			        ELSE (SELECT MAX(KEP_DEPT) FROM MIS_BUYER_MNG WHERE BUYER = IV.BUYER AND YEAR = SUBSTR(IV.DELIVERY_DATE,1,4)  AND ITEM_GROUP = 'M' AND STATUS ='C')
+			    END AS KEP_DEPT_CODE
+			  , PODT.WAREHOUSE_CODE AS AGENT
+			  , IV.DESCRIPTION AS DESCRIPTION
+			  , IV.SPECIFICATION AS SPECIFICATION
+			  , SUBSTR(IV.DELIVERY_DATE,1,6) AS CL_MON
+			  , (SELECT TEXT2 FROM ICOMCOD1 WHERE TYPE = 'VC04' AND CODE = 'KA') AS KEP_COM_CODE
+			  , 'KA' AS SITE_GUBUN_CODE
+			   , CM.CMP_CLOSE_FLAG AS CMP_CLOSE_FLAG
+			  , F_GET_LOGISTICS_FEE_INFO(PODT.BUYER, PODT.BUYER_ITEM_NO, PODT.PROCESS_TYPE, POHD.AGENT, ROUND((IV.AGENT_ITEM_AMT/F_GET_VATRATE_NEW(IV.BUYER))),'01', PODT.WAREHOUSE_CODE) AS LOGISTICS_AMT
+			  , 'N' AS EXPORT_YN
+			FROM
+			    ICOMIVDT IV /* 구매사별 납품정보 */
+			  , ICOMCMPY CM /* 회원사정보 */
+			  , ICOMPOHD POHD /* 발주 마스터정보 */
+			  , ICOMPODT PODT /* 발주 제품정보 */
+			WHERE 1=1
+			AND IV.DELIVERY_DATE BETWEEN #{st_from_date} AND #{st_to_date}
+			AND IV.STATUS <> 'D'
+			AND POHD.STATUS <> 'D'
+			AND PODT.STATUS <> 'D'
+			AND PODT.WAREHOUSE_CODE = CM.COM_CODE    /* IV.AGENT = '물류센타코드' , PODT.WAREHOUSE_CODE = '실공급사코드' */
+			AND IV.AP_BILL_FLAG = 'Y'
+			AND NVL(IV.LOGIS_BILL_FLAG,'N') = 'N'
+			AND IV.BUYER = POHD.BUYER
+			AND IV.PO_NO = POHD.PO_NO
+			AND IV.BUYER = PODT.BUYER
+			AND IV.PO_NO = PODT.PO_NO
+			AND IV.PO_SEQ = PODT.PO_SEQ
+			AND IV.PROCESS_TYPE = '3'
+			AND POHD.DOC_TYPE <> 'X'
+			AND PODT.WAREHOUSE_CODE NOT IN (SELECT TEXT3 FROM ICOMCOD1 WHERE TYPE = 'TX08' AND TEXT1 = 'AP' AND TEXT2 = 'KA')
+		]]>
+			<if test="st_buyerArr != null and st_buyerArr != '' ">
+				AND IV.BUYER IN
+				<foreach item="item" collection="st_buyerArr" open="(" separator="," close=")">
+			 	#{item}
+				</foreach>
+			</if> 
+		<if test="st_agent_code != null and st_agent_code != '' ">
+			AND PODT.WAREHOUSE_CODE = #{st_agent_code}    /* PODT.WAREHOUSE_CODE = '실공급사코드' */
+		</if>
+		<if test="st_po_no != null and st_po_no != '' ">
+			AND IV.PO_NO LIKE #{st_po_no}
+		</if>
+		<if test="st_ar_add_user_id != null and st_ar_add_user_id != '' ">
+			   AND DECODE(IV.PROCESS_TYPE,'0',(SELECT GR.CLOSE_USER_ID FROM ICOMGRDT GR WHERE GR.BUYER = IV.BUYER AND GR.INV_NO = IV.INV_NO AND GR.INV_SEQ = IV.INV_SEQ AND GR.STATUS != 'D')
+				,(SELECT GR.CLOSE_USER_ID FROM ICOMGRDT GR WHERE (GR.BUYER,GR.INV_NO,GR.INV_SEQ) = (SELECT WMS.BUYER,WMS.INV_NO,WMS.INV_SEQ FROM WMSIVDT WMS WHERE WMS.BUYER = IV.BUYER AND WMS.S_INV_NO = IV.INV_NO AND WMS.S_INV_SEQ = IV.INV_SEQ AND WMS.STATUS != 'D') AND GR.STATUS != 'D')) = #{st_ar_add_user_id}
+		</if>
+		<![CDATA[
+			) X
+			GROUP BY
+			    AGENT
+			  , KEP_DEPT
+			  , BUYER
+			  , EXPORT_YN
+		UNION ALL
+		
+		SELECT
+			    MAX(KEP_IRS_NAME) AS KEP_IRS_NAME
+			  , MAX(SITE_GUBUN_NAME) AS SITE_GUBUN_NAME
+			  , MAX(AGENT_IRS_NO) AS AGENT_IRS_NO
+			  , MAX(AGENT_NAME) AS AGENT_NAME
+			  , KEP_DEPT
+			  , MAX(BUYER_NM) AS BUYER_NAME
+			  , SUM(INV_AMT) AS INV_AMT
+			  , BUYER
+			  , MAX(KEP_IRS_NO) AS KEP_IRS_NO
+			  , KEP_DEPT AS KEP_DEPT_ORG
+			  , AGENT
+			  , MAX(KEP_COM_CODE) AS KEP_COM_CODE
+			  , MAX(CMP_CLOSE_FLAG) AS CMP_CLOSE_FLAG
+			  , SUM(LOGISTICS_AMT) AS LOGISTICS_AMT
+			  , #{st_from_date}  AS  INV_FROM_DATE
+			  , #{st_to_date}     AS  INV_TO_DATE
+			  , MAX(CL_MON) AS CL_MON
+			  , EXPORT_YN
+			FROM
+			(
+				SELECT
+			    (SELECT TEXT4 FROM ICOMCOD1 WHERE TYPE = 'VC04' AND CODE = 'KA') AS KEP_IRS_NAME
+			  , (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'VC04' AND CODE = 'KA') AS SITE_GUBUN_NAME
+			  , CM.IRS_NO AS AGENT_IRS_NO
+			  , CM.COM_NAME_LOC AS AGENT_NAME
+			  , CASE
+			        WHEN IV.AP_CLOSE_DEPT IS NOT NULL THEN IV.AP_CLOSE_DEPT
+			        ELSE (SELECT MAX(KEP_DEPT) FROM MIS_BUYER_MNG WHERE BUYER = IV.BUYER AND YEAR = SUBSTR(IV.DELIVERY_DATE,1,4) AND ITEM_GROUP = 'M' AND STATUS ='C')
+			    END AS KEP_DEPT
+			  , IV.DELIVERY_DATE AS DELIVERY_DATE
+			  , ROUND((IV.AGENT_ITEM_AMT/F_GET_VATRATE_NEW(IV.BUYER))) AS INV_AMT
+			  , IV.PO_NO  AS PO_NO
+			  , IV.INV_NO  AS INV_NO
+			  , IV.INV_SEQ AS INV_SEQ
+			  , IV.BUYER  AS BUYER
+			  , (SELECT CM.COM_NAME_LOC FROM ICOMCMPY CM WHERE CM.COM_CODE = IV.BUYER)  AS BUYER_NM
+			  , (SELECT TEXT3 FROM ICOMCOD1 WHERE TYPE = 'VC04' AND CODE = 'KA') AS KEP_IRS_NO
+			  , CASE
+			        WHEN IV.LOGIS_CLOSE_DEPT IS NOT NULL THEN IV.LOGIS_CLOSE_DEPT
+			        ELSE (SELECT MAX(KEP_DEPT) FROM MIS_BUYER_MNG WHERE BUYER = IV.BUYER AND YEAR = SUBSTR(IV.DELIVERY_DATE,1,4) AND ITEM_GROUP = 'M' AND STATUS ='C')
+			    END AS KEP_DEPT_CODE
+			  , IV.AGENT  AS AGENT
+			  , IV.DESCRIPTION AS DESCRIPTION
+			  , IV.SPECIFICATION AS SPECIFICATION
+			  , SUBSTR(IV.DELIVERY_DATE,1,6) AS CL_MON
+			  , (SELECT TEXT2 FROM ICOMCOD1 WHERE TYPE = 'VC04' AND CODE = 'KA') AS KEP_COM_CODE
+			  , 'KA' AS SITE_GUBUN_CODE
+			  , CM.CMP_CLOSE_FLAG AS CMP_CLOSE_FLAG
+			  , F_GET_LOGISTICS_FEE_INFO(PODT.BUYER, PODT.BUYER_ITEM_NO, PODT.PROCESS_TYPE, POHD.AGENT, ROUND((IV.AGENT_ITEM_AMT/F_GET_VATRATE_NEW(IV.BUYER))),'01', PODT.WAREHOUSE_CODE) AS LOGISTICS_AMT
+			  , 'Y' AS EXPORT_YN
+			FROM
+			    ICOMIVDT IV /* 구매사별 납품정보 */
+			  , ICOMCMPY CM /* 회원사정보 */
+			  , ICOMPOHD POHD /* 발주 마스터정보 */
+			  , ICOMPODT PODT /* 발주 제품정보 */
+			WHERE 1=1
+			AND IV.DELIVERY_DATE BETWEEN #{st_from_date} AND #{st_to_date}
+			AND IV.STATUS <> 'D'
+			AND POHD.STATUS <> 'D'
+			AND PODT.STATUS <> 'D'
+			AND PODT.WAREHOUSE_CODE = 'KRKORE0668' -- 수출검수센터만 (SMART팀 국내/해외 세금계산서 분할용)
+			AND IV.AGENT = CM.COM_CODE
+			AND IV.AP_BILL_FLAG = 'Y'
+			AND NVL(IV.LOGIS_BILL_FLAG,'N') = 'N'
+			AND IV.BUYER = POHD.BUYER
+			AND IV.PO_NO = POHD.PO_NO
+			AND IV.BUYER = PODT.BUYER
+			AND IV.PO_NO = PODT.PO_NO
+			AND IV.PO_SEQ = PODT.PO_SEQ
+			AND IV.PROCESS_TYPE = '2'
+			AND POHD.DOC_TYPE <> 'X'
+			AND IV.AGENT NOT IN (SELECT TEXT3 FROM ICOMCOD1 WHERE TYPE = 'TX08' AND TEXT1 = 'AP' AND TEXT2 = 'KA')
+		]]>
+			<if test="st_buyerArr != null and st_buyerArr != '' ">
+				AND IV.BUYER IN
+				<foreach item="item" collection="st_buyerArr" open="(" separator="," close=")">
+			 	#{item}
+				</foreach>
+			</if>  
+		<if test="st_agent_code != null and st_agent_code != '' ">
+			AND IV.AGENT = #{st_agent_code}
+		</if>
+		<if test="st_po_no != null and st_po_no != '' ">
+			AND IV.PO_NO LIKE #{st_po_no}
+		</if>
+		<if test="st_ar_add_user_id != null and st_ar_add_user_id != '' ">
+			   AND DECODE(IV.PROCESS_TYPE,'0',(SELECT GR.CLOSE_USER_ID FROM ICOMGRDT GR WHERE GR.BUYER = IV.BUYER AND GR.INV_NO = IV.INV_NO AND GR.INV_SEQ = IV.INV_SEQ AND GR.STATUS != 'D')
+				,(SELECT GR.CLOSE_USER_ID FROM ICOMGRDT GR WHERE (GR.BUYER,GR.INV_NO,GR.INV_SEQ) = (SELECT WMS.BUYER,WMS.INV_NO,WMS.INV_SEQ FROM WMSIVDT WMS WHERE WMS.BUYER = IV.BUYER AND WMS.S_INV_NO = IV.INV_NO AND WMS.S_INV_SEQ = IV.INV_SEQ AND WMS.STATUS != 'D') AND GR.STATUS != 'D')) = #{st_ar_add_user_id}
+		</if>
+		<![CDATA[
+		) Y
+			GROUP BY
+			    AGENT
+			  , KEP_DEPT
+			  , BUYER
+			  , EXPORT_YN		  
+			ORDER BY   AGENT
+			  , KEP_DEPT
+			  , BUYER
+
+		]]>
+	</select>
+	<!-- 저장 -->
+	<update  id="updateMasterCmClSalesLogisTaxSumCreation" parameterType="java.util.Map" >
+	/*updateMasterCmClSalesLogisTaxSumCreation*/
+		<![CDATA[
+			UPDATE
+			    ICOMGRDT /* 구매사별 입고정보 */
+			SET
+			    LOGIS_CLOSE_DEPT = #{KEP_DEPT}
+			WHERE 1=1
+			AND LOGIS_BILL_FLAG = 'N'
+			AND (BUYER, GR_NO, GR_SEQ) IN
+			(
+			    SELECT
+			        GR.BUYER
+			      , GR.GR_NO
+			      , GR.GR_SEQ
+			    FROM
+			        ICOMGRDT GR /* 구매사별 입고정보 */
+			      , ICOMCMPY CM /* 회원사정보 */
+			      , ICOMPOHD POHD /* 발주 마스터정보 */
+			      , ICOMCOD1 COD /* 마스터코드 관리 */
+			      , ICOMPODT PODT /* 발주 제품정보 */
+			    WHERE 1=1
+			    AND GR.AGENT = CM.COM_CODE
+			    AND GR.BUYER = POHD.BUYER
+			    AND GR.PO_NO = POHD.PO_NO
+			    AND GR.BUYER = PODT.BUYER
+			    AND GR.PO_NO = PODT.PO_NO
+			    AND GR.PO_SEQ = PODT.PO_SEQ
+			    AND GR.PROCESS_TYPE IN ('0','2')
+			    AND POHD.DOC_TYPE <> 'X'
+			    AND GR.BUYER = COD.TEXT1(+)
+			    AND GR.AGENT = COD.TEXT2(+)
+			    AND COD.TYPE(+) = 'TX07'
+			    AND GR.AGENT = #{AGENT}
+			    AND GR_DATE BETWEEN #{GR_FROM_DATE} AND #{GR_TO_DATE}
+			    AND AP_BILL_FLAG = 'N'
+			    AND AR_BILL_FLAG = 'Y'
+			    AND GR.STATUS <> 'D'
+			    AND PODT.STATUS <> 'D'
+			    AND POHD.STATUS <> 'D'
+			    AND GR.BUYER = #{BUYER}
+			    ]]>
+		    <if test="st_ar_add_user_id != null and st_ar_add_user_id != '' ">
+			    AND GR.CLOSE_USER_ID = #{st_ar_add_user_id}
+			</if>
+				<![CDATA[
+			  
+			
+			    UNION ALL
+			
+			    /* ICOMGRDT.PROCESS_TYPE = '3' VMI 일 경우 */
+			    SELECT
+			        GR.BUYER
+			      , GR.GR_NO
+			      , GR.GR_SEQ
+			    FROM
+			        ICOMGRDT GR /* 구매사별 입고정보 */
+			      , ICOMCMPY CM /* 회원사정보 */
+			      , ICOMPOHD POHD /* 발주 마스터정보 */
+			      , ICOMCOD1 COD /* 마스터코드 관리 */
+			      , ICOMPODT PODT /* 발주 제품정보 */
+			    WHERE 1=1
+			    AND PODT.WAREHOUSE_CODE = CM.COM_CODE
+			    AND GR.BUYER = POHD.BUYER
+			    AND GR.PO_NO = POHD.PO_NO
+			    AND GR.BUYER = PODT.BUYER
+			    AND GR.PO_NO = PODT.PO_NO
+			    AND GR.PO_SEQ = PODT.PO_SEQ
+			    AND GR.PROCESS_TYPE = '3'
+			    AND POHD.DOC_TYPE <> 'X'
+			    AND PODT.BUYER = COD.TEXT1(+)
+			    AND PODT.WAREHOUSE_CODE = COD.TEXT2(+)
+			    AND COD.TYPE(+) = 'TX07'
+			    AND PODT.WAREHOUSE_CODE = #{AGENT}
+			    AND GR_DATE BETWEEN #{GR_FROM_DATE} AND #{GR_TO_DATE}
+			    AND AP_BILL_FLAG = 'N'
+			    AND AR_BILL_FLAG = 'Y'
+			    AND GR.STATUS <> 'D'
+			    AND PODT.STATUS <> 'D'
+			    AND POHD.STATUS <> 'D'
+			    AND GR.BUYER = #{BUYER}
+				 ]]>
+		    <if test="st_ar_add_user_id != null and st_ar_add_user_id != '' ">
+			    AND GR.CLOSE_USER_ID = #{st_ar_add_user_id}
+			</if>
+				<![CDATA[
+			    UNION ALL
+			
+			    /* ICOMGRDT.PROCESS_TYPE = '1' 재고 일 경우 */
+			    SELECT
+			        GR.BUYER
+			      , GR.GR_NO
+			      , GR.GR_SEQ
+			    FROM
+			        ICOMGRDT GR /* 구매사별 입고정보 */
+			      , ICOMCMPY CM /* 회원사정보 */
+			      , ICOMPOHD POHD /* 발주 마스터정보 */
+			      , ICOMCOD1 COD /* 마스터코드 관리 */
+			      , ICOMPODT PODT /* 발주 제품정보 */
+			    WHERE 1=1
+			    AND GR.AGENT = CM.COM_CODE
+			    AND GR.BUYER = POHD.BUYER
+			    AND GR.PO_NO = POHD.PO_NO
+			    AND GR.BUYER = PODT.BUYER
+			    AND GR.PO_NO = PODT.PO_NO
+			    AND GR.PO_SEQ = PODT.PO_SEQ
+			    AND GR.PROCESS_TYPE = '1'
+			    AND GR.AGENT NOT IN (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'W001' AND TEXT4 = 'S' AND FLAG = 'Y')
+			    AND POHD.DOC_TYPE <> 'X'
+			    AND GR.BUYER = COD.TEXT1(+)
+			    AND GR.AGENT = COD.TEXT2(+)
+			    AND COD.TYPE(+) = 'TX07'
+			    AND GR.AGENT = #{AGENT}
+			    AND GR.GR_DATE BETWEEN #{GR_FROM_DATE} AND #{GR_TO_DATE}
+			    AND GR.AP_BILL_FLAG = 'N'
+			    AND GR.BUYER IN (select text1 from ICOMCOD1 WHERE TYPE = 'HUB')
+			    AND GR.STATUS <> 'D'
+			    AND PODT.STATUS <> 'D'
+			    AND POHD.STATUS <> 'D'
+			    AND GR.BUYER = #{BUYER}
+			     ]]>
+		    <if test="st_ar_add_user_id != null and st_ar_add_user_id != '' ">
+			    AND GR.CLOSE_USER_ID = #{st_ar_add_user_id}
+			</if>
+				<![CDATA[
+			)
+		]]>
+	</update>
+	<!-- 생성 -->
+	<update  id="insertMasterCmClSalesLogisTaxSumCreation_KEPTITEM" parameterType="java.util.Map" >
+	/*insertMasterCmClSalesLogisTaxSumCreation_KEPTITEM*/
+		<![CDATA[
+			INSERT INTO KEPTITEM /* 세금계산서 품목정보 */
+			(
+			    TAX_BILL_NO
+			  , ITEM_SEQ
+			  , REMARK_DESCRIPTION
+			  , REMARK_SPECIFICATION
+			  , REMARK_QTY
+			  , REMARK_PRICE
+			  , SUPP_PRICE
+			  , TAX_PRICE
+			  , REMARK_DATE
+			)
+			VALUES
+			(
+			    #{order_no}
+			  , '000001'
+			  , SUBSTR(#{item_desc},0,25)
+			  , ''
+			  , ''
+			  , ''
+			  , TRUNC(#{tot_amt})
+			  , TRUNC(#{tot_amt_taxation} * 0.1)
+			  , TO_CHAR(SYSDATE, 'YYYYMMDD')
+			)
+		]]>
+	</update>
+	<update  id="insertMasterCmClSalesLogisTaxSumCreation_KEPTARDT" parameterType="java.util.Map" >
+	/*insertMasterCmClSalesLogisTaxSumCreation_KEPTARDT*/
+		<![CDATA[
+			INSERT INTO KEPTARDT /* 물류비_세금계산서 */
+			(
+			    TAX_BILL_NO
+			  , KEP_IRS
+			  , SITE
+			  , DEPT_CODE
+			  , STATUS
+			  , ISSUE_DATE
+			  , CUSTOMER_NAME
+			  , IRS_NO
+			  , BUYER_CODE
+			
+			  , TOT_SUPP_PRICE
+			  , TOT_TAX_PRICE
+			  , TOT_AMT
+			  , SUPP_PRICE
+			  , TAX_PRICE
+			  , AMT
+			
+			  , TAX_TYPE
+			  , BILL_TYPE
+			  , PRINT_DATE
+			  , PRINT_USER_ID
+			  , PRINT_CNT
+			  , PRINT_AVAIL_CNT
+			  , CONFIRM_FLAG
+			  , REMARK_DESCRIPTION
+			  , REMARK_SPECIFICATION
+			  , REMARK_QTY
+			  , REMARK_PRICE
+			
+			  , ASK_TYPE
+			  , ADD_DATE
+			  , ADD_TIME
+			  , ADD_USER_ID
+			  , CHANGE_DATE
+			  , CHANGE_TIME
+			  , CHANGE_USER_ID
+			
+			  , AR_CLOSE_MONTH
+			  , AR_CLOSE_REVISION
+			  , KEP_IRS_NAME
+			  , KEP_CEO_NAME_LOC
+			  , KEP_INDUSTRY_TYPE
+			  , KEP_BUSINESS_ITEMS
+			  , KEP_ADDRESS_LOC
+			  , IRS_NAME
+			  , CEO_NAME_LOC
+			  , INDUSTRY_TYPE
+			  , BUSINESS_ITEMS
+			  , ADDRESS_LOC
+			  , AR_TYPE
+			  , AGENT_CODE
+			  , EXP_FLAG
+			)
+			VALUES
+			(
+			    #{order_no}
+			  , #{KEP_IRS_NO}
+			  , DECODE(#{BUYER}, 'KRKOLO0077', 'KK','KA')
+			  , #{dept_code}
+			  , 'C'
+			  , #{issue_date} || #{issue_last_day}
+			  , #{agent_irs_name}
+			  , #{agent_irs_no}
+			  , #{buyer_code}
+			
+			  , TRUNC(#{tot_supp_price})
+			  , TRUNC(#{tot_supp_price} * 0.1)
+			  , TRUNC(#{tot_supp_price}+TRUNC(#{tot_supp_price} * 0.1))
+			  , TRUNC(#{supp_price})
+			  , TRUNC(#{supp_price} * 0.1)
+			  , TRUNC(#{supp_price}+TRUNC(#{supp_price} * 0.1))
+			
+			  , '11' /*TAX_TYPE*/
+			  , (SELECT CM.BILL_TYPE FROM ICOMCMPY CM WHERE CM.COM_CODE = #{agent_code}) /*BILL_TYPE*/
+			  , '' /*PRINT_DATE*/
+			  , '' /*PRINT_USER_ID*/
+			  , 0 /*PRINT_CNT*/
+			  , 1 /*PRINT_AVAIL_CNT*/
+			  , 'N' /*CONFIRM_FLAG*/
+			  , SUBSTR(#{item_desc},0,25)
+			  , SUBSTR(#{item_desc},0,25)
+			  , 1
+			  , TRUNC(#{tot_supp_price})
+			
+			  , '02' /*ASK_TYPE*/
+			  , TO_CHAR(SYSDATE,'YYYYMMDD')
+			  , TO_CHAR(SYSDATE,'HH24MISS')
+			  , #{st_user_id}
+			  , TO_CHAR(SYSDATE,'YYYYMMDD')
+			  , TO_CHAR(SYSDATE,'HH24MISS')
+			  , #{st_user_id}
+			
+			  , #{issue_date}
+			  , #{st_close_revision}
+			  , (SELECT IRS_NAME        FROM KEPTIRSN WHERE SITE = 'KA' AND COM_CODE = #{KEP_COM_CODE} AND IRS_NO = #{KEP_IRS_NO} ) /* KEP_IRS_NAME */
+			  , (SELECT CEO_NAME_LOC    FROM KEPTIRSN WHERE SITE = 'KA' AND COM_CODE = #{KEP_COM_CODE} AND IRS_NO = #{KEP_IRS_NO} ) /* KEP_CEO_NAME_LOC */
+			  , (SELECT INDUSTRY_TYPE   FROM KEPTIRSN WHERE SITE = 'KA' AND COM_CODE = #{KEP_COM_CODE} AND IRS_NO = #{KEP_IRS_NO} ) /* KEP_INDUSTRY_TYPE */
+			  , (SELECT BUSINESS_ITEMS  FROM KEPTIRSN WHERE SITE = 'KA' AND COM_CODE = #{KEP_COM_CODE} AND IRS_NO = #{KEP_IRS_NO} ) /* KEP_BUSINESS_ITEMS */
+			  , (SELECT ADDRESS_LOC     FROM KEPTIRSN WHERE SITE = 'KA' AND COM_CODE = #{KEP_COM_CODE} AND IRS_NO = #{KEP_IRS_NO} ) /* KEP_ADDRESS_LOC */
+			  , (SELECT COM_NAME_LOC    FROM V_VOC_ICOMCMPY WHERE SYS_TYPE = 'KA' AND COM_CODE = #{agent_code} AND BUSINESS_COND <> 'B') /* IRS_NAME */
+			  , (SELECT CEO_NAME_LOC    FROM V_VOC_ICOMCMPY WHERE SYS_TYPE = 'KA' AND COM_CODE = #{agent_code} AND BUSINESS_COND <> 'B') /* CEO_NAME_LOC */
+			  , (SELECT INDUSTRY_TYPE   FROM V_VOC_ICOMCMPY WHERE SYS_TYPE = 'KA' AND COM_CODE = #{agent_code} AND BUSINESS_COND <> 'B') /* INDUSTRY_TYPE */
+			  , (SELECT BUSINESS_ITEMS  FROM V_VOC_ICOMCMPY WHERE SYS_TYPE = 'KA' AND COM_CODE = #{agent_code} AND BUSINESS_COND <> 'B') /* BUSINESS_ITEMS */
+			  , (SELECT ADDRESS_LOC     FROM V_VOC_ICOMCMPY WHERE SYS_TYPE = 'KA' AND COM_CODE = #{agent_code} AND BUSINESS_COND <> 'B') /* ADDRESS_LOC */
+			  , '02'
+			  ,#{agent_code}
+			  ,#{exportYn}
+			)
+		]]>
+	</update>
+	<update  id="updateMasterCmClSalesLogisTaxSumCreation_ICOMGRDT" parameterType="java.util.Map" >
+	/*updateMasterCmClSalesLogisTaxSumCreation_ICOMGRDT*/
+		<![CDATA[
+			UPDATE 
+			    ICOMGRDT A
+			SET
+			    LOGIS_TAX_BILL_NO      = #{order_no}
+			  , LOGIS_CLOSE_DEPT       = LPAD(#{dept_code},3,0)
+			  , LOGIS_COLSE_MONTH      = #{issue_date}
+			  , LOGIS_CLOSE_REVISION   = #{st_close_revision}
+			  , LOGIS_BILL_FLAG        = 'Y'
+			  , LOGIS_RATE= (SELECT F_GET_LOGISTICS_FEE_INFO(PODT.BUYER, PODT.BUYER_ITEM_NO, PODT.PROCESS_TYPE, GR.AGENT, 0,'02', PODT.WAREHOUSE_CODE)
+									FROM ICOMPODT PODT, ICOMGRDT GR
+									WHERE PODT.BUYER = GR.BUYER
+									AND PODT.PO_NO = GR.PO_NO
+									AND PODT.PO_SEQ = GR.PO_SEQ
+									AND GR.BUYER = A.BUYER
+									AND GR.GR_NO = A.GR_NO
+									AND GR.GR_SEQ =  A.GR_SEQ
+									AND PODT.STATUS != 'D'
+									AND GR.STATUS != 'D')
+			  , LOGIS_AMT = (SELECT F_GET_LOGISTICS_FEE_INFO(PODT.BUYER, PODT.BUYER_ITEM_NO, PODT.PROCESS_TYPE, GR.AGENT, ROUND((GR.AGENT_ITEM_AMT/F_GET_VATRATE_NEW(GR.BUYER))),'01', PODT.WAREHOUSE_CODE)
+									FROM ICOMPODT PODT, ICOMGRDT GR
+									WHERE PODT.BUYER = GR.BUYER
+									AND PODT.PO_NO = GR.PO_NO
+									AND PODT.PO_SEQ = GR.PO_SEQ
+									AND GR.BUYER = A.BUYER
+									AND GR.GR_NO = A.GR_NO
+									AND GR.GR_SEQ =  A.GR_SEQ
+									AND PODT.STATUS != 'D'
+									AND GR.STATUS != 'D')
+			 , LOGIS_RATE_STATUS =(SELECT F_GET_LOGISTICS_FEE_INFO(PODT.BUYER, PODT.BUYER_ITEM_NO, PODT.PROCESS_TYPE, GR.AGENT, 0,'03', PODT.WAREHOUSE_CODE)
+									FROM ICOMPODT PODT, ICOMGRDT GR
+									WHERE PODT.BUYER = GR.BUYER
+									AND PODT.PO_NO = GR.PO_NO
+									AND PODT.PO_SEQ = GR.PO_SEQ
+									AND GR.BUYER = A.BUYER
+									AND GR.GR_NO = A.GR_NO
+									AND GR.GR_SEQ =  A.GR_SEQ
+									AND PODT.STATUS != 'D'
+									AND GR.STATUS != 'D')									
+			WHERE  NVL(LOGIS_BILL_FLAG, 'N') = 'N'
+			AND (BUYER, GR_NO, GR_SEQ) IN
+			(
+			    /* ICOMGRDT.PROCESS_TYPE = '0' 직납 또는 ICOMGRDT.PROCESS_TYPE = '2' 재고 일 경우 */
+			    SELECT
+			        GR.BUYER
+			      , GR.GR_NO
+			      , GR.GR_SEQ
+			    FROM
+			        ICOMGRDT GR /* 구매사별 입고정보 */
+			      , ICOMCMPY CM /* 회원사정보 */
+			      , ICOMPOHD POHD /* 발주 마스터정보 */
+			      , ICOMCOD1 COD /* 마스터코드 관리 */
+			      , ICOMPODT PODT /* 발주 제품정보 */
+			    WHERE 1=1
+			    AND GR.AGENT = CM.COM_CODE
+			    AND GR.BUYER = POHD.BUYER
+			    AND GR.PO_NO = POHD.PO_NO
+			    AND GR.BUYER = PODT.BUYER
+			    AND GR.PO_NO = PODT.PO_NO
+			    AND GR.PO_SEQ = PODT.PO_SEQ
+			    AND PODT.WAREHOUSE_CODE != 'KRKORE0668'
+			    AND GR.PROCESS_TYPE = '2'
+			    AND POHD.DOC_TYPE <> 'X'
+			    AND GR.BUYER = COD.TEXT1(+)
+			    AND GR.AGENT = COD.TEXT2(+)
+			    AND COD.TYPE(+) = 'TX07'
+			    AND GR.AGENT = #{agent_code}
+			    AND GR_DATE BETWEEN #{key_gr_from_date} AND #{key_gr_to_date}
+			    AND AP_BILL_FLAG = 'Y'
+			    AND AR_BILL_FLAG = 'Y'
+			    AND GR.STATUS <> 'D'
+			    AND PODT.STATUS <> 'D'
+			    AND POHD.STATUS <> 'D'
+			    AND GR.BUYER = #{key_buyer_code}
+			     ]]>
+		    <if test="st_ar_add_user_id != null and st_ar_add_user_id != '' ">
+			    AND GR.CLOSE_USER_ID = #{st_ar_add_user_id}
+			</if>
+				<![CDATA[
+			
+			    UNION ALL
+			
+			    /* ICOMGRDT.PROCESS_TYPE = '3' VMI 일 경우 */
+			    SELECT
+			        GR.BUYER
+			      , GR.GR_NO
+			      , GR.GR_SEQ
+			    FROM
+			        ICOMGRDT GR /* 구매사별 입고정보 */
+			      , ICOMCMPY CM /* 회원사정보 */
+			      , ICOMPOHD POHD /* 발주 마스터정보 */
+			      , ICOMCOD1 COD /* 마스터코드 관리 */
+			      , ICOMPODT PODT /* 발주 제품정보 */
+			    WHERE 1=1
+			    AND PODT.WAREHOUSE_CODE = CM.COM_CODE
+			    AND GR.BUYER = POHD.BUYER
+			    AND GR.PO_NO = POHD.PO_NO
+			    AND GR.BUYER = PODT.BUYER
+			    AND GR.PO_NO = PODT.PO_NO
+			    AND GR.PO_SEQ = PODT.PO_SEQ
+			    AND GR.PROCESS_TYPE = '3'
+			    AND POHD.DOC_TYPE <> 'X'
+			    AND PODT.BUYER = COD.TEXT1(+)
+			    AND PODT.WAREHOUSE_CODE = COD.TEXT2(+)
+			    AND COD.TYPE(+) = 'TX07'
+			    AND PODT.WAREHOUSE_CODE = #{agent_code}
+			    AND GR_DATE BETWEEN #{key_gr_from_date} AND #{key_gr_to_date}
+			    AND AP_BILL_FLAG = 'Y'
+			    AND AR_BILL_FLAG = 'Y'
+			    AND GR.STATUS <> 'D'
+			    AND PODT.STATUS <> 'D'
+			    AND POHD.STATUS <> 'D'
+			    AND GR.BUYER = #{key_buyer_code}
+			     ]]>
+		    <if test="st_ar_add_user_id != null and st_ar_add_user_id != '' ">
+			    AND GR.CLOSE_USER_ID = #{st_ar_add_user_id}
+			</if>
+				<![CDATA[
+			
+			    UNION ALL
+			
+			    /* ICOMGRDT.PROCESS_TYPE = '1' 재고 일 경우 */
+			    SELECT
+			        GR.BUYER
+			      , GR.GR_NO
+			      , GR.GR_SEQ
+			    FROM
+			        ICOMGRDT GR /* 구매사별 입고정보 */
+			      , ICOMCMPY CM /* 회원사정보 */
+			      , ICOMPOHD POHD /* 발주 마스터정보 */
+			      , ICOMCOD1 COD /* 마스터코드 관리 */
+			      , ICOMPODT PODT /* 발주 제품정보 */
+			    WHERE 1=1
+			    AND GR.AGENT = CM.COM_CODE
+			    AND GR.BUYER = POHD.BUYER
+			    AND GR.PO_NO = POHD.PO_NO
+			    AND GR.BUYER = PODT.BUYER
+			    AND GR.PO_NO = PODT.PO_NO
+			    AND GR.PO_SEQ = PODT.PO_SEQ
+			    AND GR.PROCESS_TYPE = '1'
+			    AND GR.AGENT NOT IN (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'W001' AND TEXT4 = 'S' AND FLAG = 'Y')
+			    AND POHD.DOC_TYPE <> 'X'
+			    AND GR.BUYER = COD.TEXT1(+)
+			    AND GR.AGENT = COD.TEXT2(+)
+			    AND COD.TYPE(+) = 'TX07'
+			    AND GR.AGENT = #{agent_code}
+			    AND GR_DATE BETWEEN #{key_gr_from_date} AND #{key_gr_to_date}
+			    AND GR.AP_BILL_FLAG = 'Y'
+			    AND GR.BUYER IN (select text1 from ICOMCOD1 WHERE TYPE = 'HUB')
+			    AND GR.STATUS <> 'D'
+			    AND PODT.STATUS <> 'D'
+			    AND POHD.STATUS <> 'D'
+			    AND GR.BUYER = #{key_buyer_code}
+			     ]]>
+		    <if test="st_ar_add_user_id != null and st_ar_add_user_id != '' ">
+			    AND GR.CLOSE_USER_ID = #{st_ar_add_user_id}
+			</if>
+				<![CDATA[
+			)
+		]]>
+	</update>
+	<update  id="updateMasterCmClSalesLogisTaxSumCreation_ICOMIVDT_v2" parameterType="java.util.Map" >
+	/*updateMasterCmClSalesLogisTaxSumCreation_ICOMIVDT_v2*/
+		<![CDATA[
+			UPDATE 
+			    ICOMIVDT A
+			SET
+			    LOGIS_TAX_BILL_NO      = #{order_no}
+			  , LOGIS_CLOSE_DEPT       = LPAD(#{dept_code},3,0)
+			  , LOGIS_COLSE_MONTH      = #{issue_date}
+			  , LOGIS_CLOSE_REVISION   = #{st_close_revision}
+			  , LOGIS_BILL_FLAG        = 'Y'
+			  , LOGIS_RATE= (SELECT F_GET_LOGISTICS_FEE_INFO(PODT.BUYER, PODT.BUYER_ITEM_NO, PODT.PROCESS_TYPE, IV.AGENT, 0,'02', PODT.WAREHOUSE_CODE)
+									FROM ICOMPODT PODT, ICOMIVDT IV
+									WHERE PODT.BUYER = IV.BUYER
+									AND PODT.PO_NO = IV.PO_NO
+									AND PODT.PO_SEQ = IV.PO_SEQ
+									AND IV.BUYER = A.BUYER
+									AND IV.INV_NO = A.INV_NO
+									AND IV.INV_SEQ =  A.INV_SEQ
+									AND PODT.STATUS != 'D'
+									AND IV.STATUS != 'D')
+			  , LOGIS_AMT = (SELECT F_GET_LOGISTICS_FEE_INFO(PODT.BUYER, PODT.BUYER_ITEM_NO, PODT.PROCESS_TYPE, IV.AGENT, ROUND((IV.AGENT_ITEM_AMT/F_GET_VATRATE_NEW(IV.BUYER))),'01', PODT.WAREHOUSE_CODE)
+									FROM ICOMPODT PODT, ICOMIVDT IV
+									WHERE PODT.BUYER = IV.BUYER
+									AND PODT.PO_NO = IV.PO_NO
+									AND PODT.PO_SEQ = IV.PO_SEQ
+									AND IV.BUYER = A.BUYER
+									AND IV.INV_NO = A.INV_NO
+									AND IV.INV_SEQ =  A.INV_SEQ
+									AND PODT.STATUS != 'D'
+									AND IV.STATUS != 'D')
+			 , LOGIS_RATE_STATUS =(SELECT F_GET_LOGISTICS_FEE_INFO(PODT.BUYER, PODT.BUYER_ITEM_NO, PODT.PROCESS_TYPE, IV.AGENT, 0,'03', PODT.WAREHOUSE_CODE)
+									FROM ICOMPODT PODT, ICOMIVDT IV
+									WHERE PODT.BUYER = IV.BUYER
+									AND PODT.PO_NO = IV.PO_NO
+									AND PODT.PO_SEQ = IV.PO_SEQ
+									AND IV.BUYER = A.BUYER
+									AND IV.INV_NO = A.INV_NO
+									AND IV.INV_SEQ =  A.INV_SEQ
+									AND PODT.STATUS != 'D'
+									AND IV.STATUS != 'D')									
+			WHERE  NVL(LOGIS_BILL_FLAG, 'N') = 'N'
+			AND (BUYER, INV_NO, INV_SEQ) IN
+			(
+			    /* ICOMIVDT.PROCESS_TYPE = '0' 직납 또는 ICOMGRDT.PROCESS_TYPE = '2' 재고 일 경우 */
+			    SELECT
+			       	IV.BUYER
+			      , IV.INV_NO
+			      , IV.INV_SEQ
+			    FROM
+			        ICOMIVDT IV /* 구매사별 납품정보 */
+			      , ICOMCMPY CM /* 회원사정보 */
+			      , ICOMPOHD POHD /* 발주 마스터정보 */
+			      , ICOMCOD1 COD /* 마스터코드 관리 */
+			      , ICOMPODT PODT /* 발주 제품정보 */
+			    WHERE 1=1
+			    AND IV.AGENT = CM.COM_CODE
+			    AND IV.BUYER = POHD.BUYER
+			    AND IV.PO_NO = POHD.PO_NO
+			    AND IV.BUYER = PODT.BUYER
+			    AND IV.PO_NO = PODT.PO_NO
+			    AND IV.PO_SEQ = PODT.PO_SEQ
+			    AND PODT.WAREHOUSE_CODE != 'KRKORE0668'
+			    AND IV.PROCESS_TYPE = '2'
+			    AND POHD.DOC_TYPE <> 'X'
+			    AND IV.BUYER = COD.TEXT1(+)
+			    AND IV.AGENT = COD.TEXT2(+)
+			    AND COD.TYPE(+) = 'TX07'
+			    AND IV.AGENT = #{agent_code}
+			    AND IV.DELIVERY_DATE BETWEEN #{key_inv_from_date} AND #{key_inv_to_date}
+			    AND IV.AP_BILL_FLAG = 'Y'
+			    AND IV.STATUS <> 'D'
+			    AND PODT.STATUS <> 'D'
+			    AND POHD.STATUS <> 'D'
+			    AND IV.BUYER = #{key_buyer_code}
+			     ]]>
+		    <if test="st_ar_add_user_id != null and st_ar_add_user_id != '' ">
+			    AND DECODE(IV.PROCESS_TYPE,'0',(SELECT GR.CLOSE_USER_ID FROM ICOMGRDT GR WHERE GR.BUYER = IV.BUYER AND GR.INV_NO = IV.INV_NO AND GR.INV_SEQ = IV.INV_SEQ AND GR.STATUS != 'D')
+				,(SELECT GR.CLOSE_USER_ID FROM ICOMGRDT GR WHERE (GR.BUYER,GR.INV_NO,GR.INV_SEQ) = (SELECT WMS.BUYER,WMS.INV_NO,WMS.INV_SEQ FROM WMSIVDT WMS WHERE WMS.BUYER = IV.BUYER AND WMS.S_INV_NO = IV.INV_NO AND WMS.S_INV_SEQ = IV.INV_SEQ AND WMS.STATUS != 'D') AND GR.STATUS != 'D')) = #{st_ar_add_user_id}
+			</if>
+				<![CDATA[
+			
+			    UNION ALL
+			
+			    /* ICOMIVDT.PROCESS_TYPE = '3' VMI 일 경우 */
+			    SELECT
+			        IV.BUYER
+			      , IV.INV_NO
+			      , IV.INV_SEQ
+			    FROM
+			        ICOMIVDT IV /* 구매사별 납품정보 */
+			      , ICOMCMPY CM /* 회원사정보 */
+			      , ICOMPOHD POHD /* 발주 마스터정보 */
+			      , ICOMCOD1 COD /* 마스터코드 관리 */
+			      , ICOMPODT PODT /* 발주 제품정보 */
+			    WHERE 1=1
+			    AND PODT.WAREHOUSE_CODE = CM.COM_CODE
+			    AND IV.BUYER = POHD.BUYER
+			    AND IV.PO_NO = POHD.PO_NO
+			    AND IV.BUYER = PODT.BUYER
+			    AND IV.PO_NO = PODT.PO_NO
+			    AND IV.PO_SEQ = PODT.PO_SEQ
+			    AND IV.PROCESS_TYPE = '3'
+			    AND POHD.DOC_TYPE <> 'X'
+			    AND PODT.BUYER = COD.TEXT1(+)
+			    AND PODT.WAREHOUSE_CODE = COD.TEXT2(+)
+			    AND COD.TYPE(+) = 'TX07'
+			    AND PODT.WAREHOUSE_CODE = #{agent_code}
+			    AND IV.DELIVERY_DATE BETWEEN #{key_inv_from_date} AND #{key_inv_to_date}
+			    AND IV.AP_BILL_FLAG = 'Y'
+			    AND IV.STATUS <> 'D'
+			    AND PODT.STATUS <> 'D'
+			    AND POHD.STATUS <> 'D'
+			    AND IV.BUYER = #{key_buyer_code}
+			     ]]>
+		    <if test="st_ar_add_user_id != null and st_ar_add_user_id != '' ">
+			    AND DECODE(IV.PROCESS_TYPE,'0',(SELECT GR.CLOSE_USER_ID FROM ICOMGRDT GR WHERE GR.BUYER = IV.BUYER AND GR.INV_NO = IV.INV_NO AND GR.INV_SEQ = IV.INV_SEQ AND GR.STATUS != 'D')
+				,(SELECT GR.CLOSE_USER_ID FROM ICOMGRDT GR WHERE (GR.BUYER,GR.INV_NO,GR.INV_SEQ) = (SELECT WMS.BUYER,WMS.INV_NO,WMS.INV_SEQ FROM WMSIVDT WMS WHERE WMS.BUYER = IV.BUYER AND WMS.S_INV_NO = IV.INV_NO AND WMS.S_INV_SEQ = IV.INV_SEQ AND WMS.STATUS != 'D') AND GR.STATUS != 'D')) = #{st_ar_add_user_id}
+			</if>
+				<![CDATA[
+			
+			    UNION ALL
+			
+			    /* ICOMIVDT.PROCESS_TYPE = '1' 재고 일 경우 */
+			    SELECT
+			        IV.BUYER
+			      , IV.INV_NO
+			      , IV.INV_SEQ
+			    FROM
+			        ICOMIVDT IV /* 구매사별 납품정보 */
+			      , ICOMCMPY CM /* 회원사정보 */
+			      , ICOMPOHD POHD /* 발주 마스터정보 */
+			      , ICOMCOD1 COD /* 마스터코드 관리 */
+			      , ICOMPODT PODT /* 발주 제품정보 */
+			    WHERE 1=1
+			    AND IV.AGENT = CM.COM_CODE
+			    AND IV.BUYER = POHD.BUYER
+			    AND IV.PO_NO = POHD.PO_NO
+			    AND IV.BUYER = PODT.BUYER
+			    AND IV.PO_NO = PODT.PO_NO
+			    AND IV.PO_SEQ = PODT.PO_SEQ
+			    AND IV.PROCESS_TYPE = '1'
+			    AND IV.AGENT NOT IN (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'W001' AND TEXT4 = 'S' AND FLAG = 'Y')
+			    AND POHD.DOC_TYPE <> 'X'
+			    AND IV.BUYER = COD.TEXT1(+)
+			    AND IV.AGENT = COD.TEXT2(+)
+			    AND COD.TYPE(+) = 'TX07'
+			    AND IV.AGENT = #{agent_code}
+			    AND IV.DELIVERY_DATE BETWEEN #{key_inv_from_date} AND #{key_inv_to_date}
+			    AND IV.AP_BILL_FLAG = 'Y'
+			    AND IV.BUYER IN (select text1 from ICOMCOD1 WHERE TYPE = 'HUB')
+			    AND IV.STATUS <> 'D'
+			    AND PODT.STATUS <> 'D'
+			    AND POHD.STATUS <> 'D'
+			    AND IV.BUYER = #{key_buyer_code}
+			     ]]>
+		    <if test="st_ar_add_user_id != null and st_ar_add_user_id != '' ">
+			    AND DECODE(IV.PROCESS_TYPE,'0',(SELECT GR.CLOSE_USER_ID FROM ICOMGRDT GR WHERE GR.BUYER = IV.BUYER AND GR.INV_NO = IV.INV_NO AND GR.INV_SEQ = IV.INV_SEQ AND GR.STATUS != 'D')
+				,(SELECT GR.CLOSE_USER_ID FROM ICOMGRDT GR WHERE (GR.BUYER,GR.INV_NO,GR.INV_SEQ) = (SELECT WMS.BUYER,WMS.INV_NO,WMS.INV_SEQ FROM WMSIVDT WMS WHERE WMS.BUYER = IV.BUYER AND WMS.S_INV_NO = IV.INV_NO AND WMS.S_INV_SEQ = IV.INV_SEQ AND WMS.STATUS != 'D') AND GR.STATUS != 'D')) = #{st_ar_add_user_id}
+			</if>
+				<![CDATA[
+			)
+		]]>
+	</update>
+	
+	<update  id="updateMasterCmClSalesLogisTaxSumCreation_ICOMGRDT_EXPORT" parameterType="java.util.Map" >
+	/*updateMasterCmClSalesLogisTaxSumCreation_ICOMGRDT_EXPORT*/
+		<![CDATA[
+			UPDATE 
+			    ICOMGRDT A
+			SET
+			    LOGIS_TAX_BILL_NO      = #{order_no}
+			  , LOGIS_CLOSE_DEPT       = LPAD(#{dept_code},3,0)
+			  , LOGIS_COLSE_MONTH      = #{issue_date}
+			  , LOGIS_CLOSE_REVISION   = #{st_close_revision}
+			  , LOGIS_BILL_FLAG        = 'Y'
+			  , LOGIS_RATE= (SELECT F_GET_LOGISTICS_FEE_INFO(PODT.BUYER, PODT.BUYER_ITEM_NO, PODT.PROCESS_TYPE, GR.AGENT, 0,'02', PODT.WAREHOUSE_CODE)
+									FROM ICOMPODT PODT, ICOMGRDT GR
+									WHERE PODT.BUYER = GR.BUYER
+									AND PODT.PO_NO = GR.PO_NO
+									AND PODT.PO_SEQ = GR.PO_SEQ
+									AND GR.BUYER = A.BUYER
+									AND GR.GR_NO = A.GR_NO
+									AND GR.GR_SEQ =  A.GR_SEQ
+									AND PODT.STATUS != 'D'
+									AND GR.STATUS != 'D')
+			  , LOGIS_AMT = (SELECT F_GET_LOGISTICS_FEE_INFO(PODT.BUYER, PODT.BUYER_ITEM_NO, PODT.PROCESS_TYPE, GR.AGENT, ROUND((GR.AGENT_ITEM_AMT/F_GET_VATRATE_NEW(GR.BUYER))),'01', PODT.WAREHOUSE_CODE)
+									FROM ICOMPODT PODT, ICOMGRDT GR
+									WHERE PODT.BUYER = GR.BUYER
+									AND PODT.PO_NO = GR.PO_NO
+									AND PODT.PO_SEQ = GR.PO_SEQ
+									AND GR.BUYER = A.BUYER
+									AND GR.GR_NO = A.GR_NO
+									AND GR.GR_SEQ =  A.GR_SEQ
+									AND PODT.STATUS != 'D'
+									AND GR.STATUS != 'D')
+			 , LOGIS_RATE_STATUS =(SELECT F_GET_LOGISTICS_FEE_INFO(PODT.BUYER, PODT.BUYER_ITEM_NO, PODT.PROCESS_TYPE, GR.AGENT, 0,'03', PODT.WAREHOUSE_CODE)
+									FROM ICOMPODT PODT, ICOMGRDT GR
+									WHERE PODT.BUYER = GR.BUYER
+									AND PODT.PO_NO = GR.PO_NO
+									AND PODT.PO_SEQ = GR.PO_SEQ
+									AND GR.BUYER = A.BUYER
+									AND GR.GR_NO = A.GR_NO
+									AND GR.GR_SEQ =  A.GR_SEQ
+									AND PODT.STATUS != 'D'
+									AND GR.STATUS != 'D')									
+			WHERE  NVL(LOGIS_BILL_FLAG, 'N') = 'N'
+			AND (BUYER, GR_NO, GR_SEQ) IN
+			(
+			    /* ICOMGRDT.PROCESS_TYPE = '0' 직납 또는 ICOMGRDT.PROCESS_TYPE = '2' 재고 일 경우 */
+			    SELECT
+			        GR.BUYER
+			      , GR.GR_NO
+			      , GR.GR_SEQ
+			    FROM
+			        ICOMGRDT GR /* 구매사별 입고정보 */
+			      , ICOMCMPY CM /* 회원사정보 */
+			      , ICOMPOHD POHD /* 발주 마스터정보 */
+			      , ICOMCOD1 COD /* 마스터코드 관리 */
+			      , ICOMPODT PODT /* 발주 제품정보 */
+			    WHERE 1=1
+			    AND GR.AGENT = CM.COM_CODE
+			    AND GR.BUYER = POHD.BUYER
+			    AND GR.PO_NO = POHD.PO_NO
+			    AND GR.BUYER = PODT.BUYER
+			    AND GR.PO_NO = PODT.PO_NO
+			    AND GR.PO_SEQ = PODT.PO_SEQ
+			    AND PODT.WAREHOUSE_CODE = 'KRKORE0668'
+			    AND GR.PROCESS_TYPE = '2'
+			    AND POHD.DOC_TYPE <> 'X'
+			    AND GR.BUYER = COD.TEXT1(+)
+			    AND GR.AGENT = COD.TEXT2(+)
+			    AND COD.TYPE(+) = 'TX07'
+			    AND GR.AGENT = #{agent_code}
+			    AND GR_DATE BETWEEN #{key_gr_from_date} AND #{key_gr_to_date}
+			    AND AP_BILL_FLAG = 'Y'
+			    AND AR_BILL_FLAG = 'Y'
+			    AND GR.STATUS <> 'D'
+			    AND PODT.STATUS <> 'D'
+			    AND POHD.STATUS <> 'D'
+			    AND GR.BUYER = #{key_buyer_code}
+			     ]]>
+		    <if test="st_ar_add_user_id != null and st_ar_add_user_id != '' ">
+			    AND GR.CLOSE_USER_ID = #{st_ar_add_user_id}
+			</if>
+				<![CDATA[
+			
+			    UNION ALL
+			
+			    /* ICOMGRDT.PROCESS_TYPE = '3' VMI 일 경우 */
+			    SELECT
+			        GR.BUYER
+			      , GR.GR_NO
+			      , GR.GR_SEQ
+			    FROM
+			        ICOMGRDT GR /* 구매사별 입고정보 */
+			      , ICOMCMPY CM /* 회원사정보 */
+			      , ICOMPOHD POHD /* 발주 마스터정보 */
+			      , ICOMCOD1 COD /* 마스터코드 관리 */
+			      , ICOMPODT PODT /* 발주 제품정보 */
+			    WHERE 1=1
+			    AND PODT.WAREHOUSE_CODE = CM.COM_CODE
+			    AND GR.BUYER = POHD.BUYER
+			    AND GR.PO_NO = POHD.PO_NO
+			    AND GR.BUYER = PODT.BUYER
+			    AND GR.PO_NO = PODT.PO_NO
+			    AND GR.PO_SEQ = PODT.PO_SEQ
+			    AND GR.PROCESS_TYPE = '3'
+			    AND POHD.DOC_TYPE <> 'X'
+			    AND PODT.BUYER = COD.TEXT1(+)
+			    AND PODT.WAREHOUSE_CODE = COD.TEXT2(+)
+			    AND COD.TYPE(+) = 'TX07'
+			    AND PODT.WAREHOUSE_CODE = #{agent_code}
+			    AND GR_DATE BETWEEN #{key_gr_from_date} AND #{key_gr_to_date}
+			    AND AP_BILL_FLAG = 'Y'
+			    AND AR_BILL_FLAG = 'Y'
+			    AND GR.STATUS <> 'D'
+			    AND PODT.STATUS <> 'D'
+			    AND POHD.STATUS <> 'D'
+			    AND GR.BUYER = #{key_buyer_code}
+			     ]]>
+		    <if test="st_ar_add_user_id != null and st_ar_add_user_id != '' ">
+			    AND GR.CLOSE_USER_ID = #{st_ar_add_user_id}
+			</if>
+				<![CDATA[
+			
+			    UNION ALL
+			
+			    /* ICOMGRDT.PROCESS_TYPE = '1' 재고 일 경우 */
+			    SELECT
+			        GR.BUYER
+			      , GR.GR_NO
+			      , GR.GR_SEQ
+			    FROM
+			        ICOMGRDT GR /* 구매사별 입고정보 */
+			      , ICOMCMPY CM /* 회원사정보 */
+			      , ICOMPOHD POHD /* 발주 마스터정보 */
+			      , ICOMCOD1 COD /* 마스터코드 관리 */
+			      , ICOMPODT PODT /* 발주 제품정보 */
+			    WHERE 1=1
+			    AND GR.AGENT = CM.COM_CODE
+			    AND GR.BUYER = POHD.BUYER
+			    AND GR.PO_NO = POHD.PO_NO
+			    AND GR.BUYER = PODT.BUYER
+			    AND GR.PO_NO = PODT.PO_NO
+			    AND GR.PO_SEQ = PODT.PO_SEQ
+			    AND GR.PROCESS_TYPE = '1'
+			    AND GR.AGENT NOT IN (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'W001' AND TEXT4 = 'S' AND FLAG = 'Y')
+			    AND POHD.DOC_TYPE <> 'X'
+			    AND GR.BUYER = COD.TEXT1(+)
+			    AND GR.AGENT = COD.TEXT2(+)
+			    AND COD.TYPE(+) = 'TX07'
+			    AND GR.AGENT = #{agent_code}
+			    AND GR_DATE BETWEEN #{key_gr_from_date} AND #{key_gr_to_date}
+			    AND GR.AP_BILL_FLAG = 'Y'
+			    AND GR.BUYER IN (select text1 from ICOMCOD1 WHERE TYPE = 'HUB')
+			    AND GR.STATUS <> 'D'
+			    AND PODT.STATUS <> 'D'
+			    AND POHD.STATUS <> 'D'
+			    AND GR.BUYER = #{key_buyer_code}
+			     ]]>
+		    <if test="st_ar_add_user_id != null and st_ar_add_user_id != '' ">
+			    AND GR.CLOSE_USER_ID = #{st_ar_add_user_id}
+			</if>
+				<![CDATA[
+			)
+		]]>
+	</update>
+	<update  id="updateMasterCmClSalesLogisTaxSumCreation_ICOMIVDT_EXPORT_v2" parameterType="java.util.Map" >
+	/*updateMasterCmClSalesLogisTaxSumCreation_ICOMIVDT_EXPORT_v2*/
+		<![CDATA[
+			UPDATE 
+			    ICOMIVDT A
+			SET
+			    LOGIS_TAX_BILL_NO      = #{order_no}
+			  , LOGIS_CLOSE_DEPT       = LPAD(#{dept_code},3,0)
+			  , LOGIS_COLSE_MONTH      = #{issue_date}
+			  , LOGIS_CLOSE_REVISION   = #{st_close_revision}
+			  , LOGIS_BILL_FLAG        = 'Y'
+			  , LOGIS_RATE= (SELECT F_GET_LOGISTICS_FEE_INFO(PODT.BUYER, PODT.BUYER_ITEM_NO, PODT.PROCESS_TYPE, IV.AGENT, 0,'02', PODT.WAREHOUSE_CODE)
+									FROM ICOMPODT PODT, ICOMIVDT IV
+									WHERE PODT.BUYER = IV.BUYER
+									AND PODT.PO_NO = IV.PO_NO
+									AND PODT.PO_SEQ = IV.PO_SEQ
+									AND IV.BUYER = A.BUYER
+									AND IV.INV_NO = A.INV_NO
+									AND IV.INV_SEQ =  A.INV_SEQ
+									AND PODT.STATUS != 'D'
+									AND IV.STATUS != 'D')
+			  , LOGIS_AMT = (SELECT F_GET_LOGISTICS_FEE_INFO(PODT.BUYER, PODT.BUYER_ITEM_NO, PODT.PROCESS_TYPE, IV.AGENT, ROUND((IV.AGENT_ITEM_AMT/F_GET_VATRATE_NEW(IV.BUYER))),'01', PODT.WAREHOUSE_CODE)
+									FROM ICOMPODT PODT, ICOMIVDT IV
+									WHERE PODT.BUYER = IV.BUYER
+									AND PODT.PO_NO = IV.PO_NO
+									AND PODT.PO_SEQ = IV.PO_SEQ
+									AND IV.BUYER = A.BUYER
+									AND IV.INV_NO = A.INV_NO
+									AND IV.INV_SEQ =  A.INV_SEQ
+									AND PODT.STATUS != 'D'
+									AND IV.STATUS != 'D')
+			 , LOGIS_RATE_STATUS =(SELECT F_GET_LOGISTICS_FEE_INFO(PODT.BUYER, PODT.BUYER_ITEM_NO, PODT.PROCESS_TYPE, IV.AGENT, 0,'03', PODT.WAREHOUSE_CODE)
+									FROM ICOMPODT PODT, ICOMIVDT IV
+									WHERE PODT.BUYER = IV.BUYER
+									AND PODT.PO_NO = IV.PO_NO
+									AND PODT.PO_SEQ = IV.PO_SEQ
+									AND IV.BUYER = A.BUYER
+									AND IV.INV_NO = A.INV_NO
+									AND IV.INV_SEQ =  A.INV_SEQ
+									AND PODT.STATUS != 'D'
+									AND IV.STATUS != 'D')									
+			WHERE  NVL(LOGIS_BILL_FLAG, 'N') = 'N'
+			AND (BUYER, INV_NO, INV_SEQ) IN
+			(
+			    /* ICOMIVDT.PROCESS_TYPE = '0' 직납 또는 ICOMIVDT.PROCESS_TYPE = '2' 재고 일 경우 */
+			    SELECT
+			        IV.BUYER
+			      , IV.INV_NO
+			      , IV.INV_SEQ
+			    FROM
+			        ICOMIVDT IV /* 구매사별 납품정보 */
+			      , ICOMCMPY CM /* 회원사정보 */
+			      , ICOMPOHD POHD /* 발주 마스터정보 */
+			      , ICOMCOD1 COD /* 마스터코드 관리 */
+			      , ICOMPODT PODT /* 발주 제품정보 */
+			    WHERE 1=1
+			    AND IV.AGENT = CM.COM_CODE
+			    AND IV.BUYER = POHD.BUYER
+			    AND IV.PO_NO = POHD.PO_NO
+			    AND IV.BUYER = PODT.BUYER
+			    AND IV.PO_NO = PODT.PO_NO
+			    AND IV.PO_SEQ = PODT.PO_SEQ
+			    AND PODT.WAREHOUSE_CODE = 'KRKORE0668'
+			    AND IV.PROCESS_TYPE = '2'
+			    AND POHD.DOC_TYPE <> 'X'
+			    AND IV.BUYER = COD.TEXT1(+)
+			    AND IV.AGENT = COD.TEXT2(+)
+			    AND COD.TYPE(+) = 'TX07'
+			    AND IV.AGENT = #{agent_code}
+			    AND IV.DELIVERY_DATE BETWEEN #{key_inv_from_date} AND #{key_inv_to_date}
+			    AND IV.AP_BILL_FLAG = 'Y'
+			    AND IV.STATUS <> 'D'
+			    AND PODT.STATUS <> 'D'
+			    AND POHD.STATUS <> 'D'
+			    AND IV.BUYER = #{key_buyer_code}
+			     ]]>
+		    <if test="st_ar_add_user_id != null and st_ar_add_user_id != '' ">
+			    AND DECODE(IV.PROCESS_TYPE,'0',(SELECT GR.CLOSE_USER_ID FROM ICOMGRDT GR WHERE GR.BUYER = IV.BUYER AND GR.INV_NO = IV.INV_NO AND GR.INV_SEQ = IV.INV_SEQ AND GR.STATUS != 'D')
+				,(SELECT GR.CLOSE_USER_ID FROM ICOMGRDT GR WHERE (GR.BUYER,GR.INV_NO,GR.INV_SEQ) = (SELECT WMS.BUYER,WMS.INV_NO,WMS.INV_SEQ FROM WMSIVDT WMS WHERE WMS.BUYER = IV.BUYER AND WMS.S_INV_NO = IV.INV_NO AND WMS.S_INV_SEQ = IV.INV_SEQ AND WMS.STATUS != 'D') AND GR.STATUS != 'D')) = #{st_ar_add_user_id}
+			</if>
+				<![CDATA[
+			
+			    UNION ALL
+			
+			    /* ICOMIVDT.PROCESS_TYPE = '3' VMI 일 경우 */
+			    SELECT
+			        IV.BUYER
+			      , IV.INV_NO
+			      , IV.INV_SEQ
+			    FROM
+			        ICOMIVDT IV /* 구매사별 납품정보 */
+			      , ICOMCMPY CM /* 회원사정보 */
+			      , ICOMPOHD POHD /* 발주 마스터정보 */
+			      , ICOMCOD1 COD /* 마스터코드 관리 */
+			      , ICOMPODT PODT /* 발주 제품정보 */
+			    WHERE 1=1
+			    AND PODT.WAREHOUSE_CODE = CM.COM_CODE
+			    AND IV.BUYER = POHD.BUYER
+			    AND IV.PO_NO = POHD.PO_NO
+			    AND IV.BUYER = PODT.BUYER
+			    AND IV.PO_NO = PODT.PO_NO
+			    AND IV.PO_SEQ = PODT.PO_SEQ
+			    AND IV.PROCESS_TYPE = '3'
+			    AND POHD.DOC_TYPE <> 'X'
+			    AND PODT.BUYER = COD.TEXT1(+)
+			    AND PODT.WAREHOUSE_CODE = COD.TEXT2(+)
+			    AND COD.TYPE(+) = 'TX07'
+			    AND PODT.WAREHOUSE_CODE = #{agent_code}
+			    AND IV.DELIVERY_DATE BETWEEN #{key_inv_from_date} AND #{key_inv_to_date}
+			    AND IV.AP_BILL_FLAG = 'Y'
+			    AND IV.STATUS <> 'D'
+			    AND PODT.STATUS <> 'D'
+			    AND POHD.STATUS <> 'D'
+			    AND IV.BUYER = #{key_buyer_code}
+			     ]]>
+		    <if test="st_ar_add_user_id != null and st_ar_add_user_id != '' ">
+			    AND DECODE(IV.PROCESS_TYPE,'0',(SELECT GR.CLOSE_USER_ID FROM ICOMGRDT GR WHERE GR.BUYER = IV.BUYER AND GR.INV_NO = IV.INV_NO AND GR.INV_SEQ = IV.INV_SEQ AND GR.STATUS != 'D')
+				,(SELECT GR.CLOSE_USER_ID FROM ICOMGRDT GR WHERE (GR.BUYER,GR.INV_NO,GR.INV_SEQ) = (SELECT WMS.BUYER,WMS.INV_NO,WMS.INV_SEQ FROM WMSIVDT WMS WHERE WMS.BUYER = IV.BUYER AND WMS.S_INV_NO = IV.INV_NO AND WMS.S_INV_SEQ = IV.INV_SEQ AND WMS.STATUS != 'D') AND GR.STATUS != 'D')) = #{st_ar_add_user_id}
+			</if>
+				<![CDATA[
+			
+			    UNION ALL
+			
+			    /* ICOMIVDT.PROCESS_TYPE = '1' 재고 일 경우 */
+			    SELECT
+			        IV.BUYER
+			      , IV.INV_NO
+			      , IV.INV_SEQ
+			    FROM
+			        ICOMIVDT IV /* 구매사별 납품정보 */
+			      , ICOMCMPY CM /* 회원사정보 */
+			      , ICOMPOHD POHD /* 발주 마스터정보 */
+			      , ICOMCOD1 COD /* 마스터코드 관리 */
+			      , ICOMPODT PODT /* 발주 제품정보 */
+			    WHERE 1=1
+			    AND IV.AGENT = CM.COM_CODE
+			    AND IV.BUYER = POHD.BUYER
+			    AND IV.PO_NO = POHD.PO_NO
+			    AND IV.BUYER = PODT.BUYER
+			    AND IV.PO_NO = PODT.PO_NO
+			    AND IV.PO_SEQ = PODT.PO_SEQ
+			    AND IV.PROCESS_TYPE = '1'
+			    AND IV.AGENT NOT IN (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'W001' AND TEXT4 = 'S' AND FLAG = 'Y')
+			    AND POHD.DOC_TYPE <> 'X'
+			    AND IV.BUYER = COD.TEXT1(+)
+			    AND IV.AGENT = COD.TEXT2(+)
+			    AND COD.TYPE(+) = 'TX07'
+			    AND IV.AGENT = #{agent_code}
+			    AND IV.DELIVERY_DATE BETWEEN #{key_inv_from_date} AND #{key_inv_to_date}
+			    AND IV.AP_BILL_FLAG = 'Y'
+			    AND IV.BUYER IN (select text1 from ICOMCOD1 WHERE TYPE = 'HUB')
+			    AND IV.STATUS <> 'D'
+			    AND PODT.STATUS <> 'D'
+			    AND POHD.STATUS <> 'D'
+			    AND IV.BUYER = #{key_buyer_code}
+			     ]]>
+		    <if test="st_ar_add_user_id != null and st_ar_add_user_id != '' ">
+			    AND DECODE(IV.PROCESS_TYPE,'0',(SELECT GR.CLOSE_USER_ID FROM ICOMGRDT GR WHERE GR.BUYER = IV.BUYER AND GR.INV_NO = IV.INV_NO AND GR.INV_SEQ = IV.INV_SEQ AND GR.STATUS != 'D')
+				,(SELECT GR.CLOSE_USER_ID FROM ICOMGRDT GR WHERE (GR.BUYER,GR.INV_NO,GR.INV_SEQ) = (SELECT WMS.BUYER,WMS.INV_NO,WMS.INV_SEQ FROM WMSIVDT WMS WHERE WMS.BUYER = IV.BUYER AND WMS.S_INV_NO = IV.INV_NO AND WMS.S_INV_SEQ = IV.INV_SEQ AND WMS.STATUS != 'D') AND GR.STATUS != 'D')) = #{st_ar_add_user_id}
+			</if>
+				<![CDATA[
+			)
+		]]>
+	</update>
+	<update  id="updateMasterCmClSalesLogisNotClose" parameterType="java.util.Map" >
+	/*updateMasterCmClSalesLogisNotClose*/
+		<![CDATA[
+			UPDATE 
+			    ICOMGRDT A
+			SET
+			    LOGIS_TAX_BILL_NO      = '미마감'
+			  , LOGIS_CLOSE_DEPT       = LPAD(#{dept_code},3,0)
+			  , LOGIS_COLSE_MONTH      = #{issue_date}
+			  , LOGIS_CLOSE_REVISION   = #{st_close_revision}
+			  , LOGIS_BILL_FLAG        = 'Y'
+			  , LOGIS_RATE= 0
+			  , LOGIS_AMT = 0
+			 , LOGIS_RATE_STATUS ='ZZ'							
+			WHERE  NVL(LOGIS_BILL_FLAG, 'N') = 'N'
+			AND (BUYER, GR_NO, GR_SEQ) IN
+			(
+			    /* ICOMGRDT.PROCESS_TYPE = '0' 직납 또는 ICOMGRDT.PROCESS_TYPE = '2' 재고 일 경우 */
+			    SELECT
+			        GR.BUYER
+			      , GR.GR_NO
+			      , GR.GR_SEQ
+			    FROM
+			        ICOMGRDT GR /* 구매사별 입고정보 */
+			      , ICOMCMPY CM /* 회원사정보 */
+			      , ICOMPOHD POHD /* 발주 마스터정보 */
+			      , ICOMCOD1 COD /* 마스터코드 관리 */
+			      , ICOMPODT PODT /* 발주 제품정보 */
+			    WHERE 1=1
+			    AND GR.AGENT = CM.COM_CODE
+			    AND GR.BUYER = POHD.BUYER
+			    AND GR.PO_NO = POHD.PO_NO
+			    AND GR.BUYER = PODT.BUYER
+			    AND GR.PO_NO = PODT.PO_NO
+			    AND GR.PO_SEQ = PODT.PO_SEQ
+			    AND GR.PROCESS_TYPE IN ('0','2')
+			    AND POHD.DOC_TYPE <> 'X'
+			    AND GR.BUYER = COD.TEXT1(+)
+			    AND GR.AGENT = COD.TEXT2(+)
+			    AND COD.TYPE(+) = 'TX07'
+			    AND GR.AGENT = #{agent_code}
+			    AND GR_DATE BETWEEN #{key_gr_from_date} AND #{key_gr_to_date}
+			    AND AP_BILL_FLAG = 'Y'
+			    AND AR_BILL_FLAG = 'Y'
+			    AND GR.STATUS <> 'D'
+			    AND PODT.STATUS <> 'D'
+			    AND POHD.STATUS <> 'D'
+			    AND GR.BUYER = #{key_buyer_code}
+			     ]]>
+		    <if test="st_ar_add_user_id != null and st_ar_add_user_id != '' ">
+			    AND GR.CLOSE_USER_ID = #{st_ar_add_user_id}
+			</if>
+				<![CDATA[
+			
+			    UNION ALL
+			
+			    /* ICOMGRDT.PROCESS_TYPE = '3' VMI 일 경우 */
+			    SELECT
+			        GR.BUYER
+			      , GR.GR_NO
+			      , GR.GR_SEQ
+			    FROM
+			        ICOMGRDT GR /* 구매사별 입고정보 */
+			      , ICOMCMPY CM /* 회원사정보 */
+			      , ICOMPOHD POHD /* 발주 마스터정보 */
+			      , ICOMCOD1 COD /* 마스터코드 관리 */
+			      , ICOMPODT PODT /* 발주 제품정보 */
+			    WHERE 1=1
+			    AND PODT.WAREHOUSE_CODE = CM.COM_CODE
+			    AND GR.BUYER = POHD.BUYER
+			    AND GR.PO_NO = POHD.PO_NO
+			    AND GR.BUYER = PODT.BUYER
+			    AND GR.PO_NO = PODT.PO_NO
+			    AND GR.PO_SEQ = PODT.PO_SEQ
+			    AND GR.PROCESS_TYPE = '3'
+			    AND POHD.DOC_TYPE <> 'X'
+			    AND PODT.BUYER = COD.TEXT1(+)
+			    AND PODT.WAREHOUSE_CODE = COD.TEXT2(+)
+			    AND COD.TYPE(+) = 'TX07'
+			    AND PODT.WAREHOUSE_CODE = #{agent_code}
+			    AND GR_DATE BETWEEN #{key_gr_from_date} AND #{key_gr_to_date}
+			    AND AP_BILL_FLAG = 'Y'
+			    AND AR_BILL_FLAG = 'Y'
+			    AND GR.STATUS <> 'D'
+			    AND PODT.STATUS <> 'D'
+			    AND POHD.STATUS <> 'D'
+			    AND GR.BUYER = #{key_buyer_code}
+			     ]]>
+		    <if test="st_ar_add_user_id != null and st_ar_add_user_id != '' ">
+			    AND GR.CLOSE_USER_ID = #{st_ar_add_user_id}
+			</if>
+				<![CDATA[
+			
+			    UNION ALL
+			
+			    /* ICOMGRDT.PROCESS_TYPE = '1' 재고 일 경우 */
+			    SELECT
+			        GR.BUYER
+			      , GR.GR_NO
+			      , GR.GR_SEQ
+			    FROM
+			        ICOMGRDT GR /* 구매사별 입고정보 */
+			      , ICOMCMPY CM /* 회원사정보 */
+			      , ICOMPOHD POHD /* 발주 마스터정보 */
+			      , ICOMCOD1 COD /* 마스터코드 관리 */
+			      , ICOMPODT PODT /* 발주 제품정보 */
+			    WHERE 1=1
+			    AND GR.AGENT = CM.COM_CODE
+			    AND GR.BUYER = POHD.BUYER
+			    AND GR.PO_NO = POHD.PO_NO
+			    AND GR.BUYER = PODT.BUYER
+			    AND GR.PO_NO = PODT.PO_NO
+			    AND GR.PO_SEQ = PODT.PO_SEQ
+			    AND GR.PROCESS_TYPE = '1'
+			    AND GR.AGENT NOT IN (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'W001' AND TEXT4 = 'S' AND FLAG = 'Y')
+			    AND POHD.DOC_TYPE <> 'X'
+			    AND GR.BUYER = COD.TEXT1(+)
+			    AND GR.AGENT = COD.TEXT2(+)
+			    AND COD.TYPE(+) = 'TX07'
+			    AND GR.AGENT = #{agent_code}
+			    AND GR_DATE BETWEEN #{key_gr_from_date} AND #{key_gr_to_date}
+			    AND GR.AP_BILL_FLAG = 'Y'
+			    AND GR.BUYER IN (select text1 from ICOMCOD1 WHERE TYPE = 'HUB')
+			    AND GR.STATUS <> 'D'
+			    AND PODT.STATUS <> 'D'
+			    AND POHD.STATUS <> 'D'
+			    AND GR.BUYER = #{key_buyer_code}
+			     ]]>
+		    <if test="st_ar_add_user_id != null and st_ar_add_user_id != '' ">
+			    AND GR.CLOSE_USER_ID = #{st_ar_add_user_id}
+			</if>
+				<![CDATA[
+			)
+		]]>
+	</update>
+	<update  id="updateMasterCmClSalesLogisNotClose_v2" parameterType="java.util.Map" >
+	/*updateMasterCmClSalesLogisNotClose_v2*/
+		<![CDATA[
+			UPDATE 
+			    ICOMIVDT A
+			SET
+			    LOGIS_TAX_BILL_NO      = '미마감'
+			  , LOGIS_CLOSE_DEPT       = LPAD(#{dept_code},3,0)
+			  , LOGIS_COLSE_MONTH      = #{issue_date}
+			  , LOGIS_CLOSE_REVISION   = #{st_close_revision}
+			  , LOGIS_BILL_FLAG        = 'Y'
+			  , LOGIS_RATE= 0
+			  , LOGIS_AMT = 0
+			 , LOGIS_RATE_STATUS ='ZZ'							
+			WHERE  NVL(LOGIS_BILL_FLAG, 'N') = 'N'
+			AND (BUYER, INV_NO, INV_SEQ) IN
+			(
+			    /* ICOMIVDT.PROCESS_TYPE = '0' 직납 또는 ICOMIVDT.PROCESS_TYPE = '2' 재고 일 경우 */
+			    SELECT
+			        IV.BUYER
+			      , IV.INV_NO
+			      , IV.INV_SEQ
+			    FROM
+			        ICOMIVDT IV /* 구매사별 납품정보 */
+			      , ICOMCMPY CM /* 회원사정보 */
+			      , ICOMPOHD POHD /* 발주 마스터정보 */
+			      , ICOMCOD1 COD /* 마스터코드 관리 */
+			      , ICOMPODT PODT /* 발주 제품정보 */
+			    WHERE 1=1
+			    AND IV.AGENT = CM.COM_CODE
+			    AND IV.BUYER = POHD.BUYER
+			    AND IV.PO_NO = POHD.PO_NO
+			    AND IV.BUYER = PODT.BUYER
+			    AND IV.PO_NO = PODT.PO_NO
+			    AND IV.PO_SEQ = PODT.PO_SEQ
+			    AND IV.PROCESS_TYPE IN ('0','2')
+			    AND POHD.DOC_TYPE <> 'X'
+			    AND IV.BUYER = COD.TEXT1(+)
+			    AND IV.AGENT = COD.TEXT2(+)
+			    AND COD.TYPE(+) = 'TX07'
+			    AND IV.AGENT = #{agent_code}
+			    AND IV.DELIVERY_DATE BETWEEN #{st_from_date} AND #{st_to_date}
+			    AND IV.AP_BILL_FLAG = 'Y'
+			    AND IV.STATUS <> 'D'
+			    AND PODT.STATUS <> 'D'
+			    AND POHD.STATUS <> 'D'
+			    AND IV.BUYER = #{key_buyer_code}
+			     ]]>
+		    <if test="st_ar_add_user_id != null and st_ar_add_user_id != '' ">
+			    AND DECODE(IV.PROCESS_TYPE,'0',(SELECT GR.CLOSE_USER_ID FROM ICOMGRDT GR WHERE GR.BUYER = IV.BUYER AND GR.INV_NO = IV.INV_NO AND GR.INV_SEQ = IV.INV_SEQ AND GR.STATUS != 'D')
+				,(SELECT GR.CLOSE_USER_ID FROM ICOMGRDT GR WHERE (GR.BUYER,GR.INV_NO,GR.INV_SEQ) = (SELECT WMS.BUYER,WMS.INV_NO,WMS.INV_SEQ FROM WMSIVDT WMS WHERE WMS.BUYER = IV.BUYER AND WMS.S_INV_NO = IV.INV_NO AND WMS.S_INV_SEQ = IV.INV_SEQ AND WMS.STATUS != 'D') AND GR.STATUS != 'D')) = #{st_ar_add_user_id}
+			</if>
+				<![CDATA[
+			
+			    UNION ALL
+			
+			    /* ICOMIVDT.PROCESS_TYPE = '3' VMI 일 경우 */
+			    SELECT
+			        IV.BUYER
+			      , IV.INV_NO
+			      , IV.INV_SEQ
+			    FROM
+			        ICOMIVDT IV /* 구매사별 입고정보 */
+			      , ICOMCMPY CM /* 회원사정보 */
+			      , ICOMPOHD POHD /* 발주 마스터정보 */
+			      , ICOMCOD1 COD /* 마스터코드 관리 */
+			      , ICOMPODT PODT /* 발주 제품정보 */
+			    WHERE 1=1
+			    AND PODT.WAREHOUSE_CODE = CM.COM_CODE
+			    AND IV.BUYER = POHD.BUYER
+			    AND IV.PO_NO = POHD.PO_NO
+			    AND IV.BUYER = PODT.BUYER
+			    AND IV.PO_NO = PODT.PO_NO
+			    AND IV.PO_SEQ = PODT.PO_SEQ
+			    AND IV.PROCESS_TYPE = '3'
+			    AND POHD.DOC_TYPE <> 'X'
+			    AND PODT.BUYER = COD.TEXT1(+)
+			    AND PODT.WAREHOUSE_CODE = COD.TEXT2(+)
+			    AND COD.TYPE(+) = 'TX07'
+			    AND PODT.WAREHOUSE_CODE = #{agent_code}
+			    AND IV.DELIVERY_DATE BETWEEN #{st_from_date} AND #{st_to_date}
+			    AND IV.AP_BILL_FLAG = 'Y'
+			    AND IV.STATUS <> 'D'
+			    AND PODT.STATUS <> 'D'
+			    AND POHD.STATUS <> 'D'
+			    AND IV.BUYER = #{key_buyer_code}
+			     ]]>
+		    <if test="st_ar_add_user_id != null and st_ar_add_user_id != '' ">
+			    AND DECODE(IV.PROCESS_TYPE,'0',(SELECT GR.CLOSE_USER_ID FROM ICOMGRDT GR WHERE GR.BUYER = IV.BUYER AND GR.INV_NO = IV.INV_NO AND GR.INV_SEQ = IV.INV_SEQ AND GR.STATUS != 'D')
+				,(SELECT GR.CLOSE_USER_ID FROM ICOMGRDT GR WHERE (GR.BUYER,GR.INV_NO,GR.INV_SEQ) = (SELECT WMS.BUYER,WMS.INV_NO,WMS.INV_SEQ FROM WMSIVDT WMS WHERE WMS.BUYER = IV.BUYER AND WMS.S_INV_NO = IV.INV_NO AND WMS.S_INV_SEQ = IV.INV_SEQ AND WMS.STATUS != 'D') AND GR.STATUS != 'D')) = #{st_ar_add_user_id}
+			</if>
+				<![CDATA[
+			
+			    UNION ALL
+			
+			    /* ICOMIVDT.PROCESS_TYPE = '1' 재고 일 경우 */
+			    SELECT
+			        IV.BUYER
+			      , IV.INV_NO
+			      , IV.INV_SEQ
+			    FROM
+			        ICOMIVDT IV /* 구매사별 납품정보 */
+			      , ICOMCMPY CM /* 회원사정보 */
+			      , ICOMPOHD POHD /* 발주 마스터정보 */
+			      , ICOMCOD1 COD /* 마스터코드 관리 */
+			      , ICOMPODT PODT /* 발주 제품정보 */
+			    WHERE 1=1
+			    AND IV.AGENT = CM.COM_CODE
+			    AND IV.BUYER = POHD.BUYER
+			    AND IV.PO_NO = POHD.PO_NO
+			    AND IV.BUYER = PODT.BUYER
+			    AND IV.PO_NO = PODT.PO_NO
+			    AND IV.PO_SEQ = PODT.PO_SEQ
+			    AND IV.PROCESS_TYPE = '1'
+			    AND IV.AGENT NOT IN (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'W001' AND TEXT4 = 'S' AND FLAG = 'Y')
+			    AND POHD.DOC_TYPE <> 'X'
+			    AND IV.BUYER = COD.TEXT1(+)
+			    AND IV.AGENT = COD.TEXT2(+)
+			    AND COD.TYPE(+) = 'TX07'
+			    AND IV.AGENT = #{agent_code}
+			    AND IV.DELIVERY_DATE BETWEEN #{st_from_date} AND #{st_to_date}
+			    AND IV.AP_BILL_FLAG = 'Y'
+			    AND IV.BUYER IN (select text1 from ICOMCOD1 WHERE TYPE = 'HUB')
+			    AND IV.STATUS <> 'D'
+			    AND PODT.STATUS <> 'D'
+			    AND POHD.STATUS <> 'D'
+			    AND IV.BUYER = #{key_buyer_code}
+			     ]]>
+		    <if test="st_ar_add_user_id != null and st_ar_add_user_id != '' ">
+			    AND DECODE(IV.PROCESS_TYPE,'0',(SELECT GR.CLOSE_USER_ID FROM ICOMGRDT GR WHERE GR.BUYER = IV.BUYER AND GR.INV_NO = IV.INV_NO AND GR.INV_SEQ = IV.INV_SEQ AND GR.STATUS != 'D')
+				,(SELECT GR.CLOSE_USER_ID FROM ICOMGRDT GR WHERE (GR.BUYER,GR.INV_NO,GR.INV_SEQ) = (SELECT WMS.BUYER,WMS.INV_NO,WMS.INV_SEQ FROM WMSIVDT WMS WHERE WMS.BUYER = IV.BUYER AND WMS.S_INV_NO = IV.INV_NO AND WMS.S_INV_SEQ = IV.INV_SEQ AND WMS.STATUS != 'D') AND GR.STATUS != 'D')) = #{st_ar_add_user_id}
+			</if>
+				<![CDATA[
+			)
+		]]>
+	</update>
+	
+	<update  id="insertMasterCmClSalesLogisTaxSumCreation_BillCloseList" parameterType="java.util.Map" >
+	/*insertMasterCmClSalesLogisTaxSumCreation_BillCloseList*/
+		<![CDATA[
+			MERGE INTO BILL_CLOSE_USER_LIST A
+			USING (
+			   SELECT 
+			   (SELECT LEGACY_USER_ID FROM ICOMLUSR WHERE USER_ID = #{st_user_id})	AS LEGACY_USER_ID,
+			   #{issue_date} 	AS BILL_CLOSE_MONTH,
+			   'LG' 			AS CLOSE_TYPE,
+			   #{buyer_code}		AS BUYER_CODE,			   
+			   #{agent_code} 		AS AGENT_CODE
+			     FROM DUAL
+			) B ON (1 = 1
+			  AND A.LEGACY_USER_ID = B.LEGACY_USER_ID
+			  AND A.BILL_CLOSE_MONTH = B.BILL_CLOSE_MONTH
+			  AND A.CLOSE_TYPE = B.CLOSE_TYPE
+			  AND A.BUYER_CODE = B.BUYER_CODE
+			  AND A.AGENT_CODE = B.AGENT_CODE
+			)			
+			WHEN NOT MATCHED THEN
+			   INSERT (
+			        LEGACY_USER_ID,
+					BILL_CLOSE_MONTH,
+					CLOSE_TYPE,
+					SEQ,
+					KEP_DEPT,
+					BUYER_CODE,
+					AGENT_CODE,
+					CLOSE_CMPL_YN
+			   ) VALUES (
+			       (SELECT LEGACY_USER_ID FROM ICOMLUSR WHERE USER_ID = #{st_user_id}),
+			       #{issue_date},
+			       'LG',
+			       (SELECT NVL(MAX(SEQ),0) +1 FROM BILL_CLOSE_USER_LIST
+			       					WHERE LEGACY_USER_ID = (SELECT LEGACY_USER_ID FROM ICOMLUSR WHERE USER_ID = #{st_user_id})
+			       					AND   BILL_CLOSE_MONTH = #{issue_date}
+			       					AND   CLOSE_TYPE = 'LG' ),
+			       #{dept_code},
+			       #{buyer_code},
+			       #{agent_code},
+			       'N'			       
+			   )
+		]]>
+	</update>
+</mapper>   
+   

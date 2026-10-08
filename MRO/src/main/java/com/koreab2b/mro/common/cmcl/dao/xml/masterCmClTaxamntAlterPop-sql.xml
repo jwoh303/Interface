@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="common.cmcl">
+	
+	<!-- 조회 -->
+	<select id="selectMasterCmClTaxamntAlterPopList" parameterType="java.util.Map" resultType="java.util.Map">
+	/*selectMasterCmClTaxamntAlterPopList*/
+		<![CDATA[
+			SELECT 
+			    D.DEPT_CODE
+			  , (SELECT TEXT1
+			      FROM ICOMCOD2
+			     WHERE TYPE = 'C001'
+			       AND COMPANY_CODE = 'KRKORE0001'
+			       AND CODE = D.DEPT_CODE) AS DEPT_NAME
+			  , D.SUPP_PRICE
+			  , D.TAX_PRICE
+			  , TRUNC(D.TOT_SUPP_PRICE * 0.1) AS INIT_TOT_TAX_PRICE
+			FROM 
+			    KEPTARDT D /* 외상매출_세금계산서 */
+			WHERE 1=1
+			AND D.TAX_BILL_NO = #{st_tax_bill_no}
+			AND D.SITE = #{st_site_type} 
+		]]>
+	</select>
+		
+	<update id="updateMasterCmClTaxamntAlterPopList_KEPTITEM" parameterType="java.util.Map" >
+	/*updateMasterCmClTaxamntAlterPopList_KEPTITEM*/
+		<![CDATA[
+			UPDATE 
+			    KEPTITEM /* 세금계산서 품목정보 */
+			SET 
+			    REMARK_PRICE = #{tot_supp_price}
+			  , SUPP_PRICE   = #{tot_supp_price}
+			  , TAX_PRICE    = #{tot_tax_price}
+			WHERE 1=1
+			AND TAX_BILL_NO  = #{st_tax_bill_no}
+			]]>
+	</update>
+				
+	<select id="selectMasterCmClTaxamntAlterPopChkList" parameterType="java.util.Map" resultType="java.util.Map">
+	/*selectMasterCmClTaxamntAlterPopChkList*/
+		<![CDATA[
+			SELECT 	SUM(A.TAX_PRICE) AS TOT_TAX_PRICE
+				,	SUM(A.SUPP_PRICE) AS TOT_SUPP_PRICE
+				,	SUM(A.AMT) AS TOT_AMT
+			FROM 	KEPTARDT A
+			WHERE	1=1
+			AND 	A.SITE			= #{st_site_type}
+			AND 	A.TAX_BILL_NO	= #{st_tax_bill_no}
+			GROUP BY A.TAX_BILL_NO
+		]]>
+	</select>
+	
+	<!-- 저장 -->
+	<update id="updateMasterCmClTaxamntAlterPopMultiList_KEPTARDT" parameterType="java.util.Map" >
+	/*updateMasterCmClTaxamntAlterPopMultiList_KEPTARDT*/
+		<![CDATA[
+			UPDATE 
+			    KEPTARDT A /* 외상매출_세금계산서 */
+			SET 
+			    A.SUPP_PRICE      = #{SUPP_PRICE}
+			  , A.TAX_PRICE       = #{TAX_PRICE}
+			  , A.AMT             = #{SUPP_PRICE}+#{TAX_PRICE}
+			  , A.TAX_TYPE        = #{st_tax_type_code}
+			  , A.CHANGE_USER_ID  = #{st_user_id}
+			  , A.CHANGE_DATE     = TO_CHAR(SYSDATE, 'YYYYMMDD')
+			  , A.CHANGE_TIME     = TO_CHAR(SYSDATE, 'HH24MISS')
+			WHERE 1=1
+			AND A.SITE            = #{st_site_type}
+			AND A.TAX_BILL_NO     = #{st_tax_bill_no}
+			AND A.DEPT_CODE       = #{DEPT_CODE}
+			]]>
+	</update>
+	
+	<update id="updateMasterCmClTaxamntAlterPopMultiList_KEPTARDT2" parameterType="java.util.Map" >
+	/*updateMasterCmClTaxamntAlterPopMultiList_KEPTARDT2*/
+		<![CDATA[
+			UPDATE KEPTARDT A
+			SET    A.TOT_TAX_PRICE 	= #{tot_tax_price}
+				 , A.TOT_SUPP_PRICE = #{tot_supp_price}
+				 , A.TOT_AMT 		= #{tot_amt}
+		 		 , A.CHANGE_USER_ID	= #{st_user_id}
+		 		 , A.CHANGE_DATE	= TO_CHAR(SYSDATE, 'YYYYMMDD')
+		 		 , A.CHANGE_TIME	= TO_CHAR(SYSDATE, 'HH24MISS')
+			WHERE 1=1
+			AND A.SITE            = #{st_site_type}
+			AND A.TAX_BILL_NO     = #{st_tax_bill_no}
+			]]>
+	</update>
+	
+</mapper>

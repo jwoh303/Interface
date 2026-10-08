@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mpds">
+
+	<select id="selectMasterMpDsUserList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.pagestart"/>	
+		<![CDATA[
+		/*selectMasterMpDsUserList*/
+			 SELECT 
+			    A.PKG_CODE,
+			    A.CNFRM_STEP_CODE,
+			    A.COM_CODE,
+			    (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = A.COM_CODE) AS COM_NAME,
+			    A.CNFRM_USER_ID,
+              	(SELECT  L.USER_NAME_LOC FROM ICOMLUSR L WHERE L.COM_CODE = A.COM_CODE  AND L.USER_ID = A.CNFRM_USER_ID )  AS CNFRM_USER_NM,  
+			    A.DFND_COL1,
+			    DECODE(CNFRM_STEP_CODE, 'P002', F_GET_DFNDCOL1(CNFRM_STEP_CODE, DFND_COL1) , 'P005', F_GET_DFNDCOL1(CNFRM_STEP_CODE, DFND_COL1) , DFND_COL1 ) DFND_NAME,			    
+			    DECODE(A.DFND_COL1,'','0','1') AS DFND_COL1_IMG,
+			    A.DEL_YN,
+			    A.USER_SEQ,
+			    A.ADD_DATE,
+			    A.ADD_TIME,
+			    A.ADD_USER_ID,
+			    A.CHANGE_DATE,
+			    A.CHANGE_TIME,
+			    A.CHANGE_USER_ID
+			FROM DONGOPKG_USR A
+			WHERE PKG_CODE = DECODE(#{st_pkg_gubun}, 'PK02','PKG1','PKG2')
+		]]>
+        <if test="st_cnfrm_step != null and st_cnfrm_step != ''">
+			AND A.CNFRM_STEP_CODE = #{st_cnfrm_step}
+        </if>
+        <if test="st_buyer != null and st_buyer != ''">
+			AND A.COM_CODE = #{st_buyer}
+        </if>
+        <if test="st_user_id != null and st_user_id != ''">
+			AND A.CNFRM_USER_ID = #{st_user_id}
+        </if>
+        <if test="st_del_yn != null and st_del_yn != ''">
+			AND A.DEL_YN = #{st_del_yn}
+        </if>
+		
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+	
+	<update  id="insertMasterMpDsUser" parameterType="java.util.Map" >
+		<![CDATA[
+			 INSERT INTO DONGOPKG_USR  (
+			    PKG_CODE,
+			    CNFRM_STEP_CODE,
+			    COM_CODE,
+			    CNFRM_USER_ID,
+			    DFND_COL1,
+			    DEL_YN,
+			    USER_SEQ,
+			    ADD_DATE,
+			    ADD_TIME,
+			    ADD_USER_ID,
+			    CHANGE_DATE,
+			    CHANGE_TIME,
+			    CHANGE_USER_ID
+		) VALUES (
+			    #{PKG_CODE},
+			    #{CNFRM_STEP_CODE},
+			    #{COM_CODE},
+			    #{CNFRM_USER_ID},
+			    #{DFND_COL1},
+			    #{DEL_YN},
+	            (SELECT DECODE(MAX(USER_SEQ),NULL,'0', MAX(USER_SEQ))+1                                                        
+                  FROM DONGOPKG_USR                                                                        
+                 WHERE PKG_CODE  = #{PKG_CODE}                                              
+                   AND CNFRM_STEP_CODE = #{CNFRM_STEP_CODE}                                                             
+                 ),                                                             
+			    TO_CHAR(SYSDATE,'YYYYMMDD'),
+			    TO_CHAR(SYSDATE,'HH24MISS'),
+			    #{st_kep_user_id},
+			    TO_CHAR(SYSDATE,'YYYYMMDD'),
+			    TO_CHAR(SYSDATE,'HH24MISS'),
+			    #{st_kep_user_id}
+		    )
+		]]>
+	</update>
+	
+	<update  id="updateMasterMpDsUser" parameterType="java.util.Map" >
+		<![CDATA[
+			 UPDATE DONGOPKG_USR
+		 	SET DFND_COL1 = #{DFND_COL1}
+			    ,DEL_YN = #{DEL_YN}
+			    ,CHANGE_DATE = TO_CHAR(SYSDATE,'YYYYMMDD')
+			    ,CHANGE_TIME = TO_CHAR(SYSDATE,'HH24MISS')
+			    ,CHANGE_USER_ID = #{st_kep_user_id}
+			WHERE PKG_CODE = #{PKG_CODE}
+			  AND CNFRM_STEP_CODE = #{CNFRM_STEP_CODE}
+			  AND COM_CODE = #{COM_CODE}
+			  AND CNFRM_USER_ID = #{CNFRM_USER_ID}
+		]]>
+	</update>
+	
+
+</mapper>

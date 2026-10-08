@@ -1,0 +1,311 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mprq">
+	<!--프로젝트선택 팝업 내 조회 -->
+	<select id="selectprojectList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*selectprojectList*/
+		SELECT	TO_CHAR(ADD_DATE,'YYYY/MM/DD') AS ADD_DATE,
+				BURQ_NO,
+				PROJECT_NAME,
+				(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = PROJECT_MNG_USER) AS PM_NAME,
+				PROJECT_UNIT,
+				PROJECT_MNG_USER,
+				(SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'BURQ02' AND PROJECT_STATUS = CODE) AS  PROJECT_STAUTS_TEXT
+		FROM KEP_BURQ_MNG
+		WHERE TO_CHAR(ADD_DATE, 'YYYYMMDD') BETWEEN #{st_from_date} AND #{st_to_date}
+		AND PROJECT_STATUS <> 'G'
+		]]>
+		<!-- 벌크소싱 견적진행이 아닌 경우, 내용을 잘 몰라서 그대로 일단 두기로 함 HSJ 2026.06.05 -->
+		<if test='st_type != "B"'>	
+		<![CDATA[
+			AND PROJECT_STATUS <> 'G'
+		]]>	
+		</if>
+		<!-- 프로젝트명 -->
+		<if test="st_project_name != null and st_project_name != ''">
+			<![CDATA[
+				AND UPPER(PROJECT_NAME) LIKE UPPER('%'||#{st_project_name}||'%')         
+			]]>
+		</if>	
+        <![CDATA[
+		ORDER BY BURQ_NO
+		]]>
+	</select>
+	
+	<!--벌크소싱 프로젝트 관리 조회 고객사용-->
+	<select id="selectItemListBuyer" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.pagestart"/>	
+		<![CDATA[
+			/*selectItemListBuyer*/
+			SELECT	BURQ_NO,
+					PROJECT_NAME,
+					BUYER,
+					BUYER_NAME,
+					CONTRACT_NO,
+					CONTRACT_SEQ,
+					BUYER_ITEM_NO,
+					SG_ID,
+					SG_NAME,
+					SM_USER_NAME,
+					AGENT_MNG_USER_NAME,
+					ITEM_KEY_ID,
+					AGENT_NAME,
+					DESCRIPTION,
+		            SPECIFICATION,
+		            MAKER_PART_NO,
+		            MAKER_NAME,
+		            MIN_ORDER_QTY,
+		            PUR_UNIT_QTY,
+		            UNIT_MEASURE,
+		            PO_CNT,
+					ITEM_QTY,
+					RE_LIST_PRICE,
+					MAIN_BUYER,
+					PROCESS_TYPE,
+					PARCEL_YN,
+					WAREHOUSE_CODE
+			FROM (
+				SELECT	A.BURQ_NO,
+						A.PROJECT_NAME,
+						B.BUYER,
+						(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = B.BUYER) AS BUYER_NAME,
+						B.CONTRACT_NO,
+						B.CONTRACT_SEQ,
+						B.BUYER_ITEM_NO,
+						B.SG_ID,
+						(SELECT SG_NAME FROM KEPSGMG SG WHERE SG.SG_ID = B.SG_ID) AS SG_NAME,
+						(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = SM_USER_ID) AS SM_USER_NAME,
+						(SELECT MIN(USER_NAME_LOC) FROM ICOMLUSR WHERE LEGACY_USER_ID = AGENT_MNG_USER_ID) AS AGENT_MNG_USER_NAME,
+						B.ITEM_KEY_ID,
+						(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = B.AGENT) AS AGENT_NAME,
+		                C.DESCRIPTION,
+		                C.SPECIFICATION,
+		                C.MAKER_PART_NO,
+		                C.MAKER_NAME,
+		                NVL(C.MIN_ORDER_QTY,1) AS MIN_ORDER_QTY,
+		                NVL(C.PUR_UNIT_QTY,1) AS PUR_UNIT_QTY,
+		                C.UNIT_MEASURE,
+						B.PO_CNT,
+						B.ITEM_QTY,
+						B.RE_LIST_PRICE,
+						B.MAIN_BUYER,
+						(SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'BURQ09' AND CODE = D.SM_PROCESS_TYPE) AS PROCESS_TYPE,
+						(SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'BURQ10' AND CODE = D.SM_PARCEL_YN)AS PARCEL_YN,
+						(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = D.SM_WAREHOUSE_CODE) AS WAREHOUSE_CODE
+				FROM KEP_BURQ_MNG A, KEP_BURQ_ITEM B, ICOMCQDT C, KEP_BURQ_RFQ D
+				WHERE A.BURQ_NO = B.BURQ_NO
+				AND B.BUYER = C.BUYER
+				AND B.CONTRACT_NO = C.CONTRACT_NO
+				AND B.CONTRACT_SEQ = C.CONTRACT_SEQ
+				AND B.BUYER_ITEM_NO = C.BUYER_ITEM_NO
+				AND B.BURQ_NO = D.BURQ_NO
+				AND B.ITEM_KEY_ID = D.ITEM_KEY_ID
+				AND B.AGENT = D.AGENT
+				AND D.AGENT_TYPE = 'B'
+				AND A.BURQ_NO = #{st_burq_no}
+			)
+			WHERE 1=1
+			]]>
+			<!-- 고객사 -->
+			<if test="st_buyer_name != null and st_buyer_name != ''">
+				<![CDATA[
+					AND UPPER(BUYER_NAME) LIKE '%'||UPPER( #{st_buyer_name} ) || '%'   
+				]]>
+			</if>
+			<!-- SG -->
+			<if test="st_c_sg_id != null and st_c_sg_id != ''">
+				<![CDATA[
+					AND SG_ID = #{st_c_sg_id} 
+				]]>
+			</if>
+			<!-- 고객사 품목코드 -->
+			<if test="st_buyer_item_no != null and st_buyer_item_no != ''">
+				<![CDATA[
+					AND UPPER(BUYER_ITEM_NO) LIKE '%'||UPPER(#{st_buyer_item_no})||'%'     
+				]]>
+			</if>		
+			<!-- 제조사 -->
+			<if test="st_maker_name != null and st_maker_name != ''">
+				<![CDATA[
+					AND UPPER(MAKER_NAME) LIKE '%'||UPPER(#{st_maker_name})||'%'     
+				]]>
+			</if>
+			<!-- 일괄 담당자가 등록대상인 경우-->
+			<if test="st_agent_mng_user == 'TARGET'">
+				<![CDATA[
+					AND AGENT_MNG_USER_NAME IS NULL 
+				]]>
+			</if>
+			<!-- 일괄 담당자를 입력한 경우-->
+			<if test="st_agent_mng_user == 'INPUT'">
+				<![CDATA[
+					AND UPPER(AGENT_MNG_USER_NAME) LIKE '%'||UPPER(#{st_agent_mng_user_name})||'%'  
+				]]>
+			</if>	
+			<!-- 키 값 -->
+			<if test="st_item_key_id != null and st_item_key_id != ''">
+				<![CDATA[
+					AND ITEM_KEY_ID = #{st_item_key_id}  
+				]]>
+			</if>	
+			<include refid="common.ibsheet.xml.pageend"/>						
+	</select>
+	
+		<!--벌크소싱 프로젝트 관리 조회 그룹사용-->
+	<select id="selectItemListGroup" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.pagestart"/>	
+		<![CDATA[
+			/*selectItemListGroup*/
+			SELECT	BURQ_NO,
+					PROJECT_NAME,
+					BUYER,
+					BUYER_NAME,
+					CONTRACT_NO,
+					CONTRACT_SEQ,
+					BUYER_ITEM_NO,
+					SG_ID,
+					SG_NAME,
+					SM_USER_NAME,
+					AGENT_MNG_USER_NAME,
+					ITEM_KEY_ID,
+					AGENT_NAME,
+					DESCRIPTION,
+		            SPECIFICATION,
+		            MAKER_PART_NO,
+		            MAKER_NAME,
+		            MIN_ORDER_QTY,
+		            PUR_UNIT_QTY,
+		            UNIT_MEASURE,
+		            PO_CNT,
+					ITEM_QTY,
+					RE_LIST_PRICE,
+					(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = MAIN_BUYER) AS MAIN_BUYER,
+					PROCESS_TYPE,
+					PARCEL_YN,
+					WAREHOUSE_CODE
+			FROM (
+				SELECT	A.BURQ_NO,
+						A.PROJECT_NAME,
+						B.BYIT_COMORG_CODE AS BUYER,
+						(SELECT COMORG_NAME FROM BYCAORGL WHERE COMORG_CODE = B.BYIT_COMORG_CODE) AS BUYER_NAME,
+						B.CONTRACT_NO,
+						B.CONTRACT_SEQ,
+						B.BUYER_ITEM_NO,
+						B.SG_ID,
+						(SELECT SG_NAME FROM KEPSGMG SG WHERE SG.SG_ID = B.SG_ID) AS SG_NAME,
+						(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = SM_USER_ID) AS SM_USER_NAME,
+						(SELECT MIN(USER_NAME_LOC) FROM ICOMLUSR WHERE LEGACY_USER_ID = AGENT_MNG_USER_ID) AS AGENT_MNG_USER_NAME,
+						B.ITEM_KEY_ID,
+						(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = B.AGENT) AS AGENT_NAME,
+		                C.DESCRIPTION_LOC AS DESCRIPTION,
+		                C.SPECIFICATION,
+		                C.MAKER_PART_NO,
+		                C.MAKER_NAME,
+		                NVL(C.MIN_ORDER_QTY,1) AS MIN_ORDER_QTY,
+		                NVL((SELECT MAX(PUR_UNIT_QTY) FROM ICOMCQDT D WHERE D.BUYER = C.BUYER AND D.BUYER_ITEM_NO = C.BUYER_ITEM_NO),1) AS PUR_UNIT_QTY,
+		                C.UNIT_MEASURE,
+						B.PO_CNT,
+						B.ITEM_QTY,
+						B.RE_LIST_PRICE,
+						B.MAIN_BUYER,
+						(SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'BURQ09' AND CODE = D.SM_PROCESS_TYPE) AS PROCESS_TYPE,
+						(SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'BURQ10' AND CODE = D.SM_PARCEL_YN)AS PARCEL_YN,
+						(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = D.SM_WAREHOUSE_CODE) AS WAREHOUSE_CODE
+				FROM KEP_BURQ_MNG A, KEP_BURQ_ITEM B, ICOMBYIT C, KEP_BURQ_RFQ D
+				WHERE A.BURQ_NO = B.BURQ_NO
+				AND B.BYIT_COMORG_CODE = C.BUYER
+				AND B.BUYER_ITEM_NO = C.BUYER_ITEM_NO
+				AND B.BURQ_NO = D.BURQ_NO
+				AND B.ITEM_KEY_ID = D.ITEM_KEY_ID
+				AND B.AGENT = D.AGENT
+				AND D.AGENT_TYPE = 'B'
+				AND A.BURQ_NO = #{st_burq_no}
+			)
+			WHERE 1=1
+			]]>
+			<!-- 고객사 -->
+			<if test="st_buyer_name != null and st_buyer_name != ''">
+				<![CDATA[
+					AND UPPER(BUYER_NAME) LIKE '%'|| UPPER( #{st_buyer_name} ) || '%'   
+				]]>
+			</if>
+			<!-- SG -->
+			<if test="st_c_sg_id != null and st_c_sg_id != ''">
+				<![CDATA[
+					AND SG_ID = #{st_c_sg_id} 
+				]]>
+			</if>
+			<!-- 고객사 품목코드 -->
+			<if test="st_buyer_item_no != null and st_buyer_item_no != ''">
+				<![CDATA[
+					AND UPPER(BUYER_ITEM_NO) LIKE '%'||UPPER(#{st_buyer_item_no})||'%'     
+				]]>
+			</if>		
+			<!-- 제조사 -->
+			<if test="st_maker_name != null and st_maker_name != ''">
+				<![CDATA[
+					AND UPPER(MAKER_NAME) LIKE '%'||UPPER(#{st_maker_name})||'%'     
+				]]>
+			</if>
+			<!-- 일괄 담당자가 등록대상인 경우-->
+			<if test="st_agent_mng_user == 'TARGET'">
+				<![CDATA[
+					AND AGENT_MNG_USER_NAME IS NULL 
+				]]>
+			</if>
+			<!-- 일괄 담당자를 입력한 경우-->
+			<if test="st_agent_mng_user == 'INPUT'">
+				<![CDATA[
+					AND UPPER(AGENT_MNG_USER_NAME) LIKE '%'||UPPER(#{st_agent_mng_user_name})||'%'  
+				]]>
+			</if>	
+			<!-- 키 값 -->
+			<if test="st_item_key_id != null and st_item_key_id != ''">
+				<![CDATA[
+					AND ITEM_KEY_ID = #{st_item_key_id}  
+				]]>
+			</if>
+			<if test="st_byit_comorg_code != null and st_byit_comorg_code != ''">
+				<![CDATA[
+					AND BUYER = #{st_byit_comorg_code}  
+				]]>
+			</if>	
+			
+			<include refid="common.ibsheet.xml.pageend"/>						
+	</select>
+	
+	<!-- 선택 삭제 -->
+	<update id="delBulkQuotaionItem" parameterType="java.util.Map" >
+		<![CDATA[
+			/* delBulkQuotaionItem */
+			DELETE FROM KEP_BURQ_ITEM
+			WHERE	BURQ_NO = #{st_burq_no}
+			AND 	ITEM_KEY_ID = #{ITEM_KEY_ID}
+		]]>
+	</update>
+	
+	<!-- 선택 삭제 -->
+	<update id="delBulkQuotaionItemRFQ" parameterType="java.util.Map" >
+		<![CDATA[
+			/* delBulkQuotaionItemRFQ */
+			DELETE FROM KEP_BURQ_RFQ
+			WHERE	BURQ_NO = #{st_burq_no}
+			AND 	ITEM_KEY_ID = #{ITEM_KEY_ID}
+		]]>
+	</update>
+	
+	<!-- 조회시 KEP_BURQ_RFQ에서 마감 시간 지난 것들 견적 마감 상태로 변경-->
+	<update id="updateMasterMpRqBulkQuotationRfqStatus" parameterType="java.util.Map" >
+		<![CDATA[
+			/* updateMasterMpRqBulkQuotationRfqStatus */
+			UPDATE KEP_BURQ_RFQ
+			SET STATUS = 'K2'
+			WHERE	BURQ_NO = #{st_burq_no}
+			AND ATOS_END_DATE < TO_CHAR(SYSDATE, 'YYYYMMDD')
+			AND STATUS NOT IN ('K4','K2')
+		]]>
+	</update>
+	
+</mapper>   
+   

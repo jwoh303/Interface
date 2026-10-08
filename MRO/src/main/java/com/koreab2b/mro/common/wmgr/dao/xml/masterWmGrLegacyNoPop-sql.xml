@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="common.wmgr">
+
+
+	<select id="selectMasterWmGrLegacyNoPop" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*selectMasterWmGrLegacyNoPop*/
+                SELECT	
+			MAX((SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE= PODT.BUYER)) AS BUYER_NAME, 
+			PODT.LEGACY_PO_NO  AS LEGACY_PO_NO,                                                
+			DECODE(COUNT(DISTINCT PODT.PROCESS_TYPE),1,DECODE(MAX(DISTINCT PODT.PROCESS_TYPE),'1','재고','2','TR','3','VMI'),'통합(일반)') AS GUBUN,
+			MAX((SELECT USER_NAME_LOC||'('||PHONE_NUMBER||')' FROM ICOMLUSR WHERE USER_ID = PRDT.ADD_USER_ID)) AS PR_USER, 
+			MAX(POHD.PO_REMARK) AS POHD_REMARK              
+		FROM ICOMPODT PODT , ICOMPRDT PRDT , ICOMPOHD POHD	
+		WHERE PODT.LEGACY_PO_NO = #{LEGACY_PO_NO}             
+		  AND PODT.BUYER =#{BUYER}  
+		  AND PODT.BUYER = PRDT.BUYER            
+		  AND PODT.PR_NO = PRDT.PR_NO            
+		  AND PODT.PR_SEQ = PRDT.PR_SEQ          
+		  AND PODT.BUYER = POHD.BUYER            
+		  AND PODT.PO_NO = POHD.PO_NO            
+		GROUP BY PODT.BUYER, PODT.LEGACY_PO_NO   
+		]]>
+
+		
+	</select>
+	
+	
+	<select id="selectMasterWmGrLegacyNoPopList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*selectMasterWmGrLegacyNoPopList*/
+		                                    SELECT                                      
+		                                              DECODE(IVDT.PO_NO,NULL,'발주',DECODE(PODT.ITEM_QTY,(SELECT SUM(WMS_GR_QTY)FROM ICOMIVDT WHERE BUYER=PODT.BUYER AND PO_NO=PODT.PO_NO AND PO_SEQ = PODT.PO_SEQ),'입고완료',IVDT.INV_QTY,'입고예정','분할입고예정')) AS STATUS ,                                       
+		                                              PODT.PO_NO,                                                                                                                                                                                                                          
+		                                              (SELECT STDCATLG_ID FROM ICOMCQDT WHERE BUYER =PODT.BUYER AND CONTRACT_NO = PODT.CONTRACT_NO AND CONTRACT_SEQ = PODT.CONTRACT_SEQ ) AS STDCATLG_ID,                                                                                  
+		                                              POHD.PO_CREATE_DATE,                                                                                                   
+		                                              PODT.RD_DATE AS PORS_CD_DATE,                                                                                          
+		                                              PODT.ITEM_QTY AS PO_QTY,                                                                                               
+		                                              PODT.AGENT_PRICE,                                                                                                      
+		                                              PODT.AGENT_ITEM_AMT,                                                                                                   
+		                                              (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = PRDT.AGENT) || '('||(SELECT TEL_NO FROM ICOMCMPY WHERE COM_CODE = PRDT.AGENT) ||')' AS AGENT_NAME ,                                        
+		                                              (SELECT TEL_NO FROM ICOMCMPY WHERE COM_CODE = PRDT.AGENT) AS AGENT_TEL,
+		                                              PRDT.AGENT AS AGENT,                                                
+		                                              DECODE(PODT.PROCESS_TYPE,'1','재고','2','TR','3','VMI') AS GUBUN,                                                      
+		                                              IVDT.INV_NO AS INV_NO,                                                                                                 
+		                                              PODT.BUYER_ITEM_NO,                                                                                                    
+		                                              PODT.RD_DATE,                                                                                                          
+		                                              IVDT.WMS_GR_DATE,                                                                                                      
+		                                              IVDT.WMS_GR_QTY,                                                                                                       
+		                                              PODT.UNIT_PRICE,                                                                                                       
+		                                              PODT.ITEM_AMT,                                                                                                         
+		                                              PODT.DESCRIPTION,                                                                                                      
+		                                              PODT.SPECIFICATION,                                                                                                    
+		                                              NVL((SELECT SUM(SUB_IV.WMS_GR_QTY)                                                                                     
+		                                                       FROM ICOMPODT SUB_PO,ICOMIVDT SUB_IV                                                                                  
+		                                                      WHERE SUB_PO.BUYER = SUB_IV.BUYER                                                                                     
+		                                                         AND SUB_PO.PO_NO = SUB_IV.PO_NO                                                                               
+		                                                         AND SUB_PO.PO_SEQ = SUB_IV.PO_SEQ                                                                             
+		                                                         AND SUB_PO.PO_NO = PODT.PO_NO                                                                                 
+		                                                         AND SUB_PO.PO_SEQ = PODT.PO_SEQ                                                                               
+		                                                         AND SUB_PO.BUYER = PODT.BUYER                                                                                 
+		                                                 GROUP BY SUB_PO.BUYER, SUB_PO.PO_NO, SUB_PO.PO_SEQ),0) AS GI_GR_QTY,                                                                                                     
+		                                              (SELECT TEXT1 FROM ICOMCOD2 WHERE COMPANY_CODE = PODT.BUYER AND TYPE='C012' AND CODE = PRDT.DELY_TO_LOCATION) AS DELY_TO_LOCATION, 
+		                                              PODT.PO_REMARK,                                                                   
+		                                              PRDT.ADD_USER_NAME AS ADD_USER_NAME,                                              
+		                                              PRDT.ADD_USER_TEL AS ADD_USER_TEL,                                                
+		                                              POHD.PO_REMARK AS POHD_REMARK,                                                    
+		                                              POHD.DOC_TYPE AS DOC_TYPE,					                                      
+		                                              SUBSTR(PODT.BUYER_ITEM_NO,1,7) AS MASTER_ITEM,	                                      
+                                                      DECODE(POHD.DOC_TYPE,'X',(SELECT NVL(TRIM(IMG_NO),'0') FROM ITEMMAST	                                      
+                                                                      WHERE STDCATLG_ID = SUBSTR(PODT.BUYER_ITEM_NO,1,7)),'') AS IMG_NO,	                                      
+		                                              PODT.BYIT_COMORG_CODE AS BYIT_COMORG_CODE,                                        
+		                                              PODT.CONTRACT_NO AS CONTRACT_NO,                                                  
+		                                              PODT.CONTRACT_SEQ AS CONTRACT_SEQ,
+		                                              PODT.BUYER AS BUYER                                                 
+		                                       FROM ICOMPODT PODT, ICOMPOHD POHD, ICOMPRDT PRDT, ICOMIVDT IVDT                                       
+		                                      WHERE PODT.BUYER = POHD.BUYER                                                   
+		                                              AND PODT.PO_NO = POHD.PO_NO                       
+		                                              AND PODT.BUYER = PRDT.BUYER                                             
+		                                              AND PODT.PR_NO = PRDT.PR_NO                                             
+		                                              AND PODT.PR_SEQ = PRDT.PR_SEQ                                           
+		                                              AND PODT.BUYER = IVDT.BUYER(+)                                          
+		                                              AND PODT.PO_NO = IVDT.PO_NO(+)                                          
+		                                              AND PODT.PO_SEQ = IVDT.PO_SEQ(+)                        
+		                                              AND PODT.STATUS <> 'D'                                                  
+		                                              AND POHD.STATUS <> 'D'                                                  
+		                                              AND PRDT.STATUS <> 'D'                                                  
+		                                              AND PODT.PROCESS_TYPE IN ('1','2','3')	                                      
+		                                              AND PODT.LEGACY_PO_NO = #{LEGACY_PO_NO}                                          
+		                                              AND PODT.BUYER = #{BUYER}   						 
+		]]>
+
+		
+	</select>
+								
+</mapper>

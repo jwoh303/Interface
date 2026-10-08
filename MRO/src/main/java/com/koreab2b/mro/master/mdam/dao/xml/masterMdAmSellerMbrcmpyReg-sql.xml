@@ -1,0 +1,584 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mdam">
+	<!-- 조회 -->
+	<select id="selectMasterMdAmSellerMbrcmpyRegList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.pagestart"/>	
+			<![CDATA[
+		    	SELECT /*selectMasterMdAmSellerMbrcmpyRegList*/                            
+						ROWNUM AS  NO             
+		        		, '' AS A
+		        		, '' AS B
+					FROM DUAL
+		           WHERE 1 = 1										
+				]]>
+		        <if test="st_kep_user_id != null and st_kep_user_id != ''">
+		    				 AND A.KEP_USER_ID=#{st_kep_user_id}	
+		        </if>
+		        <if test="st_quotation_no != null and st_quotation_no != ''">
+		    				 AND A.QUOTATION_NO LIKE '%' || #{st_quotation_no} || '%'
+		        </if>
+		        <if test="st_description != null and st_description != ''">
+		    				 AND A.DESCRIPTION LIKE '%' || #{st_description} || '%'
+		        </if>
+		        <if test="st_specification != null and st_specification != ''">
+		    				AND A.SPECIFICATION LIKE '%' || #{st_specification} || '%'
+		        </if>
+		        <if test="st_buyer_item_no != null and st_buyer_item_no != ''">
+		    				AND A.BUYER_ITEM_NO LIKE '%' || #{st_buyer_item_no} || '%'
+		        </if>
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+	
+	<!-- 아이디 중복체크 -->
+	<select id="selectMasterMdAmSellerMbrcmpyRegIDCheck" parameterType="java.util.Map" resultType="String">
+		<![CDATA[
+		/* selectMasterMdAmSellerMbrcmpyRegIDCheck */
+		SELECT COUNT(USER_ID) CNT FROM  ICOMLUSR WHERE USER_ID = #{st_user_id}
+		]]>
+	</select>
+	
+	<!-- 아이디 금지어체크 -->
+	<select id="selectMasterMdAmSellerMbrcmpyRegIDCheck2" parameterType="java.util.Map" resultType="String">
+		<![CDATA[
+		/* selectMasterMdAmSellerMbrcmpyRegIDCheck2 */
+		SELECT CODE FROM ICOMCOD1 WHERE TYPE = 'WORD' AND FLAG = 'Y'
+		]]>
+	</select>
+	
+	<!-- 비밀번호 룰 -->
+	<select id="selectMasterMdAmSellerMbrcmpyRegPwdValidCheck" parameterType="java.util.Map" resultType="String">
+		<![CDATA[
+		/* selectMasterMdAmSellerMbrcmpyRegPwdValidCheck */
+		SELECT F_PASSWD_RULE(#{st_user_id},#{st_password})	FROM DUAL
+		]]>
+	</select>
+	
+	<!-- 회원사코드  -->
+	<select id="selectMasterMdAmSellerMbrcmpyRegIrsCheck" parameterType="java.util.Map" resultType="String">
+		<![CDATA[
+		/* selectMasterMdAmSellerMbrcmpyRegIrsCheck */
+		SELECT COUNT(IRS_NO) CNT FROM ICOMCMPY WHERE STATUS NOT IN ('D','B') AND IRS_NO = #{st_irs_no} AND BUSINESS_COND='S'
+		]]>
+	</select>
+
+	<!-- 가입여부 확인 (협력사+고객사 통합) -->
+	<select id="selectMasterMdAmMbrcmpyIrsCheck" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/* selectMasterMdAmMbrcmpyIrsCheck */
+		SELECT COUNT(IRS_NO) AS CNT,
+		       MAX(CASE WHEN BUSINESS_COND='S' THEN 'Y' ELSE 'N' END) AS SELLER_YN,
+		       MAX(CASE WHEN BUSINESS_COND='B' THEN 'Y' ELSE 'N' END) AS BUYER_YN,
+		       MAX(CASE WHEN BUSINESS_COND='S' THEN COM_CODE ELSE NULL END) AS COM_CODE,
+		       MAX(CASE WHEN BUSINESS_COND='S' THEN COM_NAME_LOC ELSE NULL END) AS COM_NAME
+		FROM ICOMCMPY
+		WHERE STATUS NOT IN ('D','B','S')
+		AND IRS_NO = #{st_irs_no}
+		]]>
+	</select>
+
+	<!-- 회원사코드  -->
+	<select id="selectMasterMdAmSellerMbrcmpyRegComCode" parameterType="java.util.Map" resultType="String">
+		<![CDATA[
+		/* selectMasterMdAmSellerMbrcmpyRegComCode */
+		SELECT NVL(MAX(SUBSTR(COM_CODE,7,5))+1, 1) FROM ICOMCMPY WHERE COM_CODE LIKE  #{imsi_com_type} || '%'
+		]]>
+	</select>
+	
+	<!-- 회원사별 코드관리  -->
+	<select id="selectMasterMdAmSellerMbrcmpyRegIcomcod" parameterType="java.util.Map" resultType="String">
+		<![CDATA[
+		/* selectMasterMdAmSellerMbrcmpyRegIcomcod */
+		SELECT COUNT(*) FROM ICOMCOD2 WHERE TYPE = #{st_type} AND COMPANY_CODE = #{st_com_code}
+		]]>
+	</select>
+	
+	<!--  첨부파일 키값 조회 -->
+	<select id="selectMasterMdAmSellerMbrcmpyRegItmKey" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/* selectMasterMdAmSellerMbrcmpyRegItmKey */
+		SELECT
+			NVL((SELECT IMAGE_KEY FROM ICOMCMPY WHERE COM_CODE = #{st_com_code}), '') AS ITM_MK0_IMAGE_KEY,
+			NVL(ITM_MK1_IMAGE_KEY, '') AS ITM_MK1_IMAGE_KEY,
+			NVL(ITM_MK2_IMAGE_KEY, '') AS ITM_MK2_IMAGE_KEY,
+			NVL(ITM_MK3_IMAGE_KEY, '') AS ITM_MK3_IMAGE_KEY,
+			NVL(ITM_MK4_IMAGE_KEY, '') AS ITM_MK4_IMAGE_KEY,
+			NVL(ITM_MK5_IMAGE_KEY, '') AS ITM_MK5_IMAGE_KEY,
+			NVL(ITM_MK6_IMAGE_KEY, '') AS ITM_MK6_IMAGE_KEY,
+			NVL(ITM_MK7_IMAGE_KEY, '') AS ITM_MK7_IMAGE_KEY,
+			NVL(ITM_MK8_IMAGE_KEY, '') AS ITM_MK8_IMAGE_KEY,
+			NVL(ITM_MK9_IMAGE_KEY, '') AS ITM_MK9_IMAGE_KEY,
+			NVL(ITM_MK10_IMAGE_KEY, '') AS ITM_MK10_IMAGE_KEY
+		 FROM SUPLINFO2 WHERE SUPPLIER = #{st_com_code}
+		 ]]>
+	</select>
+
+	<!--  회사정보 입력 -->
+	<update  id="insertMasterMdAmSellerMbrcmpyRegCmpy" parameterType="java.util.Map" >
+		<![CDATA[
+		/* insertMasterMdAmSellerMbrcmpyRegCmpy */
+		INSERT INTO ICOMCMPY (
+			COM_CODE,
+			BUSINESS_COND,
+			COM_NAME_ENG,
+			COM_NAME_LOC,
+			IRS_NO,
+			CORP_REG_NO,
+			COUNTRY_CODE,
+			CEO_NAME_LOC,
+			INDUSTRY_TYPE,
+			BUSINESS_ITEMS,
+			ESTABLISH_DATE,
+			HP_ADDRESS,
+			ZIP_CODE,
+			ADDRESS_LOC,
+			TEL_NO,
+			FAX_NO,
+			AC_EMP_NM,
+			AC_EMP_TEL,
+			AC_EMP_MOBILE,
+			AC_EMP_EMAIL,
+			GR_EMP_NM,
+			GR_EMP_TEL,
+			GR_EMP_MOBILE,
+			GR_EMP_EMAIL,
+			STATUS,
+			ADD_DATE,
+			ADD_TIME,
+			CHANGE_DATE,
+			CHANGE_TIME,
+			COM_LEVEL,
+			STATUS_REQ,
+			MAIL_SEND_FLAG,
+			CONTRACT_AUTO_RENEW,
+			NICE_SEND_FLAG,
+			SMS_RECV_FLAG,
+			DE_EMP_NM,
+			DE_EMP_TEL,
+			ADDRESS_LOC1,
+			ADDRESS_LOC2,
+			ZIP_KEY,
+			IMAGE_KEY,
+			BILL_TYPE
+		) VALUES(
+			#{st_com_code},
+			'S',
+			#{st_com_name_eng},
+			#{st_com_name_loc},
+			#{st_irs_no1} || '-' || #{st_irs_no2} || '-' || #{st_irs_no3},
+			#{st_corp_reg_no},
+			'KR',
+			#{st_ceo_name_loc},
+			#{st_industry_type},
+			#{st_business_items},
+			#{st_establish_date},
+			#{st_hp_address},
+			#{st_zip_code},
+			#{st_address} || ' ' || #{st_address_dt},
+			#{st_tel_no1} || '-' || #{st_tel_no2} || '-' || #{st_tel_no3},
+			#{st_fax_no1} || '-' || #{st_fax_no2} || '-' || #{st_fax_no3},
+			#{st_ac_emp_nm},
+			#{st_ac_emp_tel1} || '-' || #{st_ac_emp_tel2} || '-' || #{st_ac_emp_tel3},
+			#{st_ac_emp_mobile1} || '-' || #{st_ac_emp_mobile2} || '-' || #{st_ac_emp_mobile3},
+			#{st_ac_emp_email},
+			#{st_gr_emp_nm},
+			#{st_gr_emp_tel1} || '-' || #{st_gr_emp_tel2} || '-' || #{st_gr_emp_tel3},
+			#{st_gr_emp_mobile1} || '-' || #{st_gr_emp_mobile2} || '-' || #{st_gr_emp_mobile3},
+			#{st_gr_emp_email},
+			'S',
+			TO_CHAR(SYSDATE,'YYYYMMDD'),
+			TO_CHAR(SYSDATE,'HH24MISS'),
+			TO_CHAR(SYSDATE,'YYYYMMDD'),
+			TO_CHAR(SYSDATE,'HH24MISS'),
+			'NR',
+			'N',
+			#{st_mail_send_flag},
+			'N',
+			'N',
+			#{st_sms_recv_flag},
+			#{st_de_emp_nm},
+			#{st_de_emp_tel1} || '-' || #{st_de_emp_tel2} || '-' || #{st_de_emp_tel3},
+			#{st_address},
+			#{st_address_dt},
+			#{st_zip_key},
+			#{st_image_key},
+			#{st_bill_type}
+		)
+		]]>
+	</update>
+	
+	<!--  사용자정보 입력 -->
+	<update  id="insertMasterMdAmSellerMbrcmpyRegUsr" parameterType="java.util.Map" >
+		<![CDATA[
+		/* insertMasterMdAmSellerMbrcmpyRegUsr */
+		INSERT INTO ICOMLUSR (
+			USER_ID,
+			USER_TYPE,
+			PASSWORD,
+			LANG,
+			USER_NAME_LOC,
+			COM_CODE,
+			DEPARTMENT,
+			POSITION,
+			EMAIL,
+			ZIP_CODE,
+			COUNTRY,
+			ADDRESS_LOC,
+			PHONE_NUMBER,
+			FAX_NUMBER,
+			REG_DATE,
+			STATUS,
+			BEGIN_DATE,
+			PASS_CHANGE_DATE,
+			CHANGE_USER_TYPE,
+			MOBILE_PHONE,
+			ROLE,
+			PERSON_AUTHOR,
+			SMS_RECV_FLAG,
+			MAIL_RECV_FLAG,
+			LEGACY_USER_ID,
+			ADDRESS_LOC1,
+			ADDRESS_LOC2,
+			ZIP_KEY,
+			INFO_AGREE_DATE,
+			INFO_AGREE_YN
+		) VALUES (
+			UPPER(TRIM(#{st_user_id})),
+			'A',
+			#{st_password},
+			'KR',
+			#{st_usr_name_loc},
+			#{st_com_code},
+			'001',
+			'001',
+			#{st_usr_email},
+			#{st_usr_zip_code},
+			'KR',
+			#{st_usr_address} || ' ' || #{st_usr_address_dt},
+			#{st_phone1} || '-' || #{st_phone2} || '-' || #{st_phone3},
+			#{st_fax_no1} || '-' || #{st_fax_no2} || '-' || #{st_fax_no3},
+			TO_CHAR(SYSDATE,'YYYYMMDD'),
+			'S',
+			TO_CHAR(SYSDATE,'YYYYMMDD'),
+			TO_CHAR(SYSDATE,'YYYYMMDD'),
+			'A',
+			#{st_usr_mobile1} || '-' || #{st_usr_mobile2} || '-' || #{st_usr_mobile3},
+			'A+',
+			'PO',
+			#{st_sms_recv_flag},
+			#{st_mail_send_flag},
+			#{st_user_com_id},
+			#{st_usr_address},
+			#{st_usr_address_dt},
+			#{st_usr_zip_key},
+			TO_CHAR(SYSDATE,'YYYYMMDD'),
+			#{st_info_agree_flag}
+		)
+		]]>
+	</update>
+	
+	<!-- 부서,직책 등록 -->
+	<update  id="insertMasterMdAmSellerMbrcmpyRegCod2" parameterType="java.util.Map" >
+		<![CDATA[
+		/* insertMasterMdAmSellerMbrcmpyRegCod2 */
+		INSERT INTO ICOMCOD2 (
+			TYPE,
+			CODE,
+			COMPANY_CODE,
+			TEXT1,
+			TEXT2,
+			TEXT3,
+			TEXT4,
+			VALUE1,
+			FLAG,
+			ADD_DATE,
+			TYPE_FLAG
+		)
+		(
+		SELECT
+			TYPE,
+			CODE,
+			#{st_com_code},
+			TEXT1,
+			TEXT2,
+			TEXT3,
+			TEXT4,
+			VALUE1,
+			FLAG,
+			TO_CHAR(SYSDATE,'YYYYMMDD'),
+			DECODE(#{st_type}, 'C001', 'D', NULL)
+		FROM ICOMCOD1
+		WHERE TYPE = #{st_type}
+		)
+		]]>
+	</update>
+	
+	<!-- 업체현황 등록 -->
+	<update  id="insertMasterMdAmSellerMbrcmpyRegSupl" parameterType="java.util.Map" >
+		<![CDATA[
+		/* insertMasterMdAmSellerMbrcmpyRegSupl */
+		INSERT INTO SUPLINFO2 (
+			SUPPLIER,
+			REG_TYPE,
+			BIZ_TYPE,
+			KEP_DAMDANG_NM,
+			EMP_CNT,
+
+			ITMG1_CD,
+			ITMG2_CD,
+			ITMG3_CD,
+			ITMG4_CD,
+			ITMG5_CD,
+			ITMG6_CD,
+			ITMG7_CD,
+			ITMG8_CD,
+			ITMG9_CD,
+			ITMG10_CD,
+			
+			ITM_MK_YN,
+			ITM_MK1,
+			ITM_MK2,
+			ITM_MK3,
+			ITM_MK4,
+			ITM_MK5,
+			ITM_MK6,
+			ITM_MK7,
+			ITM_MK8,
+			ITM_MK9,
+			ITM_MK10,
+
+			ITM_MK1_AGENCY_YN,
+			ITM_MK2_AGENCY_YN,
+			ITM_MK3_AGENCY_YN,
+			ITM_MK4_AGENCY_YN,
+			ITM_MK5_AGENCY_YN,
+			ITM_MK6_AGENCY_YN,
+			ITM_MK7_AGENCY_YN,
+			ITM_MK8_AGENCY_YN,
+			ITM_MK9_AGENCY_YN,
+			ITM_MK10_AGENCY_YN,
+
+			ITM_MK1_IMAGE_KEY,
+			ITM_MK2_IMAGE_KEY,
+			ITM_MK3_IMAGE_KEY,
+			ITM_MK4_IMAGE_KEY,
+			ITM_MK5_IMAGE_KEY,
+			ITM_MK6_IMAGE_KEY,
+			ITM_MK7_IMAGE_KEY,
+			ITM_MK8_IMAGE_KEY,
+			ITM_MK9_IMAGE_KEY,
+			ITM_MK10_IMAGE_KEY,
+
+			MP_BUSINESS_YN,
+			MP1_BUSINESS_YN,
+			MP2_BUSINESS_YN,
+			MP3_BUSINESS_YN,
+			MP4_BUSINESS_YN,
+			MP5_BUSINESS_YN,
+
+			ISO_YN,
+			LICENSE_YN,
+			YEAR_AMT,
+			MAJOR_COM,
+			DELIV_EQUIP_CNT,
+			KEP_SYSTEM_ED,
+			
+			DEAL_CONTRACT_DOC_YN,
+			BIZ_LICENCE_DOC_YN,
+			ACCOUNT_DOC_YN,
+			BANKBOOK_COPY_YN,
+			SEAL_CERT_DOC_YN,
+			USING_SEAL_DOC_YN,
+
+			ADD_DATE,
+			ADD_TIME,
+			CHANGE_DATE,
+			CHANGE_TIME,
+			
+			CEO_CAREER,
+			CAPT_AMT,
+			
+			EC_USER_NAME,
+			EC_USER_TEL,
+			EC_USER_EMAIL
+		)VALUES(
+			#{st_com_code},
+			#{st_reg_type},
+			#{st_biz_type},
+			#{st_kep_damdang_nm},
+			#{st_emp_cnt},
+
+			#{st_itmg1_cd},
+			#{st_itmg2_cd},
+			#{st_itmg3_cd},
+			#{st_itmg4_cd},
+			#{st_itmg5_cd},
+			#{st_itmg6_cd},
+			#{st_itmg7_cd},
+			#{st_itmg8_cd},
+			#{st_itmg9_cd},
+			#{st_itmg10_cd},
+			
+			#{st_itm_mk_yn},
+			#{st_itm_mk1},
+			#{st_itm_mk2},
+			#{st_itm_mk3},
+			#{st_itm_mk4},
+			#{st_itm_mk5},
+			#{st_itm_mk6},
+			#{st_itm_mk7},
+			#{st_itm_mk8},
+			#{st_itm_mk9},
+			#{st_itm_mk10},
+
+
+			#{st_itm_mk1_yn},
+			#{st_itm_mk2_yn},
+			#{st_itm_mk3_yn},
+			#{st_itm_mk4_yn},
+			#{st_itm_mk5_yn},
+			#{st_itm_mk6_yn},
+			#{st_itm_mk7_yn},
+			#{st_itm_mk8_yn},
+			#{st_itm_mk9_yn},
+			#{st_itm_mk10_yn},
+
+			#{st_itm_mk1_image_key},
+			#{st_itm_mk2_image_key},
+			#{st_itm_mk3_image_key},
+			#{st_itm_mk4_image_key},
+			#{st_itm_mk5_image_key},
+			#{st_itm_mk6_image_key},
+			#{st_itm_mk7_image_key},
+			#{st_itm_mk8_image_key},
+			#{st_itm_mk9_image_key},
+			#{st_itm_mk10_image_key},
+
+			#{st_mp_business_yn},
+			#{st_mp1_business_yn},
+			#{st_mp2_business_yn},
+			#{st_mp3_business_yn},
+			#{st_mp4_business_yn},
+			#{st_mp5_business_yn},
+
+			#{st_iso_yn},
+			#{st_license_yn},
+			#{st_year_amt},
+			#{st_major_com},
+			#{st_deliv_equip_cnt},
+			#{st_kep_system_ed},
+			
+			#{st_deal_contract_doc_yn},
+			#{st_biz_licence_doc_yn},
+			#{st_account_doc_yn},
+			#{st_bankbook_copy_yn},
+			#{st_seal_cert_doc_yn},
+			#{st_using_seal_doc_yn},
+
+			TO_CHAR(SYSDATE, 'YYYYMMDD'),
+			TO_CHAR(SYSDATE, 'HH24MISS'),
+			TO_CHAR(SYSDATE, 'YYYYMMDD'),
+			TO_CHAR(SYSDATE, 'HH24MISS'),
+			
+			#{st_ceo_career},
+			#{st_capt_amt},
+			
+			#{st_econt_name},
+			#{st_econt_mobile1} || '-' || #{st_econt_mobile2} || '-' || #{st_econt_mobile3},
+			#{st_econt_email}
+		)
+		]]>
+	</update>
+	
+	<!-- 결재정보 등록 -->
+	<update  id="insertMasterMdAmSellerMbrcmpyRegAcntsupl" parameterType="java.util.Map" >
+		<![CDATA[
+		/* insertMasterMdAmSellerMbrcmpyRegAcntsupl */
+		INSERT INTO ACNTSUPL (
+			SUPPLIER,
+			PAY_TERMS,
+			PAY_TYPE,
+			PAY_DATE_TYPE,
+			BANK_CD,
+			BANK_ACCOUNT_NO,
+			DEPOSITOR
+		) VALUES (
+			#{st_com_code},
+			#{st_pay_terms},
+			#{st_pay_type},
+			#{st_pay_date_type},
+			#{st_bank_cd},
+			#{st_hash_bank_account_no},
+			#{st_depositor}
+		)
+		]]>
+	</update>
+	
+	<!-- 첨부파일 정보변경 -->
+	<update  id="updateMasterMdAmSellerMbrcmpyRegIcomatch" parameterType="java.util.Map" >
+		<![CDATA[
+		/* updateMasterMdAmSellerMbrcmpyRegIcomatch */
+		UPDATE ICOMATCH SET
+			ADD_USER_ID = (SELECT USER_ID FROM ICOMLUSR WHERE COM_CODE = #{st_com_code}),
+			ADD_USER_NAME = (SELECT USER_NAME_LOC FROM ICOMLUSR WHERE COM_CODE = #{st_com_code})
+		WHERE ADD_USER_ID = 'NEW_AGENT'
+		]]>
+		<if test="image_key_array != null and image_key_array != ''">     
+		AND DOC_NO IN 
+			<foreach collection="image_key_array" item="item" index="i" open="(" separator=","  close=")" >	
+			#{item}
+			</foreach>   
+		</if>
+	</update>
+	
+<!-- 삭제 -->
+	<update id="deleteMasterMdAmSellerMbrcmpyReg"  parameterType="java.util.Map">
+		<![CDATA[
+				UPDATE KEPRQDT					
+				   SET RECV_FLAG      = 'GD' 	
+				     , CANCEL_USER_ID = #{USR_ID}    		/*CANCEL_USER_ID*/
+				     , CANCEL_DATE    = SYSDATE	
+				     , CANCEL_REMARK  = #{CANCEL_REMARK}    		/*CANCEL_REMARK*/
+				 WHERE BUYER          = #{BUYER}			/*BUYER*/
+				   AND QUOTATION_NO   = #{QUOTATION_NO}	 		/*QUOTATION_NO*/
+				   AND QUOTATION_SEQ  = #{QUOTATION_SEQ}			/*QUOTATION_SEQ*/
+				   AND REVISION       = #{REVISION}			/*REVISION*/
+				   AND STATUS IN ('C','R')
+		]]>
+	</update>
+	<!--  사용자정보 입력 -->
+	<update  id="insertMasterMdAmSellerBillAccountingUsr" parameterType="java.util.Map" >
+		<![CDATA[
+		/* insertMasterMdAmSellerBillAccountingUsr */
+		INSERT INTO BILL_ACCOUNTING
+		(
+		    ACCOUNTING_CODE
+		  , SITE
+		  , COM_CODE
+		  , IRS_NO
+		  , USER_NAME_LOC
+		  , PHONE_NUMBER
+		  , FAX_NUMBER
+		  , EMAIL
+		  , CREATE_USER_ID
+		  , CREATE_DATE
+		  , PRIORITY
+		)
+		SELECT
+		(SELECT MAX(ACCOUNTING_CODE)+1 FROM BILL_ACCOUNTING)
+		, 'KA'
+		, A.COM_CODE
+		, A.IRS_NO
+		, A.AC_EMP_NM
+		, A.AC_EMP_TEL
+		, A.FAX_NO
+		, A.AC_EMP_EMAIL
+		, 'FTP'
+		, SYSDATE
+		, 'N'
+		FROM ICOMCMPY A
+		WHERE A.COM_CODE = #{st_com_code}
+		]]>
+	</update>
+</mapper>   
+   

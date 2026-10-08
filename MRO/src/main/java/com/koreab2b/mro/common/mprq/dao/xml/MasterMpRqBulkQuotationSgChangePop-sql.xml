@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mprq">
+	<!-- 품목등록 초기화 -->
+	<update  id="initBntTrxlBuRqSgChange" parameterType="java.util.Map" >
+		<![CDATA[
+			/*initBntTrxlBuRqSgChange*/			
+           DELETE FROM BNTTRXL
+           WHERE DOC_NAME = 'BURQ_SG'
+             AND TARGET = #{USER_ID}
+             AND KEY_1 = #{st_burq_no}
+		]]>
+	</update>
+	
+	<update  id="setBntTrxlBuRqSgChange" parameterType="java.util.Map" >
+		<![CDATA[
+		/*setBntTrxlBuRqSgChange*/
+		INSERT INTO BNTTRXL  (  
+			DOC_NAME
+			, TARGET
+			, KEY_1
+			, KEY_2
+			, KEY_3
+			, KEY_4
+			, KEY_5
+			, KEY_6
+			, KEY_7
+			, KEY_8
+			, KEY_9
+			, KEY_10
+			, KEY_11
+			, KEY_12
+			, KEY_13
+			, KEY_14
+			, KEY_15
+			, KEY_16
+			, KEY_17
+			, KEY_18
+			, KEY_19
+			, KEY_20
+			, KEY_21
+			, KEY_22
+			, KEY_23
+			, KEY_24
+		) VALUES(
+			'BURQ_SG',				-- DOC_NAME
+			#{USER_ID},				-- TARGET	USER_ID    
+			#{st_burq_no},				-- KEY_1    BURQ_NO
+			#{SEQ},						-- KEY_2    
+			NVL(#{ITEM_KEY_ID}, ' '),				-- KEY_3	
+			NVL(#{CH_SG_ID}, ' '),				-- KEY_4	
+			NVL((SELECT TEXT1 FROM ICOMCOD3 WHERE TYPE = 'CMSM' AND TEXT2 = 'Y' AND CODE2 = '1' AND CODE1 = #{CH_SG_ID}),' '),			-- KEY_5
+			' ',						-- KEY_6
+			' ',						-- KEY_7
+			' ',						-- KEY_8
+			' ',						-- KEY_9
+			' ',						-- KEY_10
+			' ',						-- KEY_11
+			' ',						-- KEY_12
+			' ', 						-- LEY_13
+			' ', 						-- KEY_14
+			' ', 						-- KEY_15
+			' ', 						-- KEY_16
+			' ', 						-- KEY_17
+			' ', 						-- KEY_18
+			' ', 						-- KEY_19
+			' ', 						-- KEY_20
+			' ', 						-- KEY_21
+			' ', 						-- KEY_22
+			' ', 						-- KEY_23
+			' ' 						-- KEY_24
+		)
+		]]> 
+	</update>
+		
+	<select id="selectMasterMpRqBulkQuotationSgChange" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/*selectMasterMpRqBulkQuotationSgChange*/
+			SELECT	SEQ,
+					ITEM_KEY_ID,
+					SG_ID,
+					SG_NAME,
+					(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = SM_USER_ID) AS SM_USER_NAME,
+					CH_SG_ID,
+				    CH_SG_NAME,
+					CH_SM_USER_ID,
+					(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = CH_SM_USER_ID) AS CH_SM_USER_NAME,
+					CASE WHEN SG_ID IS NULL THEN '키값 오류'
+						 WHEN CH_SG_NAME IS NULL THEN 'SG ID 오류'
+						 WHEN SG_ID = CH_SG_ID THEN '기존과 동일'
+						 WHEN (SELECT COUNT(*) FROM KEP_BURQ_MNG MNG WHERE BURQ_NO = MNG.BURQ_NO AND PROJECT_STATUS NOT IN ('G','C')) = 0 THEN '프로젝트 상태 오류' 
+					ELSE '정상' END AS RESULT
+			FROM (
+					SELECT
+						KEY_2 AS SEQ,
+						TRIM(KEY_3) AS ITEM_KEY_ID,
+						SG_ID,
+						(SELECT SG_NAME FROM KEPSGMG WHERE SG_ID = B.SG_ID) AS SG_NAME,
+						SM_USER_ID,
+						TRIM(KEY_4) AS CH_SG_ID,
+						(SELECT SG_NAME FROM KEPSGMG WHERE SG_ID = TRIM(KEY_4)) AS CH_SG_NAME,
+						TRIM(KEY_5) AS CH_SM_USER_ID,
+						KEY_1 AS BURQ_NO
+					FROM BNTTRXL A, KEP_BURQ_ITEM B
+					WHERE DOC_NAME = 'BURQ_SG'
+					AND TARGET = #{USER_ID}
+					AND KEY_1 = #{st_burq_no}
+					AND KEY_1 = BURQ_NO(+)
+					AND KEY_3 = ITEM_KEY_ID(+)
+				) A
+				ORDER BY TO_NUMBER(SEQ)
+		]]>
+	</select>
+	
+	
+	<update  id="updateMasterMpRqBulkQuotationSgChange" parameterType="java.util.Map" >
+		<![CDATA[
+			/*updateMasterMpRqBulkQuotationSgChange*/
+			UPDATE KEP_BURQ_ITEM
+			SET SG_ID = #{CH_SG_ID},
+				SM_USER_ID = #{CH_SM_USER_ID},							
+				CHANGE_DATE = SYSDATE,
+				CHANGE_USER_ID = #{USER_ID}
+			WHERE BURQ_NO = #{st_burq_no}
+			AND ITEM_KEY_ID = #{ITEM_KEY_ID} 
+		]]> 
+	</update>
+
+</mapper>   
+   

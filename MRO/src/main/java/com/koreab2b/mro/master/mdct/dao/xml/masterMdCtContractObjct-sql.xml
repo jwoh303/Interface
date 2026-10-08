@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mdct">
+	<!-- 조회 -->
+	<select id="selectMasterMdCtContractObjctList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.pagestart"/>	
+			<![CDATA[
+		    	SELECT
+					DECODE(CONT_NO, '-', '신규대상', '변경대상') TARGET_TYPE
+				    ,ALANC_TYP_NM
+				    ,BIZ_CLSS_NM
+				    ,COMPANY_CODE
+				    ,COMPANY_NM
+				    ,BIZMN_REGST_NO
+				    ,DECODE(CONT_NO, '-','', CONT_NO) AS CONT_NO
+				    ,CONT_TITLE
+				    ,DECODE(TRIM(CONT_TERM), '~', '',  CONT_TERM) AS CONT_TERM
+				    ,DECODE(C.STATUS, 'S','요청','T','1차심사중','C','승인','R','승인','B','반려','D','삭제') PROCE_STATE_NM
+				    ,TRTMNT_DATE
+				    ,CONT_TYPE
+					,FORM_NO
+					,ALANC_TYP_CD
+					,BIZ_CLSS_CD
+					,CNTRC_CHK
+				FROM (
+				    SELECT
+				        DECODE(A.BUSINESS_COND, 'B', 'C001', 'C002') AS ALANC_TYP_CD
+				        ,DECODE(A.BUSINESS_COND, 'B', '고객사', '협력사') AS ALANC_TYP_NM
+				        ,'C001' AS BIZ_CLSS_CD
+				        ,'구매대행' BIZ_CLSS_NM
+				        ,A.COM_CODE AS COMPANY_CODE
+				        ,A.COM_NAME_LOC AS COMPANY_NM
+				        ,A.IRS_NO AS BIZMN_REGST_NO
+				        ,A.CNTRC_CHK
+				        ,A.STATUS
+				        ,TO_CHAR(TO_DATE(A.CONFIRM_DATE, 'YYYY/MM/DD'), 'YYYY/MM/DD') AS TRTMNT_DATE
+				        ,B.CONT_TITLE
+				        ,NVL(B.CONT_NO, '') ||'-'|| NVL(B.CONT_COUNT, '') AS CONT_NO
+				        ,TO_CHAR(TO_DATE(B.START_DATE, 'YYYY/MM/DD'), 'YYYY/MM/DD') ||' ~ '|| TO_CHAR(TO_DATE(B.END_DATE, 'YYYY/MM/DD'), 'YYYY/MM/DD') AS CONT_TERM
+				        ,B.CONT_TYPE
+				        ,B.FORM_NO
+				    FROM ICOMCMPY A, ICOMECCT B
+				    WHERE A.COM_CODE = B.COMPANY_CODE(+)
+				    AND A.BUSINESS_COND IN ('B', 'S')
+				    AND A.STATUS <> 'D'
+				    AND A.CONFIRM_DATE BETWEEN #{st_from_date} AND #{st_to_date}
+			]]>
+			<if test="st_use_yn != null and st_use_yn != ''">
+					AND DECODE(LENGTH(CONT_NO), NULL, '0', '1') LIKE #{st_use_yn} || '%'
+			</if>
+			) C
+			WHERE BIZ_CLSS_CD = #{st_biz_type}
+			<if test="st_company_type != null and st_company_type != ''">	
+				AND ALANC_TYP_CD LIKE #{st_company_type} || '%'
+			</if>
+			<if test="st_com_code != null and st_com_code != ''">
+				AND COMPANY_CODE LIKE #{st_com_code} || '%'
+			</if>
+			<if test="st_cont_no != null and st_cont_no != ''">	
+				AND NVL(CONT_NO, 'X') LIKE '%' || #{st_cont_no} || '%'
+			</if>
+			ORDER BY CONT_TERM, ALANC_TYP_CD, BIZ_CLSS_CD
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+
+
+	<update  id="insertMasterMdCtContractObjct" parameterType="java.util.Map" >
+		<![CDATA[
+				INSERT INTO	KEPQTDT					
+				(									
+					BUYER,							
+					QUOTATION_NO,					
+					QUOTATION_SEQ,					
+					REVISION,						
+					AGENT,							
+					AGENT_REVISION,					
+					STATUS,							
+					BUYER_ITEM_NO,					
+					DESCRIPTION,					
+					SPECIFICATION,					
+					UNIT_MEASURE,					
+					MAKER_NAME,						
+					ORIGIN_NAME,					
+					ATOS_DATE,						
+					ATOS_END_DATE,					
+					ATOS_END_TIME,					
+					ITEM_QTY,						
+					IMAGE_KEY,						
+					DSS_FLAG,						
+					DSS_CHOICE						
+				)									
+				(									
+				SELECT								
+					#{BUYER},									/* 1 : BUYER */
+					#{QUOTATION_NO},									/* 2 : QUOTATION_NO */
+					#{QUOTATION_SEQ},									/* 3 : QUOTATION_SEQ */
+					#{REVISION},									/* 4 : REVISION */
+					#{AGENT},									/* 5 : AGENT */
+					#{AGENT_REVISION},								/* 6 : AGENT_REVISION */
+					'C',						
+					BUYER_ITEM_NO,				
+					DESCRIPTION,				
+					SPECIFICATION,				
+					UNIT_MEASURE,				
+					MAKER_NAME,					
+					ORIGIN_CODE,				
+					TO_CHAR(SYSDATE, 'YYYYMMDD')AS ATOS_DATE,
+					#{ATOS_END_DATE},								/* 7 : ATOS_END_DATE */
+					#{ATOS_END_TIME},								/* 8 : ATOS_END_TIME */
+					ITEM_QTY,					
+					IMAGE_KEY,					
+					#{DSS_FLAG},								/*  9 : DSS_FLAG   if(chk_str[1].equals("A") || chk_str[1].equals("B") || chk_str[1].equals("C")|| chk_str[1].equals("S")) : Y , 기타  : N   */
+					#{DSS_CHOICE}								/*    10 : DSS_CHOICE */
+				   FROM KEPRQDT						
+				  WHERE BUYER=#{BUYER}							/* 11 : BUYER */           
+					AND QUOTATION_NO=#{QUOTATION_NO}					/* 12 : QUOTATION_NO     */
+					AND QUOTATION_SEQ=#{QUOTATION_SEQ}					/* 13 : QUOTATION_SEQ    */
+					AND REVISION=#{REVISION}						/* 14 : REVISION  */       
+					AND RECV_FLAG <> 'GD'			
+					AND STATUS IN ('C','R')			
+				)									
+
+		]]>
+							   <!-- /* CMS_USER_ID = 'TEMPUSER', */ -->
+		
+	</update>
+
+
+<!-- 삭제 -->
+	<update id="deleteMasterMdCtContractObjct"  parameterType="java.util.Map">
+		<![CDATA[
+				UPDATE KEPRQDT					
+				   SET RECV_FLAG      = 'GD' 	
+				     , CANCEL_USER_ID = #{USR_ID}    		/*CANCEL_USER_ID*/
+				     , CANCEL_DATE    = SYSDATE	
+				     , CANCEL_REMARK  = #{CANCEL_REMARK}    		/*CANCEL_REMARK*/
+				 WHERE BUYER          = #{BUYER}			/*BUYER*/
+				   AND QUOTATION_NO   = #{QUOTATION_NO}	 		/*QUOTATION_NO*/
+				   AND QUOTATION_SEQ  = #{QUOTATION_SEQ}			/*QUOTATION_SEQ*/
+				   AND REVISION       = #{REVISION}			/*REVISION*/
+				   AND STATUS IN ('C','R')
+		]]>
+	</update>
+
+</mapper>   
+   

@@ -1,0 +1,75 @@
+package com.koreab2b.mro.master.mpst.controller;
+
+import java.util.List;
+import java.util.Map;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RequestParam;
+
+import com.koreab2b.mro.common.ibsheet.IBSheetUtil;
+import com.koreab2b.mro.master.mpst.service.MasterMpStAgingGrService;
+
+@Controller("masterMpStAgingGrController")
+public class MasterMpStAgingGrController {
+
+	private static final Logger logger = LoggerFactory.getLogger(MasterMpStAgingGrController.class);
+	
+	@Autowired
+	private MasterMpStAgingGrService masterMpStAgingGrService;
+
+	// 재고에이징(입고) 조회
+	@RequestMapping(value = "/mpst/getMasterMpStAgingGrList.do",  method = {RequestMethod.GET,RequestMethod.POST})
+	public void searchMasterMpStAgingGrList(HttpServletRequest req , HttpServletResponse res, @RequestParam Map<String, Object> pMap) {
+		logger.debug("요청 파라미터 : {}", pMap);
+
+		//페이징용 파라미터의 셋팅
+		pMap = IBSheetUtil.addParamForPaging3(pMap);
+		
+		pMap.put("st_yyyymm", pMap.get("st_from_date").toString().replaceAll("/", "") );
+		
+		List<Map<String,String>> _data = masterMpStAgingGrService.getAgingGrList(pMap);
+		
+		req.setAttribute("SHEETDATA", _data);
+		new IBSheetUtil().getXml(req, res);	
+	}
+	
+	// 재고에이징(입고) 조회
+	@RequestMapping(value = "/mpst/getMasterMpStLongTermStckIncrList.do",  method = {RequestMethod.GET,RequestMethod.POST})
+	public void searchMasterMpStLongTermStckIncrList(HttpServletRequest req , HttpServletResponse res, @RequestParam Map<String, Object> pMap) {
+		logger.debug("요청 파라미터 : {}", pMap);
+
+		//페이징용 파라미터의 셋팅
+		pMap = IBSheetUtil.addParamForPaging3(pMap);
+		
+		pMap.put("st_yyyymm", pMap.get("st_from_date").toString().replaceAll("/", "") );
+		
+		List<Map<String,String>> _data = masterMpStAgingGrService.getLongTermStckIncrList(pMap);
+		
+		req.setAttribute("SHEETDATA", _data);
+		new IBSheetUtil().getXml(req, res);	
+	}
+	
+	// 재고에이징(입고) 상세 조회
+	@RequestMapping(value = "/mpst/getMasterMpStAgingGrDtList.do",  method = {RequestMethod.GET,RequestMethod.POST})
+	public void searchMasterMpStAgingGrDtList(HttpServletRequest req , HttpServletResponse res, @RequestParam Map<String, Object> pMap) {
+		logger.debug("요청 파라미터 : {}", pMap);
+
+		//페이징용 파라미터의 셋팅
+		pMap = IBSheetUtil.addParamForPaging3(pMap);
+		
+		pMap.put("st_yyyymm", pMap.get("st_from_date").toString().replaceAll("/", "") );
+		
+		List<Map<String,String>> _data = masterMpStAgingGrService.getAgingGrDtList(pMap);
+		
+		req.setAttribute("SHEETDATA", _data);
+		new IBSheetUtil().getXml(req, res);	
+	}
+}

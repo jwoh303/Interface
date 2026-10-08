@@ -1,0 +1,569 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mdct">
+	<!-- 조회 -->
+	<select id="selectMasterMdCtNewCustomerManageList" parameterType="java.util.Map" resultType="java.util.Map">
+			
+			<![CDATA[
+			SELECT	 X.BUYER
+					 ,X.BUYER_NAME
+					 ,X.REVISION
+					 ,X.STATUS
+					 ,X.IRS_NO
+					 ,X.KEP_USER_DEPT
+					 ,X.KEP_USER_DEPT_NM
+					 ,X.KEP_USER_ID
+					 ,X.KEP_USER_NM
+					 ,X.ADD_USER_ID
+					 ,X.ADD_USER_NM
+					 ,X.ADD_DATE
+					 ,X.CHANGE_USER_ID
+					 ,X.CHANGE_USER_NM
+					 ,X.CHANGE_DATE
+					 ,X.PROCESS_TYPE
+					 ,X.STATUS_NM
+					 ,X.PROCESS_TYPE_1
+					 ,X.PROCESS_TYPE_2
+					 ,X.PROCESS_TYPE_3
+					 ,X.PROCESS_TYPE_4
+					 ,X.PROCESS_TYPE_5
+					 ,X.CUSTOMER_MNG_YN
+					 ,X.VISIT_DATE
+					 ,X.ADD_USER_DEPT
+					 ,X.ADD_USER_DEPT_NM
+			FROM	(
+				/* selectMasterMdCtNewCustomerManageList */
+				SELECT
+				 A.BUYER
+				 ,A.BUYER_NAME
+				 ,B.REVISION
+				 ,A.STATUS
+				 ,A.IRS_NO
+				 ,A.KEP_USER_DEPT
+				 ,( SELECT COD.TEXT1 FROM ICOMCOD2 COD
+					WHERE COD.TYPE = 'C001'
+					AND COD.COMPANY_CODE = 'KRKORE0001'
+					AND COD.CODE = A.KEP_USER_DEPT) AS KEP_USER_DEPT_NM 
+				 ,A.KEP_USER_ID
+				 ,(SELECT USR.USER_NAME_LOC FROM ICOMLUSR USR WHERE USR.USER_ID = A.KEP_USER_ID) AS KEP_USER_NM 
+				 ,A.ADD_USER_ID
+				 ,C.DEPARTMENT AS ADD_USER_DEPT
+				 ,( SELECT COD.TEXT1 FROM ICOMCOD2 COD
+					WHERE COD.TYPE = 'C001'
+					AND COD.COMPANY_CODE = 'KRKORE0001'
+					AND COD.CODE = C.DEPARTMENT) AS ADD_USER_DEPT_NM
+				 ,(SELECT USR.USER_NAME_LOC FROM ICOMLUSR USR WHERE USR.USER_ID = A.ADD_USER_ID) AS ADD_USER_NM
+				 ,A.ADD_DATE
+				 ,A.CHANGE_USER_ID
+				 ,(SELECT USR.USER_NAME_LOC FROM ICOMLUSR USR WHERE USR.USER_ID = A.CHANGE_USER_ID) AS CHANGE_USER_NM
+				 ,A.CHANGE_DATE
+				 ,B.PROCESS_TYPE
+				 ,DECODE(A.BUYER_CLOSE_FLAG,'Y','종결',DECODE(B.PROCESS_TYPE,'CP','완료','진행')) AS STATUS_NM
+				 ,DECODE(B.PROCESS_TYPE,'GA','/resources/images/icon_g_50.gif', '/resources/images/icon_bl_50.gif') AS PROCESS_TYPE_1
+				 ,DECODE(B.PROCESS_TYPE,'GA','', 'BI','/resources/images/icon_g_50.gif','/resources/images/icon_bl_50.gif') AS PROCESS_TYPE_2
+				 ,DECODE(B.PROCESS_TYPE,'GA','', 'BI','', 'BD','/resources/images/icon_g_50.gif','/resources/images/icon_bl_50.gif') AS PROCESS_TYPE_3
+				 ,DECODE(B.PROCESS_TYPE,'GA','', 'BI','', 'BD','', 'ST', '/resources/images/icon_g_50.gif','/resources/images/icon_bl_50.gif') AS PROCESS_TYPE_4
+				 ,DECODE(B.PROCESS_TYPE,'GA','', 'BI','', 'BD','','ST', '','CN','/resources/images/icon_g_50.gif','/resources/images/icon_bl_50.gif') AS PROCESS_TYPE_5
+				 ,F_GET_KEP_CUSTOMER_MNG(#{st_user_id}) AS CUSTOMER_MNG_YN
+				 ,(SELECT	MAX(C.VISIT_DATE) FROM KEP_VISITDT C WHERE C.BUYER = A.BUYER AND C.STATUS <> 'D') AS VISIT_DATE
+				FROM KEP_CUSTOMER A, KEP_CUSTOMER_RFQ B, ICOMLUSR C
+				WHERE A.BUYER = B.BUYER
+				AND A.STATUS != 'D'
+				AND A.ADD_USER_ID = C.USER_ID
+				AND B.STATUS IN ('C','R')
+			]]>
+			<if test="st_buyer != null and st_buyer != ''">
+				AND A.BUYER_NAME LIKE '%'||#{st_buyer} || '%'
+			</if>
+			<if test="st_irs_no != null and st_irs_no != ''">
+				AND REPLACE(A.IRS_NO,'-','') LIKE REPLACE(#{st_irs_no},'-','') || '%'
+			</if>
+			<if test='st_status_cond != null and st_status_cond == "D"'>
+				AND A.BUYER_CLOSE_FLAG = 'Y'
+			</if>
+			<if test='st_status_cond != null and st_status_cond == "P"'>
+				AND A.BUYER_CLOSE_FLAG = 'N'
+				AND B.PROCESS_TYPE != 'CP'
+			</if>
+			<if test='st_status_cond != null and st_status_cond == "C"'>
+				AND B.PROCESS_TYPE = 'CP'
+			</if>
+			<if test="st_process_type != null and st_process_type != ''">
+				AND B.PROCESS_TYPE =  #{st_process_type} 
+			</if>
+			<if test="st_add_user_id != null and st_add_user_id != ''">
+				AND A.KEP_USER_ID =  #{st_add_user_id} 
+			</if>
+			<if test="st_add_user_name != null and st_add_user_name != ''">
+				AND (SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = A.KEP_USER_ID) LIKE '%'||#{st_add_user_name} || '%' 
+			</if>
+			
+			<![CDATA[
+			) X	
+			WHERE	1=1
+			]]>
+			
+			<if test='st_dept_cd == "142"'>
+			AND		X.ADD_USER_DEPT IN ('118', '134', '139')
+			</if>
+			<if test='st_dept_cd == "152"'>
+			AND		X.ADD_USER_DEPT IN ('041', '152')
+			</if>
+			<if test='st_dept_cd != "142" and st_dept_cd != "152"'>
+			AND		DECODE(X.CUSTOMER_MNG_YN,'Y','1', X.ADD_USER_DEPT) = DECODE(X.CUSTOMER_MNG_YN,'Y','1', #{st_dept_cd})
+			</if>
+			<if test="st_from_date != null and st_from_date != '' and st_to_date != null and st_to_date != '' ">
+				<if test='st_date_type == "VIS"'>
+				AND X.VISIT_DATE BETWEEN #{st_from_date} AND #{st_to_date}
+				</if>
+				<if test='st_date_type == "ADD"'>
+				AND TO_CHAR(TO_DATE(X.ADD_DATE),'YYYYMMDD') BETWEEN #{st_from_date} AND #{st_to_date}
+				</if>  
+			</if>
+			ORDER BY X.BUYER		
+	</select>
+	
+
+	<update id="updateMasterMdCtNewCustomerManageList"  parameterType="java.util.Map">
+		<![CDATA[
+			/* updateMasterMdCtNewCustomerManageList */
+			UPDATE BNTBUYERGROUP					
+			SET
+				CORP_NAME		= #{CORP_NAME} 	
+				,GROUP_CODE		= #{GROUP_CODE}
+				,GROUP_NAME		= #{GROUP_NAME}
+				,USE_FLAG		= #{USE_FLAG}
+				,CHANGE_DATE	= TO_CHAR(SYSDATE, 'YYYY/MM/DD')
+				,CHANGE_USER_ID	= #{st_user_id}
+			 WHERE CORP_CODE	= #{CORP_CODE}
+		]]>
+	</update>
+	<update  id="saveMasterMdCtNewCustomer" parameterType="java.util.Map" >
+		<![CDATA[
+		     /*saveMasterMdCtNewCustomer*/
+                   INSERT INTO KEP_CUSTOMER
+                   (
+                     BUYER
+                     , BUYER_NAME
+                     , GROUP_NAME
+                     , STATUS
+                     , SALES_YEAR
+                     , SALES_AMT
+                     , CREDIT_DATE
+                     , CREDIT_RATING
+                     , IRS_NO
+                     , CEO_NAME_LOC
+                     , INDUSTRY_TYPE
+                     , MAJOR_ITEM
+                     , EMPLOYEE_YEAR
+                     , EMPLOYEE_CNT
+                     , HEAD_ADDRESS_LOC
+                     , FACTORY_ADDRESS_LOC
+                     , KEP_USER_DEPT
+                     , KEP_USER_ID
+                     , BUSINESS_METHOD
+                     , MRO_YN
+                     , MRO_COMPANY
+                     , MRO_START
+                     , MRO_END
+                     , PAST_MRO_YN
+                     , PAST_MRO_COMPANY
+                     , PAST_MRO_START
+                     , PAST_MRO_END
+                     , MRO_YEAR_AMT
+                     , BILL_TYPE
+                     , SYSTEM_TYPE
+                     , MRO_SPEND
+                     , KEYMAN_DEPT_NAME1
+                     , KEYMAN_USER_NAME1
+                     , KEYMAN_TEL_NAME1
+                     , KEYMAN_DEPT_NAME2
+                     , KEYMAN_USER_NAME2
+                     , KEYMAN_TEL_NAME2
+                     , KEYMAN_DEPT_NAME3
+                     , KEYMAN_USER_NAME3
+                     , KEYMAN_TEL_NAME3
+                     , INTEREST_STATUS
+                     , INTEREST_USER
+                     , INTEREST_MAIN
+                     , ADD_USER_ID
+                     , ADD_DATE
+                     , CHANGE_USER_ID
+                     , CHANGE_DATE 
+                     , BUYER_CLOSE_FLAG 
+                     , TEL_NO
+                     , GROUP_CO_NM
+                     , INDUSTRY_NM         
+                   )
+                   VALUES
+                   (  
+                     #{cmpyNo}
+                   , #{st_buyer_name}
+                   , #{st_group}
+                   , 'C'
+                   , #{st_sy_year}
+                   , #{st_sy_amt}
+                   , #{st_cd_year}
+                   , #{st_cd_rank}
+                   , #{st_irs_no}
+                   , #{st_ceo}
+                   , #{st_ind_type}
+                   , #{st_mi}
+                   , #{st_epl_year}
+                   , #{st_epl}
+                   , NULL 			-- ICOMCOD3 CP_ADDR 로 대체
+                   , #{st_fact_addr}
+                   , #{st_kep_dept_cd}
+                   , #{st_kep_user_id}
+                   , #{st_process_type}
+                   , #{st_mro_yn}
+                   , #{st_mro_cmpy}
+                   , #{st_mro_s_date}
+                   , #{st_mro_e_date}
+                   , #{st_past_mro_yn}
+                   , #{st_past_mro_cmpy}
+                   , #{st_past_mro_date}
+                   , #{st_past_mro_e_date}
+				   , #{st_year_mro_amt}
+				   , #{st_bill_type}
+				   , #{st_sys_type}					   
+                   , #{st_mro_spd}
+                   , #{st_key_dept}
+                   , #{st_key_nm}
+                   , #{st_key_tel}
+                   , #{st_key_dept2}
+                   , #{st_key_nm2}
+                   , #{st_key_tel2}
+                   , #{st_key_dept3}
+                   , #{st_key_nm3}
+                   , #{st_key_tel3}
+                   , #{st_int_status}
+                   , #{st_int_status_user}
+                   , #{st_int_main}
+                   , #{USER_ID}
+                   , SYSDATE
+                   , #{USER_ID}
+                   , SYSDATE
+                   , 'N'
+                   , #{st_tel_no}
+                   , #{st_group_info}
+                   , #{st_industry}
+                   )	
+                  
+		  ]]>
+	</update>
+	<update  id="saveMasterMdCtNewCustomerRfq" parameterType="java.util.Map" >
+		<![CDATA[
+		     /*saveMasterMdCtNewCustomerRfq*/
+                   INSERT INTO KEP_CUSTOMER_RFQ
+                   (
+                     BUYER
+                     , REVISION
+                     , STATUS
+                     , PROCESS_TYPE
+                     , ADD_USER_ID      
+                     , ADD_DATE
+                     , CHANGE_USER_ID
+                     , CHANGE_DATE
+                   )
+                   VALUES
+                   (  
+                     #{cmpyNo}
+                   , '1'
+                   , 'C'
+                   , 'GA'
+                   , #{USER_ID}
+                   , SYSDATE
+                   , #{USER_ID}
+                   , SYSDATE
+                   )	
+		  ]]>
+	</update>
+	<update  id="saveMasterMdCtNewCustomerkepVisit" parameterType="java.util.Map" >
+		<![CDATA[
+		     /*saveMasterMdCtNewCustomerkepVisit*/
+                   INSERT INTO KEP_VISITHD
+                   (
+                     BUYER
+                     , STATUS
+                     , ADD_DATE
+                     , ADD_TIME
+                     , CHANGE_DATE
+                     , CHANGE_TIME
+                     , ADD_USER_ID
+                     , CHANGE_USER_ID
+                     , POTENTIAL_CUSTOMER_YN
+                   )
+                   VALUES
+                   (  
+                     #{cmpyNo}
+					, 'C'
+					, TO_CHAR(SYSDATE,'YYYYMMDD')
+					, TO_CHAR(SYSDATE,'HH24MISS')
+					, TO_CHAR(SYSDATE,'YYYYMMDD')
+					, TO_CHAR(SYSDATE,'HH24MISS')
+                   , #{USER_ID}
+                   , #{USER_ID}
+                   , 'Y'
+                   )	
+		  ]]>
+	</update>
+	<update  id="insertMasterMdCtNewCustomerManageList" parameterType="java.util.Map" >
+		<![CDATA[
+			/* insertMasterMdCtNewCustomerManageList */
+			INSERT INTO BNTBUYERGROUP					
+			(
+				CORP_CODE
+				,CORP_NAME 	
+				,GROUP_CODE
+				,GROUP_NAME
+				,GROUP_FLAG
+				,USE_FLAG
+				,ADD_USER_ID
+				,ADD_DATE
+			) VALUES (									
+				#{CORP_CODE}
+				,#{CORP_NAME}
+				,#{GROUP_CODE}
+				,#{GROUP_NAME}
+				,'B'
+				,#{USE_FLAG}
+				,#{st_user_id}
+				,TO_CHAR(SYSDATE, 'YYYY/MM/DD')
+			)									
+		]]>
+	</update>
+	<select id="selectMasterMdCtNewCustomerDt" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/*selectMasterMdCtNewCustomerDt*/
+				SELECT A.BUYER
+				 ,A.BUYER_NAME
+				 ,A.GROUP_NAME
+				 ,A.STATUS
+				 ,A.SALES_YEAR
+				 ,A.SALES_AMT
+				 ,A.CREDIT_DATE
+				 ,A.CREDIT_RATING
+				 ,A.IRS_NO
+				 ,A.CEO_NAME_LOC
+				 ,A.INDUSTRY_TYPE
+				 ,A.BUSINESS_ITEMS
+				 ,A.MAJOR_ITEM
+				 ,A.EMPLOYEE_YEAR
+				 ,A.EMPLOYEE_CNT
+				 ,A.HEAD_ADDRESS_LOC
+				 ,A.FACTORY_ADDRESS_LOC
+				 ,A.KEP_USER_DEPT
+				 ,(SELECT COD.TEXT1 FROM ICOMCOD2 COD
+					WHERE COD.TYPE = 'C001'
+					AND COD.COMPANY_CODE = 'KRKORE0001'
+					AND COD.CODE = A.KEP_USER_DEPT) AS KEP_USER_DEPT_NM
+				 ,A.KEP_USER_ID
+				 ,(SELECT USR.USER_NAME_LOC FROM ICOMLUSR USR
+				 	WHERE USR.USER_ID = A.KEP_USER_ID) AS KEP_USER_NM
+				 ,A.BUSINESS_METHOD
+				 ,A.MRO_YN
+				 ,A.MRO_COMPANY
+				 ,A.MRO_START
+				 ,A.MRO_END
+				 ,A.PAST_MRO_YN
+				 ,A.PAST_MRO_COMPANY
+				 ,A.PAST_MRO_START
+				 ,A.PAST_MRO_END
+				 ,A.MRO_YEAR_AMT
+				 ,A.BILL_TYPE
+				 ,A.SYSTEM_TYPE
+				 ,A.MRO_SPEND
+				 ,A.KEYMAN_DEPT_NAME1
+				 ,A.KEYMAN_USER_NAME1
+				 ,A.KEYMAN_TEL_NAME1
+				 ,A.KEYMAN_DEPT_NAME2
+				 ,A.KEYMAN_USER_NAME2
+				 ,A.KEYMAN_TEL_NAME2
+				 ,A.KEYMAN_DEPT_NAME3
+				 ,A.KEYMAN_USER_NAME3
+				 ,A.KEYMAN_TEL_NAME3
+				 ,A.INTEREST_STATUS
+				 ,A.INTEREST_USER
+				 ,A.INTEREST_MAIN
+				 ,A.ADD_USER_ID
+				 ,A.ADD_DATE
+				 ,A.CHANGE_USER_ID
+				 ,A.CHANGE_DATE
+				 ,A.BUYER_CLOSE_FLAG
+				 ,A.BUYER_CLOSE_REMARK
+				 ,B.PROCESS_TYPE
+				 ,B.REVISION
+				 ,A.TEL_NO
+				 ,A.GROUP_CO_NM
+				 ,A.INDUSTRY_NM
+				 ,(SELECT DECODE(COUNT(MST.IRS_NO),0,'N','Y')
+					FROM  KEP.KEP_CUSTOMER_MST MST
+					WHERE MST.IRS_NO = A.IRS_NO) AS MST_YN
+				FROM KEP_CUSTOMER A, KEP_CUSTOMER_RFQ B
+				WHERE A.BUYER = B.BUYER
+				AND B.STATUS IN ('C','R')  
+				AND A.BUYER = #{com_code}
+		]]>
+	</select>
+	<update  id="updateMasterMdCtNewCustomer" parameterType="java.util.Map" >
+		<![CDATA[
+		     /*updateMasterMdCtNewCustomer*/
+                   UPDATE KEP_CUSTOMER
+                   SET  BUYER_NAME = #{st_buyer_name}
+                     , GROUP_NAME =#{st_group}
+                     , STATUS = 'R'
+                     , SALES_YEAR =#{st_sy_year}
+                     , SALES_AMT =#{st_sy_amt}
+                     , CREDIT_DATE =#{st_cd_year}
+                     , CREDIT_RATING = #{st_cd_rank}
+                     , IRS_NO = #{st_irs_no}
+                     , CEO_NAME_LOC =#{st_ceo}
+                     , INDUSTRY_TYPE =#{st_ind_type}
+                     , MAJOR_ITEM =#{st_mi}
+                     , EMPLOYEE_YEAR =#{st_epl_year}
+                     , EMPLOYEE_CNT =#{st_epl}                     
+                     , FACTORY_ADDRESS_LOC =#{st_fact_addr}
+                     , KEP_USER_DEPT =#{st_kep_dept_cd}
+                     , KEP_USER_ID =#{st_kep_user_id}
+                     , BUSINESS_METHOD =#{st_process_type}
+                     , MRO_YN =#{st_mro_yn}
+                     , MRO_COMPANY =#{st_mro_cmpy}
+                     , MRO_START =#{st_mro_s_date}
+                     , MRO_END =#{st_mro_e_date}
+                     , PAST_MRO_YN =#{st_past_mro_yn}
+                     , PAST_MRO_COMPANY =#{st_past_mro_cmpy}
+                     , PAST_MRO_START =#{st_past_mro_date}
+                     , PAST_MRO_END =#{st_past_mro_e_date}
+                     , MRO_YEAR_AMT =#{st_year_mro_amt}
+                     , BILL_TYPE = #{st_bill_type}
+                     , SYSTEM_TYPE =#{st_sys_type}
+                     , MRO_SPEND = #{st_mro_spd}
+                     , KEYMAN_DEPT_NAME1 =#{st_key_dept}
+                     , KEYMAN_USER_NAME1 =#{st_key_nm}
+                     , KEYMAN_TEL_NAME1 =#{st_key_tel}
+                     , KEYMAN_DEPT_NAME2 =#{st_key_dept2}
+                     , KEYMAN_USER_NAME2 =#{st_key_nm2}
+                     , KEYMAN_TEL_NAME2 =#{st_key_tel2}
+                     , KEYMAN_DEPT_NAME3 =#{st_key_dept3}
+                     , KEYMAN_USER_NAME3 =#{st_key_nm3}
+                     , KEYMAN_TEL_NAME3 =#{st_key_tel3}
+                     , INTEREST_STATUS =#{st_int_status}
+                     , INTEREST_USER =#{st_int_status_user}
+                     , INTEREST_MAIN =#{st_int_main}
+                     , TEL_NO = #{st_tel_no}
+                     , GROUP_CO_NM = #{st_group_info}
+                     , INDUSTRY_NM = #{st_industry}
+                     , CHANGE_USER_ID =#{USER_ID}
+                     , CHANGE_DATE =SYSDATE           
+                 WHERE BUYER =#{st_com_code}
+		  ]]>
+	</update>
+	<update  id="endMasterMdCtNewCustomer" parameterType="java.util.Map" >
+		<![CDATA[
+		     /*endMasterMdCtNewCustomer*/
+                   UPDATE KEP_CUSTOMER
+                   SET  BUYER_CLOSE_FLAG = #{st_buyer_close_flag_in}
+                     , BUYER_CLOSE_REMARK =#{st_end_remark}
+                     , CHANGE_USER_ID =#{USER_ID}
+                     , CHANGE_DATE =SYSDATE           
+                 WHERE BUYER =#{st_com_code}
+		  ]]>
+	</update>
+	<update  id="saveMasterMdCtNewCustomerMtComp" parameterType="java.util.Map" >
+		<![CDATA[
+		     /*saveMasterMdCtNewCustomerMtComp*/
+                   UPDATE KEP_CUSTOMER_RFQ
+                   SET  PROCESS_TYPE = #{st_process_status_type}
+                     , CHANGE_USER_ID =#{USER_ID}
+                     , CHANGE_DATE =SYSDATE           
+                 WHERE BUYER =#{st_com_code}
+                 AND REVISION=#{st_revision}
+		  ]]>
+	</update>
+	<select id="selectMasterMdCtRestartNewCustomer" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/*selectMasterMdCtRestartNewCustomer*/
+				SELECT A.BUYER
+				 ,B.PROCESS_TYPE
+				 ,B.REVISION
+				FROM KEP_CUSTOMER A, KEP_CUSTOMER_RFQ B
+				WHERE A.BUYER = B.BUYER
+                 AND B.BUYER =#{st_com_code}
+                 AND B.REVISION=#{st_revision}
+		]]>
+	</select>
+	<update  id="saveMasterMdCtNewCustomerRfqAdd" parameterType="java.util.Map" >
+		<![CDATA[
+		     /*saveMasterMdCtNewCustomerRfqAdd*/
+                   INSERT INTO KEP_CUSTOMER_RFQ
+                   (
+                     BUYER
+                     , REVISION
+                     , STATUS
+                     , PROCESS_TYPE
+                     , ADD_USER_ID      
+                     , ADD_DATE
+                     , CHANGE_USER_ID
+                     , CHANGE_DATE
+                   )
+                   VALUES
+                   (  
+                     #{st_com_code}
+                   , NVL((SELECT MAX(A.REVISION) 
+                   		FROM  KEP_CUSTOMER_RFQ A 
+                   		WHERE A.BUYER =#{st_com_code}),0)+1 
+                   , 'C'
+                   , 'GA'
+                   , #{USER_ID}
+                   , SYSDATE
+                   , #{USER_ID}
+                   , SYSDATE
+                   )	
+		  ]]>
+	</update>
+	<update  id="updateMasterMdCtNewCustomerMtEnd" parameterType="java.util.Map" >
+		<![CDATA[
+		     /*updateMasterMdCtNewCustomerMtEnd*/
+                   UPDATE KEP_CUSTOMER_RFQ
+                   SET  STATUS = 'O'
+                     , CHANGE_USER_ID =#{USER_ID}
+                     , CHANGE_DATE =SYSDATE           
+                 WHERE BUYER =#{st_com_code}
+                 AND REVISION=#{st_revision}
+		  ]]>
+	</update>
+	<select id="checkMasterMdCtNewCustomer" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/* checkMasterMdCtNewCustomer */
+			SELECT	DECODE(COUNT(A.IRS_NO),0,'N','Y') AS RESULT_YN
+			FROM	KEP_CUSTOMER A
+			WHERE	1=1
+			AND		A.IRS_NO = #{st_irs_no}
+			AND		A.STATUS != 'D'
+			AND		A.KEP_USER_DEPT = #{USER_DEPT}
+		]]>	
+	</select>
+	<update  id="updateMasterMdCtMSTNewCustomer" parameterType="java.util.Map" >
+		<![CDATA[
+		     /*updateMasterMdCtMSTNewCustomer*/
+                   UPDATE KEP_CUSTOMER A
+                   SET  BUYER_NAME = NVL((SELECT MST.COM_NAME_LOC FROM KEP.KEP_CUSTOMER_MST MST WHERE MST.IRS_NO =A.IRS_NO), A.BUYER_NAME)
+                     , GROUP_NAME = NVL((SELECT MST.CONGLOMERATE FROM KEP.KEP_CUSTOMER_MST MST WHERE MST.IRS_NO =A.IRS_NO), A.GROUP_NAME)
+                     , STATUS = 'R'
+                     , SALES_YEAR = NVL((SELECT MST.YYYY FROM KEP.KEP_CUSTOMER_MST MST WHERE MST.IRS_NO =A.IRS_NO), A.SALES_YEAR)
+                     , SALES_AMT = NVL((SELECT MST.YEAR_AMT FROM KEP.KEP_CUSTOMER_MST MST WHERE MST.IRS_NO =A.IRS_NO), A.SALES_AMT)
+                     , CREDIT_DATE = NVL((SELECT MST.YYYY FROM KEP.KEP_CUSTOMER_MST MST WHERE MST.IRS_NO =A.IRS_NO), A.CREDIT_DATE)
+                     , CREDIT_RATING = NVL((SELECT MST.CREDIT_RATING FROM KEP.KEP_CUSTOMER_MST MST WHERE MST.IRS_NO =A.IRS_NO), A.CREDIT_RATING)
+                     , CEO_NAME_LOC = NVL((SELECT MST.CEO_NAME_LOC FROM KEP.KEP_CUSTOMER_MST MST WHERE MST.IRS_NO =A.IRS_NO), A.CEO_NAME_LOC)
+                     , INDUSTRY_TYPE = NVL((SELECT MST.INDUSTRY_CODE FROM KEP.KEP_CUSTOMER_MST MST WHERE MST.IRS_NO =A.IRS_NO), A.INDUSTRY_TYPE)
+                     , EMPLOYEE_YEAR = NVL((SELECT MST.YYYY FROM KEP.KEP_CUSTOMER_MST MST WHERE MST.IRS_NO =A.IRS_NO), A.EMPLOYEE_YEAR)
+                     , EMPLOYEE_CNT = NVL((SELECT MST.EMP_CNT FROM KEP.KEP_CUSTOMER_MST MST WHERE MST.IRS_NO =A.IRS_NO), A.EMPLOYEE_CNT)
+                     , HEAD_ADDRESS_LOC = NVL((SELECT MST.ADDRESS_LOC FROM KEP.KEP_CUSTOMER_MST MST WHERE MST.IRS_NO =A.IRS_NO), A.HEAD_ADDRESS_LOC)
+                     , TEL_NO = NVL((SELECT MST.TEL_NO FROM KEP.KEP_CUSTOMER_MST MST WHERE MST.IRS_NO =A.IRS_NO), A.TEL_NO)
+                     , CHANGE_USER_ID =#{USER_ID}
+                     , CHANGE_DATE =SYSDATE           
+                 WHERE BUYER =#{st_com_code}
+		  ]]>
+	</update>
+</mapper>

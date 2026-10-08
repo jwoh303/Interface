@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="seller.none">
+	
+	<!-- 조회 -->
+	<select id="selectSellerNoNePopupList" parameterType="java.util.Map" resultType="java.util.Map">
+	/*selectSellerNoNePopupList*/
+		<include refid="common.ibsheet.xml.jsppagestart"/>
+		<![CDATA[
+			SELECT 
+				X.POPUP_ID, 
+				X.POPUP_TITLE, 
+				X.POPUP_OPTION, 
+				X.ORDER_DATE, 
+				X.GUBUN, 
+				CASE WHEN (SELECT COUNT(*) FROM AGENT_POPUP_READ D
+							WHERE 	D.POPUP_ID = X.POPUP_ID
+							AND		D.AGENT_CODE = #{st_com_code}	-- session com_code
+							AND		D.USER_ID = #{st_user_id}  		-- session user_id
+							)  > 0
+						THEN '2' ELSE '1' END AS READ_YN
+			FROM (
+				SELECT POPUP_ID, POPUP_TITLE, POPUP_OPTION,  MIN(PO_CREATE_DATE) AS ORDER_DATE, 'BUYER' AS GUBUN
+				FROM 	ICOMPOHD A, ICOMPODT B, AGENT_POPUP_BOARD C
+				WHERE	A.BUYER = B.BUYER
+				AND 	A.PO_NO = B.PO_NO
+				AND 	A.BUYER = C.COM_CODE
+				AND		B.ITEM_QTY != B.GR_QTY -- 입고완료가 아닌 주문 건이 있는 경우
+				AND		A.AGENT =  #{st_com_code}  -- session com_code
+				AND		A.PO_CREATE_DATE >= TO_CHAR(ADD_MONTHS(SYSDATE,-3),'YYYYMMDD') -- 3개월 전까지 확인
+				AND		A.STATUS <> 'D'
+				AND		TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN OPEN_DATE AND CLOSE_DATE
+				GROUP BY POPUP_ID, POPUP_TITLE, POPUP_OPTION
+		
+				UNION ALL
+				
+				SELECT POPUP_ID, POPUP_TITLE, POPUP_OPTION, OPEN_DATE  AS ORDER_DATE, 'ALL' AS GUBUN
+				FROM 	AGENT_POPUP_BOARD 
+			    WHERE	COM_CODE = 'ALL'
+				AND		TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN OPEN_DATE AND CLOSE_DATE
+			) X
+			ORDER BY READ_YN, ORDER_DATE DESC
+ 		]]>  
+		<include refid="common.ibsheet.xml.jsppageend"/>	
+	</select>
+	
+	<!-- 읽음 추가-->
+	<update id="insertSellerNoNePopupRead" parameterType="java.util.Map">
+	<![CDATA[
+			/*insertSellerNoNePopupRead*/
+ 			INSERT INTO AGENT_POPUP_READ (
+				POPUP_ID,
+				AGENT_CODE,
+				USER_ID,
+				ADD_DATE
+			) VALUES (
+				#{st_popup_id},
+				#{st_com_code},
+				#{st_user_id},
+				TO_CHAR(SYSDATE, 'YYYYMMDD')
+			)
+		]]>
+	</update>
+	
+	<!-- 읽음 확인 -->
+	<select id="selectSellerNoNePopupReadCnt" parameterType="java.util.Map" resultType="integer">
+		<![CDATA[
+			/*selectSellerNoNePopupReadCnt*/ 
+			SELECT COUNT(*) 
+			FROM AGENT_POPUP_READ
+			WHERE 	POPUP_ID = #{st_popup_id}
+			AND		AGENT_CODE = #{st_com_code}
+			AND		USER_ID = #{st_user_id}
+		]]> 
+	</select> 
+	
+	<!-- 팝업 기간 지난 읽은 기록 제거-->
+	<update id="deleteSellerNoNePopupRead"  parameterType="java.util.Map">
+		<![CDATA[
+			/*deleteSellerNoNePopupRead*/
+			DELETE 
+			FROM AGENT_POPUP_READ
+		 	WHERE 	POPUP_ID IN ( 
+		 							SELECT POPUP_ID
+		 							FROM AGENT_POPUP_BOARD 
+		 							WHERE TO_CHAR(SYSDATE, 'YYYYMMDD') > CLOSE_DATE
+		 						) 
+			AND		AGENT_CODE = #{st_com_code}
+			AND		USER_ID = #{st_user_id}
+		]]>
+	</update>
+	
+</mapper>

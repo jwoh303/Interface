@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="commonCaImApproval">
+ 
+	<select id="selectImResultList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.jsppagestart"/>
+		<![CDATA[
+		/*selectImResultList*/
+			SELECT
+					B.REG_USER_ID
+			         , B.PO_NO AS BYCA_COMORG_CODE
+			         , B.BUYER_ITEM_NO
+			         , B.RE_DESCRIPTION
+			         , DECODE(B.CH_DESCRIPTION,'★','변경사항 없음',B.CH_DESCRIPTION) AS CH_DESCRIPTION
+			         , B.RE_SPECIFICATION
+			         , DECODE(B.CH_SPECIFICATION,'★','변경사항 없음',B.CH_SPECIFICATION) AS CH_SPECIFICATION
+			         , B.RE_ORIGIN_CODE
+			         , DECODE(B.CH_ORIGIN_CODE,'★','변경사항 없음',B.CH_ORIGIN_CODE) AS CH_ORIGIN_CODE
+			         , B.RE_MAKER_CODE
+			         , DECODE(B.CH_MAKER_CODE,'★','변경사항 없음',B.CH_MAKER_CODE) AS CH_MAKER_CODE
+			         , B.RE_MAKER_NAME
+			         , DECODE(B.CH_MAKER_NAME,'★','변경사항 없음',B.CH_MAKER_NAME) AS CH_MAKER_NAME
+			         , B.RE_MAKER_PART_NO
+			         , DECODE(B.CH_MAKER_PART_NO,'★','변경사항 없음',B.CH_MAKER_PART_NO) AS CH_MAKER_PART_NO
+			         , B.RE_CMS_CATEG_ID
+			         , DECODE(B.CH_CMS_CATEG_ID,'★','변경사항 없음',B.CH_CMS_CATEG_ID) AS CH_CMS_CATEG_ID
+			         , B.BELOW_TEXT
+                     , B.CONTRACT_NO
+                     , B.CONTRACT_SEQ
+                     , B.PM_NO
+                     , B.PM_SEQ
+                     , B.QUOTATION_NO
+                     , (SELECT CMPY.COM_NAME_LOC FROM ICOMCMPY CMPY WHERE B.QUOTATION_NO = CMPY.COM_CODE) AS BUYER_NAME
+			  FROM	KEPMGPHD A, KEPMGPDT B
+				WHERE A.BUYER = B.BUYER
+				AND A.PM_NO = B.PM_NO
+				AND A.BUYER = #{COMPANY}
+				AND A.PM_NO = #{DOCU_NO}
+				ORDER BY B.BUYER, B.BUYER_ITEM_NO, B.QUOTATION_NO
+		]]>
+		<include refid="common.ibsheet.xml.jsppageend"/>
+	</select>
+	
+	<update id="updateRejectCaImKEPMGPHD" parameterType="java.util.Map">
+		<![CDATA[
+		UPDATE KEPMGPHD /*updateRejectKEPMGPHD*/
+		  SET STATUS = #{STATUS}            
+               , CONFIRM_DATE = SYSDATE  
+               , CONFIRM_USER_ID = #{USER_ID} 
+               , CHANGE_DATE = SYSDATE
+	       WHERE BUYER = #{COM_CODE}
+	           AND PM_NO = #{KEY_1}
+		]]>
+	</update>
+	
+	<update id="updateRejectCaImKEPMGPDT" parameterType="java.util.Map">
+		<![CDATA[
+		UPDATE KEPMGPDT /*updateRejectKEPMGPDT*/
+		  SET STATUS = #{STATUS}            
+               , CONFIRM_DATE = SYSDATE  
+               , CONFIRM_USER_ID = #{USER_ID} 
+               , CHANGE_DATE = SYSDATE
+	       WHERE BUYER = #{COM_CODE}
+	           AND PM_NO = #{KEY_1}
+		]]>
+	</update>
+
+	<update id="updateCancelCaImKEPMGPHD" parameterType="java.util.Map">
+		<![CDATA[
+		UPDATE KEPMGPHD /*updateCancelCaImKEPMGPHD*/
+		  SET STATUS = #{STATUS}            
+               , CHANGE_DATE = SYSDATE
+	       WHERE BUYER = #{COM_CODE}
+	           AND PM_NO = #{KEY_1}
+		]]>
+	</update>
+	
+	<update id="updateCancelCaImKEPMGPDT" parameterType="java.util.Map">
+		<![CDATA[
+		UPDATE KEPMGPDT /*updateCancelCaImKEPMGPDT*/
+		  SET STATUS = #{STATUS}            
+               , CHANGE_DATE = SYSDATE  
+	       WHERE BUYER = #{COM_CODE}
+	           AND PM_NO = #{KEY_1}
+		]]>
+	</update>
+
+	<update id="updateApprovalCaImKEPMGPHD" parameterType="java.util.Map">
+		<![CDATA[
+		UPDATE KEPMGPHD /*updateApprovalCaImKEPMGPHD*/
+		  SET STATUS = #{STATUS}            
+               , CONFIRM_DATE = SYSDATE  
+               , CONFIRM_USER_ID = #{USER_ID} 
+               , CONFIRM_USER_DEPT =  #{USER_DEPT}
+               , CHANGE_DATE = SYSDATE
+	       WHERE BUYER = #{COM_CODE}
+	           AND PM_NO = #{KEY_1}
+		]]>
+	</update>
+	<update id="updateApprovalCaImKEPMGPDT" parameterType="java.util.Map">
+		<![CDATA[
+		UPDATE KEPMGPDT /*updateApprovalCaImKEPMGPDT*/
+		  SET STATUS = #{STATUS}            
+               , CHANGE_DATE = SYSDATE  
+	       WHERE BUYER = #{COM_CODE}
+	           AND PM_NO = #{KEY_1}
+		]]>
+	</update>
+	
+	<update id="InsertCaImIF_PROGRESS" parameterType="java.util.Map">
+		<![CDATA[
+		INSERT INTO IF_PROGRESS		/*InsertCaImIF_PROGRESS*/
+				(BUYER,GUBUN,LEGACY_NO,REVISION,STATUS,IF_FLAG,REMARK,CHANGE_DATE,CHANGE_TIME)
+				SELECT A.COMPANY
+				     , 'IM'
+				     , B.KEY_1
+				     , '1'
+				     , 'C'
+				     , 'Z'
+				     , 'PKG_ITEM_MODIFY'
+				     , TO_CHAR(SYSDATE,'YYYYMMDD')
+				     , TO_CHAR(SYSDATE,'HH24MISS')
+				FROM ICOGDOCU A, ICOMTRGW B
+				WHERE A.COMPANY = #{COM_CODE}
+				AND   A.DOCU_NO = #{TARGET}
+				AND   A.COMPANY = B.COM_CODE
+				AND   A.DOCU_NO = B.TARGET
+				AND   B.DOC_NAME = 'IM'
+				and   A.PASS_STATUS = '3'
+		]]>
+	</update>
+</mapper>

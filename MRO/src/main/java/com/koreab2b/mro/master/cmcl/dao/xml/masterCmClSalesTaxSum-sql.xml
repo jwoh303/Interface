@@ -1,0 +1,341 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.cmcl">
+	<!-- 조회 -->
+	<select id="selectMasterCmClSalesTaxSumList" parameterType="java.util.Map" resultType="java.util.Map">
+	/*selectMasterCmClSalesTaxSumList*/
+		<![CDATA[
+			SELECT
+			    (SELECT TEXT4 FROM ICOMCOD1 WHERE TYPE = 'VC04' AND CODE = DECODE(GR.BUYER, 'KRKOLO0077','KK', 'KA')) AS KEP_IRS_NAME /* 사이트( KA:서울본사, KK:경기사업소 ) */
+			  , MAX(CM.IRS_NO) AS BUYER_IRS_NO
+			  , MAX(CM.COM_NAME_LOC) AS BUYER_NAME
+			  /*, NVL(GR.AR_CLOSE_DEPT, ' ') AS KEP_DEPT 2014.10.28 변경*/
+			  , MAX(NVL(GR.AR_CLOSE_DEPT, MNG.KEP_DEPT)) AS KEP_DEPT
+			  /*, SUM(DECODE(GR.BUYER ,'KRHONG0020',ROUND((GR.ITEM_AMT/1.1)),GR.ITEM_AMT)) AS GR_AMT 2014.10.21 변경*/
+			  , SUM(ROUND((GR.ITEM_AMT/F_GET_VATRATE_NEW(GR.BUYER)))) AS GR_AMT
+			  , (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = GR.AGENT AND STATUS IN ('C','R')) AS AGENT_NAME
+			  , GR.BUYER
+			  , (SELECT TEXT3 FROM ICOMCOD1 WHERE TYPE = 'VC04' AND CODE = DECODE(GR.BUYER, 'KRKOLO0077','KK', 'KA')) AS KEP_IRS_NO /* 사이트( KA:서울본사, KK:경기사업소 ) */
+			  , MAX(CM.SYS_TYPE) AS SITE_GUBUN_CODE
+			  , NVL(GR.AR_CLOSE_DEPT, ' ') AS KEP_DEPT_CODE
+			  , GR.AGENT AS AGENT_CODE
+			  , #{st_from_date} AS GR_FROM_DATE
+			  , #{st_to_date} AS GR_TO_DATE
+			  , MAX(POHD.PURCHASER_NAME) AS PURCHASER_NAME /* 추가필드(요청자) */
+			  , F_GET_CREDIT_LIMIT_STTS(GR.BUYER,'','','2') AS CREDIT_LIMIT_FLAG
+			FROM 
+			    ICOMGRDT GR /* 구매사별 입고정보 */
+			  , V_VOC_ICOMCMPY CM /* (ICOMCMPY - 회원사정보, MIS_BUYER_MNG - 고객사별 담당자 정보), KEPMDCP02@kepcon(주석처리됨) */
+			  , ICOMPOHD POHD  /* 발주 마스터정보 */
+			  , ICOMCOD1 COD /* 마스터코드 관리 */
+			--  , MIS_BUYER_MNG MNG /* 고객사별 담당자 정보 */
+			               , ( SELECT DISTINCT BUYER, KEP_DEPT 
+                     FROM MIS_BUYER_MNG 
+                     WHERE 1=1 
+             ]]>
+           <if test="st_buyer_code != null and st_buyer_code != '' ">
+           AND BUYER =#{st_buyer_code}
+           </if> 
+		<![CDATA[  
+                       AND YEAR = TO_CHAR(SYSDATE,'YYYY') 
+                       AND STATUS = 'C' ) MNG
+			WHERE 1=1
+			AND GR.BUYER = CM.COM_CODE
+			AND GR.BUYER = POHD.BUYER
+			AND GR.PO_NO = POHD.PO_NO
+			AND GR.BUYER = COD.TEXT1(+)
+			AND GR.AGENT = COD.TEXT2(+)
+			AND GR.BUYER = MNG.BUYER(+)
+			AND GR.GR_DATE BETWEEN #{st_from_date} AND #{st_to_date}
+			AND GR.AR_BILL_FLAG = 'N'
+			AND GR.STATUS <> 'D'
+			AND POHD.STATUS <> 'D'
+			AND GR.BUYER NOT IN (SELECT TEXT3 FROM ICOMCOD1 WHERE TYPE = 'TX08' AND TEXT1 = 'AR' AND TEXT2 IN ('KA', 'KK')) /* 사이트( KA:서울본사, KK:경기사업소  ) */
+			AND 
+			(
+				/* 사이트( KA:서울본사, KK:경기사업소  ) */
+				CM.SYS_TYPE = 'KA'
+				OR
+				(
+					CM.SYS_TYPE = 'KK'
+					AND
+					COM_CODE = 'KRKOLO0077'
+				)
+				OR (CM.SYS_TYPE = 'KK' AND COM_CODE = 'KRKOLO0116')
+			)
+			AND CM.STATUS IN ('C', 'R')
+			AND POHD.DOC_TYPE <> 'X'
+			AND COD.TYPE(+) = 'TX07'
+	--		AND MNG.YEAR   = TO_CHAR(SYSDATE,'YYYY')
+	--		AND MNG.STATUS = 'C'
+	--		AND MNG.PRIORITY = 'Y'
+		]]>
+        <if test="st_buyer_code != null and st_buyer_code != '' ">
+			AND GR.BUYER = #{st_buyer_code}
+        </if>
+        <if test="st_agent_code != null and st_agent_code != '' ">
+			AND GR.AGENT = #{st_agent_code}
+        </if>
+        <if test="st_irs_no != null and st_irs_no != '' ">
+			AND CM.IRS_NO LIKE #{st_irs_no} || '%'
+        </if>
+        <if test="st_purchaser_name != null and st_purchaser_name != '' ">
+			AND POHD.PURCHASER_NAME LIKE '%' || #{st_purchaser_name} || '%'  /* 추가조회조건(요청자) */	
+        </if>
+		<![CDATA[
+			GROUP BY 
+			    GR.BUYER
+			  , GR.AGENT 
+              , GR.AR_CLOSE_DEPT
+			ORDER BY 
+			    MAX(TRIM(REPLACE(REPLACE(REPLACE(REPLACE(COM_NAME_LOC,'(유)',''),'(사)',''),'(주)',''),'㈜','')))
+			  , GR.BUYER
+			  , GR.AGENT
+              , GR.AR_CLOSE_DEPT
+		]]>
+	</select>
+
+	<!-- 저장 -->
+	<update  id="updateMasterCmClSalesTaxSum" parameterType="java.util.Map" >
+	/*updateMasterCmClSalesTaxSum*/
+		<![CDATA[
+			UPDATE 
+			    ICOMGRDT GR /* 구매사별 입고정보 */
+			SET 
+			    AR_CLOSE_DEPT = LPAD(#{KEP_DEPT},3,0)
+			WHERE 1=1
+			AND GR_DATE BETWEEN #{GR_FROM_DATE} AND #{GR_TO_DATE}
+			AND BUYER = #{BUYER}
+			AND AGENT = #{AGENT_CODE}
+            AND NVL(GR.AR_CLOSE_DEPT, ' ') = NVL(#{KEP_DEPT_CODE}, ' ')
+            AND AR_BILL_FLAG = 'N'
+		]]>
+	</update>
+
+	<!-- 생성 -->
+	<update  id="insertMasterCmClSalesTaxSum_KEPTARDT" parameterType="java.util.Map" >
+	/*insertMasterCmClSalesTaxSum_KEPTARDT*/
+		<![CDATA[
+			INSERT INTO KEPTARDT /* 외상매출_세금계산서 */
+			(
+			    TAX_BILL_NO
+			  , KEP_IRS
+			  , SITE
+			  , DEPT_CODE
+			  , STATUS
+			  , ISSUE_DATE
+			  , CUSTOMER_NAME
+			  , IRS_NO
+			  , BUYER_CODE
+			
+			  , TOT_SUPP_PRICE
+			  , TOT_TAX_PRICE
+			  , TOT_AMT
+			  , SUPP_PRICE
+			  , TAX_PRICE
+			  , AMT
+			
+			  , TAX_TYPE
+			  , BILL_TYPE
+			  , PRINT_DATE
+			  , PRINT_USER_ID
+			  , PRINT_CNT
+			  , PRINT_AVAIL_CNT
+			  , CONFIRM_FLAG
+			  , REMARK_DESCRIPTION
+			  , REMARK_SPECIFICATION
+			  , REMARK_QTY
+			  , REMARK_PRICE
+			
+			  , ASK_TYPE
+			  , ADD_DATE
+			  , ADD_TIME
+			  , ADD_USER_ID
+			  , CHANGE_DATE
+			  , CHANGE_TIME
+			  , CHANGE_USER_ID
+			
+			  , AR_CLOSE_MONTH
+			  , AR_CLOSE_REVISION
+			  , KEP_IRS_NAME
+			  , KEP_CEO_NAME_LOC
+			  , KEP_INDUSTRY_TYPE
+			  , KEP_BUSINESS_ITEMS
+			  , KEP_ADDRESS_LOC
+			  , IRS_NAME
+			  , CEO_NAME_LOC
+			  , INDUSTRY_TYPE
+			  , BUSINESS_ITEMS
+			  , ADDRESS_LOC
+			)
+			VALUES
+			(
+			    #{order_no}
+			  , #{KEP_IRS_NO}
+			  , DECODE(#{buyer_code}, 'KRKOLO0077','KK', 'KA')
+			  , #{dept_code}
+			  , 'C'
+			  , #{issue_date} || #{issue_last_day}
+			  , #{buyer_irs_name}
+			  , #{irs_no}
+			  , #{buyer_code}
+			
+			  , TRUNC(#{tot_amt})
+			  , TRUNC(#{tot_amt} * 0.1)
+			  , TRUNC(#{tot_amt}) + TRUNC(#{tot_amt} * 0.1)
+			  , TRUNC(#{supp_price}) /*SUPP_PRICE*/
+			  , TRUNC(#{tax_price}) /*TAX_PRICE*/
+			  , TRUNC(#{supp_price}) + TRUNC(#{tax_price}) /*AMT*/
+			
+			  , '11' /*TAX_TYPE*/
+			  , (SELECT BILL_TYPE FROM V_VOC_ICOMCMPY WHERE SYS_TYPE IN ('KA', 'KK') AND LPAD(COM_CODE,10,0) = #{BUYER} AND BUSINESS_COND <> 'S') /*BILL_TYPE*/
+			  , '' /*PRINT_DATE*/
+			  , '' /*PRINT_USER_ID*/
+			  , 0 /*PRINT_CNT*/
+			  , 1 /*PRINT_AVAIL_CNT*/
+			  , 'N' /*CONFIRM_FLAG*/
+			  , 'MRO용품외'
+			  , 'MRO용품외'
+			  , 1
+			  , #{tot_amt}
+			
+			  , '02' /*ASK_TYPE*/
+			  , TO_CHAR(SYSDATE,'YYYYMMDD')
+			  , TO_CHAR(SYSDATE,'HH24MISS')
+			  , #{st_user_id}
+			  , TO_CHAR(SYSDATE,'YYYYMMDD')
+			  , TO_CHAR(SYSDATE,'HH24MISS')
+			  , #{st_user_id}
+			
+			  , #{issue_date}
+			  , #{st_close_revision}
+			  , #{kep_irs_name}
+			  , #{kep_ceo_name_loc}
+			  , #{kep_industry_type}
+			  , #{kep_business_items}
+			  , #{kep_address_loc}
+			  , #{buyer_irs_name}
+			  , #{buyer_ceo_name_loc}
+			  , #{buyer_industry_type}
+			  , #{buyer_business_items}
+			  , #{buyer_address_loc}
+			)
+		]]>
+	</update>
+	
+	<update  id="insertMasterCmClSalesTaxSum_KEPTITEM" parameterType="java.util.Map" >
+	/*insertMasterCmClSalesTaxSum_KEPTITEM*/
+		<![CDATA[
+			INSERT INTO KEPTITEM /* 세금계산서 품목정보 */
+			(
+			    TAX_BILL_NO
+			  , ITEM_SEQ
+			  , REMARK_DESCRIPTION
+			  , REMARK_SPECIFICATION
+			  , REMARK_QTY
+			  , REMARK_PRICE
+			  , SUPP_PRICE
+			  , TAX_PRICE
+			  , REMARK_DATE
+			)
+			VALUES
+			(
+			    #{order_no}
+			  , '000001'
+			  , 'MRO용품외'
+			  , ''
+			  , ''
+			  , ''
+			  , TRUNC(#{supp_price})
+			  , TRUNC(#{supp_price} * 0.1)
+			  , TO_CHAR(SYSDATE, 'YYYYMMDD')
+			)
+		]]>
+	</update>
+	
+	<update  id="updateMasterCmClSalesTaxSum_ICOMGRDT" parameterType="java.util.Map" >
+	/*updateMasterCmClSalesTaxSum_ICOMGRDT*/
+		<![CDATA[
+			UPDATE 
+			    ICOMGRDT GR /* 구매사별 입고정보 */
+			SET 
+			    AR_TAX_BILL_NO      = #{order_no}
+			  , AR_CLOSE_DEPT       = LPAD(#{dept_code},3,0)
+			  , AR_CLOSE_MONTH      = #{issue_date}
+			  , AR_CLOSE_REVISION   = #{st_close_revision}
+			  , AR_BILL_FLAG        = 'Y'
+			  , CLOSE_USER_ID       = DECODE(CLOSE_USER_ID,NULL,#{st_user_id},CLOSE_USER_ID)
+			WHERE 1=1
+			AND GR_DATE BETWEEN #{key_gr_from_date} AND #{key_gr_to_date}
+			AND BUYER = #{buyer_code}
+            AND NVL(GR.AR_CLOSE_DEPT, ' ') = NVL(#{key_kep_dept_code}, ' ')
+			AND AGENT = #{key_agent_code}
+			AND AR_BILL_FLAG = 'N' 
+			AND STATUS <> 'D'
+		]]>
+	</update>
+
+	<update  id="insertMasterCmClSalesTaxSum_BillCloseList" parameterType="java.util.Map" >
+	/*insertMasterCmClSalesTaxSum_BillCloseList*/
+		<![CDATA[
+			MERGE INTO BILL_CLOSE_USER_LIST A
+			USING (
+			   SELECT 
+			   (SELECT LEGACY_USER_ID FROM ICOMLUSR WHERE USER_ID = #{st_user_id})	AS LEGACY_USER_ID,
+			   #{issue_date} 	AS BILL_CLOSE_MONTH,
+			   'AR' 			AS CLOSE_TYPE,			   
+			   #{buyer_code} 		AS BUYER_CODE
+			     FROM DUAL
+			) B ON (1 = 1
+			  AND A.LEGACY_USER_ID = B.LEGACY_USER_ID
+			  AND A.BILL_CLOSE_MONTH = B.BILL_CLOSE_MONTH
+			  AND A.CLOSE_TYPE = B.CLOSE_TYPE
+			  AND A.BUYER_CODE = B.BUYER_CODE
+			)			
+			WHEN NOT MATCHED THEN
+			   INSERT (
+			        LEGACY_USER_ID,
+					BILL_CLOSE_MONTH,
+					CLOSE_TYPE,
+					SEQ,
+					KEP_DEPT,
+					BUYER_CODE,
+					AGENT_CODE,
+					CLOSE_CMPL_YN
+			   ) VALUES (
+			       (SELECT LEGACY_USER_ID FROM ICOMLUSR WHERE USER_ID = #{st_user_id}),
+			       #{issue_date},
+			       'AR',
+			       (SELECT NVL(MAX(SEQ),0) +1 FROM BILL_CLOSE_USER_LIST
+			       					WHERE LEGACY_USER_ID = (SELECT LEGACY_USER_ID FROM ICOMLUSR WHERE USER_ID = #{st_user_id})
+			       					AND   BILL_CLOSE_MONTH = #{issue_date}
+			       					AND   CLOSE_TYPE = 'AR' ),
+			       #{dept_code},
+			       #{buyer_code},
+			       '',
+			       'N'			       
+			   )
+		]]>
+	</update>
+	
+	<select id="selectIcomgrdtDelYn_sum" parameterType="java.util.Map" resultType="String">
+	/*selectIcomgrdtDelYn_sum*/
+		<![CDATA[
+			SELECT DECODE(#{GR_AMT}, SUM(ROUND((GR.ITEM_AMT/F_GET_VATRATE_NEW(GR.BUYER)))) , 'N', 'Y') AS DelYn
+			FROM ICOMGRDT GR, ICOMPOHD PO
+			WHERE 1=1
+			AND GR.BUYER = PO.BUYER
+			AND GR.PO_NO = PO.PO_NO
+			AND GR.BUYER = #{BUYER}
+			AND GR.AGENT = #{AGENT_CODE}
+			AND GR.GR_DATE BETWEEN #{GR_FROM_DATE} AND #{GR_TO_DATE}
+			AND GR.STATUS <> 'D'			
+			AND GR.AR_BILL_FLAG = 'N'
+			AND PO.STATUS <> 'D'
+			AND PO.DOC_TYPE <> 'X'
+			
+		]]>
+	</select>
+	
+</mapper>   
+   

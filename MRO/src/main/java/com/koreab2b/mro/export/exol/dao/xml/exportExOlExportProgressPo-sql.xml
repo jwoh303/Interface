@@ -1,0 +1,406 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="export.exol">
+	<!-- 조회 -->
+	<select id="selectExportExOlExportProgressPoList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.pagestart"/>	
+			<![CDATA[
+			SELECT	/* selectExportExOlExportProgressPoList */
+						POHD.PKG_COMPANY_CODE,
+						PODT.BUYER,
+						(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = PODT.BUYER) AS BUYER_NAME,
+						POHD.AGENT,
+						(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = POHD.AGENT) AS AGENT_NAME,
+						CASE	WHEN	CIHD.COMPLETE_MARK = 'Y' THEN '납품완료'
+								ELSE		CASE	WHEN	CIHD.BL_COMPLETE_MARK = 'Y' THEN 'B/L생성'
+													ELSE		CASE	WHEN	IVDT.PKG_GR_QTY > 0 AND CIHD.CI_NO IS NOT NULL THEN 'C/I, P/L생성'
+																		ELSE		'입고등록'
+																END
+											END
+						END AS STATUS,
+						PODT.PO_NO,
+						PODT.PO_SEQ,
+						PODT.LEGACY_PO_NO,
+						PODT.LEGACY_PO_SEQ,
+						IVDT.INV_NO,
+						IVDT.INV_SEQ,
+						PODT.BUYER_ITEM_NO,
+						(SELECT	HS_CODE FROM ICOMBYIT WHERE BUYER = PODT.BYIT_COMORG_CODE AND BUYER_ITEM_NO = PODT.BUYER_ITEM_NO) AS HS_CODE,
+						PRDT.EXP_FOR_UNIT_PRICE,
+						PRDT.EXP_FOR_ITEM_AMT,
+						PODT.DESCRIPTION,
+						PODT.SPECIFICATION,
+						CIDT.CI_NO,
+						CIDT.CI_SEQ,
+						CIHD.CI_DATE,
+						BLDT.BL_NO,
+						CIHD.FORWARDER,
+						(SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'EP01' AND CODE = CIHD.FORWARDER) AS FORWARDER_NAME,
+						CIHD.SHIP_METHOD,
+						(SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'EP02' AND CODE = CIHD.SHIP_METHOD) AS SHIP_METHOD_NAME,
+						CIHD.CURRENCY_CODE,
+						PODT.ITEM_QTY AS PO_ITEM_QTY,
+						IVDT.INV_QTY AS IV_ITEM_QTY,
+						CIDT.INV_QTY,
+						CIDT.NET_WEIGHT,
+						CIDT.GROSS_WEIGHT,
+						CIDT.CBM,
+						CIDT.CTN_NO_FROM,
+						CIDT.CTN_NO_TO,
+						6 AS CI_SHEET,
+						6 AS PL_SHEET,
+						BLHD.IMAGE_KEY AS BL_IMAGE_KEY,
+						DECODE(BLHD.IMAGE_KEY, '', 3, 2) AS BL_IMAGE_KEY_IMG,
+						DECODE((SELECT COUNT(*) FROM KEP_EXP_LOT_INFO WHERE PKG_COMPANY_CODE = CIDT.PKG_COMPANY_CODE AND BUYER = CIDT.BUYER AND CI_NO = CIDT.CI_NO AND CI_SEQ = CIDT.CI_SEQ AND STATUS IN ('C', 'R')), 0, 4, 5) AS LOT_IMG,
+						CIHD.EXP_REPORT_DATE,
+						CIHD.EXP_SHIP_DATE,
+						CIHD.ENTRY_EXCHANGE_RATE,
+						CIHD.IMAGE_KEY AS CI_IMAGE_KEY,
+						DECODE(CIHD.IMAGE_KEY, '', 3, 2) AS CI_IMAGE_KEY_IMG
+						,(SELECT MSDS_NO FROM ICOMBYIT BYIT WHERE	BYIT.BUYER = PODT.BYIT_COMORG_CODE AND BYIT.BUYER_ITEM_NO = PODT.BUYER_ITEM_NO) AS MSDS_NO,
+						COD2.TEXT1 AS PURCHASE_DEPT
+			FROM	ICOMPODT PODT,
+						ICOMPOHD POHD,
+						ICOMPRDT PRDT,
+						ICOMIVDT IVDT,
+						KEP_EXP_CIDT CIDT,
+						KEP_EXP_CIHD CIHD,
+						KEP_EXP_BLDT BLDT,
+						KEP_EXP_BLHD BLHD,
+						ICOMCOD2 COD2
+			WHERE	1=1
+			AND		PODT.BUYER = POHD.BUYER
+			AND		PODT.PO_NO = POHD.PO_NO
+			AND		PODT.BUYER = PRDT.BUYER
+			AND		PODT.PR_NO = PRDT.PR_NO
+			AND		PODT.PR_SEQ = PRDT.PR_SEQ
+			AND		PODT.BUYER = IVDT.BUYER
+			AND		PODT.PO_NO = IVDT.PO_NO
+			AND		PODT.PO_SEQ = IVDT.PO_SEQ
+            AND 		PRDT.BUYER = COD2.COMPANY_CODE(+)
+            AND 		COD2.TYPE(+) = 'C001'
+            AND 		PRDT.PURCHASER_DEPT = COD2.CODE(+) 
+			AND		POHD.STATUS <> 'D'
+			AND		PODT.STATUS <> 'D'
+			AND		PRDT.STATUS <> 'D'
+			AND		IVDT.STATUS <> 'D'
+			AND		PRDT.EXP_CUR IS NOT NULL
+			AND		IVDT.BUYER = CIDT.BUYER
+			AND		IVDT.INV_NO = CIDT.INV_NO
+			AND		IVDT.INV_SEQ = CIDT.INV_SEQ
+			AND		CIDT.PKG_COMPANY_CODE = CIHD.PKG_COMPANY_CODE
+			AND		CIDT.BUYER = CIHD.BUYER
+			AND		CIDT.CI_NO = CIHD.CI_NO
+			AND		CIDT.STATUS <> 'D'
+			AND		CIHD.STATUS <> 'D'
+			AND		CIDT.PKG_COMPANY_CODE = BLDT.PKG_COMPANY_CODE(+)
+			AND		CIDT.BUYER = BLDT.BUYER(+)
+			AND		CIDT.CI_NO = BLDT.CI_NO(+)
+			AND		BLDT.PKG_COMPANY_CODE = BLHD.PKG_COMPANY_CODE(+)
+			AND		BLDT.BUYER = BLHD.BUYER(+)
+			AND		BLDT.BL_NO = BLHD.BL_NO(+)
+			
+			AND		POHD.PKG_COMPANY_CODE =  #{st_pkg_cmpy_no}
+			AND		PODT.PROCESS_TYPE = '0'
+			]]>
+			
+			<if test='st_all_po == "N"'>
+			<![CDATA[
+            	AND		CIHD.CI_DATE BETWEEN #{st_from_date} AND #{st_to_date}
+			]]>
+            </if>
+            
+			<if test="st_buyerArr != null and st_buyerArr != ''">
+				AND	PODT.BUYER IN
+				<foreach item="item" collection="st_buyerArr" open="(" separator="," close=")">
+					#{item}
+				</foreach>
+			</if>
+			
+			<if test="st_agent_code != null and st_agent_code != ''">
+			<![CDATA[
+            	AND	POHD.AGENT = #{st_agent_code}
+			]]>
+            </if>
+			
+			<if test="st_ci_no != null and st_ci_no != ''">
+			<![CDATA[
+            	AND	CIDT.CI_NO LIKE #{st_ci_no} || '%'
+			]]>
+            </if>
+			
+			<if test="st_bl_no != null and st_bl_no != ''">
+			<![CDATA[
+            	AND	BLDT.BL_NO LIKE #{st_bl_no} || '%'
+			]]>
+            </if>
+            
+            <if test="st_buyer_item_no != null and st_buyer_item_no != ''">
+			<![CDATA[
+            	AND	PODT.BUYER_ITEM_NO LIKE #{st_buyer_item_no} || '%'
+			]]>
+            </if>
+            
+            <if test="st_inv_no != null and st_inv_no != ''">
+			<![CDATA[
+            	AND	IVDT.INV_NO LIKE #{st_inv_no} || '%'
+			]]>
+            </if>
+             <if test="st_purchase_dept != null and st_purchase_dept != ''">               	
+                 <![CDATA[       
+                 	AND UPPER(COD2.TEXT1) LIKE  UPPER('%'||#{st_purchase_dept}||'%')
+                   ]]>
+            </if>
+            <if test="st_legacy_po_no != null and st_legacy_po_no != ''">
+            	<if test='st_all_po == "N"'>
+				<![CDATA[
+	            	AND	PODT.LEGACY_PO_NO LIKE #{st_legacy_po_no} || '%'
+				]]>
+				</if>
+				<if test='st_all_po == "Y"'>
+				<![CDATA[
+	            	AND	PODT.LEGACY_PO_NO = #{st_legacy_po_no}
+				]]>
+				</if>
+            </if>
+            
+             <if test="st_po_no != null and st_po_no != ''">
+             	<if test='st_all_po == "N"'>
+				<![CDATA[
+            		AND	PODT.PO_NO LIKE #{st_po_no} || '%'
+				]]>
+				</if>
+				<if test='st_all_po == "Y"'>
+				<![CDATA[
+            		AND	PODT.PO_NO = #{st_po_no}
+				]]>
+				</if>
+            </if>
+            
+            <choose>
+            	<when test="st_recv_flag == 'GR' ">
+            	<![CDATA[
+					AND	IVDT.PKG_GR_QTY > 0
+					AND	CIHD.CI_NO IS NULL
+				]]>
+            	</when>
+            	<when test="st_recv_flag == 'CI' ">
+            		AND	CIHD.CI_NO IS NOT NULL
+            		AND	BLDT.BL_NO IS NULL
+            	</when>
+            	<when test="st_recv_flag == 'BL' ">
+            		AND	CIHD.BL_COMPLETE_MARK = 'Y'
+            		AND	CIHD.COMPLETE_MARK = 'N'
+            	</when>
+            	<when test="st_recv_flag == 'CMPL' ">
+            		AND	CIHD.COMPLETE_MARK = 'Y'
+            	</when>
+            </choose>
+            <![CDATA[
+            UNION ALL
+            
+            SELECT	POHD.PKG_COMPANY_CODE,
+						PODT.BUYER,
+						(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = PODT.BUYER) AS BUYER_NAME,
+						POHD.AGENT,
+						(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = POHD.AGENT) AS AGENT_NAME,
+						CASE	WHEN	CIHD.COMPLETE_MARK = 'Y' THEN '납품완료'
+								ELSE		CASE	WHEN	CIHD.BL_COMPLETE_MARK = 'Y' THEN 'B/L생성'
+													ELSE		CASE	WHEN	IVDT.PKG_GR_QTY > 0 AND CIHD.CI_NO IS NOT NULL THEN 'C/I, P/L생성'
+																		ELSE		'입고등록'
+																END
+											END
+						END AS STATUS,
+						PODT.PO_NO,
+						PODT.PO_SEQ,
+						PODT.LEGACY_PO_NO,
+						PODT.LEGACY_PO_SEQ,
+						IVDT.INV_NO,
+						IVDT.INV_SEQ,
+						PODT.BUYER_ITEM_NO,
+						(SELECT	HS_CODE FROM ICOMBYIT WHERE BUYER = PODT.BYIT_COMORG_CODE AND BUYER_ITEM_NO = PODT.BUYER_ITEM_NO) AS HS_CODE,
+						PRDT.EXP_FOR_UNIT_PRICE,
+						PRDT.EXP_FOR_ITEM_AMT,
+						PODT.DESCRIPTION,
+						PODT.SPECIFICATION,
+						CIDT.CI_NO,
+						CIDT.CI_SEQ,
+						CIHD.CI_DATE,
+						BLDT.BL_NO,
+						CIHD.FORWARDER,
+						(SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'EP01' AND CODE = CIHD.FORWARDER) AS FORWARDER_NAME,
+						CIHD.SHIP_METHOD,
+						(SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'EP02' AND CODE = CIHD.SHIP_METHOD) AS SHIP_METHOD_NAME,
+						CIHD.CURRENCY_CODE,
+						PODT.ITEM_QTY AS PO_ITEM_QTY,
+						IVDT.INV_QTY AS IV_ITEM_QTY,
+						CIDT.INV_QTY,
+						CIDT.NET_WEIGHT,
+						CIDT.GROSS_WEIGHT,
+						CIDT.CBM,
+						CIDT.CTN_NO_FROM,
+						CIDT.CTN_NO_TO,
+						6 AS CI_SHEET,
+						6 AS PL_SHEET,
+						BLHD.IMAGE_KEY AS BL_IMAGE_KEY,
+						DECODE(BLHD.IMAGE_KEY, '', 3, 2) AS BL_IMAGE_KEY_IMG,
+						DECODE((SELECT COUNT(*) FROM KEP_EXP_LOT_INFO WHERE PKG_COMPANY_CODE = CIDT.PKG_COMPANY_CODE AND BUYER = CIDT.BUYER AND CI_NO = CIDT.CI_NO AND CI_SEQ = CIDT.CI_SEQ AND STATUS IN ('C', 'R')), 0, 4, 5) AS LOT_IMG,
+						CIHD.EXP_REPORT_DATE,
+						CIHD.EXP_SHIP_DATE,
+						CIHD.ENTRY_EXCHANGE_RATE,
+						CIHD.IMAGE_KEY AS CI_IMAGE_KEY,
+						DECODE(CIHD.IMAGE_KEY, '', 3, 2) AS CI_IMAGE_KEY_IMG
+						,(SELECT MSDS_NO FROM ICOMBYIT BYIT WHERE	BYIT.BUYER = PODT.BYIT_COMORG_CODE AND BYIT.BUYER_ITEM_NO = PODT.BUYER_ITEM_NO) AS MSDS_NO,
+						COD2.TEXT1 AS PURCHASE_DEPT
+			FROM	ICOMPODT PODT,
+						ICOMPOHD POHD,
+						ICOMPRDT PRDT,
+						WMSIVDT IVDT,
+						KEP_EXP_CIDT CIDT,
+						KEP_EXP_CIHD CIHD,
+						KEP_EXP_BLDT BLDT,
+						KEP_EXP_BLHD BLHD,
+						ICOMCOD2 COD2
+			WHERE	1=1
+			AND		PODT.BUYER = POHD.BUYER
+			AND		PODT.PO_NO = POHD.PO_NO
+			AND		PODT.BUYER = PRDT.BUYER
+			AND		PODT.PR_NO = PRDT.PR_NO
+			AND		PODT.PR_SEQ = PRDT.PR_SEQ
+			AND		PODT.BUYER = IVDT.BUYER
+			AND		PODT.PO_NO = IVDT.PO_NO
+			AND		PODT.PO_SEQ = IVDT.PO_SEQ
+            AND 		PRDT.BUYER = COD2.COMPANY_CODE(+)
+            AND 		COD2.TYPE(+) = 'C001'
+            AND 		PRDT.PURCHASER_DEPT = COD2.CODE(+)
+			AND		POHD.STATUS <> 'D'
+			AND		PODT.STATUS <> 'D'
+			AND		PRDT.STATUS <> 'D'
+			AND		IVDT.STATUS <> 'D'
+			AND		PRDT.EXP_CUR IS NOT NULL
+			AND		IVDT.BUYER = CIDT.BUYER
+			AND		IVDT.INV_NO = CIDT.INV_NO
+			AND		IVDT.INV_SEQ = CIDT.INV_SEQ
+			AND		CIDT.PKG_COMPANY_CODE = CIHD.PKG_COMPANY_CODE
+			AND		CIDT.BUYER = CIHD.BUYER
+			AND		CIDT.CI_NO = CIHD.CI_NO
+			AND		CIDT.STATUS <> 'D'
+			AND		CIHD.STATUS <> 'D'
+			AND		CIDT.PKG_COMPANY_CODE = BLDT.PKG_COMPANY_CODE(+)
+			AND		CIDT.BUYER = BLDT.BUYER(+)
+			AND		CIDT.CI_NO = BLDT.CI_NO(+)
+			AND		BLDT.PKG_COMPANY_CODE = BLHD.PKG_COMPANY_CODE(+)
+			AND		BLDT.BUYER = BLHD.BUYER(+)
+			AND		BLDT.BL_NO = BLHD.BL_NO(+)
+			
+			AND		POHD.PKG_COMPANY_CODE =  #{st_pkg_cmpy_no}
+			AND		PODT.PROCESS_TYPE <> '0'
+			]]>
+			
+			<if test='st_all_po == "N"'>
+			<![CDATA[
+            	AND		CIHD.CI_DATE BETWEEN #{st_from_date} AND #{st_to_date}
+			]]>
+            </if>
+			
+			<if test="st_buyerArr != null and st_buyerArr != ''">
+				AND	PODT.BUYER IN
+				<foreach item="item" collection="st_buyerArr" open="(" separator="," close=")">
+					#{item}
+				</foreach>
+			</if>
+			
+			<if test="st_agent_code != null and st_agent_code != ''">
+			<![CDATA[
+            	AND	POHD.AGENT = #{st_agent_code}
+			]]>
+            </if>
+			
+			<if test="st_ci_no != null and st_ci_no != ''">
+			<![CDATA[
+            	AND	CIDT.CI_NO LIKE #{st_ci_no} || '%'
+			]]>
+            </if>
+			
+			<if test="st_bl_no != null and st_bl_no != ''">
+			<![CDATA[
+            	AND	BLDT.BL_NO LIKE #{st_bl_no} || '%'
+			]]>
+            </if>
+            
+            <if test="st_buyer_item_no != null and st_buyer_item_no != ''">
+			<![CDATA[
+            	AND	PODT.BUYER_ITEM_NO LIKE #{st_buyer_item_no} || '%'
+			]]>
+            </if>
+            
+            <if test="st_inv_no != null and st_inv_no != ''">
+			<![CDATA[
+            	AND	IVDT.INV_NO LIKE #{st_inv_no} || '%'
+			]]>
+            </if>
+             <if test="st_purchase_dept != null and st_purchase_dept != ''">               	
+                 <![CDATA[       
+                 	AND UPPER(COD2.TEXT1) LIKE  UPPER('%'||#{st_purchase_dept}||'%')
+                   ]]>
+            </if>
+            <if test="st_legacy_po_no != null and st_legacy_po_no != ''">
+            	<if test='st_all_po == "N"'>
+				<![CDATA[
+	            	AND	PODT.LEGACY_PO_NO LIKE #{st_legacy_po_no} || '%'
+				]]>
+				</if>
+				<if test='st_all_po == "Y"'>
+				<![CDATA[
+	            	AND	PODT.LEGACY_PO_NO = #{st_legacy_po_no}
+				]]>
+				</if>
+            </if>
+            
+             <if test="st_po_no != null and st_po_no != ''">
+             	<if test='st_all_po == "N"'>
+				<![CDATA[
+            		AND	PODT.PO_NO LIKE #{st_po_no} || '%'
+				]]>
+				</if>
+				<if test='st_all_po == "Y"'>
+				<![CDATA[
+            		AND	PODT.PO_NO = #{st_po_no}
+				]]>
+				</if>
+            </if>
+            
+            <choose>
+            	<when test="st_recv_flag == 'GR' ">
+            	<![CDATA[
+					AND	IVDT.PKG_GR_QTY > 0
+					AND	CIHD.CI_NO IS NULL
+				]]>
+            	</when>
+            	<when test="st_recv_flag == 'CI' ">
+            		AND	CIHD.CI_NO IS NOT NULL
+            		AND	BLDT.BL_NO IS NULL
+            	</when>
+            	<when test="st_recv_flag == 'BL' ">
+            		AND	CIHD.BL_COMPLETE_MARK = 'Y'
+            		AND	CIHD.COMPLETE_MARK = 'N'
+            	</when>
+            	<when test="st_recv_flag == 'CMPL' ">
+            		AND	CIHD.COMPLETE_MARK = 'Y'
+            	</when>
+            </choose>
+			ORDER BY PKG_COMPANY_CODE, BUYER, PO_NO, PO_SEQ
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+
+	<update id="updateExportExOlExportProgressPo" parameterType="java.util.Map">
+		<![CDATA[
+		/* updateExportExOlExportProgressPo */
+		UPDATE	ICOMBYIT A
+		SET		A.HS_CODE = #{HS_CODE}
+		WHERE	A.BUYER = (SELECT BYCA_COMORG_CODE FROM ICOMCMPY WHERE COM_CODE = #{BUYER})
+		AND		A.BUYER_ITEM_NO = #{BUYER_ITEM_NO}
+		]]>
+	</update>
+</mapper>   
+   

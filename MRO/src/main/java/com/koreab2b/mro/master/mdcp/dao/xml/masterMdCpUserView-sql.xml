@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mdcp">
+	<!-- 조회 -->
+	<select id="selectMasterMdCpUserViewList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.pagestart"/>	
+		<![CDATA[
+			/* selectMasterMdCpUserViewList */
+			SELECT
+				USER_ID
+				,USER_ID AS KEP_USER_ID_MASK
+				,SUBSTR(USER_NAME,1,1)||'*'||SUBSTR(USER_NAME,3) AS USER_NAME
+				,COM_NAME
+				,DEPT_TEXT
+				,BUSINESS_COND
+				,BUSINESS_COND_TEXT
+				,TEL_NO
+				,EMAIL
+				,COM_CODE
+				,IRS_NO
+				,IRS_NAME
+				,USER_TYPE
+				,USER_TYPE_TEXT
+			FROM ( 
+				SELECT
+					L.USER_ID AS USER_ID,
+					L.USER_NAME_LOC AS USER_NAME,
+					C.COM_NAME_LOC AS COM_NAME,
+					(SELECT TEXT1 FROM ICOMCOD2 WHERE  COMPANY_CODE = L.COM_CODE AND  TYPE = 'C001' AND  CODE = DEPARTMENT) AS DEPT_TEXT,
+					C.BUSINESS_COND,
+					DECODE(C.BUSINESS_COND,'B','고객사','S','협력사','M','운영사') AS BUSINESS_COND_TEXT,
+					L.PHONE_NUMBER AS TEL_NO,
+					L.EMAIL,
+					L.COM_CODE AS COM_CODE,
+					C.IRS_NO,
+					(SELECT IRS_NAME FROM KEPTIRSN K WHERE K.COM_CODE = C.COM_CODE AND K.IRS_NO = C.IRS_NO AND K.SITE = 'KA') IRS_NAME,
+					L.USER_TYPE AS USER_TYPE,
+					DECODE(L.USER_TYPE, 'A','Admin사용자', 'U','일반사용자') AS USER_TYPE_TEXT,
+					L.REG_DATE
+				FROM ICOMLUSR L, ICOMCMPY C
+				WHERE L.COM_CODE = C.COM_CODE
+				AND C.STATUS IN ('C','R')
+				AND (L.STATUS IN ('C','R') OR (L.USER_TYPE = 'U' AND L.CHANGE_USER_TYPE = 'A' AND L.STATUS = 'A'))
+				AND (C.COM_TYPE IS NULL OR C.COM_TYPE <> 'X')
+			)
+			WHERE 1=1	
+		]]>
+		<if test="st_search_user_id != null and st_search_user_id != ''">
+			AND USER_ID LIKE UPPER(#{st_search_user_id}) || '%'
+		</if>
+		<if test="st_search_user_name != null and st_search_user_name != ''">
+			AND USER_NAME LIKE '%' || #{st_search_user_name} || '%'
+		</if>
+		<if test="st_search_com_name != null and st_search_com_name != ''">
+			AND COM_NAME LIKE '%' || #{st_search_com_name} || '%'
+		</if>	
+		<if test="st_search_user_type != null and st_search_user_type != ''">
+			AND USER_TYPE = #{st_search_user_type}
+		</if>
+		<if test="st_business_cond != null and st_business_cond != ''">
+			AND BUSINESS_COND = #{st_business_cond}
+		</if>
+		<if test="st_dept_name != null and st_dept_name != ''">
+			AND DEPT_TEXT LIKE '%' || #{st_dept_name} || '%'
+		</if>
+			ORDER BY REG_DATE DESC
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+
+
+	<!-- 삭제 -->
+	<update id="deleteMasterMdCpUserView"  parameterType="java.util.Map">
+		<![CDATA[
+		UPDATE ICOMLUSR
+		SET STATUS = 'D'
+		WHERE USER_ID = #{st_user_id}
+		]]>
+	</update>
+	
+	<!-- 삭제 -->
+	<update id="deleteMasterMdCpUserInfo"  parameterType="java.util.Map">
+		<![CDATA[
+		DELETE USERINFO WHERE USERID = #{st_user_id}
+		]]>
+	</update>
+
+</mapper>   
+   

@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mdcm">
+
+	<!-- 매입단가유효일 관리 - 목록 조회 (p17)
+	     이 화면의 [매입단가 유효일]은 만료예정·만료를 가리는 화면이므로 종료일(BUY_CLOSE_DATE)을 쓴다.
+	     ⚠ 아직 백킹 테이블이 없는 5열은 공란으로 내려보낸다 -
+	        고객사전용코드 · 온도조건 · 회신상태 · 회신단가 · 회신비고 (협력사 회신 워크플로는 미설계). -->
+	<select id="selectMasterMdCmCmsPriceValidList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.pagestart"/>
+			<![CDATA[
+				/*selectMasterMdCmCmsPriceValidList*/
+				SELECT
+				  P.CMS_CATLG_ID || '-' || LPAD(P.CATLG_SEQ, 5, '0') AS TCODE						/* 행 유니크 키 (hidden) */
+				 ,'' AS BUYER_ITEM_CODE																/* 고객사 전용코드 - 백킹 테이블 없음 */
+				 ,P.CMS_CATLG_ID																	/* 상품정보코드 */
+				 ,(SELECT CATEG_NAME FROM CMSCATEG
+				     WHERE CMS_CATEG_ID = C.CMS_CATEG_ID AND STATUS <> 'D') AS CMS_CATEG_ID			/* 카테고리(표시는 분류명) */
+				 ,C.DESCRIPTION_LOC																	/* 품명 */
+				 ,C.SPECIFICATION																	/* 규격 */
+				 ,C.MAKER_NAME																		/* 제조사 */
+				 ,(SELECT TEXT2 FROM ICOMCOD1 WHERE TYPE = 'M001' AND CODE = C.ORIGIN_CODE) AS ORIGIN_CODE_NAME	/* 원산지 */
+				 ,C.ORDER_MEASURE																	/* 단위 */
+				 ,C.MODEL_INFO																		/* 모델번호 */
+				 ,DECODE(P.STATUS, 'D', '불가', '가능') AS USE_STATUS								/* 상태(공급상태) */
+				 ,P.CMS_CATLG_ID || '-' || LPAD(P.CATLG_SEQ, 5, '0') AS BUY_INFO_ID					/* 구매정보코드 (키, 화면 hidden) */
+				 ,LPAD(P.CATLG_SEQ, 5, '0') AS BUY_INFO_SEQ											/* 구매정보코드 : 화면 표기는 순번만 쓴다(상품정보코드는 옆 열에 있다) */
+				 ,(SELECT CMPY.COM_NAME_LOC FROM ICOMCMPY CMPY WHERE CMPY.COM_CODE = P.AGENT) AS VENDOR_NAME	/* 협력사명 */
+				 ,P.BUY_PRICE AS UNIT_PRICE															/* 단가 */
+				 ,P.DELIVERY_LT AS LEADTIME															/* 조달일수 */
+				 ,P.MIN_ORDER_QTY AS MOQ															/* MOQ */
+				 ,P.PUR_UNIT_QTY AS ORDER_MULTIPLE													/* 발주배수 */
+				 ,(SELECT MD.TEXT2 FROM ICOMCOD1 MD
+				     WHERE MD.TYPE = 'M034' AND MD.CODE = P.PROCESS_TYPE) AS TRADE_TYPE				/* 거래유형 */
+				 ,(SELECT MD.TEXT1 FROM ICOMCOD1 MD
+				     WHERE MD.TYPE = 'M186' AND MD.CODE = P.DELIVERY_TYPE) AS DELIVERY_COND			/* 배송조건(배송유형) */
+				 ,P.BUY_CLOSE_DATE AS PRICE_VALID_DATE												/* 매입단가 유효일(종료일) */
+				 ,P.SELLER_ITEM_NO AS VENDOR_ITEM_CODE												/* 협력사 상품코드 */
+				 ,(SELECT MD.TEXT1 FROM ICOMCOD1 MD
+				     WHERE MD.TYPE = 'TX17' AND MD.CODE = P.TAX_TYPE) AS TAX_TYPE					/* 세액구분(과세구분) */
+				 ,'' AS TEMP_COND																	/* 온도조건 - 백킹 컬럼 없음 */
+				 ,'' AS REPLY_STATUS																/* 회신상태 - 협력사 회신 미설계 */
+				 ,'' AS REPLY_PRICE																	/* 회신단가 - 위와 동일 */
+				 ,'' AS REPLY_REMARK																/* 회신비고 - 위와 동일 */
+				FROM CMSPRICE P, CMSCATLG C
+				WHERE P.CMS_CATLG_ID = C.CMS_CATLG_ID
+			]]>
+			<!-- 상품정보코드 -->
+			<if test="st_catlg_id != null and st_catlg_id != ''">
+				AND UPPER(P.CMS_CATLG_ID) LIKE UPPER(#{st_catlg_id}) || '%'
+			</if>
+			<!-- 카테고리 (팝업 선택 - 상세분류 ID) -->
+			<if test="st_cata_code != null and st_cata_code != ''">
+				AND C.CMS_CATEG_ID = #{st_cata_code}
+			</if>
+			<!-- 품명/규격 토글 -->
+			<if test="st_item_keyword != null and st_item_keyword != ''">
+				<choose>
+					<when test="st_item_type == 'sp'">
+						AND C.SPECIFICATION LIKE '%' || #{st_item_keyword} || '%'
+					</when>
+					<otherwise>
+						AND C.DESCRIPTION_LOC LIKE '%' || #{st_item_keyword} || '%'
+					</otherwise>
+				</choose>
+			</if>
+			<!-- 협력사명 -->
+			<if test="st_agent_name != null and st_agent_name != ''">
+				AND EXISTS (SELECT 1 FROM ICOMCMPY CMPY
+				             WHERE CMPY.COM_CODE = P.AGENT
+				               AND CMPY.COM_NAME_LOC LIKE '%' || #{st_agent_name} || '%')
+			</if>
+			<!-- 상품상태 : 이 화면의 셀렉트는 v1 시절 4값(사용/휴면/만료예정/만료)이 그대로 남아 있다.
+			     사용·휴면은 공급상태로, 만료예정·만료는 종료일로 판정한다.
+			     ⚠ '휴면' 에 정확히 대응하는 값이 CMSPRICE 에 없어 '불가'로 읽는다(잠정). -->
+			<choose>
+				<when test="st_status == 'Y'">
+					AND NVL(P.STATUS, 'C') != 'D'
+				</when>
+				<when test="st_status == 'N'">
+					AND P.STATUS = 'D'
+				</when>
+				<when test="st_status == 'E'">
+					AND P.BUY_CLOSE_DATE IS NOT NULL
+					AND P.BUY_CLOSE_DATE &gt;= TO_CHAR(SYSDATE, 'YYYYMMDD')
+					AND P.BUY_CLOSE_DATE &lt;= TO_CHAR(SYSDATE + 30, 'YYYYMMDD')
+				</when>
+				<when test="st_status == 'X'">
+					AND P.BUY_CLOSE_DATE IS NOT NULL
+					AND P.BUY_CLOSE_DATE &lt; TO_CHAR(SYSDATE, 'YYYYMMDD')
+				</when>
+			</choose>
+			<!-- 단가유효일 (기간무시 미체크 & 시작/종료 존재 시) -->
+			<if test="(st_checkbox == null or st_checkbox == '') and st_from_date != null and st_from_date != '' and st_to_date != null and st_to_date != ''">
+				AND P.BUY_CLOSE_DATE BETWEEN #{st_from_date} AND #{st_to_date}
+			</if>
+			<!-- ⚠ 담당자(st_manager)·회신상태(st_reply_status)는 백킹 컬럼이 없어 여전히 no-op 이다.
+			     담당자는 이 화면에서 무엇을 가리키는지(구매담당자 SG 정담당인지) 확정되지 않았다. -->
+			<![CDATA[
+				ORDER BY P.CMS_CATLG_ID, P.CATLG_SEQ
+			]]>
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+
+</mapper>

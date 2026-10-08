@@ -1,0 +1,335 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="seller.mprq">
+	<!-- 조회 -->	
+	<select id="selectSellerMpRqBulkQuotationReq" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.jsppagestart"/>
+		<![CDATA[
+			/*selectSellerMpRqBulkQuotationReq*/
+			SELECT	(SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'BURQ04' AND CODE = STATUS) AS STATUS,
+					AGENT_TYPE_NAME,
+					BURQ_RFQ_NO,
+					PROJECT_NAME,
+					BUYER_NAME,
+					ATOS_DATE,
+					ATOS_END_DATE,
+					DESCRIPTION,
+					SPECIFICATION,
+					MAKER_PART_NO,
+					(SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE= 'M104' AND CODE = MAKER_CODE) AS MAKER_NAME,
+					MIN_ORDER_QTY,
+					PUR_UNIT_QTY,
+					UNIT_MEASURE,
+			        ITEM_QTY,
+			        CASE WHEN AGENT_TYPE_NAME = '신규' THEN 0
+			        	ELSE RE_LIST_PRICE
+			        END AS RE_LIST_PRICE,
+			        PO_CNT,
+					(SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'BURQ09' AND CODE = PROCESS_TYPE) AS PROCESS_TYPE_NAME,
+					(SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'BURQ10' AND CODE = PARCEL_YN) AS PARCEL_YN_NAME,
+					PROCESS_TYPE,
+					PARCEL_YN,
+					DECODE(PROCESS_TYPE,'0', (SELECT ADDRESS_LOC FROM ICOMCMPY WHERE COM_CODE = BUYER), (SELECT ADDRESS_LOC FROM ICOMCMPY WHERE COM_CODE = X.WAREHOUSE_CODE AND STATUS <> 'D')) AS DELY_TEXT,
+					(SELECT MIN(USER_NAME_LOC) FROM ICOMLUSR WHERE LEGACY_USER_ID = AGENT_MNG_USER_ID) AS AGENT_MNG_USER_NAME,
+					AGENT_MNG_USER_ID,
+					ITEM_TYPE,
+					AGENT_DESCRIPTION,
+					AGENT_SPECIFICATION,
+					AGENT_MAKER_PART_NO,
+					NVL((SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE= 'M104' AND CODE = AGENT_MAKER_CODE),AGENT_MAKER_CODE) AS AGENT_MAKER_NAME,
+					AGENT_MAKER_CODE,
+					AGENT_MIN_ORDER_QTY,
+					AGENT_PUR_UNIT_QTY,
+					AGENT_UNIT_MEASURE,
+					AGENT_PROCESS_TYPE,
+					AGENT_PARCEL_YN,
+					CASE WHEN AGENT_TYPE_NAME = '신규' THEN 
+						CASE WHEN STATUS = 'K1' THEN 0
+						ELSE CH_LIST_PRICE
+						END
+			        ELSE CH_LIST_PRICE
+			        END AS CH_LIST_PRICE,
+					BUY_CLOSE_DATE,
+					DELIVERY_LT,
+					DELIVERY_LT AS DB_DELIVERY_LT,
+					AGENT_REMARK,
+					MAKER_CODE
+			        FROM (
+			        SELECT
+						STATUS,
+						(SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'BURQ03' AND CODE = AGENT_TYPE) AS AGENT_TYPE_NAME,
+						BURQ_RFQ_NO,
+						PROJECT_NAME,
+						DECODE( PROJECT_UNIT, 'B', (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = BUYER), (SELECT COMORG_NAME FROM BYCAORGL WHERE COMORG_CODE = BYIT_COMORG_CODE)) AS BUYER_NAME,
+						ATOS_DATE,
+						ATOS_END_DATE,
+						NVL(SM_DESCRIPTION,KEP_DESCRIPTION) AS DESCRIPTION,
+						NVL(SM_SPECIFICATION,KEP_SPECIFICATION) AS SPECIFICATION,
+						NVL(SM_MAKER_PART_NO,KEP_MAKER_PART_NO) AS MAKER_PART_NO,
+						NVL(SM_MAKER_CODE,KEP_MAKER_CODE) AS MAKER_CODE,
+						NVL(SM_MIN_ORDER_QTY,KEP_MIN_ORDER_QTY) AS MIN_ORDER_QTY,
+						NVL(SM_PUR_UNIT_QTY,KEP_PUR_UNIT_QTY) AS PUR_UNIT_QTY,
+						NVL(SM_UNIT_MEASURE,KEP_UNIT_MEASURE) AS UNIT_MEASURE,
+						(SELECT ITEM_QTY FROM KEP_BURQ_ITEM ITM WHERE RFQ.BURQ_NO = ITM.BURQ_NO AND RFQ.ITEM_KEY_ID = ITM.ITEM_KEY_ID) AS ITEM_QTY,
+						(SELECT RE_LIST_PRICE FROM KEP_BURQ_ITEM ITM WHERE RFQ.BURQ_NO = ITM.BURQ_NO AND RFQ.ITEM_KEY_ID = ITM.ITEM_KEY_ID) AS RE_LIST_PRICE,
+						(SELECT PO_CNT FROM KEP_BURQ_ITEM ITM WHERE RFQ.BURQ_NO = ITM.BURQ_NO AND RFQ.ITEM_KEY_ID = ITM.ITEM_KEY_ID) AS PO_CNT,
+						SM_PROCESS_TYPE AS PROCESS_TYPE,
+						SM_PARCEL_YN AS PARCEL_YN,
+						SM_WAREHOUSE_CODE AS WAREHOUSE_CODE,
+			            DECODE( PROJECT_UNIT, 'B', BUYER, BYIT_COMORG_CODE ) AS BUYER,
+			            (SELECT AGENT_MNG_USER_ID FROM KEP_BURQ_ITEM ITEM WHERE ITEM.BURQ_NO = RFQ.BURQ_NO AND RFQ.ITEM_KEY_ID = ITEM.ITEM_KEY_ID) AS AGENT_MNG_USER_ID,
+			            NVL(ITEM_TYPE,'B') AS ITEM_TYPE,
+						AGENT_DESCRIPTION,
+						AGENT_SPECIFICATION,
+						AGENT_MAKER_PART_NO,
+						AGENT_MAKER_CODE,
+						AGENT_MIN_ORDER_QTY,
+						AGENT_PUR_UNIT_QTY,
+						AGENT_UNIT_MEASURE,
+						AGENT_PROCESS_TYPE,
+						AGENT_PARCEL_YN,
+						CH_LIST_PRICE,
+						BUY_CLOSE_DATE,
+						AGENT_REMARK,
+						DELIVERY_LT
+						FROM KEP_BURQ_RFQ RFQ, KEP_BURQ_MNG MNG
+						WHERE	RFQ.BURQ_NO = MNG.BURQ_NO
+						AND		RFQ.STATUS IN ( 'K1','S1' ) 
+						AND		RFQ.BURQ_NO = #{st_burq_no}
+						AND		RFQ.AGENT = #{COM_CODE}
+			         ]]>  
+					<!-- 품목구분 -->
+					<if test="st_agent_type != null and st_agent_type != ''">
+						<![CDATA[
+						AND 	RFQ.AGENT_TYPE = #{st_agent_type}
+						]]>	 
+					</if>
+					<!-- 진행상태 -->
+					<if test="st_sourcing_status != null and st_sourcing_status != ''">
+						<![CDATA[
+						AND 	RFQ.STATUS = #{st_sourcing_status}
+				 		]]>	 
+					</if>
+					)   X
+					WHERE 1=1
+					<!-- 고객사명 -->
+					<if test="st_buyer_name != null and st_buyer_name != ''">
+						<![CDATA[
+						AND X.BUYER_NAME LIKE '%'||UPPER(#{st_buyer_name})||'%'
+						]]>		 
+					</if>
+					<!-- 제조사 -->
+					<if test="st_maker_name != null and st_maker_name != ''">
+						<![CDATA[
+						AND X.MAKER_NAME LIKE '%'||UPPER(#{st_maker_name})||'%'
+						]]>		 
+					</if>
+					<!-- 견적번호 -->
+					<if test="st_burq_rfq_no != null and st_burq_rfq_no != ''">
+						<![CDATA[ 
+			  				AND X.BURQ_RFQ_NO IN 
+						]]>
+						<foreach item="burq_rfq_no" collection="st_burq_rfq_no_all" index = "index" open="(" separator="," close=")">
+						 	#{burq_rfq_no}
+						</foreach>
+			        </if>	
+					<!-- 품명 -->
+					<if test="st_description != null and st_description != ''">
+						<![CDATA[
+			 			AND X.DESCRIPTION LIKE '%'||UPPER(#{st_description})||'%'
+			 			]]>	 
+					 </if>
+					<!-- 규격 -->
+					<if test="st_specification != null and st_specification != ''">
+						<![CDATA[
+			 			AND X.SPECIFICATION LIKE '%'||UPPER(#{st_specification})||'%'
+			 			]]>	 
+				 	</if>
+					<!-- 모델명 -->
+					<if test="st_model_no != null and st_model_no != ''">
+						<![CDATA[
+			 			AND X.MAKER_PART_NO LIKE '%'||UPPER(#{st_model_no})||'%'
+			 			]]>	 
+				 	</if>
+	</select>
+	
+	<select id="sellerItemCodeList" resultType="java.util.Map">
+		<![CDATA[
+			/*sellerItemCodeList*/
+			SELECT	CODE,
+					TEXT1
+			FROM ICOMCOD1
+			WHERE TYPE = 'BURQ05' 
+			AND	FLAG = 'Y'
+			ORDER BY VALUE1              
+		]]>
+	</select>
+	
+	<select id="selectSellerSelProject" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/*selectSellerSelProject*/
+			SELECT BURQ_NO,
+					(SELECT MAX(PROJECT_NAME) FROM KEP_BURQ_MNG M WHERE M.BURQ_NO = R.BURQ_NO) AS PROJECT_NAME,
+					COUNT(*) AS CNT
+			FROM KEP_BURQ_RFQ R
+			WHERE AGENT = #{COM_CODE}
+			AND  STATUS = 'K1'
+			GROUP BY BURQ_NO
+		]]>
+	</select>
+	<select id="selectSellerLogisFee" parameterType="java.util.Map" resultType="String">
+		SELECT F_GET_LOGISTICS_FEE_INFO ('ALL','','',#{COM_CODE},'','02','') FROM DUAL
+	</select>
+	
+	<update id="updateSellerSelProject" parameterType="java.util.Map">
+		<![CDATA[
+			/*updateSellerSelProject*/
+			UPDATE	KEP_BURQ_MNG
+			SET		PROJECT_STATUS = 'C'
+			WHERE	BURQ_NO IN (
+				SELECT BURQ_NO 
+				FROM KEP_BURQ_RFQ
+				WHERE	AGENT = #{COM_CODE}
+			)
+			AND	RFQ_END_DATE < SYSDATE
+			AND PROJECT_STATUS = 'B'
+		]]>
+	</update>
+	
+	<update id="updateSelRfq" parameterType="java.util.Map">
+		<![CDATA[
+			/*updateSelRfq*/
+			UPDATE	KEP_BURQ_RFQ
+			SET		STATUS = 'K2'
+			WHERE	STATUS <> 'K2'
+			AND	ATOS_END_DATE < TO_CHAR(SYSDATE,'YYYYMMDD')
+		]]>
+	</update>
+	
+	<select id="selectProjectRemark" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/*selectProjectRemark*/
+			SELECT NOTICE_REMARK
+			FROM KEP_BURQ_NOTC
+			WHERE BURQ_NO = #{st_burq_no}
+			AND NOTICE_TYPE = 'AGENT'
+			AND NOTICE_STATUS <> 'D'
+			ORDER BY SEQ
+		]]>
+	</select>
+	
+	<update id="giveUpSellerMpRqBulkQuotationReq" parameterType="java.util.Map">
+		<![CDATA[
+			/*giveUpSellerMpRqBulkQuotationReq*/
+			UPDATE	KEP_BURQ_RFQ
+			SET		STATUS = 'S2',
+					AGENT_REMARK = #{st_remark},	
+					CHANGE_DATE = SYSDATE,
+					CHANGE_USER_ID = #{USER_ID}
+			WHERE	1=1
+			AND		BURQ_NO = #{st_burq_no}
+			AND		AGENT = #{COM_CODE}
+			AND		BURQ_RFQ_NO = #{st_burq_rfq_no}
+			AND		STATUS NOT IN ( 'K4', 'S2')
+		]]>
+	</update>
+	
+	<!-- 동일 단가 적용 -->
+	<update id="updateSellerBulkQuotationSamePrice" parameterType="java.util.Map" >
+		<![CDATA[
+			/* updateBulkQuotationSamePrice */
+			UPDATE KEP_BURQ_RFQ RFQ
+			SET STATUS = 'S1',
+				AGENT_DESCRIPTION = #{DESCRIPTION},
+				AGENT_SPECIFICATION = #{SPECIFICATION},
+				AGENT_MAKER_PART_NO = #{MAKER_PART_NO},
+				AGENT_MAKER_CODE = #{MAKER_NAME},
+				AGENT_MIN_ORDER_QTY = #{MIN_ORDER_QTY},
+				AGENT_PUR_UNIT_QTY = #{PUR_UNIT_QTY},
+				AGENT_UNIT_MEASURE = #{UNIT_MEASURE},
+				AGENT_PROCESS_TYPE = #{PROCESS_TYPE},
+				AGENT_PARCEL_YN = #{PARCEL_YN},
+				ITEM_TYPE = 'B',
+				MAINTAIN_PRICE_YN = 'Y',
+				CH_LIST_PRICE = #{RE_LIST_PRICE},
+				PRICE_SUBMIT_USER = #{USER_ID},
+				STOA_DATE = SYSDATE,
+				BUY_CLOSE_DATE = TO_CHAR(ADD_MONTHS(SYSDATE,12),'YYYYMMDD'),
+				DELIVERY_LT = (SELECT DELIVERY_LT FROM ICOMBYIT WHERE BUYER =  NVL(RFQ.BUYER, RFQ.BYIT_COMORG_CODE) AND BUYER_ITEM_NO = F_SPLIT(ITEM_KEY_ID, '||', 2))
+			WHERE BURQ_NO = #{st_burq_no}
+			AND BURQ_RFQ_NO = #{BURQ_RFQ_NO}
+			AND AGENT_TYPE = 'B'
+		]]>
+	</update>
+	
+	<!-- 견적제출 -->
+	<update id="updateSellerBulkQuotationSubmit" parameterType="java.util.Map" >
+		<![CDATA[
+			/* updateSellerBulkQuotationSubmit */
+			UPDATE KEP_BURQ_RFQ RFQ
+			SET STATUS = 'S1',
+				ITEM_TYPE = #{ITEM_TYPE},
+				AGENT_DESCRIPTION = #{AGENT_DESCRIPTION},
+				AGENT_SPECIFICATION = #{AGENT_SPECIFICATION},
+				AGENT_MAKER_PART_NO = #{AGENT_MAKER_PART_NO},
+				AGENT_MAKER_CODE = #{AGENT_MAKER_CODE},
+				AGENT_MIN_ORDER_QTY = #{AGENT_MIN_ORDER_QTY},
+				AGENT_PUR_UNIT_QTY = #{AGENT_PUR_UNIT_QTY},
+				AGENT_UNIT_MEASURE = #{AGENT_UNIT_MEASURE},
+				AGENT_PROCESS_TYPE = #{AGENT_PROCESS_TYPE},
+				AGENT_PARCEL_YN = #{AGENT_PARCEL_YN},
+				MAINTAIN_PRICE_YN = DECODE(#{RE_LIST_PRICE}, #{CH_LIST_PRICE},'Y','N'),
+				CH_LIST_PRICE = #{CH_LIST_PRICE},
+				PRICE_SUBMIT_USER = #{USER_ID},
+				STOA_DATE = SYSDATE,
+				BUY_CLOSE_DATE = NVL(#{BUY_CLOSE_DATE},TO_CHAR(ADD_MONTHS(SYSDATE,12),'YYYYMMDD')),
+				AGENT_REMARK = #{AGENT_REMARK},
+				DELIVERY_LT = #{DELIVERY_LT}
+			WHERE BURQ_NO = #{st_burq_no}
+			AND BURQ_RFQ_NO = #{BURQ_RFQ_NO}
+			AND AGENT = #{COM_CODE}
+		]]>
+	</update>
+	
+	<!-- 임시저장 -->
+	<update id="updateSellerBulkQuotationTemp" parameterType="java.util.Map" >
+		<![CDATA[
+			/* updateSellerBulkQuotationTemp */
+			UPDATE KEP_BURQ_RFQ RFQ
+			SET ITEM_TYPE = #{ITEM_TYPE},
+				AGENT_DESCRIPTION = #{AGENT_DESCRIPTION},
+				AGENT_SPECIFICATION = #{AGENT_SPECIFICATION},
+				AGENT_MAKER_PART_NO = #{AGENT_MAKER_PART_NO},
+				AGENT_MAKER_CODE = #{AGENT_MAKER_CODE},
+				AGENT_MIN_ORDER_QTY = #{AGENT_MIN_ORDER_QTY},
+				AGENT_PUR_UNIT_QTY = #{AGENT_PUR_UNIT_QTY},
+				AGENT_UNIT_MEASURE = #{AGENT_UNIT_MEASURE},
+				AGENT_PROCESS_TYPE = #{AGENT_PROCESS_TYPE},
+				AGENT_PARCEL_YN = #{AGENT_PARCEL_YN},
+				DELIVERY_LT = #{DELIVERY_LT},
+				CH_LIST_PRICE = #{CH_LIST_PRICE},
+				BUY_CLOSE_DATE = #{BUY_CLOSE_DATE},
+				AGENT_REMARK = #{AGENT_REMARK},
+				CHANGE_DATE = SYSDATE,
+				CHANGE_USER_ID = #{USER_ID}
+			WHERE BURQ_NO = #{st_burq_no}
+			AND BURQ_RFQ_NO = #{BURQ_RFQ_NO}
+			AND AGENT = #{COM_CODE}
+		]]>
+	</update>
+	
+	<!-- 견적제출 취소-->
+	<update id="updateSellerBulkQuotationSubmitCancle" parameterType="java.util.Map" >
+		<![CDATA[
+			/* updateBulkQuotationSamePrice */
+			UPDATE KEP_BURQ_RFQ RFQ
+			SET STATUS = 'K1',
+				STOA_DATE = '',
+				CHANGE_DATE = SYSDATE,
+				CHANGE_USER_ID = #{USER_ID}
+			WHERE BURQ_NO = #{st_burq_no}
+			AND BURQ_RFQ_NO = #{st_burq_rfq_no}
+			AND AGENT = #{COM_CODE}
+		]]>
+	</update>
+</mapper>

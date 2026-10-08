@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="common.none">
+
+
+	<select id="selectCommonNoNeNoticeBuyerPopList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*selectCommonNoNeNoticeBuyerPopList - 공지사항 고객사 팝업 (사업자번호, 대표자명 포함)*/
+			SELECT NVL(B.COMORG_NAME, A.COM_NAME_LOC) COMORG_NAME
+				     , A.BYCA_COMORG_CODE
+                     , A.COM_CODE
+				     , A.COM_NAME_LOC
+				     , A.IRS_NO
+				     , A.CEO_NAME_LOC
+			  FROM ICOMCMPY A
+			    	 , BYCAORGL B
+			WHERE 1=1
+			   AND A.BYCA_COMORG_CODE = B.COMORG_CODE(+)
+			   AND A.STATUS != 'D'
+			   AND A.BUSINESS_COND = 'B'
+		]]>
+			<if test="st_comorg_type != null and st_comorg_type.equals('RESP')">
+				<![CDATA[
+					AND A.COM_CODE IN (-- 내가 담당인 고객사
+									                   SELECT DISTINCT A.BUYER
+									                     FROM MIS_BUYER_MNG A , ICOMCOD2 B
+									                    WHERE B.COMPANY_CODE ='KRKORE0001'
+									                      AND B.TYPE ='C001'
+									                      AND B.CODE = A.KEP_DEPT
+									                      AND A.YEAR = TO_CHAR(SYSDATE ,'YYYY')
+									                      AND A.STATUS ='C'
+									                      AND A.KEP_DEPT = #{st_dept}
+									                      AND A.KEP_USER_ID = #{st_user_id}
+									                   )
+				]]>
+			</if>
+		<if test="st_user_id != null and st_user_id != ''">
+			   <![CDATA[
+			   AND  A.COM_CODE IN (
+					SELECT COM_CODE FROM ICOMCMPY CMPY
+					WHERE  BUSINESS_COND IN ('B','M')
+					AND STATUS IN ('R','C')
+					AND COM_CODE IN (SELECT CMPY.COM_CODE
+					                 FROM ICOMCOD3 COD3
+					                 WHERE COD3.BUYER = 'KRKORE0001'
+					                 AND   COD3.TYPE = 'CMPY'
+					                 AND   COD3.CODE1= 'ALL'
+					                 AND   COD3.CODE2 = #{st_user_id}
+					                 UNION ALL
+					                 SELECT MNG.BUYER
+					                 FROM  ICOMCOD3 COD3, MIS_BUYER_MNG MNG
+					                 WHERE COD3.BUYER = 'KRKORE0001'
+					                 AND   COD3.TYPE = 'CMPY'
+					                 AND   COD3.CODE1= MNG.KEP_DEPT
+					                 AND   COD3.CODE2 = #{st_user_id}
+					                 AND   MNG.YEAR = TO_CHAR(SYSDATE,'YYYY')
+					                 AND   MNG.STATUS = 'C'
+					                 UNION ALL
+					                 SELECT BUYER
+					                 FROM  MIS_BUYER_MNG
+					                 WHERE YEAR = TO_CHAR(SYSDATE,'YYYY')
+					                 AND   STATUS = 'C'
+					                 AND   KEP_USER_ID = #{st_user_id}
+					                 UNION ALL
+					                 SELECT COD.CODE1
+								FROM ICOMCOD3 COD , ICOMCMPY CMPY
+								WHERE  COD.BUYER = 'KRKORE0001'
+								AND COD.TYPE = 'CMPY'
+								AND COD.CODE1 = CMPY.COM_CODE
+								AND COD.CODE2 = #{st_user_id}
+								AND TO_CHAR(SYSDATE,'YYYYMMDD') BETWEEN TEXT2 AND TEXT3
+					                 )
+			   )
+			   ]]>
+		</if>
+			<if test="st_comorg_type != null and st_comorg_type.equals('MNG')">
+				<![CDATA[
+					AND A.COM_CODE IN (-- 나의 관리 고객사
+								                     SELECT BUYER
+								                       FROM BUYEROWN
+								                      WHERE USER_ID = #{st_user_id}
+												)
+				]]>
+			</if>
+   			<if test="st_comorg_name != null and st_comorg_name != ''">
+				<![CDATA[	AND NVL(B.COMORG_NAME, A.COM_NAME_LOC) LIKE '%'||#{st_comorg_name}||'%' 	]]>
+			</if>
+			<if test="st_com_name_loc != null and st_com_name_loc != ''">
+				<![CDATA[	AND A.COM_NAME_LOC LIKE '%'||#{st_com_name_loc}||'%' 	]]>
+			</if>
+		<![CDATA[
+			ORDER BY A.BYCA_COMORG_CODE, COMORG_NAME
+		]]>
+	</select>
+
+</mapper>

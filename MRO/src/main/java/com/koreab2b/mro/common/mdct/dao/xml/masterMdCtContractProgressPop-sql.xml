@@ -1,0 +1,198 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="common.mdct">
+	<resultMap  id="ConstractDetailMap" type="java.util.HashMap">     
+		<result	javaType="java.lang.String"	column="CONT_NO"					property="CONT_NO" />
+		<result	javaType="java.lang.String"	column="CONT_COUNT"				property="CONT_COUNT" />     
+		<result	javaType="java.lang.String"	column="CONT_TITLE"					property="CONT_TITLE" />     
+		<result	javaType="java.lang.String"	column="USER_NAME"					property="USER_NAME" />
+		<result	javaType="java.lang.String"	column="CONT_STATUS"				property="CONT_STATUS" />
+		<result	javaType="java.lang.String"	column="CONT_STATUS_NM"			property="CONT_STATUS_NM" />
+		<result	javaType="java.lang.String"	column="APPR_STATUS"				property="APPR_STATUS" />
+		<result	javaType="java.lang.String"	column="COMPANY_CODE"			property="COMPANY_CODE" />
+		<result	javaType="java.lang.String"	column="COMPANY_NAME"			property="COMPANY_NAME" />
+		<result	javaType="java.lang.String"	column="END_DATE"					property="END_DATE" />
+		<result	javaType="java.lang.String"	column="FORM_NO"					property="FORM_NO" />
+		<result	javaType="java.lang.String"	column="COMPANY_TYPE"			property="COMPANY_TYPE" />
+		<result	javaType="java.lang.String"	column="CONT_TYPE"					property="CONT_TYPE" />
+		<result	javaType="java.lang.String"	column="BIZ_TYPE"						property="BIZ_TYPE" />
+		<result	javaType="java.lang.String"	column="BEFORE_END_DATE"			property="BEFORE_END_DATE" />
+		<result	javaType="java.lang.String"	column="BEFORE_CONT_COUNT"	property="BEFORE_CONT_COUNT" />
+		<result	javaType="java.lang.String"	column="ATACH_UUID"				property="ATACH_UUID" />
+		<result	javaType="java.lang.String"	column="CONTENT"					property="CONTENT"	jdbcType="CLOB"	typeHandler="org.apache.ibatis.type.ClobTypeHandler" />  
+	</resultMap >
+
+	<select id="selectMasterMdCtContractProgressPopList" parameterType="java.util.Map" resultMap="ConstractDetailMap">
+		<![CDATA[
+		/*selectMasterMdCtContractProgressPopList*/
+			SELECT
+				CONT_NO
+				,CONT_COUNT
+				,CONT_TITLE
+				,CONTENT
+				,(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = A.USER_ID) USER_NAME
+				,CONT_STATUS
+				,(SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'C008' AND CODE = A.CONT_STATUS) CONT_STATUS_NM
+				,APPR_STATUS
+				,COMPANY_CODE
+				,(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = A.COMPANY_CODE) AS COMPANY_NAME
+				,(SELECT IRS_NO FROM ICOMCMPY WHERE COM_CODE = A.COMPANY_CODE) AS IRS_NO
+				,END_DATE
+				,FORM_NO
+				,COMPANY_TYPE
+				,CONT_TYPE
+				,BIZ_TYPE
+				,CONT_CHG_TYPE
+				,NVL((SELECT END_DATE FROM ICOMECCT WHERE CONT_NO = #{st_cont_no} AND CONT_COUNT = #{st_cont_count} -1), '19000101') BEFORE_END_DATE
+				,#{st_cont_count}-1 AS BEFORE_CONT_COUNT
+				, ATACH_UUID
+			FROM ICOMECCT A
+			WHERE CONT_NO = #{st_cont_no}
+			AND CONT_COUNT = #{st_cont_count}
+		]]>
+	</select>
+	
+	<select id="selectMasterMdCtContractProgressPopRjno" parameterType="java.util.Map" resultType="String">
+		<![CDATA[
+			SELECT 'CR'||SUBSTR(TO_CHAR(SYSDATE, 'YYYY'), 3, 2)||NVL(LPAD(MAX(TO_NUMBER(SUBSTR(RJ_NO,  5, 7)))+1, 7, 0), '0000001') FROM ICOMECRJ WHERE RJ_NO LIKE 'CR'||SUBSTR(TO_CHAR(SYSDATE, 'YYYY'), 3, 2)||'%'
+		]]>	
+	</select>
+	
+	<update id="insertMasterMdCtContractProgressPopIcomecrj" parameterType="java.util.Map">
+		<![CDATA[
+			INSERT INTO ICOMECRJ (
+				RJ_NO
+				,CONT_NO
+				,CONT_COUNT
+				,RJ_COMPANY_ID
+				,RJ_USER_ID
+				,RJ_USER_NAME
+				,PREV_CONT_STATUS
+				,NEXT_CONT_STATUS
+				,RJ_REASON
+				,RJ_DATE
+				,RJ_TYPE
+				,ADD_DATE
+				,ADD_TIME
+				,ADD_USER_ID
+				,CHANGE_DATE
+				,CHANGE_TIME
+				,CHANGE_USER_ID
+			) VALUES (
+				#{st_rj_no}
+				,#{st_cont_no}
+				,#{st_cont_count}
+				,#{st_company_code}
+				,#{st_user_id}
+				,#{st_user_name}
+				,#{st_cont_status}
+				,#{nextContStatus}
+				,#{st_reason}
+				,TO_CHAR(SYSDATE,'YYYYMMDD')
+				,#{st_rj_type}
+				,TO_CHAR(SYSDATE,'YYYYMMDD')
+				,TO_CHAR(SYSDATE,'HH24MISS')
+				,#{st_user_id}
+				,TO_CHAR(SYSDATE,'YYYYMMDD')
+				,TO_CHAR(SYSDATE,'HH24MISS')
+				,#{st_user_id}
+			)
+		]]>
+	</update>
+	
+	<update id="updateMasterMdCtContractProgressPopIcomecct" parameterType="java.util.Map">
+		<![CDATA[
+			UPDATE ICOMECCT
+			SET
+				CONT_STATUS		= #{contStatus}
+				,CHANGE_DATE		= TO_CHAR(SYSDATE,'YYYYMMDD')
+				,CHANGE_TIME		= TO_CHAR(SYSDATE,'HH24MISS')
+				,CHANGE_USER_ID	= #{st_user_id}
+			WHERE CONT_NO		= #{st_cont_no}
+			AND CONT_COUNT		= #{st_cont_count}
+		]]>
+	</update>
+	
+	<update id="closeMasterMdCtContractProgressPopIcomecct" parameterType="java.util.Map">
+		<![CDATA[
+			UPDATE ICOMECCT
+			SET
+				CLOSE_DATE = TO_CHAR(SYSDATE,'YYYYMMDD')
+				,CLOSE_REASON		= #{st_reason}
+				,CONT_STATUS		= #{contStatus}
+				,CHANGE_DATE		= TO_CHAR(SYSDATE,'YYYYMMDD')
+				,CHANGE_TIME		= TO_CHAR(SYSDATE,'HH24MISS')
+				,CHANGE_USER_ID	= #{st_user_id}
+			WHERE CONT_NO		= #{st_cont_no}
+			AND CONT_COUNT		= #{st_cont_count}
+		]]>
+	</update>		
+
+	
+	<update id="updateMasterMdCtContractProgressPopIcomcmpy" parameterType="java.util.Map">
+		<![CDATA[
+			UPDATE ICOMCMPY
+			SET
+				CNTRC_CHK					= 'Y'
+				,ELCTR_CNTRC_NO			= #{st_cont_no}
+				,ELCTR_CNTRC_NO_RND	= #{st_cont_count}
+				,CHANGE_DATE				= TO_CHAR(SYSDATE,'YYYYMMDD')
+				,CHANGE_TIME				= TO_CHAR(SYSDATE,'HH24MISS')
+				,CHANGE_USER_ID			= #{st_user_id}
+			WHERE COM_CODE				= #{st_company_code}
+		]]>
+	</update>
+	
+	
+	
+	<update id="insertMasterMdCtContractProgressPopIcomecsv" parameterType="java.util.Map">
+		<![CDATA[
+			INSERT INTO ICOMECSV (
+				CONT_NO
+				,CONT_COUNT
+				,SIGN_SEQ
+				,DOC_TYPE
+				,SIGN_SOURCE
+				,SIGN_VALUE
+				,SIGN_COMPANY_ID
+				,SIGN_USER_ID
+				,SIGN_DATE
+				,REL_FORM_NO
+				,REL_RFORM_NO
+				,REL_ATACH_UUID
+				,REL_ATACH_UUID_SEQ
+				,PREV_CONT_STATUS
+				,NEXT_CONT_STATUS
+				,ADD_DATE
+				,ADD_TIME
+				,ADD_USER_ID
+				,CHANGE_DATE
+				,CHANGE_TIME
+				,CHANGE_USER_ID
+			) VALUES (
+				#{st_cont_no}
+				,#{st_cont_count}
+				,(SELECT NVL(MAX(TO_NUMBER(SIGN_SEQ)), 0) + 1 AS MAX_CNT FROM ICOMECSV WHERE CONT_NO = #{st_cont_no} AND CONT_COUNT = #{st_cont_count})
+				,#{st_doc_type}
+				,#{st_sign_source}
+				,#{st_sign_value}
+				,#{st_com_code}
+				,#{st_user_id}
+				,TO_CHAR(SYSDATE,'YYYYMMDD')
+				,#{st_form_no}
+				,''
+				,''
+				,''
+				,#{st_cont_status}
+				,#{nextContStatus}
+				,TO_CHAR(SYSDATE,'YYYYMMDD')
+				,TO_CHAR(SYSDATE,'HH24MISS')
+				,#{st_user_id}
+				,TO_CHAR(SYSDATE,'YYYYMMDD')
+				,TO_CHAR(SYSDATE,'HH24MISS')
+				,#{st_user_id}
+			)
+		]]>
+	</update>	
+
+</mapper>

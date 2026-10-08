@@ -1,0 +1,188 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mdct">
+	<!-- 조회 -->
+	<select id="selectMasterSapInterfaceManageListOld" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.pagestart"/>	
+			<![CDATA[
+			SELECT
+				S.ROWM,									/* 순번 */
+				S.COM_CODE,							/*  회원사코드 */
+				S.COM_NAME_LOC,						/* 회원사명 */
+				S.COM_IRS_NO,							/* 대표사업자번호 */
+				S.COM_SAP_CODE,						/* SAP코드 */
+				S.COM_SAP_IMG,						/* 검색 이미지 */            
+				S.BUSINESS_COND,						/* 회원사구분 */
+				S.BUSINESS_COND_TEXT,				/* 회원사구분명 */
+				S.IRS_NAME,								/* 사업자명 */
+				S.IRS_NO,									/* 사업자번호 */
+				S.SAP_CODE,								/* SAP코드 */
+				S.SAP_IMG								/* 검색 이미지 */
+			FROM (        
+				SELECT
+					ROWNUM ROWM,
+					A.BUSINESS_COND,
+					decode(A.BUSINESS_COND,'B','고객사','S','협력사','M','운영사') AS BUSINESS_COND_TEXT,
+					A.COM_CODE,
+					A.COM_NAME_LOC,
+					A.IRS_NO AS COM_IRS_NO,
+					A.SAP_CODE AS COM_SAP_CODE,
+					decode(A.IRS_NO,'','0',(decode(A.SAP_CODE,'','1','0'))) AS COM_SAP_IMG,
+					B.IRS_NAME,
+					B.IRS_NO,
+					B.SAP_CODE,
+					decode(B.IRS_NO,'','0',(decode(B.SAP_CODE,'','1','0'))) AS SAP_IMG
+				FROM KEP.ICOMCMPY A, KEP.KEPTIRSN B
+				WHERE A.COM_CODE = B.COM_CODE(+)
+				AND A.STATUS IN ('C', 'R')
+			]]>
+			<if test="st_com_name_loc != null and st_com_name_loc != ''">
+			<![CDATA[	
+				AND A.COM_NAME_LOC LIKE '%'||#{st_com_name_loc}||'%'
+			]]>	
+			</if>
+			<if test="st_sap_code != null and st_sap_code != ''">
+			<![CDATA[
+				AND A.SAP_CODE = #{st_sap_code}
+			]]>	
+			</if>
+			<if test="st_irs_no != null and st_irs_no != ''">
+			<![CDATA[	
+				AND (A.IRS_NO = #{st_irs_no} OR B.IRS_NO = #{st_irs_no})
+			]]>	
+			</if>
+			<if test="st_irs_name != null and st_irs_name != ''">
+			<![CDATA[
+				AND B.IRS_NAME LIKE '%'||#{st_irs_name}||'%'
+			]]>	
+			</if>	
+			<![CDATA[
+			) S
+			]]>
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+	
+	
+	
+	
+	<select id="selectMasterSapInterfaceManageList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.pagestart"/>	
+			<![CDATA[
+			SELECT
+				S.COM_CODE,							/*  회원사코드 */
+				S.COM_NAME,							/* 회원사명 */
+				S.IRS_NO,									/* 대표사업자번호 */
+				S.BUSINESS_COND,						/* 회원사구분 */
+				S.BUSINESS_COND_TEXT,				/* 회원사구분명 */
+				S.SAP_CODE,								/* SAP코드 */
+				S.SAP_IMG								/* 검색 이미지 */            
+			FROM (        
+				SELECT
+			        A.BUSINESS_COND,
+			        DECODE(A.BUSINESS_COND,'B','고객사','S','협력사','M','운영사') AS BUSINESS_COND_TEXT,
+			        A.COM_CODE,
+			        A.COM_NAME_LOC AS COM_NAME,
+			        A.IRS_NO,
+			        A.SAP_CODE,
+			        DECODE(A.IRS_NO,'','0',(DECODE(A.SAP_CODE,'','1','0'))) AS SAP_IMG
+			    FROM ICOMCMPY A
+			    WHERE A.STATUS IN ('C', 'R')
+			]]>
+			<if test="st_com_name_loc != null and st_com_name_loc != ''">
+			<![CDATA[	
+				AND A.COM_NAME_LOC LIKE '%'||#{st_com_name_loc}||'%'
+			]]>	
+			</if>
+			<if test="st_sap_code != null and st_sap_code != ''">
+			<![CDATA[
+				AND A.SAP_CODE = #{st_sap_code}
+			]]>	
+			</if>
+			<if test="st_sap_code_yn != null and st_sap_code_yn != ''">
+				<if test=' st_sap_code_yn == "Y" '>
+				<![CDATA[
+				AND (A.SAP_CODE <> '' OR A.SAP_CODE IS NOT NULL)
+				]]>
+				</if>
+				<if test=' st_sap_code_yn == "N" '>
+				AND (A.SAP_CODE = '' OR A.SAP_CODE IS NULL)
+				</if>
+			</if>
+			<if test="st_irs_no != null and st_irs_no != ''">
+			<![CDATA[	
+				AND A.IRS_NO = #{st_irs_no}
+			]]>	
+			</if>
+			<![CDATA[			    
+			    UNION
+			    SELECT 
+			        B.BUSINESS_COND,
+			        DECODE(B.BUSINESS_COND,'B','고객사','S','협력사','M','운영사') AS BUSINESS_COND_TEXT,
+			        A.COM_CODE,
+			        A.IRS_NAME AS COM_NAME,
+			        A.IRS_NO,
+			        A.SAP_CODE,
+			        DECODE(A.IRS_NO,'','0',(DECODE(A.SAP_CODE,'','1','0'))) AS SAP_IMG
+			    FROM KEPTIRSN A, ICOMCMPY B
+			    WHERE A.COM_CODE = B.COM_CODE
+			    AND B.STATUS IN ('C', 'R')
+			    AND A.IRS_NO NOT IN (SELECT IRS_NO FROM ICOMCMPY C WHERE C.COM_CODE = A.COM_CODE AND C.STATUS IN ('C', 'R'))
+			]]>
+			<if test="st_com_name_loc != null and st_com_name_loc != ''">
+			<![CDATA[	
+				AND A.IRS_NAME LIKE '%'||#{st_com_name_loc}||'%'
+			]]>	
+			</if>
+			<if test="st_sap_code != null and st_sap_code != ''">
+			<![CDATA[
+				AND A.SAP_CODE = #{st_sap_code}
+			]]>	
+			</if>
+			<if test="st_sap_code_yn != null and st_sap_code_yn != ''">
+				<if test=' st_sap_code_yn == "Y" '>
+				<![CDATA[
+				AND (A.SAP_CODE <> '' OR A.SAP_CODE IS NOT NULL)
+				]]>
+				</if>
+				<if test=' st_sap_code_yn == "N" '>
+				AND (A.SAP_CODE = '' OR A.SAP_CODE IS NULL)
+				</if>
+			</if>
+			<if test="st_irs_no != null and st_irs_no != ''">
+			<![CDATA[	
+				AND A.IRS_NO = #{st_irs_no}
+			]]>	
+			</if>
+			<![CDATA[
+			) S
+			]]>
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+	
+	
+	
+	<!--  SAP코드 등록 -->
+	<update id="updateMasterSapInterfaceManage"  parameterType="java.util.Map">
+		<![CDATA[
+		/* updateMasterSapInterfaceManageList */
+		UPDATE ICOMCMPY					
+		SET SAP_CODE      = #{SAP_CODE} 	
+		WHERE IRS_NO     = #{IRS_NO}
+		AND COM_CODE	= #{COM_CODE}
+		AND STATUS			IN ('C', 'R')
+		]]>
+	</update>
+	
+	<!--  SAP코드 등록 -->
+	<update id="updateMasterSapInterfaceManageKeptIrsn"  parameterType="java.util.Map">
+		<![CDATA[
+		/* updateMasterSapInterfaceManageKeptIrsn */
+		UPDATE KEPTIRSN					
+		SET SAP_CODE      = #{SAP_CODE} 	
+		WHERE IRS_NO     = #{IRS_NO}
+		AND COM_CODE	= #{COM_CODE}
+		]]>
+	</update>
+
+</mapper>   
+   

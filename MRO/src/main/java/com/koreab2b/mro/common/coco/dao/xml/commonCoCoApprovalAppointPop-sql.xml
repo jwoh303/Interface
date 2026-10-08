@@ -1,0 +1,226 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="common.coco">
+
+	<select id="getApprovalMultiPathList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*common.coco.getApprovalMultiPathList*/
+	        SELECT  A.USER_ID,
+				        A.APP_PATH,
+				        A.SUBJECT,
+				        A.DEFAULT_FLAG,
+				        A.CHANGE_DATE,
+				        A.CHANGE_TIME,
+				        A.CHANGE_USER_ID,
+				        TO_CHAR(TO_DATE(A.ADD_DATE, 'YYYYMMDD'), 'YYYY.MM.DD') AS ADD_DATE,
+				        CASE WHEN NVL(A.CHANGE_DATE,' ') <> ' ' THEN A.CHANGE_DATE ELSE A.ADD_TIME END AS ADD_DATE_C,
+				        A.ADD_USER_ID,
+				        A.STATUS,
+				        NVL(SUBSTR(GETAPPUSERLIST('C',A.USER_ID,A.APP_PATH),0,LENGTH(GETAPPUSERLIST('C',A.USER_ID,A.APP_PATH))-1),'') AS TO_LIST,
+				        NVL(SUBSTR(GETAPPUSERLIST('R',A.USER_ID,A.APP_PATH),0,LENGTH(GETAPPUSERLIST('R',A.USER_ID,A.APP_PATH))-1),'') AS CC_LIST
+			  FROM  ICOMAPPT A
+			WHERE  1=1
+			  AND   A.USER_ID = #{st_user_id}
+			  AND   NVL(A.STATUS,' ') <> 'D'
+			ORDER BY TO_NUMBER(APP_PATH)
+		]]>
+	</select>
+	
+	<update id="updateAppPath_defaultApproval" parameterType="java.util.Map">
+		<![CDATA[
+		/*common.coco.updateAppPath_defaultApproval*/
+			UPDATE ICOMAPPT
+			SET DEFAULT_FLAG = 'N'
+			WHERE 1=1
+			AND USER_ID = #{st_user_id}
+		]]>
+	</update>
+	
+	<update id="insertAppPathCreate" parameterType="java.util.Map">
+		<![CDATA[
+		/*common.coco.insertAppPathCreate*/
+			MERGE INTO ICOMAPPT A
+			USING (
+			    SELECT
+			        #{st_user_id} AS USER_ID,
+			        CASE WHEN NVL(#{app_path},' ') <> ' ' THEN #{app_path}
+			        ELSE TO_CHAR((SELECT NVL(MAX(TO_NUMBER(NVL(X.APP_PATH,'0'))),0) +1 FROM ICOMAPPT X WHERE X.USER_ID = #{st_user_id} ))
+			        END  AS APP_PATH,
+			        #{subject} AS SUBJECT,
+			        NVL(#{defaultFlag},'N') AS DEFAULT_FLAG,
+			        TO_CHAR(SYSDATE,'YYYYMMDD') AS ADD_DATE,
+			        TO_CHAR(SYSDATE,'HH24MISS') AS ADD_TIME,
+			        #{st_user_id} AS ADD_USER_ID,
+			        TO_CHAR(SYSDATE,'YYYYMMDD') AS CHANGE_DATE,
+			        TO_CHAR(SYSDATE,'HH24MISS') AS CHANGE_TIME,
+			        #{st_user_id} AS CHANGE_USER_ID,
+			        'C' AS STATUS
+			    FROM DUAL
+			    WHERE 1=1
+			) B 
+			ON (
+			        	A.USER_ID = B.USER_ID
+			    AND A.APP_PATH = B.APP_PATH
+			)
+			WHEN MATCHED THEN
+			    UPDATE SET
+			        A.DEFAULT_FLAG = B.DEFAULT_FLAG,
+			        A.SUBJECT = B.SUBJECT,
+			        A.CHANGE_USER_ID = B.CHANGE_USER_ID,
+			        A.CHANGE_DATE = B.CHANGE_DATE,
+			        A.CHANGE_TIME = B.CHANGE_TIME,
+			        A.STATUS = 'R'
+			WHEN NOT MATCHED THEN
+			    INSERT(
+			        A.USER_ID,
+			        A.APP_PATH,
+			        A.SUBJECT,
+			        A.DEFAULT_FLAG,
+			        A.ADD_DATE,
+			        A.ADD_TIME,
+			        A.ADD_USER_ID,
+			        A.STATUS
+			    ) VALUES (
+			        B.USER_ID,
+			        B.APP_PATH,
+			        B.SUBJECT,
+			        B.DEFAULT_FLAG,
+			        B.ADD_DATE,
+			        B.ADD_TIME,
+			        B.ADD_USER_ID,
+			        B.STATUS
+			    )
+		]]>
+	</update>
+	
+	<update id="deleteAppPathRemove_appt" parameterType="java.util.Map">
+		<![CDATA[
+		/*common.coco.deleteAppPathRemove_appt*/
+			UPDATE ICOMAPPT
+			SET STATUS = 'D',
+			    CHANGE_DATE = TO_CHAR(SYSDATE,'YYYYMMDD'),
+			    CHANGE_TIME = TO_CHAR(SYSDATE,'HH24MISS'),
+			    CHANGE_USER_ID = #{st_user_id}
+			WHERE 1=1
+			    AND USER_ID = #{st_user_id}
+			    AND APP_PATH = #{app_path}
+		]]>
+	</update>
+	
+	<update id="deleteAppPathRemove_apse" parameterType="java.util.Map">
+		<![CDATA[
+		/*common.coco.deleteAppPathRemove_apse*/
+			UPDATE ICOMAPSE
+			SET STATUS = 'D',
+			    CHANGE_DATE = TO_CHAR(SYSDATE,'YYYYMMDD'),
+			    CHANGE_TIME = TO_CHAR(SYSDATE,'HH24MISS'),
+			    CHANGE_USER_ID = #{st_user_id}
+			WHERE 1=1
+			    AND USER_ID = #{st_user_id}
+			    AND APP_PATH = #{app_path}
+		]]>
+	</update>
+	
+	<select id="getApprovalMultiPathUserList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*common.coco.getApprovalMultiPathUserList*/
+			SELECT  USER_NAME_LOC ,
+				        USER_ID,
+				        DEPARTMENT,
+				        ( SELECT NVL(TEXT1,DEPARTMENT)
+				          FROM ICOMCOD2
+				          WHERE COMPANY_CODE = COM_CODE
+				            AND TYPE='C001'
+				            AND CODE = DEPARTMENT ) AS DEPARTMENT_NAME,
+				        POSITION,
+				        ( SELECT NVL(TEXT1,POSITION)
+				          FROM ICOMCOD2
+				          WHERE COMPANY_CODE = COM_CODE
+				            AND TYPE='C003'
+				            AND CODE = POSITION ) AS POSITION_NAME
+			FROM ICOMLUSR
+			WHERE (STATUS ='C' OR STATUS='R')
+			    AND COM_CODE = (SELECT USR.COM_CODE FROM ICOMLUSR USR WHERE USR.USER_ID = #{st_user_id})
+			    AND (OFFICE_YN IS NULL OR OFFICE_YN <> 'Y' )
+		]]>
+			<if test="qstr != null and qstr != ''">
+				<if test="key != null and key != '' and key == 'cn'">
+					<![CDATA[	AND (USER_NAME_LOC LIKE '%' || #{qstr} || '%' OR USER_NAME_ENG LIKE '%' || #{qstr} || '%')	]]>
+				</if>
+				<if test="key != null and key != '' and key == 'uid'">
+					<![CDATA[	AND USER_ID LIKE '%' || #{qstr} || '%'	]]>
+				</if>
+				<if test="key != null and key != '' and key == 'dept'">
+					<![CDATA[	AND DEPARTMENT IN (SELECT CODE FROM ICOMCOD2  WHERE TYPE='C001' AND COMPANY_CODE = '' || #{qstr} || '' OR TEXT1 LIKE '%' || #{qstr} || '%' )	]]>
+				</if>
+			</if>
+		<![CDATA[
+		    ORDER BY USER_NAME_LOC
+		]]>
+	</select>
+	
+	<select id="getApprovalMultiPathUserNm_arry" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*common.coco.getApprovalMultiPathUserNm_arry*/
+		]]>
+		SELECT  ROWNUM,
+					T.GUBUN,
+					T.USER_ID,
+					T.USER_NAME_LOC,
+					T.DEPARTMENT,
+					T.POSITION
+		FROM (
+			<foreach collection="arry_user_id" item="user_id" separator="UNION ALL">
+				<![CDATA[
+				SELECT  	DECODE(#{gubun}, '결재', DECODE(SUBSTR(#{user_id}, 0, 1), '^', '합의', #{gubun}), #{gubun}) AS GUBUN,
+							USER_ID,
+					        USER_NAME_LOC ,
+					        ( SELECT TEXT1 FROM ICOMCOD2 WHERE COMPANY_CODE = COM_CODE AND TYPE='C001' AND CODE = DEPARTMENT ) AS DEPARTMENT,
+					        ( SELECT TEXT1 FROM ICOMCOD2 WHERE COMPANY_CODE = COM_CODE AND TYPE='C003' AND CODE = POSITION ) AS POSITION 
+				FROM ICOMLUSR
+				WHERE (STATUS='C' OR STATUS='R') AND USER_ID IN (REPLACE(#{user_id}, '^', ''))
+				]]>
+			</foreach>
+		) T
+	</select>
+	
+	<delete id="deleteAppPathDetailRemove_all" parameterType="java.util.Map">
+		<![CDATA[
+		/*common.coco.deleteAppPathDetailRemove_all*/
+			DELETE FROM ICOMAPSE
+			WHERE 1=1
+			AND USER_ID = #{st_user_id}
+			AND APP_PATH = #{app_path}
+		]]>
+	</delete>
+	
+	<update id="insertAppPathDetailCreate" parameterType="java.util.Map" >
+		<![CDATA[
+		/*common.coco.insertAppPathDetailCreate*/
+			INSERT INTO ICOMAPSE(
+			    APP_PATH,
+			    USER_ID,
+			    APPR_ID,
+			    APPR_NAME,
+			    APPR_SEQ,
+			    GUBUN,
+			    ADD_DATE,
+			    ADD_TIME,
+			    ADD_USER_ID,
+			    STATUS
+			)VALUES(
+			    #{app_path},
+			    #{st_user_id},
+			    #{appr_id},
+			    (SELECT X.USER_NAME_LOC FROM ICOMLUSR X WHERE X.USER_ID = #{appr_id} AND ROWNUM = 1),
+			    #{appr_seq},
+			    #{gubun},
+			    TO_CHAR(SYSDATE,'YYYYMMDD'),
+			    TO_CHAR(SYSDATE,'HH24MISS'),
+			    #{st_user_id},
+			    'C'
+			)
+		]]>
+	</update>
+	
+</mapper>

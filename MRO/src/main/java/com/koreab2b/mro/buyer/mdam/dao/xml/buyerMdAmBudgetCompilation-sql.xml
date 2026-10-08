@@ -1,0 +1,671 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="buyer.mdam">
+	<select id="selectBuyerMdAmBudgetCompilationList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.jsppagestart"/>
+		<![CDATA[
+			SELECT	/*selectBuyerMdAmBudgetCompilationList*/		 			
+				 Y.NUM No,     -- 0
+			     Y.DEPT_NAME, -- 부서명 1
+			     Y.ACCOUNT_TEXT, 	--계정명 2
+			     Y.TERM_TEXT, -- 편성기간 3
+			     Y.PLAN_AMT, -- 예산금액 4
+			     Y.PLAN_DATE, -- 등록일 5
+			     Y.REMARK, -- 비고 6
+			     Y.RESULT_AMT, -- 실적금액 7
+			     Y.DEPT,				-- 8
+			     Y.ACCOUNT_TYPE,		-- 9
+			     Y.TERM,				-- 10
+			     Y.TERM_TYPE,		-- 11
+			     Y.FROM_DATE,		-- 12
+			     Y.TO_DATE, -- 13
+			     Y.FLAG,				-- 14
+			     Y.REMARK_IMG		-- 15
+			FROM 
+			(   
+			SELECT                   
+			         ROWNUM NUM ,    
+			         X.DEPT_NAME,		
+			         X.ACCOUNT_TEXT,		
+			         X.TERM_TEXT,     
+			         X.PLAN_AMT,		
+			         X.PLAN_DATE,       
+			         X.REMARK,		    
+			         X.RESULT_AMT,	    
+			         X.DEPT,		    
+			         X.ACCOUNT_TYPE,	
+			         X.TERM,			
+			         X.TERM_TYPE,    
+			         X.FROM_DATE,    
+			         X.TO_DATE,	    
+			         X.FLAG,		    
+			         X.REMARK_IMG
+			FROM						
+			 (						
+			SELECT                  -- 1
+					(SELECT TEXT1 FROM ICOMCOD2 WHERE COMPANY_CODE = X.BUYER AND TYPE = 'C001' AND  CODE = X.DEPT)   AS DEPT_NAME,         -- 2
+			        (SELECT TEXT2 FROM ICOMCOD2 WHERE COMPANY_CODE = X.BUYER AND TYPE = 'Z014' AND  CODE = X.ACCOUNT_TYPE)   AS ACCOUNT_TEXT, 
+			     SUBSTR(NVL(Y.TERM,#{st_term}),0,4)||DECODE(SUBSTR(NVL(Y.TERM,#{st_term}),5,2),'H1','년도 상반기','H2','년도 하반기'				
+			          ,'Q1','년도 1/4분기','Q2','년도 2/4분기'						
+			          ,'Q3','년도 3/4분기','Q4','년도 4/4분기'						
+			          ,'01','년도 1월','02','년도 2월'
+			          ,'03','년도 3월','04','년도 4월'
+			          ,'05','년도 5월','06','년도 6월'
+			          ,'07','년도 7월','08','년도 8월'
+			          ,'09','년도 9월','10','년도 10월'							
+			          ,'11','년도 11월','12','년도 12월'							
+			          ,'년도') TERM_TEXT,			-- 3
+			        NVL(Y.PLAN_AMT,0)    AS PLAN_AMT,						-- 4
+			        Y.PLAN_DATE ,	-- 5
+			        Y.REMARK,	-- 6
+			       	NVL(Y.RESULT_AMT,'0')+ NVL(Y.TEMP_AMT,'0') RESULT_AMT,	-- 7
+			       	X.DEPT,	-- 8
+			       	X.ACCOUNT_TYPE,			-- 9
+			       	NVL(Y.TERM,#{st_term}) TERM,	-- 10
+			        NVL(Y.TERM_TYPE,#{st_term_type}) TERM_TYPE,							-- 11
+			       	NVL(Y.FROM_DATE,#{st_from_date}) FROM_DATE,							-- 12
+			       	NVL(Y.TO_DATE,#{st_to_date}) TO_DATE,-- 13
+			       	DECODE(Y.PLAN_DATE,NULL,'INSERT','UPDATE') FLAG,		-- 14
+			       	DECODE(NVL(Y.REMARK ,'icon') , 'icon' ,'icon2.gif' ,'icon.gif')  REMARK_IMG	-- 15
+			FROM			
+			(SELECT BUYER,
+			        CODE1 AS DEPT,                 
+			        CODE2 AS ACCOUNT_TYPE          		
+			 FROM ICOMCOD3 A , ICOMCOD2 B , ICOMCOD2 C                      
+			WHERE 1=1
+		]]>
+        <if test="st_buyer != null and st_buyer != '' ">
+			AND A.BUYER = #{st_buyer}
+        </if>
+        <if test="st_buyer == null or st_buyer == '' ">
+			AND A.BUYER = #{SESSION_BUYER_CODE}
+        </if>
+		<![CDATA[						
+			  AND A.BUYER = B.COMPANY_CODE         
+			  AND A.CODE2 = B.CODE                 
+			  AND A.BUYER = C.COMPANY_CODE         
+			  AND A.CODE1 = C.CODE                 
+			  AND B.TYPE  = 'Z014'                 
+			  AND B.FLAG  = 'Y'                    
+			  AND C.TYPE  = 'C001'
+		  ]]>                 
+		 <if test="st_dept_code != null and st_dept_code != ''  "  >
+			 AND CODE1 = #{st_dept_code}
+		 </if>
+      	<![CDATA[  
+			  AND A.TYPE= 'DTOA'      ) X,         
+			(SELECT * FROM ICOMBDGT			
+			WHERE 1=1
+		]]>
+        <if test="st_buyer != null and st_buyer != '' ">
+			AND BUYER = #{st_buyer}
+        </if>
+        <if test="st_buyer == null or st_buyer == '' ">
+			AND BUYER = #{st_com_code}
+        </if>
+		 <if test="st_from_date != null and st_from_date != ''  and st_to_date != null and st_to_date != ''   "  >
+		 <![CDATA[
+			    AND ((#{st_from_date} <= FROM_DATE  AND #{st_to_date} >= TO_DATE)					
+			          OR	
+			    	 (FROM_DATE  <= #{st_from_date} AND TO_DATE >= #{st_to_date}))
+		  ]]>
+		</if>
+		<![CDATA[
+			) Y					  
+			WHERE X.BUYER = Y.BUYER(+)		
+			  AND X.DEPT  = Y.DEPT(+)		
+			  AND X.ACCOUNT_TYPE = Y.ACCOUNT_TYPE(+)						
+			        ) X	
+			)Y
+			ORDER BY Y.DEPT_NAME				
+ 		]]>  
+		<include refid="common.ibsheet.xml.jsppageend"/>	
+	</select> 
+	<select id="getBuyerMdAmBudgetCompilationList_v2" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.pagestart"/>
+		<![CDATA[
+			SELECT	/*getBuyerMdAmBudgetCompilationList_v2*/		 			
+				 Y.NUM No,     -- 0
+			     Y.DEPT_NAME, -- 부서명 1
+			     Y.ACCOUNT_TEXT, 	--계정명 2
+			     Y.PLAN_DATE, -- 등록일 5
+			     Y.DEPT,				-- 8
+			     Y.ACCOUNT_TYPE,		-- 9
+			     Y.TERM_TYPE,		-- 11
+			     Y.FLAG,				-- 14
+                 Y.MONTH_01_PLAN_AMT,
+                    Y.MONTH_02_PLAN_AMT,
+                    Y.MONTH_03_PLAN_AMT,
+                    Y.MONTH_04_PLAN_AMT,
+                    Y.MONTH_05_PLAN_AMT,
+                    Y.MONTH_06_PLAN_AMT,
+                    Y.MONTH_07_PLAN_AMT,
+                    Y.MONTH_08_PLAN_AMT,
+                    Y.MONTH_09_PLAN_AMT,
+                    Y.MONTH_10_PLAN_AMT,
+                    Y.MONTH_11_PLAN_AMT,
+                    Y.MONTH_12_PLAN_AMT,
+                    Y.MONTH_01_PLAN_AMT AS MONTH_01_ORG_PLAN_AMT,
+                    Y.MONTH_02_PLAN_AMT AS MONTH_02_ORG_PLAN_AMT,
+                    Y.MONTH_03_PLAN_AMT AS MONTH_03_ORG_PLAN_AMT,
+                    Y.MONTH_04_PLAN_AMT AS MONTH_04_ORG_PLAN_AMT,
+                    Y.MONTH_05_PLAN_AMT AS MONTH_05_ORG_PLAN_AMT,
+                    Y.MONTH_06_PLAN_AMT AS MONTH_06_ORG_PLAN_AMT,
+                    Y.MONTH_07_PLAN_AMT AS MONTH_07_ORG_PLAN_AMT,
+                    Y.MONTH_08_PLAN_AMT AS MONTH_08_ORG_PLAN_AMT,
+                    Y.MONTH_09_PLAN_AMT AS MONTH_09_ORG_PLAN_AMT,
+                    Y.MONTH_10_PLAN_AMT AS MONTH_10_ORG_PLAN_AMT,
+                    Y.MONTH_11_PLAN_AMT AS MONTH_11_ORG_PLAN_AMT,
+                    Y.MONTH_12_PLAN_AMT AS MONTH_12_ORG_PLAN_AMT,
+                    Y.MONTH_01_RESULT_AMT,
+                    Y.MONTH_02_RESULT_AMT,
+                    Y.MONTH_03_RESULT_AMT,
+                    Y.MONTH_04_RESULT_AMT,
+                    Y.MONTH_05_RESULT_AMT,
+                    Y.MONTH_06_RESULT_AMT,
+                    Y.MONTH_07_RESULT_AMT,
+                    Y.MONTH_08_RESULT_AMT,
+                    Y.MONTH_09_RESULT_AMT,
+                    Y.MONTH_10_RESULT_AMT,
+                    Y.MONTH_11_RESULT_AMT,
+                    Y.MONTH_12_RESULT_AMT,
+                    Y.MONTH_01_REMARK,
+                    Y.MONTH_02_REMARK,
+                    Y.MONTH_03_REMARK,
+                    Y.MONTH_04_REMARK,
+                    Y.MONTH_05_REMARK,
+                    Y.MONTH_06_REMARK,
+                    Y.MONTH_07_REMARK,
+                    Y.MONTH_08_REMARK,
+                    Y.MONTH_09_REMARK,
+                    Y.MONTH_10_REMARK,
+                    Y.MONTH_11_REMARK,
+                    Y.MONTH_12_REMARK
+			FROM 
+			(   
+			SELECT                   
+			         ROWNUM NUM ,    
+			         X.DEPT_NAME,		
+			         X.ACCOUNT_TEXT,		
+			         X.PLAN_DATE,       
+			         X.DEPT,		    
+			         X.ACCOUNT_TYPE,	
+			         X.TERM_TYPE,    
+			         X.FLAG,
+                     X.MONTH_01_PLAN_AMT,
+                     X.MONTH_02_PLAN_AMT,
+                     X.MONTH_03_PLAN_AMT,
+                    X.MONTH_04_PLAN_AMT,
+                    X.MONTH_05_PLAN_AMT,
+                    X.MONTH_06_PLAN_AMT,
+                    X.MONTH_07_PLAN_AMT,
+                    X.MONTH_08_PLAN_AMT,
+                    X.MONTH_09_PLAN_AMT,
+                    X.MONTH_10_PLAN_AMT,
+                    X.MONTH_11_PLAN_AMT,
+                    X.MONTH_12_PLAN_AMT,
+                    X.MONTH_01_RESULT_AMT,
+                    X.MONTH_02_RESULT_AMT,
+                    X.MONTH_03_RESULT_AMT,
+                    X.MONTH_04_RESULT_AMT,
+                    X.MONTH_05_RESULT_AMT,
+                    X.MONTH_06_RESULT_AMT,
+                    X.MONTH_07_RESULT_AMT,
+                    X.MONTH_08_RESULT_AMT,
+                    X.MONTH_09_RESULT_AMT,
+                    X.MONTH_10_RESULT_AMT,
+                    X.MONTH_11_RESULT_AMT,
+                    X.MONTH_12_RESULT_AMT,
+                    X.MONTH_01_REMARK,
+                    X.MONTH_02_REMARK,
+                    X.MONTH_03_REMARK,
+                    X.MONTH_04_REMARK,
+                    X.MONTH_05_REMARK,
+                    X.MONTH_06_REMARK,
+                    X.MONTH_07_REMARK,
+                    X.MONTH_08_REMARK,
+                    X.MONTH_09_REMARK,
+                    X.MONTH_10_REMARK,
+                    X.MONTH_11_REMARK,
+                    X.MONTH_12_REMARK
+			FROM						
+			 (						
+			SELECT                  -- 1
+					(SELECT TEXT1 FROM ICOMCOD2 WHERE COMPANY_CODE = X.BUYER AND TYPE = 'C001' AND  CODE = X.DEPT)   AS DEPT_NAME,         -- 2
+			        (SELECT TEXT1 FROM ICOMCOD2 WHERE COMPANY_CODE = X.BUYER AND TYPE = 'Z014' AND  CODE = X.ACCOUNT_TYPE)   AS ACCOUNT_TEXT,
+                    Y.MONTH_01_PLAN_AMT,
+                    Y.MONTH_02_PLAN_AMT,
+                    Y.MONTH_03_PLAN_AMT,
+                    Y.MONTH_04_PLAN_AMT,
+                    Y.MONTH_05_PLAN_AMT,
+                    Y.MONTH_06_PLAN_AMT,
+                    Y.MONTH_07_PLAN_AMT,
+                    Y.MONTH_08_PLAN_AMT,
+                    Y.MONTH_09_PLAN_AMT,
+                    Y.MONTH_10_PLAN_AMT,
+                    Y.MONTH_11_PLAN_AMT,
+                    Y.MONTH_12_PLAN_AMT,
+                    Y.MONTH_01_RESULT_AMT,
+                    Y.MONTH_02_RESULT_AMT,
+                    Y.MONTH_03_RESULT_AMT,
+                    Y.MONTH_04_RESULT_AMT,
+                    Y.MONTH_05_RESULT_AMT,
+                    Y.MONTH_06_RESULT_AMT,
+                    Y.MONTH_07_RESULT_AMT,
+                    Y.MONTH_08_RESULT_AMT,
+                    Y.MONTH_09_RESULT_AMT,
+                    Y.MONTH_10_RESULT_AMT,
+                    Y.MONTH_11_RESULT_AMT,
+                    Y.MONTH_12_RESULT_AMT,
+                    Y.MONTH_01_REMARK,
+                    Y.MONTH_02_REMARK,
+                    Y.MONTH_03_REMARK,
+                    Y.MONTH_04_REMARK,
+                    Y.MONTH_05_REMARK,
+                    Y.MONTH_06_REMARK,
+                    Y.MONTH_07_REMARK,
+                    Y.MONTH_08_REMARK,
+                    Y.MONTH_09_REMARK,
+                    Y.MONTH_10_REMARK,
+                    Y.MONTH_11_REMARK,
+                    Y.MONTH_12_REMARK,
+			       	X.DEPT,	-- 8
+			       	X.ACCOUNT_TYPE,			-- 9
+                    Y.PLAN_DATE,
+                    Y.TERM_TYPE,
+			       	DECODE(Y.PLAN_DATE,NULL,'INSERT','UPDATE') FLAG		-- 14
+			FROM			
+			(SELECT BUYER,
+			        CODE1 AS DEPT,                 
+			        CODE2 AS ACCOUNT_TYPE          		
+			 FROM ICOMCOD3 A , ICOMCOD2 B , ICOMCOD2 C                      
+			WHERE 1=1
+		]]>
+        <if test="st_buyer != null and st_buyer != '' ">
+			AND A.BUYER = #{st_buyer}
+        </if>
+        <if test="st_buyer == null or st_buyer == '' ">
+			AND A.BUYER = #{SESSION_BUYER_CODE}
+        </if>
+		<![CDATA[						
+			  AND A.BUYER = B.COMPANY_CODE         
+			  AND A.CODE2 = B.CODE                 
+			  AND A.BUYER = C.COMPANY_CODE         
+			  AND A.CODE1 = C.CODE                 
+			  AND B.TYPE  = 'Z014'                 
+			  AND B.FLAG  = 'Y'                    
+			  AND C.TYPE  = 'C001'
+			  AND A.TYPE= 'DTOA'      ) X,         
+			(SELECT BUYER,DEPT,ACCOUNT_TYPE,TERM_TYPE,MAX(PLAN_DATE) AS PLAN_DATE,
+    SUM(CASE WHEN ((TERM_TYPE = 'Y') OR (TERM_TYPE = 'H' AND SUBSTR(TERM,5,2) = 'H1') OR (TERM_TYPE = 'Q' AND SUBSTR(TERM,5,2) = 'Q1') OR (TERM_TYPE = 'M' AND SUBSTR(TERM,5,2) = '01')) THEN PLAN_AMT ELSE 0 END) AS MONTH_01_PLAN_AMT
+    ,SUM(CASE WHEN ((TERM_TYPE = 'H' AND SUBSTR(TERM,5,2) = 'H2') OR (TERM_TYPE = 'Q' AND SUBSTR(TERM,5,2) = 'Q2') OR (TERM_TYPE = 'M' AND SUBSTR(TERM,5,2) = '02')) THEN PLAN_AMT ELSE 0 END) AS MONTH_02_PLAN_AMT
+    ,SUM(CASE WHEN ((TERM_TYPE = 'Q' AND SUBSTR(TERM,5,2) = 'Q3') OR (TERM_TYPE = 'M' AND SUBSTR(TERM,5,2) = '03')) THEN PLAN_AMT ELSE 0 END) AS MONTH_03_PLAN_AMT
+    ,SUM(CASE WHEN ((TERM_TYPE = 'Q' AND SUBSTR(TERM,5,2) = 'Q4') OR (TERM_TYPE = 'M' AND SUBSTR(TERM,5,2) = '04')) THEN PLAN_AMT ELSE 0 END) AS MONTH_04_PLAN_AMT
+    ,SUM(CASE WHEN TERM_TYPE = 'M' AND SUBSTR(TERM,5,2) = '05' THEN PLAN_AMT ELSE 0 END) AS MONTH_05_PLAN_AMT
+    ,SUM(CASE WHEN TERM_TYPE = 'M' AND SUBSTR(TERM,5,2) = '06' THEN PLAN_AMT ELSE 0 END) AS MONTH_06_PLAN_AMT
+    ,SUM(CASE WHEN TERM_TYPE = 'M' AND SUBSTR(TERM,5,2) = '07' THEN PLAN_AMT ELSE 0 END) AS MONTH_07_PLAN_AMT
+    ,SUM(CASE WHEN TERM_TYPE = 'M' AND SUBSTR(TERM,5,2) = '08' THEN PLAN_AMT ELSE 0 END) AS MONTH_08_PLAN_AMT
+    ,SUM(CASE WHEN TERM_TYPE = 'M' AND SUBSTR(TERM,5,2) = '09' THEN PLAN_AMT ELSE 0 END) AS MONTH_09_PLAN_AMT
+    ,SUM(CASE WHEN TERM_TYPE = 'M' AND SUBSTR(TERM,5,2) = '10' THEN PLAN_AMT ELSE 0 END) AS MONTH_10_PLAN_AMT
+    ,SUM(CASE WHEN TERM_TYPE = 'M' AND SUBSTR(TERM,5,2) = '11' THEN PLAN_AMT ELSE 0 END) AS MONTH_11_PLAN_AMT
+    ,SUM(CASE WHEN TERM_TYPE = 'M' AND SUBSTR(TERM,5,2) = '12' THEN PLAN_AMT ELSE 0 END) AS MONTH_12_PLAN_AMT
+    ,SUM(CASE WHEN ((TERM_TYPE = 'Y') OR (TERM_TYPE = 'H' AND SUBSTR(TERM,5,2) = 'H1') OR (TERM_TYPE = 'Q' AND SUBSTR(TERM,5,2) = 'Q1') OR (TERM_TYPE = 'M' AND SUBSTR(TERM,5,2) = '01')) THEN RESULT_AMT+TEMP_AMT ELSE 0 END) AS MONTH_01_RESULT_AMT
+    ,SUM(CASE WHEN ((TERM_TYPE = 'H' AND SUBSTR(TERM,5,2) = 'H2') OR (TERM_TYPE = 'Q' AND SUBSTR(TERM,5,2) = 'Q2') OR (TERM_TYPE = 'M' AND SUBSTR(TERM,5,2) = '02')) THEN RESULT_AMT+TEMP_AMT ELSE 0 END) AS MONTH_02_RESULT_AMT
+    ,SUM(CASE WHEN ((TERM_TYPE = 'Q' AND SUBSTR(TERM,5,2) = 'Q3') OR (TERM_TYPE = 'M' AND SUBSTR(TERM,5,2) = '03')) THEN RESULT_AMT+TEMP_AMT ELSE 0 END) AS MONTH_03_RESULT_AMT
+    ,SUM(CASE WHEN ((TERM_TYPE = 'Q' AND SUBSTR(TERM,5,2) = 'Q4') OR (TERM_TYPE = 'M' AND SUBSTR(TERM,5,2) = '04')) THEN RESULT_AMT+TEMP_AMT ELSE 0 END) AS MONTH_04_RESULT_AMT
+    ,SUM(CASE WHEN TERM_TYPE = 'M' AND SUBSTR(TERM,5,2) = '05' THEN RESULT_AMT+TEMP_AMT ELSE 0 END) AS MONTH_05_RESULT_AMT
+    ,SUM(CASE WHEN TERM_TYPE = 'M' AND SUBSTR(TERM,5,2) = '06' THEN RESULT_AMT+TEMP_AMT ELSE 0 END) AS MONTH_06_RESULT_AMT
+    ,SUM(CASE WHEN TERM_TYPE = 'M' AND SUBSTR(TERM,5,2) = '07' THEN RESULT_AMT+TEMP_AMT ELSE 0 END) AS MONTH_07_RESULT_AMT
+    ,SUM(CASE WHEN TERM_TYPE = 'M' AND SUBSTR(TERM,5,2) = '08' THEN RESULT_AMT+TEMP_AMT ELSE 0 END) AS MONTH_08_RESULT_AMT
+    ,SUM(CASE WHEN TERM_TYPE = 'M' AND SUBSTR(TERM,5,2) = '09' THEN RESULT_AMT+TEMP_AMT ELSE 0 END) AS MONTH_09_RESULT_AMT
+    ,SUM(CASE WHEN TERM_TYPE = 'M' AND SUBSTR(TERM,5,2) = '10' THEN RESULT_AMT+TEMP_AMT ELSE 0 END) AS MONTH_10_RESULT_AMT
+    ,SUM(CASE WHEN TERM_TYPE = 'M' AND SUBSTR(TERM,5,2) = '11' THEN RESULT_AMT+TEMP_AMT ELSE 0 END) AS MONTH_11_RESULT_AMT
+    ,SUM(CASE WHEN TERM_TYPE = 'M' AND SUBSTR(TERM,5,2) = '12' THEN RESULT_AMT+TEMP_AMT ELSE 0 END) AS MONTH_12_RESULT_AMT
+    ,MAX( CASE WHEN ((TERM_TYPE = 'Y') OR (TERM_TYPE = 'H' AND SUBSTR(TERM,5,2) = 'H1') OR (TERM_TYPE = 'Q' AND SUBSTR(TERM,5,2) = 'Q1') OR (TERM_TYPE = 'M' AND SUBSTR(TERM,5,2) = '01')) THEN REMARK ELSE '' END) AS MONTH_01_REMARK
+    ,MAX( CASE WHEN ((TERM_TYPE = 'H' AND SUBSTR(TERM,5,2) = 'H2') OR (TERM_TYPE = 'Q' AND SUBSTR(TERM,5,2) = 'Q2') OR (TERM_TYPE = 'M' AND SUBSTR(TERM,5,2) = '02')) THEN REMARK ELSE '' END) AS MONTH_02_REMARK
+    ,MAX( CASE WHEN ((TERM_TYPE = 'Q' AND SUBSTR(TERM,5,2) = 'Q3') OR (TERM_TYPE = 'M' AND SUBSTR(TERM,5,2) = '03')) THEN REMARK ELSE '' END) AS MONTH_03_REMARK
+    ,MAX( CASE WHEN ((TERM_TYPE = 'Q' AND SUBSTR(TERM,5,2) = 'Q4') OR (TERM_TYPE = 'M' AND SUBSTR(TERM,5,2) = '04')) THEN REMARK ELSE '' END) AS MONTH_04_REMARK
+    ,MAX( CASE WHEN TERM_TYPE = 'M' AND SUBSTR(TERM,5,2) = '05' THEN REMARK ELSE '' END) AS MONTH_05_REMARK
+    ,MAX( CASE WHEN TERM_TYPE = 'M' AND SUBSTR(TERM,5,2) = '06' THEN REMARK ELSE '' END) AS MONTH_06_REMARK
+    ,MAX( CASE WHEN TERM_TYPE = 'M' AND SUBSTR(TERM,5,2) = '07' THEN REMARK ELSE '' END) AS MONTH_07_REMARK
+    ,MAX( CASE WHEN TERM_TYPE = 'M' AND SUBSTR(TERM,5,2) = '08' THEN REMARK ELSE '' END) AS MONTH_08_REMARK
+    ,MAX( CASE WHEN TERM_TYPE = 'M' AND SUBSTR(TERM,5,2) = '09' THEN REMARK ELSE '' END) AS MONTH_09_REMARK
+    ,MAX( CASE WHEN TERM_TYPE = 'M' AND SUBSTR(TERM,5,2) = '10' THEN REMARK ELSE '' END) AS MONTH_10_REMARK
+    ,MAX( CASE WHEN TERM_TYPE = 'M' AND SUBSTR(TERM,5,2) = '11' THEN REMARK ELSE '' END) AS MONTH_11_REMARK
+    ,MAX( CASE WHEN TERM_TYPE = 'M' AND SUBSTR(TERM,5,2) = '12' THEN REMARK ELSE '' END) AS MONTH_12_REMARK
+    FROM ICOMBDGT		
+			WHERE 1=1
+		]]>
+        <if test="st_buyer != null and st_buyer != '' ">
+			AND BUYER = #{st_buyer}
+        </if>
+        <if test="st_buyer == null or st_buyer == '' ">
+			AND BUYER = #{SESSION_BUYER_CODE}
+        </if>
+		<![CDATA[
+			AND #{st_from_date} <= FROM_DATE  AND #{st_to_date} >= TO_DATE					
+			GROUP BY BUYER,DEPT,ACCOUNT_TYPE,TERM_TYPE
+			) Y
+					WHERE X.BUYER = Y.BUYER(+)		
+			  		AND X.DEPT  = Y.DEPT(+)		
+			  		AND X.ACCOUNT_TYPE = Y.ACCOUNT_TYPE(+)
+			        ) X
+			  WHERE 1=1
+		]]>
+		<if test="st_dept_name != null and st_dept_name != '' ">
+			AND UPPER(X.DEPT_NAME) LIKE '%'||UPPER(#{st_dept_name})||'%'
+        </if> 
+        <if test="st_account_text != null and st_account_text != '' ">
+			AND UPPER(X.ACCOUNT_TEXT) LIKE '%'||UPPER(#{st_account_text})||'%'
+        </if>    
+		<![CDATA[	
+			)Y
+			ORDER BY Y.DEPT_NAME,Y.ACCOUNT_TEXT				
+ 		]]>  
+		<include refid="common.ibsheet.xml.pageend"/>	
+	</select> 
+	
+	<!-- 예산 추가 -->
+	<update id="insertBuyerMdAmBudgetCompilation" parameterType="java.util.Map">
+		<![CDATA[
+		/*insertBuyerMdAmBudgetCompilation*/
+			INSERT INTO ICOMBDGT (     
+				BUYER,					  	     
+				DEPT,              
+				ACCOUNT_TYPE,      
+				TERM_TYPE,         
+				TERM,              
+				FROM_DATE,         
+				TO_DATE,           
+				PLAN_AMT,          
+				PLAN_DATE,         
+				ADD_USER_ID,       
+				REMARK				
+			)VALUES(        	     
+		]]>
+        <if test="st_buyer_code != null and st_buyer_code != '' ">
+				#{st_buyer_code},  						     
+        </if>
+        <if test="st_buyer_code == null or st_buyer_code == '' ">
+				#{st_com_code},  						     
+        </if>
+		<![CDATA[						
+				#{db_dept},  						     
+				#{db_account_type},  						     
+				#{db_term_type},  						     
+				#{db_term},
+				#{db_from_date},  						     
+				#{db_to_date},  						     
+				#{st_plan_amt},  						     
+				TO_CHAR(SYSDATE,'YYYYMMDD'),      
+				#{st_user_id},  						     
+				#{st_remark}
+			) 			     
+		]]>
+	</update>
+
+	<!-- 예산 수정 -->
+	<update id="updateBuyerMdAmBudgetCompilation" parameterType="java.util.Map">
+		<![CDATA[
+		/*updateBuyerMdAmBudgetCompilation*/
+			UPDATE ICOMBDGT SET										      
+				PLAN_AMT		= #{st_plan_amt},
+				REMARK			= #{st_remark},
+				PLAN_DATE		= TO_CHAR(SYSDATE,'YYYYMMDD')
+			WHERE 1=1					      
+		]]>
+        <if test="st_buyer_code != null and st_buyer_code != '' ">
+				AND BUYER			= #{st_buyer_code}  						     
+        </if>
+        <if test="st_buyer_code == null or st_buyer_code == '' ">
+				AND BUYER			= #{st_com_code}  						     
+        </if>
+		<![CDATA[	
+			AND DEPT			= #{db_dept}	      
+			AND ACCOUNT_TYPE	= #{db_account_type}      
+			AND TERM			= #{db_term}
+		]]>
+	</update>
+	
+	<!-- 예산 삭제 -->
+	<update id="deleteBuyerMdAmBudgetCompilation" parameterType="java.util.Map">
+		<![CDATA[
+        /*deleteBuyerMdAmBudgetCompilation*/
+	      DELETE ICOMBDGT 
+		WHERE 1=1					      
+		]]>
+        <if test="st_buyer_code != null and st_buyer_code != '' ">
+				AND BUYER			= #{st_buyer_code}  						     
+        </if>
+        <if test="st_buyer_code == null or st_buyer_code == '' ">
+				AND BUYER			= #{st_com_code}  						     
+        </if>
+	<![CDATA[	      				     
+			AND DEPT			= #{db_dept}
+			AND ACCOUNT_TYPE	= #{db_account_type}				     
+			AND TERM			= #{db_term}					     
+		]]>
+	</update>
+	
+	<!-- 예산이력 추가 -->
+	<update id="insertBuyerMdAmBudgetHist" parameterType="java.util.Map">
+		<![CDATA[
+		/* insertBuyerMdAmBudgetHist */
+		INSERT INTO ICOMBDGT_HIST (     
+			BUYER,
+			DEPT,
+			ACCOUNT_TYPE,
+			TERM,
+			REVISION,
+			TERM_TYPE,
+			FROM_DATE,
+			TO_DATE,
+			BEFORE_AMT,
+			CHANGE_AMT,
+			AFTER_AMT,
+			REMARK,
+			ADD_DATE,
+			ADD_USER_ID				
+		)VALUES(        	     
+		]]>
+        <if test="st_buyer_code != null and st_buyer_code != '' ">
+				#{st_buyer_code},  						     
+        </if>
+        <if test="st_buyer_code == null or st_buyer_code == '' ">
+				#{st_com_code},  						     
+        </if>
+		<![CDATA[						
+				#{db_dept},
+				#{db_account_type},
+				#{db_term},
+		]]>
+		<if test="st_buyer_code != null and st_buyer_code != '' ">
+				(SELECT NVL(MAX(REVISION), 0) + 1 FROM ICOMBDGT_HIST WHERE BUYER = #{st_buyer_code} AND DEPT = #{db_dept} AND ACCOUNT_TYPE = #{db_account_type} AND TERM = #{db_term} AND TERM_TYPE = #{db_term_type}),
+        </if>
+        <if test="st_buyer_code == null or st_buyer_code == '' ">
+				(SELECT NVL(MAX(REVISION), 0) + 1 FROM ICOMBDGT_HIST WHERE BUYER = #{st_com_code} AND DEPT = #{db_dept} AND ACCOUNT_TYPE = #{db_account_type} AND TERM = #{db_term} AND TERM_TYPE = #{db_term_type}),
+        </if>
+				
+		<![CDATA[
+				#{db_term_type},
+				#{db_from_date},
+				#{db_to_date},
+				#{st_before_plan_amt},
+				DECODE(#{SAVE_FLAG}, 'SAVE', #{st_plan_amt} - #{st_before_plan_amt}, #{st_before_plan_amt} * -1),
+				DECODE(#{SAVE_FLAG}, 'SAVE', #{st_plan_amt}, 0),
+				DECODE(#{SAVE_FLAG}, 'SAVE', #{st_remark}, TO_CHAR(SYSDATE, 'YYYY-MM-DD HH24:MI') || ' 삭제처리'),
+				SYSDATE,
+				#{st_user_id}
+			) 			     
+		]]>
+	</update>
+	
+	<update id="mergeBuyerMdAmBudgetCompilation_v2" parameterType="java.util.Map">
+		<![CDATA[
+		/*mergeBuyerMdAmBudgetCompilation_v2*/
+			MERGE INTO ICOMBDGT
+			USING DUAL
+			ON (
+			]]>
+        <if test="st_buyer_code != null and st_buyer_code != '' ">
+				BUYER			= #{st_buyer_code}  						     
+        </if>
+        <if test="st_buyer_code == null or st_buyer_code == '' ">
+				BUYER			= #{st_com_code}  						     
+        </if>
+			AND DEPT			= #{DEPT}	      
+			AND ACCOUNT_TYPE	= #{ACCOUNT_TYPE}      
+			AND TERM			= #{TERM}
+			)
+			WHEN MATCHED THEN
+			UPDATE 
+			SET	PLAN_AMT		= #{PLAN_AMT},
+				REMARK			= #{REMARK},
+				PLAN_DATE		= TO_CHAR(SYSDATE,'YYYYMMDD')
+			WHEN NOT MATCHED THEN
+			INSERT (     
+				BUYER,					  	     
+				DEPT,              
+				ACCOUNT_TYPE,      
+				TERM_TYPE,         
+				TERM,              
+				FROM_DATE,         
+				TO_DATE,           
+				PLAN_AMT,
+				PLAN_DATE,
+				BALANCE_AMT,
+				REMARK,         
+				ADD_USER_ID       
+			)VALUES(        	     
+        <if test="st_buyer_code != null and st_buyer_code != '' ">
+				#{st_buyer_code},  						     
+        </if>
+        <if test="st_buyer_code == null or st_buyer_code == '' ">
+				#{st_com_code},  						     
+        </if>
+				#{DEPT},  						     
+				#{ACCOUNT_TYPE},  						     
+				#{TERM_TYPE},  						     
+				#{TERM},
+				#{FROM_DATE},  						     
+				#{TO_DATE},  						     
+				#{PLAN_AMT},
+				TO_CHAR(SYSDATE,'YYYYMMDD'),
+				0,    
+				#{REMARK},  
+				#{st_user_id}  						     
+			)
+		
+		
+			
+	</update>
+	
+	<update id="delBuyerMdAmBudgetCompilationList_v2" parameterType="java.util.Map">
+		<![CDATA[
+        /*delBuyerMdAmBudgetCompilationList_v2*/
+	      DELETE ICOMBDGT 
+		WHERE 1=1					      
+		]]>
+        <if test="st_buyer_code != null and st_buyer_code != '' ">
+				AND BUYER			= #{st_buyer_code}  						     
+        </if>
+        <if test="st_buyer_code == null or st_buyer_code == '' ">
+				AND BUYER			= #{st_com_code}  						     
+        </if>
+	<![CDATA[	      				     
+			AND DEPT			= #{DEPT}
+			AND ACCOUNT_TYPE	= #{ACCOUNT_TYPE}
+			AND TERM_TYPE = #{TERM_TYPE}
+			AND #{st_from_date} <= FROM_DATE  AND #{st_to_date} >= TO_DATE				     
+		]]>
+	</update>
+	
+	<!-- 예산이력 추가 -->
+	<update id="insertBuyerMdAmBudgetHist_v2" parameterType="java.util.Map">
+		<![CDATA[
+		/* insertBuyerMdAmBudgetHist_v2 */
+		INSERT INTO ICOMBDGT_HIST (     
+			BUYER,
+			DEPT,
+			ACCOUNT_TYPE,
+			TERM,
+			REVISION,
+			TERM_TYPE,
+			FROM_DATE,
+			TO_DATE,
+			BEFORE_AMT,
+			CHANGE_AMT,
+			AFTER_AMT,
+			REMARK,
+			ADD_DATE,
+			ADD_USER_ID				
+		)VALUES(        	     
+		]]>
+        <if test="st_buyer_code != null and st_buyer_code != '' ">
+				#{st_buyer_code},  						     
+        </if>
+        <if test="st_buyer_code == null or st_buyer_code == '' ">
+				#{st_com_code},  						     
+        </if>
+		<![CDATA[						
+				#{DEPT},
+				#{ACCOUNT_TYPE},
+				#{TERM},
+		]]>
+		<if test="st_buyer_code != null and st_buyer_code != '' ">
+				(SELECT NVL(MAX(REVISION), 0) + 1 FROM ICOMBDGT_HIST WHERE BUYER = #{st_buyer_code} AND DEPT = #{DEPT} AND ACCOUNT_TYPE = #{ACCOUNT_TYPE} AND TERM = #{TERM} AND TERM_TYPE = #{TERM_TYPE}),
+        </if>
+        <if test="st_buyer_code == null or st_buyer_code == '' ">
+				(SELECT NVL(MAX(REVISION), 0) + 1 FROM ICOMBDGT_HIST WHERE BUYER = #{st_com_code} AND DEPT = #{DEPT} AND ACCOUNT_TYPE = #{ACCOUNT_TYPE} AND TERM = #{TERM} AND TERM_TYPE = #{TERM_TYPE}),
+        </if>
+				
+		<![CDATA[
+				#{TERM_TYPE},
+				#{FROM_DATE},
+				#{TO_DATE},
+				#{ORG_PLAN_AMT},
+				DECODE(#{SAVE_FLAG}, 'SAVE', #{PLAN_AMT} - #{ORG_PLAN_AMT}, #{ORG_PLAN_AMT} * -1),
+				DECODE(#{SAVE_FLAG}, 'SAVE', #{PLAN_AMT}, 0),
+				DECODE(#{SAVE_FLAG}, 'SAVE', #{REMARK}, TO_CHAR(SYSDATE, 'YYYY-MM-DD HH24:MI') || ' 초기화처리'),
+				SYSDATE,
+				#{st_user_id}
+			) 			     
+		]]>
+	</update>
+	
+	<select id="selectBuyerMdAmBudgetCompilationListData_v2" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*selectBuyerMdAmBudgetCompilationListData_v2*/
+		SELECT 
+			DEPT
+		    ,ACCOUNT_TYPE
+		    ,TERM
+		    ,TERM_TYPE
+		    ,FROM_DATE
+		    ,TO_DATE
+		    ,PLAN_AMT
+		    ,PLAN_AMT AS ORG_PLAN_AMT
+		    ,RESULT_AMT
+		    ,TEMP_AMT
+		    ,LAST_RESULT_DATE
+		    ,REMARK
+		    ,BALANCE_AMT
+		    ,VIEW_FLAG
+		FROM ICOMBDGT
+		WHERE 1=1
+		]]>
+		<if test="st_buyer_code != null and st_buyer_code != '' ">
+				AND BUYER			= #{st_buyer_code}  						     
+        </if>
+        <if test="st_buyer_code == null or st_buyer_code == '' ">
+				AND BUYER			= #{st_com_code}  						     
+        </if>
+        <![CDATA[
+        	AND DEPT			= #{DEPT}
+			AND ACCOUNT_TYPE	= #{ACCOUNT_TYPE}
+			AND TERM_TYPE = #{TERM_TYPE}
+			AND #{st_from_date} <= FROM_DATE  AND #{st_to_date} >= TO_DATE
+		]]>
+	</select>
+	
+</mapper>

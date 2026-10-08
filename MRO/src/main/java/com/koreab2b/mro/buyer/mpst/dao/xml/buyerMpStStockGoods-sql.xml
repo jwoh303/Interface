@@ -1,0 +1,181 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="buyer.mpst">
+
+	<!-- 조회 -->
+	<select id="selectBuyerMpStStockGoodsList" parameterType="java.util.Map" resultType="java.util.Map">
+	/*selectBuyerMpStStockGoodsList*/
+		<include refid="common.ibsheet.xml.jsppagestart"/>
+		<![CDATA[
+			SELECT
+			    X.BELOW_COMORG_CODE
+			  , X.BUYER
+			  , X.ITEM_GUBUN
+			  , X.BUYER_ITEM_NO
+			  , X.DESCRIPTION
+			  , X.SPECIFICATION
+			  , X.UNIT_MEASURE
+			  , X.MAKER_NAME
+			  , X.STOCK_QTY
+			  , X.CONTRACT_NO
+			  , X.CONTRACT_SEQ
+			FROM
+			(
+			    SELECT
+			        CQDT.BELOW_COMORG_CODE
+			      , CQDT.BUYER
+			      , DECODE(COD2.CODE,NULL,'N','S') AS ITEM_GUBUN /* N:일반, S:재고 */
+			      , BYIT.BUYER_ITEM_NO
+			      , BYIT.DESCRIPTION_LOC AS DESCRIPTION
+			      , BYIT.SPECIFICATION
+			      , BYIT.UNIT_MEASURE
+			      , CQDT.MAKER_NAME
+			      , NVL(STCK.TOT_QTY,0) AS STOCK_QTY
+			      , CQDT.CONTRACT_NO
+			      , CQDT.CONTRACT_SEQ
+			      , ROW_NUMBER() OVER(PARTITION BY CQDT.BUYER_ITEM_NO ORDER BY CQDT.BUYER, CQDT.CONTRACT_NO DESC, CQDT.CONTRACT_SEQ DESC) AS MAX_CONT
+			    FROM 
+			        ICOMBYIT BYIT /* 구매사카탈로그 상품정보 */
+			      , ICOMCQDT CQDT /* 구매사별 계약서 가격정보 */
+			      , BUYER_STOCK STCK /* 구매사 재고 관리 테이블 */
+			      , ICOMCOD2 COD2 /* 회사별 코드관리 */
+			    WHERE 1=1
+			    AND BYIT.STATUS ^= 'D'
+			    AND BYIT.PRODUCT_CLOSE_FLAG IN ('N','T')
+			    AND BYIT.BUYER = #{st_comorg_code}
+			    AND BYIT.BUYER = CQDT.BUYER
+			    AND BYIT.BUYER_ITEM_NO = CQDT.BUYER_ITEM_NO
+			    AND CQDT.STATUS ^= 'D'
+			    AND CQDT.BELOW_COMORG_CODE 
+			        = DECODE((SELECT COUNT(*) FROM ICOMCQDT 
+			                   WHERE BUYER = CQDT.BUYER
+			                     AND BUYER_ITEM_NO = CQDT.BUYER_ITEM_NO
+			                     AND STATUS ^= 'D'
+			                     AND BELOW_COMORG_CODE = #{st_com_code}), 0, 'ABOVE', #{st_com_code})
+			    AND #{st_com_code} = STCK.BUYER(+)
+			    AND CQDT.BUYER_ITEM_NO = STCK.ITEM_NO(+)
+			    AND STCK.STATUS(+) ^= 'D'
+			    AND #{st_com_code} = COD2.COMPANY_CODE(+)
+			    AND COD2.TYPE(+) = 'STCK'
+			    AND COD2.FLAG(+) = 'Y'
+			    AND CQDT.BUYER_ITEM_NO = COD2.CODE(+)
+			    AND 0 = CASE WHEN #{st_item_gubun} = 'T' 
+			                    THEN 0
+			                 WHEN #{st_item_gubun} = 'N' 
+			                    THEN (SELECT COUNT(*) FROM ICOMCOD2 
+			                           WHERE COMPANY_CODE = #{st_com_code}
+			                            AND TYPE = 'STCK'
+			                            AND FLAG = 'Y'
+			                            AND CODE = CQDT.BUYER_ITEM_NO)
+			                 WHEN #{st_item_gubun} = 'S' 
+			                    THEN (SELECT DECODE(COUNT(*), 0, 1, 0) FROM ICOMCOD2
+			                           WHERE COMPANY_CODE = #{st_com_code}
+			                            AND TYPE = 'STCK'
+			                            AND FLAG = 'Y'
+			                            AND CODE = CQDT.BUYER_ITEM_NO)
+			                 ELSE 1
+			            END
+ 		]]>
+ 		<if test="st_buyer_item_no != null and st_buyer_item_no != '' ">
+			    AND CQDT.BUYER_ITEM_NO LIKE '%' || #{st_buyer_item_no} || '%'
+ 		</if>  
+ 		<if test="st_description != null and st_description != '' ">
+			    AND CQDT.DESCRIPTION LIKE '%' || #{st_description} || '%'
+ 		</if>  
+ 		<if test="st_specification != null and st_specification != '' ">
+			    AND CQDT.SPECIFICATION LIKE '%' || #{st_specification} || '%'
+ 		</if>  
+		<![CDATA[
+			) X
+			WHERE 
+			    X.MAX_CONT = 1 /* 계약데이터는 마지막 계약을 기준으로 한다 */
+			ORDER BY 
+			    X.BUYER_ITEM_NO
+ 		]]>
+		<include refid="common.ibsheet.xml.jsppageend"/>	
+	</select> 
+	
+	<!-- 저장 -->
+	<update id="insertBuyerMpStStockGoodsCreate_ICOMCOD2" parameterType="java.util.Map">
+	/*insertBuyerMpStStockGoodsCreate_ICOMCOD2*/
+		<![CDATA[
+			MERGE INTO ICOMCOD2 /* 회사별 코드관리 */
+			USING DUAL
+			ON 
+			(   COMPANY_CODE = #{st_com_code}
+			AND CODE         = #{st_item_no}
+			AND TYPE         = 'STCK'
+			)
+			WHEN MATCHED THEN 
+			    UPDATE SET
+			        TEXT4    = #{st_user_id}
+			      , FLAG     = DECODE(#{st_input_item_gubun},'N','N','Y')
+			      , ADD_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD')
+			WHEN NOT MATCHED THEN
+			    INSERT
+			    (
+			        TYPE
+			      , CODE
+			      , COMPANY_CODE
+			      , TEXT4
+			      , VALUE1
+			      , FLAG
+			      , ADD_DATE
+			    )
+			    VALUES
+			    (
+			        'STCK'
+			       , #{st_item_no}
+			       , #{st_com_code}
+			       , #{st_user_id}
+			       , 0
+			       , DECODE(#{st_input_item_gubun},'N','N','Y')
+			       , TO_CHAR(SYSDATE, 'YYYYMMDD')
+			    )
+		]]>
+	</update>
+	
+	<update id="insertBuyerMpStStockGoodsCreate_BUYER_STOCK" parameterType="java.util.Map">
+	/*insertBuyerMpStStockGoodsCreate_BUYER_STOCK*/
+		<![CDATA[
+			MERGE INTO BUYER_STOCK /* 구매사 재고 관리 테이블 */
+			USING DUAL
+			ON 
+			(   BUYER          = #{st_com_code}
+			AND WAREHOUSE_CODE = 'W'
+			AND ITEM_NO        = #{st_item_no}
+			)
+			WHEN MATCHED THEN 
+			    UPDATE SET
+			        CHANGE_DATE = SYSDATE
+			WHEN NOT MATCHED THEN
+			    INSERT
+			    (
+			        BUYER
+			      , WAREHOUSE_CODE
+			      , ITEM_NO
+			      , STATUS
+			      , TOT_QTY
+			      , ALLOC_QTY
+			      , AVAIL_QTY
+			      , PRE_GR_QTY
+			      , CREATE_DATE
+			      , CHANGE_DATE
+			    )
+			    VALUES 
+			    (
+			        #{st_com_code}
+			      , 'W'
+			      , #{st_item_no}
+			      , 'C'
+			      , 0
+			      , 0
+			      , 0
+			      , 0
+			      , SYSDATE
+			      , SYSDATE
+			    )
+		]]>
+	</update>
+	
+</mapper>

@@ -1,0 +1,169 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="common.mpif">
+
+
+	<select id="selectMasterMpIfDivsnPop" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*selectMasterMpIfDivsnPopList*/
+			SELECT
+				A.LEGACY_PO_NO ,
+				A.LEGACY_PO_SEQ ,
+				A.BUYER_ITEM_NO ,
+				B.DESCRIPTION_LOC ,
+				B.SPECIFICATION ,
+				A.ITEM_QTY ,
+				B.UNIT_MEASURE ,
+				B.MAKER_NAME ,
+				A.REMARK,
+				A.PURCHASER_USER_DEPT,
+				A.BYIT_COMORG_CODE,
+				(SELECT BYCA_COMORG_LEVEL FROM ICOMCMPY WHERE COM_CODE = A.BUYER) AS COMORG_LEVEL,
+				A.REF_IF_NO,
+				A.ADD_DATE,
+				A.RD_DATE,
+				A.UNIT_PRICE
+			FROM IF_PODT A , ICOMBYIT B
+			WHERE A.STATUS <> 'D'
+			AND A.BUYER = B.BUYER(+)
+			AND A.BUYER_ITEM_NO = B.BUYER_ITEM_NO(+)
+			AND B.STATUS(+) <> 'D'
+		]]>
+		<if test="buyer != null and buyer != ''">	
+			AND A.BUYER = #{buyer}
+		</if>
+		<if test="legacy_po_no != null and legacy_po_no != ''">
+			AND A.LEGACY_PO_NO = #{legacy_po_no}
+		</if>
+		<if test="legacy_po_seq != null and legacy_po_seq != ''">	
+			AND A.LEGACY_PO_SEQ = #{legacy_po_seq}
+		</if>
+		<if test="buyer_item_no != null and buyer_item_no != ''">	
+			AND A.BUYER_ITEM_NO = #{buyer_item_no}
+		</if>	
+
+	</select>
+	
+	<select id="selectMasterMpIfDivsnPopList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			SELECT
+				NVL(C.AGENT_SEQ,1) AS AGENT_SEQ ,
+				NVL(C.ITEM_QTY,0) AS ITEM_QTY,
+				NVL(C.UNIT_PRICE,0) AS TARGET_PRICE,
+				NVL(C.ITEM_QTY * C.UNIT_PRICE,0) AS ITEM_AMT,
+				(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = C.AGENT) AS AGENT_NAME,
+				A.BUYER,
+				A.LEGACY_PO_NO,
+				A.LEGACY_PO_SEQ,
+				A.BUYER_ITEM_NO,
+				C.AGENT,
+				C.CONTRACT_NO,
+				C.CONTRACT_SEQ,
+				'UPDATE' AS STATUS,
+				DECODE(D.PROCESS_TYPE,0,'직납',1,'재고','2','T/R','3','VMI','확인') AS PROCESS_TYPE,
+				D.ORIGIN_AGENT,
+				(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = D.ORIGIN_AGENT) AS ORIGIN_AGENT_NAME,
+				D.PROCESS_TYPE
+			FROM IF_PODT A , POIFLOAD_DAEW C, ICOMCQDT D
+			WHERE A.STATUS <> 'D'
+			AND D.STATUS <> 'D'
+			AND A.LEGACY_PO_NO  = C.LEGACY_PO_NO
+			AND A.LEGACY_PO_SEQ = C.LEGACY_PO_SEQ
+			AND A.BUYER = C.COM_CODE
+			AND C.COM_CODE = D.BUYER
+			AND C.BUYER_ITEM_NO = D.BUYER_ITEM_NO
+			AND C.CONTRACT_NO = D.CONTRACT_NO
+			AND C.CONTRACT_SEQ = D.CONTRACT_SEQ
+		]]>	
+		<if test="buyer != null and buyer != ''">	
+			AND A.BUYER = #{buyer}
+		</if>
+		<if test="legacy_po_no != null and legacy_po_no != ''">
+			AND A.LEGACY_PO_NO = #{legacy_po_no}
+		</if>
+		<if test="legacy_po_seq != null and legacy_po_seq != ''">	
+			AND A.LEGACY_PO_SEQ = #{legacy_po_seq}
+		</if>
+		<if test="buyer_item_no != null and buyer_item_no != ''">	
+			AND A.BUYER_ITEM_NO = #{buyer_item_no}
+		</if>
+			ORDER BY C.AGENT_SEQ
+	</select>
+	
+	<select id="getMasterMpIfDivsnPopAgentCheck" parameterType="java.util.Map" resultType="String">
+		<![CDATA[
+			SELECT COUNT(*) CNT FROM POIFLOAD_DAEW  WHERE COM_CODE 	= #{BUYER} AND LEGACY_PO_NO = #{legacy_po_no} AND LEGACY_PO_SEQ	= #{legacy_po_seq} AND AGENT_SEQ = #{AGENT_SEQ}
+		]]>
+	</select>	
+	<update id="insertMasterMpIfDivsnPopList" parameterType="java.util.Map">
+		<![CDATA[
+			INSERT INTO POIFLOAD_DAEW
+			(
+				COM_CODE,
+				LEGACY_PO_NO,
+				LEGACY_PO_SEQ,
+				AGENT_SEQ,
+				REF_IF_NO,
+				BUYER_ITEM_NO,
+				ITEM_QTY,
+				AGENT,
+				CONTRACT_NO,
+				CONTRACT_SEQ,
+				ADD_DATE,
+				RD_DATE,
+				CHANGE_USER_ID,
+				UNIT_PRICE,
+				CHANGE_DATE,
+				CHANGE_TIME
+			) VALUES (
+				#{buyer},
+				#{legacy_po_no},
+				#{legacy_po_seq},
+				#{AGENT_SEQ},
+				#{ref_if_no},
+				#{buyer_item_no},
+				#{ITEM_QTY},
+				#{AGENT},
+				#{CONTRACT_NO},
+				#{CONTRACT_SEQ},
+				#{add_date},
+				#{rd_date},
+				#{st_user_id},
+				#{TARGET_PRICE},
+				TO_CHAR(SYSDATE,'YYYYMMDD'),
+				TO_CHAR(SYSDATE,'HH24MISS')
+			)
+		]]>
+	</update>
+	
+	<update id="updateMasterMpIfDivsnPopList" parameterType="java.util.Map">
+		<![CDATA[
+			UPDATE  POIFLOAD_DAEW  SET
+				ITEM_QTY        =  #{ITEM_QTY},
+				AGENT           =  #{AGENT},
+				CONTRACT_NO     =  #{CONTRACT_NO},
+				CONTRACT_SEQ    =  #{CONTRACT_SEQ},
+				CHANGE_USER_ID  =  #{st_user_id},
+				UNIT_PRICE      =  #{TARGET_PRICE},
+				CHANGE_DATE     =  TO_CHAR(SYSDATE,'YYYYMMDD'),
+				CHANGE_TIME     =  TO_CHAR(SYSDATE,'HH24MISS')
+			WHERE COM_CODE		=  #{BUYER}
+			AND LEGACY_PO_NO	=  #{legacy_po_no}
+			AND LEGACY_PO_SEQ	=  #{legacy_po_seq}
+			AND AGENT_SEQ		=  #{AGENT_SEQ}
+		]]>	
+	</update>
+	
+	<update id="deleteMasterMpIfDivsnPopList" parameterType="java.util.Map">
+		<![CDATA[
+			DELETE POIFLOAD_DAEW
+			WHERE COM_CODE		= #{BUYER}
+			AND LEGACY_PO_NO	= #{legacy_po_no}
+			AND LEGACY_PO_SEQ	= #{legacy_po_seq}
+			AND AGENT_SEQ		= #{AGENT_SEQ}
+		]]>	
+	</update>
+	
+		
+								
+</mapper>

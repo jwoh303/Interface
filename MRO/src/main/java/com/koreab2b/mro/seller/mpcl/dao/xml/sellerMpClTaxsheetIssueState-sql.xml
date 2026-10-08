@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="seller.mpcl">
+	<select id="selectSellerMpClTaxsheetIssueStateList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.jsppagestart"/>
+		<![CDATA[
+			SELECT  S.TAX_BILL_NO,          	-- // 1
+				        S.KEP_NAME,             	-- // 2
+				        S.KEP_IRS_NO,           	-- // 3
+				        S.KEP_SITE_NAME,      	-- // 4
+				        S.ISSUE_DATE,           	-- // 5
+				        S.AGENT_NAME,        	-- // 6
+				        S.IRS_NO,                 	-- // 7
+				        S.TOT_SUPP_PRICE,    	-- // 8
+				        S.TOT_TAX_PRICE,      	-- // 9
+				        S.TOT_AMT,              	-- // 10
+				        S.TAX_TYPE,              	-- // 11
+				        S.BILL_TYPE,              	-- // 12
+				        S.SUMMARY,            	-- // 13
+				        S.SITE,                      	-- // 14
+				        S.KEP_MANAGER_NAME,       -- // 15 KEP담당자명 (CONFIRM_USER_ID)
+				        '보기' AS DETAIL_VIEW    	-- // 16 상세내역 (하드코딩)
+			FROM
+			    (
+			        SELECT  X.TAX_BILL_NO,
+				                X.KEP_NAME,
+				                X.KEP_IRS_NO,
+				                X.KEP_SITE_NAME,
+				                X.ISSUE_DATE,
+				                X.AGENT_NAME,
+				                X.IRS_NO,
+				                X.TOT_SUPP_PRICE,
+				                X.TOT_TAX_PRICE,
+				                X.TOT_AMT,
+				                X.TAX_TYPE,
+				                X.BILL_TYPE,
+				                X.SUMMARY,
+				                X.SITE,
+				                X.KEP_MANAGER_NAME,    -- KEP담당자명 (CONFIRM_USER_ID)
+				                '보기' AS DETAIL_VIEW
+			        FROM
+			            (
+			                SELECT  TAX_BILL_NO,
+				                        MAX((SELECT TEXT4 FROM ICOMCOD1 WHERE TYPE = 'VC04' AND CODE = APDT.SITE)) AS KEP_NAME,
+				                        MAX((SELECT TEXT3 FROM ICOMCOD1 WHERE TYPE = 'VC04' AND CODE = APDT.SITE)) AS KEP_IRS_NO,
+				                        MAX((SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'VC04' AND CODE = APDT.SITE)) AS KEP_SITE_NAME,
+				                        MAX(ISSUE_DATE) AS ISSUE_DATE,
+				                        MAX((SELECT COM_NAME_LOC FROM V_VOC_ICOMCMPY WHERE SYS_TYPE = APDT.SITE AND COM_CODE = APDT.AGENT_CODE)) AS AGENT_NAME,
+				                        MAX(IRS_NO) AS IRS_NO,
+				                        MAX(TOT_SUPP_PRICE) AS TOT_SUPP_PRICE,
+				                        MAX(TOT_TAX_PRICE) AS TOT_TAX_PRICE,
+				                        MAX(TOT_AMT) AS TOT_AMT,
+				                        MAX((SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'TX02' AND CODE = APDT.TAX_TYPE)) TAX_TYPE,
+				                        MAX((SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'TX03' AND CODE = APDT.BILL_TYPE)) BILL_TYPE,
+				                        MAX(REMARK_DESCRIPTION) AS SUMMARY,
+				                        MAX(SITE) AS SITE,
+				                        MAX(CONFIRM_USER_ID) AS KEP_MANAGER_NAME,    -- KEP담당자명으로 CONFIRM_USER_ID 사용
+				                        '보기' AS DETAIL_VIEW
+			                FROM KEPTAPDT APDT
+			                WHERE STATUS <> 'D'
+			                    AND IRS_NO = (SELECT IRS_NO FROM ICOMCMPY WHERE COM_CODE = #{st_com_code})
+			                    AND AP_CLOSE_MONTH = #{st_cl_year} || #{st_cl_month}
+			                    AND SITE = #{st_site}
+			                GROUP BY TAX_BILL_NO
+			                ORDER BY TAX_BILL_NO
+			            ) X
+			    ) S
+ 		]]>  
+		<include refid="common.ibsheet.xml.jsppageend"/>	
+	</select> 
+	
+	
+	
+	
+	
+	
+	
+	<select id="selectSellerMpClTaxsheetIssueStateList_v2" parameterType="java.util.Map" resultType="java.util.Map">
+	/*selectSellerMpClTaxsheetIssueStateList_v2*/
+		<include refid="common.ibsheet.xml.jsppagestart"/>
+		<![CDATA[
+			SELECT
+			    X.AP_CLOSE_MONTH AS CL_MONTH /* 마감월 (IBSheet: CL_MONTH) */
+			  , X.ISSUE_DATE /* 발행일 */
+			  , X.TOT_SUPP_PRICE /* 금액 */
+			  , X.TOT_TAX_PRICE /* 세액 */
+			  , X.TOT_AMT /* 합계 */
+			  , (SELECT USER_NAME_LOC FROM ICOMLUSR
+			     WHERE USER_ID = X.ADD_USER_ID) AS KEP_MANAGER_NAME /* Kep담당자 (IBSheet: KEP_MANAGER_NAME) */
+			  , (SELECT PHONE_NUMBER FROM ICOMLUSR
+			     WHERE USER_ID = X.ADD_USER_ID) AS KEP_MANAGER_CONTACT /* Kep담당자연락처 (IBSheet: KEP_MANAGER_CONTACT) */
+			  , (SELECT TEXT1 FROM ICOMCOD1
+			     WHERE TYPE = 'TX02'
+			     AND CODE = X.TAX_TYPE) AS TAX_TYPE /* 세무구분 */
+			  , '보기' AS DETAIL_VIEW /* 상세내역 */
+			  , '출력' AS CLOSING_STATEMENT /* 마감거래명세서 */
+			  , CASE WHEN X.BILL_TYPE = '10' THEN '역발행'
+			         ELSE '정발행' END AS BILL_TYPE /* 발행구분 (KeP: 역발행 / 그 외: 정발행) */
+			  , CASE
+			        WHEN X.BILL_TYPE = '10' THEN
+			            CASE WHEN NVL((SELECT DECODE(B.DTI_STATUS, 'C', 'Y', 'N') FROM XXSB_DTI_MAIN A, XXSB_DTI_STATUS B
+			                           WHERE A.STATUS = 'C'
+			                           AND A.SEQ_ID = X.TAX_BILL_NO
+			                           AND A.conversation_id = B.conversation_id), 'N') = 'Y'
+			                 THEN '수신승인'
+			                 ELSE '미승인'
+			            END
+			        ELSE '-'
+			    END AS APPROVAL_STATUS /* 승인여부 (정발행: '-' / 역발행: '수신승인' or '미승인') */
+			  , X.TAX_BILL_NO /* 계산서번호 */
+			FROM (
+			    SELECT
+			        AP_CLOSE_MONTH
+			      , MAX(ISSUE_DATE) AS ISSUE_DATE
+			      , MAX(TOT_SUPP_PRICE) AS TOT_SUPP_PRICE
+			      , MAX(TOT_TAX_PRICE) AS TOT_TAX_PRICE
+			      , MAX(TOT_AMT) AS TOT_AMT
+			      , MAX(ADD_USER_ID) AS ADD_USER_ID
+			      , MAX(TAX_TYPE) AS TAX_TYPE
+			      , MAX(BILL_TYPE) AS BILL_TYPE
+			      , NVL(MAX(IF_SEND_FLAG), 'N') AS IF_SEND_FLAG
+			      , MAX(REMARK_DESCRIPTION) AS REMARK_DESCRIPTION
+			      , TAX_BILL_NO
+			    FROM KEPTAPDT
+			    WHERE AP_CLOSE_MONTH = #{st_cl_year} || #{st_cl_month}
+			    AND AGENT_CODE = #{st_com_code}
+			    AND STATUS != 'D'
+		]]>
+		<!-- KeP담당자 조건 -->
+		<if test="st_kep_manager != null and st_kep_manager != ''">
+			<![CDATA[
+			    AND (SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = ADD_USER_ID) LIKE '%' || #{st_kep_manager} || '%'
+			]]>
+		</if>
+		<![CDATA[
+			    GROUP BY
+			        AP_CLOSE_MONTH
+			      , TAX_BILL_NO
+			) X
+			ORDER BY X.TAX_BILL_NO
+ 		]]>
+		<include refid="common.ibsheet.xml.jsppageend"/>
+	</select> 
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+</mapper>

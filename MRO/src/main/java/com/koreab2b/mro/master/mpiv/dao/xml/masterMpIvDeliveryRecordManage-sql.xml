@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mpiv">
+	<!-- 조회 -->
+	<select id="selectMasterMpIvDeliveryRecordManageList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.pagestart"/>	
+		<![CDATA[
+			
+			/*selectMasterMpIvDeliveryRecordManageList*/
+			SELECT
+			X.*
+			FROM(
+				SELECT '' AS STATUS_IMG
+				     , (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = POHD.BUYER)  AS BUYER_NAME
+				     , (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = POHD.AGENT) AS AGENT_NAME
+				     , PODT.PO_NO
+				     , PODT.PO_SEQ
+				     , PODT.REF_PR_NO
+				     , (SELECT REF_NO FROM ICOMPRDT
+				        WHERE BUYER = PODT.BUYER
+				        AND   PR_NO = PODT.PR_NO
+				        AND PR_SEQ= PODT.PR_SEQ)   AS REF_NO
+				     , PODT.BUYER_ITEM_NO
+				     , DECODE(PODT.SCM_REMARK,NULL,'-','SCM') AS SCM_REMARK
+				     , PODT.DESCRIPTION
+				     , PODT.SPECIFICATION
+				     , PODT.PO_REMARK
+				     , PODT.UNIT_MEASURE
+				     , PODT.AGENT_PRICE
+				     , PODT.UNIT_PRICE
+				     , PODT.ITEM_QTY        AS PO_ITEM_QTY
+				     , POHD.PO_CREATE_DATE  AS PO_DATE
+				     , PODT.RD_DATE
+				     , (SELECT MAX(APPROVAL_RD_DATE)
+				        FROM  KEP_PO_DELY_MNG
+				        WHERE BUYER = PODT.BUYER
+				        AND   PO_NO = PODT.PO_NO
+				        AND   PO_SEQ = PODT.PO_SEQ ) AS APPROVAL_RD_DATE
+				     , (SELECT MAX(CD_DATE)
+				        FROM ICOMPORS
+				        WHERE BUYER = PODT.BUYER
+				        AND PO_NO = PODT.PO_NO
+				        AND PO_SEQ = PODT.PO_SEQ
+				        AND STATUS != 'D') AS CD_DATE
+				     , IVDT.INVOICE_DATE
+				     , IVDT.DELIVERY_DATE
+				     , (SELECT MAX(GR_DATE)
+				       FROM ICOMGRDT
+				       WHERE BUYER = PODT.BUYER
+				       AND PO_NO = PODT.PO_NO
+				       AND PO_SEQ= PODT.PO_SEQ
+				       AND STATUS != 'D') AS GR_DATE
+				     , IVDT.INV_QTY AS INV_QTY
+				     , IVDT.DELIVERY_QTY AS DELIVERY_QTY
+				     , NVL(PODT.GR_QTY, 0) AS GR_ITEM_QTY
+				     , PODT.AGENT_ITEM_AMT AS AGENT_ITEM_AMT
+				     , PODT.ITEM_AMT AS PD_ITEM_AMT
+				     , DECODE(IVDT.DELIVERY_QTY, NULL, NULL, PODT.UNIT_PRICE * NVL(IVDT.DELIVERY_QTY, 0)) AS DELIVERY_AMT
+				     , PODT.UNIT_PRICE * NVL(PODT.GR_QTY, 0) AS GR_ITEM_AMT
+				     , CASE WHEN PODT.IV_QTY = 0 THEN '송장미생성'
+				            WHEN PODT.ITEM_QTY = PODT.DI_QTY  THEN
+				                 '납품실적입력완료'
+				            WHEN IVDT.DELIVERY_QTY = 0 THEN '납품실적미입력'
+				            WHEN IVDT.INV_QTY != IVDT.DELIVERY_QTY THEN '납품실적수량불일치'
+				            ELSE ''  END         AS  DELIVERY_RESULT
+				     , CASE WHEN PODT.ITEM_QTY = PODT.GR_QTY THEN '입고완료'
+				            WHEN PODT.GR_QTY = 0 THEN '미입고'
+				            WHEN PODT.ITEM_QTY != PODT.GR_QTY THEN '부분입고'
+				            ELSE '' END   AS GR_STATUS
+				     , PODT.BUYER AS BUYER
+				     , POHD.AGENT AS AGENT
+				     , IVDT.INV_NO AS INV_NO
+				     , IVDT.INV_SEQ AS INV_SEQ
+				     , PODT.CONTRACT_NO AS CONTRACT_NO
+				     , PODT.CONTRACT_SEQ AS CONTRACT_SEQ
+				     , PODT.BYIT_COMORG_CODE AS BYIT_COMORG_CODE
+				     , PODT.PO_NO AS PD_PO_NO
+				FROM  ICOMPOHD POHD, ICOMPODT PODT, ICOMIVDT IVDT
+				WHERE POHD.BUYER = PODT.BUYER
+				AND   POHD.PO_NO = PODT.PO_NO
+				AND   POHD.STATUS != 'D'
+				AND   PODT.STATUS != 'D'
+				AND   NVL(PODT.CLSD_FLAG, 'N') ^= 'Y'
+				AND POHD.BUYER = #{st_buyer_code}
+				AND   PODT.BUYER = IVDT.BUYER(+)
+				AND   PODT.PO_NO = IVDT.PO_NO(+)
+				AND   PODT.PO_SEQ= IVDT.PO_SEQ(+)
+				AND   IVDT.STATUS(+) != 'D'
+		]]>
+				<!-- 협력사 -->
+				<if test="st_agent_code != null and st_agent_code != ''">
+					AND POHD.AGENT = #{st_agent_code}
+				</if>
+				<!-- 발주번호 -->
+				<if test="st_po_no != null and st_po_no != ''">
+					AND PODT.PO_NO = #{st_po_no}
+				</if>
+				<!-- 품목코드 -->
+				<if test="st_buyer_item_no != null and st_buyer_item_no != ''">
+					AND PODT.BUYER_ITEM_NO LIKE '%'||#{st_buyer_item_no}||'%'
+				</if>
+				<if test="st_user_id != null and st_user_id != ''">	     
+							   <![CDATA[
+							   AND  POHD.BUYER  IN (
+															SELECT POHD.BUYER
+											                 FROM ICOMCOD3 COD3
+											                 WHERE COD3.BUYER = 'KRKORE0001'
+											                 AND   COD3.TYPE = 'CMPY'
+											                 AND   COD3.CODE1= 'ALL'
+											                 AND   COD3.CODE2 = #{st_user_id}
+											                 UNION ALL
+											                 SELECT MNG.BUYER
+											                 FROM  ICOMCOD3 COD3, MIS_BUYER_MNG MNG
+											                 WHERE COD3.BUYER = 'KRKORE0001'
+											                 AND   COD3.TYPE = 'CMPY'
+											                 AND   COD3.CODE1= MNG.KEP_DEPT
+											                 AND   COD3.CODE2 = #{st_user_id}
+											                 AND   MNG.YEAR = TO_CHAR(SYSDATE,'YYYY')	
+											                 AND   MNG.STATUS = 'C'
+											                 UNION ALL
+											                 SELECT BUYER
+											                 FROM  MIS_BUYER_MNG
+											                 WHERE YEAR = TO_CHAR(SYSDATE,'YYYY')
+											                 AND   STATUS = 'C'
+											                 AND   KEP_USER_ID = #{st_user_id}
+											                 UNION ALL
+											                 SELECT COD.CODE1
+															FROM ICOMCOD3 COD , ICOMCMPY CMPY
+															WHERE  COD.BUYER = 'KRKORE0001'
+															AND COD.TYPE = 'CMPY'
+															AND COD.CODE1 = CMPY.COM_CODE
+															AND COD.CODE2 = #{st_user_id}
+															AND TO_CHAR(SYSDATE,'YYYYMMDD') BETWEEN TEXT2 AND TEXT3
+											                 )
+							   ]]>
+				</if>
+				<!-- 관리번호 -->
+				<if test="st_ref_pr_no != null and st_ref_pr_no != ''">
+					AND PODT.REF_PR_NO LIKE #{st_ref_pr_no}||'%'
+				</if>
+		<![CDATA[
+				AND   DECODE(#{st_date_gubun} ,'add',
+				       (SELECT 'X' FROM DUAL
+				        WHERE POHD.PO_CREATE_DATE BETWEEN  #{st_from_date} AND #{st_to_date}),
+				       (SELECT MAX('X') FROM ICOMGRDT
+				        WHERE 1=1
+				        AND   BUYER =  #{st_buyer_code}
+				        AND   GR_DATE BETWEEN  #{st_from_date} AND #{st_to_date}
+				        AND   BUYER =PODT.BUYER
+				        AND   PO_NO =PODT.PO_NO
+				        AND   PO_SEQ=PODT.PO_SEQ
+				        AND   STATUS != 'D')) = 'X'
+			) X
+		]]>
+			<!-- 납품실적 -->
+			<if test="st_check_sinv_qty != null and st_check_sinv_qty != ''">
+				<![CDATA[
+					WHERE DELIVERY_RESULT = #{st_check_sinv_qty}	--조회 조건  param  납품실적 구분, 전체선택은 조건 제외
+				]]>
+			</if>
+			
+		<![CDATA[
+				ORDER BY X.BUYER_NAME, X.PO_NO, X.BUYER_ITEM_NO
+		]]>
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+</mapper>
+   

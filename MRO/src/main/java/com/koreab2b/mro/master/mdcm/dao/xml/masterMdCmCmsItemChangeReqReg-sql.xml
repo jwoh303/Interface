@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mdcm">
+
+	<!-- ============================================================================
+	     상품정보 수정요청 - 요청 등록 (상세팝업 [요청] → 상태변경 팝업)
+	     ★ 요청번호 채번은 여기 없다 - 채번 테이블 `ICOMSQMT`(DOC_TYPE='CR') 를 쓰는 공통 구현
+	       BuyerMpSoOrderInfoDao#getOrderNo 를 DaoImpl 이 부른다. 시퀀스 없음.
+	     masterMdCmCmsItemStatusChangePop.jsp → /mdcm/saveMasterMdCmCmsItemChangeReq.do
+	     저장 테이블 : CMSCATLG_REQ(헤더) / CMSCATLG_REQ_DT(변경항목)
+	     ============================================================================ -->
+
+	<!-- 요청 헤더. 스냅샷 7열은 등록 시점의 CMSCATLG 현재값을 그대로 복사한다
+	     (화면이 보낸 값을 쓰지 않는다 - 사용자가 입력칸에서 이미 바꾼 뒤라 '기존'이 아니게 된다) -->
+	<update id="insertMasterMdCmCmsItemChangeReq" parameterType="java.util.Map">
+		<![CDATA[
+			/*insertMasterMdCmCmsItemChangeReq*/
+			INSERT INTO CMSCATLG_REQ
+			     ( REQ_NO, CMS_CATLG_ID, REQ_STATUS
+			     , REQ_USER_ID, REQ_DATE, REQ_TIME
+			     , STATUS, DESCRIPTION_LOC, MODEL_INFO, SPECIFICATION
+			     , MAKER_CODE, ORIGIN_CODE, ORDER_MEASURE )
+			SELECT #{st_req_no}
+			     , C.CMS_CATLG_ID
+			     , 'REQ'
+			     , #{st_user_id}
+			     , TO_CHAR(SYSDATE,'YYYYMMDD')
+			     , TO_CHAR(SYSDATE,'HH24MISS')
+			     , C.STATUS
+			     , C.DESCRIPTION_LOC
+			     , C.MODEL_INFO
+			     , C.SPECIFICATION
+			     , C.MAKER_CODE
+			     , C.ORIGIN_CODE
+			     , C.ORDER_MEASURE
+			  FROM CMSCATLG C
+			 WHERE C.CMS_CATLG_ID = #{st_catlg_id}
+		]]>
+	</update>
+
+	<!-- 변경항목 1건 -->
+	<update id="insertMasterMdCmCmsItemChangeReqDt" parameterType="java.util.Map">
+		<![CDATA[
+			/*insertMasterMdCmCmsItemChangeReqDt*/
+			INSERT INTO CMSCATLG_REQ_DT
+			     ( REQ_NO, REQ_SEQ, JOB_COLUMN, OLD_DATA, NEW_DATA
+			     , CHANGE_REASON_CODE, CHANGE_REASON_REMARK, ALT_CATLG_ID )
+			VALUES ( #{st_req_no}, #{st_req_seq}, #{st_job_column}, #{st_old_data}, #{st_new_data}
+			     , #{st_reason_code}, #{st_reason_remark}, #{st_alt_code} )
+		]]>
+	</update>
+
+	<!-- 명칭 → 코드 복원 (일괄수정 경로 전용).
+	     엑셀 결과 그리드는 TR취급가능여부·상품상태 변경사유를 **명칭 텍스트로만** 들고 있다.
+	     상품상태(C/D)·상품구분(G/N)은 화면 규칙이라 DaoImpl 이 직접 접고, 코드표가 필요한 둘만 여기서 푼다.
+	     ⚠ 같은 명칭이 둘 이상이면 MIN 으로 하나만 고른다 - 기준가 일괄(BPM) 의 선례와 같은 방식. -->
+	<select id="selectMasterMdCmCmsItemChangeReqCodeByText" parameterType="java.util.Map" resultType="java.lang.String">
+		<![CDATA[
+			/*selectMasterMdCmCmsItemChangeReqCodeByText*/
+			SELECT MIN(CODE)
+			  FROM ICOMCOD1
+			 WHERE TYPE = #{st_code_type}
+			   AND FLAG = 'Y'
+			   AND TRIM(TEXT1) = TRIM(#{st_code_text})
+		]]>
+	</select>
+
+	<!-- 같은 상품에 처리 대기중(REQ)인 요청이 이미 있는지 - 중복 요청 방지 -->
+	<select id="selectMasterMdCmCmsItemChangeReqOpenCount" parameterType="java.util.Map" resultType="java.lang.Integer">
+		<![CDATA[
+			/*selectMasterMdCmCmsItemChangeReqOpenCount*/
+			SELECT COUNT(*)
+			  FROM CMSCATLG_REQ
+			 WHERE CMS_CATLG_ID = #{st_catlg_id}
+			   AND REQ_STATUS   = 'REQ'
+		]]>
+	</select>
+
+</mapper>

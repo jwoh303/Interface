@@ -1,0 +1,116 @@
+<div class="DIVpopup-overlay" id="DIVpopupOverlay"></div>
+<div class="DIVpopup" id="DIVpopup" style="width:600px;">
+  <div class="wrapPopup" style="padding:30px;">
+    <div class="PopupTit">발주부서 검색<span><a href="#" id="DIVclosePopup"><img src="/resources/imgs/Icon_close.png" /></a></span></div>
+    <div class="Popup_GrayBox mt10" style="display:flex; align-items:center; gap:6px;">
+      <div class="tit" style="white-space:nowrap; margin-right:12px;">부서명</div>
+      <input type="text" id="st_keyword" class="input42" style="flex:1; min-width:0;" placeholder="" />
+      <button type="button" id="btnSearch" class="ButDarkGray_Medium" style="width:80px; flex-shrink:0;">조회</button>
+    </div>
+    <div class="PopupTxt mt15 mb02">총 <span id="totalCount">0</span>건</div>
+    <div id="tableArea" style="min-height:260px; max-height:380px; overflow:auto;">
+      <table class="ComPopupTableT01" id="purchaseDeptTable" style="width:100%;">
+        <colgroup>
+          <col style="width:30%;" />
+          <col style="width:55%;" />
+          <col style="width:15%;" />
+        </colgroup>
+        <thead>
+          <tr><th>코드</th><th>부서명</th><th>선택</th></tr>
+        </thead>
+        <tbody id="purchaseDeptTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script type="text/javascript">
+window.createPopupAPI = function(overlayId, containerId, options) {
+    var $overlay   = $('#' + overlayId);
+    var $container = $('#' + containerId);
+    var animationType = $container.data('animationType') || 'default';
+    var comCode = (options && options.data && options.data.com_code) || '';
+    var allData = [];
+    var selectCallback = null;
+    var $tbody = $container.find('#purchaseDeptTableBody');
+
+    var api = {};
+
+    function close() {
+        var $popup = $container.find('.DIVpopup');
+        if ($popup.hasClass('popup-button-exit') || $popup.hasClass('popup-exit')) return;
+        var exitClass = animationType === 'fromButton' ? 'popup-button-exit' : 'popup-exit';
+        var animationDuration = animationType === 'fromButton' ? 1000 : 200;
+        $popup.removeClass('popup-enter popup-button-enter').addClass(exitClass);
+        $overlay.removeClass('popup-enter').addClass('popup-exit');
+        setTimeout(function() {
+            $overlay.remove();
+            $container.remove();
+            if ($('[id^="popup-overlay-"]').length === 0) {
+                var scrollY = $('body').data('scrollY') || 0;
+                $('body').css({'position':'', 'top':'', 'left':'', 'right':'', 'overflow-y':''});
+                window.scrollTo(0, scrollY);
+            }
+        }, animationDuration);
+    }
+
+    function onSelect(cb) { selectCallback = cb; return api; }
+
+    function nvl(v) { return (v === null || v === undefined) ? '' : v; }
+
+    function showNoData() {
+        $tbody.html('<tr><td colspan="3"><div class="NoData mt50 mb50"><img src="/resources/imgs/Icon_Warning01.png" alt="경고" /><br/>조회된 데이터가 없습니다.</div></td></tr>');
+    }
+
+    function renderTable() {
+        if (!allData || allData.length === 0) { showNoData(); return; }
+        var html = '';
+        for (var i = 0; i < allData.length; i++) {
+            var r = allData[i];
+            html += '<tr data-index="' + i + '">'
+                  + '<td>' + nvl(r.CODE) + '</td>'
+                  + '<td style="text-align:left;">' + nvl(r.TEXT1) + '</td>'
+                  + '<td><button type="button" class="ButOutline_Tiny btn-select" data-index="' + i + '">선택</button></td>'
+                  + '</tr>';
+        }
+        $tbody.html(html);
+    }
+
+    function search() {
+        var keyword = $container.find('#st_keyword').val();
+        HttpUtil.post('/coco/getCommonCoCoOrderDepartmentSearchPop_v2.do', {
+            com_code: comCode, req_dept_name: keyword
+        }, { showLoader: false, showDefaultAlert: false }).then(function(res) {
+            allData = (res.data && res.data.data) || [];
+            $container.find('#totalCount').text(allData.length);
+            renderTable();
+        });
+    }
+
+    function selectRow(idx) {
+        var r = allData[idx];
+        if (!r) return;
+        if (typeof selectCallback === 'function') selectCallback(nvl(r.CODE), nvl(r.TEXT1));
+        close();
+    }
+
+    function bindEvents() {
+        $overlay.on('click', close);
+        $container.find('#DIVclosePopup').on('click', function(e) { e.preventDefault(); close(); });
+        $container.find('#btnSearch').on('click', search);
+        $container.find('#st_keyword').on('keydown', function(e) { if (e.keyCode === 13) { e.preventDefault(); search(); } });
+        $tbody.on('click', '.btn-select', function(e) { e.stopPropagation(); selectRow(parseInt($(this).data('index'))); });
+        $tbody.on('click', 'tr', function() { var i = parseInt($(this).data('index')); if (!isNaN(i)) selectRow(i); });
+    }
+
+    api.close = close;
+    api.onSelect = onSelect;
+    api.$overlay = $overlay;
+    api.$container = $container;
+
+    bindEvents();
+    search();
+
+    return api;
+};
+</script>

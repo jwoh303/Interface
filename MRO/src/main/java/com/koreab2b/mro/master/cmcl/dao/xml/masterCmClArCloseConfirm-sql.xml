@@ -1,0 +1,692 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.cmcl">
+	<!-- 조회 -->
+	<select id="selectMasterCmClArCloseConfirmList" parameterType="java.util.Map" resultType="java.util.Map">
+	
+	/*selectMasterCmClArCloseConfirmList*/
+		<![CDATA[
+		SELECT
+			X.SITE,
+			X.TAX_BILL_NO,
+			X.BUYER_CODE,
+			X.AGENT_CODE,
+			X.TAX_IRS_NO,
+			X.AR_TYPE,
+			X.AR_TYPE_TEXT,
+			X.AR_CLOSE_MONTH,
+			X.ISSUE_DATE,
+			X.BM_LEGACY_USER_ID,
+			X.BM_USER_NAME,
+			X.PM_LEGACY_USER_ID,
+			X.PM_USER_NAME,
+			X.KEP_DEPT,
+			X.KEP_DEPT_NAME,
+			X.COM_NAME_LOC,
+			X.CUSTOMER_NAME,
+			X.AR_BUYER_AMT,
+			DECODE(X.RANK, 1, X.AR_TAX_AMT, 0) AS AR_TAX_AMT,
+			X.AR_AGENT_AMT,
+			(X.AR_BUYER_AMT - X.AR_AGENT_AMT) AS AR_SUM,
+			X.AR_RATE,
+			X.CONFIRM_LEGACY_USER_ID,
+			X.CONFIRM_USER_NAME,
+			X.ADD_DATE,
+			X.ERP_SEND_YN,
+			X.ERP_SEND_DATE
+			FROM (
+				]]>
+				<choose>
+					<when test="st_ar_type != null and st_ar_type != '' and st_ar_type == 'LG_A' ">
+				<![CDATA[
+					 SELECT
+						MAX((SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE ='SR01' AND FLAG ='Y' AND CODE = ARLIST.SITE)) AS SITE,
+						ARLIST.TAX_BILL_NO AS TAX_BILL_NO,
+						GR.BUYER AS BUYER_CODE,
+						GR.AGENT AS AGENT_CODE,
+						AR.IRS_NO AS TAX_IRS_NO,
+						MAX(ARLIST.AR_TYPE) AS AR_TYPE,
+						MAX((SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE ='ARCL01' AND FLAG ='Y' AND CODE = ARLIST.AR_TYPE)) AS AR_TYPE_TEXT,
+						MAX(ARLIST.AR_CLOSE_MONTH) AS AR_CLOSE_MONTH,
+						MAX(ARLIST.ISSUE_DATE) AS ISSUE_DATE,
+						(SELECT LEGACY_USER_ID FROM ICOMLUSR WHERE USER_ID =
+							(SELECT KEP_USER_ID FROM MIS_BUYER_MNG WHERE YEAR = TO_CHAR(SYSDATE, 'YYYY') AND STATUS = 'C' AND BUYER = GR.BUYER AND MAIN_CLERK = 'Y')) AS BM_LEGACY_USER_ID,
+						(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID =
+							(SELECT KEP_USER_ID FROM MIS_BUYER_MNG WHERE YEAR = TO_CHAR(SYSDATE, 'YYYY') AND STATUS = 'C' AND BUYER = GR.BUYER AND MAIN_CLERK = 'Y')) AS BM_USER_NAME,
+						(SELECT LEGACY_USER_ID FROM ICOMLUSR WHERE USER_ID =
+							(SELECT KEP_USER_ID FROM MIS_BUYER_MNG WHERE YEAR = TO_CHAR(SYSDATE, 'YYYY') AND STATUS = 'C' AND BUYER = GR.BUYER AND PRIORITY = 'Y')) AS PM_LEGACY_USER_ID,
+						(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID =
+							(SELECT KEP_USER_ID FROM MIS_BUYER_MNG WHERE YEAR = TO_CHAR(SYSDATE, 'YYYY') AND STATUS = 'C' AND BUYER = GR.BUYER AND PRIORITY = 'Y')) AS PM_USER_NAME,
+						ARLIST.KEP_DEPT AS KEP_DEPT,
+						(SELECT TEXT1 FROM ICOMCOD2 WHERE TYPE = 'C001' AND COMPANY_CODE ='KRKORE0001' AND FLAG ='Y' AND CODE = ARLIST.KEP_DEPT) AS KEP_DEPT_NAME,
+						(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = GR.BUYER) AS COM_NAME_LOC,
+						MAX(AR.CUSTOMER_NAME) AS CUSTOMER_NAME,
+						SUM(GR.LOGIS_AMT) AS AR_BUYER_AMT,
+						MAX(ARLIST.AR_TAX_AMT) AS AR_TAX_AMT,
+						MAX(ARLIST.AR_AGENT_AMT) AS AR_AGENT_AMT,
+					 	MAX(DECODE(ARLIST.AR_AGENT_AMT,0,100,ROUND((ARLIST.AR_BUYER_AMT - ARLIST.AR_AGENT_AMT) / ARLIST.AR_BUYER_AMT) *100,2)) || '%'  AS AR_RATE,
+						MAX(ARLIST.CONFIRM_LEGACY_USER_ID) AS CONFIRM_LEGACY_USER_ID,
+						MAX(ARLIST.CONFIRM_USER_NAME) AS CONFIRM_USER_NAME,
+						MAX(TO_CHAR(ARLIST.ADD_DATE,'YY/MM/DD')) AS ADD_DATE,
+						MAX(ARLIST.ERP_SEND_YN) AS ERP_SEND_YN,
+						MAX(ARLIST.ERP_SEND_DATE) AS ERP_SEND_DATE,
+						DENSE_RANK() OVER (PARTITION BY  ARLIST.KEP_DEPT, ARLIST.TAX_BILL_NO ORDER BY ARLIST.KEP_DEPT, ARLIST.TAX_BILL_NO, AR.IRS_NO, GR.BUYER) AS RANK
+					FROM AR_CLOSE_CONFIRM_LIST ARLIST, ICOMGRDT GR, KEPTARDT AR					
+					WHERE 1=1
+					AND ARLIST.TAX_BILL_NO = GR.LOGIS_TAX_BILL_NO
+					AND GR.AP_CLOSE_DEPT = ARLIST.KEP_DEPT
+					AND GR.AR_TAX_BILL_NO = AR.TAX_BILL_NO
+					AND GR.AR_CLOSE_DEPT = AR.DEPT_CODE
+					AND GR.STATUS IN ('C','R')
+					AND GR.LOGIS_AMT != 0
+					AND AR.STATUS IN ('C','R')
+					AND ARLIST.AR_CLOSE_MONTH = #{st_from_date}
+					AND ARLIST.AR_TYPE = 'LG_A'		-- 물류비(자동)
+				]]>
+				<if test="st_user_dept_cd != null and st_user_dept_cd != ''">
+					<![CDATA[ 
+				    AND ARLIST.KEP_DEPT IN
+				    ]]>
+				    <foreach item="dept_cd" collection="st_user_dept_cd_all"
+							open="(" separator="," close=")">
+						 	#{dept_cd}
+						</foreach>				    
+				</if>						
+				<if test="st_buyer_code != null and st_buyer_code != '' ">
+				    AND GR.BUYER = #{st_buyer_code}
+				</if>
+				<if test="st_irs_no != null and st_irs_no != '' ">
+				    AND REPLACE(AR.IRS_NO, '-','') LIKE '%' || REPLACE(#{st_irs_no},'-','') || '%'
+				</if>
+				<if test="st_user_name != null and st_user_name != '' ">
+				    AND ARLIST.CONFIRM_USER_NAME LIKE '%' || #{st_user_name} || '%'
+				</if>				
+				<if test="st_erp_send_yn != null and st_erp_send_yn != 'ALL' ">
+				    AND ARLIST.ERP_SEND_YN = #{st_erp_send_yn}
+				</if>
+				<if test="st_tax_bill_no != null and st_tax_bill_no  != ''  ">
+				    AND ARLIST.TAX_BILL_NO = #{st_tax_bill_no}
+				</if>
+				
+				 GROUP BY AR.IRS_NO, GR.BUYER, GR.AGENT, ARLIST.TAX_BILL_NO,ARLIST.KEP_DEPT
+			</when>
+			<when test="st_ar_type != null and st_ar_type != '' and st_ar_type != 'LG_A' ">
+			<![CDATA[
+			SELECT 
+							MAX((SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE ='SR01' AND FLAG ='Y' AND CODE = SITE)) AS SITE,
+							TAX_BILL_NO AS TAX_BILL_NO,
+							BUYER_CODE AS BUYER_CODE,
+							MAX(AGENT_CODE) AS AGENT_CODE,
+							TAX_IRS_NO AS TAX_IRS_NO,
+							AR_TYPE AS AR_TYPE,
+							(SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE ='ARCL01' AND FLAG ='Y' AND CODE = AR_TYPE) AS AR_TYPE_TEXT,
+							MAX(AR_CLOSE_MONTH) AS AR_CLOSE_MONTH,
+							MAX(ISSUE_DATE) AS ISSUE_DATE,
+							MAX(BM_LEGACY_USER_ID) AS BM_LEGACY_USER_ID,
+							MAX(BM_USER_NAME) AS BM_USER_NAME,
+							MAX(PM_LEGACY_USER_ID) AS PM_LEGACY_USER_ID,
+							MAX(PM_USER_NAME) AS PM_USER_NAME,
+							KEP_DEPT AS KEP_DEPT,
+							MAX((SELECT TEXT1 FROM ICOMCOD2 WHERE TYPE = 'C001' AND COMPANY_CODE ='KRKORE0001' AND FLAG ='Y' AND CODE = KEP_DEPT)) AS KEP_DEPT_NAME,
+							MAX(COM_NAME_LOC) AS COM_NAME_LOC,
+							MAX(CUSTOMER_NAME) AS CUSTOMER_NAME,
+							SUM(AR_BUYER_AMT) AS AR_BUYER_AMT,
+							SUM(AR_TAX_AMT) AS AR_TAX_AMT,
+							SUM(AR_AGENT_AMT) AS AR_AGENT_AMT,							
+						 	DECODE(SUM(AR_AGENT_AMT),NULL,100,ROUND(((SUM(AR_BUYER_AMT - AR_AGENT_AMT)) / SUM(AR_BUYER_AMT)) *100,2)) || '%'  AS AR_RATE,
+							MAX(CONFIRM_LEGACY_USER_ID) AS CONFIRM_LEGACY_USER_ID,
+							MAX(CONFIRM_USER_NAME) AS CONFIRM_USER_NAME,
+							MAX(TO_CHAR(ADD_DATE,'YY/MM/DD')) AS ADD_DATE,							
+							MAX(ERP_SEND_YN) AS ERP_SEND_YN,
+							MAX(ERP_SEND_DATE) AS ERP_SEND_DATE,
+							1 AS RANK 
+					FROM AR_CLOSE_CONFIRM_LIST
+					WHERE 1=1
+					AND AR_CLOSE_MONTH = #{st_from_date}
+					AND AR_TYPE != 'LG_A'	
+				]]>
+				<if test="st_user_dept_cd != null and st_user_dept_cd != ''">
+					<![CDATA[ 
+				    AND KEP_DEPT IN
+				    ]]>
+				    <foreach item="dept_cd" collection="st_user_dept_cd_all"
+							open="(" separator="," close=")">
+						 	#{dept_cd}
+						</foreach>				    
+				</if>
+				<if test="st_ar_type != null and st_ar_type != ''">
+				    AND AR_TYPE = #{st_ar_type} 
+				</if>			
+				<if test="st_buyer_code != null and st_buyer_code != '' ">
+				    AND BUYER_CODE = #{st_buyer_code}
+				</if>
+				<if test="st_irs_no != null and st_irs_no != '' ">
+				    AND REPLACE(TAX_IRS_NO, '-','') LIKE '%' || REPLACE(#{st_irs_no},'-','') || '%'
+				</if>
+				<if test="st_user_name != null and st_user_name != '' ">
+				    AND CONFIRM_USER_NAME LIKE '%' || #{st_user_name} || '%'
+				</if>				
+				<if test="st_erp_send_yn != null and st_erp_send_yn != 'ALL' ">
+				    AND ERP_SEND_YN = #{st_erp_send_yn}
+				</if>
+				<if test="st_tax_bill_no != null and st_tax_bill_no  != ''  ">
+				    AND TAX_BILL_NO = #{st_tax_bill_no}
+				</if>
+				GROUP BY BUYER_CODE, TAX_BILL_NO, KEP_DEPT, TAX_IRS_NO, AR_TYPE
+			</when>
+			<otherwise>
+			<![CDATA[
+			SELECT
+						MAX((SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE ='SR01' AND FLAG ='Y' AND CODE = ARLIST.SITE)) AS SITE,
+						ARLIST.TAX_BILL_NO AS TAX_BILL_NO,
+						GR.BUYER AS BUYER_CODE,
+						GR.AGENT AS AGENT_CODE,
+						AR.IRS_NO AS TAX_IRS_NO,
+						MAX(ARLIST.AR_TYPE) AS AR_TYPE,
+						MAX((SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE ='ARCL01' AND FLAG ='Y' AND CODE = ARLIST.AR_TYPE)) AS AR_TYPE_TEXT,
+						MAX(ARLIST.AR_CLOSE_MONTH) AS AR_CLOSE_MONTH,
+						MAX(ARLIST.ISSUE_DATE) AS ISSUE_DATE,
+						(SELECT LEGACY_USER_ID FROM ICOMLUSR WHERE USER_ID =
+							(SELECT KEP_USER_ID FROM MIS_BUYER_MNG WHERE YEAR = TO_CHAR(SYSDATE, 'YYYY') AND STATUS = 'C' AND BUYER = GR.BUYER AND MAIN_CLERK = 'Y')) AS BM_LEGACY_USER_ID,
+						(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID =
+							(SELECT KEP_USER_ID FROM MIS_BUYER_MNG WHERE YEAR = TO_CHAR(SYSDATE, 'YYYY') AND STATUS = 'C' AND BUYER = GR.BUYER AND MAIN_CLERK = 'Y')) AS BM_USER_NAME,
+						(SELECT LEGACY_USER_ID FROM ICOMLUSR WHERE USER_ID =
+							(SELECT KEP_USER_ID FROM MIS_BUYER_MNG WHERE YEAR = TO_CHAR(SYSDATE, 'YYYY') AND STATUS = 'C' AND BUYER = GR.BUYER AND PRIORITY = 'Y')) AS PM_LEGACY_USER_ID,
+						(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID =
+							(SELECT KEP_USER_ID FROM MIS_BUYER_MNG WHERE YEAR = TO_CHAR(SYSDATE, 'YYYY') AND STATUS = 'C' AND BUYER = GR.BUYER AND PRIORITY = 'Y')) AS PM_USER_NAME,
+						ARLIST.KEP_DEPT AS KEP_DEPT,
+						(SELECT TEXT1 FROM ICOMCOD2 WHERE TYPE = 'C001' AND COMPANY_CODE ='KRKORE0001' AND FLAG ='Y' AND CODE = ARLIST.KEP_DEPT) AS KEP_DEPT_NAME,
+						(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = GR.BUYER) AS COM_NAME_LOC,
+						MAX(AR.CUSTOMER_NAME) AS CUSTOMER_NAME,
+						SUM(GR.LOGIS_AMT) AS AR_BUYER_AMT,
+						MAX(ARLIST.AR_TAX_AMT) AS AR_TAX_AMT,
+						MAX(ARLIST.AR_AGENT_AMT) AS AR_AGENT_AMT,
+					 	MAX(DECODE(ARLIST.AR_AGENT_AMT,0,100,ROUND((ARLIST.AR_BUYER_AMT - ARLIST.AR_AGENT_AMT) / ARLIST.AR_BUYER_AMT) *100,2)) || '%'  AS AR_RATE,
+						MAX(ARLIST.CONFIRM_LEGACY_USER_ID) AS CONFIRM_LEGACY_USER_ID,
+						MAX(ARLIST.CONFIRM_USER_NAME) AS CONFIRM_USER_NAME,
+						MAX(TO_CHAR(ARLIST.ADD_DATE,'YY/MM/DD')) AS ADD_DATE,
+						MAX(ARLIST.ERP_SEND_YN) AS ERP_SEND_YN,
+						MAX(ARLIST.ERP_SEND_DATE) AS ERP_SEND_DATE,
+						DENSE_RANK() OVER (PARTITION BY  ARLIST.KEP_DEPT, ARLIST.TAX_BILL_NO ORDER BY ARLIST.KEP_DEPT, ARLIST.TAX_BILL_NO, AR.IRS_NO, GR.BUYER) AS RANK
+					FROM AR_CLOSE_CONFIRM_LIST ARLIST, ICOMGRDT GR, KEPTARDT AR					
+					WHERE 1=1
+					AND ARLIST.TAX_BILL_NO = GR.LOGIS_TAX_BILL_NO
+					AND GR.AP_CLOSE_DEPT = ARLIST.KEP_DEPT
+					AND GR.AR_TAX_BILL_NO = AR.TAX_BILL_NO
+					AND GR.AR_CLOSE_DEPT = AR.DEPT_CODE
+					AND GR.STATUS IN ('C','R')
+					AND GR.LOGIS_AMT != 0
+					AND AR.STATUS IN ('C','R')
+					AND ARLIST.AR_CLOSE_MONTH = #{st_from_date}
+					AND ARLIST.AR_TYPE = 'LG_A'						
+					]]>
+					<if test="st_user_dept_cd != null and st_user_dept_cd != ''">
+						<![CDATA[ 
+					    AND ARLIST.KEP_DEPT IN
+					    ]]>
+				    	<foreach item="dept_cd" collection="st_user_dept_cd_all"
+							open="(" separator="," close=")">
+						 	#{dept_cd}
+						</foreach>				    
+					</if>			
+					<if test="st_buyer_code != null and st_buyer_code != '' ">
+					    AND GR.BUYER = #{st_buyer_code}
+					</if>
+					<if test="st_irs_no != null and st_irs_no != '' ">
+					    AND REPLACE(AR.IRS_NO, '-','') LIKE '%' || REPLACE(#{st_irs_no},'-','') || '%'
+					</if>
+					<if test="st_user_name != null and st_user_name != '' ">
+					    AND ARLIST.CONFIRM_USER_NAME LIKE '%' || #{st_user_name} || '%'
+					</if>					
+					<if test="st_erp_send_yn != null and st_erp_send_yn != 'ALL' ">
+					    AND ARLIST.ERP_SEND_YN = #{st_erp_send_yn}
+					</if>
+					<if test="st_tax_bill_no != null and st_tax_bill_no  != ''  ">
+				   		AND ARLIST.TAX_BILL_NO = #{st_tax_bill_no}
+					</if>
+					GROUP BY AR.IRS_NO, GR.BUYER, GR.AGENT, ARLIST.TAX_BILL_NO,ARLIST.KEP_DEPT
+					
+					<![CDATA[
+					UNION
+					SELECT 
+							MAX((SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE ='SR01' AND FLAG ='Y' AND CODE = SITE)) AS SITE,
+							TAX_BILL_NO AS TAX_BILL_NO,
+							BUYER_CODE AS BUYER_CODE,
+							MAX(AGENT_CODE) AS AGENT_CODE,
+							TAX_IRS_NO AS TAX_IRS_NO,
+							AR_TYPE AS AR_TYPE,
+							(SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE ='ARCL01' AND FLAG ='Y' AND CODE = AR_TYPE) AS AR_TYPE_TEXT,
+							MAX(AR_CLOSE_MONTH) AS AR_CLOSE_MONTH,
+							MAX(ISSUE_DATE) AS ISSUE_DATE,
+							MAX(BM_LEGACY_USER_ID) AS BM_LEGACY_USER_ID,
+							MAX(BM_USER_NAME) AS BM_USER_NAME,
+							MAX(PM_LEGACY_USER_ID) AS PM_LEGACY_USER_ID,
+							MAX(PM_USER_NAME) AS PM_USER_NAME,
+							KEP_DEPT AS KEP_DEPT,
+							MAX((SELECT TEXT1 FROM ICOMCOD2 WHERE TYPE = 'C001' AND COMPANY_CODE ='KRKORE0001' AND FLAG ='Y' AND CODE = KEP_DEPT)) AS KEP_DEPT_NAME,
+							MAX(COM_NAME_LOC) AS COM_NAME_LOC,
+							MAX(CUSTOMER_NAME) AS CUSTOMER_NAME,
+							SUM(AR_BUYER_AMT) AS AR_BUYER_AMT,
+							SUM(AR_TAX_AMT) AS AR_TAX_AMT,
+							SUM(AR_AGENT_AMT) AS AR_AGENT_AMT,							
+						 	DECODE(SUM(AR_AGENT_AMT),NULL,100,ROUND(((SUM(AR_BUYER_AMT - AR_AGENT_AMT)) / SUM(AR_BUYER_AMT)) *100,2)) || '%'  AS AR_RATE,
+							MAX(CONFIRM_LEGACY_USER_ID) AS CONFIRM_LEGACY_USER_ID,
+							MAX(CONFIRM_USER_NAME) AS CONFIRM_USER_NAME,
+							MAX(TO_CHAR(ADD_DATE,'YY/MM/DD')) AS ADD_DATE,						
+							MAX(ERP_SEND_YN) AS ERP_SEND_YN,
+							MAX(ERP_SEND_DATE) AS ERP_SEND_DATE,
+							1 AS RANK 
+					FROM AR_CLOSE_CONFIRM_LIST
+					WHERE 1=1
+					AND AR_CLOSE_MONTH = #{st_from_date}
+					AND AR_TYPE != 'LG_A'
+				]]>
+				<if test="st_user_dept_cd != null and st_user_dept_cd != ''">
+						<![CDATA[ 
+					    AND KEP_DEPT IN
+					    ]]>
+				    	<foreach item="dept_cd" collection="st_user_dept_cd_all"
+							open="(" separator="," close=")">
+						 	#{dept_cd}
+						</foreach>				    
+					</if>
+				<if test="st_ar_type != null and st_ar_type != ''">
+				    AND AR_TYPE = #{st_ar_type} 
+				</if>			
+				<if test="st_buyer_code != null and st_buyer_code != '' ">
+				    AND BUYER_CODE = #{st_buyer_code}
+				</if>
+				<if test="st_irs_no != null and st_irs_no != '' ">
+				    AND REPLACE(TAX_IRS_NO, '-','') LIKE '%' || REPLACE(#{st_irs_no},'-','') || '%'
+				</if>
+				<if test="st_user_name != null and st_user_name != '' ">
+				    AND CONFIRM_USER_NAME LIKE '%' || #{st_user_name} || '%'
+				</if>				
+				<if test="st_erp_send_yn != null and st_erp_send_yn != 'ALL' ">
+				    AND ERP_SEND_YN = #{st_erp_send_yn}
+				</if>
+				<if test="st_tax_bill_no != null and st_tax_bill_no  != ''  ">
+				   		AND TAX_BILL_NO = #{st_tax_bill_no}
+				</if>
+				GROUP BY BUYER_CODE, TAX_BILL_NO, KEP_DEPT, TAX_IRS_NO, AR_TYPE
+					
+			</otherwise>
+			</choose>
+		) X
+			ORDER BY X.AR_TYPE,  X.TAX_BILL_NO, X.KEP_DEPT, X.CONFIRM_USER_NAME  								
+	</select>
+	
+	<select id="selectMasterCmClArCloseConfirmPopList" parameterType="java.util.Map" resultType="java.util.Map">
+	
+	/*selectMasterCmClArCloseConfirmPopList*/
+		<![CDATA[
+		SELECT	
+				X.KEP_DEPT_NAME,
+				X.KEP_USER_NAME,
+				X.BUYER_NAME,
+				DECODE(X.CLOSE_TYPE, 'AR', '매출', '물류비') AS CLOSE_TYPE,
+				X.CHANGE_DATE AS CHANGE_DATE 
+		FROM	(
+		
+					SELECT 
+							(SELECT TEXT1 FROM ICOMCOD2 WHERE TYPE = 'C001' AND COMPANY_CODE = 'KRKORE0001' AND CODE = A.KEP_DEPT) AS KEP_DEPT_NAME,
+							(SELECT MAX(USER_NAME_LOC) FROM ICOMLUSR LUSR WHERE LUSR.LEGACY_USER_ID = A.LEGACY_USER_ID) AS KEP_USER_NAME,
+							DECODE(A.KEP_DEPT, '114', (SELECT BIZNPLC_CLSS_NM FROM KEPMDCP02@KEPCON WHERE BIZNPLC_CLSS_NO = A.BUYER_CODE), -- 114 건설, 118 유통
+								DECODE(A.KEP_DEPT, '118', (SELECT BIZNPLC_CLSS_NM FROM KEPMDCP03@KEPCON WHERE BIZNPLC_CLSS_NO = A.BUYER_CODE),
+							 (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = A.BUYER_CODE))) AS BUYER_NAME,
+							 A.CLOSE_TYPE AS CLOSE_TYPE,
+							 TO_CHAR(A.CHANGE_DATE, 'YYYY/MM/DD HH24:MI') AS CHANGE_DATE 
+					FROM BILL_CLOSE_USER_LIST A
+					WHERE 1=1
+					AND A.BILL_CLOSE_MONTH = #{st_from_date}
+					AND A.CLOSE_TYPE = 'AR'							
+					AND A.CLOSE_CMPL_YN = 'N'
+					
+					UNION
+					
+					SELECT
+							(SELECT TEXT1 FROM ICOMCOD2 WHERE TYPE = 'C001' AND COMPANY_CODE = 'KRKORE0001' AND CODE = MNG.KEP_DEPT) AS KEP_DEPT_NAME,
+							(SELECT USER_NAME_LOC FROM ICOMLUSR LUSR WHERE LUSR.USER_ID = MNG.KEP_USER_ID) AS KEP_USER_NAME,
+							(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = GR.BUYER) AS BUYER_NAME,
+							'AR' AS CLOSE_TYPE,
+							NULL AS CHANGE_DATE							
+					FROM ICOMGRDT GR, MIS_BUYER_MNG MNG
+					WHERE 1=1
+					AND GR.BUYER = MNG.BUYER(+)
+					AND MNG.STATUS(+) = 'C'
+					AND MNG.PRIORITY(+) = 'Y'
+					AND MNG.YEAR(+) = TO_CHAR(TO_DATE(#{st_from_date},'YYYYMM'),'YYYY')
+					AND GR_DATE BETWEEN #{st_from_date} || '01' AND #{st_from_date} || '31'
+					AND GR.STATUS <> 'D'
+					AND GR.BUYER NOT IN('KRKORE0001','KRKEPB0004','KRTEST0035', 'KRTEST0033', 'KRHIUX0001')
+					AND GR.BUYER NOT IN( SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'W001'  AND TEXT4 = 'B'  AND FLAG= 'Y')
+					AND GR.AR_BILL_FLAG = 'N'
+					
+					UNION
+					
+					SELECT
+							(SELECT TEXT1 FROM ICOMCOD2 WHERE TYPE = 'C001' AND COMPANY_CODE = 'KRKORE0001' AND CODE = MNG.KEP_DEPT) AS KEP_DEPT_NAME,
+							'박지수' AS KEP_USER_NAME,
+							MAX((SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = GR.BUYER)) AS BUYER_NAME,
+							'LG' AS CLOSE_TYPE,
+							NULL AS CHANGE_DATE 
+					FROM ICOMGRDT GR, MIS_BUYER_MNG MNG
+					WHERE 1=1
+					AND GR.BUYER = MNG.BUYER(+)
+					AND MNG.STATUS(+) = 'C'
+					AND MNG.PRIORITY(+) = 'Y'
+					AND MNG.YEAR(+) = TO_CHAR(TO_DATE(#{st_from_date},'YYYYMM'),'YYYY')
+					AND GR_DATE BETWEEN  #{st_from_date} || '01' AND  #{st_from_date} || '31'
+					AND GR.STATUS <> 'D'
+					AND GR.BUYER NOT IN('KRKORE0001','KRKEPB0004','KRTEST0035', 'KRTEST0033', 'KRHIUX0001')
+					AND GR.BUYER NOT IN( SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'W001'  AND TEXT4 = 'B'  AND FLAG= 'Y')
+					AND NVL(GR.LOGIS_BILL_FLAG, 'N') = 'N'  
+					AND GR.PROCESS_TYPE IN('2','3')
+                    GROUP BY MNG.KEP_DEPT
+					
+					UNION
+
+					SELECT
+							(SELECT TEXT1 FROM ICOMCOD2 WHERE TYPE = 'C001' AND COMPANY_CODE = 'KRKORE0001' AND CODE = AR.DEPT_CODE) AS KEP_DEPT_NAME,
+							(SELECT USER_NAME_LOC FROM ICOMLUSR LUSR WHERE LUSR.USER_ID = AR.ADD_USER_ID) AS KEP_USER_NAME,
+							(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = AR.BUYER_CODE) AS BUYER_NAME,
+							'AR' AS CLOSE_TYPE,
+							NULL AS CHANGE_DATE 
+					FROM KEPTARDT AR
+					WHERE 1=1
+					AND AR_CLOSE_MONTH =  #{st_from_date}
+					AND STATUS <> 'D'
+					AND AR.AR_TYPE = '01'
+					AND CONFIRM_FLAG = 'N'
+
+					UNION
+
+					SELECT
+							(SELECT TEXT1 FROM ICOMCOD2 WHERE TYPE = 'C001' AND COMPANY_CODE = 'KRKORE0001' AND CODE = AR.DEPT_CODE) AS KEP_DEPT_NAME,
+							'박지수' AS KEP_USER_NAME,
+							MAX((SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = AR.BUYER_CODE)) AS BUYER_NAME,
+							'LG' AS CLOSE_TYPE,
+							NULL AS CHANGE_DATE 
+					FROM KEPTARDT AR
+					WHERE 1=1
+					AND AR_CLOSE_MONTH =  #{st_from_date}
+					AND STATUS <> 'D'
+					AND AR.AR_TYPE = '02'
+					AND CONFIRM_FLAG = 'N'
+                    GROUP BY AR.DEPT_CODE					
+										
+				) X
+				GROUP BY X.KEP_DEPT_NAME, X.KEP_USER_NAME, X.BUYER_NAME, X.CLOSE_TYPE, X.CHANGE_DATE
+				ORDER BY X.CLOSE_TYPE, X.KEP_DEPT_NAME, X.KEP_USER_NAME 				
+		]]>		
+												
+	</select>
+	<select id="selectMasterCmClArCloseConfirmPopList_v2" parameterType="java.util.Map" resultType="java.util.Map">
+	
+	/*selectMasterCmClArCloseConfirmPopList_v2*/
+		<![CDATA[
+		SELECT	
+				X.KEP_DEPT_NAME,
+				X.KEP_USER_NAME,
+				X.BUYER_NAME,
+				DECODE(X.CLOSE_TYPE, 'AR', '매출', '물류비') AS CLOSE_TYPE,
+				X.CHANGE_DATE AS CHANGE_DATE 
+		FROM	(
+		
+					SELECT 
+							(SELECT TEXT1 FROM ICOMCOD2 WHERE TYPE = 'C001' AND COMPANY_CODE = 'KRKORE0001' AND CODE = A.KEP_DEPT) AS KEP_DEPT_NAME,
+							(SELECT MAX(USER_NAME_LOC) FROM ICOMLUSR LUSR WHERE LUSR.LEGACY_USER_ID = A.LEGACY_USER_ID) AS KEP_USER_NAME,
+							DECODE(A.KEP_DEPT, '114', (SELECT BIZNPLC_CLSS_NM FROM KEPMDCP02@KEPCON WHERE BIZNPLC_CLSS_NO = A.BUYER_CODE), -- 114 건설, 118 유통
+								DECODE(A.KEP_DEPT, '118', (SELECT BIZNPLC_CLSS_NM FROM KEPMDCP03@KEPCON WHERE BIZNPLC_CLSS_NO = A.BUYER_CODE),
+							 (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = A.BUYER_CODE))) AS BUYER_NAME,
+							 A.CLOSE_TYPE AS CLOSE_TYPE,
+							 TO_CHAR(A.CHANGE_DATE, 'YYYY/MM/DD HH24:MI') AS CHANGE_DATE 
+					FROM BILL_CLOSE_USER_LIST A
+					WHERE 1=1
+					AND A.BILL_CLOSE_MONTH = #{st_from_date}
+					AND A.CLOSE_TYPE = 'AR'							
+					AND A.CLOSE_CMPL_YN = 'N'
+					
+					UNION
+					
+					SELECT
+							(SELECT TEXT1 FROM ICOMCOD2 WHERE TYPE = 'C001' AND COMPANY_CODE = 'KRKORE0001' AND CODE = MNG.KEP_DEPT) AS KEP_DEPT_NAME,
+							(SELECT USER_NAME_LOC FROM ICOMLUSR LUSR WHERE LUSR.USER_ID = MNG.KEP_USER_ID) AS KEP_USER_NAME,
+							(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = GR.BUYER) AS BUYER_NAME,
+							'AR' AS CLOSE_TYPE,
+							NULL AS CHANGE_DATE							
+					FROM ICOMGRDT GR, MIS_BUYER_MNG MNG
+					WHERE 1=1
+					AND GR.BUYER = MNG.BUYER(+)
+					AND MNG.STATUS(+) = 'C'
+					AND MNG.PRIORITY(+) = 'Y'
+					AND MNG.YEAR(+) = TO_CHAR(TO_DATE(#{st_from_date},'YYYYMM'),'YYYY')
+					AND GR_DATE BETWEEN #{st_from_date} || '01' AND #{st_from_date} || '31'
+					AND GR.STATUS <> 'D'
+					AND GR.BUYER NOT IN('KRKORE0001','KRKEPB0004','KRTEST0035', 'KRTEST0033', 'KRHIUX0001')
+					AND GR.BUYER NOT IN( SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'W001'  AND TEXT4 = 'B'  AND FLAG= 'Y')
+					AND GR.AR_BILL_FLAG = 'N'
+					
+					UNION
+					
+					SELECT
+							(SELECT TEXT1 FROM ICOMCOD2 WHERE TYPE = 'C001' AND COMPANY_CODE = 'KRKORE0001' AND CODE = MNG.KEP_DEPT) AS KEP_DEPT_NAME,
+							'박지수' AS KEP_USER_NAME,
+							MAX((SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = IV.BUYER)) AS BUYER_NAME,
+							'LG' AS CLOSE_TYPE,
+							NULL AS CHANGE_DATE 
+					FROM ICOMIVDT IV, MIS_BUYER_MNG MNG
+					WHERE 1=1
+					AND IV.BUYER = MNG.BUYER(+)
+					AND MNG.STATUS(+) = 'C'
+					AND MNG.PRIORITY(+) = 'Y'
+					AND MNG.YEAR(+) = TO_CHAR(TO_DATE(#{st_from_date},'YYYYMM'),'YYYY')
+					AND IV.DELIVERY_DATE BETWEEN  #{st_from_date} || '01' AND  #{st_from_date} || '31'
+					AND IV.STATUS <> 'D'
+					AND IV.BUYER NOT IN('KRKORE0001','KRKEPB0004','KRTEST0035', 'KRTEST0033', 'KRHIUX0001')
+					AND IV.BUYER NOT IN( SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'W001'  AND TEXT4 = 'B'  AND FLAG= 'Y')
+					AND NVL(IV.LOGIS_BILL_FLAG, 'N') = 'N'  
+					AND IV.PROCESS_TYPE IN('2','3')
+                    GROUP BY MNG.KEP_DEPT
+					
+					UNION
+
+					SELECT
+							(SELECT TEXT1 FROM ICOMCOD2 WHERE TYPE = 'C001' AND COMPANY_CODE = 'KRKORE0001' AND CODE = AR.DEPT_CODE) AS KEP_DEPT_NAME,
+							(SELECT USER_NAME_LOC FROM ICOMLUSR LUSR WHERE LUSR.USER_ID = AR.ADD_USER_ID) AS KEP_USER_NAME,
+							(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = AR.BUYER_CODE) AS BUYER_NAME,
+							'AR' AS CLOSE_TYPE,
+							NULL AS CHANGE_DATE 
+					FROM KEPTARDT AR
+					WHERE 1=1
+					AND AR_CLOSE_MONTH =  #{st_from_date}
+					AND STATUS <> 'D'
+					AND AR.AR_TYPE = '01'
+					AND CONFIRM_FLAG = 'N'
+
+					UNION
+
+					SELECT
+							(SELECT TEXT1 FROM ICOMCOD2 WHERE TYPE = 'C001' AND COMPANY_CODE = 'KRKORE0001' AND CODE = AR.DEPT_CODE) AS KEP_DEPT_NAME,
+							'박지수' AS KEP_USER_NAME,
+							MAX((SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = AR.BUYER_CODE)) AS BUYER_NAME,
+							'LG' AS CLOSE_TYPE,
+							NULL AS CHANGE_DATE 
+					FROM KEPTARDT AR
+					WHERE 1=1
+					AND AR_CLOSE_MONTH =  #{st_from_date}
+					AND STATUS <> 'D'
+					AND AR.AR_TYPE = '02'
+					AND CONFIRM_FLAG = 'N'
+                    GROUP BY AR.DEPT_CODE					
+										
+				) X
+				GROUP BY X.KEP_DEPT_NAME, X.KEP_USER_NAME, X.BUYER_NAME, X.CLOSE_TYPE, X.CHANGE_DATE
+				ORDER BY X.CLOSE_TYPE, X.KEP_DEPT_NAME, X.KEP_USER_NAME 				
+		]]>		
+												
+	</select>
+	<update id="updateMasterCmClArCloseConfirm_delete"  parameterType="java.util.Map">
+		/*updateMasterCmClArCloseConfirm_delete*/
+		<![CDATA[
+			DELETE 
+			    AR_CLOSE_CONFIRM_LIST			
+			WHERE 1=1
+			AND TAX_BILL_NO = #{TAX_BILL_NO}
+		]]>
+	</update>	
+	<update id="updateMasterCmClArCloseConfirm_cancle"  parameterType="java.util.Map">
+		/*updateMasterCmClArCloseConfirm_cancle*/
+		<![CDATA[
+			UPDATE 
+		    	BILL_CLOSE_USER_LIST
+		    	SET CLOSE_CMPL_YN = 'N'
+				WHERE 1=1
+				AND BILL_CLOSE_MONTH = #{AR_CLOSE_MONTH}
+				AND LEGACY_USER_ID = #{CONFIRM_LEGACY_USER_ID}
+				AND BUYER_CODE = #{BUYER_CODE}						
+				AND CLOSE_TYPE = DECODE(#{AR_TYPE}, 'AR','AR','LG')
+				AND CLOSE_CMPL_YN = 'Y'
+		]]>
+			<if test="AR_TYPE != null and AR_TYPE != 'AR' ">			
+	    		AND AGENT_CODE = #{AGENT_CODE}
+			</if>
+	</update>
+	<update id="updateMasterCmClArCloseConfirm_confirm"  parameterType="java.util.Map">
+		/*updateMasterCmClArCloseConfirm_confirm*/
+		<![CDATA[
+			UPDATE AR_CLOSE_CONFIRM_LIST
+			SET 
+			    AR_CLOSE_CONFIRM_YN    = 'Y'
+			  , AR_CLOSE_CONFIRM_DATE  = SYSDATE
+			WHERE 1=1
+			AND AR_CLOSE_MONTH = #{AR_CLOSE_MONTH}
+			AND BUYER_CODE = #{BUYER_CODE}
+			AND KEP_DEPT     = #{KEP_DEPT}		
+			AND AR_TYPE = #{AR_TYPE}			
+			]]>
+			<if test="AR_TYPE != null and AR_TYPE == 'AR' ">
+				    AND TAX_IRS_NO = #{TAX_IRS_NO}
+			</if> 
+	
+	</update>
+	
+	<update id="updateMasterCmClArCloseConfirm_send"  parameterType="java.util.Map">
+		/*updateMasterCmClArCloseConfirm_send*/
+		<![CDATA[
+			UPDATE AR_CLOSE_CONFIRM_LIST
+			SET 
+			    ERP_SEND_YN    = 'Y'
+			  , ERP_SEND_DATE  = SYSDATE
+			WHERE 1=1
+			AND TAX_BILL_NO = #{TAX_BILL_NO}
+		]]>		
+	</update>
+	<update id="updateMasterCmClArCloseConfirmFlag_mro"  parameterType="java.util.Map">
+		/*updateMasterCmClArCloseConfirmFlag_mro*/
+		<![CDATA[
+			UPDATE KEPTARDT
+			SET 
+			    CONFIRM_FLAG    = 'N'
+			  , CHANGE_USER_ID  = #{st_user_id}
+			  , CHANGE_DATE     = TO_CHAR(SYSDATE, 'YYYYMMDD')
+			  , CHANGE_TIME     = TO_CHAR(SYSDATE, 'HH24MISS')
+			WHERE 1=1
+			AND SITE IN ('KA', 'KK')
+			AND STATUS <> 'D'
+			AND TAX_BILL_NO = #{TAX_BILL_NO}
+		]]>			
+	</update>
+	<update id="updateMasterCmClArCloseConfirmFlag_kway"  parameterType="java.util.Map">
+		/*updateMasterCmClArCloseConfirmFlag_kway*/
+		<![CDATA[
+			UPDATE KEPCMCL01@KEPCON
+			SET 
+			    SND_CHK = 'N'
+			WHERE 1=1
+			AND ALANC_CLSS_CD = 'C003' -- 유통
+			AND USE_CHK = 'Y'
+			AND SLS_TAX_BILL_NO = #{TAX_BILL_NO}
+		]]>  	 		
+	</update>
+	<update id="updateMasterCmClArCloseConfirmFlag_sa"  parameterType="java.util.Map">
+		/*updateMasterCmClArCloseConfirmFlag_sa*/
+		<![CDATA[
+			UPDATE KEPCMCL01@KEPCON
+			SET 
+			    SND_CHK = 'N'
+			WHERE 1=1
+			AND ALANC_CLSS_CD = 'C002' -- 건설
+			AND USE_CHK = 'Y'
+			AND SLS_TAX_BILL_NO = #{TAX_BILL_NO}
+		]]> 		
+	</update>
+	
+	<update id="updateMasterCmClArCloseErpSendFlag_mro"  parameterType="java.util.Map">
+		/*updateMasterCmClArCloseErpSendFlag_mro*/
+		<![CDATA[
+			UPDATE KEPTARDT
+			SET 
+			    CHANGE_USER_ID  = #{st_user_id}
+			  , SEND_USER_ID   = #{st_user_id}
+			  , CHANGE_DATE     = TO_CHAR(SYSDATE, 'YYYYMMDD')
+			  , CHANGE_TIME     = TO_CHAR(SYSDATE, 'HH24MISS')
+			  , SEND_DATE     = TO_CHAR(SYSDATE, 'YYYYMMDD')
+			  , SEND_TIME     = TO_CHAR(SYSDATE, 'HH24MISS')
+			  , IF_SEND_FLAG	= 'N'
+			WHERE 1=1
+			AND STATUS <> 'D'					
+			AND SITE IN ('KA', 'KK')
+			AND TAX_BILL_NO = #{TAX_BILL_NO}
+		]]>
+	</update>
+	
+	<update id="updateMasterCmClArCloseErpSendFlag_kway"  parameterType="java.util.Map">
+		/*updateMasterCmClArCloseErpSendFlag_kway*/
+		<![CDATA[
+			UPDATE
+			KEPCMCL01@KEPCON
+			SET 
+			    ERP_SND_STATE_CD = 'T' 
+			WHERE 1=1
+			AND ALANC_CLSS_CD = 'C003' -- 유통
+			AND USE_CHK = 'Y'
+			AND SLS_TAX_BILL_NO = #{TAX_BILL_NO}
+		]]>
+	</update>	
+	
+	<update id="updateMasterCmClArCloseErpSendFlag_sa"  parameterType="java.util.Map">
+		/*updateMasterCmClArCloseErpSendFlag_sa*/
+		<![CDATA[
+			UPDATE
+			KEPCMCL01@KEPCON
+			SET 
+			    ERP_SND_STATE_CD = 'T' 
+			WHERE 1=1
+			AND ALANC_CLSS_CD = 'C002' -- 건설
+			AND USE_CHK = 'Y'
+			AND SLS_TAX_BILL_NO = #{TAX_BILL_NO}					
+		]]>
+	</update>
+	
+	<update id="updateMasterCmClArCloseConfirm_submit"  parameterType="java.util.Map">
+		/*updateMasterCmClArCloseConfirm_submit*/
+		<![CDATA[
+			UPDATE
+			BILL_CLOSE_USER_LIST
+			SET
+				CLOSE_CMPL_YN = 'N',
+				CHANGE_DATE = SYSDATE
+			WHERE 1=1
+			AND LEGACY_USER_ID = #{CONFIRM_LEGACY_USER_ID}
+			AND CLOSE_TYPE = DECODE(#{AR_TYPE}, 'AR','AR','LG')
+			AND BILL_CLOSE_MONTH = #{AR_CLOSE_MONTH}
+			AND BUYER_CODE = #{BUYER_CODE}
+		]]>
+		<if test="AR_TYPE != null and AR_TYPE != 'AR' ">
+		    AND AGENT_CODE = #{AGENT_CODE}
+		</if>
+	</update>
+	
+</mapper>   
+   

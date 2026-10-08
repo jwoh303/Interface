@@ -1,0 +1,214 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="common.mdcm">
+
+
+	<select id="selectMasterMdCmPromotionMarketCategorySelPopList" parameterType="java.util.Map" resultType="java.util.Map">
+		<if test='param2=="1"'>
+			<![CDATA[
+				/*selectMasterMdCmPromotionMarketCategorySelPopList*/
+				SELECT
+					  A.STD_CATEG_ID
+					, A.CATEG_NAME
+					, A.CATEG_TYPE
+					, A.CATEG_PATH
+					, (SELECT COUNT(*) FROM PRMTITEM WHERE CATEGORY_NO = A.STD_CATEG_ID) AS CNT
+				FROM ICOMBYCA A
+				WHERE
+						A.COM_CODE = 'PRMTITEM'
+					AND A.DEPTH = 1
+				ORDER BY A.CATEG_SYS_CODE
+			]]>
+		</if>
+		<if test='param2=="2"'>
+			<![CDATA[
+				/*selectMasterMdCmPromotionMarketCategorySelPopList*/
+				SELECT
+					A.STD_CATEG_ID,
+					A.CATEG_NAME,
+					A.CATEG_TYPE,
+					A.CATEG_PATH,
+					(SELECT COUNT(*) FROM PRMTITEM WHERE CATEGORY_NO = A.STD_CATEG_ID) AS CNT
+				FROM ICOMBYCA A
+				WHERE 
+						A.COM_CODE = 'PRMTITEM'
+					AND A.DEPTH = 2
+					AND A.PID = #{param3}
+				ORDER BY A.CATEG_SYS_CODE
+			]]>
+		</if>
+	</select>
+
+	<select id="selectCategorySelPop" parameterType="java.util.Map" resultType="java.util.Map">
+		<if test='param2=="1"'>
+			<![CDATA[
+				/*selectCategorySelPop*/
+				SELECT
+					B.STD_CATEG_ID,
+					B.CATEG_NAME,
+					B.CATEG_TYPE,
+					B.CATEG_PATH,
+					(SELECT COUNT(*) FROM PRMTITEM WHERE CATEGORY_NO = B.STD_CATEG_ID) AS CNT
+				FROM ICOMBYCA A, ICOMBYCA B
+				WHERE
+						A.COM_CODE = 'PRMTITEM'
+					AND A.COM_CODE = B.COM_CODE 
+					AND B.DEPTH = 1 
+					AND SUBSTR(A.CATEG_SYS_CODE,0,8) = B.CATEG_SYS_CODE
+			]]>
+			<if test="param3 != null and param3 != ''">
+				<![CDATA[
+					AND A.CATEG_NAME LIKE '%'|| #{param3} ||'%'
+				]]>
+			</if>
+			<![CDATA[
+				ORDER BY B.CATEG_SYS_CODE
+			]]>
+		</if>
+		<if test='param2=="2"'>
+			<![CDATA[
+				/*selectCategorySelPop*/
+				SELECT
+					B.STD_CATEG_ID,
+					B.CATEG_NAME,
+					B.CATEG_TYPE,
+					B.CATEG_PATH,
+					(SELECT COUNT(*) FROM PRMTITEM WHERE CATEGORY_NO = B.STD_CATEG_ID) AS CNT
+				FROM ICOMBYCA A, ICOMBYCA B
+				WHERE 
+						A.COM_CODE = 'PRMTITEM'
+					AND A.COM_CODE = B.COM_CODE
+					AND B.DEPTH = 2 
+					AND A.STD_CATEG_ID = B.STD_CATEG_ID
+			]]>
+			<if test="param3 != null and param3 != ''">
+				<![CDATA[
+					AND A.CATEG_NAME LIKE '%'|| #{param3} ||'%'
+				]]>
+			</if>
+			<![CDATA[
+				ORDER BY B.CATEG_SYS_CODE
+			]]>
+		</if>
+	</select>
+	
+	<select id="selectSgInfo" parameterType="java.util.Map" resultType="java.util.Map">
+			<![CDATA[
+				/*selectSgInfo*/
+				SELECT DECODE(COUNT(CODE1), 0,'N','Y') DATA_YN
+				FROM ICOMCOD3
+				WHERE BUYER = #{param1}
+				AND TYPE = #{param2}
+				AND CODE1 = #{param3}
+				AND CODE2 = #{param4}
+			]]>
+	</select>
+	<select id="selectCategInfo" parameterType="java.util.Map" resultType="java.util.Map">
+			<![CDATA[
+				/*selectCategInfo*/
+				SELECT DECODE(COUNT(CODE2), 0,'N','Y') CATE_DATA_YN
+				FROM ICOMCOD3
+				WHERE BUYER = #{param1}
+				AND TYPE = #{param2}
+				AND CODE2 = #{param3}
+				AND FLAG = 'Y'
+			]]>
+	</select>
+	<select id="selectBuyerSgInfo" parameterType="java.util.Map" resultType="java.util.Map">
+			<![CDATA[
+				/*selectBuyerSgInfo*/
+				SELECT DECODE(COUNT(CODE2), 0,'N','Y') CATE_DATA_YN
+				FROM ICOMCOD3
+				WHERE BUYER = #{param1}
+				AND TYPE = #{param2}
+				AND CODE1 = #{param3}
+				AND FLAG = 'Y'
+			]]>
+	</select>
+	<select id="selectNewUserInfo" parameterType="java.util.Map" resultType="java.util.Map">
+			<![CDATA[
+				/*selectNewUserInfo*/
+					SELECT
+					 MAX((SELECT B.USER_NAME_LOC 
+					 	FROM ICOMLUSR B 
+					 	WHERE B.USER_ID=A.USER_ID)||'('||A.USER_ID||')') AS USER_ID
+					FROM ICOMLUSR A
+					WHERE A.COM_CODE  = #{param1}
+					AND A.REG_DATE < '20151231'
+					AND A.USER_ID IN (
+						SELECT  CODE
+						FROM
+						(
+							      SELECT
+						      	  'REGT',
+							      REGEXP_SUBSTR(
+							        (SELECT #{param2}
+							        FROM DUAL
+							        ),'[^'
+							        ||','
+							        ||']+',1,LEVEL) AS CODE
+					      FROM DUAL
+					        CONNECT BY REGEXP_SUBSTR(
+					        (SELECT  #{param2}
+					        FROM DUAL
+					        ),'[^'
+					        ||','
+					        ||']+',1,LEVEL) IS NOT NULL
+					      ) X
+					)
+			]]>
+	</select>
+	<select id="selectOrderUserInfo" parameterType="java.util.Map" resultType="java.util.Map">
+			<![CDATA[
+				/*selectOrderUserInfo*/
+				SELECT
+				 MAX((SELECT B.USER_NAME_LOC 
+				 	FROM ICOMLUSR B 
+				 	WHERE B.USER_ID=A.CODE)||'('||A.CODE||')') AS USER_ID
+				FROM ICOMCOD2 A
+				WHERE A.COMPANY_CODE  =#{param1}
+				AND A.TYPE = 'REGT'
+				AND A.CODE IN (
+					SELECT  CODE
+					FROM
+					(
+						      SELECT
+					      	  'REGT',
+						      REGEXP_SUBSTR(
+						        (SELECT  #{param2}
+						        FROM DUAL
+						        ),'[^'
+						        ||','
+						        ||']+',1,LEVEL) AS CODE
+				      FROM DUAL
+				        CONNECT BY REGEXP_SUBSTR(
+				        (SELECT  #{param2}
+				        FROM DUAL
+				        ),'[^'
+				        ||','
+				        ||']+',1,LEVEL) IS NOT NULL
+				      ) X
+				)
+			]]>
+	</select>
+	<select id="selectSmartSgInfo" parameterType="java.util.Map" resultType="java.util.Map">
+			<![CDATA[
+				/*selectSmartSgInfo*/
+				SELECT CODE1||'='||CODE2||','||TEXT1 AS CODE
+				FROM ICOMCOD3
+				WHERE BUYER = #{param1}
+				AND TYPE = #{param2}				
+			]]>
+	</select>
+	
+	<select id="selectSmartSgIdInfo" parameterType="java.util.Map" resultType="java.util.Map">
+			<![CDATA[
+				/*selectSmartSgIdInfo*/
+				SELECT CODE2 FROM ICOMCOD3				
+				WHERE BUYER = #{param1}
+				AND TYPE = #{param2}
+				GROUP BY CODE2				
+			]]>
+	</select>
+	
+</mapper>

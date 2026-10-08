@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="common.wmgr">
+
+
+	<select id="selectMasterWmGrWarehousingNoPopList_1" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*selectMasterWmGrWarehousingNoPopList_1*/
+			SELECT										        
+            (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = H.BUYER) AS BUYER_NAME, --[00]
+            DECODE(H.DOC_TYPE,'S','(선입고)','') DOC_TEXT,                     --[01]
+            (SELECT C2.TEXT1 FROM ICOMCOD2 C2 WHERE C2.TYPE = 'C001'           
+                   AND C2.COMPANY_CODE = H.BUYER                               
+                   AND C2.CODE = R.PURCHASER_DEPT) AS PO_DEPT_NAME,            --[02]
+            (SELECT C2.TEXT1 FROM ICOMCOD2 C2 WHERE C2.TYPE = 'C001'           
+                   AND C2.COMPANY_CODE = H.BUYER                               
+                   AND C2.CODE = R.REQ_DEPT) AS REQ_DEPT_NAME,                 --[03]
+            H.PO_NO AS PO_NO,                                                  --[04]
+            H.PURCHASER_NAME AS PO_USER_NAME,                                  --[05]
+            (SELECT L.USER_NAME_LOC FROM ICOMLUSR L WHERE L.COM_CODE = H.BUYER 
+                    AND L.USER_ID = R.REQ_USER_ID) AS REQ_USER_NAME,           --[06]
+            H.PO_CREATE_DATE,                                                  --[07]
+            H.AGENT_PO_TTL_AMT AS AGENT_AMT,                                   --[08]
+            H.PO_TTL_AMT AS PO_AMT,                                            --[09]
+            H.DELY_TO_LOCATION AS DELY,                                        --[10]
+            H.PO_REMARK AS REMARK,                                             --[11]
+            H.DOC_TYPE,                                                        --[12]
+            H.BUYER,                                                           --[13]
+            R.PURCHASER_DEPT,                                                  --[14]
+            R.REQ_DEPT,                                                        --[15]
+            H.PURCHASER_ID,                                                    --[16]
+            R.REQ_USER_ID,                                                     --[17]
+            DECODE(D.PROCESS_TYPE,'0','직납','1','재고','2','T/R','3','VMI') AS 납품유형,   --[18]
+            D.RD_DATE,   --[19]
+            D.PO_SEQ,   --[20]
+            (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = H.AGENT) AS AGENT_NAME   --[21]
+        
+            , V.PARCEL_COM_CODE     PARCEL_COM_CODE  --택배회사 코드
+            , C.COM_NAME                PARCEL_COM_NAME  --택배회사 명
+            , V.PARCEL_INV_NO          PARCEL_INV_NO        --택배송장 번호      
+            , REPLACE(C.INV_NO_URL,'param', V.PARCEL_INV_NO) REAL_INV_NO_URL -- 택배사_매핑 경로
+
+             FROM ICOMPOHD H, ICOMPODT D, ICOMPRDT R  
+                , (  
+                   SELECT DECODE(Z.PROCESS_TYPE, '2', W.DELIVERY_COMPANY
+                                                    , Y.PARCEL_COM_CODE )  PARCEL_COM_CODE
+                        , DECODE(Z.PROCESS_TYPE, '2', W.DELIVERY_NO
+                                                    , Y.PARCEL_INV_NO   )  PARCEL_INV_NO
+                        , X.BUYER
+                        , X.PO_NO
+                        , X.PO_SEQ
+                     FROM ICOMIVDT X
+                        , ICOMIVHD Y
+                        , ICOMPOHD Z
+                        , WMSIVDT  W
+                    WHERE 1=1
+                      AND X.BUYER = Y.BUYER
+                      AND X.INV_NO= Y.INV_NO
+                      AND X.BUYER = Z.BUYER
+                      AND X.PO_NO = Z.PO_NO
+                      AND X.BUYER = W.BUYER(+)  
+                      AND X.INV_NO= W.S_INV_NO(+)  
+                      AND X.INV_SEQ= W.S_INV_SEQ(+)
+                      AND X.BUYER = #{st_buyer}
+                      AND X.PO_NO = #{st_po_no}
+                      AND X.PO_SEQ= #{st_po_seq}
+                      AND X.STATUS <> 'D'
+                      AND Y.STATUS <> 'D'
+                      AND NVL(W.STATUS, '-') <> 'D'  
+                      AND ROWNUM = 1
+                    ) V
+                , (SELECT CODE    COM_CODE
+                        , TEXT2   COM_NAME
+                        , TEXT5   INV_NO_URL
+                     FROM ICOMCOD1
+                    WHERE TYPE = 'C019'
+                  ) C
+            WHERE D.BUYER = #{st_buyer}
+              AND D.PO_NO = #{st_po_no}
+              AND D.PO_SEQ = #{st_po_seq}
+              AND H.BUYER = D.BUYER 
+              AND H.PO_NO = D.PO_NO 
+              AND D.BUYER = R.BUYER 
+              AND D.PR_NO = R.PR_NO 
+              AND D.PR_SEQ = R.PR_SEQ
+              
+              AND D.BUYER = V.BUYER(+)
+              AND D.PO_NO = V.PO_NO(+)
+              AND D.PO_SEQ = V.PO_SEQ(+)
+              AND V.PARCEL_COM_CODE = C.COM_CODE(+) 
+               
+              AND H.STATUS <> 'D' 
+              AND D.STATUS <> 'D' 
+              AND R.STATUS <> 'D' 
+		]]>
+		
+	</select>
+
+	<select id="selectMasterWmGrWarehousingNoPopList_2" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*selectMasterWmGrWarehousingNoPopList_2*/
+			SELECT										        
+            D.REF_PR_NO,                                   --[00]
+            D.DESCRIPTION,                                 --[01]
+            D.MAKER_NAME,                                  --[02]
+            P.ITEM_QTY,                                    --[03]
+            P.UNIT_MEASURE,                                --[04]
+            D.UNIT_PRICE,                                  --[05]
+            D.DS_DATE,                                     --[06]
+            D.BUYER_ITEM_NO,                               --[07]
+            D.SPECIFICATION,                               --[08]
+            D.INV_QTY,                                     --[09]
+            NVL(D.INV_QTY,0) * D.UNIT_PRICE AS AGENT_SUM,  --[10]
+            D.INVOICE_DATE                                 --[11]
+              FROM ICOMIVDT D, ICOMPODT P  
+             WHERE D.BUYER = #{st_buyer}
+               AND D.PO_NO = #{st_po_no}
+               AND D.PO_SEQ = #{st_po_seq}
+               AND D.BUYER = P.BUYER  
+               AND D.PO_NO = P.PO_NO  
+               AND D.PO_SEQ = P.PO_SEQ  
+               AND D.STATUS <> 'D'  
+               AND P.STATUS <> 'D'  
+             ORDER BY D.INV_NO, D.INV_SEQ  
+		]]>
+		
+	</select>
+	
+	
+									
+</mapper>

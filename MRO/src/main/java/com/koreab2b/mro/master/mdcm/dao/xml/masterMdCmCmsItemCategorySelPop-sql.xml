@@ -1,0 +1,291 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mdcm">
+
+	<!-- 상품정보 카테고리 선택 팝업 - 카테고리 드릴다운/초기 조회 (mprq common.mprq.selectMasterMpRqKepStndrdCategorySelPopList 복제) -->
+	<select id="selectMasterMdCmCmsItemCategorySelPopList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*selectMasterMdCmCmsItemCategorySelPopList*/
+			SELECT
+			       A.CMS_CATEG_ID,
+			       A.CATEG_NAME,
+			       A.CATEG_TYPE,
+			       DECODE((SELECT COUNT(*) FROM CMSCATTR T
+			                WHERE T.CMS_CATEG_ID = A.CMS_CATEG_ID),
+			               0,'N','Y') AS MASTER_CHECK,
+			       DECODE(A.CATEG_TYPE,'REG','0',
+			                   (SELECT COUNT(DISTINCT X.CMS_CATLG_ID) FROM CMSCATLG X
+			                     WHERE X.CMS_CATEG_ID = A.CMS_CATEG_ID)) AS CNT,
+			       A.CATEG_PATH,
+			       NVL(A.DESCRIPT,' ') AS DESCRIPT
+		]]>
+		<if test='param2=="4"'>
+			<![CDATA[
+			       , A.SG_ID
+       			   , (SELECT X.SG_NAME FROM KEPSGMG X WHERE X.SG_ID = A.SG_ID AND ROWNUM =1) AS SG_NAME
+			]]>
+		</if>
+		<![CDATA[
+			  FROM CMSCATEG A
+			 WHERE A.DEPTH = #{param2}
+				 AND A.STATUS <> 'D'
+		]]>
+
+		<!-- 상위 카테고리 하위 조회 -->
+		<if test="param3 != null and param3 != ''">
+			<![CDATA[
+					AND A.PID = #{param3}
+			]]>
+		</if>
+		<if test="st_sour_sg_id != null and st_sour_sg_id != ''">
+			<if test='param2=="1"'>
+				<![CDATA[
+					AND A.CATEG_SYS_ID IN (
+							SELECT SUBSTR(B.CATEG_SYS_ID,0,8) FROM CMSCATEG B
+								WHERE B.CATEG_TYPE ='ITM'
+								AND B.SG_ID = #{st_sour_sg_id}
+								AND B.STATUS != 'D'
+						)
+				]]>
+			</if>
+			<if test='param2=="2"'>
+				<![CDATA[
+					AND A.CATEG_SYS_ID IN (
+							SELECT SUBSTR(B.CATEG_SYS_ID,0,12) FROM CMSCATEG B
+								WHERE B.CATEG_TYPE ='ITM'
+								AND B.SG_ID = #{st_sour_sg_id}
+								AND B.STATUS != 'D'
+						)
+				]]>
+			</if>
+			<if test='param2=="3"'>
+				<![CDATA[
+					AND A.CATEG_SYS_ID IN (
+							SELECT SUBSTR(B.CATEG_SYS_ID,0,16) FROM CMSCATEG B
+								WHERE B.CATEG_TYPE ='ITM'
+								AND B.SG_ID = #{st_sour_sg_id}
+								AND B.STATUS != 'D'
+						)
+				]]>
+			</if>
+			<if test='param2=="4"'>
+				<![CDATA[
+					AND A.CATEG_SYS_ID IN (
+							SELECT B.CATEG_SYS_ID FROM CMSCATEG B
+								WHERE B.CATEG_TYPE ='ITM'
+								AND B.SG_ID = #{st_sour_sg_id}
+								AND B.STATUS != 'D'
+						)
+				]]>
+			</if>
+		</if>
+		<![CDATA[
+			ORDER BY A.CATEG_SYS_ID
+		]]>
+	</select>
+
+	<!-- 상품정보 카테고리 선택 팝업 - 검색어 조회 (mprq common.mprq.selectCategorySelPop 복제) -->
+	<select id="selectMasterMdCmCmsItemCategorySelPopSearchList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*selectMasterMdCmCmsItemCategorySelPopSearchList*/
+			SELECT
+		          DISTINCT
+		          B.CMS_CATEG_ID,
+		          B.CATEG_NAME,
+		          B.CATEG_TYPE,
+		          DECODE((SELECT COUNT(*) FROM CMSCATTR T
+		                   WHERE T.CMS_CATEG_ID = B.CMS_CATEG_ID),
+		                  0,'N','Y') AS MASTER_CHECK,
+		          DECODE(B.CATEG_TYPE,'REG','0',
+		                      (SELECT COUNT(DISTINCT X.CMS_CATLG_ID) FROM CMSCATLG X
+		                        WHERE X.CMS_CATEG_ID = B.CMS_CATEG_ID)) AS CNT,
+		          B.CATEG_PATH,
+		          B.CATEG_SYS_ID
+			]]>
+			<if test='param2=="4"'>
+				<![CDATA[
+				       , B.SG_ID
+	       			   , (SELECT X.SG_NAME FROM KEPSGMG X WHERE X.SG_ID = B.SG_ID AND ROWNUM =1) AS SG_NAME
+				]]>
+			</if>
+			<![CDATA[
+		     FROM CMSCATEG A, CMSCATEG B
+		    WHERE B.DEPTH = #{param2}
+			]]>
+			<if test='param2=="1"'>
+				<![CDATA[
+				       AND SUBSTR(A.CATEG_SYS_ID,0,8) = B.CATEG_SYS_ID
+				]]>
+			</if>
+			<if test='param2=="2"'>
+				<![CDATA[
+				       AND SUBSTR(A.CATEG_SYS_ID,0,12) = B.CATEG_SYS_ID
+				]]>
+			</if>
+			<if test='param2=="3"'>
+				<![CDATA[
+				       AND SUBSTR(A.CATEG_SYS_ID,0,16) = B.CATEG_SYS_ID
+				]]>
+			</if>
+			<if test='param2=="4"'>
+				<![CDATA[
+				       AND A.CATEG_SYS_ID = B.CATEG_SYS_ID
+				]]>
+			</if>
+			<if test="param3 != null and param3 != ''">
+				<![CDATA[
+				       AND A.CATEG_NAME LIKE '%' || #{param3} || '%'
+				]]>
+			</if>
+			<if test='st_sour_dept_yn == "Y"' >
+				<if test='param2=="1"'>
+					<![CDATA[
+						AND A.CATEG_SYS_ID IN (
+								SELECT SUBSTR(B.CATEG_SYS_ID,0,8) FROM CMSCATEG B
+									WHERE B.CATEG_TYPE ='ITM'
+									AND B.SG_ID IN (
+										SELECT C.CODE1 FROM ICOMCOD3 C
+										WHERE C.BUYER ='KRKORE0001'
+										AND C.TYPE ='CMSM'
+										AND C.TEXT1 = #{st_user_id}
+										AND FLAG = 'Y'
+										UNION ALL
+										SELECT C.CODE1 FROM ICOMCOD3 C
+										WHERE C.BUYER ='KRKORE0001'
+										AND C.TYPE ='CMDSM'
+										AND C.TEXT1 = #{st_user_id}
+										AND FLAG = 'Y'
+									)
+							)
+					]]>
+				</if>
+				<if test='param2=="2"'>
+					<![CDATA[
+						AND A.CATEG_SYS_ID IN (
+								SELECT SUBSTR(B.CATEG_SYS_ID,0,12) FROM CMSCATEG B
+									WHERE B.CATEG_TYPE ='ITM'
+									AND B.SG_ID IN (
+										SELECT C.CODE1 FROM ICOMCOD3 C
+										WHERE C.BUYER ='KRKORE0001'
+										AND C.TYPE ='CMSM'
+										AND C.TEXT1 = #{st_user_id}
+										AND FLAG = 'Y'
+										UNION ALL
+										SELECT C.CODE1 FROM ICOMCOD3 C
+										WHERE C.BUYER ='KRKORE0001'
+										AND C.TYPE ='CMDSM'
+										AND C.TEXT1 = #{st_user_id}
+										AND FLAG = 'Y'
+									)
+							)
+					]]>
+				</if>
+				<if test='param2=="3"'>
+					<![CDATA[
+						AND A.CATEG_SYS_ID IN (
+								SELECT SUBSTR(B.CATEG_SYS_ID,0,16) FROM CMSCATEG B
+									WHERE B.CATEG_TYPE ='ITM'
+									AND B.SG_ID IN (
+										SELECT C.CODE1 FROM ICOMCOD3 C
+										WHERE C.BUYER ='KRKORE0001'
+										AND C.TYPE ='CMSM'
+										AND C.TEXT1 = #{st_user_id}
+										AND FLAG = 'Y'
+										UNION ALL
+										SELECT C.CODE1 FROM ICOMCOD3 C
+										WHERE C.BUYER ='KRKORE0001'
+										AND C.TYPE ='CMDSM'
+										AND C.TEXT1 = #{st_user_id}
+										AND FLAG = 'Y'
+									)
+							)
+					]]>
+				</if>
+				<if test='param2=="4"'>
+					<![CDATA[
+						AND A.CATEG_SYS_ID IN (
+								SELECT B.CATEG_SYS_ID FROM CMSCATEG B
+									WHERE B.CATEG_TYPE ='ITM'
+									AND B.SG_ID IN (
+										SELECT C.CODE1 FROM ICOMCOD3 C
+										WHERE C.BUYER ='KRKORE0001'
+										AND C.TYPE ='CMSM'
+										AND C.TEXT1 = #{st_user_id}
+										AND FLAG = 'Y'
+										UNION ALL
+										SELECT C.CODE1 FROM ICOMCOD3 C
+										WHERE C.BUYER ='KRKORE0001'
+										AND C.TYPE ='CMDSM'
+										AND C.TEXT1 = #{st_user_id}
+										AND FLAG = 'Y'
+									)
+							)
+					]]>
+				</if>
+			</if>
+			<![CDATA[
+				    AND A.STATUS <> 'D'
+				    AND B.STATUS <> 'D'
+		   		ORDER BY B.CATEG_SYS_ID
+			]]>
+	</select>
+
+	<!-- 상품정보 상세분류 선택 시 하단 속성명 조회 -->
+	<!-- CMSCATTR wide(ATTB1~20_NM) → 세로전개. 반환 컬럼 계약: ATTR_NM(속성명).
+	     참고: common.mdcm.selectMasterMdCmGoodsInfoDetailPopList2 (동일 CMSCATTR ATTB 컬럼 사용). -->
+	<select id="selectMasterMdCmCmsItemCategoryAttrList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*selectMasterMdCmCmsItemCategoryAttrList*/
+			SELECT SEQ, ATTR_NM
+			  FROM (
+			    SELECT  1 SEQ, ATTB1_NM  AS ATTR_NM FROM CMSCATTR WHERE CMS_CATEG_ID = #{st_categ_id} AND STATUS <> 'D'
+			    UNION ALL SELECT  2, ATTB2_NM  FROM CMSCATTR WHERE CMS_CATEG_ID = #{st_categ_id} AND STATUS <> 'D'
+			    UNION ALL SELECT  3, ATTB3_NM  FROM CMSCATTR WHERE CMS_CATEG_ID = #{st_categ_id} AND STATUS <> 'D'
+			    UNION ALL SELECT  4, ATTB4_NM  FROM CMSCATTR WHERE CMS_CATEG_ID = #{st_categ_id} AND STATUS <> 'D'
+			    UNION ALL SELECT  5, ATTB5_NM  FROM CMSCATTR WHERE CMS_CATEG_ID = #{st_categ_id} AND STATUS <> 'D'
+			    UNION ALL SELECT  6, ATTB6_NM  FROM CMSCATTR WHERE CMS_CATEG_ID = #{st_categ_id} AND STATUS <> 'D'
+			    UNION ALL SELECT  7, ATTB7_NM  FROM CMSCATTR WHERE CMS_CATEG_ID = #{st_categ_id} AND STATUS <> 'D'
+			    UNION ALL SELECT  8, ATTB8_NM  FROM CMSCATTR WHERE CMS_CATEG_ID = #{st_categ_id} AND STATUS <> 'D'
+			    UNION ALL SELECT  9, ATTB9_NM  FROM CMSCATTR WHERE CMS_CATEG_ID = #{st_categ_id} AND STATUS <> 'D'
+			    UNION ALL SELECT 10, ATTB10_NM FROM CMSCATTR WHERE CMS_CATEG_ID = #{st_categ_id} AND STATUS <> 'D'
+			    UNION ALL SELECT 11, ATTB11_NM FROM CMSCATTR WHERE CMS_CATEG_ID = #{st_categ_id} AND STATUS <> 'D'
+			    UNION ALL SELECT 12, ATTB12_NM FROM CMSCATTR WHERE CMS_CATEG_ID = #{st_categ_id} AND STATUS <> 'D'
+			    UNION ALL SELECT 13, ATTB13_NM FROM CMSCATTR WHERE CMS_CATEG_ID = #{st_categ_id} AND STATUS <> 'D'
+			    UNION ALL SELECT 14, ATTB14_NM FROM CMSCATTR WHERE CMS_CATEG_ID = #{st_categ_id} AND STATUS <> 'D'
+			    UNION ALL SELECT 15, ATTB15_NM FROM CMSCATTR WHERE CMS_CATEG_ID = #{st_categ_id} AND STATUS <> 'D'
+			    UNION ALL SELECT 16, ATTB16_NM FROM CMSCATTR WHERE CMS_CATEG_ID = #{st_categ_id} AND STATUS <> 'D'
+			    UNION ALL SELECT 17, ATTB17_NM FROM CMSCATTR WHERE CMS_CATEG_ID = #{st_categ_id} AND STATUS <> 'D'
+			    UNION ALL SELECT 18, ATTB18_NM FROM CMSCATTR WHERE CMS_CATEG_ID = #{st_categ_id} AND STATUS <> 'D'
+			    UNION ALL SELECT 19, ATTB19_NM FROM CMSCATTR WHERE CMS_CATEG_ID = #{st_categ_id} AND STATUS <> 'D'
+			    UNION ALL SELECT 20, ATTB20_NM FROM CMSCATTR WHERE CMS_CATEG_ID = #{st_categ_id} AND STATUS <> 'D'
+			  )
+			 WHERE ATTR_NM IS NOT NULL
+			 ORDER BY SEQ
+		]]>
+	</select>
+
+	<!-- 상세분류 CMS_CATEG_ID로 경로/명/카테고리(SG) + 조상 체인(대/중/소/상세 depth id) 단건 조회
+	     (리스트 그리드 상세분류 클릭 시 팝업 사전세팅 + 4단 트리 드릴다운/하이라이트용) -->
+	<select id="selectMasterMdCmCmsItemCategoryInfo" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*selectMasterMdCmCmsItemCategoryInfo*/
+			SELECT T.*,
+			       (SELECT X.SG_NAME FROM KEPSGMG X WHERE X.SG_ID = T.SG_ID AND ROWNUM = 1) AS SG_NAME
+			  FROM (
+			    SELECT
+			      MAX(CASE WHEN DEPTH = 1 THEN CMS_CATEG_ID END) AS DEPTH1_ID,
+			      MAX(CASE WHEN DEPTH = 2 THEN CMS_CATEG_ID END) AS DEPTH2_ID,
+			      MAX(CASE WHEN DEPTH = 3 THEN CMS_CATEG_ID END) AS DEPTH3_ID,
+			      MAX(CASE WHEN DEPTH = 4 THEN CMS_CATEG_ID END) AS DEPTH4_ID,
+			      MAX(CASE WHEN CMS_CATEG_ID = #{st_categ_id} THEN CATEG_NAME END) AS CATEG_NAME,
+			      MAX(CASE WHEN CMS_CATEG_ID = #{st_categ_id} THEN CATEG_PATH END) AS CATEG_PATH,
+			      MAX(CASE WHEN CMS_CATEG_ID = #{st_categ_id} THEN CATEG_TYPE END) AS CATEG_TYPE,
+			      MAX(CASE WHEN CMS_CATEG_ID = #{st_categ_id} THEN SG_ID      END) AS SG_ID
+			    FROM CMSCATEG A
+			    START WITH CMS_CATEG_ID = #{st_categ_id}
+			    CONNECT BY PRIOR PID = CMS_CATEG_ID
+			  ) T
+		]]>
+	</select>
+
+</mapper>

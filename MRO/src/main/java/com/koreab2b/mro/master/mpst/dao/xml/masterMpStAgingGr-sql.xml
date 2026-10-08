@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mpst">
+	<!-- 조회 -->
+	<select id="selectAgingGrList" parameterType="java.util.Map" resultType="java.util.Map">
+	/* master.mpst.selectAgingGrList */
+	SELECT	#{st_yyyymm} AS YYYYMM,
+				C.SITE,
+				DECODE(C.SITE, 'IT', 'IT유통', 'KW', '유통', 'WM', '구매대행') AS SITE_NAME,
+				C.KEP_DEPT,
+				(SELECT TEXT1 FROM ICOMCOD2 WHERE TYPE = 'C001' AND COMPANY_CODE = 'KRKORE0001' AND CODE = C.KEP_DEPT) AS KEP_DEPT_NAME,
+				NVL(C.D01_AMT, 0) AS D01_AMT,
+				NVL(C.D02_AMT, 0) AS D02_AMT,
+				NVL(C.D03_AMT, 0) AS D03_AMT,
+				NVL(C.D04_AMT, 0) AS D04_AMT,
+				NVL(C.D05_AMT, 0) AS D05_AMT,
+				NVL(C.D06_AMT, 0) AS D06_AMT,
+				NVL(C.D07_AMT, 0) AS D07_AMT,
+				NVL(C.D08_AMT, 0) AS D08_AMT,
+				NVL(C.D09_AMT, 0) AS D09_AMT,
+				NVL(C.D10_AMT, 0) AS D10_AMT,
+				NVL(C.D11_AMT, 0) AS D11_AMT,
+				NVL(C.D12_AMT, 0) AS D12_AMT,
+				NVL(C.ETC_AMT, 0) AS ETC_AMT,
+				NVL(C.STOCK_AMT, 0) AS STOCK_AMT,
+				NVL(C.BF_M_STOCK_AMT, 0) AS BF_M_STOCK_AMT,
+				NVL((C.STOCK_AMT - C.BF_M_STOCK_AMT), 0) AS INCR,
+				DECODE(C.BF_M_STOCK_AMT, 0, NULL, NVL(ROUND(((C.STOCK_AMT - C.BF_M_STOCK_AMT) / C.BF_M_STOCK_AMT) * 100, 1), 0)) AS INCR_RATE
+	FROM	(
+				SELECT	B.SITE,
+							B.KEP_DEPT,
+							ROUND(SUM(B.D01_AMT) / 1000000) AS D01_AMT,
+							ROUND(SUM(B.D02_AMT) / 1000000) AS D02_AMT,
+							ROUND(SUM(B.D03_AMT) / 1000000) AS D03_AMT,
+							ROUND(SUM(B.D04_AMT) / 1000000) AS D04_AMT,
+							ROUND(SUM(B.D05_AMT) / 1000000) AS D05_AMT,
+							ROUND(SUM(B.D06_AMT) / 1000000) AS D06_AMT,
+							ROUND(SUM(B.D07_AMT) / 1000000) AS D07_AMT,
+							ROUND(SUM(B.D08_AMT) / 1000000) AS D08_AMT,
+							ROUND(SUM(B.D09_AMT) / 1000000) AS D09_AMT,
+							ROUND(SUM(B.D10_AMT) / 1000000) AS D10_AMT,
+							ROUND(SUM(B.D11_AMT) / 1000000) AS D11_AMT,
+							ROUND(SUM(B.D12_AMT) / 1000000) AS D12_AMT,
+							ROUND(SUM(B.ETC_AMT) / 1000000) AS ETC_AMT,
+							ROUND(SUM(B.STOCK_AMT) / 1000000) AS STOCK_AMT,
+							ROUND(SUM(B.BF_M_STOCK_AMT) / 1000000) AS BF_M_STOCK_AMT
+				FROM	(
+							SELECT	A.SITE,
+										A.KEP_DEPT,
+										A.D01_QTY * A.STOCK_PRICE AS D01_AMT,
+										A.D02_QTY * A.STOCK_PRICE AS D02_AMT,
+										A.D03_QTY * A.STOCK_PRICE AS D03_AMT,
+										A.D04_QTY * A.STOCK_PRICE AS D04_AMT,
+										A.D05_QTY * A.STOCK_PRICE AS D05_AMT,
+										A.D06_QTY * A.STOCK_PRICE AS D06_AMT,
+										A.D07_QTY * A.STOCK_PRICE AS D07_AMT,
+										A.D08_QTY * A.STOCK_PRICE AS D08_AMT,
+										A.D09_QTY * A.STOCK_PRICE AS D09_AMT,
+										A.D10_QTY * A.STOCK_PRICE AS D10_AMT,
+										A.D11_QTY * A.STOCK_PRICE AS D11_AMT,
+										A.D12_QTY * A.STOCK_PRICE AS D12_AMT,
+										((A.D13_QTY + A.ETC_QTY) * A.STOCK_PRICE) AS ETC_AMT,
+										A.STOCK_QTY * A.STOCK_PRICE AS STOCK_AMT,
+										(SELECT	STOCK_QTY * STOCK_PRICE
+										FROM	KEP_STOCK_AGING_IPGO
+										WHERE	1=1
+										AND		YYYYMM = TO_CHAR(ADD_MONTHS(TO_DATE(#{st_yyyymm}, 'YYYYMM'), -1), 'YYYYMM')
+										AND		SITE = A.SITE
+										AND		ITEM_NO = A.ITEM_NO
+							) AS BF_M_STOCK_AMT
+							FROM	KEP_STOCK_AGING_IPGO A
+							WHERE	A.YYYYMM = #{st_yyyymm}
+				) B
+				GROUP BY	B.SITE, B.KEP_DEPT
+	)	C
+	ORDER BY C.SITE, KEP_DEPT_NAME
+	</select>
+	
+	<!-- 조회 -->
+	<select id="selectLongTermStckIncrList" parameterType="java.util.Map" resultType="java.util.Map">
+	/* master.mpst.selectLongTermStckIncrList */
+	SELECT	#{st_yyyymm} AS YYYYMM,
+				SITE,
+				SITE_NAME,
+				DEPT_NAME AS KEP_DEPT_NAME,
+				CATEG_NAME AS ITEM_TYPE,
+				SUM(DECODE(YYYYMM, TO_CHAR(ADD_MONTHS(TO_DATE(#{st_yyyymm}, 'YYYYMM'), -1), 'YYYYMM'), STOCK_QTY, 0)) AS BF_M_STOCK_QTY,
+				ROUND(SUM(DECODE(YYYYMM, TO_CHAR(ADD_MONTHS(TO_DATE(#{st_yyyymm}, 'YYYYMM'), -1), 'YYYYMM'), STOCK_AMT, 0)) / 1000000) AS BF_M_STOCK_AMT,
+				SUM(DECODE(YYYYMM, #{st_yyyymm}, STOCK_QTY, 0)) AS STOCK_QTY,
+				ROUND(SUM(DECODE(YYYYMM, #{st_yyyymm}, STOCK_AMT, 0)) / 1000000) AS STOCK_AMT,
+				SUM(DECODE(YYYYMM, #{st_yyyymm}, STOCK_QTY, 0)) - SUM(DECODE(YYYYMM, TO_CHAR(ADD_MONTHS(TO_DATE(#{st_yyyymm}, 'YYYYMM'), -1), 'YYYYMM'), STOCK_QTY, 0)) INCR_QTY,
+				ROUND((SUM(DECODE(YYYYMM, #{st_yyyymm}, STOCK_AMT, 0)) - SUM(DECODE(YYYYMM, TO_CHAR(ADD_MONTHS(TO_DATE(#{st_yyyymm}, 'YYYYMM'), -1), 'YYYYMM'), STOCK_AMT, 0))) / 1000000) AS INCR_AMT
+	FROM	(
+				SELECT	YYYYMM,
+							SITE,
+							DECODE(SITE, 'WM', '구매대행(3M 초과)', 'IT', 'IT유통(6M초과)', '유통(6M 초과)') AS SITE_NAME,
+			      			(SELECT	TEXT1
+			      			FROM	ICOMCOD2
+			        		WHERE	COMPANY_CODE = 'KRKORE0001'
+			        		AND		TYPE = 'C001'
+			        		AND		CODE = X.KEP_DEPT) AS DEPT_NAME,
+			     			F_SPLIT(CATEG_NAME, ' > ', 2) AS CATEG_NAME,
+			     			CASE	WHEN	SITE = 'WM' THEN STOCK_QTY - (D01_QTY + D02_QTY + D03_QTY)
+			       					ELSE		STOCK_QTY - (D01_QTY + D02_QTY + D03_QTY + D04_QTY + D05_QTY + D06_QTY)
+			       			END AS STOCK_QTY,
+			     			CASE WHEN	SITE = 'WM' THEN STOCK_QTY * STOCK_PRICE - (D01_QTY * STOCK_PRICE + D02_QTY * STOCK_PRICE + D03_QTY * STOCK_PRICE)
+			       					ELSE		STOCK_QTY * STOCK_PRICE - (D01_QTY * STOCK_PRICE + D02_QTY * STOCK_PRICE + D03_QTY * STOCK_PRICE + D04_QTY * STOCK_PRICE + D05_QTY * STOCK_PRICE + D06_QTY * STOCK_PRICE)
+			       			END AS STOCK_AMT
+				FROM	KEP_STOCK_AGING_IPGO X
+				WHERE	YYYYMM BETWEEN TO_CHAR(ADD_MONTHS(TO_DATE(#{st_yyyymm}, 'YYYYMM'), -1), 'YYYYMM') AND #{st_yyyymm}
+	)
+	WHERE	STOCK_QTY != 0
+	GROUP BY SITE, SITE_NAME, DEPT_NAME, CATEG_NAME
+	ORDER BY SITE_NAME DESC, DEPT_NAME, BF_M_STOCK_AMT DESC
+	</select>
+
+	<!-- 조회 -->
+	<select id="selectAgingGrDtList" parameterType="java.util.Map" resultType="java.util.Map">
+	/* master.mpst.selectAgingGrDtList */
+	SELECT	A.YYYYMM,
+				A.KEP_DEPT,
+				(SELECT TEXT1 FROM ICOMCOD2 WHERE COMPANY_CODE = 'KRKORE0001' AND TYPE = 'C001' AND CODE = A.KEP_DEPT) AS KEP_DEPT_NAME,
+				F_SPLIT(A.CATEG_NAME, ' > ', 2) AS CATEG_NAME,
+				A.ITEM_NO,
+				A.DESCRIPTION,
+				A.SPECIFICATION,
+				A.UNIT_MEASURE,
+				A.MAKER_NAME,
+				A.STOCK_PRICE,
+				A.STOCK_QTY,
+				A.D01_QTY,
+				A.D02_QTY,
+				A.D03_QTY,
+				A.D04_QTY,
+				A.D05_QTY,
+				A.D06_QTY,
+				A.D07_QTY,
+				A.D08_QTY,
+				A.D09_QTY,
+				A.D10_QTY,
+				A.D11_QTY,
+				A.D12_QTY,
+				A.D13_QTY + A.ETC_QTY AS ETC_QTY
+	FROM	KEP_STOCK_AGING_IPGO A
+	WHERE	1=1
+	AND		A.YYYYMM = #{st_yyyymm}
+	<if test="st_dept_code != null and st_dept_code != '' ">
+		AND A.KEP_DEPT = #{st_dept_code}
+	</if>
+	<if test="st_item_no != null and st_item_no != '' ">
+		AND A.ITEM_NO LIKE '%' || #{st_item_no} || '%'
+	</if>
+	ORDER BY KEP_DEPT_NAME, CATEG_NAME, ITEM_NO
+	</select>
+</mapper>

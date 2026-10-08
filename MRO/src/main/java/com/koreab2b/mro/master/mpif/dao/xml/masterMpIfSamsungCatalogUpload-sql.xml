@@ -1,0 +1,574 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mpif">
+
+	<!-- 조회 -->
+	<select id="selectMasterMpIfSamsungCatalogUploadList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+ 							/*selectMasterMpIfSamsungCatalogUploadList*/
+    SELECT																																									
+             	X.BUYER_ITEM_NO,   																																					--[00]
+             	X.UNIT_PRICE,     																																						--[01]
+             	X.LIST_PRICE,      																																						--[02]
+             	DECODE(X.UNIT_PRICE,0,0,ROUND(((X.UNIT_PRICE - X.LIST_PRICE)/X.UNIT_PRICE) *100,1)) AS RATE,					--[03]
+             	X.DESCRIPTION,     																																						--[04]
+             	X.UNIT_MEASURE,     																																					--[05]
+             	X.PO_NO,      																																								--[06]
+             	X.AGENT_TEXT,  																																							--[07]
+             	X.SPECIFICATION, 																																						--[08]
+             	X.QTY,        																																									--[09]
+             	X.BUYER,       																																								--[10]
+             	X.AGENT AS AGENT,   																																					--[11]
+             	X.CONTRACT_NO,      																																					--[12]
+             	X.CONTRACT_SEQ,    																																					--[13]
+             	X.STATUS, 																																									--[14]
+             	X.DOC_NAME,  																																								--[15]
+             	X.TARGET,
+             	(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = X.KEY_6 AND STATUS != 'D') AS BUYER_NAME,       																																								--[16]
+             	X.KEY_6,         																																								--[17]
+             	X.KEY_7,         																																								--[18]
+             	X.KEY_8,         																																								--[19]
+             	X.KEY_9,   																																									--[20]
+             	X.KEY_5,       																																								--[21]
+             	X.KEY_10,       																																								--[22]
+             	X.BELOW_COMORG_CODE ,	 																																		--[23]
+             	X.PROCESS_TYPE ,	 																																					--[24]
+             	X.ORIGIN_AGENT,																																							--[25]
+             	X.IMPORT_FLAG,																																							--[26]
+             	X.LOGISTICS_FEE,																																						--[27]
+             	X.KEP_PRICE,																																								--[28]
+             	X.CMS_CATLG_ID
+             	,X.MARGIN_RE
+                ,X.MARGIN_RE_TEXT
+             	,X.AFTER_KEP_PRICE
+             	,X.AFTER_UNIT_PRICE
+             	,X.AFTER_LIST_PRICE
+             	,DECODE(X.AFTER_UNIT_PRICE,0,0,TRUNC(((X.AFTER_UNIT_PRICE - X.AFTER_LIST_PRICE)/X.AFTER_UNIT_PRICE) *100,1)) AS AFTER_RATE 
+             	,X.AFTER_AGENT 
+             	,X.AFTER_AGENT_TEXT              	
+	            ,CASE  
+		            WHEN X.CONTRACT_NO IS NULL                    THEN '계약정보 없음'     		
+		            WHEN X.CONTRACT_SEQ IS NULL                    THEN '계약정보 없음'     		
+		            WHEN X.BUYER_ITEM_NO IS NULL                    THEN '품목정보 없음'              
+		            WHEN X.AGENT_TEXT IS NULL                    THEN '협력사정보 없음'                 
+		            WHEN X.AFTER_AGENT_TEXT IS NULL                    THEN '협력사정보 없음'            
+		            
+	  				WHEN X.UNIT_PRICE = X.AFTER_UNIT_PRICE OR X.AFTER_UNIT_PRICE = 0                THEN '매출가변경없음'            	      
+	  				WHEN X.LIST_PRICE = X.AFTER_LIST_PRICE   OR X.AFTER_LIST_PRICE = 0                 THEN '매입가변경없음'            	      
+	  				WHEN X.ITEM_MAKE_TYPE = X.AFTER_ITEM_MAKE_TYPE                  					  THEN '품목구분변경없음'            	      
+	            	WHEN X.DELIVERY_LT = X.AFTER_DELIVERY_LT                    								  THEN '표준납기일변경없음'
+	             ELSE '정상' 
+	             END CHECK_STATUS_TEXT ,
+	             X.ITEM_MAKE_TYPE ,
+	             X.DELIVERY_LT ,
+	             X.AFTER_ITEM_MAKE_TYPE ,
+	             X.AFTER_DELIVERY_LT,
+	             X.RE_MIN_ORDER_QTY,
+	             X.CH_MIN_ORDER_QTY,
+	             X.RE_PUR_UNIT_QTY,
+	             X.CH_PUR_UNIT_QTY,
+	             X.RE_SELLER_AREA,
+	             X.CH_SELLER_AREA,
+	             X.RE_PROCESS_TYPE,
+	             X.CH_PROCESS_TYPE,
+	             (SELECT TEXT2 FROM ICOMCOD1 WHERE TYPE = 'M034' AND FLAG = 'Y' AND CODE = X.RE_PROCESS_TYPE) AS RE_PROCESS_TYPE_TEXT,
+	             (SELECT TEXT2 FROM ICOMCOD1 WHERE TYPE = 'M034' AND FLAG = 'Y' AND CODE = X.CH_PROCESS_TYPE) AS CH_PROCESS_TYPE_TEXT,
+	             X.RE_ORIGIN_AGENT AS RE_WAREHOUSE_CODE,
+	             X.CH_ORIGIN_AGENT AS CH_WAREHOUSE_CODE,
+	             (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = X.RE_ORIGIN_AGENT) AS RE_WAREHOUSE_CODE_TEXT,
+	             (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = X.CH_ORIGIN_AGENT) AS CH_WAREHOUSE_CODE_TEXT,
+	             DECODE(X.CH_SELLER_AREA,'','4','5') AS SELLER_AREA_IMG,
+	             /*SLOGIC-BEGIN(P04-4041-01)*/
+		        DECODE((SELECT COUNT(*) FROM BNTSLGIMP WHERE SLG_ID = 'P04-4041-01' AND COM_CODE = X.BELOW_COMORG_CODE AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN OPEN_DATE AND CLOSE_DATE), 0, 'N', 'Y') AS MOQ_USE_FLAG,
+		        /*SLOGIC-END*/
+		        /*SLOGIC-BEGIN(P04-4041-02)*/
+		        DECODE((SELECT COUNT(*) FROM BNTSLGIMP WHERE SLG_ID = 'P04-4041-02' AND COM_CODE = X.BELOW_COMORG_CODE AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN OPEN_DATE AND CLOSE_DATE), 0, 'N', 'Y') AS AREA_USE_FLAG,
+		        /*SLOGIC-END*/
+	             X.CH_SELL_CLOSE_DATE,
+	             X.RE_SELL_CLOSE_DATE,
+	             X.CH_BUY_CLOSE_DATE,
+	             X.RE_BUY_CLOSE_DATE,
+	             X.UNIT_PRICE_CHANGE_REASON,
+	             X.LIST_PRICE_CHANGE_REASON,
+	             X.CUSTOMIZATION_YN,
+	             X.DIRECT_SOURCING_YN,
+	             X.COMMISSION_PERCENTAGE,
+	             X.MARKET_PRICE,
+	             X.MARKET_SHIPPING_FEE,
+	             X.MARKET_PRICE_TOTAL,
+	             X.MARKET_SAVING_RATE,
+	             X.MARKET_URL,
+	             X.MARKET_COMMNET,	              
+	             DECODE(X.IMAGE_KEY,'','2','3') AS IMAGE_KEY_IMG,
+	             X.IMAGE_KEY,
+	             DECODE(X.IMAGE_KEY2,'','2','3') AS IMAGE_KEY_IMG2,
+	             X.IMAGE_KEY2,
+	             X.QUOTATION_NO,
+	             X.QUOTATION_SEQ,
+	             X.SND_CHK
+             FROM ( 																																									
+             	SELECT																																									
+             		B.BUYER_ITEM_NO,																																			
+             		B.UNIT_PRICE,																																					
+             		B.LIST_PRICE AS LIST_PRICE, 										
+             		B.DESCRIPTION,    																																			
+             		B.UNIT_MEASURE,  																																			
+             		' ' AS PO_NO, 																																					
+             		(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = B.AGENT) AS AGENT_TEXT,    					
+             		B.SPECIFICATION,   																																			
+             		0 AS QTY,         																																				
+             		B.BUYER,           																																				
+             		B.AGENT AS AGENT,             																																
+             		B.CONTRACT_NO,      																																		
+             		B.CONTRACT_SEQ,      																																		
+             		DECODE(C.STATUS,'D','D',DECODE(B.STATUS,'D','D',DECODE(C.PRODUCT_CLOSE_FLAG,'N','N','Y','Y','T','Y'))) AS STATUS,	 
+             		A.DOC_NAME,        																																			
+             		A.TARGET,          																																				
+             		A.KEY_6,           																																				
+             		A.KEY_7,           																																				
+             		A.KEY_8,           																																				
+             		A.KEY_9,    																																						
+             		A.KEY_5,              																																				
+             		A.KEY_10,         																																				
+             		B.BELOW_COMORG_CODE ,	 																															
+             		B.PROCESS_TYPE ,	 																																		
+             		B.ORIGIN_AGENT,																																				
+             		B.IMPORT_FLAG,																																				
+             		B.LOGISTICS_FEE,																																			
+             		B.KEP_PRICE,																																					
+             		C.CMS_CATLG_ID	 		
+	            	,'' MARGIN_RE
+	            	,'' MARGIN_RE_TEXT
+	             	,NVL(B.KEP_PRICE,0) AFTER_KEP_PRICE
+	             	,DECODE(A.KEY_14,' ',B.UNIT_PRICE, A.KEY_14)  AFTER_UNIT_PRICE
+	             	,DECODE(A.KEY_13,' ',B.LIST_PRICE, A.KEY_13)  AFTER_LIST_PRICE
+	             	,0 AFTER_RATE 
+	             	,NVL(A.KEY_12,'') AFTER_AGENT 
+	             	, (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = A.KEY_12 AND BUSINESS_COND = 'S' AND STATUS IN ('C','R')) AS AFTER_AGENT_TEXT 
+	             	, B.ITEM_MAKE_TYPE
+	             	, B.DELIVERY_LT
+	             	, NVL(A.KEY_17, B.ITEM_MAKE_TYPE) AS AFTER_ITEM_MAKE_TYPE
+	             	, NVL(A.KEY_19, B.DELIVERY_LT) AS AFTER_DELIVERY_LT
+	             	, NVL(A.KEY_20, B.SELL_CLOSE_DATE) AS CH_SELL_CLOSE_DATE
+	             	, B.SELL_CLOSE_DATE AS RE_SELL_CLOSE_DATE
+	             	, B.MIN_ORDER_QTY AS RE_MIN_ORDER_QTY
+	             	, NVL(A.KEY_21, B.MIN_ORDER_QTY) AS CH_MIN_ORDER_QTY
+	             	, B.PUR_UNIT_QTY AS RE_PUR_UNIT_QTY
+	             	, NVL(A.KEY_22, B.PUR_UNIT_QTY) AS CH_PUR_UNIT_QTY
+	             	, B.SELLER_AREA AS RE_SELLER_AREA
+	             	, NVL(A.KEY_23, B.SELLER_AREA) AS CH_SELLER_AREA
+	             	, B.PROCESS_TYPE AS RE_PROCESS_TYPE
+	             	, DECODE(A.KEY_15,' ',B.PROCESS_TYPE,A.KEY_15) AS CH_PROCESS_TYPE
+	             	, B.ORIGIN_AGENT AS RE_ORIGIN_AGENT
+	             	, DECODE(A.KEY_16,' ', DECODE(A.KEY_15, '0', '', B.ORIGIN_AGENT) ,A.KEY_16) AS CH_ORIGIN_AGENT
+	             	, NVL(A.KEY_24, B.BUY_CLOSE_DATE) AS CH_BUY_CLOSE_DATE
+	             	, B.BUY_CLOSE_DATE AS RE_BUY_CLOSE_DATE
+	             	, NVL(A.KEY_25, '') AS UNIT_PRICE_CHANGE_REASON
+	             	, NVL(A.KEY_26, '') AS LIST_PRICE_CHANGE_REASON
+	             	, NVL(A.KEY_27, '') AS CUSTOMIZATION_YN
+		            , NVL(A.KEY_28, '') AS DIRECT_SOURCING_YN
+		            , NVL(A.KEY_29, '') AS COMMISSION_PERCENTAGE
+		            , NVL(A.KEY_30, '') AS MARKET_PRICE
+		            , NVL(A.KEY_31, '') AS MARKET_SHIPPING_FEE
+		            , NVL(A.KEY_32, '') AS MARKET_PRICE_TOTAL
+		            , NVL(A.KEY_33, '') AS MARKET_SAVING_RATE
+		            , NVL(A.KEY_34, '') AS MARKET_URL
+		            , NVL(A.KEY_35, '') AS MARKET_COMMNET
+		            , NVL(A.KEY_36, '') AS IMAGE_KEY
+		            , NVL((SELECT 'https://www.koreab2b.com/common/download.do' || #{URL} || DOC_NO ||'&DOC_SEQ='||DOC_SEQ||'&TYPE=MSDS&KEY_NO='||KEY_NO
+		                   FROM ICOMATCH WHERE DOC_NO = A.KEY_36),'') AS KEP_IMAGE_URL
+		            , NVL(A.KEY_37, '') AS IMAGE_KEY2
+		            , NVL((SELECT 'https://www.koreab2b.com/common/download.do' || #{URL} || DOC_NO ||'&DOC_SEQ='||DOC_SEQ||'&TYPE=MSDS&KEY_NO='||KEY_NO
+		                   FROM ICOMATCH WHERE DOC_NO = A.KEY_37),'') AS AGENT_IMAGE_URL
+		            , NVL(A.KEY_38, '') AS QUOTATION_NO
+		            , NVL(A.KEY_39, '') AS QUOTATION_SEQ
+		            , NVL(A.KEY_40, '') AS SND_CHK
+		            
+             	FROM BNTTRXL A, ICOMCQDT B, ICOMBYIT C																										
+               WHERE A.DOC_NAME = 'KEPMGPDT'
+               	]]> 
+  			<if test="st_buyer_code != null and st_buyer_code !='' ">
+				<![CDATA[
+				             AND A.KEY_6 = #{st_buyer_code}
+				]]>
+			</if>
+					<![CDATA[																														
+             		AND A.KEY_7 =  #{st_user_id} 																																			
+             		AND A.KEY_8 =  #{trxl_gubun} 																																			
+             		AND A.TARGET = B.BUYER(+)																																	
+             		AND A.KEY_1 = B.BUYER_ITEM_NO(+)																													
+             		AND A.KEY_2 = B.AGENT(+)																																	
+             		AND A.KEY_3 = B.CONTRACT_NO(+)																														
+             		AND A.KEY_4 = B.CONTRACT_SEQ(+)																													
+             		AND B.BUYER = C.BUYER(+)																																	
+             		AND B.BUYER_ITEM_NO = C.BUYER_ITEM_NO(+)																									
+             )X																																											
+             ORDER BY X.BUYER,X.BUYER_ITEM_NO																																	
+		]]>
+	</select>
+	
+	<update  id="deleteBntTrxlUploadList" parameterType="java.util.Map" >
+		<![CDATA[
+		
+					/*deleteBntTrxlUploadList*/
+					
+           DELETE FROM BNTTRXL   
+           WHERE DOC_NAME = #{DOC_NAME}   --[01] DOC_NAME
+             AND TARGET = (SELECT BYCA_COMORG_CODE FROM ICOMCMPY WHERE COM_CODE = #{BUYER} AND STATUS <> 'D')     --[02] BYCA_COMORG_CODE
+             AND KEY_1 = #{BUYER_ITEM_NO}      --[03] BUYER_ITEM_NO
+             AND KEY_2 = (SELECT AGENT FROM ICOMCQDT WHERE BUYER=(SELECT BYCA_COMORG_CODE FROM ICOMCMPY WHERE COM_CODE = #{BUYER}  AND STATUS IN ('C','R'))
+                                          AND CONTRACT_NO=#{CONTRACT_NO} AND CONTRACT_SEQ=#{CONTRACT_SEQ} AND STATUS !='D')     --[04] AGENT
+             AND KEY_3 = #{CONTRACT_NO}      --[05] CONTRACT_NO
+             AND KEY_4 = #{CONTRACT_SEQ}      --[06] CONTRACT_SEQ
+             AND KEY_6 = #{BUYER}      --[06] BUYER             
+             AND KEY_40 = 'N'
+		]]> 
+	</update>
+	
+	<update  id="setBntTrxlUploadList" parameterType="java.util.Map" >
+		<![CDATA[
+		
+			/*setBntTrxlUploadList*/
+			
+      INSERT INTO BNTTRXL  (  
+                                DOC_NAME    
+                                , TARGET      
+                                , KEY_1       
+                                , KEY_2       
+                                , KEY_3       
+                                , KEY_4       
+                                , KEY_5       
+                                , KEY_6       
+                                , KEY_7       
+                                , KEY_8       
+                                , KEY_9       
+                                , KEY_10
+                                , KEY_11
+                                , KEY_12
+                                , KEY_13
+                                , KEY_14
+                                , KEY_15
+                                , KEY_16
+                                , KEY_17
+                                , KEY_18
+                                , KEY_19
+                                , KEY_20
+                                , KEY_21
+                                , KEY_22
+                                , KEY_23
+                                , KEY_24
+                                , KEY_25
+                                , KEY_26
+                                , KEY_27
+                                , KEY_28
+                                , KEY_29
+                                , KEY_30
+                                , KEY_31
+                                , KEY_32
+                                , KEY_33
+                                , KEY_34
+                                , KEY_35
+                                , KEY_38
+                                , KEY_39
+                                , KEY_40
+                               ) VALUES(     
+                                         #{DOC_NAME},   --DOC_NAME
+                                         (SELECT BYCA_COMORG_CODE FROM ICOMCMPY WHERE COM_CODE = #{BUYER}  AND STATUS IN ('C','R')),           --[01] TARGET    BYCA_COMORG_CODE
+                                         #{BUYER_ITEM_NO},           --[02] KEY_1     BUYER_ITEM_NO
+                                         NVL((SELECT AGENT FROM ICOMCQDT WHERE BUYER=(SELECT BYCA_COMORG_CODE FROM ICOMCMPY WHERE COM_CODE = #{BUYER}  AND STATUS IN ('C','R'))
+                                          AND CONTRACT_NO=#{CONTRACT_NO} AND CONTRACT_SEQ=#{CONTRACT_SEQ}),' '),           --[03] KEY_2     AGENT_CODE
+                                         #{CONTRACT_NO},           --[04] KEY_3     CONTRACT_NO
+                                         #{CONTRACT_SEQ},           --[05] KEY_4     CONTRACT_SEQ
+                                         #{STATUS_TEXT},           --[06] KEY_5     STATUS_TEXT
+                                         #{BUYER},           --[07] KEY_6     ST_BUYER
+                                         #{ST_USER_ID},           --[08] KEY_7     reg_user_id
+                                         #{TRXL_GUBUN},           --[09] KEY_8     trxl_gubun 
+                                         (SELECT                             
+                                                 TO_NUMBER(NVL(MAX(TO_NUMBER(KEY_9)),0))+1
+                                            FROM BNTTRXL                    
+                                           WHERE DOC_NAME = #{DOC_NAME}
+                                           ),     
+                                         #{LIST_PRICE},       --    LIST_PRICE  KEY_10 변경전 매입단가
+                                         
+                                         #{UNIT_PRICE},   --UNIT_PRICE KEY_11 변경전 매출단가
+                                         DECODE(#{AFTER_AGENT},'',NVL((SELECT AGENT FROM ICOMCQDT WHERE BUYER=(SELECT BYCA_COMORG_CODE FROM ICOMCMPY WHERE COM_CODE = #{BUYER}  AND STATUS IN ('C','R'))
+                                          AND CONTRACT_NO=#{CONTRACT_NO} AND CONTRACT_SEQ=#{CONTRACT_SEQ}),' '),#{AFTER_AGENT}),   --AFTER_AGENT KEY_12 변경후 협력사
+                                         #{AFTER_LIST_PRICE},   --AFTER_LIST_PRICE KEY_13 변경후 매입단가
+                                         #{AFTER_UNIT_PRICE},   --KEY_14 AFTER_UNIT_PRICE 변경후 매출단가
+                                         #{CH_PROCESS_TYPE},   --KEY_15	--KEY_15 CH_PROCESS_TYPE 변경 후 거래유형
+                                         #{CH_WAREHOUSE_CODE},     --KEY_16 CH_WAREHOUSE_CODE 변경 후 물류센터코드
+                                         #{AFTER_ITEM_MAKE_TYPE},   
+                                         #{DELIVERY_LT},
+                                         #{AFTER_DELIVERY_LT},
+                                         #{CH_SELL_CLOSE_DATE},
+                                         #{CH_MIN_ORDER_QTY},
+                                         #{CH_PUR_UNIT_QTY},
+                                         #{CH_SELLER_AREA},
+                                         #{CH_BUY_CLOSE_DATE},
+                                         #{UNIT_PRICE_CHANGE_REASON},	-- KEY_27
+                                         #{LIST_PRICE_CHANGE_REASON},	-- KEY_28 
+                                         #{CUSTOMIZATION_YN},			-- KEY_29
+                                         #{DIRECT_SOURCING_YN},			-- KEY_30
+                                         #{COMMISSION_PERCENTAGE},		-- KEY_31
+                                         #{MARKET_PRICE},				-- KEY_32
+                                         #{MARKET_SHIPPING_FEE},		-- KEY_33
+                                         #{MARKET_PRICE_TOTAL},			-- KEY_34
+                                         #{MARKET_SAVING_RATE},			-- KEY_35
+                                         #{MARKET_URL},					-- KEY_36
+                                         #{MARKET_COMMNET},				-- KEY_37
+                                         #{QUOTATION_NO},				-- KEY_38
+                                         #{QUOTATION_SEQ}, 				-- KEY_39
+                                         'N'							-- KEY_40
+                                             
+                                       )              
+		]]> 
+	</update>
+	
+	<update  id="insertSecItemUpload" parameterType="java.util.Map" >
+		<![CDATA[
+		/*insertSecItemUpload*/		
+          INSERT INTO SEC_ITEM_UPLOAD (  
+                                  BUYER
+								, CONTRACT_NO
+								, CONTRACT_SEQ
+								, BUYER_ITEM_NO
+								, PM_NO
+								, PM_SEQ
+								, CUSTOMIZATION_YN
+								, DIRECT_SOURCING_YN
+								, COMMISSION_PERCENTAGE
+								, MARKET_PRICE
+								, MARKET_SHIPPING_FEE
+								, MARKET_PRICE_TOTAL
+								, MARKET_SAVING_RATE
+								, MARKET_URL
+								, MARKET_COMMNET
+								, KEP_IMAGE_KEY
+								, AGENT_IMAGE_KEY
+								, MARKET_DOC_TYPE
+								, QUOTATION_NO
+								, QUOTATION_SEQ
+								, SND_CHK
+       
+                               ) VALUES (  
+                                          #{BUYER},         
+                                          #{CONTRACT_NO},
+                                          #{CONTRACT_SEQ},
+                                          #{BUYER_ITEM_NO},
+                                          #{PM_NO},
+                                          #{PM_SEQ},
+                                          #{CUSTOMIZATION_YN},
+                                          #{DIRECT_SOURCING_YN},
+                                          #{COMMISSION_PERCENTAGE},
+                                          #{MARKET_PRICE},
+                                          #{MARKET_SHIPPING_FEE},
+                                          #{MARKET_PRICE_TOTAL},
+                                          #{MARKET_SAVING_RATE},
+                                          #{MARKET_URL},
+                                          #{MARKET_COMMNET},
+                                          #{IMAGE_KEY},
+                                          #{IMAGE_KEY2},
+                                          DECODE(#{IMAGE_KEY2}, '','A','B'),
+                                          #{QUOTATION_NO},
+                                          #{QUOTATION_SEQ},
+                                          'N'
+                                        )   
+		]]>
+	</update>
+	
+	<update  id="saveMasterMpIfSamsungCatalogUploadList" parameterType="java.util.Map" >
+		<![CDATA[
+		/*saveMasterMpIfSamsungCatalogUploadList*/		
+          UPDATE BNTTRXL 
+          SET KEY_12 = #{AFTER_AGENT}, 
+              KEY_13 = #{AFTER_LIST_PRICE},
+              KEY_14 = #{AFTER_UNIT_PRICE},
+              KEY_17 = #{AFTER_ITEM_MAKE_TYPE},
+              KEY_19 = #{AFTER_DELIVERY_LT},
+              KEY_20 = #{CH_SELL_CLOSE_DATE},
+              KEY_24 = #{CH_BUY_CLOSE_DATE},
+              KEY_21 = #{CH_MIN_ORDER_QTY},
+              KEY_22 = #{CH_PUR_UNIT_QTY},
+              KEY_23 = #{CH_SELLER_AREA},
+              KEY_15 = #{CH_PROCESS_TYPE},
+              KEY_25 = #{UNIT_PRICE_CHANGE_REASON},
+              KEY_26 = #{LIST_PRICE_CHANGE_REASON},
+              KEY_16 = #{CH_WAREHOUSE_CODE},              
+              KEY_36 = #{IMAGE_KEY},
+              KEY_37 = #{IMAGE_KEY2},
+              KEY_38 = #{QUOTATION_NO},
+              KEY_39 = #{QUOTATION_SEQ}              
+              
+          WHERE DOC_NAME = #{DOC_NAME}   --[01] DOC_NAME
+             AND TARGET = #{TARGET}     --[02] BYCA_COMORG_CODE
+              		]]> 
+  			<if test="BUYER_ITEM_NO != null and BUYER_ITEM_NO !='' ">
+				<![CDATA[
+				             AND KEY_1 = #{BUYER_ITEM_NO}      -- BUYER_ITEM_NO
+				]]>
+			</if>
+					<![CDATA[
+
+             AND KEY_6 = #{KEY_6}      --[03] BUYER
+             AND KEY_7 = #{KEY_7}      --[04] ST_USER_ID
+             AND KEY_8 = #{KEY_8}      --[05] TRXL_GUBUN
+             AND KEY_9 = #{KEY_9}      --[06] KEY_9 
+		]]>
+	</update>
+	
+	<update  id="delMasterMpIfSamsungCatalogUploadList" parameterType="java.util.Map" >
+		<![CDATA[
+		
+							/*delMasterMpIfSamsungCatalogUploadList*/
+							
+           DELETE FROM BNTTRXL   
+           WHERE DOC_NAME = #{DOC_NAME}   --[01] DOC_NAME
+             AND TARGET = #{TARGET}     --[02] BYCA_COMORG_CODE
+              		]]> 
+  			<if test="BUYER_ITEM_NO != null and BUYER_ITEM_NO !='' ">
+				<![CDATA[
+				             AND KEY_1 = #{BUYER_ITEM_NO}      -- BUYER_ITEM_NO
+				]]>
+			</if>
+					<![CDATA[
+
+             AND KEY_6 = #{KEY_6}      --[03] BUYER
+             AND KEY_7 = #{KEY_7}      --[04] ST_USER_ID
+             AND KEY_8 = #{KEY_8}      --[05] TRXL_GUBUN
+             AND KEY_9 = #{KEY_9}      --[06] KEY_9
+		]]> 
+	</update>
+	
+	<select id="selectMasterMpIfSecUploadCnt" parameterType="java.util.Map" resultType="String">
+		/*selectMasterMpIfSecUploadCnt*/
+		<![CDATA[
+		SELECT COUNT(*) AS COUNT
+		 FROM SEC_ITEM_UPLOAD
+		 WHERE SND_CHK = 'N'		 
+         AND BUYER = #{KEY_6} -- BUYER
+         AND CONTRACT_NO = #{CONTRACT_NO}
+		 AND CONTRACT_SEQ = #{CONTRACT_SEQ}
+		 AND BUYER_ITEM_NO = #{BUYER_ITEM_NO}
+		 AND QUOTATION_NO = #{QUOTATION_NO}
+		 AND QUOTATION_SEQ = #{QUOTATION_SEQ}
+
+         ]]>        
+	</select>
+	
+	<update  id="updateMasterMpIfSecUpload" parameterType="java.util.Map" >
+		<![CDATA[
+		
+							/*updateMasterMpIfSecUpload*/
+							
+			
+				UPDATE SEC_ITEM_UPLOAD 
+				SET   
+                     CUSTOMIZATION_YN = #{CUSTOMIZATION_YN},
+					 DIRECT_SOURCING_YN = #{DIRECT_SOURCING_YN},
+					 COMMISSION_PERCENTAGE = #{COMMISSION_PERCENTAGE},
+					 MARKET_PRICE = #{MARKET_PRICE},
+					 MARKET_SHIPPING_FEE = #{MARKET_SHIPPING_FEE},
+					 MARKET_PRICE_TOTAL = #{MARKET_PRICE_TOTAL},
+					 MARKET_SAVING_RATE = #{MARKET_SAVING_RATE},
+					 MARKET_URL = #{MARKET_URL},
+					 MARKET_COMMNET = #{MARKET_COMMNET},
+					 KEP_IMAGE_KEY = #{IMAGE_KEY},
+					 AGENT_IMAGE_KEY = #{IMAGE_KEY2},
+					 MARKET_DOC_TYPE = DECODE(#{IMAGE_KEY2}, '','A','B')
+					 
+				
+				 WHERE BUYER = #{KEY_6} -- BUYER				 
+		         AND CONTRACT_NO = #{CONTRACT_NO}
+				 AND CONTRACT_SEQ = #{CONTRACT_SEQ}
+				 AND BUYER_ITEM_NO = #{BUYER_ITEM_NO}
+				 AND QUOTATION_NO = #{QUOTATION_NO}
+				 AND QUOTATION_SEQ = #{QUOTATION_SEQ} 
+				 AND SND_CHK = 'N'
+					  
+		]]> 
+	</update>
+	
+	<update  id="insertMasterMpIfSecUpload" parameterType="java.util.Map" >
+		<![CDATA[
+		
+							/*insertMasterMpIfSecUpload*/
+							
+			
+				INSERT INTO SEC_ITEM_UPLOAD (  
+                                 BUYER
+							, CONTRACT_NO
+							, CONTRACT_SEQ
+							, BUYER_ITEM_NO
+							, PM_NO
+							, PM_SEQ
+							, CUSTOMIZATION_YN
+							, DIRECT_SOURCING_YN
+							, COMMISSION_PERCENTAGE
+							, MARKET_PRICE
+							, MARKET_SHIPPING_FEE
+							, MARKET_PRICE_TOTAL
+							, MARKET_SAVING_RATE
+							, MARKET_URL
+							, MARKET_COMMNET
+							, KEP_IMAGE_KEY
+							, AGENT_IMAGE_KEY
+							, MARKET_DOC_TYPE
+							, QUOTATION_NO
+							, QUOTATION_SEQ
+							, SND_CHK
+      
+                              ) VALUES (  
+                                         #{KEY_6}, -- BUYER         
+                                         #{CONTRACT_NO},
+                                         #{CONTRACT_SEQ},
+                                         #{BUYER_ITEM_NO},
+                                         #{QUOTATION_NO},
+                                         #{QUOTATION_SEQ},                                           
+                                         #{CUSTOMIZATION_YN},
+                                         #{DIRECT_SOURCING_YN},
+                                         #{COMMISSION_PERCENTAGE},
+                                         #{MARKET_PRICE},
+                                         #{MARKET_SHIPPING_FEE},
+                                         #{MARKET_PRICE_TOTAL},
+                                         #{MARKET_SAVING_RATE},
+                                         #{MARKET_URL},
+                                         #{MARKET_COMMNET},
+                                         #{IMAGE_KEY},
+                                         #{IMAGE_KEY2},
+                                         DECODE(#{IMAGE_KEY2}, '','A','B'),
+                                         #{QUOTATION_NO},
+                                         #{QUOTATION_SEQ},
+                                         'N'
+                                       )  
+		]]> 
+	</update>
+	
+	<update  id="delMasterMpIfSecUpload" parameterType="java.util.Map" >
+		<![CDATA[
+		
+							/*delMasterMpIfSecUpload*/
+							
+           DELETE FROM SEC_ITEM_UPLOAD   
+           WHERE BUYER_ITEM_NO = #{BUYER_ITEM_NO}
+           AND   CONTRACT_NO = #{CONTRACT_NO}
+           AND   CONTRACT_SEQ = #{CONTRACT_SEQ}
+           AND   QUOTATION_NO = #{QUOTATION_NO}
+           AND   QUOTATION_SEQ = #{QUOTATION_SEQ}
+           AND   SND_CHK = 'N'
+		]]> 
+	</update>
+	
+	<select id="selectbatchMasterKEPRQDT" parameterType="java.util.Map" resultType="Integer">
+		<![CDATA[
+			/*selectbatchMasterKEPRQDT*/
+			SELECT COUNT(*) AS COUNT
+			FROM KEPRQDT
+			WHERE 	1=1
+			AND		BUYER = #{BUYER}
+			AND		QUOTATION_NO = #{QUOTATION_NO}
+			AND		QUOTATION_SEQ = #{QUOTATION_SEQ}			
+		]]>
+	</select>
+	
+	
+</mapper>

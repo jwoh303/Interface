@@ -1,0 +1,176 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mprq">
+	<!-- 일괄담당자 초기화 -->
+	<update  id="initBntTrxlBuRqAddAgentExcel" parameterType="java.util.Map" >
+		<![CDATA[
+			/*initBntTrxlBuRqAddAgentExcel*/			
+           DELETE FROM BNTTRXL
+           WHERE DOC_NAME = 'BURQ_AGENT'
+             AND TARGET = #{USER_ID}
+             AND KEY_1 = #{st_burq_no}
+		]]>
+	</update>
+	
+	<update  id="setBntTrxlBuRqAddAgentExcel" parameterType="java.util.Map" >
+		<![CDATA[
+			/*setBntTrxlBuRqAddAgentExcel*/
+			INSERT INTO BNTTRXL  (  
+				  DOC_NAME
+				, TARGET
+				, KEY_1
+				, KEY_2
+				, KEY_3
+				, KEY_4
+				, KEY_5
+				, KEY_6
+				, KEY_7
+				, KEY_8
+				, KEY_9
+				, KEY_10
+				, KEY_11
+				, KEY_12
+				, KEY_13
+				, KEY_14
+				, KEY_15
+				, KEY_16
+				, KEY_17
+				, KEY_18
+				, KEY_19
+				, KEY_20
+				, KEY_21
+				, KEY_22
+				, KEY_23
+				, KEY_24
+			) VALUES(
+				'BURQ_AGENT',					-- DOC_NAME
+				#{USER_ID},					-- TARGET	USER_ID    
+				#{st_burq_no},				-- KEY_1    BURQ_NO
+				#{SEQ},						-- KEY_2    
+				NVL(#{ITEM_KEY_ID},' '),	-- KEY_3	
+				NVL(#{AGENT_CODE}, ' '),	-- KEY_4	
+				' ',						-- KEY_5
+				' ',						-- KEY_6
+				' ',						-- KEY_7
+				' ',						-- KEY_8
+				' ',						-- KEY_9
+				' ',						-- KEY_10
+				' ',						-- KEY_11
+				' ',						-- KEY_12
+				' ', 						-- LEY_13
+				' ', 						-- KEY_14
+				' ', 						-- KEY_15
+				' ', 						-- KEY_16
+				' ', 						-- KEY_17
+				' ', 						-- KEY_18
+				' ', 						-- KEY_19
+				' ', 						-- KEY_20
+				' ', 						-- KEY_21
+				' ', 						-- KEY_22
+				' ', 						-- KEY_23
+				' ' 						-- KEY_24
+			)
+		]]> 
+	</update>
+		
+	<select id="selectMasterMpRqBulkQuotationAddAgentExcel" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/*selectMasterMpRqBulkQuotationAddAgentExcel*/
+			SELECT
+				SEQ,
+				ITEM_KEY_ID,
+				DESCRIPTION,
+				AGENT_CODE,
+				AGENT_NAME,
+				CASE WHEN STATUS = 'K2' THEN '견적마감'
+					 WHEN ID IS NULL THEN '키값 오류'
+					 WHEN AGENT_NAME IS NULL THEN '협력사 코드 오류'
+					 WHEN (SELECT COUNT(*) FROM BNTTRXL C WHERE C.KEY_1 = #{st_burq_no} AND C.KEY_3 = AGENT_CODE) > 1  THEN '중복 등록'
+					 WHEN (SELECT COUNT(*) FROM KEP_BURQ_RFQ RFQ WHERE RFQ.BURQ_NO = #{st_burq_no} AND RFQ.AGENT = AGENT_CODE) > 1  THEN '중복 등록'
+					 WHEN ORIGIN_AGENT_CODE = AGENT_CODE THEN '기존 협력사와 동일'
+				ELSE '정상' END AS RESULT,
+				ORIGIN_AGENT_CODE
+			FROM (
+				SELECT
+					KEY_2 AS SEQ,
+					TRIM(KEY_3) AS ITEM_KEY_ID,
+					B.ITEM_KEY_ID AS ID,
+					TRIM(KEY_4) AS AGENT_CODE,
+					KEP_DESCRIPTION AS DESCRIPTION,
+					AGENT AS ORIGIN_AGENT_CODE,
+					(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = TRIM(KEY_4) AND STATUS IN ('C', 'R') AND BUSINESS_COND = 'S' ) AS AGENT_NAME,
+					B.STATUS
+				FROM BNTTRXL A, KEP_BURQ_RFQ B
+				WHERE A.DOC_NAME = 'BURQ_AGENT'
+				AND	A.TARGET = #{USER_ID}
+				AND A.KEY_1 = #{st_burq_no}
+				AND B.AGENT_TYPE = 'B'
+				AND A.KEY_1 = B.BURQ_NO
+				AND A.KEY_3 = B.ITEM_KEY_ID
+		     )
+			ORDER BY TO_NUMBER(SEQ)
+		]]>
+	</select>
+	
+	
+	<update  id="insertMasterMpRqBulkQuotationAddAgentExcel" parameterType="java.util.Map" >
+		<![CDATA[
+			/*insertMasterMpRqBulkQuotationAddAgentExcel*/
+			INSERT INTO KEP_BURQ_RFQ (
+				BURQ_NO,ITEM_KEY_ID,AGENT,AGENT_TYPE,BYIT_COMORG_CODE,BUYER,BURQ_RFQ_NO,STATUS,GPL_YN,ATOS_END_DATE,
+				KEP_DESCRIPTION,KEP_SPECIFICATION,KEP_MAKER_PART_NO,KEP_MAKER_CODE,KEP_MIN_ORDER_QTY,KEP_PUR_UNIT_QTY,KEP_UNIT_MEASURE,
+										SM_DESCRIPTION,
+		                SM_SPECIFICATION,
+		                SM_MAKER_PART_NO,
+		                SM_MAKER_CODE,
+		                SM_MIN_ORDER_QTY,
+		                SM_PUR_UNIT_QTY,
+		                SM_UNIT_MEASURE,
+		                SM_PROCESS_TYPE,
+		                SM_PARCEL_YN,
+		                SM_WAREHOUSE_CODE,
+						ADD_DATE,
+						ADD_USER_ID
+			)(
+				SELECT	A.BURQ_NO,
+						ITEM_KEY_ID,
+						TRIM(KEY_4) AS AGENT,
+						'A' AS AGENT_TYPE,
+						BYIT_COMORG_CODE,
+						BUYER,
+						BURQ_RFQ_NO,
+						'K3' AS STATUS,
+						GPL_YN,
+						ATOS_END_DATE,
+						KEP_DESCRIPTION,
+		                KEP_SPECIFICATION,
+		                KEP_MAKER_PART_NO,
+		                KEP_MAKER_CODE,
+		                KEP_MIN_ORDER_QTY,
+		                KEP_PUR_UNIT_QTY,
+		                KEP_UNIT_MEASURE,
+						SM_DESCRIPTION,
+		                SM_SPECIFICATION,
+		                SM_MAKER_PART_NO,
+		                SM_MAKER_CODE,
+		                SM_MIN_ORDER_QTY,
+		                SM_PUR_UNIT_QTY,
+		                SM_UNIT_MEASURE,
+		                SM_PROCESS_TYPE,
+		                SM_PARCEL_YN,
+		                SM_WAREHOUSE_CODE,
+		                SYSDATE AS ADD_DATE,
+		                #{USER_ID} AS ADD_USER_ID
+				FROM KEP_BURQ_RFQ A, BNTTRXL B
+				WHERE B.KEY_1 = A.BURQ_NO
+				AND	B.KEY_3 = A.ITEM_KEY_ID
+-- 				AND (SELECT AGENT FROM KEP_BURQ_ITEM C WHERE C.BURQ_NO = B.KEY_1 AND C.ITEM_KEY_ID = B.KEY_3) = A.AGENT
+				AND A.AGENT_TYPE = 'B'
+				AND B.DOC_NAME = 'BURQ_AGENT'
+				AND B.KEY_1 = #{st_burq_no}
+				AND B.TARGET = #{USER_ID}
+			)
+		]]> 
+	</update>
+</mapper>   
+   

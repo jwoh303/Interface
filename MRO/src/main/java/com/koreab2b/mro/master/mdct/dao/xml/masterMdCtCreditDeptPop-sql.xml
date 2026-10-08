@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mdct">
+	<select id="selectMasterMdCtCreditDeptPopList" parameterType="java.util.Map" resultType="java.util.Map">
+			<![CDATA[
+		    /*	selectMasterMdCtCreditDeptPopList */
+		   SELECT	X.IRS_NO	AS IRS_NO
+			,			X.BUYER	AS COM_CODE
+			,			X.COM_NAME_LOC	AS COM_NAME
+			,			X.PO_NO	AS PO_NO
+			,			X.PO_SEQ	AS PO_SEQ
+			,			F_GET_PO_STTS(X.BUYER, X.PO_NO, X.PO_SEQ, 1)	AS STATUS
+			,			X.BUYER_ITEM_NO	AS BUYER_ITEM_NO
+			,			X.DESCRIPTION	AS DESCRIPTION
+			,			X.SPECIFICATION	AS SPECIFICATION
+			,			X.ITEM_QTY	AS PO_QTY
+			,			X.GR_QTY	AS GR_QTY
+			,			X.DO_QTY	AS DO_QTY
+			,			X.LEGACY_PO_NO	AS LEGACY_PO_NO
+			,			X.LEGACY_PO_SEQ	AS LEGACY_PO_SEQ
+			,			X.PO_REMARK	AS PO_REMARK
+			,			X.KEP_DEPT	AS DEPT_CODE
+			,			(
+						SELECT	TEXT1
+						FROM	ICOMCOD2
+						WHERE	TYPE = 'C001'
+						AND		COMPANY_CODE = 'KRKORE0001'
+						AND		CODE = X.KEP_DEPT 
+			)	AS DEPT_NAME
+			,			X.ITEM_AMT	AS PO_AMT
+			,			X.NO_AR_AMT	AS UN_GR_AMT
+			,			X.ADD_DATE	AS ADD_DATE
+			,			X.RD_DATE	AS RD_DATE
+			FROM	(
+						SELECT	MAX(U.IRS_NO)	AS IRS_NO
+						,			U.BUYER
+						,			U.PO_NO
+						,			U.PO_SEQ
+						,			MAX(U.COM_NAME_LOC)	AS COM_NAME_LOC
+						,			MAX(U.BUYER_ITEM_NO)	AS BUYER_ITEM_NO
+						,			MAX(U.DESCRIPTION)	AS DESCRIPTION
+						,			MAX(U.SPECIFICATION)	AS SPECIFICATION
+						,			MAX(U.ITEM_QTY)	AS ITEM_QTY
+						,			MAX(U.GR_QTY)	AS GR_QTY
+						,			MAX(U.DO_QTY)	AS DO_QTY
+						,			MAX(U.LEGACY_PO_NO)	AS LEGACY_PO_NO
+						,			MAX(U.LEGACY_PO_SEQ)	AS LEGACY_PO_SEQ
+						,			MAX(U.PO_REMARK)	AS PO_REMARK
+						,			MAX((
+											SELECT	MBM.KEP_DEPT
+											FROM	MIS_BUYER_MNG MBM
+											WHERE	MBM.YEAR = TO_CHAR(SYSDATE,'YYYY')
+											AND		MBM.BUYER = U.BUYER
+											AND		MBM.STATUS = 'C'
+											AND		MBM.PRIORITY = 'Y'
+											AND		ROWNUM = 1
+									)
+						)	AS KEP_DEPT
+						,			SUM(U.NO_AR_AMT)	AS NO_AR_AMT
+						,			MAX(U.ITEM_AMT)	AS ITEM_AMT
+						,			MAX(ADD_DATE)	AS ADD_DATE
+						,			MAX(RD_DATE)	AS RD_DATE
+						FROM	(
+									SELECT	CMPY.IRS_NO
+									,			PODT.BUYER
+									,			PODT.PO_NO
+									,			PODT.PO_SEQ
+									,			PODT.ITEM_AMT
+									,			CMPY.COM_NAME_LOC
+									,			PODT.BUYER_ITEM_NO
+									,			PODT.DESCRIPTION
+									,			PODT.SPECIFICATION
+									,			PODT.ITEM_QTY
+									,			PODT.GR_QTY
+									,			PODT.DO_QTY
+									,			PODT.LEGACY_PO_NO
+									,			PODT.LEGACY_PO_SEQ
+									,			PODT.PO_REMARK
+									,			PODT.ADD_DATE
+									,			PODT.RD_DATE
+									,			CASE	WHEN GRDT.BUYER IS NULL
+															THEN PODT.ITEM_AMT
+				               		           	    	WHEN GRDT.AR_BILL_FLAG = 'Y'
+				                              				THEN 0
+														ELSE GRDT.ITEM_AMT
+									END	AS NO_AR_AMT
+									,			MBM.KEP_DEPT
+									FROM	ICOMPODT PODT
+									,			ICOMGRDT GRDT
+									,			ICOMCMPY CMPY
+									,			MIS_BUYER_MNG MBM
+									WHERE	PODT.ADD_DATE >= '20140101'
+									AND		CMPY.STATUS IN ('C', 'R')
+									AND		CMPY.BUSINESS_COND = 'B'
+									AND		CMPY.COM_CODE = PODT.BUYER
+									AND		PODT.STATUS <> 'D'
+									AND		PODT.BUYER = GRDT.BUYER(+)
+									AND		PODT.PO_NO = GRDT.PO_NO(+)
+									AND		PODT.PO_SEQ = GRDT.PO_SEQ(+)
+									AND		GRDT.STATUS(+) <> 'D'
+									AND		MBM.BUYER = PODT.BUYER
+									AND		CMPY.COM_CODE = MBM.BUYER
+									AND		MBM.YEAR = TO_CHAR(SYSDATE, 'YYYY')
+									AND		MBM.STATUS = 'C'
+									AND		MBM.PRIORITY = 'Y'
+									AND		CMPY.IRS_NO = #{st_irs_no}
+									AND		MBM.KEP_DEPT = #{st_kep_dept}
+									AND		PODT.ADD_DATE BETWEEN #{st_strt_date} AND #{st_end_date}
+									AND		PODT.PO_NO LIKE #{st_po_no} || '%'
+						) U
+						GROUP BY U.BUYER, U.PO_NO, U.PO_SEQ
+						HAVING SUM(U.NO_AR_AMT) <> 0
+			)	X
+			WHERE X.BUYER NOT IN	(
+												SELECT	COD.CODE
+												FROM	ICOMCOD1 COD
+												WHERE	COD.TYPE = 'DW05'
+												UNION ALL
+												SELECT 'KRKORE0254'
+												FROM	DUAL
+			)
+			ORDER BY IRS_NO, ADD_DATE
+			]]>
+	</select>
+</mapper>   
+   

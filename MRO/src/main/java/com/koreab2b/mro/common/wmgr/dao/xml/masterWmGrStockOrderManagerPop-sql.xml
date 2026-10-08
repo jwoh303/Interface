@@ -1,0 +1,832 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="common.wmgr">
+
+
+	<select id="selectMasterWmGrStockOrderManagerPop" parameterType="java.util.Map" resultType="java.util.Map">
+			 	
+			/*selectMasterWmGrStockOrderManagerPop*/			
+					 <choose>
+		 	<when test='GUBUN == "VMI"' >
+		 	   <![CDATA[
+		 	SELECT                                                                                                          
+				MAX((SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE=EDI.BUYER)) AS COM_NAME_LOC,                              
+				'VMI' AS GUBUN,                                                                                          
+				MAX((SELECT USER_NAME_LOC||'('||PHONE_NUMBER||')' FROM ICOMLUSR WHERE USER_ID = EDI.POK_USER_ID)) AS USER_NAME_LOC,
+				VPO_NO AS PO_NO,                                                                                            
+				MAX(VPO_DATE) AS VPO_DATE,                                                                                  
+				MAX(RD_DATE) AS RD_DATE,                                                                                    
+			    MAX((SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = EDI.AGENT)) AS AGENT_NAME,							
+			    MAX((SELECT TEL_NO FROM ICOMCMPY WHERE COM_CODE = EDI.AGENT)) AS AGENT_TEL_NO,								
+				BUYER																										                                                                                                               
+			FROM EDIVPODT EDI                                                                                               
+			WHERE VPO_NO = #{PO_NO}																							
+			  AND BUYER  = #{ware_house_code}																							
+			GROUP BY BUYER,VPO_NO     
+			]]>
+		 	</when>
+		 	 <otherwise>
+		 	   <![CDATA[
+			  SELECT  
+			         MAX((SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = POHD.BUYER)) AS COM_NAME_LOC,		--00
+			         MAX('재고') AS GUBUN,			--01
+			         MAX((SELECT USER_NAME_LOC||'('||PHONE_NUMBER||')' FROM ICOMLUSR WHERE USER_ID = PRDT.ADD_USER_ID)) AS USER_NAME_LOC,  --02
+			         POHD.PO_NO AS PO_NO,																	--03
+			         MAX(POHD.PO_CREATE_DATE) AS VPO_DATE,											--05
+			         MAX(PODT.RD_DATE) AS RD_DATE,															--06
+			         MAX((SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = POHD.AGENT)) AS AGENT_NAME,    --07
+			         MAX((SELECT TEL_NO FROM ICOMCMPY WHERE COM_CODE = POHD.AGENT)) AS AGENT_TEL_NO,		--08
+					 POHD.BUYER																				--09
+			    FROM ICOMPOHD POHD, ICOMPODT PODT, ICOMPRDT PRDT  
+			   WHERE POHD.PO_NO = #{PO_NO}
+			     AND POHD.BUYER =#{ware_house_code}	
+			     AND POHD.BUYER = PODT.BUYER  
+			     AND POHD.PO_NO = PODT.PO_NO  
+			     AND PODT.BUYER = PRDT.BUYER  
+			     AND PODT.PR_NO = PRDT.PR_NO  
+			     AND PODT.PR_SEQ = PRDT.PR_SEQ 
+			  GROUP BY POHD.BUYER, POHD.PO_NO  		 	   
+		 	   ]]>
+		 	   </otherwise>
+		 	</choose>
+	</select>
+
+
+	<select id="selectMasterWmGrStockOrderManagerPopList" parameterType="java.util.Map" resultType="java.util.Map">
+
+		/*selectMasterWmGrStockOrderManagerPopList*/
+
+					 
+
+		 <choose>
+		 	<when test='GUBUN == "VMI"' >
+		 			<![CDATA[
+		 SELECT /*+USE_NL(PO HD)*/ 
+				EDI.BUYER_ITEM_NO, 
+				EDI.CONTRACT_NO AS CON_NO, 
+				EDI.CONTRACT_SEQ AS CON_SEQ,
+				EDI.DESCRIPTION, 
+				EDI.ITEM_QTY, 
+				STCK.AVAIL_QTY, 
+				EDI.UNIT_PRICE, 
+				EDI.UNIT_MEASURE, 
+				EDI.SPECIFICATION, 
+				EDI.MAKER_NAME, 
+				STCK.PRE_GR_QTY,  
+				EDI.ITEM_AMT, 
+				EDI.VPO_SEQ  AS PO_SEQ
+			FROM EDIVPODT EDI , WMSSTCK STCK 
+			WHERE BUYER = #{ware_house_code}
+				AND VPO_NO = #{PO_NO}
+				AND EDI.BUYER = STCK.WAREHOUSE_CODE 
+				AND EDI.BUYER_ITEM_NO = STCK.STDCATLG_ID 
+				AND EDI.CONTRACT_NO = STCK.CONTRACT_NO 
+				AND EDI.CONTRACT_SEQ = STCK.CONTRACT_SEQ 
+				AND EDI.STATUS <> 'D'  
+				AND STCK.STATUS <> 'D' 
+						]]>
+		 	</when>
+		 	 <otherwise>
+		 	   <![CDATA[
+			SELECT                                                                                                                                                                                                                    
+				PO.BUYER_ITEM_NO,                                                                                                                                                                                         
+				PO.CONTRACT_NO,                                                                                                                                                                                           
+				PO.CONTRACT_SEQ,                                                                                                                                                                                         
+				PO.DESCRIPTION,                                                                                                                                                                                              
+				PO.ITEM_QTY,                                                                                                                                                                                                   
+				STCK.AVAIL_QTY,                                                                                                                                                                                              
+				PO.UNIT_PRICE,                                                                                                                                                                                                 
+				PO.UNIT_MEASURE,                                                                                                                                                                                           
+				PO.SPECIFICATION,                                                                                                                                                                                           
+				PO.MAKER_NAME,                                                                                                                                                                                             
+				STCK.PRE_GR_QTY,                                                                                                                                                                                           
+				PO.ITEM_AMT,                                                                                                                                                                                                  
+				PO.PO_SEQ,                                                                                                                                                                                                      
+				KWAYINFO.FLAG,                                                                                                                                                                                               
+				KWAYINFO.STATUS,                                                                                                                                                                                            
+				KWAYINFO.ORDER_CODE,                                                                                                                                                                                            
+				KWAYINFO.ORDER_DETAIL_CODE ,                                                                                                                                                                                           
+				HD.AGENT, (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = HD.AGENT)	AGENT_NAME, 
+				PO.PR_NO, PO.PR_SEQ, PO.GR_QTY	, PO.DI_QTY, DECODE(PO.PROCESS_TYPE,'1',IV.INV_QTY,'2',WMS.INV_QTY) IV_QTY	
+			FROM ICOMPODT PO, WMSSTCK STCK ,ICOMCQDT CQ	, ICOMPOHD HD , ICOMIVDT IV , WMSIVDT WMS,  (                                                                                                                                     
+			SELECT                                                                                                                                                                                                                    
+				DECODE(MAX(STATUS),'주문',DECODE(NVL(MAX(PO_COUNT),0),0,'Y','N'),'완료',DECODE(MAX(ORDER_QTY),NVL(SUM(RTN_QTY),0),'Y','N')) FLAG , 
+				MAX(STATUS) STATUS,                                                                                                                                                                                     
+				MAX(BS_CUSTOMER_CODE) BUYER,                                                                                                                                                                  
+				MAX(BS_CUSTOMER_PO_NO) PO_NO ,                                                                                                                                                               
+				MAX(BS_CUSTOMER_PO_NO_DETAIL) PO_SEQ,                                                                                                                                                    
+			                                                                                                                                                                                                                                
+					MAX(ORDER_CODE) ORDER_CODE,                                                                                                                                                                       
+					ORDER_DETAIL_CODE ORDER_DETAIL_CODE                                                                                                                                                                
+		  FROM (                                                                                                                                                                                                                     
+			SELECT /*+PARALLEL(A 4)*/
+			            DECODE((SELECT MAX(ORDER_GI_DETAIL_STATUS)                                                                                                                                      
+							   FROM TBL_ORDER_GI_DETAIL                                                                                                                                                  
+							   WHERE ORDER_DETAIL_CODE=A.ORDER_DETAIL_CODE                                                                                                             
+								 AND RECORD_STATUS ^='D'                                                                                                                                              
+								 AND ORDER_GI_DETAIL_STATUS ^='025006'                                                                                                                         
+							   ), NULL,'주문',                                                                                                                                                                        
+							   '025001','접수',                                                                                                                                                                        
+							   '025002','출고',                                                                                                                                                                        
+							   '025003','배송',                                                                                                                                                                        
+							   '025004','완료',                                                                                                                                                                        
+							   '상태확인'                                                                                                                                                                               
+							   )	AS STATUS,                                                                                                                                                                      
+				   A.ORDER_QTY ORDER_QTY,                                                                                                                                                                            
+				   A.ORDER_CODE ORDER_CODE,                                                                                                                                                                        
+				   A.ORDER_DETAIL_CODE ORDER_DETAIL_CODE,                                                                                                                                                
+				   (SELECT COUNT(*)                                                                                                                                                                                        
+					FROM TBL_PO_DETAIL X                                                                                                                                                                            
+					WHERE ORDER_DETAIL_CODE=A.ORDER_DETAIL_CODE                                                                                                                                
+					  AND RECORD_STATUS ^='D'                                                                                                                                                                     
+					  AND PO_DETAIL_STATUS ^='018004') AS PO_COUNT,                                                                                                                                  
+				   B.DELIVERY_CONFIRM_QTY,                                                                                                                                                                            
+				  (SELECT SUM(RTN_GR_CONFIRM_QTY)                                                                                                                                                            
+				   FROM TBL_RETURN_DETAIL                                                                                                                                                                            
+				   WHERE DELIVERY_DETAIL_CODE=B.DELIVERY_DETAIL_CODE                                                                                                                            
+					 AND RECORD_STATUS ^='D'                                                                                                                                                                      
+					 AND RETURN_DETAIL_STATUS ^='036009') RTN_QTY,                                                                                                                                  
+					 A.BS_CUSTOMER_CODE,                                                                                                                                                                           
+					 A.BS_CUSTOMER_PO_NO,                                                                                                                                                                         
+					 A.BS_CUSTOMER_PO_NO_DETAIL                                                                                                                                                              			                                                                                                                                                                                                                                
+			FROM TBL_ORDER_DETAIL A, V_GI_DELIVERY B                                                                                                                                     
+			WHERE A.RECORD_STATUS ^='D'                                                                                                                                                                                
+			AND A.ORDER_DETAIL_CODE=B.ORDER_DETAIL_CODE(+)                                                                                                                                             
+			AND A.BS_CUSTOMER_CODE =#{ware_house_code}                                                                                                                                                            
+			AND A.BS_CUSTOMER_PO_NO =#{PO_NO}                                                                                                                                                         
+			AND A.ORDER_DETAIL_STATUS = '024005'   --완료된건만 조회 되도록 수정 현 2014.01.14
+			)                                                                                                                                                                                                                               
+			GROUP BY ORDER_DETAIL_CODE) KWAYINFO                                                                                                                                                              
+			WHERE PO.BUYER = #{ware_house_code}                                                                                                                                                                        
+				AND PO.PO_NO =#{PO_NO}                                                                                                                                                                   
+				AND PO.BUYER = CQ.BUYER                                                                                                                                                                               
+				AND PO.CONTRACT_NO = CQ.CONTRACT_NO                                                                                                                                                     
+				AND PO.CONTRACT_SEQ = CQ.CONTRACT_SEQ                                                                                                                                                 
+				AND CQ.BUYER = STCK.WAREHOUSE_CODE                                                                                                                                                        
+				AND CQ.BUYER_ITEM_NO = STCK.STDCATLG_ID                                                                                                                                                 
+				AND PO.BUYER = KWAYINFO.BUYER(+)                                                                                                                                                                
+				AND PO.PO_NO = KWAYINFO.PO_NO(+)                                                                                                                                                               
+				AND PO.PO_SEQ = KWAYINFO.PO_SEQ(+)                                                                                                                                                            
+			  AND PO.BUYER = HD.BUYER	
+			  AND PO.PO_NO =  HD.PO_NO  
+				AND HD.STATUS <> 'D' 
+				AND PO.STATUS <> 'D' 
+				AND STCK.STATUS <> 'D'                                                                                                                                                                                  
+				AND CQ.STATUS <> 'D'                                                                                                                                                                                      
+				AND PO.PO_NO = IV.PO_NO(+)	
+				AND PO.PO_SEQ = IV.PO_SEQ(+)	
+				AND PO.BUYER = IV.BUYER(+)		
+				AND PO.PO_NO = WMS.PO_NO(+)	
+				AND PO.PO_SEQ = WMS.PO_SEQ(+)	
+				AND PO.BUYER = WMS.BUYER(+)		
+				AND IV.STATUS(+) <> 'D'			
+				AND WMS.STATUS(+) <> 'D'					 
+										]]>	 
+		 	 </otherwise>
+		 </choose>		
+	</select>
+				
+				
+	<select id="selectMasterWmGrStockOrderManagerPopPoSeqList" parameterType="java.util.Map" resultType="java.util.Map">
+	 /* selectMasterWmGrStockOrderManagerPopPoSeqList*/
+	 <![CDATA[
+              SELECT                                                                  
+              	     PO.PO_NO INV_NO,                                                        	
+              	     PO.PO_SEQ,                                                       	
+              	     PO.ITEM_QTY-NVL(PO.IV_QTY,0) INV_QTY,                                   	
+              	     PO.UNIT_PRICE,                                                   	
+              	     '발주' AS STATUS_TEXT                                            	
+               FROM ICOMPODT PO														
+              WHERE PO.BUYER =#{ware_house_code}                                        
+                AND PO.PO_NO = #{PO_NO}     
+                AND PO.PO_SEQ IN     
+       	]]>	                      
+            <foreach collection="listForUpdate" item="PO_SEQ" index="i" open="(" separator=","  close=")" >	            		
+               #{PO_SEQ}  				
+            </foreach>   
+            <![CDATA[ 		
+                AND PO.STATUS <> 'D'                                                  
+                AND PO.ITEM_QTY > PO.IV_QTY											
+              UNION ALL                                                               
+              SELECT                                                                  
+              	INV_NO,                                                          	
+              	INV_SEQ,                                                         	
+              	INV_QTY,                                                         	
+              	UNIT_PRICE,                                                      	
+              	DECODE(WMS_GR_QTY , INV_QTY,'입고완료','입고예정') AS STATUS_TEXT	
+              FROM ICOMIVDT IV                                                        
+              WHERE IV.BUYER = #{ware_house_code}     									
+                AND IV.PO_NO = #{PO_NO}                                      		
+                AND IV.PO_SEQ IN
+             	]]>   
+            <foreach collection="listForUpdate" item="PO_SEQ" index="i" open="(" separator=","  close=")" >	            		
+               #{PO_SEQ}  				
+            </foreach>   
+             <![CDATA[                         	
+                AND STATUS <> 'D' 
+                ]]>      
+		</select>	
+		
+		
+		<update id="deletetMasterWmGrStockOrderManagerPopPoICOMPRDT" parameterType="java.util.Map" >
+		  <![CDATA[  
+		UPDATE ICOMPRDT SET STATUS = 'D', 
+                    CHANGE_DATE = TO_CHAR(SYSDATE,'YYYYMMDD'), 
+                    CHANGE_TIME = TO_CHAR(SYSDATE,'HH24MISS')  
+			WHERE BUYER =#{ware_house_code}     		
+ 			 AND PR_NO =  (SELECT PR_NO FROM ICOMPODT WHERE BUYER= #{ware_house_code}     AND PO_NO =  #{PO_NO}    AND PO_SEQ =  #{PO_SEQ}   AND STATUS <> 'D' ) 
+ 			 AND PR_SEQ = (SELECT PR_SEQ FROM ICOMPODT WHERE BUYER=#{ware_house_code}  AND PO_NO =  #{PO_NO}  AND PO_SEQ =#{PO_SEQ} AND STATUS <> 'D' ) 
+  				
+  		   ]]>      
+		</update>
+		
+		
+		<select id="selectMasterWmGrStockOrderManagerPopICOMPRDTCount" parameterType="java.util.Map" resultType="java.util.Map">
+		    /* selectMasterWmGrStockOrderManagerPopICOMPRDTCount */
+		    <![CDATA[  
+			SELECT COUNT(*)  AS COUNTICOMPRDT
+			 FROM ICOMPRDT 
+			WHERE BUYER = #{ware_house_code}     	    
+  			   AND PR_NO = (SELECT PR_NO FROM ICOMPODT WHERE BUYER= #{ware_house_code}  AND PO_NO =  #{PO_NO}  AND PO_SEQ =#{PO_SEQ}  AND STATUS <> 'D' ) 
+               AND STATUS <> 'D'
+                ]]>        
+		</select>
+		
+		<update id="deletetMasterWmGrStockOrderManagerPopDelPrHd" parameterType="java.util.Map" >
+		 
+		  <![CDATA[  
+		   /*  deletetMasterWmGrStockOrderManagerPopDelPrHd  */
+		  UPDATE ICOMPRHD SET STATUS = 'D', 
+                    CHANGE_DATE = TO_CHAR(SYSDATE,'YYYYMMDD'), 
+                    CHANGE_TIME = TO_CHAR(SYSDATE,'HH24MISS')  
+			WHERE BUYER =  #{ware_house_code}  
+ 				 AND PR_NO = (SELECT PR_NO FROM ICOMPODT WHERE BUYER= #{ware_house_code}   AND PO_NO =#{PO_NO} AND PO_SEQ =#{PO_SEQ} AND STATUS <> 'D' ) 
+ 			  ]]>       	 
+		</update>
+		
+		<update  id="deletetMasterWmGrStockOrderManagerPopDelPoRs" parameterType="java.util.Map" >
+				  /* deletetMasterWmGrStockOrderManagerPopDelPoRs */
+				  <![CDATA[ 
+		UPDATE ICOMPORS SET STATUS = 'D',
+                    CHANGE_DATE = TO_CHAR(SYSDATE,'YYYYMMDD'),
+                    CHANGE_TIME = TO_CHAR(SYSDATE,'HH24MISS') 
+			WHERE BUYER =  #{ware_house_code}  
+ 		 	   AND PO_NO =#{PO_NO}
+               AND PO_SEQ = #{PO_SEQ}
+              		  ]]>        
+		</update>	
+		
+		
+	  <update  id="deletetMasterWmGrStockOrderManagerPopDelPoDt" parameterType="java.util.Map" >
+	 	  /* deletetMasterWmGrStockOrderManagerPopDelPoDt */
+	 	   <![CDATA[ 
+			UPDATE ICOMPODT SET STATUS = 'D', 
+                    CHANGE_DATE = TO_CHAR(SYSDATE,'YYYYMMDD'), 
+                    CHANGE_TIME = TO_CHAR(SYSDATE,'HH24MISS')  
+				WHERE BUYER =#{ware_house_code}  
+  				AND PO_NO = #{PO_NO}
+  				AND PO_SEQ = #{PO_SEQ}
+  					  ]]>   
+		</update>	
+		
+		<select id="deletetMasterWmGrStockOrderManagerPopDelPoDtCount" parameterType="java.util.Map" resultType="java.util.Map">
+		 <![CDATA[ 
+			SELECT COUNT(*) countICOMPRDT FROM ICOMPODT	
+			 WHERE BUYER = #{ware_house_code}  				
+	            AND PO_NO =#{PO_NO}			
+	            AND STATUS ^='D'	
+	              ]]>   
+		</select>		
+		
+		
+	    <update  id="deletetMasterWmGrStockOrderManagerPopDelPoHd" parameterType="java.util.Map" >
+	 	  /* deletetMasterWmGrStockOrderManagerPopDelPoHd */
+	 	  <![CDATA[ 
+			UPDATE ICOMPOHD SET  
+                    				CHANGE_DATE = TO_CHAR(SYSDATE,'YYYYMMDD'), 
+                    				CHANGE_TIME = TO_CHAR(SYSDATE,'HH24MISS')  
+                ]]>         				
+             <if test="delPoDtCount=='0'">
+             					,STATUS = 'D'	
+             </if>
+               <![CDATA[ 
+             WHERE BUYER = #{ware_house_code}       
+               AND PO_NO =#{PO_NO}	
+                ]]> 				
+		</update>
+		
+		
+		<update id="deletetMasterWmGrStockOrderManagerPopDelIvDtHd" parameterType="java.util.Map" >
+			 	  /* deletetMasterWmGrStockOrderManagerPopDelIvDtHd */
+			 	   <![CDATA[ 
+			UPDATE ICOMIVDT SET STATUS = 'D', 
+                    CHANGE_DATE = TO_CHAR(SYSDATE,'YYYYMMDD'), 
+                    CHANGE_TIME = TO_CHAR(SYSDATE,'HH24MISS')  
+			WHERE BUYER = #{ware_house_code}     
+ 			   AND PO_NO =#{PO_NO}	
+              AND PO_SEQ =#{PO_SEQ}
+               ]]> 
+		</update>		
+		
+		<select id="selecttMasterWmGrStockOrderManagerPopDelIvDtHd" parameterType="java.util.Map" resultType="java.util.Map">
+		/* selecttMasterWmGrStockOrderManagerPopDelIvDtHd */
+		 <![CDATA[ 
+		SELECT BUYER, INV_NO, SELLER
+         FROM ICOMIVDT	 
+         WHERE BUYER =  #{ware_house_code}    
+            AND PO_NO = #{PO_NO}	
+                AND PO_SEQ = #{PO_SEQ}  	
+              ]]>    
+		</select>		
+		
+		
+		<select id="selecttMasterWmGrStockOrderManagerPopDelIvDtHdCount" parameterType="java.util.Map" resultType="java.util.Map">
+		/* selecttMasterWmGrStockOrderManagerPopDelIvDtHdCount */
+			 <![CDATA[ 
+			SELECT COUNT(*) CTN FROM ICOMIVDT 
+			WHERE BUYER = #{BUYER}     
+               AND INV_NO = #{INV_NO}    
+               AND SELLER = #{SELLER}    
+               AND STATUS <> 'D' 
+                 ]]>   
+		</select>
+		
+		<update id="updateMasterWmGrStockOrderManagerPopICOMIVHD"  parameterType="java.util.Map" >
+		 /* updateMasterWmGrStockOrderManagerPopICOMIVHD */
+		  <![CDATA[ 
+		UPDATE ICOMIVHD SET STATUS = 'D', 
+                    CHANGE_DATE = TO_CHAR(SYSDATE,'YYYYMMDD'), 
+                    CHANGE_TIME = TO_CHAR(SYSDATE,'HH24MISS')  
+		  WHERE BUYER  = #{BUYER}     
+             AND INV_NO = #{INV_NO}   
+             AND SELLER = #{SELLER}  
+                        ]]>   
+		</update>
+		
+	   <update id="updateMasterWmGrStockOrderManagerPoDelWmsIvdt"  parameterType="java.util.Map" >
+	   		 /* updateMasterWmGrStockOrderManagerPoDelWmsIvdt */
+	   		   <![CDATA[ 
+	   UPDATE WMSIVDT SET STATUS = 'D', 
+                   CHANGE_DATE = TO_CHAR(SYSDATE,'YYYYMMDD'), 
+                   CHANGE_TIME = TO_CHAR(SYSDATE,'HH24MISS')  
+		WHERE BUYER = #{ware_house_code}     
+  		   AND PO_NO = #{PO_NO}
+           AND PO_SEQ = #{PO_SEQ}
+             ]]>   
+	   </update>
+	   
+	   <update id="updateMasterWmGrStockOrderManagerPoDelGrDt"  parameterType="java.util.Map" >
+	   	   		 /* updateMasterWmGrStockOrderManagerPoDelGrDt */
+	   	   		  <![CDATA[ 
+	   	   UPDATE ICOMGRDT SET STATUS = 'D', 
+                    CHANGE_DATE = TO_CHAR(SYSDATE,'YYYYMMDD'), 
+                    CHANGE_TIME = TO_CHAR(SYSDATE,'HH24MISS')  
+		WHERE BUYER = #{ware_house_code}     
+  		   AND PO_NO = #{PO_NO}
+           AND PO_SEQ = #{PO_SEQ}
+               ]]>   
+	   </update>
+	   
+	   <update id="updateMasterWmGrStockOrderManagerPoKwayOrderDetail" parameterType="java.util.Map" >
+	   	  /* updateMasterWmGrStockOrderManagerPoKwayOrderDetail */
+	   	  	  <![CDATA[ 
+     	   UPDATE TBL_ORDER_DETAIL SET	
+     	   ORDER_DETAIL_STATUS   = '024007'	
+     	   ,BS_CUSTOMER_PO_NO   = DECODE(NVL(BS_CUSTOMER_PO_NO,''),'','',BS_CUSTOMER_PO_NO||'_D')	
+     	   ,RECORD_MODIFY_DATE       = SYSDATE	
+     	   ,RECORD_MODIFY_ID         = #{USER_ID}
+     	   ,RECORD_STATUS            = 'M'	
+     	WHERE ORDER_DETAIL_CODE = #{ORDER_DETAIL_CODE}
+     	  AND RECORD_STATUS ^= 'D'	
+     	     ]]>  
+	   </update>
+	   
+	   <update id="updateMasterWmGrStockOrderManagerPoKwayOrder" parameterType="java.util.Map" >
+	   	   	  /* updateMasterWmGrStockOrderManagerPoKwayOrder */
+	   	   	  	  <![CDATA[ 
+	   	    UPDATE STREAM.TBL_ORDER ORDER SET	
+    		ORDER_STATUS=DECODE((SELECT MIN(ORDER_DETAIL_STATUS) 
+    		                                 FROM TBL_ORDER_DETAIL 
+    		                                WHERE ORDER_CODE = ORDER.ORDER_CODE 
+    		                                   AND RECORD_STATUS ^= 'D'), '024001', '023001', '024003', '023003', '024004', '023005', '024005', '023004', '024007', '023006', '023001')	
+            WHERE ORDER_CODE= #{ORDER_CODE}	
+            	     ]]>  
+	   </update>
+	   
+	   <update id="updateMasterWmGrStockOrderManagerPoWmsStckForSTCK" parameterType="java.util.Map" >
+	   /* updateMasterWmGrStockOrderManagerPoWmsStckForSTCK */
+	     	  <![CDATA[ 
+	   UPDATE WMSSTCK SET TOT_QTY = TOT_QTY - ${INV_QTY}, 
+                                             AVAIL_QTY = AVAIL_QTY - (${INV_QTY}), 
+                                             STC_SELLER_PRICE = ROUND(DECODE(NVL(AVAIL_QTY,0)-(${INV_QTY}),0,0,((NVL(AVAIL_QTY,0)*NVL(STC_SELLER_PRICE,0))-(${INV_QTY}*${UNIT_PRICE}))/(NVL(AVAIL_QTY,0)-(${INV_QTY}))),0) , 	
+                                             CHANGE_DATE = TO_CHAR(SYSDATE,'YYYYMMDD') 
+        WHERE WAREHOUSE_CODE = #{ware_house_code}   	
+          AND STDCATLG_ID = ( 
+            SELECT PO.BUYER_ITEM_NO FROM ICOMPODT PO, ICOMIVDT IV  
+            WHERE PO.BUYER = IV.BUYER				
+        	  AND PO.PO_NO = IV.PO_NO				
+        	  AND PO.PO_SEQ = IV.PO_SEQ				
+              AND IV.BUYER  = #{ware_house_code}   	
+              AND IV.INV_NO  = #{INV_NO}		
+              AND IV.INV_SEQ = #{PO_SEQ}		
+          )							
+          AND AGENT = 'KRKORE0001'		
+          AND CONTRACT_NO = ( 
+            SELECT PO.CONTRACT_NO FROM ICOMPODT PO, ICOMIVDT IV  
+            WHERE PO.BUYER = IV.BUYER				
+        	  AND PO.PO_NO = IV.PO_NO				
+        	  AND PO.PO_SEQ = IV.PO_SEQ				
+              AND IV.BUYER  =  #{ware_house_code}   			
+              AND IV.INV_NO  = #{INV_NO}		
+              AND IV.INV_SEQ = #{PO_SEQ}		
+          )							
+          AND CONTRACT_SEQ = ( 
+            SELECT PO.CONTRACT_SEQ FROM ICOMPODT PO, ICOMIVDT IV  
+            WHERE PO.BUYER = IV.BUYER				
+        	  AND PO.PO_NO = IV.PO_NO				
+        	  AND PO.PO_SEQ = IV.PO_SEQ				
+              AND IV.BUYER  =  #{ware_house_code}  		
+              AND IV.INV_NO  = #{INV_NO}		
+              AND IV.INV_SEQ = #{PO_SEQ}	
+           )	
+	        ]]>  
+	   </update>
+	   
+	   <select id="selecttMasterWmGrStockOrderManagerPoWmsStckForSTCK" parameterType="java.util.Map" resultType="java.util.Map">
+	   /* selecttMasterWmGrStockOrderManagerPoWmsStckForSTCK */
+	     	  <![CDATA[ 
+           SELECT AVAIL_QTY FROM WMSSTCK 
+            WHERE WAREHOUSE_CODE = #{ware_house_code}  	
+              AND STDCATLG_ID = (		
+                SELECT PO.BUYER_ITEM_NO FROM ICOMPODT PO, ICOMIVDT IV  
+                WHERE PO.BUYER = IV.BUYER				 
+            	   AND PO.PO_NO = IV.PO_NO				 
+            	   AND PO.PO_SEQ = IV.PO_SEQ			 
+                  AND IV.BUYER  =  #{ware_house_code}  		
+                  AND IV.INV_NO  = #{INV_NO}		
+                  AND IV.INV_SEQ = #{PO_SEQ}		
+              )							
+              AND AGENT = 'KRKORE0001'		
+              AND CONTRACT_NO = ( 
+                SELECT PO.CONTRACT_NO FROM ICOMPODT PO, ICOMIVDT IV  
+                WHERE PO.BUYER = IV.BUYER				
+            	  AND PO.PO_NO = IV.PO_NO				
+            	  AND PO.PO_SEQ = IV.PO_SEQ				
+                  AND IV.BUYER  = #{ware_house_code}  		
+                  AND IV.INV_NO  = #{INV_NO}	
+                  AND IV.INV_SEQ = #{PO_SEQ}	
+              )							
+              AND CONTRACT_SEQ = ( 
+                SELECT PO.CONTRACT_SEQ FROM ICOMPODT PO, ICOMIVDT IV  
+                WHERE PO.BUYER = IV.BUYER				
+            	  AND PO.PO_NO = IV.PO_NO				
+            	  AND PO.PO_SEQ = IV.PO_SEQ				
+                  AND IV.BUYER  = #{ware_house_code}  		
+                  AND IV.INV_NO  =  #{INV_NO}	
+                  AND IV.INV_SEQ =  #{PO_SEQ}	
+              )	
+      		
+               ]]>  
+	   </select>
+	   
+	   
+	   <update id="updateMasterWmGrStockOrderManagerPoWmsStckForSTCK2" parameterType="java.util.Map" >
+	   /* updateMasterWmGrStockOrderManagerPoWmsStckForSTCK2 */
+	   <![CDATA[ 
+	    UPDATE WMSSTCK										
+       		SET PRE_GR_QTY = PRE_GR_QTY - (${INV_QTY}),				
+       			CHANGE_DATE = TO_CHAR(SYSDATE,'YYYYMMDD')	
+       	 WHERE WAREHOUSE_CODE = #{ware_house_code}  								
+       	   AND AGENT = 'KRKORE0001'							
+       	   AND (STDCATLG_ID, CONTRACT_NO, CONTRACT_SEQ) = (	
+       		SELECT											
+       				PO.BUYER_ITEM_NO,						
+       				PO.CONTRACT_NO,							
+       				PO.CONTRACT_SEQ							
+       		  FROM ICOMPODT PO, ICOMIVDT IV					
+       		 WHERE PO.BUYER = IV.BUYER						
+       		   AND PO.PO_NO = IV.PO_NO						
+       		   AND PO.PO_SEQ = IV.PO_SEQ					
+       		   AND IV.BUYER  = #{ware_house_code}  									
+       		   AND IV.INV_NO  = #{INV_NO}								
+       		   AND IV.INV_SEQ = #{PO_SEQ}							
+       	  )	
+       	    ]]>  
+	   	</update>
+	   	   
+	   	<update id="updateMasterWmGrStockOrderManagerPoWmsStckForSTCK3" parameterType="java.util.Map" >
+	     	/*updateMasterWmGrStockOrderManagerPoWmsStckForSTCK3 */
+	     		   <![CDATA[ 
+	   	                                UPDATE WMSSTCK										
+                                    		SET PRE_GR_QTY = PRE_GR_QTY -  (${INV_QTY}),					
+                                    			CHANGE_DATE = TO_CHAR(SYSDATE,'YYYYMMDD')	
+                                    	 WHERE WAREHOUSE_CODE = #{ware_house_code} 						
+                                    	   AND AGENT = 'KRKORE0001'							
+                                    	   AND (STDCATLG_ID, CONTRACT_NO, CONTRACT_SEQ) = (	
+                                    		SELECT											
+                                    				PO.BUYER_ITEM_NO,						
+                                    				PO.CONTRACT_NO,							
+                                    				PO.CONTRACT_SEQ							
+                                    		  FROM ICOMPODT PO								
+                                    		 WHERE PO.BUYER  =#{ware_house_code} 							
+                                    		   AND PO.PO_NO  =  #{INV_NO}							
+                                    		   AND PO.PO_SEQ = #{PO_SEQ}									
+                                    	  )			
+               ]]>                           	  		
+	   	</update>
+	   	
+	   	
+	   <update id="updateMasterWmGrStockOrderManagerPoDelEdiPo" parameterType="java.util.Map" >
+	   /* updateMasterWmGrStockOrderManagerPoDelEdiPo */ 
+	      <![CDATA[ 
+	                                   UPDATE EDIVPODT SET STATUS = 'D',                                 
+                                                    CHANGE_DATE = TO_CHAR(SYSDATE,'YYYYMMDD'),                                 
+                                                    CHANGE_TIME = TO_CHAR(SYSDATE,'HH24MISS')                                  
+                                WHERE BUYER = #{ware_house_code} 		                                  
+                                  AND VPO_NO = #{PO_NO}	                                  
+                                  AND VPO_SEQ = #{PO_SEQ}	
+               ]]>                             	 
+	   	</update>
+	   	
+	   <select id="selectMasterWmGrStockOrderManagerPoDelEdiPoCount" parameterType="java.util.Map" resultType="java.util.Map">
+	   	   /* selectMasterWmGrStockOrderManagerPoDelEdiPoCount */
+	   	   <![CDATA[  
+	                                   SELECT COUNT(*) COUNTEDIVPODT FROM EDIVPODT	                                
+                                WHERE BUYER = #{ware_house_code} 				                                
+                                  AND VPO_NO = #{PO_NO}			                                
+                                  AND STATUS ^='D'	
+                ]]>                           	
+	   </select>
+	   
+	   
+	   <update id="updateMasterWmGrStockOrderManagerPoWmsStckForVMI" parameterType="java.util.Map" >
+	    /* updateMasterWmGrStockOrderManagerPoWmsStckForVMI */
+	    
+	   			   <if test='st_STATUS=="발주"'>
+	   			   	UPDATE WMSSTCK SET PRE_GR_QTY = NVL(PRE_GR_QTY,0) - (${ITEM_QTY}),
+	   			   </if>
+	   			   <if test='st_STATUS=="입고예정"'>
+	   			   	UPDATE WMSSTCK SET PRE_GR_QTY = NVL(PRE_GR_QTY,0) - (${ITEM_QTY}),
+	   			    </if>
+	   			   <if test='st_STATUS=="입고완료"'>
+	   			   	UPDATE WMSSTCK SET TOT_QTY = NVL(TOT_QTY,0) - (${ITEM_QTY}),	
+	   			   	                           AVAIL_QTY = NVL(AVAIL_QTY,0) - (${ITEM_QTY}),
+	   			    </if>
+	   			     <![CDATA[  
+	   			   	CHANGE_DATE = TO_CHAR(SYSDATE,'YYYYMMDD')	
+	   			   	           WHERE WAREHOUSE_CODE = #{ware_house_code} 	                              
+                                  AND STDCATLG_ID = (SELECT BUYER_ITEM_NO FROM EDIVPODT WHERE BUYER = #{ware_house_code}  AND VPO_NO = #{PO_NO}		 AND VPO_SEQ = #{PO_SEQ})                                 
+                                  AND AGENT = (SELECT AGENT FROM EDIVPODT WHERE BUYER = #{ware_house_code} AND VPO_NO = #{PO_NO}		 AND VPO_SEQ = #{PO_SEQ})                                 
+                                  AND CONTRACT_NO = (SELECT CONTRACT_NO FROM EDIVPODT WHERE BUYER = #{ware_house_code} AND VPO_NO = #{PO_NO}		 AND VPO_SEQ = #{PO_SEQ})                                 
+                                  AND CONTRACT_SEQ = (SELECT CONTRACT_SEQ FROM EDIVPODT WHERE BUYER = #{ware_house_code} AND VPO_NO = #{PO_NO}		 AND VPO_SEQ = #{PO_SEQ})  
+                                       ]]>         
+	   </update>
+	   
+	   	<select id="selectMasterWmGrStockOrderManagerPoWmsStckForVMI" parameterType="java.util.Map" resultType="java.util.Map">
+	   		    /* selectMasterWmGrStockOrderManagerPoWmsStckForVMI */
+	   		       <![CDATA[  
+	   		                                SELECT AVAIL_QTY FROM WMSSTCK                                
+                                WHERE WAREHOUSE_CODE = #{ware_house_code} 			                                
+                                  AND STDCATLG_ID = (SELECT BUYER_ITEM_NO FROM EDIVPODT WHERE BUYER = #{ware_house_code} 		
+                                                               AND VPO_NO =  #{PO_NO}	 AND VPO_SEQ =  #{PO_SEQ}	)                                 
+                                  AND AGENT = (SELECT AGENT FROM EDIVPODT WHERE BUYER = #{ware_house_code}  AND VPO_NO = #{PO_NO}	 AND VPO_SEQ =  #{PO_SEQ})                                 
+                                  AND CONTRACT_NO = (SELECT CONTRACT_NO FROM EDIVPODT WHERE BUYER =  #{ware_house_code}  AND VPO_NO = #{PO_NO} AND VPO_SEQ =  #{PO_SEQ})                                 
+                                  AND CONTRACT_SEQ = (SELECT CONTRACT_SEQ FROM EDIVPODT WHERE BUYER =  #{ware_house_code} AND VPO_NO = #{PO_NO} AND VPO_SEQ = #{PO_SEQ}) 
+                                      ]]>   
+	   	</select>
+	   
+	   
+	   	<update id="deleteMasterWmGrStockOrderManagerPopPriceChange" parameterType="java.util.Map" >
+	   	  /* deleteMasterWmGrStockOrderManagerPopPriceChange */
+	   	  	       <![CDATA[  
+	   	                 UPDATE ICOMPORS													                                
+                                   SET STATUS        =  DECODE(${ITEM_QTY},0,'D','R') ,					                                
+			                       CD_QTY	     = ${ITEM_QTY},										                                
+			                       CHANGE_DATE   = TO_CHAR(SYSDATE, 'YYYYMMDD'),			                                
+                                   CHANGE_TIME   = TO_CHAR(SYSDATE, 'HH24MISS')				                                
+                                 WHERE BUYER   =  #{ware_house_code} 												                                
+                                   AND PO_NO   =  #{PO_NO}													                                
+                                   AND PO_SEQ  =  #{PO_SEQ}				
+	   	          ]]>   
+	   	 </update>
+	   	 
+	   	<update id="deleteMasterWmGrStockOrderManagerPopPriceChange2" parameterType="java.util.Map" >
+	   	  /* deleteMasterWmGrStockOrderManagerPopPriceChange2 */
+	   	         <![CDATA[  
+	   	                                  UPDATE ICOMPRDT													                                
+                                               SET STATUS        =  DECODE(${ITEM_QTY},0,'D','R') ,					                                
+			                                       PO_QTY		 = ${ITEM_QTY},										                                
+			                                       RECV_QTY		 = ${ITEM_QTY},										                                
+			                                       TARGET_QTY	 = DECODE(DOC_TYPE,'X',${ITEM_QTY},TARGET_QTY),		                                
+			                                       CHANGE_DATE   = TO_CHAR(SYSDATE, 'YYYYMMDD'),			                                
+                                                   CHANGE_TIME   = TO_CHAR(SYSDATE, 'HH24MISS')				                                
+                                             WHERE BUYER   = #{ware_house_code} 													                                
+                                               AND PR_NO   = #{PO_NO}												                                
+                                               AND PR_SEQ  = #{PO_SEQ}	
+                                                  ]]>   			
+	   	 </update> 
+	   	 
+	     <update id="deleteMasterWmGrStockOrderManagerPopPriceChange4" parameterType="java.util.Map" >
+	   	  /* deleteMasterWmGrStockOrderManagerPopPriceChange4 */
+	   	        <![CDATA[  
+	   	                                  UPDATE ICOMIVDT IV                                                                              
+                                               SET STATUS        = DECODE(${ITEM_QTY},0,'D','R') ,					                                
+                                                   INV_QTY		 = ${ITEM_QTY},										                                
+                                                   ITEM_AMT		 = TRUNC( ${ITEM_QTY} * UNIT_PRICE,2),				                                
+                                                   CHANGE_DATE   = TO_CHAR(SYSDATE, 'YYYYMMDD'),			                                
+                                                   CHANGE_TIME   = TO_CHAR(SYSDATE, 'HH24MISS')		                                
+                                             WHERE BUYER   = #{ware_house_code} 												                                
+                                               AND PO_NO   = #{PO_NO}													                                
+                                               AND PO_SEQ  = #{PO_SEQ}												                                
+                                               AND STATUS != 'D'    
+                                                         ]]>   		
+	   	  </update> 
+	   	  
+	     <update id="deleteMasterWmGrStockOrderManagerPopPriceChange5" parameterType="java.util.Map" >
+	            <![CDATA[  
+	   	  /* deleteMasterWmGrStockOrderManagerPopPriceChange5 */
+	   	                                      UPDATE ICOMIVHD HD																	                                
+                                                 SET HD.STATUS  = DECODE((SELECT NVL(COUNT(*),0) FROM ICOMIVDT                                                      
+                                                                               WHERE BUYER   = HD.BUYER                                                             
+                                                                                 AND INV_NO  = HD.INV_NO                                                            
+                                                                                 AND STATUS != 'D'), 0, 'D','R'),                                                   
+                                                     HD.INV_AMT =                                                                                                   
+                                                                (SELECT NVL(SUM(DT.ITEM_AMT),0)                                                                     
+                                                                   FROM ICOMIVDT DT                                                                                 
+                                                                  WHERE HD.BUYER   = DT.BUYER                                                                       
+                                                                    AND HD.INV_NO  = DT.INV_NO                                                                      
+                                                                    AND DT.STATUS != 'D'),                                                                          
+                                                     HD.INV_TAX_RATE_1 = 0.1,                                                                                       
+                                                     HD.INV_TAX_AMT_1 =                                                                                             
+                                                                (SELECT NVL(TRUNC(SUM(DT.ITEM_AMT) * 0.1, 0),0)                                                     
+                                                                   FROM ICOMIVDT DT                                                                                 
+                                                                  WHERE HD.BUYER   = DT.BUYER                                                                       
+                                                                    AND HD.INV_NO  = DT.INV_NO                                                                      
+                                                                    AND DT.STATUS != 'D'),                                                                          
+                                                     HD.INV_TTL_AMT =                                                                                               
+                                                                (SELECT NVL(SUM(DT.ITEM_AMT) + TRUNC(SUM(DT.ITEM_AMT) * 0.1, 0),0)                                  
+                                                                   FROM ICOMIVDT DT                                                                                 
+                                                                  WHERE HD.BUYER   = DT.BUYER                                                                       
+                                                                    AND HD.INV_NO  = DT.INV_NO                                                                      
+                                                                    AND DT.STATUS != 'D'),                                                                          
+                                                     HD.CHANGE_USER_ID = #{USER_ID},				                                                                            
+                                                     HD.CHANGE_DATE   = TO_CHAR(SYSDATE, 'YYYYMMDD'),                                                               
+                                                     HD.CHANGE_TIME   = TO_CHAR(SYSDATE, 'HH24MISS')								                                
+                                               WHERE HD.BUYER =  #{ware_house_code} 				                                                                                        
+                                                 AND HD.INV_NO IN                                                                                                   
+                                                    (SELECT DISTINCT INV_NO                                                                                         
+                                                       FROM ICOMIVDT                                                                                                
+                                                      WHERE BUYER   =  #{ware_house_code} 																                                
+                                                        AND PO_NO   = #{PO_NO}																			                                
+                                                        AND PO_SEQ  = #{PO_SEQ}		)	
+	   	      ]]>   		
+	   	  </update> 	   	  
+	   	
+	   	
+	     <update id="deleteMasterWmGrStockOrderManagerPopPriceChange3" parameterType="java.util.Map" >
+	     <![CDATA[  
+	   	  /* deleteMasterWmGrStockOrderManagerPopPriceChange3 */
+	   	                               UPDATE ICOMPODT	DT												                                
+                                               SET STATUS           =  DECODE(${ITEM_QTY},0,'D','R') ,				                                
+			                                	   ITEM_QTY			= ${ITEM_QTY},									                                
+                                            	   ITEM_AMT			= TRUNC(UNIT_PRICE   *${ITEM_QTY} ,2),			                                
+                                            	   AGENT_ITEM_AMT	= TRUNC(AGENT_PRICE  * ${ITEM_QTY} ,2),			                                
+                                            	   DO_QTY	   		= (SELECT NVL(SUM(CD_QTY),0)  FROM ICOMPORS WHERE BUYER = DT.BUYER AND PO_NO = DT.PO_NO AND PO_SEQ = DT.PO_SEQ AND STATUS <> 'D'),	                                
+                                            	   IV_QTY			= DECODE(DT.PROCESS_TYPE,'0',(SELECT NVL(SUM(INV_QTY),0) FROM ICOMIVDT WHERE BUYER = DT.BUYER AND PO_NO = DT.PO_NO AND PO_SEQ = DT.PO_SEQ AND STATUS <> 'D'),DT.IV_QTY),	                                
+			                                       SEND_DATE		= ' ',									                                
+			                                       SEND_TIME		= ' ',									                                
+                                                   CHANGE_DATE		= TO_CHAR(SYSDATE, 'YYYYMMDD'),			                                
+                                                   CHANGE_TIME		= TO_CHAR(SYSDATE, 'HH24MISS')			                                
+                                             WHERE BUYER   = #{ware_house_code} 													                                
+                                               AND PO_NO   = #{PO_NO}												                                
+                                               AND PO_SEQ  = #{PO_SEQ}	
+                                                    ]]>   		
+	   	  </update> 
+	   	  
+	   	 <update id="deleteMasterWmGrStockOrderManagerPopPriceChange6" parameterType="java.util.Map" >	  
+	   	     <![CDATA[  
+	   	 	   	  /* deleteMasterWmGrStockOrderManagerPopPriceChange6 */
+	   	 	   	                              UPDATE ICOMPRHD                                 
+                                                SET STATUS = DECODE((SELECT COUNT(*) FROM ICOMPRDT WHERE BUYER = #{ware_house_code}   AND PR_NO = #{st_pr_no}  AND STATUS IN ('C','R')),0,'D','R'),                                  
+                                                    CHANGE_DATE   = TO_CHAR(SYSDATE, 'YYYYMMDD'),	                                
+                                                    CHANGE_TIME   = TO_CHAR(SYSDATE,'HH24MISS')		                                
+                                              WHERE BUYER = #{ware_house_code} 										                                
+                                                AND PR_NO = #{st_pr_no} 
+                                                  ]]>   		
+	   	 </update>
+	   	 
+	   	 <update id="deleteMasterWmGrStockOrderManagerPopPriceChange7" parameterType="java.util.Map" >	  
+	   	    <![CDATA[  
+	   	 	   	  /* deleteMasterWmGrStockOrderManagerPopPriceChange7 */
+	   	 	   	                          UPDATE ICOMPOHD PH														                                
+                                               SET STATUS           = DECODE((SELECT NVL(COUNT(*),0) FROM ICOMPODT	                                
+                                                                               WHERE BUYER   = PH.BUYER				                                
+                                                                                 AND PO_NO   = PH.PO_NO				                                
+                                                                                 AND STATUS != 'D'), 0, 'D','R'),	                                
+                                                   PO_TTL_AMT       = (SELECT NVL(SUM(PD.ITEM_AMT),0)				                                
+                                                                         FROM ICOMPODT PD							                                
+                                                                        WHERE PH.BUYER   = PD.BUYER					                                
+                                                                          AND PH.PO_NO   = PD.PO_NO					                                
+                                                                          AND PD.STATUS != 'D'),					                                
+                                                   PO_TAX_TTL_AMT   = (SELECT NVL(SUM(PD.ITEM_AMT),0)				                                
+                                                                         FROM ICOMPODT PD							                                
+                                                                        WHERE PH.BUYER   = PD.BUYER					                                
+                                                                          AND PH.PO_NO   = PD.PO_NO					                                
+                                                                          AND PD.STATUS != 'D'),					                                
+                                                   AGENT_PO_TTL_AMT = (SELECT NVL(SUM(PD.AGENT_ITEM_AMT),0)			                                
+                                                                         FROM ICOMPODT PD							                                
+                                                                        WHERE PH.BUYER   = PD.BUYER					                                
+                                                                          AND PH.PO_NO   = PD.PO_NO					                                
+                                                                          AND PD.STATUS != 'D'),					                                
+                                                   CHANGE_USER_ID = #{USER_ID},												                                
+                                                   SEND_DATE = ' ',													                                
+                                                   SEND_TIME = ' ',													                                
+                                                   CHANGE_DATE   = TO_CHAR(SYSDATE, 'YYYYMMDD'),					                                
+                                                   CHANGE_TIME   = TO_CHAR(SYSDATE, 'HH24MISS')						                                
+                                                                                                                                                    
+                                             WHERE BUYER = #{ware_house_code} 						                                                                
+                                               AND PO_NO = #{st_pr_no} 
+                                                 ]]>   					
+	   	 	   	  
+	   	 </update>
+	   	 
+	   	 
+	   	 <update id="deleteMasterWmGrStockOrderManagerPopAgentChange" parameterType="java.util.Map" >	  
+	   	  <![CDATA[  
+	   	 	   	  /* deleteMasterWmGrStockOrderManagerPopAgentChange */	
+	   	 	   	                            UPDATE ICOMPRDT PR SET								                                
+			                                       CHANGE_DATE    = TO_CHAR(SYSDATE,'YYYYMMDD'),	                                
+			                                       CHANGE_TIME    = TO_CHAR(SYSDATE,'HH24MISS'),	                                
+			                                       CHANGE_USER_ID =#{USER_ID},							                                
+			                                TARGET_PRICE = ${UNIT_PRICE},										                                
+			                                LIST_PRICE = ${UNIT_PRICE} 										                                
+			                                WHERE BUYER  = #{ware_house_code} 												                                
+			                                  AND PR_NO  = #{PR_NO}										                                
+			                                  AND PR_SEQ = #{PO_SEQ}		
+			                                     ]]>   		
+	   	 </update>
+
+	   	 <update id="deleteMasterWmGrStockOrderManagerPopAgentChange2" parameterType="java.util.Map" >	  
+	   	  <![CDATA[  
+	   	 	   	  /* deleteMasterWmGrStockOrderManagerPopAgentChange2 */	
+	   	 	   	  			             UPDATE ICOMPODT PO SET                                                              
+			                                       CHANGE_DATE    = TO_CHAR(SYSDATE,'YYYYMMDD'),                                
+			                                       CHANGE_TIME    = TO_CHAR(SYSDATE,'HH24MISS'),                                
+			                                       CHANGE_USER_ID =${UNIT_PRICE}${UNIT_PRICE},                                                          
+			                                       UNIT_PRICE     =${UNIT_PRICE},                                                          
+			                                       AGENT_PRICE    = ${UNIT_PRICE},                                                          
+			                                       ITEM_AMT       = PO.ITEM_QTY*${UNIT_PRICE},                                              
+			                                       AGENT_ITEM_AMT = PO.ITEM_QTY*${UNIT_PRICE}                                               			
+			                                WHERE BUYER  = #{ware_house_code} 	                                
+			                                  AND PO_NO  = #{PR_NO}	                                 
+			                                  AND PO_SEQ = #{PO_SEQ}  
+			                                      ]]>   		
+	   	 </update>	 
+	   	 <update id="deleteMasterWmGrStockOrderManagerPopAgentChange3" parameterType="java.util.Map" >	  
+	   	    	  <![CDATA[  
+	   	 	   	  /* deleteMasterWmGrStockOrderManagerPopAgentChange3 */	
+                                                UPDATE ICOMPOHD HD SET								                                
+			                                       CHANGE_DATE    = TO_CHAR(SYSDATE,'YYYYMMDD'),	                                
+			                                       CHANGE_TIME    = TO_CHAR(SYSDATE,'HH24MISS'),	                                
+			                                       CHANGE_USER_ID = #{USER_ID},							                                
+			                                	po_ttl_amt = (SELECT round(sum(item_amt),0) FROM ICOMPODT WHERE BUYER = HD.BUYER AND PO_NO = HD.PO_NO)   ,                                        
+			                                	po_tax_ttl_amt =  (SELECT round(sum(item_amt),0) FROM ICOMPODT WHERE BUYER = HD.BUYER AND PO_NO = HD.PO_NO),                                      
+			                                	agent_po_ttl_amt =(SELECT round(sum(agent_item_amt),0) FROM ICOMPODT WHERE BUYER = HD.BUYER AND PO_NO = HD.PO_NO)                                 
+			                                WHERE BUYER  = #{ware_house_code}                                
+			                                  AND PO_NO  = #{PO_NO}		  
+			                                     ]]>   	  
+	   	 </update>
+
+	   	 <update id="deleteMasterWmGrStockOrderManagerPopAgentChange4" parameterType="java.util.Map" >	  
+	   	  	    	  <![CDATA[  
+	   	 	   	  /* deleteMasterWmGrStockOrderManagerPopAgentChange4 */	
+	   	 	   	                           UPDATE ICOMIVDT IV SET                                                    
+			                                       CHANGE_DATE    = TO_CHAR(SYSDATE,'YYYYMMDD'),	\n");
+			                                       CHANGE_TIME    = TO_CHAR(SYSDATE,'HH24MISS'),	\n");
+			                                       UNIT_PRICE = ${UNIT_PRICE} ,                                                   
+			                                       ITEM_AMT   = IV.INV_QTY * ${UNIT_PRICE}                                        
+			                                WHERE BUYER  = #{ware_house_code}                              
+			                                  AND INV_NO  = #{PO_NO}	                               
+			                                  AND INV_SEQ = #{PO_SEQ}       
+			                                     ]]>   	  
+	   	 </update>	  	   	   	  
+	   	 	   	 	   	  
+	   	 <update id="deleteMasterWmGrStockOrderManagerPopAgentChange5" parameterType="java.util.Map" >	  
+	   	    	  <![CDATA[  
+	   	 	   	  /* deleteMasterWmGrStockOrderManagerPopAgentChange5*/	
+	   	 	   	  
+	   	 	   	                    UPDATE WMSIVDT IV SET                                          
+			                                   CHANGE_DATE    = TO_CHAR(SYSDATE,'YYYYMMDD'),	                                
+			                                   CHANGE_TIME    = TO_CHAR(SYSDATE,'HH24MISS'),	                                
+			                                   CHANGE_USER_ID = #{USER_ID},								                                
+			                                	UNIT_PRICE=${UNIT_PRICE},                                          
+			                                	UNIT_AMT=IV.INV_QTY*${UNIT_PRICE},                                 
+			                                	LIST_PRICE = ${UNIT_PRICE},                                        
+			                                	LIST_AMT = IV.INV_QTY*${UNIT_PRICE}                                
+			                                WHERE BUYER  = #{ware_house_code}                                              
+			                                  AND PO_NO  =#{PO_NO}	                                               
+			                                  AND PO_SEQ = #{PO_SEQ}   
+			                                      ]]>   	  
+	   	 </update>
+ 	 	   	 	   	     	  
+</mapper>

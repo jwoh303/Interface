@@ -1,0 +1,332 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.wmpg">
+
+	<!-- 조회 -->
+	<select id="selectMasterWmPgPrewarhsngStateList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.pagestart"/>	
+			<![CDATA[
+				SELECT  ROWNUM NUM,
+				        X.STATUS_TEXT,
+				        X.PROCESS_TEXT,
+				        X.BS_NO,
+				        X.INV_NO,
+                        X.INV_SEQ,
+				        X.BEFORE_GR_DATE,  -- 요청일자
+				        X.ADD_DATE,        -- 납품일자
+				        X.WMS_GR_DATE,     -- 입고일자  (TR일 경우에만 조회됨)
+				        X.WMS_IVK_DATE,    -- 출고(지시)일자
+				        X.DELIVERY_DATE,   -- 출고일자        
+				        X.BUYER_CODE,
+				        X.BUYER_NAME,
+				        X.AGENT_CODE, 
+				        X.AGENT_NAME,
+				        X.AGENT_TEL_NO,
+				        X.MAKER_NAME,
+				        X.BUYER_ITEM_NO,
+				        X.DESCRIPTION,
+				        X.SPECIFICATION,        
+				        X.ITEM_QTY,     -- 요청수량
+				        X.INV_QTY,      -- 납품수량(협력사)
+				        X.WMS_GR_QTY,   -- 입고수량 (TR 일 경우에만 조회됨)
+				        X.WMS_IVK_QTY,  -- 출고(지시)수량
+				        X.DELIVERY_QTY, -- 출고수량    
+				        X.UNIT_MEASURE,    -- 단위     
+				        X.UNIT_PRICE,    -- 단가         
+				        X.ITEM_QTY * X.UNIT_PRICE AS ITEM_AMT,          -- 요청금액
+				        X.INV_QTY * X.UNIT_PRICE AS INV_AMT,            -- 납품금액(협력사)
+				        X.WMS_GR_QTY * X.UNIT_PRICE AS WMS_GR_AMT,      -- 입고금액 (TR 일 경우에만 조회됨)
+				        X.WMS_IVK_QTY * X.UNIT_PRICE AS WMS_IVK_AMT,    -- 출고(지시)금액
+				        X.DELIVERY_QTY * X.UNIT_PRICE AS DELIVERY_AMT,  -- 출고금액
+				        X.DELY_TO_LOCATION,       
+				        X.REQ_USER_NAME,
+				        X.REQ_USER_DEPT_NAME,
+				        X.REQ_USER_TEL_NO,       
+				        X.KEP_USER_NAME,
+				        X.REMARK,
+				        X.WAREHOUSE_CODE,
+				        X.TRAN_INV_NO,
+				        X.TRAN_INV_SEQ,
+				        X.DELIVERY_COMPANY,
+				        X.DELIVERY_COMPANY_NAME,
+						X.DELIVERY_NO,
+				        X.STATUS,
+				        X.CONTRACT_NO, X.CONTRACT_SEQ
+				FROM
+				    (
+				        SELECT  (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE=A.BUYER) AS BUYER_NAME,
+				        		B.INV_NO,
+                                B.INV_SEQ,
+				                A.BEFORE_GR_DATE AS BEFORE_GR_DATE,
+				                A.PO_NO AS PO_NO,
+				                A.BUYER_ITEM_NO AS BUYER_ITEM_NO,
+				                A.DESCRIPTION AS DESCRIPTION,
+				                A.MAKER_NAME AS MAKER_NAME,
+				                A.UNIT_PRICE AS UNIT_PRICE,
+				                A.ITEM_QTY,
+				                A.REQ_USER_NAME,
+				                A.REQ_USER_DEPT_NAME,
+				                A.REQ_USER_TEL_NO,
+				                A.AGENT_NAME,
+				                A.AGENT_USER_NAME,
+				                A.AGENT_TEL_NO,
+				                A.KEP_USER_NAME,
+				                A.SPECIFICATION,
+				                A.ORIGIN_NAME,
+				                A.AGENT_PRICE,
+				                A.UNIT_MEASURE,
+				                A.BS_NO,
+				                A.BUYER AS BUYER_CODE,
+				                A.CLOSE_ITEM_QTY,
+				                A.DELIVERY_FLAG,
+				                A.PROCESS_TYPE,
+				                A.DELY_TO_LOCATION,
+				                A.REQ_USER_ID,
+				                A.REQ_USER_DEPT_CODE,
+				                A.MAKER_CODE,
+				                A.ORIGIN_CODE,
+				                A.AGENT_CODE,
+				                A.AGENT_USER_ID,
+				                A.KEP_USER_ID,    
+				                CASE WHEN A.STATUS = 'D'       THEN '09'   -- 취소
+				                     WHEN B.INV_NO IS NULL     THEN '01' -- 요청
+				                     WHEN B.INV_NO IS NOT NULL AND (A.GR_QTY = 0 OR A.GR_QTY IS NULL) AND (A.IV_QTY = 0 OR A.IV_QTY IS NULL) THEN '02' --납품
+				                     WHEN A.GR_QTY <> 0 AND (A.IV_QTY = 0 OR A.IV_QTY IS NULL) THEN '03'    -- 입고
+				                     WHEN A.IV_QTY <> 0 AND (A.DI_QTY = 0 OR A.DI_QTY IS NULL) THEN '04'  -- 출고(지시)
+				                     WHEN A.DI_QTY <> 0 THEN '05'  -- 배송확정                   
+				                     ELSE NULL
+				                END AS STATUS,
+				                CASE WHEN A.STATUS = 'D'       THEN '취소'
+				                     WHEN B.INV_NO IS NULL     THEN '요청'
+				                     WHEN B.INV_NO IS NOT NULL AND (A.GR_QTY = 0 OR A.GR_QTY IS NULL) AND (A.IV_QTY = 0 OR A.IV_QTY IS NULL) THEN '납품' 
+				                     WHEN A.GR_QTY <> 0 AND (A.IV_QTY = 0 OR A.IV_QTY IS NULL) THEN '입고'
+				                     WHEN A.IV_QTY <> 0 AND (A.DI_QTY = 0 OR A.DI_QTY IS NULL) THEN '출고(지시)'
+				                     WHEN A.DI_QTY <> 0 THEN '배송확정'                     
+				                     ELSE NULL
+				                END AS STATUS_TEXT,
+				                DECODE(A.PROCESS_TYPE,'2','TR','1','재고','3','VMI') AS PROCESS_TEXT,
+				                A.GR_QTY,
+				                A.IV_QTY,
+				                A.DI_QTY,
+				                B.INV_QTY,
+				                B.ADD_DATE, B.WMS_GR_DATE, B.WMS_GR_QTY, B.WMS_GR_USER_ID,
+				                B.WMS_IVK_DATE, B.WMS_IVK_QTY, B.WMS_IVK_USER_ID,
+				                C.DELIVERY_DATE, C.DELIVERY_QTY, C.DELIVERY_USER_ID, A.REMARK,
+				                C.WAREHOUSE_CODE,
+				                C.INV_NO AS TRAN_INV_NO,
+								C.INV_SEQ AS TRAN_INV_SEQ,
+				                C.DELIVERY_COMPANY,
+				                ( SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'DELY' AND CODE = C.DELIVERY_COMPANY ) AS DELIVERY_COMPANY_NAME,
+								C.DELIVERY_NO,
+				                A.CONTRACT_NO, A.CONTRACT_SEQ
+				        FROM KEP_BEFORE_STOCKED_MNG A
+				                , KEP_BEFORE_STOCKED_IVDT B
+				                , KEP_BEFORE_STOCKED_WMSIVDT C
+				        WHERE 1=1  
+				           AND A.BUYER = B.BUYER
+				           AND A.BS_NO = B.BS_NO
+				           AND A.BUYER = C.BUYER(+)
+				           AND A.BS_NO = C.BS_NO(+)
+				           AND A.PROCESS_TYPE IN ('1','2','3')
+				]]>
+					<choose>
+						<when test='st_date_type != null and st_date_type == "BEFORE_GR_DATE"'>
+							<![CDATA[
+								AND A.BEFORE_GR_DATE >= #{st_from_date} -- 조회조건 (요청일FR)
+				           		AND A.BEFORE_GR_DATE <= #{st_to_date} -- 조회조건 (요청일TO)
+							]]>
+						</when>
+						<when test='st_date_type != null and st_date_type == "ADD_DATE"'>
+							<![CDATA[
+								AND B.ADD_DATE >=  #{st_from_date}       -- 조회조건 (납품일FR)
+								AND B.ADD_DATE <=  #{st_to_date}       -- 조회조건 (납품일TO)
+							]]>
+						</when>
+						<when test='st_date_type != null and st_date_type == "WMS_IVK_DATE"'>
+							<![CDATA[
+								AND B.WMS_IVK_DATE >=  #{st_from_date}   -- 조회조건 (출고지시일FR)
+								AND B.WMS_IVK_DATE <=  #{st_to_date}   -- 조회조건 (출고지시일TO)
+							]]>
+						</when>
+						<when test='st_date_type != null and st_date_type == "DELIVERY_DATE"'>
+							<![CDATA[
+								AND C.DELIVERY_DATE >=  #{st_from_date}  -- 조회조건 (출고일FR)
+								AND C.DELIVERY_DATE <=  #{st_to_date}  -- 조회조건 (출고일TO)
+							]]>
+						</when>
+					</choose>
+					
+					<if test="st_warehouse_code != null and st_warehouse_code != ''">
+						<![CDATA[	AND A.WAREHOUSE_CODE = #{st_warehouse_code}    -- 조회조건 물류센터	]]>
+					</if>
+					
+					<if test="st_bs_no != null and st_bs_no != ''">
+						<![CDATA[	AND A.BS_NO LIKE '%' || #{st_bs_no} || '%'	]]>
+					</if>
+					
+					<if test="st_tran_inv_no != null and st_tran_inv_no != ''">
+						<![CDATA[	AND C.INV_NO LIKE '%' || #{st_tran_inv_no} || '%'	]]>
+					</if>
+					
+					<if test="st_buyer_code != null and st_buyer_code != ''">
+						<![CDATA[	AND A.BUYER = #{st_buyer_code}  -- 조회조건 (고객사)	]]>
+					</if>
+					
+					<if test="st_seller_code != null and st_seller_code != ''">
+						<![CDATA[	AND A.AGENT_CODE = #{st_seller_code} -- 조회조건 (협력사)	]]>
+					</if>
+					
+					<if test="st_buyer_item_no != null and st_buyer_item_no != ''">
+						<![CDATA[	AND A.BUYER_ITEM_NO LIKE '%' || #{st_buyer_item_no} || '%' -- 조회조건 (품목코드)	]]>
+					</if>
+					
+					<if test="st_description != null and st_description != ''">
+						<![CDATA[	AND A.DESCRIPTION LIKE '%' || #{st_description} || '%' -- 조회조건 (품목코드)	]]>
+					</if>
+					
+					<if test="st_delivery_type != null and st_delivery_type != ''">
+						<![CDATA[	AND A.PROCESS_TYPE = #{st_delivery_type}  -- 조회조건 (출고구분 1:재고, 2:TR, 3:VMI,  전체:1,2,3)	]]>
+					</if>
+			<![CDATA[
+				        ORDER BY A.BUYER, A.BS_NO DESC
+				     ) X 
+			]]>
+				<if test="st_status_type != null and st_status_type != ''">
+					<![CDATA[	WHERE X.STATUS = #{st_status_type} -- 조회조건 (진행상태)	]]>
+				</if>
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+	
+	<!-- 삭제(입고확정 상태) -->
+	<update  id="deleteMasterWmPgPrewarhsngWarhsngReg_WMS_GR_QTY" parameterType="java.util.Map" >
+	/*updateMasterWmPgPrewarhsngWarhsngReg_WMS_GR_QTY*/
+		<![CDATA[
+			UPDATE KEP_BEFORE_STOCKED_IVDT /* 선입고송장상세 */
+			SET WMS_GR_QTY = 0
+			  , WMS_GR_DATE = NULL
+			  , WMS_GR_USER_ID = NULL
+			  , BOX_QTY = NULL
+			  , SCHEDULED_DATE = NULL
+			  , CAR_ID = NULL
+			  , CAR_NO = NULL
+			  , CAR_PERSON_NAME = NULL
+			  , CAR_PERSON_TEL = NULL
+			WHERE 1=1
+			AND INV_NO = #{INV_NO}
+			AND INV_SEQ = #{INV_SEQ}
+			AND BUYER = #{BUYER_CODE}
+			AND BS_NO = #{BS_NO}
+			AND STATUS <> 'D'
+		]]>
+	</update>
+
+	<update  id="deleteMasterWmPgPrewarhsngWarhsngReg_GR_QTY" parameterType="java.util.Map" >
+	/*updateMasterWmPgPrewarhsngWarhsngReg_GR_QTY*/
+		<![CDATA[
+			UPDATE KEP_BEFORE_STOCKED_MNG /* 선입고관리 */
+			SET GR_QTY = 0 /* 물류센터 입고수량 */
+			WHERE 1=1
+			AND BUYER = #{BUYER_CODE}
+			AND BS_NO = #{BS_NO}
+		]]>
+	</update>
+	
+	<!-- 삭제(출고확정 상태) -->
+	<update  id="deleteMasterWmPgPrewarhsngWarhsngReg_WMS_IVK_QTY" parameterType="java.util.Map" >
+	/*updateMasterWmPgPrewarhsngWarhsngReg_WMS_IVK_QTY*/
+		<![CDATA[
+			UPDATE KEP_BEFORE_STOCKED_IVDT /* 선입고송장상세 */
+			SET WMS_IVK_QTY = 0
+			  , WMS_IVK_DATE = NULL
+			  , WMS_IVK_USER_ID = NULL /* 뮬류센터 송장입력자 */
+			  , BOX_QTY = NULL /* 박스수량 */
+			  , SCHEDULED_DATE = NULL /* 출고예정일 */
+			  , CAR_ID = NULL /* 차량아이디 */
+			  , CAR_NO = NULL /* 차량번호 */
+			  , CAR_PERSON_NAME = NULL /* 기사명 */
+			  , CAR_PERSON_TEL = NULL /* 연락처 */
+			WHERE 1=1
+			AND INV_NO = #{INV_NO}
+			AND INV_SEQ = #{INV_SEQ}
+			AND BUYER = #{BUYER_CODE}
+			AND BS_NO = #{BS_NO}
+			AND STATUS <> 'D'
+		]]>
+	</update>
+
+	<update  id="deleteMasterWmPgPrewarhsngWarhsngReg_IV_QTY" parameterType="java.util.Map" >
+	/*updateMasterWmPgPrewarhsngWarhsngReg_IV_QTY*/
+		<![CDATA[
+			UPDATE KEP_BEFORE_STOCKED_MNG /* 선입고관리 */
+			SET IV_QTY = 0 /* 물류센터 출고수량 */
+			  , DELIVERY_FLAG = NULL
+			WHERE 1=1
+			AND BUYER = #{BUYER_CODE}
+			AND BS_NO = #{BS_NO}
+		]]>
+	</update>
+	
+	<update  id="deleteMasterWmPgPrewarhsngReleaseReg" parameterType="java.util.Map" >
+	/*insertMasterWmPgPrewarhsngReleaseReg*/
+		<![CDATA[
+			DELETE FROM KEP_BEFORE_STOCKED_WMSIVDT
+			WHERE SELLER = 'KRKORE0001'
+			    AND INV_NO = #{INV_NO}
+			    AND INV_SEQ = #{INV_SEQ}
+				AND BUYER = #{BUYER_CODE}
+			    AND BS_NO = #{BS_NO}
+		]]>
+	</update>
+	
+	<!-- 삭제(배송확정 상태) -->
+	<update  id="deleteMasterWmPgPrewarhsngDlvryReg_KEP_BEFORE_STOCKED_WMSIVDT" parameterType="java.util.Map" >
+		<![CDATA[
+			UPDATE KEP_BEFORE_STOCKED_WMSIVDT WIDT /* 선입고 물류센터 송장테이블 */
+			SET WIDT.STATUS = 'C'
+			  , WIDT.DELIVERY_DATE = NULL /* DELIVERY_DATE */
+			  , WIDT.DELIVERY_USER_ID = NULL /* DELIVERY_USER_ID */
+			  , WIDT.DELIVERY_QTY = 0
+			  , WIDT.DELIVERY_COMPANY = NULL /* DELIVERY_COMPANY */
+			  , WIDT.DELIVERY_NO = NULL /* DELIVERY_NO */
+			  , WIDT.CHANGE_DATE = TO_CHAR(SYSDATE,'YYYYMMDD')
+			  , WIDT.CHANGE_TIME = TO_CHAR(SYSDATE,'HH24MMSS')
+			WHERE 1=1
+			AND WIDT.WAREHOUSE_CODE = #{WAREHOUSE_CODE}
+			AND WIDT.BUYER = #{BUYER_CODE}
+			AND WIDT.INV_NO = #{TRAN_INV_NO}
+			AND WIDT.INV_SEQ = #{TRAN_INV_SEQ}
+			AND WIDT.STATUS <> 'D'
+		]]>
+	</update>
+
+	<update  id="deleteMasterWmPgPrewarhsngDlvryReg_KEP_BEFORE_STOCKED_IVDT" parameterType="java.util.Map" >
+	/*updateMasterWmPgPrewarhsngDlvryReg_KEP_BEFORE_STOCKED_IVDT*/
+		<![CDATA[
+			UPDATE KEP_BEFORE_STOCKED_IVDT A /* 선입고송장상세 */
+			SET CHANGE_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD')
+			  , CHANGE_TIME = TO_CHAR(SYSDATE,'HH24MMSS')
+			  , GR_QTY = NVL(INV_QTY, 0)
+			  , DELIVERY_QTY = 0 /* 물류센터배송수량 */
+			  , DELIVERY_USER_ID = NULL /* 물류센터배송입력자 */
+			  , DELIVERY_DATE = NULL
+			WHERE 1=1
+			AND BUYER = #{BUYER_CODE}
+			AND BS_NO = #{BS_NO}
+		]]>
+	</update>
+
+	<update  id="deleteMasterWmPgPrewarhsngDlvryReg_KEP_BEFORE_STOCKED_MNG" parameterType="java.util.Map" >
+	/*updateMasterWmPgPrewarhsngDlvryReg_KEP_BEFORE_STOCKED_MNG*/
+		<![CDATA[
+			UPDATE KEP_BEFORE_STOCKED_MNG A /* 선입고관리 */
+			SET A.CHANGE_DATE = TO_CHAR(SYSDATE,'YYYYMMDD')
+			  , A.CHANGE_TIME = TO_CHAR(SYSDATE,'HH24MMSS')
+			  , A.DI_QTY = 0
+			WHERE 1=1
+			AND A.BUYER = #{BUYER_CODE}
+			AND A.BS_NO = #{BS_NO}
+		]]>
+	</update>
+
+</mapper>   
+   

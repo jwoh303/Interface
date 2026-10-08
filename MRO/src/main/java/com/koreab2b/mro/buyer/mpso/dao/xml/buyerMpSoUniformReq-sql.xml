@@ -1,0 +1,225 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="buyer.mpso">
+	
+	<select id="selectBuyerMpSoUniformReqCompanyList" parameterType="java.util.Map" resultType="java.util.Map">
+		/*selectBuyerMpSoUniformReqCompanyList*/
+		SELECT	A.COMPANY_CODE AS CODE,
+				(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = A.COMPANY_CODE) AS TEXT1
+		FROM	ICOMCOD2 A
+		WHERE	1=1
+		AND		A.TYPE = 'ST01'
+		AND		A.TEXT2 = #{SEARCH1}
+		AND		A.CODE = #{SEARCH2}
+		AND		A.FLAG = 'Y'
+	</select>
+	
+	<!-- 조회 -->
+	<select id="selectBuyerMpSoUniformReqList" parameterType="java.util.Map" resultType="java.util.Map">
+	/*selectBuyerMpSoUniformReqList*/
+		<include refid="common.ibsheet.xml.pagestart"/>	
+		<![CDATA[
+		    SELECT	A.BUYER,
+					A.BUYER_ITEM_NO,
+					B.CONTRACT_NO,
+					B.CONTRACT_SEQ,
+					C.DESCRIPTION_LOC,
+					C.SPECIFICATION,
+					B.UNIT_MEASURE,
+					A.CART_QTY,
+					A.REMARK,
+					A.SEQ
+			FROM	ICOMCART A, ICOMCQDT B, ICOMBYIT C
+			WHERE	1=1
+			AND		A.BYIT_COMORG_CODE = B.BUYER
+			AND		A.BUYER = B.BELOW_COMORG_CODE
+			AND		A.CONTRACT_NO = B.CONTRACT_NO
+			AND		A.CONTRACT_SEQ = B.CONTRACT_SEQ
+			AND		A.BUYER_ITEM_NO = B.BUYER_ITEM_NO
+			AND		B.BUYER = C.BUYER
+			AND		B.BUYER_ITEM_NO = C.BUYER_ITEM_NO
+			AND		A.USE_FLAG = 'S'
+			AND		B.STATUS IN ('C', 'R')
+			AND		C.STATUS IN ('C', 'R')
+			AND		C.PRODUCT_CLOSE_FLAG <> 'Y'
+			AND		A.BUYER = #{st_buyer}
+			AND		A.USER_ID = #{st_user_id}
+			ORDER BY SEQ
+		]]>
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+	
+	<!-- 파일업로드-->
+	<update id="uploadBuyerMpSoUniformReq"  parameterType="java.util.Map">
+		<selectKey keyProperty="MAX_SEQ" order="BEFORE" resultType="integer"> 
+			SELECT NVL(MAX(SEQ),0) AS MAX_SEQ FROM ICOMCART WHERE USER_ID = #{st_user_id} AND USE_FLAG = 'S' 
+		</selectKey> 
+		<![CDATA[
+			/*uploadBuyerMpSoUniformReq*/
+			INSERT INTO ICOMCART	(
+									BUYER,
+									USER_ID,
+									CONTRACT_NO,
+									CONTRACT_SEQ,
+									USE_FLAG,
+									BUYER_ITEM_NO,
+									SEQ,
+									AGENT,
+									CART_QTY,
+									REG_DATE,
+									BYIT_COMORG_CODE,
+									UNIT_PRICE,
+									REMARK,
+									CREATE_DATE
+			)
+			(
+					SELECT	#{st_buyer},
+							#{st_user_id},
+							A.CONTRACT_NO,
+							A.CONTRACT_SEQ,
+							'S',
+							A.BUYER_ITEM_NO,
+							#{MAX_SEQ}+ROWNUM,
+							A.AGENT,
+							#{CART_QTY},
+							TO_CHAR(SYSDATE, 'YYYYMMDD'),
+							A.BUYER,
+							0,
+							#{REMARK},
+							SYSDATE
+					FROM	ICOMCQDT A, ICOMBYIT B	
+					WHERE	1=1
+					AND		A.BUYER = B.BUYER
+					AND		A.BUYER_ITEM_NO = B.BUYER_ITEM_NO
+					AND		A.STATUS IN ('C', 'R')
+					AND		B.STATUS IN ('C', 'R')
+					AND		B.PRODUCT_CLOSE_FLAG <> 'D'
+					AND		A.BELOW_COMORG_CODE = #{st_buyer}
+					AND		A.BUYER_ITEM_NO = #{BUYER_ITEM_NO}
+			)
+		]]>
+	</update>
+	
+	<!-- 수정 -->
+	<update  id="updateBuyerMpSoUniformReq" parameterType="java.util.Map" >
+	/*updateBuyerMpSoUniformReq*/
+		<![CDATA[
+			UPDATE	ICOMCART
+			SET		CART_QTY = #{CART_QTY},
+					REMARK = #{REMARK}
+			WHERE	1=1
+			AND		BUYER = #{st_buyer}
+			AND		USER_ID = #{st_user_id}
+			AND		USE_FLAG = 'S'
+			AND		BUYER_ITEM_NO = #{BUYER_ITEM_NO}
+			AND		CONTRACT_NO = #{CONTRACT_NO}
+			AND		CONTRACT_SEQ = #{CONTRACT_SEQ}
+			AND		SEQ = #{SEQ}
+		]]>
+	</update>
+
+	<!-- 삭제 -->
+	<update id="deleteBuyerMpSoUniformReq"  parameterType="java.util.Map">
+	/*deleteBuyerMpSoUniformReq*/
+		<![CDATA[
+			DELETE	ICOMCART
+			WHERE	1=1
+			AND		BUYER = #{st_buyer}
+			AND		USER_ID = #{st_user_id}
+			AND		USE_FLAG = 'S'
+			AND		BUYER_ITEM_NO = #{BUYER_ITEM_NO}
+			AND		CONTRACT_NO = #{CONTRACT_NO}
+			AND		CONTRACT_SEQ = #{CONTRACT_SEQ}
+			AND		SEQ = #{SEQ}
+		]]>
+	</update>
+	
+	<!-- 등록 -->
+	<update id="insertBuyerMpSoUniformStPoHd"  parameterType="java.util.Map">
+		<![CDATA[
+			/*insertBuyerMpSoUniformStPoHd*/
+			INSERT INTO KEP_BUYER_ST_POHD	(
+									BUYER,
+									ST_NO,
+									ADD_USER_ID,
+									ADD_DATE,
+									B_CONFIRM_STATUS,
+									A_CONFIRM_STATUS,
+									S_CONFIRM_STATUS
+			) VALUES (
+				#{st_buyer},
+				#{ST_NO},
+				#{st_user_id},
+				SYSDATE,
+				'N',
+				'N',
+				'N'
+			)
+		]]>
+	</update>
+	
+	<!-- 등록 -->
+	<update id="insertBuyerMpSoUniformStPoDt"  parameterType="java.util.Map">
+		<![CDATA[
+			/*insertBuyerMpSoUniformStPoDt*/
+			INSERT INTO KEP_BUYER_ST_PODT	(
+											BUYER,
+											ST_NO,
+											ST_SEQ,
+											STATUS,
+											BUYER_ITEM_NO,
+											DESCRIPTION,
+											SPECIFICATION,
+											UNIT_MEASURE,
+											ITEM_QTY,
+											GR_QTY,
+											AGENT,
+											REQ_NOTE,
+											BYIT_COMORG_CODE,
+											CONTRACT_NO,
+											CONTRACT_SEQ,
+											ADD_DATE,
+											CHANGE_DATE
+			)
+			(
+					SELECT	#{st_buyer},
+							#{ST_NO},
+							TO_CHAR(#{ST_SEQ}, 'FM000000'),
+							'C',
+							A.BUYER_ITEM_NO,
+							B.DESCRIPTION_LOC,
+							B.SPECIFICATION,
+							A.UNIT_MEASURE,
+							#{CART_QTY},
+							0,
+							A.AGENT,
+							#{REMARK},
+							A.BUYER,
+							A.CONTRACT_NO,
+							A.CONTRACT_SEQ,
+							SYSDATE,
+							SYSDATE
+					FROM	ICOMCQDT A, ICOMBYIT B	
+					WHERE	1=1
+					AND		A.BUYER = B.BUYER
+					AND		A.BUYER_ITEM_NO = B.BUYER_ITEM_NO
+					AND		A.STATUS IN ('C', 'R')
+					AND		B.STATUS IN ('C', 'R')
+					AND		B.PRODUCT_CLOSE_FLAG <> 'D'
+					AND		A.BELOW_COMORG_CODE = #{st_buyer}
+					AND		A.BUYER_ITEM_NO = #{BUYER_ITEM_NO}
+					AND		A.CONTRACT_NO = #{CONTRACT_NO}
+					AND		A.CONTRACT_SEQ = #{CONTRACT_SEQ}
+			)
+		]]>
+	</update>
+	
+	<update id="call_PKG_MAIL_REQ_PROC_INSERT_MAILSEND" parameterType="java.util.Map">
+		<![CDATA[
+		/*call_PKG_MAIL_REQ_PROC_INSERT_MAILSEND*/
+
+		call PKG_MAIL_REQ.PROC_INSERT_MAILSEND(#{MAIL_BUYER}, 'UNIFORM_CONFIRM_AA', 'KRKORE0001', 'KOREAB2B', #{MAIL_BUYER}, #{MAIL_ST_NO}, #{MAIL_TYPE}, ' ', ' ')
+		]]>
+	</update>
+</mapper>   
+   

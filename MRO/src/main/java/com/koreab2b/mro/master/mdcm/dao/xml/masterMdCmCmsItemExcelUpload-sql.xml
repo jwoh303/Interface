@@ -1,0 +1,219 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mdcm">
+
+	<!--
+		상품정보 엑셀업로드 - 상세분류별 동적 속성 컬럼 정의 (속성1·속성2…)
+		※ 현재는 ServiceImpl 에서 Java 로 stub 생성하므로 미사용(미래 seam).
+		   실 속성 테이블이 생기면 아래 placeholder 를 상세분류(#{st_categ_id}) 기준 실제 SELECT 로 교체.
+		   반환 컬럼 계약: ATTR_CODE / ATTR_NAME / SEQ
+	-->
+	<select id="selectMasterMdCmCmsItemExcelUploadAttrColumns" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/*selectMasterMdCmCmsItemExcelUploadAttrColumns*/
+			SELECT '' AS ATTR_CODE
+			     , '' AS ATTR_NAME
+			     , '' AS SEQ
+			  FROM DUAL
+			 WHERE 1 = 0
+		]]>
+	</select>
+
+	<!--
+		엑셀업로드 양식/그리드 - 담당자(세션 사용자) 담당 상세분류별 속성 조회.
+		CMSCATTR wide 한 행 = 상세분류 한 개 → 그리드 한 행에 직결. ATTB{n}_NM → ATTR{n} 별칭.
+		★현재 상세분류 3개 하드코딩(테스트). 실 담당자 컬럼 생기면 아래 IN 절만
+		  `AND {담당자컬럼} = #{st_user_id}` 로 교체.
+		반환 계약: CMS_CATEG_ID / ATTR1 ~ ATTR20
+	-->
+	<select id="selectMasterMdCmCmsItemExcelUploadFormList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/*selectMasterMdCmCmsItemExcelUploadFormList*/
+			SELECT CMS_CATEG_ID
+			     , ATTB1_NM  AS ATTR1 , ATTB2_NM  AS ATTR2 , ATTB3_NM  AS ATTR3 , ATTB4_NM  AS ATTR4
+			     , ATTB5_NM  AS ATTR5 , ATTB6_NM  AS ATTR6 , ATTB7_NM  AS ATTR7 , ATTB8_NM  AS ATTR8
+			     , ATTB9_NM  AS ATTR9 , ATTB10_NM AS ATTR10, ATTB11_NM AS ATTR11, ATTB12_NM AS ATTR12
+			     , ATTB13_NM AS ATTR13, ATTB14_NM AS ATTR14, ATTB15_NM AS ATTR15, ATTB16_NM AS ATTR16
+			     , ATTB17_NM AS ATTR17, ATTB18_NM AS ATTR18, ATTB19_NM AS ATTR19, ATTB20_NM AS ATTR20
+			  FROM CMSCATTR
+			 WHERE STATUS <> 'D'
+			   AND CMS_CATEG_ID IN ('K02030103','K02030104','K02030105')
+			 ORDER BY DECODE(CMS_CATEG_ID,'K02030103',1,'K02030104',2,'K02030105',3)
+		]]>
+	</select>
+
+	<!--
+		일괄수정 결과 확인 - 업로드한 상품정보코드의 [기존](현재) 값.
+		컬럼 별칭은 그리드 SaveName(*_BEFORE)과 1:1 이라 화면이 그대로 꽂아 쓴다.
+		값 표기는 목록(selectMasterMdCmCmsItemList)과 동일해야 '동일값(기존-변경)' 판정이 성립한다.
+		⚠ CMS_CATLG_ID 는 CMSCATLG_PK(단일 UNIQUE)라 코드 단독 조회로 1행이 확정된다.
+		⚠ IN 상한(1000)은 Service 가 1000건씩 잘라 부르는 것으로 피한다.
+	-->
+	<select id="selectMasterMdCmCmsItemExcelUploadBeforeList" parameterType="java.util.Map" resultType="java.util.Map">
+		/*selectMasterMdCmCmsItemExcelUploadBeforeList*/
+		SELECT C.CMS_CATLG_ID
+		     , DECODE(C.STATUS,'D','미사용','사용')                AS STATUS_BEFORE			/* 상품상태 */
+		     , C.DESCRIPTION_LOC                                   AS DESCRIPTION_BEFORE	/* 품목명 */
+		     , C.MODEL_INFO                                        AS MODEL_BEFORE			/* 모델번호 */
+		     , C.SPECIFICATION                                     AS SPEC_BEFORE			/* 규격 */
+		     , C.MAKER_NAME                                        AS MAKER_BEFORE			/* 제조사명 */
+		     , C.MAKER_CODE                                        AS MAKER_CODE_BEFORE		/* 제조사코드 — 반영 축 */
+		     , (SELECT MD.TEXT2 FROM ICOMCOD1 MD
+		         WHERE MD.TYPE = 'M001' AND MD.CODE = C.ORIGIN_CODE)     AS ORIGIN_BEFORE	/* 원산지명 */
+		     , C.ORIGIN_CODE                                       AS ORIGIN_CODE_BEFORE	/* 원산지코드 — 반영 축 */
+		     , C.ORDER_MEASURE                                     AS MEASURE_BEFORE		/* 단위 */
+		     , DECODE(C.ITEM_GUBUN,'G','표준품','비표준품')          AS ITEM_GUBUN_BEFORE	/* 상품구분 */
+		     , (SELECT MD.TEXT1 FROM ICOMCOD1 MD
+		         WHERE MD.TYPE = 'M181' AND MD.CODE = C.TR_HANDLE_TYPE)  AS TR_BEFORE		/* TR취급가능여부 */
+		<!--
+			속성 : 명(CMSCATTR.ATTBn_NM = 상세분류 정의) / 값(CMSCATLG.ATTBn_NM = 이 상품의 값).
+			⚠ 이름이 같아 헷갈린다.
+			⚠ 일반 상품의 CMS_CATEG_ID 는 C코드라 CMSCATTR(K코드)에 없다 → 속성명 공란이 정상.
+		-->
+		     , T.ATTB1_NM  AS ATTR1_NM , T.ATTB2_NM  AS ATTR2_NM , T.ATTB3_NM  AS ATTR3_NM
+		     , T.ATTB4_NM  AS ATTR4_NM , T.ATTB5_NM  AS ATTR5_NM , T.ATTB6_NM  AS ATTR6_NM
+		     , T.ATTB7_NM  AS ATTR7_NM , T.ATTB8_NM  AS ATTR8_NM , T.ATTB9_NM  AS ATTR9_NM
+		     , T.ATTB10_NM AS ATTR10_NM, T.ATTB11_NM AS ATTR11_NM, T.ATTB12_NM AS ATTR12_NM
+		     , T.ATTB13_NM AS ATTR13_NM
+		     , C.ATTB1_NM  AS ATTR1_BVAL , C.ATTB2_NM  AS ATTR2_BVAL , C.ATTB3_NM  AS ATTR3_BVAL
+		     , C.ATTB4_NM  AS ATTR4_BVAL , C.ATTB5_NM  AS ATTR5_BVAL , C.ATTB6_NM  AS ATTR6_BVAL
+		     , C.ATTB7_NM  AS ATTR7_BVAL , C.ATTB8_NM  AS ATTR8_BVAL , C.ATTB9_NM  AS ATTR9_BVAL
+		     , C.ATTB10_NM AS ATTR10_BVAL, C.ATTB11_NM AS ATTR11_BVAL, C.ATTB12_NM AS ATTR12_BVAL
+		     , C.ATTB13_NM AS ATTR13_BVAL
+		  FROM CMSCATLG C
+		     , CMSCATTR T
+		 WHERE C.CMS_CATEG_ID = T.CMS_CATEG_ID(+)
+		   AND T.STATUS(+) &lt;&gt; 'D'
+		   AND C.CMS_CATLG_ID IN
+		<foreach item="item" collection="codeList" open="(" separator="," close=")">
+			#{item}
+		</foreach>
+	</select>
+
+	<!--
+		일괄수정 양식 다운로드 - 제조사코드 실재 여부(ICOMCOD1 M104). 존재하는 코드만 되돌려준다.
+		FLAG='Y' 인 것만 유효한 제조사로 본다(다른 화면들이 전부 이 조건으로 이름을 끌어온다).
+	-->
+	<select id="selectMasterMdCmCmsItemExcelUploadMakerExists" parameterType="java.util.Map" resultType="java.lang.String">
+		/*selectMasterMdCmCmsItemExcelUploadMakerExists*/
+		SELECT MD.CODE
+		  FROM ICOMCOD1 MD
+		 WHERE MD.TYPE = 'M104'
+		   AND MD.FLAG = 'Y'
+		   AND MD.CODE IN
+		<foreach item="item" collection="codeList" open="(" separator="," close=")">
+			#{item}
+		</foreach>
+	</select>
+
+	<!--
+		일괄수정 양식 다운로드 - 원산지코드 실재 여부(ICOMCOD1 M001). 존재하는 코드만 되돌려준다.
+	-->
+	<select id="selectMasterMdCmCmsItemExcelUploadMakerNames" parameterType="java.util.Map" resultType="java.util.Map">
+		/*selectMasterMdCmCmsItemExcelUploadMakerNames*/
+		SELECT MD.CODE  AS CODE
+		     , MD.TEXT1 AS NAME
+		  FROM ICOMCOD1 MD
+		 WHERE MD.TYPE = 'M104'
+		   AND MD.FLAG = 'Y'
+		   AND MD.CODE IN
+		<foreach item="item" collection="codeList" open="(" separator="," close=")">
+			#{item}
+		</foreach>
+	</select>
+
+	<select id="selectMasterMdCmCmsItemExcelUploadOriginExists" parameterType="java.util.Map" resultType="java.lang.String">
+		/*selectMasterMdCmCmsItemExcelUploadOriginExists*/
+		SELECT MD.CODE
+		  FROM ICOMCOD1 MD
+		 WHERE MD.TYPE = 'M001'
+		   AND MD.FLAG = 'Y'
+		   AND MD.CODE IN
+		<foreach item="item" collection="codeList" open="(" separator="," close=")">
+			#{item}
+		</foreach>
+	</select>
+
+	<!--
+		일괄수정 양식 다운로드 - 상품상태 변경사유 목록. 양식 Sheet1 의 종속 드롭다운 원본이 된다.
+		ICOMCOD1 M182 를 TEXT3(방향)으로 갈라 쓴다 — 상태변경 팝업과 같은 축.
+		OUT = 사용→미사용 / IN = 미사용→사용. SYS(시스템 자동변경)는 드롭다운에 내지 않는다.
+		반환 계약: DIR('OUT'|'IN') / REASON_NAME
+	-->
+	<select id="selectMasterMdCmCmsItemExcelUploadReasonList" resultType="java.util.Map">
+		<![CDATA[
+			/*selectMasterMdCmCmsItemExcelUploadReasonList*/
+			SELECT MD.TEXT3 AS DIR
+			     , MD.TEXT1 AS REASON_NAME
+			  FROM ICOMCOD1 MD
+			 WHERE MD.TYPE = 'M182'
+			   AND MD.FLAG = 'Y'
+			   AND MD.TEXT3 IN ('OUT','IN')
+			 ORDER BY MD.TEXT3, MD.VALUE1
+		]]>
+	</select>
+
+	<!--
+		일괄수정 결과 확인 - 대체코드 실재 여부 판정용. 존재하는 코드만 되돌려준다(오류사유 '대체코드 미존재').
+		상품상태(STATUS)는 보지 않는다 — 미사용 코드도 대체코드로는 실재하는 것으로 본다.
+	-->
+	<select id="selectMasterMdCmCmsItemExcelUploadCodeExists" parameterType="java.util.Map" resultType="java.lang.String">
+		/*selectMasterMdCmCmsItemExcelUploadCodeExists*/
+		SELECT C.CMS_CATLG_ID
+		  FROM CMSCATLG C
+		 WHERE C.CMS_CATLG_ID IN
+		<foreach item="item" collection="codeList" open="(" separator="," close=")">
+			#{item}
+		</foreach>
+	</select>
+
+	<!--
+		기준가 일괄수정 - 상품정보코드의 [기존] 기준가 값 + 양식에 채워 내려보낼 상품 기본정보.
+		★ 기준가는 **상품정보코드 단위**다(사용자 결정 2026-09-01) — CMSCATLG.BASE_PRICE / BASE_PRICE_TYPE.
+		  구매정보코드는 양식의 참고 열이라 여기서 조회하지 않는다.
+		컬럼 별칭은 그리드 SaveName 과 1:1 이라 화면이 그대로 꽂아 쓴다.
+		⚠ 기준가유형은 명칭으로 내려보낸다 — 양식 드롭다운·화면 표기가 전부 명칭이다(코드 변환은 반영 단계에서).
+		⚠ CMS_CATLG_ID 는 CMSCATLG_PK(단일 UNIQUE)라 코드 단독 조회로 1행이 확정된다.
+		⚠ IN 상한(1000)은 Service 가 1000건씩 잘라 부르는 것으로 피한다.
+	-->
+	<select id="selectMasterMdCmCmsItemBasePriceBeforeList" parameterType="java.util.Map" resultType="java.util.Map">
+		/*selectMasterMdCmCmsItemBasePriceBeforeList*/
+		SELECT C.CMS_CATLG_ID
+		     , C.DESCRIPTION_LOC                                     AS DESCRIPTION_LOC		/* 품목명 */
+		     , C.MODEL_INFO                                          AS MODEL_INFO			/* 모델번호 */
+		     , C.SPECIFICATION                                       AS SPECIFICATION		/* 규격 */
+		     , C.MAKER_NAME                                          AS MAKER_NAME			/* 제조사 */
+		     , (SELECT MD.TEXT2 FROM ICOMCOD1 MD
+		         WHERE MD.TYPE = 'M001' AND MD.CODE = C.ORIGIN_CODE)      AS ORIGIN_NAME		/* 원산지 */
+		     , C.ORDER_MEASURE                                       AS MEASURE				/* 단위 */
+		     <!-- ⚠ TO_CHAR 필수 : BASE_PRICE 는 NUMBER 라 그대로 두면 Map<String,String> 에 BigDecimal 이 담겨
+		          양식 생성(CommonUtil.nvl)에서 ClassCastException 이 난다. 화면 콤마는 JS 가 붙인다. -->
+		     , TRIM(TO_CHAR(C.BASE_PRICE))                           AS PRICE_BEFORE		/* 기준가(원값, 문자열) */
+		     , (SELECT MD.TEXT1 FROM ICOMCOD1 MD
+		         WHERE MD.TYPE = 'M183' AND MD.CODE = C.BASE_PRICE_TYPE)  AS PRICE_TYPE_BEFORE	/* 기준가유형(명칭) */
+		  FROM CMSCATLG C
+		 WHERE C.CMS_CATLG_ID IN
+		<foreach item="item" collection="codeList" open="(" separator="," close=")">
+			#{item}
+		</foreach>
+	</select>
+
+	<!--
+		기준가 일괄수정 - 기준가유형 목록(ICOMCOD1 M183). 양식 드롭다운 원본이자 업로드 값 검증 기준이다.
+		⚠ 현재 M183 은 2건(AVG·REC)뿐이다. 최신 양식은 `고객사 정책` 을 3번째로 안내한다
+		  → 코드 적재가 되면 여기 조회에 자동으로 딸려 온다.
+		반환 계약: CODE / TYPE_NAME
+	-->
+	<select id="selectMasterMdCmCmsItemBasePriceTypeList" resultType="java.util.Map">
+		<![CDATA[
+			/*selectMasterMdCmCmsItemBasePriceTypeList*/
+			SELECT MD.CODE  AS CODE
+			     , MD.TEXT1 AS TYPE_NAME
+			  FROM ICOMCOD1 MD
+			 WHERE MD.TYPE = 'M183'
+			   AND MD.FLAG = 'Y'
+			 ORDER BY MD.VALUE1, MD.CODE
+		]]>
+	</select>
+
+</mapper>

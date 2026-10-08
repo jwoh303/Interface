@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.cmcl">
+
+	<!-- 조회 -->
+	<select id="selectMasterCmClDeptClosingList" parameterType="java.util.Map" resultType="java.util.Map">
+	/*selectMasterCmClDeptClosingList*/
+		<![CDATA[
+			SELECT
+			    A.DEPT_CODE 
+			  , (SELECT B.TEXT2 FROM ICOMCOD1 B WHERE B.TYPE='TX06' AND B.FLAG='Y' AND B.CODE=A.DEPT_CODE) AS  DEPT_NAME
+			  , A.CLOSE_YYYYMM
+			  , A.CLOSE_YN
+			  , CHANGE_DATE
+			  , CHANGE_TIME
+              , B.AR_AMT
+              , C.AP_AMT
+			FROM
+			    BNTCLOSE A /* 부서별 마감설정 */
+             , (SELECT B.DEPT_CODE
+                          ,SUM(B.TOT_AMT)  AS AR_AMT
+                  FROM KEPTARDT B 
+                 WHERE B.IF_SEND_FLAG='Y' 
+                     AND B.AR_CLOSE_MONTH = #{st_from_date}
+                   GROUP BY B.DEPT_CODE ) B
+             , (SELECT B.DEPT_CODE
+                          ,SUM(B.TOT_AMT)  AS AP_AMT 
+                 FROM KEPTAPDT B 
+                WHERE B.IF_SEND_FLAG='Y' 
+                   AND B.AP_CLOSE_MONTH = #{st_from_date}
+                 GROUP BY B.DEPT_CODE )  C
+			WHERE 1=1
+			AND A.CLOSE_YYYYMM = #{st_from_date}
+			AND A.DEPT_CODE = B.DEPT_CODE(+)
+		    AND A.DEPT_CODE = C.DEPT_CODE(+)
+		]]>
+		<if test="st_dept != null and st_dept != '' ">
+			AND A.DEPT_CODE = #{st_dept}
+		</if>
+		<![CDATA[
+			ORDER BY A.DEPT_CODE 
+		]]>		
+	</select>
+	
+	<!-- 생성 트랜잭션 체크 -->
+	<select id="selectMasterCmClDeptClosingList_Check" parameterType="java.util.Map" resultType="java.lang.String">
+	/*selectMasterCmClDeptClosingList_Check*/
+		<![CDATA[
+			SELECT
+			    DECODE(COUNT(*), 0, 'Y', 'N') AS CHECK_YN
+			FROM 
+			    BNTCLOSE A /* 부서별 마감설정 */
+			WHERE 1=1
+			AND A.CLOSE_YYYYMM = #{st_from_date}
+		]]>
+	</select>
+
+
+	<!-- 저장(생성) -->
+	<update  id="insertMasterCmClDeptClosingList" parameterType="java.util.Map" >
+	/*insertMasterCmClDeptClosingList*/
+		<![CDATA[
+			INSERT INTO BNTCLOSE /* 부서별 마감설정 */
+			(
+			    DEPT_CODE
+			  , CLOSE_YYYYMM
+			  , CLOSE_YN
+			  , ADD_DATE
+			  , ADD_TIME
+			  , ADD_USER_ID
+			)
+			SELECT DISTINCT 
+			    A.CODE AS DEPT_CODE
+			  , #{st_from_date} AS CLOSE_YYYYMM
+			  , 'N' AS CLOSE_YN
+			  , TO_CHAR(SYSDATE, 'YYYYMMDD') AS ADD_DATE
+			  , TO_CHAR(SYSDATE, 'HH24MISS') AS ADD_TIME
+			  , #{st_user_id} AS ADD_USER_ID
+			FROM 
+			    ICOMCOD1 A /* 마스터 코드관리 */
+			WHERE 1=1
+			AND A.TYPE = 'TX06' 
+			AND A.FLAG = 'Y' 
+		]]>
+	</update>
+	
+	
+	<!-- 저장 -->
+	<update id="updateMasterCmClDeptClosingList"  parameterType="java.util.Map">
+	/*updateMasterCmClDeptClosingList*/
+		<![CDATA[
+			UPDATE BNTCLOSE /* 마스터 코드관리 */
+			SET CLOSE_YN = #{CLOSE_YN}
+			  , CHANGE_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD')
+			  , CHANGE_TIME = TO_CHAR(SYSDATE, 'HH24MISS')
+			  , CHANGE_USER_ID = #{st_user_id}
+			WHERE 1=1
+			AND DEPT_CODE = #{DEPT_CODE}
+			AND CLOSE_YYYYMM = #{CLOSE_YYYYMM}
+		]]>
+	</update>
+
+</mapper>   
+   

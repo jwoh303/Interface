@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.wmgi">
+	<!-- 조회 -->
+	<select id="selectMasterWmGiTrReleaseRecordList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.pagestart"/>	
+			<![CDATA[
+		    	SELECT /*selectMasterWmGiTrReleaseRecordList*/                                                                          
+                                                                                                                           
+                                                             X.BUYER_NAME,                                                                       
+                                                             X.AGENT_NAME,                                                                       
+                                                             X.CNT,                                                                              
+                                                             X.AMT,                                                                              
+                                                             X.BUYER,                                                                            
+                                                             X.AGENT,                                                                            
+                                                             X.WAREHOUSE_CODE                                                                    
+                                                        FROM (                                                                                   
+                                                               SELECT                                                                            
+                                                                      MAX((SELECT COM_NAME_LOC FROM ICOMCMPY                                     
+                                                                            WHERE COM_CODE = WIDT.BUYER)) AS BUYER_NAME,                         
+                                                                      MAX((SELECT COM_NAME_LOC FROM ICOMCMPY                                     
+                                                                            WHERE COM_CODE = WIDT.AGENT)) AS AGENT_NAME,                         
+                                                                      COUNT(WIDT.INV_SEQ) AS CNT,                                                
+                                                                      SUM(ROUND(NVL(WIDT.DELIVERY_QTY,0) * NVL(WIDT.UNIT_PRICE,0),3)) AS AMT,    
+                                                                      WIDT.BUYER AS BUYER,                                                       
+                                                                      WIDT.AGENT AS AGENT,                                                       
+                                                                      WIDT.WAREHOUSE_CODE AS WAREHOUSE_CODE                                      
+                                                                                                                                                 
+                                                                 FROM WMSIVDT WIDT                                                               
+                                                                WHERE WIDT.DELIVERY_DATE BETWEEN #{st_from_date} AND #{st_to_date}                                     
+                                                                  AND WIDT.WAREHOUSE_CODE =#{st_warehouse_code}                                               
+								
+				]]>
+													<if test="st_buyer_code != null and st_buyer_code != ''">  
+              										  <choose >
+              										 		<when test='st_buyer_code == "KRXPR0"'>   
+                     											AND (WIDT.BUYER LIKE  'KRXPR0%' OR WIDT.BUYER = 'KRXPV00001')
+              												</when>
+              												<otherwise>
+              													AND WIDT.BUYER IN 
+              													 <foreach collection="buyerParam" item="st_buyer_code" index="i" open="(" separator=","  close=")" >	
+	    			 												#{st_buyer_code}
+	  													 		</foreach>   
+              												</otherwise>
+              										  </choose>      
+              										 </if>
+           			<![CDATA[   										 
+              			AND WIDT.STATUS <> 'D'	
+              			 GROUP BY WIDT.WAREHOUSE_CODE,WIDT.BUYER,WIDT.AGENT      	
+              						]]>	
+                  <if test='st_order_by =="1"'>
+                	ORDER BY 7,1,2
+                </if>
+                 <if test='st_order_by =="2"'>
+                 		ORDER BY 7,2,1 
+                </if>              
+                				<![CDATA[   		  )X			]]>							 
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+
+
+	<update  id="insertMasterWmGiTrReleaseRecord" parameterType="java.util.Map" >
+		<![CDATA[
+				INSERT INTO	KEPQTDT					
+				(									
+					BUYER,							
+					QUOTATION_NO,					
+					QUOTATION_SEQ,					
+					REVISION,						
+					AGENT,							
+					AGENT_REVISION,					
+					STATUS,							
+					BUYER_ITEM_NO,					
+					DESCRIPTION,					
+					SPECIFICATION,					
+					UNIT_MEASURE,					
+					MAKER_NAME,						
+					ORIGIN_NAME,					
+					ATOS_DATE,						
+					ATOS_END_DATE,					
+					ATOS_END_TIME,					
+					ITEM_QTY,						
+					IMAGE_KEY,						
+					DSS_FLAG,						
+					DSS_CHOICE						
+				)									
+				(									
+				SELECT								
+					#{BUYER},									/* 1 : BUYER */
+					#{QUOTATION_NO},									/* 2 : QUOTATION_NO */
+					#{QUOTATION_SEQ},									/* 3 : QUOTATION_SEQ */
+					#{REVISION},									/* 4 : REVISION */
+					#{AGENT},									/* 5 : AGENT */
+					#{AGENT_REVISION},								/* 6 : AGENT_REVISION */
+					'C',						
+					BUYER_ITEM_NO,				
+					DESCRIPTION,				
+					SPECIFICATION,				
+					UNIT_MEASURE,				
+					MAKER_NAME,					
+					ORIGIN_CODE,				
+					TO_CHAR(SYSDATE, 'YYYYMMDD')AS ATOS_DATE,
+					#{ATOS_END_DATE},								/* 7 : ATOS_END_DATE */
+					#{ATOS_END_TIME},								/* 8 : ATOS_END_TIME */
+					ITEM_QTY,					
+					IMAGE_KEY,					
+					#{DSS_FLAG},								/*  9 : DSS_FLAG   if(chk_str[1].equals("A") || chk_str[1].equals("B") || chk_str[1].equals("C")|| chk_str[1].equals("S")) : Y , 기타  : N   */
+					#{DSS_CHOICE}								/*    10 : DSS_CHOICE */
+				   FROM KEPRQDT						
+				  WHERE BUYER=#{BUYER}							/* 11 : BUYER */           
+					AND QUOTATION_NO=#{QUOTATION_NO}					/* 12 : QUOTATION_NO     */
+					AND QUOTATION_SEQ=#{QUOTATION_SEQ}					/* 13 : QUOTATION_SEQ    */
+					AND REVISION=#{REVISION}						/* 14 : REVISION  */       
+					AND RECV_FLAG <> 'GD'			
+					AND STATUS IN ('C','R')			
+				)									
+
+		]]>
+							   <!-- /* CMS_USER_ID = 'TEMPUSER', */ -->
+		
+	</update>
+
+
+<!-- 삭제 -->
+	<update id="deleteMasterWmGiTrReleaseRecord"  parameterType="java.util.Map">
+		<![CDATA[
+				UPDATE KEPRQDT					
+				   SET RECV_FLAG      = 'GD' 	
+				     , CANCEL_USER_ID = #{USR_ID}    		/*CANCEL_USER_ID*/
+				     , CANCEL_DATE    = SYSDATE	
+				     , CANCEL_REMARK  = #{CANCEL_REMARK}    		/*CANCEL_REMARK*/
+				 WHERE BUYER          = #{BUYER}			/*BUYER*/
+				   AND QUOTATION_NO   = #{QUOTATION_NO}	 		/*QUOTATION_NO*/
+				   AND QUOTATION_SEQ  = #{QUOTATION_SEQ}			/*QUOTATION_SEQ*/
+				   AND REVISION       = #{REVISION}			/*REVISION*/
+				   AND STATUS IN ('C','R')
+		]]>
+	</update>
+
+</mapper>   
+   

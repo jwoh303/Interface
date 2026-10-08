@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mdcm">
+	<!-- 조회 -->
+	<select id="selectMasterMdCmExpMngList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.pagestart"/>	
+			<![CDATA[
+		    /*	selectMasterMdCmExpMngList */
+			SELECT
+			 A.TEXT1 AS COM_CODE
+			 , (SELECT C.COM_NAME_LOC
+			 	FROM ICOMCMPY C
+			 	WHERE C.COM_CODE = A.TEXT1) AS COM_NAME_LOC
+			 , B.EXP_CODE
+			 , B.EXP_CUR_PRICE
+			 , B.EXP_PRICE_FLAG
+			 , DECODE(B.EXP_PRICE_FLAG,'S','매출','P','매입') AS EXP_PRICE_NM
+			 , B.ADD_DATE
+			 , B.CHANGE_DATE
+			 , B.EXP_CUR
+			 , C.ACCESSORIAL_CHARGES
+			FROM ICOMCOD2 A, KEP_CURRENCY_HD B, KEP_BUYER_FLAG C
+			WHERE A.TYPE = 'CRCY'
+			AND A.FLAG = 'Y'
+			AND A.TEXT2 = B.EXP_CODE
+			AND A.TEXT1 = C.COM_CODE(+)
+			]]>				 
+			<if test="st_buyer_code != null and st_buyer_code != ''">
+				AND  A.TEXT1 = #{st_buyer_code}
+			</if>
+		<if test="st_user_id != null and st_user_id != ''">	     
+			   <![CDATA[
+			   AND  A.TEXT1  IN (
+					SELECT COM_CODE FROM ICOMCMPY CMPY
+					WHERE  BUSINESS_COND IN ('B','M')
+					AND STATUS IN ('R','C')
+					AND COM_CODE IN (SELECT CMPY.COM_CODE
+					                 FROM ICOMCOD3 COD3
+					                 WHERE COD3.BUYER = 'KRKORE0001'
+					                 AND   COD3.TYPE = 'CMPY'
+					                 AND   COD3.CODE1= 'ALL'
+					                 AND   COD3.CODE2 = #{st_user_id}
+					                 UNION ALL
+					                 SELECT MNG.BUYER
+					                 FROM  ICOMCOD3 COD3, MIS_BUYER_MNG MNG
+					                 WHERE COD3.BUYER = 'KRKORE0001'
+					                 AND   COD3.TYPE = 'CMPY'
+					                 AND   COD3.CODE1= MNG.KEP_DEPT
+					                 AND   COD3.CODE2 = #{st_user_id}
+					                 AND   MNG.YEAR = TO_CHAR(SYSDATE,'YYYY')	
+					                 AND   MNG.STATUS = 'C'
+					                 UNION ALL
+					                 SELECT BUYER
+					                 FROM  MIS_BUYER_MNG
+					                 WHERE YEAR = TO_CHAR(SYSDATE,'YYYY')
+					                 AND   STATUS = 'C'
+					                 AND   KEP_USER_ID = #{st_user_id}
+					                 UNION ALL
+					                 SELECT COD.CODE1
+									FROM ICOMCOD3 COD , ICOMCMPY CMPY
+									WHERE  COD.BUYER = 'KRKORE0001'
+									AND COD.TYPE = 'CMPY'
+									AND COD.CODE1 = CMPY.COM_CODE
+									AND COD.CODE2 = #{st_user_id}
+									AND TO_CHAR(SYSDATE,'YYYYMMDD') BETWEEN TEXT2 AND TEXT3
+					                 )
+			   )
+			   ]]>
+		</if>  
+			<![CDATA[
+				 ORDER BY A.TEXT1, B.EXP_CODE
+			]]>
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+	<update  id="call_PROC_CURRENCY_UPDATE" parameterType="java.util.Map" >
+		<![CDATA[
+				 /*call_PROC_CURRENCY_UPDATE*/
+				call PROC_CURRENCY_UPDATE(#{COM_CODE},#{EXP_CODE})
+		]]>
+	</update>	
+</mapper>   
+   

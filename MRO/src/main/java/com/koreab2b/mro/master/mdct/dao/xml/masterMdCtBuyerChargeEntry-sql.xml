@@ -1,0 +1,194 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mdct">
+	<!-- 조회 -->
+	<select id="selectMasterMdCtBuyerChargeEntryList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.pagestart"/>	
+			<![CDATA[
+				/* selectMasterMdCtBuyerChargeEntryList */
+				SELECT
+				    CM.COM_CODE,
+				    CM.COM_CODE AS COM_CODE_ORG,
+				    CM.COM_NAME_LOC AS COM_NAME,
+				    MS.YEAR,
+				    MS.YEAR AS YEAR_ORG,
+				    MS.KEP_DEPT,
+				    MS.KEP_DEPT AS KEP_DEPT_ORG,
+				    (SELECT TEXT1 FROM ICOMCOD2 WHERE TYPE = 'C001' AND COMPANY_CODE = 'KRKORE0001' AND CODE = MS.KEP_DEPT) AS KEP_DEPT_NM,
+				    MS.POSITION_GROUP,
+				    MS.POSITION_GROUP AS POSITION_GROUP_ORG,
+				    MS.KEP_USER_ID,
+				    MS.KEP_USER_ID AS KEP_USER_ID_ORG,
+				    MS.KEP_USER_ID AS KEP_USER_ID_MASK,
+				    (SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID=MS.KEP_USER_ID) AS KEP_USER_NAME,
+				    DECODE(MS.PRIORITY,'Y','1','0') AS PRIORITY,
+				    DECODE(MS.MAIN_CLERK,'Y','1','0') AS MAIN_CLERK,
+				    MS.ITEM_GROUP
+				FROM ICOMCMPY CM, MIS_BUYER_MNG MS
+				WHERE CM.BUSINESS_COND = 'B'
+				AND CM.STATUS IN ('C','R')
+				AND MS.STATUS(+) IN ('C')
+				AND CM.COM_CODE = MS.BUYER(+)
+				AND TO_CHAR(TO_DATE(CM.ADD_DATE,'YYYYMMDD'),'YYYY') <= #{st_year}
+				AND MS.YEAR(+)    = #{st_year}
+				AND MS.POSITION_GROUP <> 'PA'
+				
+			]]>
+			<if test="st_com_code != null and st_com_code != ''">
+			AND CM.COM_CODE = #{st_com_code}
+			</if>
+			<if test="st_kep_dept != null and st_kep_dept != ''">
+				AND MS.KEP_DEPT = #{st_kep_dept}
+			</if>
+			<if test="st_kep_user_id != null and st_kep_user_id != ''">
+				AND MS.KEP_USER_ID = #{st_kep_user_id}
+			</if>
+			<if test="st_priority != null and st_priority != ''">
+			<choose>
+				<when test=' st_priority == "P" '>
+					AND MS.PRIORITY = 'Y'
+				</when>
+				<when test=' st_priority == "B" '>
+					<![CDATA[
+					AND MS.MAIN_CLERK = 'Y'    
+					]]>
+				</when>
+			</choose>
+			</if>			
+			ORDER BY MS.YEAR, COM_NAME_LOC, SEQ
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+	
+	<select id="selectMasterMdCtBuyerChargeEntryUserIdCheck" parameterType="java.util.Map" resultType="String">
+		<![CDATA[
+			/* selectMasterMdCtBuyerChargeEntryUserIdCheck */
+			SELECT
+				COUNT(KEP_USER_ID) CNT
+			FROM MIS_BUYER_MNG
+			WHERE YEAR					= #{YEAR}
+			AND BUYER					= #{COM_CODE}
+			AND KEP_USER_ID				= #{KEP_USER_ID}
+			AND KEP_DEPT 				= #{KEP_DEPT}
+			AND STATUS					= 'C'
+		]]>
+	</select>
+	
+	<select id="getMasterMdCtBuyerChargeEntryPriority" parameterType="java.util.Map" resultType="String">
+		<![CDATA[
+			/* getMasterMdCtBuyerChargeEntryPriority */
+			SELECT
+				COUNT(KEP_USER_ID) CNT
+			FROM MIS_BUYER_MNG
+			WHERE YEAR					= #{YEAR}
+			AND BUYER					= #{COM_CODE}
+			AND STATUS					= 'C'
+			AND PRIORITY				= 'Y'
+		]]>
+	</select>
+	
+	<select id="getMasterMdCtBuyerChargeEntryMain" parameterType="java.util.Map" resultType="String">
+		<![CDATA[
+			/* getMasterMdCtBuyerChargeEntryMain */
+			SELECT
+				COUNT(KEP_USER_ID) CNT
+			FROM MIS_BUYER_MNG
+			WHERE YEAR					= #{YEAR}
+			AND BUYER					= #{COM_CODE}
+			AND STATUS					= 'C'
+			AND MAIN_CLERK				= 'Y'
+		]]>
+	</select>
+	
+	<select id="getMasterMdCtBuyerChargeEntryDept" parameterType="java.util.Map" resultType="String">
+		<![CDATA[
+			/* getMasterMdCtBuyerChargeEntryDept */
+			SELECT
+				COUNT( DISTINCT KEP_DEPT)
+			FROM MIS_BUYER_MNG
+			WHERE YEAR					= #{YEAR}
+			AND BUYER					= #{COM_CODE}
+			AND STATUS					= 'C'
+		]]>
+	</select>
+	
+	<update id="updateMasterMdCtBuyerChargeEntryList"  parameterType="java.util.Map">
+		<![CDATA[
+			/* updateMasterMdCtBuyerChargeEntryList */
+			UPDATE MIS_BUYER_MNG					
+			SET
+				YEAR						= #{YEAR} 	
+				,BUYER					= #{COM_CODE}
+				,KEP_DEPT				= #{KEP_DEPT}
+				,KEP_USER_ID			= #{KEP_USER_ID}
+				,POSITION_GROUP		= #{POSITION_GROUP}
+				,CHANGE_DATE			= TO_CHAR(SYSDATE, 'YYYYMMDD')
+				,CHANGE_TIME			= TO_CHAR(SYSDATE, 'HH24MISS')
+				,PRIORITY			= DECODE(#{PRIORITY},'1','Y','')
+				,MAIN_CLERK			= DECODE(#{MAIN_CLERK},'1','Y','')
+			WHERE YEAR					= #{YEAR_ORG}
+			AND BUYER					= #{COM_CODE_ORG}
+			AND KEP_DEPT				= #{KEP_DEPT_ORG}
+			AND KEP_USER_ID			= #{KEP_USER_ID_ORG}
+			AND POSITION_GROUP	= #{POSITION_GROUP_ORG}
+			AND ITEM_GROUP			= #{ITEM_GROUP}
+		]]>
+	</update>
+	
+	<update  id="insertMasterMdCtBuyerChargeEntryList" parameterType="java.util.Map" >
+		<![CDATA[
+			/* insertMasterMdCtBuyerChargeEntryList */
+			INSERT INTO MIS_BUYER_MNG
+			(
+				SEQ,
+				YEAR,
+				BUYER,
+				KEP_DEPT,
+				KEP_USER_ID,
+				ITEM_GROUP,
+				ADD_DATE,
+				ADD_TIME,
+				CHANGE_DATE,
+				CHANGE_TIME,
+				POSITION_GROUP,
+				START_SCOPE,
+				END_SCOPE,
+				PRIORITY,
+				MAIN_CLERK,
+				STATUS
+			) VALUES (
+				NVL((SELECT MAX(SEQ)+1 FROM MIS_BUYER_MNG WHERE YEAR=#{YEAR} AND BUYER=#{COM_CODE} AND KEP_DEPT=#{KEP_DEPT} AND ITEM_GROUP='M'),1),
+				#{YEAR},
+				#{COM_CODE},
+				#{KEP_DEPT},
+				#{KEP_USER_ID},
+				'M',
+				TO_CHAR(SYSDATE, 'YYYYMMDD'),
+				TO_CHAR(SYSDATE, 'HH24MISS'),
+				TO_CHAR(SYSDATE, 'YYYYMMDD'),
+				TO_CHAR(SYSDATE, 'HH24MISS'),
+				#{POSITION_GROUP},
+				0,
+				10000000000,
+				DECODE(#{PRIORITY}, '1', 'Y', ''),
+				DECODE(#{MAIN_CLERK}, '1', 'Y', ''),
+				'C'
+			)									
+		]]>
+	</update>
+	
+	<update  id="deletetMasterMdCtBuyerChargeEntryList" parameterType="java.util.Map" >
+		<![CDATA[
+			/* deletetMasterMdCtBuyerChargeEntryList */
+			UPDATE MIS_BUYER_MNG
+			SET STATUS					= 'O'
+			WHERE YEAR					= #{YEAR_ORG}
+			AND BUYER					= #{COM_CODE_ORG}
+			AND KEP_DEPT				= #{KEP_DEPT_ORG}
+			AND KEP_USER_ID			= #{KEP_USER_ID_ORG}
+			AND POSITION_GROUP	= #{POSITION_GROUP_ORG}
+			AND ITEM_GROUP			= #{ITEM_GROUP}
+		]]>
+	</update>
+
+</mapper>   
+   

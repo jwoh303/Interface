@@ -1,0 +1,326 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="common.mpds">
+
+
+	<select id="selectMasterMpDsOrderInfoConfirmPopList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*selectMasterMpDsOrderInfoConfirmPopList*/
+        SELECT	
+			A.BUYER_ITEM_NO,	
+			(SELECT DESCRIPTION_LOC FROM ICOMBYIT WHERE BUYER=A.BYIT_COMORG_CODE AND BUYER_ITEM_NO=A.BUYER_ITEM_NO) AS DESCRIPTION,	
+			(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID=A.PURCHASER_ID) AS PURCHASER_NAME,	
+			(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE=A.AGENT) AS AGENT_NAME,	
+			A.DELY_TO_LOCATION_TEXT AS DELY_TO_LOCATION_TEXT,	
+			A.REF_NO AS REF_NO,	
+			A.REMARK,	
+			A.AGENT AS AGENT,	
+			A.BYIT_COMORG_CODE AS BYIT_COMORG_CODE,	
+			A.CONTRACT_NO AS CONTRACT_NO,	
+			A.CONTRACT_SEQ AS CONTRACT_SEQ,	
+			A.ADD_TIME AS ADD_TIME,	
+			CASE WHEN A.PR_QTY ^=0 AND NVL(B.PO_QTY,0)=0 THEN 'PR'	
+			ELSE CASE WHEN A.PR_QTY ^=0 AND NVL(B.PO_QTY,0) ^=0 AND B.DS_QTY^=0 AND B.DS_DATE IS NULL THEN 'PO'	
+			ELSE CASE WHEN A.PR_QTY ^=0 AND NVL(B.PO_QTY,0) ^=0 AND B.DS_QTY^=0 AND B.DS_DATE IS NOT NULL AND B.INV_DATE IS NULL AND B.INV_USEr_ID IS NULL THEN 'DS'	
+			ELSE CASE WHEN A.PR_QTY ^=0 AND NVL(B.PO_QTY,0) ^=0 AND B.DS_QTY^=0 AND B.DS_DATE IS NOT NULL AND B.INV_DATE IS NOT NULL AND B.INV_USEr_ID IS NOT NULL AND B.GR_USER_ID IS NULL THEN 'IV'	
+			ELSE CASE WHEN A.PR_QTY ^=0 AND NVL(B.PO_QTY,0) ^=0 AND B.DS_QTY^=0 AND B.DS_DATE IS NOT NULL AND B.INV_DATE IS NOT NULL AND B.INV_USEr_ID IS NOT NULL AND B.GR_USER_ID IS NOT NULL THEN 'GR'	
+			END END END END END AS STATUS,	
+			B.ATOS_REMARK,	
+			B.ATOA_REMARK,	
+			B.DS_QTY,		
+			B.REASON_REMARK,		
+			B.BTOA_REMARK,		
+			NVL(B.PO_QTY,0) AS PO_QTY		
+		FROM DB_OFF_PO A, DB_OFF_IV B	
+		WHERE A.BUYER=#{st_buyer}
+		AND A.ADD_DATE=#{st_add_date}	
+		AND A.SEQ=#{st_seq}
+		AND A.BUYER=B.BUYER	
+		AND A.ADD_DATE=B.ADD_DATE	
+		AND A.SEQ=B.SEQ	
+		AND B.DS_SEQ=#{st_ds_seq}
+		]]>
+	</select>
+
+
+	<update id="delMasterMpDsOrderInfoConfirmPop" parameterType="java.util.Map" >
+		<![CDATA[
+		/* delMasterMpDsOrderInfoConfirmPop */
+				UPDATE DB_OFF_IV A					
+				   SET A.CLOSE_FLAG='Y'				
+				 WHERE A.BUYER=#{st_buyer}					
+				   AND A.ADD_DATE=#{st_add_date}					
+				   AND A.SEQ=${st_seq}						
+				   AND A.DS_SEQ=${st_ds_seq}					
+		]]>
+	</update>
+	
+	
+	
+	<update id="updateMasterMpDsOrderInfoConfirmPop_pstmt1" parameterType="java.util.Map" >
+		<![CDATA[
+		/* updateMasterMpDsOrderInfoConfirmPop_pstmt1 */
+		UPDATE DB_OFF_PO A					
+		   SET A.BUYER_ITEM_NO=#{st_buyer_item_no},			
+			   A.DELY_TO_LOCATION_TEXT=#{st_dely_to_location_text},	
+			   A.REF_NO=#{st_ref_no},					
+			   A.AGENT=#{st_agent_code},					
+			   A.CHANGE_USER_ID=#{st_change_user_id},			
+			   A.CHANGE_DATE=TO_CHAR(SYSDATE, 'YYYYMMDD'),	
+			   A.CHANGE_TIME=TO_CHAR(SYSDATE, 'HH24MISS')	
+		 WHERE A.BUYER=#{st_buyer}					
+		   AND A.ADD_DATE=#{st_add_date}					
+		   AND A.SEQ=${st_seq}						
+		]]>
+	</update>
+		
+	<update id="insertMasterMpDsOrderInfoConfirmPop_pstmt1" parameterType="java.util.Map" >
+		<![CDATA[
+		/* insertMasterMpDsOrderInfoConfirmPop_pstmt1 */
+         						UPDATE DB_OFF_PO A					
+						   SET A.BUYER_ITEM_NO=#{st_buyer_item_no},			
+							   A.DELY_TO_LOCATION_TEXT=#{st_dely_to_location_text},	
+							   A.REF_NO=#{st_ref_no},					
+							   A.AGENT=#{st_agent_code},					
+							   A.PO_QTY=A.PO_QTY+${st_ds_qty},			
+							   A.CHANGE_USER_ID=#{st_change_user_id},			
+							   A.CHANGE_DATE=TO_CHAR(SYSDATE, 'YYYYMMDD'),	
+							   A.CHANGE_TIME=TO_CHAR(SYSDATE, 'HH24MISS')	
+						 WHERE A.BUYER=#{st_buyer}					
+						   AND A.ADD_DATE=#{st_add_date}					
+						   AND A.SEQ=${st_seq}						
+         
+         
+		]]>
+	</update>
+
+
+	<update id="updateMasterMpDsOrderInfoConfirmPop_pstmt2" parameterType="java.util.Map" >
+		<![CDATA[
+		/* updateMasterMpDsOrderInfoConfirmPop_pstmt2 */
+		UPDATE DB_OFF_IV A					
+		   SET A.BUYER_ITEM_NO=#{st_buyer_item_no},			
+			   A.ATOS_REMARK=#{st_atos_remark},				
+			   A.ATOA_REMARK=#{st_atoa_remark},				
+			   A.BTOA_REMARK=#{st_btoa_remark},				 
+			   A.CHANGE_USER_ID=#{st_change_user_id}			
+		 WHERE A.BUYER=#{st_buyer}					
+		   AND A.ADD_DATE=#{st_add_date}					
+		   AND A.SEQ=${st_seq}						
+		   AND A.DS_SEQ=${st_ds_seq}					
+		]]>
+	</update>	
+	<update id="insertMasterMpDsOrderInfoConfirmPop_pstmt2" parameterType="java.util.Map" >
+		<![CDATA[
+		/* insertMasterMpDsOrderInfoConfirmPop_pstmt2 */
+					UPDATE DB_OFF_IV A					
+					   SET A.BUYER_ITEM_NO=#{st_buyer_item_no},			
+						   A.ATOS_REMARK=#{st_atos_remark},				
+						   A.ATOA_REMARK=#{st_atoa_remark},				
+						   A.PO_QTY=${st_ds_qty},					
+						   A.CHANGE_USER_ID=#{st_change_user_id}			
+					 WHERE A.BUYER=#{st_buyer}					
+					   AND A.ADD_DATE=#{st_add_date}					
+					   AND A.SEQ=${st_seq}						
+					   AND A.DS_SEQ=${st_ds_seq}					
+         
+		]]>
+	</update>
+
+
+
+
+	<update id="masterMpDsOrderInfoConfirmPop_div_pstmt3" parameterType="java.util.Map" >
+		<![CDATA[
+		/* masterMpDsOrderInfoConfirmPop_div_pstmt3 */
+					UPDATE DB_OFF_PO A					
+					   SET A.BUYER_ITEM_NO=#{st_buyer_item_no},			
+						   A.DELY_TO_LOCATION_TEXT=#{st_dely_to_location_text},	
+						   A.REF_NO=#{st_ref_no},					
+						   A.AGENT=#{st_agent_code},					
+						   A.CHANGE_USER_ID=#{st_change_user_id},			
+						   A.CHANGE_DATE=TO_CHAR(SYSDATE, 'YYYYMMDD'),	
+						   A.CHANGE_TIME=TO_CHAR(SYSDATE, 'HH24MISS')	
+					 WHERE A.BUYER=#{st_buyer}					
+					   AND A.ADD_DATE=#{st_add_date}					
+					   AND A.SEQ=#{st_seq}						
+
+		]]>
+	</update>
+
+	<update id="masterMpDsOrderInfoConfirmPop_div_pstmt4" parameterType="java.util.Map" >
+		<![CDATA[
+		/* masterMpDsOrderInfoConfirmPop_div_pstmt4 */
+
+		INSERT INTO DB_OFF_IV			
+		(								
+			BUYER,						
+			ADD_DATE,					
+			SEQ ,						
+			DS_SEQ,						
+			STATUS,						
+			ADD_TIME,					
+			BYIT_COMORG_CODE,			
+			CONTRACT_NO,				
+			CONTRACT_SEQ,				
+			RD_DATE,					
+			BUYER_ITEM_NO,				
+			DS_QTY,						
+			ATOS_REMARK,				
+			ATOA_REMARK,
+			BTOA_REMARK
+								
+		)								
+		VALUES							
+		(								
+			#{st_buyer},							--1 : BUYER
+			#{st_add_date},							--2 : ADD_DATE
+			${st_seq},							
+			SEQ_DB_OFF_IV.NEXTVAL,		
+			'C',						
+			#{st_add_time},							--3 : ADD_TIME
+			#{st_byit_comorg_code},							--2 : BYIT_COMORG_CODE
+			#{st_contract_no},							--3 : CONTRACT_NO
+			#{st_contract_seq},							--3 : CONTRACT_SEQ
+			#{st_rd_date},							--4 : RD_DATE
+			#{st_buyer_item_no},							--5 : BUYER_ITEM_NO
+			${st_ds_qty},							--6 : DS_QTY
+			#{st_atos_remark},							--7 : ATOS_REMARK
+			#{st_atoa_remark},							--8 : ATOA_REMARK
+			#{st_btoa_remark}							--9 : BTOA_REMARK
+		)								
+		]]>
+	</update>
+
+	<update id="masterMpDsOrderInfoConfirmPop_pstmt5" parameterType="java.util.Map" >
+		<![CDATA[
+		/* masterMpDsOrderInfoConfirmPop_pstmt5 */
+			UPDATE DB_OFF_IV A					
+			   SET A.STATUS='D'					
+			 WHERE A.BUYER=#{st_buyer}
+			   AND A.SEQ=#{st_seq}
+			   AND A.DS_SEQ=#{st_ds_seq}					
+		]]>
+	</update>
+
+
+	<update id="masterMpDsOrderInfoConfirmPop_div_pstmt9" parameterType="java.util.Map" >
+		<![CDATA[
+		/* masterMpDsOrderInfoConfirmPop_div_pstmt9 */
+		INSERT INTO DB_OFF_IV			
+		(								
+			BUYER,						
+			ADD_DATE,					
+			SEQ ,						
+			DS_SEQ,						
+			STATUS,						
+			ADD_TIME,					
+			BYIT_COMORG_CODE,			
+			CONTRACT_NO,				
+			CONTRACT_SEQ,				
+			RD_DATE,					
+			BUYER_ITEM_NO,				
+			DS_QTY,						
+			ATOS_REMARK,				
+			ATOA_REMARK,				
+			BTOA_REMARK,				
+			PO_QTY						
+		)								
+		VALUES							
+		(								
+			#{st_buyer},							--1 : BUYER
+			#{st_add_date},							--2 : ADD_DATE
+			${st_seq},							
+			SEQ_DB_OFF_IV.NEXTVAL,		
+			'C',						
+			#{st_add_time},							--3 : ADD_TIME
+			#{st_byit_comorg_code},							--2 : BYIT_COMORG_CODE
+			#{st_contract_no},							--3 : CONTRACT_NO
+			#{st_contract_seq},							--3 : CONTRACT_SEQ
+			#{st_rd_date},							--4 : RD_DATE
+			#{st_buyer_item_no},							--5 : BUYER_ITEM_NO
+			${st_ds_qty},							--6 : DS_QTY
+			#{st_atos_remark},							--7 : ATOS_REMARK
+			#{st_atoa_remark},							--8 : ATOA_REMARK
+			#{st_btoa_remark},							-- : BTOA_REMARK
+			${st_ds_qty}							--9 : PO_QTY
+		)								
+		]]>
+	</update>
+
+
+	<update id="updateMasterMpDsOrderInfoConfirmPop_pstmt8_po" parameterType="java.util.Map" >
+		<![CDATA[
+		/* updateMasterMpDsOrderInfoConfirmPop_pstmt8_po */
+			UPDATE DB_OFF_PO A					
+			   SET A.PO_QTY=A.PO_QTY-${st_tot_ds_qty}	
+
+			 WHERE A.BUYER=#{st_buyer}					
+			   AND A.ADD_DATE=#{st_add_date}					
+			   AND A.SEQ=${st_seq}						
+		]]>
+	</update>
+	
+	<update id="updateMasterMpDsOrderInfoConfirmPop_pstmt8_ds" parameterType="java.util.Map" >
+		<![CDATA[
+		/* updateMasterMpDsOrderInfoConfirmPop_pstmt8_ds */
+			UPDATE DB_OFF_PO A					
+			   SET A.PO_QTY=A.PO_QTY-${st_tot_ds_qty},			
+				   A.DO_QTY=A.DO_QTY-${st_tot_ds_qty}			
+			 WHERE A.BUYER=#{st_buyer}					
+			   AND A.ADD_DATE=#{st_add_date}					
+			   AND A.SEQ=${st_seq}						
+		]]>
+	</update>
+	
+	<update id="updateMasterMpDsOrderInfoConfirmPop_pstmt8_iv" parameterType="java.util.Map" >
+		<![CDATA[
+		/* updateMasterMpDsOrderInfoConfirmPop_pstmt8_iv */
+			UPDATE DB_OFF_PO A					
+			   SET A.PO_QTY=A.PO_QTY-${st_tot_ds_qty},			
+				   A.DO_QTY=A.DO_QTY-${st_tot_ds_qty},			
+				   A.IV_QTY=A.IV_QTY-${st_tot_ds_qty}			
+			 WHERE A.BUYER=#{st_buyer}					
+			   AND A.ADD_DATE=#{st_add_date}					
+			   AND A.SEQ=${st_seq}						
+		]]>insertMasterMpDsOrderInfoConfirmPop_pstmt8_po
+	</update>	
+	
+	
+	<update id="insertMasterMpDsOrderInfoConfirmPop_pstmt8_pr" parameterType="java.util.Map" >
+		<![CDATA[
+		/* insertMasterMpDsOrderInfoConfirmPop_pstmt8_pr */
+			UPDATE DB_OFF_PO A					
+			   SET A.PO_QTY=A.PO_QTY+${st_tot_ds_qty}	
+	
+			 WHERE A.BUYER=#{st_buyer}					
+			   AND A.ADD_DATE=#{st_add_date}					
+			   AND A.SEQ=${st_seq}						
+		]]>
+	</update>			
+	
+	<update id="insertMasterMpDsOrderInfoConfirmPop_pstmt8_ds" parameterType="java.util.Map" >
+		<![CDATA[
+		/* insertMasterMpDsOrderInfoConfirmPop_pstmt8_ds */
+			UPDATE DB_OFF_PO A					
+			   SET A.DO_QTY=A.DO_QTY-${st_tot_ds_qty}			
+			 WHERE A.BUYER=#{st_buyer}					
+			   AND A.ADD_DATE=#{st_add_date}					
+			   AND A.SEQ=${st_seq}						
+
+		]]>
+	</update>		
+	
+	<update id="insertMasterMpDsOrderInfoConfirmPop_pstmt8_iv" parameterType="java.util.Map" >
+		<![CDATA[
+		/* insertMasterMpDsOrderInfoConfirmPop_pstmt8_iv */
+			UPDATE DB_OFF_PO A					
+			   SET A.DO_QTY=A.DO_QTY-${st_tot_ds_qty},			
+				   A.IV_QTY=A.IV_QTY-${st_tot_ds_qty}			
+			 WHERE A.BUYER=#{st_buyer}					
+			   AND A.ADD_DATE=#{st_add_date}					
+			   AND A.SEQ=${st_seq}						
+		]]>
+	</update>
+						
+</mapper>

@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mdcm">
+
+	<!-- 대체코드 조회 팝업 상단의 [기존 상품 정보] 1행. 상태변경 팝업이 넘긴 상품정보코드로 읽는다. -->
+	<select id="selectMasterMdCmCmsItemAltCodeBase" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/*selectMasterMdCmCmsItemAltCodeBase*/
+			SELECT
+			  CMS_CATLG_ID																					/* 상품정보코드 */
+			 ,DESCRIPTION_LOC																				/* 품목명 */
+			 ,MODEL_INFO																					/* 모델번호 */
+			 ,SPECIFICATION																					/* 규격 */
+			 ,MAKER_NAME																					/* 제조사 */
+			 ,(SELECT TEXT2 FROM ICOMCOD1 WHERE TYPE = 'M001' AND CODE = ORIGIN_CODE) AS ORIGIN_CODE_NAME	/* 원산지 */
+			 ,ORDER_MEASURE																					/* 단위 */
+			FROM CMSCATLG
+			WHERE CMS_CATLG_ID = #{st_catlg_id}
+		]]>
+	</select>
+
+	<!-- 대체코드 후보 목록.
+	     ★ 적용 불가 3조건(동일코드 · 미사용 · 일회성)은 여기서 걸러내지 않는다 -
+	        그리드에는 보여주고 [적용] 이 막는다.
+	     ⚠ CMSCATLG 는 200만 행이 넘는다. 조회조건 1개 이상을 JSP 가 강제한다(전건 스캔 방지). -->
+	<select id="selectMasterMdCmCmsItemAltCodeSelPopList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.pagestart"/>
+			<![CDATA[
+				/*selectMasterMdCmCmsItemAltCodeSelPopList*/
+				SELECT
+				  CMS_CATLG_ID																					/* 상품정보코드 */
+				 ,DECODE(STATUS, 'D', '미사용', '사용') AS STATUS_NM												/* 상품상태 */
+				 ,STATUS																						/* 상품상태(원값) */
+				 ,DESCRIPTION_LOC																				/* 품목명 */
+				 ,MODEL_INFO																					/* 모델번호 */
+				 ,SPECIFICATION																					/* 규격 */
+				 ,MAKER_NAME																					/* 제조사 */
+				 ,(SELECT TEXT2 FROM ICOMCOD1 WHERE TYPE = 'M001' AND CODE = ORIGIN_CODE) AS ORIGIN_CODE_NAME	/* 원산지 */
+				 ,ORDER_MEASURE																					/* 단위 */
+				 ,NVL(ONETIME_YN,'N') AS ONETIME_YN																/* 일회성구분(원값 Y/N) */
+				 ,DECODE(NVL(ONETIME_YN,'N'), 'Y', '일회성', '일반') AS ONETIME_NM								/* 일회성구분 */
+				FROM CMSCATLG
+				WHERE 1=1
+			]]>
+			<choose>
+				<when test="st_cmscatlg_multi != null and st_cmscatlg_multi.size() > 0">
+					AND CMS_CATLG_ID IN
+					<foreach item="item" collection="st_cmscatlg_multi" open="(" separator="," close=")">
+						UPPER(#{item})
+					</foreach>
+				</when>
+				<when test="st_cmscatlg != null and st_cmscatlg != ''">
+					AND CMS_CATLG_ID = UPPER(#{st_cmscatlg})
+				</when>
+			</choose>
+			<if test="st_item_name != null and st_item_name != ''">
+				AND DESCRIPTION_LOC LIKE '%' || #{st_item_name} || '%'
+			</if>
+			<if test="st_model_info != null and st_model_info != ''">
+				AND MODEL_INFO LIKE '%' || #{st_model_info} || '%'
+			</if>
+			<if test="st_specification != null and st_specification != ''">
+				AND SPECIFICATION LIKE '%' || #{st_specification} || '%'
+			</if>
+			<!-- 제조사 : 바깥 화면과 같은 제조사 팝업(agentRegMakerCodePop, st_alias_yn=Y)이 코드를 넣는다 -->
+			<if test="st_maker_code != null and st_maker_code != ''">
+				AND MAKER_CODE = #{st_maker_code}
+			</if>
+			<if test="st_order_measure != null and st_order_measure != ''">
+				AND ORDER_MEASURE = #{st_order_measure}
+			</if>
+			<!-- 카테고리 = SG (팝업 복수선택, '@' 구분 문자열을 DaoImpl 이 List 로 변환) -->
+			<if test="st_sg_id_multi != null and st_sg_id_multi.size() > 0">
+				AND EXISTS (SELECT 1 FROM CMSCATEG CG
+				             WHERE CG.CMS_CATEG_ID = CMSCATLG.CMS_CATEG_ID
+				               AND CG.STATUS != 'D'
+				               AND CG.SG_ID IN
+				               <foreach item="item" collection="st_sg_id_multi" open="(" separator="," close=")">
+				               	#{item}
+				               </foreach>
+				            )
+			</if>
+			<!-- 상세분류 (팝업 복수선택, '@' 구분 문자열을 DaoImpl 이 List 로 변환) -->
+			<if test="st_categ_id_multi != null and st_categ_id_multi.size() > 0">
+				AND CMS_CATEG_ID IN
+				<foreach item="item" collection="st_categ_id_multi" open="(" separator="," close=")">
+					#{item}
+				</foreach>
+			</if>
+			<![CDATA[
+				ORDER BY CMS_CATLG_ID
+			]]>
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+
+</mapper>

@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="common.wmgr">
+
+	<select id="selectMasterWmGrTrOrderManagerPop" parameterType="java.util.Map" resultType="java.util.Map">
+
+		/*selectMasterWmGrTrOrderManagerPop*/
+				<![CDATA[
+               SELECT                                                                                              
+                      MAX((SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = POHD.BUYER)) AS COM_NAME,            
+                      POHD.PO_NO AS PO_NO,                                                                         
+                      MAX(PODT.LEGACY_PO_NO) AS LEGACY_PO_NO,                                                      
+                      MAX(POHD.PO_CREATE_DATE) AS PO_CREATE_DATE,                                                  
+                      MAX(PODT.RD_DATE) AS RD_DATE,                                                                
+                      MAX(TO_CHAR(TO_DATE(PODT.RD_DATE,'YYYY/MM/DD')-2,'YYYYMMDD')) AS GR_DATE_RE,                 
+                      MAX(DECODE(POHD.DOC_TYPE,'S','선입고'                                                        
+             								 ,'X','Kepmro'||(SELECT DECODE(PRE_GR_FLAG, 'Y', ' 선입고', '')                       
+             								                   FROM ICOMPRHD                                                      
+             								                  WHERE BUYER = PRDT.BUYER AND PR_NO = PRDT.PR_NO AND STATUS <> 'D')  
+             								 ,'일반')) AS DOC_TEXT,                                                               
+                      MAX(PRDT.ADD_USER_NAME) AS ADD_USER_NAME,                                                    
+                      MAX(PRDT.ADD_USER_TEL) AS ADD_USER_TEL,                                                      
+                      MAX((SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = POHD.AGENT)) AS AGENT_NAME,          
+                      MAX((SELECT TEL_NO FROM ICOMCMPY WHERE COM_CODE = POHD.AGENT)) AS AGENT_TEL_NO,              
+                      MAX(POHD.DELY_TO_LOCATION) AS DELY_TO_LOCATION,                                              
+                      MAX(POHD.PO_REMARK) AS PO_REMARK,                                                            
+                      MAX(POHD.DOC_TYPE) AS DOC_TYPE,                                                              
+                      MAX(POHD.AGENT) AS AGENT,                                                                    
+                      POHD.BUYER AS BUYER,                                                                         
+         		 MAX(DECODE(PODT.PROCESS_TYPE,'1','재고','2','TR','3','VMI')) AS STATUS_TEXT                          
+                                                                                                                   
+                 FROM ICOMPOHD POHD, ICOMPODT PODT, ICOMPRDT PRDT                                                  
+                WHERE POHD.BUYER = #{BUYER}                                                                            
+                  AND POHD.PO_NO = #{PO_NO}                                                                             
+                  AND POHD.BUYER = PODT.BUYER                                                                      
+                  AND POHD.PO_NO = PODT.PO_NO                                                                      
+                  AND PODT.BUYER = PRDT.BUYER                                                                      
+                  AND PODT.PR_NO = PRDT.PR_NO                                                                      
+                  AND PODT.PR_SEQ = PRDT.PR_SEQ                                                                    
+               GROUP BY POHD.BUYER, POHD.PO_NO                                                                     
+
+				]]>
+	</select>			
+
+
+	<select id="selectMasterWmGrTrOrderManagerPopList" parameterType="java.util.Map" resultType="java.util.Map">
+
+		/*selectMasterWmGrTrOrderManagerPopList*/
+				<![CDATA[
+
+				SELECT  
+	   	   PODT.CMS_CATLG_ID AS STDCATLG_ID,			      
+                      PODT.DESCRIPTION AS DESCRIPTION,                         
+                      PODT.ITEM_QTY  ||' ('|| PODT.UNIT_MEASURE|| ' )'  AS ITEM_QTY,                               
+                      PODT.UNIT_MEASURE AS UNIT_MEASURE,                      
+                      PODT.AGENT_PRICE AS AGENT_PRICE,                          
+                      PODT.AGENT_ITEM_AMT AS AGENT_ITEM_AMT,                   
+                      PODT.PO_REMARK AS PO_REMARK,                             
+                      PODT.BUYER_ITEM_NO AS BUYER_ITEM_NO,                     
+                      PODT.SPECIFICATION AS SPECIFICATION,                     
+                      PODT.UNIT_PRICE AS UNIT_PRICE,                           
+                      PODT.ITEM_AMT AS ITEM_AMT,                                
+                      PODT.BUYER AS BUYER,                                       
+                      PODT.PO_NO AS PO_NO,                                      
+                      PODT.PO_SEQ AS PO_SEQ,                                    
+                      PODT.BYIT_COMORG_CODE AS BYIT_COMORG_CODE,                 
+                      PODT.CONTRACT_NO AS CONTRACT_NO,                          
+                      PODT.CONTRACT_SEQ AS CONTRACT_SEQ,                      
+                      (SELECT MAX(DOC_TYPE) FROM ICOMPOHD                        
+                               WHERE BUYER = PODT.BUYER                          
+                                 AND PO_NO = PODT.PO_NO) AS DOC_TYPE,           
+                      SUBSTR(PODT.BUYER_ITEM_NO,1,7) AS MASTER_ITEM,             
+                      DECODE((SELECT MAX(DOC_TYPE) FROM ICOMPOHD                 
+                               WHERE BUYER = PODT.BUYER                          
+                                 AND PO_NO = PODT.PO_NO),                        
+                             'X',(SELECT NVL(TRIM(IMG_NO),'0') FROM ITEMMAST     
+                                   WHERE STDCATLG_ID = SUBSTR(PODT.BUYER_ITEM_NO,1,7)),'') AS IMG_NO 
+                  
+                               ,PODT.SCM_REMARK     
+               FROM ICOMPODT PODT  
+              WHERE PODT.BUYER = #{st_BUYER}
+                AND PODT.PO_NO = #{st_PO_NO}
+                AND PODT.STATUS <> 'D'  
+		AND PROCESS_TYPE IN ('1','2','3')	
+ ORDER BY PODT.BUYER, PODT.PO_NO, PODT.PO_SEQ 
+		]]>
+	</select>
+				
+				
+		<select id="selectMasterWmGrTrOrderManagerPopDetail" parameterType="java.util.Map" resultType="java.util.Map">
+			<![CDATA[
+				  SELECT  
+                 MAX((SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = POHD.BUYER)) AS COM_NAME,  --[00]
+                 POHD.PO_NO AS PO_NO,  --[01]
+                 MAX(PODT.LEGACY_PO_NO) AS LEGACY_PO_NO,  --[02]
+                 MAX(POHD.PO_CREATE_DATE) AS PO_CREATE_DATE,  --[03]
+                 MAX(PODT.RD_DATE) AS RD_DATE,  --[04]
+                 MAX(TO_CHAR(TO_DATE(PODT.RD_DATE,'YYYY/MM/DD')-2,'YYYYMMDD')) AS GR_DATE_RE,  --[05]
+                 MAX(DECODE(POHD.DOC_TYPE,'S','선입고' 
+        				,'X','Kepmro'||(SELECT DECODE(PRE_GR_FLAG, 'Y', ' 선입고', '') 
+        					FROM ICOMPRHD 
+        					WHERE BUYER = PRDT.BUYER AND PR_NO = PRDT.PR_NO 
+AND STATUS <> 'D') 
+        					,'일반')) AS DOC_TEXT,  --[06]
+                 MAX(PRDT.ADD_USER_NAME) AS ADD_USER_NAME,  --[07]
+                 MAX(PRDT.ADD_USER_TEL) AS ADD_USER_TEL,  --[08]
+                 MAX((SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = POHD.AGENT)) AS AGENT_NAME,  --[09]
+                 MAX((SELECT TEL_NO FROM ICOMCMPY WHERE COM_CODE = POHD.AGENT)) AS AGENT_TEL_NO,  --[10]
+                 MAX(POHD.DELY_TO_LOCATION) AS DELY_TO_LOCATION,  --[11]
+                 MAX(POHD.PO_REMARK) AS PO_REMARK,  --[12]
+                 MAX(POHD.DOC_TYPE) AS DOC_TYPE,  --[13]
+                 MAX(POHD.AGENT) AS AGENT,  --[14]
+                 POHD.BUYER AS BUYER,  --[15]
+		MAX(DECODE(PODT.PROCESS_TYPE,'1','재고','2','TR','3','VMI')) AS STATUS_TEXT --[16]
+            FROM ICOMPOHD POHD, ICOMPODT PODT, ICOMPRDT PRDT  
+           WHERE POHD.BUYER = #{st_BUYER}
+             AND POHD.PO_NO =#{st_PO_NO} 
+             AND POHD.BUYER = PODT.BUYER  
+             AND POHD.PO_NO = PODT.PO_NO  
+             AND PODT.BUYER = PRDT.BUYER  
+             AND PODT.PR_NO = PRDT.PR_NO  
+             AND PODT.PR_SEQ = PRDT.PR_SEQ  
+         GROUP BY POHD.BUYER, POHD.PO_NO
+						]]>
+		</select>
+ 	 	   	 	   	     	  
+</mapper>

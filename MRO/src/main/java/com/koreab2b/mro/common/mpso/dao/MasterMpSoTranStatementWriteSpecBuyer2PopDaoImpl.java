@@ -1,0 +1,26 @@
+package com.koreab2b.mro.common.mpso.dao;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.mybatis.spring.SqlSessionTemplate;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.koreab2b.mro.util.CommonUtil;
+
+@Repository("masterMpSoTranStatementWriteSpecBuyer2PopDao")
+@Transactional
+public class MasterMpSoTranStatementWriteSpecBuyer2PopDaoImpl implements MasterMpSoTranStatementWriteSpecBuyer2PopDao {
+
+	@Autowired
+	private SqlSessionTemplate sqlSessionTemplate;
+
+	// 조회
+	public List<Map<String,String>> selectList(Map<String,Object> formData) {
+		return sqlSessionTemplate.selectList("common.mpso.selectMasterMpSoTranStatementWriteSpecBuyer2PopList", formData);
+	}
+	
+}

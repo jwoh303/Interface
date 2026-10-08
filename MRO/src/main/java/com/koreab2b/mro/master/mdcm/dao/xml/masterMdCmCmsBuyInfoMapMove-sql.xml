@@ -1,0 +1,263 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<!--
+	표준DB 구매정보 > 고객사 매핑 이관 (s32~s36)
+
+	매핑 축 = ICOMCQDT 의 CMS_CATLG_ID + CATLG_SEQ (구매정보코드) + CSV_YN (고객사지정여부).
+	이관 = 선택한 고객사 계약행의 그 세 칸을 변경 표준DB코드로 바꿔 다는 것이다.
+	  ⚠ 고객사지정여부 Y 는 동일 협력사일 때만 이관할 수 있다. 화면·서버 양쪽에서 막는다.
+
+	그룹사 = ICOMCMPY.BYCA_COMORG_CODE -> KEP.BYCAORGL (BYCAORCL 아님). 2단 계층.
+	  ★ 그룹사가 아닌 고객사는 조직코드 칸에 자기 COM_CODE 를 그대로 넣는다(운영 4,746/4,752).
+	  그래서 GROUP_CODE 도 BYCAORGL 에서 꺼낸다 — 등재된 그룹일 때만 코드·명이 나오고
+	  단독 고객사는 **둘 다 공란**으로 둔다(사용자 결정 2026-09-14).
+	  ⚠ 표시 전용이다. 이관·업로드 키는 BUYER + CONTRACT_NO + CONTRACT_SEQ 라 공란이어도 영향이 없다.
+-->
+<mapper namespace="master.mdcm.mapmove">
+
+	<!-- 표준DB 단건 정보. 기존/변경 두 패널이 같은 문장을 쓴다(구매정보코드만 다르다). -->
+	<select id="selectMasterMdCmCmsBuyInfoMapStdInfo" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/*selectMasterMdCmCmsBuyInfoMapStdInfo*/
+			SELECT P.CMS_CATLG_ID
+			     , P.CMS_CATLG_ID || '-' || LPAD(TO_CHAR(P.CATLG_SEQ), 5, '0')	AS BUY_INFO_ID
+			     , TRIM(TO_CHAR(P.CATLG_SEQ))									AS CATLG_SEQ
+			     , C.DESCRIPTION_LOC											AS DESCRIPTION_LOC
+			     , C.MODEL_INFO													AS MODEL_INFO
+			     , C.SPECIFICATION												AS SPECIFICATION
+			     , (SELECT MD.TEXT1 FROM ICOMCOD1 MD
+			         WHERE MD.TYPE = 'M104' AND MD.CODE = C.MAKER_CODE)			AS MAKER_NAME
+			     , (SELECT MD.TEXT2 FROM ICOMCOD1 MD
+			         WHERE MD.TYPE = 'M001' AND MD.CODE = C.ORIGIN_CODE)		AS ORIGIN_NAME
+			     , C.ORDER_MEASURE												AS MEASURE
+			     , P.AGENT														AS AGENT
+			     , (SELECT CMPY.COM_NAME_LOC FROM ICOMCMPY CMPY
+			         WHERE CMPY.COM_CODE = P.AGENT)								AS VENDOR_NAME
+			     , RTRIM(TO_CHAR(P.BUY_PRICE, 'FM999,999,999,990.99999'), '.')		AS BUY_PRICE
+			     , RTRIM(TO_CHAR(P.MIN_ORDER_QTY, 'FM999,999,990.999'), '.')			AS MIN_ORDER_QTY
+			     , RTRIM(TO_CHAR(P.PUR_UNIT_QTY,  'FM999,999,990.999'), '.')			AS PUR_UNIT_QTY
+			     , (SELECT MD.TEXT1 FROM ICOMCOD1 MD
+			         WHERE MD.TYPE = 'M186' AND MD.CODE = P.DELIVERY_TYPE)		AS DELIVERY_TYPE
+			     , (SELECT MD.TEXT2 FROM ICOMCOD1 MD
+			         WHERE MD.TYPE = 'M034' AND MD.CODE = P.PROCESS_TYPE)		AS PROCESS_TYPE
+			     , (SELECT MD.TEXT2 FROM ICOMCOD1 MD
+			         WHERE MD.TYPE = 'W001' AND MD.TEXT1 = P.WAREHOUSE_CODE)	AS WAREHOUSE_NAME
+			  FROM CMSPRICE P, CMSCATLG C
+			 WHERE P.CMS_CATLG_ID = C.CMS_CATLG_ID
+			   AND P.CMS_CATLG_ID = SUBSTR(#{st_buy_info}, 1, INSTR(#{st_buy_info}, '-') - 1)
+			   AND P.CATLG_SEQ    = TO_NUMBER(SUBSTR(#{st_buy_info}, INSTR(#{st_buy_info}, '-') + 1))
+		]]>
+	</select>
+
+	<!-- 이관 팝업 하단 [고객사 매핑정보]. 기존 구매정보코드에 매달린 고객사 계약행이다. -->
+	<select id="selectMasterMdCmCmsBuyInfoMapCustList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.pagestart"/>
+		<![CDATA[
+			/*selectMasterMdCmCmsBuyInfoMapCustList*/
+			SELECT Q.BUYER													AS BUYER_CODE
+			     , (SELECT CMPY.COM_NAME_LOC FROM ICOMCMPY CMPY
+			         WHERE CMPY.COM_CODE = Q.BUYER)							AS BUYER_NAME
+			     , (SELECT G.COMORG_CODE FROM KEP.BYCAORGL G
+			         WHERE G.COMORG_CODE = (SELECT CMPY.BYCA_COMORG_CODE FROM ICOMCMPY CMPY
+			                                 WHERE CMPY.COM_CODE = Q.BUYER)) AS GROUP_CODE
+			     , (SELECT G.COMORG_NAME FROM KEP.BYCAORGL G
+			         WHERE G.COMORG_CODE = (SELECT CMPY.BYCA_COMORG_CODE FROM ICOMCMPY CMPY
+			                                 WHERE CMPY.COM_CODE = Q.BUYER)) AS GROUP_NAME
+			     , Q.CONTRACT_NO											AS CONTRACT_NO
+			     , Q.CONTRACT_SEQ											AS CONTRACT_SEQ
+			     , Q.BUYER_ITEM_NO											AS BUYER_ITEM_NO
+			     , Q.DESCRIPTION											AS DESCRIPTION
+			     , Q.SPECIFICATION											AS SPECIFICATION
+			     , Q.UNIT_MEASURE											AS MEASURE
+			     , Q.AGENT													AS AGENT
+			     , (SELECT CMPY.COM_NAME_LOC FROM ICOMCMPY CMPY
+			         WHERE CMPY.COM_CODE = Q.AGENT)							AS VENDOR_NAME
+			     , NVL(Q.CSV_YN, 'N')									AS CSV_YN
+			     , (SELECT DECODE(R.CONTRACT_FLAG, 'F', 'Y', 'N') FROM KEP_BUYER_RATE R
+			         WHERE R.BUYER = Q.BUYER AND R.TO_DATE = '299912')	AS FEE_BASE_YN
+			     , (SELECT RTRIM(TO_CHAR(R.RATE, 'FM999,990.99'), '.') FROM KEP_BUYER_RATE R
+			         WHERE R.BUYER = Q.BUYER AND R.TO_DATE = '299912')	AS FEE_BASE_RATE
+			     , RTRIM(TO_CHAR(Q.UNIT_PRICE, 'FM999,999,999,990.99999'), '.')	AS UNIT_PRICE
+			     , SUBSTR(Q.FROM_DATE, 1, 8)								AS FROM_DATE
+			     , SUBSTR(Q.TO_DATE,   1, 8)								AS TO_DATE
+			     , Q.BUYER || '|' || Q.CONTRACT_NO || '|' || Q.CONTRACT_SEQ	AS TCODE
+			  FROM ICOMCQDT Q
+			 WHERE Q.CMS_CATLG_ID = SUBSTR(#{st_buy_info}, 1, INSTR(#{st_buy_info}, '-') - 1)
+			   AND Q.CATLG_SEQ    = TO_NUMBER(SUBSTR(#{st_buy_info}, INSTR(#{st_buy_info}, '-') + 1))
+			 ORDER BY Q.BUYER, Q.CONTRACT_NO, Q.CONTRACT_SEQ
+		]]>
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+
+	<!--
+		s34 변경 표준DB 조회. 이관 대상은 구매정보 단위라 CMSPRICE 를 센다.
+		⚠ 기존 구매정보코드 자기 자신은 결과에서 뺀다(자기에게 이관할 수 없다).
+	-->
+	<select id="selectMasterMdCmCmsBuyInfoMapStdSelList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.pagestart"/>
+		SELECT P.CMS_CATLG_ID
+		     , TRIM(TO_CHAR(P.CATLG_SEQ))									AS CATLG_SEQ
+		     , P.CMS_CATLG_ID || '-' || LPAD(TO_CHAR(P.CATLG_SEQ), 5, '0')	AS BUY_INFO_ID
+		     , LPAD(TO_CHAR(P.CATLG_SEQ), 5, '0')						AS BUY_INFO_SEQ	/* 구매정보코드 : 화면 표기는 순번만 쓴다(상품정보코드는 옆 열에 있다) */
+		     , C.DESCRIPTION_LOC											AS DESCRIPTION_LOC
+		     , C.MODEL_INFO													AS MODEL_INFO
+		     , C.SPECIFICATION												AS SPECIFICATION
+		     , (SELECT MD.TEXT1 FROM ICOMCOD1 MD
+		         WHERE MD.TYPE = 'M104' AND MD.CODE = C.MAKER_CODE)			AS MAKER_NAME
+		     , (SELECT MD.TEXT2 FROM ICOMCOD1 MD
+		         WHERE MD.TYPE = 'M001' AND MD.CODE = C.ORIGIN_CODE)		AS ORIGIN_NAME
+		     , C.ORDER_MEASURE												AS MEASURE
+		     , P.AGENT														AS AGENT
+		     , (SELECT CMPY.COM_NAME_LOC FROM ICOMCMPY CMPY
+		         WHERE CMPY.COM_CODE = P.AGENT)								AS VENDOR_NAME
+		     , RTRIM(TO_CHAR(P.BUY_PRICE, 'FM999,999,999,990.99999'), '.')		AS BUY_PRICE
+		     , RTRIM(TO_CHAR(P.MIN_ORDER_QTY, 'FM999,999,990.999'), '.')			AS MIN_ORDER_QTY
+		     , RTRIM(TO_CHAR(P.PUR_UNIT_QTY,  'FM999,999,990.999'), '.')			AS PUR_UNIT_QTY
+		     , (SELECT MD.TEXT2 FROM ICOMCOD1 MD
+		         WHERE MD.TYPE = 'M034' AND MD.CODE = P.PROCESS_TYPE)		AS PROCESS_TYPE
+		     , (SELECT MD.TEXT1 FROM ICOMCOD1 MD
+		         WHERE MD.TYPE = 'M186' AND MD.CODE = P.DELIVERY_TYPE)		AS DELIVERY_TYPE
+		     , (SELECT MD.TEXT2 FROM ICOMCOD1 MD
+		         WHERE MD.TYPE = 'W001' AND MD.TEXT1 = P.WAREHOUSE_CODE)	AS WAREHOUSE_NAME
+		     , P.CMS_CATLG_ID || '-' || LPAD(TO_CHAR(P.CATLG_SEQ), 5, '0')	AS TCODE
+		  FROM CMSPRICE P, CMSCATLG C
+		 WHERE P.CMS_CATLG_ID = C.CMS_CATLG_ID
+		   AND P.STATUS = 'C'
+		<if test="st_exclude != null and st_exclude != ''">
+			AND P.CMS_CATLG_ID || '-' || LPAD(TO_CHAR(P.CATLG_SEQ), 5, '0') != #{st_exclude}
+		</if>
+		<if test="st_buy_code != null and st_buy_code != ''">
+			AND P.CMS_CATLG_ID || '-' || LPAD(TO_CHAR(P.CATLG_SEQ), 5, '0') LIKE '%' || #{st_buy_code} || '%'
+		</if>
+		<if test="st_item_name != null and st_item_name != ''">
+			AND C.DESCRIPTION_LOC LIKE '%' || #{st_item_name} || '%'
+		</if>
+		<if test="st_model_no != null and st_model_no != ''">
+			AND C.MODEL_INFO LIKE '%' || #{st_model_no} || '%'
+		</if>
+		<if test="st_spec != null and st_spec != ''">
+			AND C.SPECIFICATION LIKE '%' || #{st_spec} || '%'
+		</if>
+		<if test="st_maker_code != null and st_maker_code != ''">
+			AND C.MAKER_CODE = #{st_maker_code}
+		</if>
+		<!-- 카테고리 = SG (팝업 복수선택, '@' 구분 문자열을 DaoImpl 이 List 로 변환) -->
+		<if test="st_sg_id_multi != null and st_sg_id_multi.size() &gt; 0">
+			AND EXISTS (SELECT 1 FROM CMSCATEG CG
+			             WHERE CG.CMS_CATEG_ID = C.CMS_CATEG_ID
+			               AND CG.STATUS != 'D'
+			               AND CG.SG_ID IN
+			               <foreach item="item" collection="st_sg_id_multi" open="(" separator="," close=")">
+			               	#{item}
+			               </foreach>
+			            )
+		</if>
+		<!-- 상세분류 (팝업 복수선택, '@' 구분 문자열을 DaoImpl 이 List 로 변환) -->
+		<if test="st_categ_id_multi != null and st_categ_id_multi.size() &gt; 0">
+			AND C.CMS_CATEG_ID IN
+			<foreach item="item" collection="st_categ_id_multi" open="(" separator="," close=")">
+				#{item}
+			</foreach>
+		</if>
+		<if test="st_process_type != null and st_process_type != ''">
+			AND P.PROCESS_TYPE = DECODE(#{st_process_type}, 'TR', '2', 'DIRECT', '0', #{st_process_type})
+		</if>
+		<!-- ⚠ 배송유형 ALL 은 통과시켜야 한다. 값으로 비교하면 조용히 0건이 된다. -->
+		<if test="st_delivery_type != null and st_delivery_type != '' and st_delivery_type != 'ALL'">
+			AND P.DELIVERY_TYPE = #{st_delivery_type}
+		</if>
+		<if test="st_measure != null and st_measure != ''">
+			AND C.ORDER_MEASURE = #{st_measure}
+		</if>
+		ORDER BY P.CMS_CATLG_ID, P.CATLG_SEQ
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+
+	<!--
+		매핑 이관 1건. 선택한 고객사 계약행의 매핑 축을 변경 표준DB코드로 옮긴다.
+		WHERE 에 기존 구매정보코드를 함께 걸어, 화면이 본 것과 다른 행이면 아무것도 바꾸지 않는다.
+	-->
+	<update id="updateMasterMdCmCmsBuyInfoMapMove" parameterType="java.util.Map">
+		<![CDATA[
+			/*updateMasterMdCmCmsBuyInfoMapMove*/
+			UPDATE ICOMCQDT
+			   SET CMS_CATLG_ID = SUBSTR(#{st_to_buy_info}, 1, INSTR(#{st_to_buy_info}, '-') - 1)
+			     , CATLG_SEQ    = TO_NUMBER(SUBSTR(#{st_to_buy_info}, INSTR(#{st_to_buy_info}, '-') + 1))
+			     , CHANGE_DATE  = TO_CHAR(SYSDATE,'YYYYMMDD')
+			     , CHANGE_TIME  = TO_CHAR(SYSDATE,'HH24MISS')
+			 WHERE BUYER        = #{BUYER_CODE}
+			   AND CONTRACT_NO  = #{CONTRACT_NO}
+			   AND CONTRACT_SEQ = #{CONTRACT_SEQ}
+			   AND CMS_CATLG_ID = SUBSTR(#{st_from_buy_info}, 1, INSTR(#{st_from_buy_info}, '-') - 1)
+			   AND CATLG_SEQ    = TO_NUMBER(SUBSTR(#{st_from_buy_info}, INSTR(#{st_from_buy_info}, '-') + 1))
+		]]>
+	</update>
+
+	<!--
+		이관 가능 판정용. 고객사지정여부 Y 인데 변경 표준DB의 협력사가 다르면 이관할 수 없다.
+		화면이 이미 막지만, 다른 창에서 값이 바뀐 사이를 대비해 서버에서도 센다.
+	-->
+	<select id="selectMasterMdCmCmsBuyInfoMapMoveBlockCnt" parameterType="java.util.Map" resultType="java.lang.Integer">
+		<![CDATA[
+			/*selectMasterMdCmCmsBuyInfoMapMoveBlockCnt*/
+			SELECT COUNT(*)
+			  FROM ICOMCQDT Q
+			 WHERE Q.BUYER        = #{BUYER_CODE}
+			   AND Q.CONTRACT_NO  = #{CONTRACT_NO}
+			   AND Q.CONTRACT_SEQ = #{CONTRACT_SEQ}
+			   AND NVL(Q.CSV_YN, 'N') = 'Y'
+			   AND NVL(Q.AGENT, ' ') <> NVL((SELECT P.AGENT FROM CMSPRICE P
+			                                  WHERE P.CMS_CATLG_ID = SUBSTR(#{st_to_buy_info}, 1, INSTR(#{st_to_buy_info}, '-') - 1)
+			                                    AND P.CATLG_SEQ    = TO_NUMBER(SUBSTR(#{st_to_buy_info}, INSTR(#{st_to_buy_info}, '-') + 1))), ' ')
+		]]>
+	</select>
+
+	<!--
+		매핑변경 양식 행. 체크한 구매정보코드들에 매달린 고객사 매핑을 전개한다.
+		그룹사 1건이 고객사 N행으로 펼쳐진다 — 구매정보 1건에 여러 행이 나온다.
+	-->
+	<select id="selectMasterMdCmCmsBuyInfoMapFormList" parameterType="java.util.Map" resultType="java.util.Map">
+		/*selectMasterMdCmCmsBuyInfoMapFormList*/
+		SELECT Q.CMS_CATLG_ID
+		     , Q.CMS_CATLG_ID || '-' || LPAD(TO_CHAR(Q.CATLG_SEQ), 5, '0')	AS BUY_INFO_ID
+		     , LPAD(TO_CHAR(Q.CATLG_SEQ), 5, '0')						AS BUY_INFO_SEQ	/* 구매정보코드 : 화면 표기는 순번만 쓴다(상품정보코드는 옆 열에 있다) */
+		     , (SELECT G.COMORG_CODE FROM KEP.BYCAORGL G
+		         WHERE G.COMORG_CODE = (SELECT CMPY.BYCA_COMORG_CODE FROM ICOMCMPY CMPY
+		                                 WHERE CMPY.COM_CODE = Q.BUYER))	AS GROUP_CODE
+		     , (SELECT G.COMORG_NAME FROM KEP.BYCAORGL G
+		         WHERE G.COMORG_CODE = (SELECT CMPY.BYCA_COMORG_CODE FROM ICOMCMPY CMPY
+		                                 WHERE CMPY.COM_CODE = Q.BUYER))	AS GROUP_NAME
+		     , Q.BUYER														AS BUYER_CODE
+		     , (SELECT CMPY.COM_NAME_LOC FROM ICOMCMPY CMPY
+		         WHERE CMPY.COM_CODE = Q.BUYER)								AS BUYER_NAME
+		     , Q.BUYER_ITEM_NO												AS BUYER_ITEM_NO
+		     , NVL(Q.CSV_YN, 'N')										AS CSV_YN
+		     , Q.CONTRACT_NO												AS CONTRACT_NO
+		     , Q.CONTRACT_SEQ												AS CONTRACT_SEQ
+		     , Q.AGENT														AS AGENT
+		  FROM ICOMCQDT Q
+		 WHERE (Q.CMS_CATLG_ID, Q.CATLG_SEQ) IN
+		<foreach item="item" collection="codeList" open="(" separator="," close=")">
+			(SUBSTR(#{item}, 1, INSTR(#{item}, '-') - 1), TO_NUMBER(SUBSTR(#{item}, INSTR(#{item}, '-') + 1)))
+		</foreach>
+		 ORDER BY Q.CMS_CATLG_ID, Q.CATLG_SEQ, Q.BUYER, Q.CONTRACT_NO, Q.CONTRACT_SEQ
+	</select>
+
+	<!--
+		업로드 검증용 — 입력된 [변경 구매정보코드] 가 실재하는지와 그 협력사를 돌려준다.
+		화면이 이걸로 '변경 값 미존재'와 '지정여부 Y 협력사 불일치' 를 가른다.
+	-->
+	<select id="selectMasterMdCmCmsBuyInfoMapTargetList" parameterType="java.util.Map" resultType="java.util.Map">
+		/*selectMasterMdCmCmsBuyInfoMapTargetList*/
+		SELECT P.CMS_CATLG_ID || '-' || LPAD(TO_CHAR(P.CATLG_SEQ), 5, '0')	AS BUY_INFO_ID
+		     , P.CMS_CATLG_ID											AS CMS_CATLG_ID
+		     , P.AGENT													AS AGENT
+		     , P.STATUS													AS STATUS
+		  FROM CMSPRICE P
+		 WHERE (P.CMS_CATLG_ID, P.CATLG_SEQ) IN
+		<foreach item="item" collection="codeList" open="(" separator="," close=")">
+			(SUBSTR(#{item}, 1, INSTR(#{item}, '-') - 1), TO_NUMBER(SUBSTR(#{item}, INSTR(#{item}, '-') + 1)))
+		</foreach>
+	</select>
+
+</mapper>

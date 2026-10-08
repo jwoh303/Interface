@@ -1,0 +1,593 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="seller.mpcl">
+	<select id="selectSellerMpClClosingInfoList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.jsppagestart"/>
+		<![CDATA[
+			SELECT  /*selectSellerMpClClosingInfoList*/
+						S.BUYER_NAME,			                --// 1
+				        S.PO_CREATE_DATE,			                --// 2
+				        S.BUYER_ITEM_NO,		                --// 3
+				        S.PO_NO	,		                --// 4
+				        S.DESCRIPTION		,		                --// 5
+				        S.SPECIFICATION,			                --// 6
+				        S.AGENT_PRICE,			                --// 7
+				        S.UNIT_MEASURE,			                --// 8
+				        S.PO_QTY,		                --// 9
+				        S.PO_AMT,		                --// 10
+				        S.DELIVERY_QTY,		                --// 11
+				        S.DELIVERY_AMT,		                --// 12
+				        S.GR_QTY,		                --// 13
+				        S.GR_AMT,		                --// 14
+				        S.DS_DATE,		                --// 15
+				        S.DELIVERY_DATE,			                --// 16
+				        S.LEGACY_PO_NO,	                --// 17
+				        S.BUYER,			                --// 18
+				        S.PO_SEQ,			                --// 19
+				        S.BYIT_COMORG_CODE,                --// 20
+				        S.CONTRACT_NO,                     --// 21
+				        S.CONTRACT_SEQ,                     --// 22
+				        F_GET_HIDDEN_BUYER_NAME(S.BUYER, '01') AS BUYER2
+			FROM
+			    (
+			        SELECT  X.BUYER_NAME,
+				                X.PO_CREATE_DATE,
+				                X.BUYER_ITEM_NO,
+				                X.PO_NO,
+				                X.DESCRIPTION,
+				                X.SPECIFICATION,
+				                X.AGENT_PRICE,
+				                X.UNIT_MEASURE,
+				                X.PO_QTY,
+				                X.PO_AMT,
+				                X.DELIVERY_QTY,
+				                X.DELIVERY_AMT,
+				                X.GR_QTY,
+				                X.GR_AMT,
+				                X.DS_DATE,
+				                X.DELIVERY_DATE,
+				                X.LEGACY_PO_NO,
+				                X.BUYER,
+				                X.PO_SEQ,
+				                X.BYIT_COMORG_CODE,
+				                X.CONTRACT_NO,
+				                X.CONTRACT_SEQ
+			        FROM
+			            (
+			                SELECT  
+			                			MAX(Z.BUYER_NAME) AS BUYER_NAME,
+				                        MAX(Z.PO_CREATE_DATE) AS PO_CREATE_DATE,
+				                        Z.BUYER_ITEM_NO,
+				                        Z.PO_NO,
+				                        MAX(Z.DESCRIPTION) AS DESCRIPTION,
+				                        MAX(Z.SPECIFICATION) AS SPECIFICATION,
+				                        MAX(Z.AGENT_PRICE) AS AGENT_PRICE,
+				                        MAX(Z.UNIT_MEASURE) AS UNIT_MEASURE,
+				                        MAX(NVL(Z.PO_QTY,0)) AS PO_QTY,
+				                        MAX(NVL(Z.PO_AMT,0)) AS PO_AMT,
+				                        MAX(NVL(Z.DELIVERY_QTY,0)) AS DELIVERY_QTY,
+				                        MAX(NVL(Z.DELIVERY_AMT,0)) AS DELIVERY_AMT,
+				                        MAX(NVL(Z.GR_QTY,0)) AS GR_QTY,
+				                        MAX(NVL(Z.GR_AMT,0)) AS GR_AMT,
+				                        MAX(Z.DS_DATE) AS DS_DATE,
+				                        MAX(Z.DELIVERY_DATE) AS DELIVERY_DATE,
+				                        MAX(Z.LEGACY_PO_NO) AS LEGACY_PO_NO,
+				                        Z.BUYER,
+				                        Z.PO_SEQ,
+				                        MAX(Z.BYIT_COMORG_CODE) BYIT_COMORG_CODE,
+				                        MAX(Z.CONTRACT_NO)  CONTRACT_NO,
+				                        MAX(Z.CONTRACT_SEQ) CONTRACT_SEQ
+			                FROM
+			                    (
+			                                SELECT  MAX((SELECT COM_NAME_LOC FROM ICOMCMPY  WHERE COM_CODE  = F_GET_HIDDEN_BUYER_NAME(B.BUYER, '01')))||
+				                                            MAX((SELECT '('||COM_NAME_LOC||')' FROM ICOMCMPY WHERE  B.PROCESS_TYPE = '2'
+				                                                AND COM_CODE = DECODE(B.PROCESS_TYPE,'2',B.WAREHOUSE_CODE,B.BUYER))) AS BUYER_NAME,
+				                                        MAX(C.PO_CREATE_DATE) PO_CREATE_DATE,
+				                                        B.BUYER_ITEM_NO BUYER_ITEM_NO,
+				                                        B.PO_NO PO_NO,
+				                                        MAX(B.DESCRIPTION) DESCRIPTION,
+				                                        MAX(B.SPECIFICATION) SPECIFICATION,
+				                                        MAX(B.AGENT_PRICE)/F_GET_VATRATE(B.BUYER) AGENT_PRICE,
+				                                        MAX(B.UNIT_MEASURE) UNIT_MEASURE,
+				                                        MAX(B.ITEM_QTY) PO_QTY,
+				                                        MAX(B.AGENT_ITEM_AMT)/F_GET_VATRATE(B.BUYER) PO_AMT,
+				                                        SUM(A.DELIVERY_QTY) DELIVERY_QTY,
+                                                        0 GR_QTY,
+				                                        MAX(B.AGENT_PRICE)/F_GET_VATRATE(B.BUYER) * SUM(A.DELIVERY_QTY) DELIVERY_AMT,
+				                                        0 GR_AMT,
+                                                        MAX(A.DS_DATE) DS_DATE,
+				                                        MAX(A.DELIVERY_DATE) DELIVERY_DATE,
+				                                        MAX(B.LEGACY_PO_NO) LEGACY_PO_NO,
+				                                        B.BUYER,
+				                                        B.PO_SEQ,
+				                                        MAX(B.BYIT_COMORG_CODE) BYIT_COMORG_CODE,
+				                                        MAX(B.CONTRACT_NO) CONTRACT_NO,
+				                                        MAX(B.CONTRACT_SEQ) CONTRACT_SEQ
+			                                FROM ICOMIVDT A, ICOMPODT B , ICOMPOHD C
+			                                WHERE NVL(A.DELIVERY_QTY,0) > 0
+			                                    AND A.BUYER = B.BUYER
+			                                    AND A.PO_NO = B.PO_NO
+			                                    AND A.PO_SEQ = B.PO_SEQ
+			                                    AND A.BUYER = C.BUYER
+			                                    AND A.PO_NO = C.PO_NO
+			                                    AND A.STATUS <> 'D'
+			                                    AND B.STATUS <> 'D'
+			                                    AND C.STATUS <> 'D'
+			                                    AND C.AGENT = #{st_com_code}
+			                                    AND A.DELIVERY_DATE BETWEEN #{st_from_date} AND #{st_to_date}
+		]]>
+							<if test="st_buyer_code != null and st_buyer_code != ''">
+								<![CDATA[	AND C.BUYER = #{st_buyer_code}	]]>	 
+							</if>
+		<![CDATA[
+			                                GROUP BY B.BUYER, B.PO_NO, B.PO_SEQ, B.BUYER_ITEM_NO
+			                                
+			                                UNION ALL
+			                                
+			                                SELECT  MAX((SELECT COM_NAME_LOC FROM ICOMCMPY  WHERE COM_CODE  = F_GET_HIDDEN_BUYER_NAME(B.BUYER, '01')))||
+				                                            MAX((SELECT '('||COM_NAME_LOC||')' FROM ICOMCMPY WHERE  B.PROCESS_TYPE = '2'
+				                                                AND COM_CODE = DECODE(B.PROCESS_TYPE,'2',B.WAREHOUSE_CODE,B.BUYER))) AS BUYER_NAME,
+				                                        MAX(C.PO_CREATE_DATE) PO_CREATE_DATE,
+				                                        B.BUYER_ITEM_NO BUYER_ITEM_NO,
+				                                        B.PO_NO PO_NO,
+				                                        MAX(B.DESCRIPTION) DESCRIPTION,
+				                                        MAX(B.SPECIFICATION) SPECIFICATION,
+				                                        MAX(B.AGENT_PRICE)/F_GET_VATRATE(B.BUYER) AGENT_PRICE,
+				                                        MAX(B.UNIT_MEASURE) UNIT_MEASURE,
+				                                        MAX(B.ITEM_QTY) PO_QTY,
+				                                        MAX(B.AGENT_ITEM_AMT)/F_GET_VATRATE(B.BUYER) PO_AMT,
+				                                        SUM(A.DELIVERY_QTY) DELIVERY_QTY,
+                                                        0 GR_QTY,
+				                                        MAX(B.AGENT_PRICE)/F_GET_VATRATE(B.BUYER) * SUM(A.DELIVERY_QTY) DELIVERY_AMT,
+				                                        0 GR_AMT,
+                                                        MAX(A.DS_DATE) DS_DATE,
+				                                        MAX(A.DELIVERY_DATE) DELIVERY_DATE,
+				                                        MAX(B.LEGACY_PO_NO) LEGACY_PO_NO,
+				                                        B.BUYER,
+				                                        B.PO_SEQ,
+				                                        MAX(B.BYIT_COMORG_CODE) BYIT_COMORG_CODE,
+				                                        MAX(B.CONTRACT_NO) CONTRACT_NO,
+				                                        MAX(B.CONTRACT_SEQ) CONTRACT_SEQ
+			                                FROM ICOMIVDT A, ICOMPODT B , ICOMPOHD C
+			                                WHERE NVL(A.DELIVERY_QTY,0) > 0
+			                                    AND A.BUYER = B.BUYER
+			                                    AND A.PO_NO = B.PO_NO
+			                                    AND A.PO_SEQ = B.PO_SEQ
+			                                    AND A.BUYER = C.BUYER
+			                                    AND A.PO_NO = C.PO_NO
+			                                    AND A.STATUS <> 'D'
+			                                    AND B.STATUS <> 'D'
+			                                    AND C.STATUS <> 'D'
+			                                    AND B.WAREHOUSE_CODE = #{st_com_code}
+			                                    AND A.DELIVERY_DATE BETWEEN #{st_from_date} AND #{st_to_date}
+			                                    AND B.PROCESS_TYPE = '3'
+		]]>
+							<if test="st_buyer_code != null and st_buyer_code != ''">
+								<![CDATA[	AND C.BUYER = #{st_buyer_code}	]]>	 
+							</if>
+		<![CDATA[
+			                                GROUP BY B.BUYER, B.PO_NO, B.PO_SEQ, B.BUYER_ITEM_NO
+			                                
+			                                UNION ALL 
+			                                
+                                       		SELECT MAX((SELECT COM_NAME_LOC FROM ICOMCMPY  WHERE COM_CODE  = F_GET_HIDDEN_BUYER_NAME(B.BUYER, '01')))||
+				                                            MAX((SELECT '('||COM_NAME_LOC||')' FROM ICOMCMPY WHERE  B.PROCESS_TYPE = '2'
+				                                                AND COM_CODE = DECODE(B.PROCESS_TYPE,'2',B.WAREHOUSE_CODE,B.BUYER)))  AS BUYER_NAME,
+				                                        MAX(C.PO_CREATE_DATE) PO_CREATE_DATE,
+				                                        B.BUYER_ITEM_NO BUYER_ITEM_NO,
+				                                        B.PO_NO PO_NO,
+				                                        MAX(B.DESCRIPTION) DESCRIPTION,
+				                                        MAX(B.SPECIFICATION) SPECIFICATION,
+				                                        MAX(B.AGENT_PRICE)/F_GET_VATRATE(B.BUYER) AGENT_PRICE,
+				                                        MAX(B.UNIT_MEASURE) UNIT_MEASURE,
+				                                        MAX(B.ITEM_QTY) PO_QTY,
+				                                        MAX(B.AGENT_ITEM_AMT)/F_GET_VATRATE(B.BUYER) PO_AMT,
+                                                        0 DELIVERY_QTY,
+				                                        SUM(A.ITEM_QTY) GR_QTY,
+                                                        0 DELIVERY_AMT,
+				                                        MAX(A.AGENT_PRICE)/F_GET_VATRATE(B.BUYER) * SUM(A.ITEM_QTY) GR_AMT,
+                                                        NULL DS_DATE,
+				                                        NULL DELIVERY_DATE,
+				                                        MAX(B.LEGACY_PO_NO) LEGACY_PO_NO,
+				                                        B.BUYER,
+				                                        B.PO_SEQ,
+				                                        MAX(B.BYIT_COMORG_CODE) BYIT_COMORG_CODE,
+				                                        MAX(B.CONTRACT_NO) CONTRACT_NO,
+				                                        MAX(B.CONTRACT_SEQ) CONTRACT_SEQ
+			                                FROM ICOMGRDT A, ICOMPODT B, ICOMPOHD C
+			                                WHERE A.BUYER = B.BUYER
+			                                    AND A.PO_NO = B.PO_NO
+			                                    AND A.PO_SEQ = B.PO_SEQ
+			                                    AND A.BUYER = C.BUYER
+			                                    AND A.PO_NO = C.PO_NO
+			                                    AND A.STATUS <> 'D'
+			                                    AND B.STATUS <> 'D'
+			                                    AND C.STATUS <> 'D'
+			                                    AND C.AGENT = #{st_com_code}
+			                                    AND A.GR_DATE BETWEEN #{st_from_date} AND #{st_to_date}
+		]]>
+							<if test="st_buyer_code != null and st_buyer_code != ''">
+								<![CDATA[	AND C.BUYER = #{st_buyer_code}	]]>	 
+							</if>
+							<if test="st_ap_yn != null and st_ap_yn != ''">
+								<![CDATA[	AND A.AP_BILL_FLAG = #{st_ap_yn}	]]>	 
+							</if>
+		<![CDATA[
+			                                GROUP BY B.BUYER, B.PO_NO, B.PO_SEQ, B.BUYER_ITEM_NO
+			                                
+			                                UNION ALL 
+			                                
+                                       		SELECT MAX((SELECT COM_NAME_LOC FROM ICOMCMPY  WHERE COM_CODE  = F_GET_HIDDEN_BUYER_NAME(B.BUYER, '01')))||
+				                                            MAX((SELECT '('||COM_NAME_LOC||')' FROM ICOMCMPY WHERE  B.PROCESS_TYPE = '2'
+				                                                AND COM_CODE = DECODE(B.PROCESS_TYPE,'2',B.WAREHOUSE_CODE,B.BUYER)))  AS BUYER_NAME,
+				                                        MAX(C.PO_CREATE_DATE) PO_CREATE_DATE,
+				                                        B.BUYER_ITEM_NO BUYER_ITEM_NO,
+				                                        B.PO_NO PO_NO,
+				                                        MAX(B.DESCRIPTION) DESCRIPTION,
+				                                        MAX(B.SPECIFICATION) SPECIFICATION,
+				                                        MAX(B.AGENT_PRICE)/F_GET_VATRATE(B.BUYER) AGENT_PRICE,
+				                                        MAX(B.UNIT_MEASURE) UNIT_MEASURE,
+				                                        MAX(B.ITEM_QTY) PO_QTY,
+				                                        MAX(B.AGENT_ITEM_AMT)/F_GET_VATRATE(B.BUYER) PO_AMT,
+                                                        0 DELIVERY_QTY,
+				                                        SUM(A.ITEM_QTY) GR_QTY,
+                                                        0 DELIVERY_AMT,
+				                                        MAX(A.AGENT_PRICE)/F_GET_VATRATE(B.BUYER) * SUM(A.ITEM_QTY) GR_AMT,
+                                                        NULL DS_DATE,
+				                                        NULL DELIVERY_DATE,
+				                                        MAX(B.LEGACY_PO_NO) LEGACY_PO_NO,
+				                                        B.BUYER,
+				                                        B.PO_SEQ,
+				                                        MAX(B.BYIT_COMORG_CODE) BYIT_COMORG_CODE,
+				                                        MAX(B.CONTRACT_NO) CONTRACT_NO,
+				                                        MAX(B.CONTRACT_SEQ) CONTRACT_SEQ
+			                                FROM ICOMGRDT A, ICOMPODT B, ICOMPOHD C
+			                                WHERE A.BUYER = B.BUYER
+			                                    AND A.PO_NO = B.PO_NO
+			                                    AND A.PO_SEQ = B.PO_SEQ
+			                                    AND A.BUYER = C.BUYER
+			                                    AND A.PO_NO = C.PO_NO
+			                                    AND A.STATUS <> 'D'
+			                                    AND B.STATUS <> 'D'
+			                                    AND C.STATUS <> 'D'
+			                                    AND B.WAREHOUSE_CODE = #{st_com_code}
+			                                    AND A.GR_DATE BETWEEN #{st_from_date} AND #{st_to_date}
+			                                    AND B.PROCESS_TYPE = '3'
+		]]>
+							<if test="st_buyer_code != null and st_buyer_code != ''">
+								<![CDATA[	AND C.BUYER = #{st_buyer_code}	]]>	 
+							</if>
+							<if test="st_ap_yn != null and st_ap_yn != ''">
+								<![CDATA[	AND A.AP_BILL_FLAG = #{st_ap_yn}	]]>	 
+							</if>
+		<![CDATA[
+			                                GROUP BY B.BUYER, B.PO_NO, B.PO_SEQ, B.BUYER_ITEM_NO
+			                    ) Z
+		]]>
+		<if test="st_ap_yn != null and st_ap_yn != ''">
+					<![CDATA[	WHERE Z.GR_QTY != 0	]]>	 
+		</if>
+		<![CDATA[
+			                GROUP BY Z.BUYER, Z.PO_NO, Z.PO_SEQ , Z.BUYER_ITEM_NO
+			                ORDER BY  Z.PO_NO, Z.PO_SEQ
+			            ) X
+			    ) S
+ 		]]>  
+		<include refid="common.ibsheet.xml.jsppageend"/>	
+	</select>
+	
+	<select id="getAgentClosingInfoDown" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			SELECT  /*getAgentClosingInfoDown*/
+						S.BUYER_NAME,			                --// 1
+				        S.PO_CREATE_DATE,			                --// 2
+				        S.BUYER_ITEM_NO,		                --// 3
+				        S.PO_NO	,		                --// 4
+				        S.DESCRIPTION		,		                --// 5
+				        S.SPECIFICATION,			                --// 6
+				        S.AGENT_PRICE,			                --// 7
+				        S.UNIT_MEASURE,			                --// 8
+				        S.PO_QTY,		                --// 9
+				        S.PO_AMT,		                --// 10
+				        S.DELIVERY_QTY,		                --// 11
+				        S.DELIVERY_AMT,		                --// 12
+				        S.GR_QTY,		                --// 13
+				        S.GR_AMT,		                --// 14
+				        S.DS_DATE,		                --// 15
+				        S.DELIVERY_DATE,			                --// 16
+				        S.LEGACY_PO_NO,	                --// 17
+				        S.BUYER,			                --// 18
+				        S.PO_SEQ,			                --// 19
+				        S.BYIT_COMORG_CODE,                --// 20
+				        S.CONTRACT_NO,                     --// 21
+				        S.CONTRACT_SEQ,                     --// 22
+				        F_GET_HIDDEN_BUYER_NAME(S.BUYER, '01') AS BUYER2,
+				        S.PURCHASER_NAME,
+				        S.CHANGE_USER_MOBILE_PHONE
+			FROM
+			    (
+			        SELECT  X.BUYER_NAME,
+				                X.PO_CREATE_DATE,
+				                X.BUYER_ITEM_NO,
+				                X.PO_NO,
+				                X.DESCRIPTION,
+				                X.SPECIFICATION,
+				                X.AGENT_PRICE,
+				                X.UNIT_MEASURE,
+				                X.PO_QTY,
+				                X.PO_AMT,
+				                X.DELIVERY_QTY,
+				                X.DELIVERY_AMT,
+				                X.GR_QTY,
+				                X.GR_AMT,
+				                X.DS_DATE,
+				                X.DELIVERY_DATE,
+				                X.LEGACY_PO_NO,
+				                X.BUYER,
+				                X.PO_SEQ,
+				                X.BYIT_COMORG_CODE,
+				                X.CONTRACT_NO,
+				                X.CONTRACT_SEQ,
+				                X.PURCHASER_NAME,
+				                X.CHANGE_USER_MOBILE_PHONE
+			        FROM
+			            (
+			                SELECT  
+			                			MAX(Z.BUYER_NAME) AS BUYER_NAME,
+				                        MAX(Z.PO_CREATE_DATE) AS PO_CREATE_DATE,
+				                        Z.BUYER_ITEM_NO,
+				                        Z.PO_NO,
+				                        MAX(Z.DESCRIPTION) AS DESCRIPTION,
+				                        MAX(Z.SPECIFICATION) AS SPECIFICATION,
+				                        MAX(Z.AGENT_PRICE) AS AGENT_PRICE,
+				                        MAX(Z.UNIT_MEASURE) AS UNIT_MEASURE,
+				                        MAX(NVL(Z.PO_QTY,0)) AS PO_QTY,
+				                        MAX(NVL(Z.PO_AMT,0)) AS PO_AMT,
+				                        MAX(NVL(Z.DELIVERY_QTY,0)) AS DELIVERY_QTY,
+				                        MAX(NVL(Z.DELIVERY_AMT,0)) AS DELIVERY_AMT,
+				                        MAX(NVL(Z.GR_QTY,0)) AS GR_QTY,
+				                        MAX(NVL(Z.GR_AMT,0)) AS GR_AMT,
+				                        MAX(Z.DS_DATE) AS DS_DATE,
+				                        MAX(Z.DELIVERY_DATE) AS DELIVERY_DATE,
+				                        MAX(Z.LEGACY_PO_NO) AS LEGACY_PO_NO,
+				                        Z.BUYER,
+				                        Z.PO_SEQ,
+				                        MAX(Z.BYIT_COMORG_CODE) BYIT_COMORG_CODE,
+				                        MAX(Z.CONTRACT_NO)  CONTRACT_NO,
+				                        MAX(Z.CONTRACT_SEQ) CONTRACT_SEQ,
+				                        MAX(Z.PURCHASER_NAME) AS PURCHASER_NAME,
+				                        MAX(Z.CHANGE_USER_MOBILE_PHONE) AS CHANGE_USER_MOBILE_PHONE
+			                FROM
+			                    (
+			                                SELECT  MAX((SELECT COM_NAME_LOC FROM ICOMCMPY  WHERE COM_CODE  = F_GET_HIDDEN_BUYER_NAME(B.BUYER, '01')))||
+				                                            MAX((SELECT '('||COM_NAME_LOC||')' FROM ICOMCMPY WHERE  B.PROCESS_TYPE = '2'
+				                                                AND COM_CODE = DECODE(B.PROCESS_TYPE,'2',B.WAREHOUSE_CODE,B.BUYER))) AS BUYER_NAME,
+				                                        MAX(C.PO_CREATE_DATE) PO_CREATE_DATE,
+				                                        B.BUYER_ITEM_NO BUYER_ITEM_NO,
+				                                        B.PO_NO PO_NO,
+				                                        MAX(B.DESCRIPTION) DESCRIPTION,
+				                                        MAX(B.SPECIFICATION) SPECIFICATION,
+				                                        MAX(B.AGENT_PRICE)/F_GET_VATRATE(B.BUYER) AGENT_PRICE,
+				                                        MAX(B.UNIT_MEASURE) UNIT_MEASURE,
+				                                        MAX(B.ITEM_QTY) PO_QTY,
+				                                        MAX(B.AGENT_ITEM_AMT)/F_GET_VATRATE(B.BUYER) PO_AMT,
+				                                        SUM(A.DELIVERY_QTY) DELIVERY_QTY,
+                                                        0 GR_QTY,
+				                                        MAX(B.AGENT_PRICE)/F_GET_VATRATE(B.BUYER) * SUM(A.DELIVERY_QTY) DELIVERY_AMT,
+				                                        0 GR_AMT,
+                                                        MAX(A.DS_DATE) DS_DATE,
+				                                        MAX(A.DELIVERY_DATE) DELIVERY_DATE,
+				                                        MAX(B.LEGACY_PO_NO) LEGACY_PO_NO,
+				                                        B.BUYER,
+				                                        B.PO_SEQ,
+				                                        MAX(B.BYIT_COMORG_CODE) BYIT_COMORG_CODE,
+				                                        MAX(B.CONTRACT_NO) CONTRACT_NO,
+				                                        MAX(B.CONTRACT_SEQ) CONTRACT_SEQ,
+				                                        MAX(C.PURCHASER_NAME) AS PURCHASER_NAME,
+				                                        MAX(E.CHANGE_USER_MOBILE_PHONE) AS CHANGE_USER_MOBILE_PHONE
+			                                FROM ICOMIVDT A, ICOMPODT B , ICOMPOHD C, ICOMPRDT D, ICOMPRHD E
+			                                WHERE NVL(A.DELIVERY_QTY,0) > 0
+			                                    AND A.BUYER = B.BUYER
+			                                    AND A.PO_NO = B.PO_NO
+			                                    AND A.PO_SEQ = B.PO_SEQ
+			                                    AND A.BUYER = C.BUYER
+			                                    AND A.PO_NO = C.PO_NO
+			                                    AND B.BUYER = D.BUYER
+			                                    AND B.PR_NO = D.PR_NO
+			                                    AND B.PR_SEQ = D.PR_SEQ
+			                                    AND D.BUYER = E.BUYER
+			                                    AND D.PR_NO  =E.PR_NO
+			                                    AND D.STATUS <> 'D'
+			                                    AND E.STATUS <> 'D'
+			                                    AND A.STATUS <> 'D'
+			                                    AND B.STATUS <> 'D'
+			                                    AND C.STATUS <> 'D'
+			                                    AND C.AGENT = #{st_com_code}
+			                                    AND A.DELIVERY_DATE BETWEEN #{st_from_date} AND #{st_to_date}
+		]]>
+							<if test="st_buyer_code != null and st_buyer_code != ''">
+								<![CDATA[	AND C.BUYER = #{st_buyer_code}	]]>	 
+							</if>
+		<![CDATA[
+			                                GROUP BY B.BUYER, B.PO_NO, B.PO_SEQ, B.BUYER_ITEM_NO
+			                                
+			                                UNION ALL 
+			                                
+			                                SELECT  MAX((SELECT COM_NAME_LOC FROM ICOMCMPY  WHERE COM_CODE  = F_GET_HIDDEN_BUYER_NAME(B.BUYER, '01')))||
+				                                            MAX((SELECT '('||COM_NAME_LOC||')' FROM ICOMCMPY WHERE  B.PROCESS_TYPE = '2'
+				                                                AND COM_CODE = DECODE(B.PROCESS_TYPE,'2',B.WAREHOUSE_CODE,B.BUYER))) AS BUYER_NAME,
+				                                        MAX(C.PO_CREATE_DATE) PO_CREATE_DATE,
+				                                        B.BUYER_ITEM_NO BUYER_ITEM_NO,
+				                                        B.PO_NO PO_NO,
+				                                        MAX(B.DESCRIPTION) DESCRIPTION,
+				                                        MAX(B.SPECIFICATION) SPECIFICATION,
+				                                        MAX(B.AGENT_PRICE)/F_GET_VATRATE(B.BUYER) AGENT_PRICE,
+				                                        MAX(B.UNIT_MEASURE) UNIT_MEASURE,
+				                                        MAX(B.ITEM_QTY) PO_QTY,
+				                                        MAX(B.AGENT_ITEM_AMT)/F_GET_VATRATE(B.BUYER) PO_AMT,
+				                                        SUM(A.DELIVERY_QTY) DELIVERY_QTY,
+                                                        0 GR_QTY,
+				                                        MAX(B.AGENT_PRICE)/F_GET_VATRATE(B.BUYER) * SUM(A.DELIVERY_QTY) DELIVERY_AMT,
+				                                        0 GR_AMT,
+                                                        MAX(A.DS_DATE) DS_DATE,
+				                                        MAX(A.DELIVERY_DATE) DELIVERY_DATE,
+				                                        MAX(B.LEGACY_PO_NO) LEGACY_PO_NO,
+				                                        B.BUYER,
+				                                        B.PO_SEQ,
+				                                        MAX(B.BYIT_COMORG_CODE) BYIT_COMORG_CODE,
+				                                        MAX(B.CONTRACT_NO) CONTRACT_NO,
+				                                        MAX(B.CONTRACT_SEQ) CONTRACT_SEQ,
+				                                        MAX(C.PURCHASER_NAME) AS PURCHASER_NAME,
+				                                        MAX(E.CHANGE_USER_MOBILE_PHONE) AS CHANGE_USER_MOBILE_PHONE
+			                                FROM ICOMIVDT A, ICOMPODT B , ICOMPOHD C, ICOMPRDT D, ICOMPRHD E
+			                                WHERE NVL(A.DELIVERY_QTY,0) > 0
+			                                    AND A.BUYER = B.BUYER
+			                                    AND A.PO_NO = B.PO_NO
+			                                    AND A.PO_SEQ = B.PO_SEQ
+			                                    AND A.BUYER = C.BUYER
+			                                    AND A.PO_NO = C.PO_NO
+			                                    AND B.BUYER = D.BUYER
+			                                    AND B.PR_NO = D.PR_NO
+			                                    AND B.PR_SEQ = D.PR_SEQ
+			                                    AND D.BUYER = E.BUYER
+			                                    AND D.PR_NO  =E.PR_NO
+			                                    AND D.STATUS <> 'D'
+			                                    AND E.STATUS <> 'D'
+			                                    AND A.STATUS <> 'D'
+			                                    AND B.STATUS <> 'D'
+			                                    AND C.STATUS <> 'D'
+			                                    AND B.WAREHOUSE_CODE = #{st_com_code}
+			                                    AND A.DELIVERY_DATE BETWEEN #{st_from_date} AND #{st_to_date}
+			                                    AND B.PROCESS_TYPE = '3'
+		]]>
+							<if test="st_buyer_code != null and st_buyer_code != ''">
+								<![CDATA[	AND C.BUYER = #{st_buyer_code}	]]>	 
+							</if>
+		<![CDATA[
+			                                GROUP BY B.BUYER, B.PO_NO, B.PO_SEQ, B.BUYER_ITEM_NO
+			                                
+			                                UNION ALL
+			                                
+                                       		SELECT MAX((SELECT COM_NAME_LOC FROM ICOMCMPY  WHERE COM_CODE  = F_GET_HIDDEN_BUYER_NAME(B.BUYER, '01')))||
+				                                            MAX((SELECT '('||COM_NAME_LOC||')' FROM ICOMCMPY WHERE  B.PROCESS_TYPE = '2'
+				                                                AND COM_CODE = DECODE(B.PROCESS_TYPE,'2',B.WAREHOUSE_CODE,B.BUYER)))  AS BUYER_NAME,
+				                                        MAX(C.PO_CREATE_DATE) PO_CREATE_DATE,
+				                                        B.BUYER_ITEM_NO BUYER_ITEM_NO,
+				                                        B.PO_NO PO_NO,
+				                                        MAX(B.DESCRIPTION) DESCRIPTION,
+				                                        MAX(B.SPECIFICATION) SPECIFICATION,
+				                                        MAX(B.AGENT_PRICE)/F_GET_VATRATE(B.BUYER) AGENT_PRICE,
+				                                        MAX(B.UNIT_MEASURE) UNIT_MEASURE,
+				                                        MAX(B.ITEM_QTY) PO_QTY,
+				                                        MAX(B.AGENT_ITEM_AMT)/F_GET_VATRATE(B.BUYER) PO_AMT,
+                                                        0 DELIVERY_QTY,
+				                                        SUM(A.ITEM_QTY) GR_QTY,
+                                                        0 DELIVERY_AMT,
+				                                        MAX(A.AGENT_PRICE)/F_GET_VATRATE(B.BUYER) * SUM(A.ITEM_QTY) GR_AMT,
+                                                        NULL DS_DATE,
+				                                        NULL DELIVERY_DATE,
+				                                        MAX(B.LEGACY_PO_NO) LEGACY_PO_NO,
+				                                        B.BUYER,
+				                                        B.PO_SEQ,
+				                                        MAX(B.BYIT_COMORG_CODE) BYIT_COMORG_CODE,
+				                                        MAX(B.CONTRACT_NO) CONTRACT_NO,
+				                                        MAX(B.CONTRACT_SEQ) CONTRACT_SEQ,
+				                                        MAX(C.PURCHASER_NAME) AS PURCHASER_NAME,
+				                                        MAX(E.CHANGE_USER_MOBILE_PHONE) AS CHANGE_USER_MOBILE_PHONE
+			                                FROM ICOMGRDT A, ICOMPODT B, ICOMPOHD C, ICOMPRDT D, ICOMPRHD E
+			                                WHERE A.BUYER = B.BUYER
+			                                    AND A.PO_NO = B.PO_NO
+			                                    AND A.PO_SEQ = B.PO_SEQ
+			                                    AND A.BUYER = C.BUYER
+			                                    AND A.PO_NO = C.PO_NO
+			                                    AND B.BUYER = D.BUYER
+			                                    AND B.PR_NO = D.PR_NO
+			                                    AND B.PR_SEQ = D.PR_SEQ
+			                                    AND D.BUYER = E.BUYER
+			                                    AND D.PR_NO  =E.PR_NO
+			                                    AND D.STATUS <> 'D'
+			                                    AND E.STATUS <> 'D'
+			                                    AND A.STATUS <> 'D'
+			                                    AND B.STATUS <> 'D'
+			                                    AND C.STATUS <> 'D'
+			                                    AND C.AGENT = #{st_com_code}
+			                                    AND A.GR_DATE BETWEEN #{st_from_date} AND #{st_to_date}
+		]]>
+							<if test="st_buyer_code != null and st_buyer_code != ''">
+								<![CDATA[	AND C.BUYER = #{st_buyer_code}	]]>	 
+							</if>
+							<if test="st_ap_yn != null and st_ap_yn != ''">
+								<![CDATA[	AND A.AP_BILL_FLAG = #{st_ap_yn}	]]>	 
+							</if>
+		<![CDATA[
+			                                GROUP BY B.BUYER, B.PO_NO, B.PO_SEQ, B.BUYER_ITEM_NO
+			                                
+			                                UNION ALL
+			                                
+                                       		SELECT MAX((SELECT COM_NAME_LOC FROM ICOMCMPY  WHERE COM_CODE  = F_GET_HIDDEN_BUYER_NAME(B.BUYER, '01')))||
+				                                            MAX((SELECT '('||COM_NAME_LOC||')' FROM ICOMCMPY WHERE  B.PROCESS_TYPE = '2'
+				                                                AND COM_CODE = DECODE(B.PROCESS_TYPE,'2',B.WAREHOUSE_CODE,B.BUYER)))  AS BUYER_NAME,
+				                                        MAX(C.PO_CREATE_DATE) PO_CREATE_DATE,
+				                                        B.BUYER_ITEM_NO BUYER_ITEM_NO,
+				                                        B.PO_NO PO_NO,
+				                                        MAX(B.DESCRIPTION) DESCRIPTION,
+				                                        MAX(B.SPECIFICATION) SPECIFICATION,
+				                                        MAX(B.AGENT_PRICE)/F_GET_VATRATE(B.BUYER) AGENT_PRICE,
+				                                        MAX(B.UNIT_MEASURE) UNIT_MEASURE,
+				                                        MAX(B.ITEM_QTY) PO_QTY,
+				                                        MAX(B.AGENT_ITEM_AMT)/F_GET_VATRATE(B.BUYER) PO_AMT,
+                                                        0 DELIVERY_QTY,
+				                                        SUM(A.ITEM_QTY) GR_QTY,
+                                                        0 DELIVERY_AMT,
+				                                        MAX(A.AGENT_PRICE)/F_GET_VATRATE(B.BUYER) * SUM(A.ITEM_QTY) GR_AMT,
+                                                        NULL DS_DATE,
+				                                        NULL DELIVERY_DATE,
+				                                        MAX(B.LEGACY_PO_NO) LEGACY_PO_NO,
+				                                        B.BUYER,
+				                                        B.PO_SEQ,
+				                                        MAX(B.BYIT_COMORG_CODE) BYIT_COMORG_CODE,
+				                                        MAX(B.CONTRACT_NO) CONTRACT_NO,
+				                                        MAX(B.CONTRACT_SEQ) CONTRACT_SEQ,
+				                                        MAX(C.PURCHASER_NAME) AS PURCHASER_NAME,
+				                                        MAX(E.CHANGE_USER_MOBILE_PHONE) AS CHANGE_USER_MOBILE_PHONE
+			                                FROM ICOMGRDT A, ICOMPODT B, ICOMPOHD C, ICOMPRDT D, ICOMPRHD E
+			                                WHERE A.BUYER = B.BUYER
+			                                    AND A.PO_NO = B.PO_NO
+			                                    AND A.PO_SEQ = B.PO_SEQ
+			                                    AND A.BUYER = C.BUYER
+			                                    AND A.PO_NO = C.PO_NO
+			                                    AND B.BUYER = D.BUYER
+			                                    AND B.PR_NO = D.PR_NO
+			                                    AND B.PR_SEQ = D.PR_SEQ
+			                                    AND D.BUYER = E.BUYER
+			                                    AND D.PR_NO  =E.PR_NO
+			                                    AND D.STATUS <> 'D'
+			                                    AND E.STATUS <> 'D'
+			                                    AND A.STATUS <> 'D'
+			                                    AND B.STATUS <> 'D'
+			                                    AND C.STATUS <> 'D'
+			                                    AND B.WAREHOUSE_CODE = #{st_com_code}
+			                                    AND A.GR_DATE BETWEEN #{st_from_date} AND #{st_to_date}
+			                                    AND B.PROCESS_TYPE = '3'
+		]]>
+							<if test="st_buyer_code != null and st_buyer_code != ''">
+								<![CDATA[	AND C.BUYER = #{st_buyer_code}	]]>	 
+							</if>
+							<if test="st_ap_yn != null and st_ap_yn != ''">
+								<![CDATA[	AND A.AP_BILL_FLAG = #{st_ap_yn}	]]>	 
+							</if>
+		<![CDATA[
+			                                GROUP BY B.BUYER, B.PO_NO, B.PO_SEQ, B.BUYER_ITEM_NO
+			                    ) Z
+		]]>
+		<if test="st_ap_yn != null and st_ap_yn != ''">
+					<![CDATA[	WHERE Z.GR_QTY != 0	]]>	 
+		</if>
+		<![CDATA[
+			                GROUP BY Z.BUYER, Z.PO_NO, Z.PO_SEQ , Z.BUYER_ITEM_NO
+			                ORDER BY  Z.PO_NO, Z.PO_SEQ
+			            ) X
+			    ) S
+ 		]]>  
+	</select>
+</mapper>

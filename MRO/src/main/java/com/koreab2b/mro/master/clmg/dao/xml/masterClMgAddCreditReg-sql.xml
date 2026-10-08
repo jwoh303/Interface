@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.clmg">
+	<!-- 조회 -->
+	<select id="selectMasterClMgAddCreditReg" parameterType="java.util.Map" resultType="java.util.Map">
+			<![CDATA[
+/*	selectMasterClMgAddCreditReg */
+		   SELECT	C.LOAN_NO	AS LOAN_NO
+			,			C.ADD_DATE	AS REG_DATE
+			,			C.ADD_TIME	AS REG_TIME
+			,			D.GROUP_CODE	AS GROUP_CODE
+			,			NVL(D.GROUP_NAME, C.IRS_NM)	AS GROUP_NAME
+			,			D.CORP_CODE	AS CORP_CODE
+			,			REPLACE(C.IRS_NM,'(주)','㈜')	AS COM_NAME
+			,			C.IRS_NO	AS IRS_NO
+			,			C.COM_CODE	AS COM_CODE
+			,			C.IRS_NM	AS COM_NAME
+			,			C.DEPT_CD	AS DEPT_CODE
+			,			C.DEPT_NM	AS DEPT_NAME
+			,			C.BASE_CREDIT_AMT	AS BASE_AMT
+			, 			'1' AS ADD_ROAN
+			, 			'1' AS ADD_ROAN_HIS
+			,			C.ADD_CREDIT_LIMIT_AMT
+			FROM	(
+						SELECT	A.LOAN_NO
+						,			A.ADD_DATE
+						,			SUBSTR(A.ADD_TIME, 1, 2) || ':' ||
+									SUBSTR(A.ADD_TIME, 3, 2) || ':' ||
+									SUBSTR(A.ADD_TIME, 5, 2)	AS ADD_TIME
+						,			A.IRS_NO
+						,			(
+									SELECT	MAX(COM_CODE)
+									FROM	ICOMCMPY
+									WHERE	STATUS IN ('C', 'R')
+									AND		BUSINESS_COND = 'B'
+									AND		IRS_NO = A.IRS_NO
+						)	AS COM_CODE
+						,			NVL((
+									SELECT	MAX(CORP_CODE)
+									FROM	ICOMCMPY
+									WHERE	STATUS IN ('C', 'R')
+									AND		BUSINESS_COND = 'B'
+									AND		IRS_NO = A.IRS_NO
+						), '9999999999') 	AS CORP_CODE
+						,			A.IRS_NM
+						,			A.DEPT_CD
+						,			A.DEPT_NM
+						,			NVL(A.BASE_CREDIT_AMT, 0)	AS BASE_CREDIT_AMT
+						,			 'KEP2119104' /**P*/				AS USER_ID
+						,		(SELECT	NVL(SUM(CREDIT_LIMIT_AMT), 0)
+								FROM	KEPCLOAD	B
+								WHERE	A.LOAN_NO = B.LOAN_NO
+								AND		A.IRS_NO = B.IRS_NO
+								AND		A.DEPT_CD = B.DEPT_CD
+								AND		B.STATUS IN ('C', 'R')) AS ADD_CREDIT_LIMIT_AMT
+						FROM	KEPCLOBA	A
+						WHERE		A.STATUS IN ('C', 'R')
+			]]>
+			<if test="st_buyer_name != null and st_buyer_name != ''">
+						AND		A.IRS_NM LIKE '%' || #{st_buyer_name} || '%'
+			</if>
+			<if test="st_irs_no != null and st_irs_no != ''">
+						AND		A.IRS_NO LIKE #{st_irs_no} || '%'
+			</if>
+			<if test="st_dept != null and st_dept != ''">
+						AND		A.DEPT_CD = #{st_dept}
+			</if>
+			<![CDATA[
+			
+			)	C
+			,		BNTBUYERGROUP	D
+			WHERE	1=1
+			AND		C.CORP_CODE = D.CORP_CODE(+)
+			AND		D.USE_FLAG(+) = 'Y'
+			AND		D.GROUP_FLAG(+) = 'B'
+			ORDER BY D.GROUP_CODE, D.CORP_CODE, C.IRS_NO, C.DEPT_CD
+			]]>
+	</select>
+	<select id="selectMasterClmgLoanHistoryPop" parameterType="java.util.Map" resultType="java.util.Map">
+			<![CDATA[
+					/*	selectMasterClmgLoanHistoryPop */
+					SELECT
+					 LOAD.LOAN_NO
+					 , LOAD.IRS_NO
+					 , LOAD.DEPT_CD
+					 , (SELECT TEXT1 FROM ICOMCOD2 COD2
+						WHERE COD2.COMPANY_CODE = 'KRKORE0001'
+						AND COD2.TYPE = 'C001'
+						AND COD2.CODE = LOAD.DEPT_CD) DEPT_NM
+					 , LOAD.SEQ
+					 , LOAD.CREDIT_LIMIT_AMT
+					 , LOAD.REMARK
+					 , LOAD.ADD_DATE
+					 , LOAD.ADD_TIME
+					 , LOAD.ADD_USER_ID
+					 , (SELECT USR.USER_NAME_LOC 
+					 	FROM ICOMLUSR USR WHERE USR.USER_ID = LOAD.ADD_USER_ID) AS  ADD_USER_NM
+					 , LOAD.CHANGE_DATE
+					 , LOAD.CHANGE_TIME
+					 , LOAD.CHANGE_USER_ID
+					 , (SELECT USR.USER_NAME_LOC 
+					 	FROM ICOMLUSR USR WHERE USR.USER_ID = LOAD.CHANGE_USER_ID) AS  CHANGE_USER_NM
+					 , DECODE(LOAD.STATUS,'T','결재중','C','등록','R','등록','B','반려','E','결재선오류') AS STATUS_NM
+					FROM KEPCLOAD LOAD
+					WHERE LOAD.STATUS != 'D'
+			]]>
+			<if test="st_loan_no != null and st_loan_no != ''">
+						AND		LOAD.LOAN_NO =  #{st_loan_no}
+			</if>
+			<if test="st_irs_no != null and st_irs_no != ''">
+						AND		LOAD.IRS_NO =  #{st_irs_no}
+			</if>
+			<if test="st_dept_cd != null and st_dept_cd != ''">
+						AND		LOAD.DEPT_CD =  #{st_dept_cd}
+			</if>
+			<![CDATA[
+				ORDER BY LOAD.SEQ DESC
+			]]>
+	</select>
+	<!-- 삭제 -->
+	<update id="deleteMasterClMgAddCreditReg"  parameterType="java.util.Map">
+		<![CDATA[
+		UPDATE	KEPCLOAD
+		SET 	CHANGE_DATE = TO_CHAR (SYSDATE, 'YYYYMMDD')
+		,		CHANGE_TIME = TO_CHAR (SYSDATE, 'HH24MISS')
+		,		CHANGE_USER_ID = UPPER(#{USER_ID})
+		,		STATUS	= 'D'
+		WHERE	1=1
+		AND		LOAN_NO	= #{LOAN_NO}
+		AND		IRS_NO		= #{IRS_NO}
+		AND		DEPT_CD	= #{DEPT_CODE}
+		AND		SEQ			= #{ROUND}
+		]]>
+	</update>
+	
+	<!-- 저장 -->
+	<update id="insertMasterClMgAddCreditReg"  parameterType="java.util.Map">
+		<![CDATA[
+		INSERT INTO	KEPCLOAD
+		(
+		LOAN_NO
+		,IRS_NO
+		,DEPT_CD
+		,SEQ
+		,CREDIT_LIMIT_AMT
+		,REMARK
+		,ADD_DATE
+		,ADD_TIME
+		,ADD_USER_ID
+		,STATUS
+		)
+		VALUES	(
+		#{LOAN_NO}
+		,#{IRS_NO}
+		,#{DEPT_CODE}
+		,(SELECT	NVL(MAX(TO_NUMBER(SEQ)),0)+1 AS SEQ
+		  FROM KEPCLOAD
+		  WHERE LOAN_NO = #{LOAN_NO}
+		  AND    IRS_NO = #{IRS_NO}
+		  AND    DEPT_CD = #{DEPT_CODE})
+		,#{ADD_AMT}
+		,#{REASON}
+		,TO_CHAR (SYSDATE, 'YYYYMMDD')
+		,TO_CHAR (SYSDATE, 'HH24MISS')
+		,UPPER(#{USER_ID})
+		,'C'
+		)
+		]]>
+	</update>
+	
+</mapper>   
+   

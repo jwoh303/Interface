@@ -1,0 +1,418 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="buyer.mdam">
+	<select id="selectBuyerMdAmBudgetUploadPopList" parameterType="java.util.Map" resultType="java.util.Map" fetchSize="100">
+		<![CDATA[
+			/* selectBuyerMdAmBudgetUploadPopList */
+			SELECT	A.D01 AS BUDGET_DEPT,
+						(SELECT TEXT1 FROM ICOMCOD2 WHERE COMPANY_CODE = #{st_com_code} AND TYPE = 'C001' AND CODE = A.D01) AS BUDGET_DEPT_NAME,
+						A.D02 AS ACCOUNT,
+						(SELECT TEXT1 FROM ICOMCOD2 WHERE COMPANY_CODE = #{st_com_code} AND TYPE = 'Z014' AND CODE = A.D02) AS ACCOUNT_NAME,
+						A.D03 AS BUDGET_AMT,
+						(SELECT B.RESULT_AMT + B.TEMP_AMT FROM ICOMBDGT B WHERE B.BUYER = #{st_com_code} AND B.DEPT = A.D01 AND B.ACCOUNT_TYPE = A.D02 AND B.TERM = #{st_term} AND B.TERM_TYPE = #{st_term_type}) AS USED_AMT,
+						DECODE((SELECT COUNT(*) FROM ICOMCOD3 WHERE BUYER = #{st_com_code} AND TYPE = 'DTOA' AND CODE1 = A.D01 AND CODE2 = A.D02), 0, 'N', 'Y') AS MAPPING_YN,
+						DECODE((SELECT COUNT(*) FROM ICOMBDGT B WHERE B.BUYER = #{st_com_code} AND B.DEPT = A.D01 AND B.ACCOUNT_TYPE = A.D02 AND B.TERM = #{st_term} AND B.TERM_TYPE = #{st_term_type}), 0, 'N', 'Y') AS EXIST_YN,
+						NVL((SELECT B.PLAN_AMT FROM ICOMBDGT B WHERE B.BUYER =  #{st_com_code} AND B.DEPT = A.D01 AND B.ACCOUNT_TYPE = A.D02 AND B.TERM = #{st_term} AND B.TERM_TYPE = #{st_term_type}), 0) AS BEFORE_BUDGET_AMT,
+						DECODE((SELECT COUNT(*) FROM ICOMCOD2 WHERE COMPANY_CODE = #{st_com_code} AND TYPE = 'C001' AND TYPE_FLAG IN ('A', 'B') AND FLAG = 'Y' AND CODE = A.D01), 0, 'N', 'Y') AS BUDGET_DEPT_YN
+			FROM	KEP_FILE_UPLOAD A
+			WHERE	1=1
+			AND		A.USER_ID = #{st_user_id}
+			AND		A.TYPE = 'B01'
+			ORDER BY SEQ
+		]]>
+	</select>
+	
+	<select id="getBuyerMdAmBudgetUploadPop_v2" parameterType="java.util.Map" resultType="java.util.Map" fetchSize="100">
+		<![CDATA[
+			/* getBuyerMdAmBudgetUploadPop_v2 */
+			SELECT	A.D01 AS BUDGET_DEPT,
+						(SELECT TEXT1 FROM ICOMCOD2 WHERE COMPANY_CODE = #{st_com_code} AND TYPE = 'C001' AND CODE = A.D01) AS BUDGET_DEPT_NAME,
+						A.D02 AS ACCOUNT,
+						(SELECT TEXT1 FROM ICOMCOD2 WHERE COMPANY_CODE = #{st_com_code} AND TYPE = 'Z014' AND CODE = A.D02) AS ACCOUNT_NAME,
+		]]>
+					<if test='st_term_type == "Y"'>
+						A.D03 AS Y_01_PLAN_AMT,
+						A.D04 AS Y_02_PLAN_AMT,
+						(SELECT B.PLAN_AMT FROM ICOMBDGT B WHERE B.BUYER = #{st_com_code} AND B.DEPT = A.D01 AND B.ACCOUNT_TYPE = A.D02 AND B.TERM  = #{st_year} AND B.TERM_TYPE = #{st_term_type}) AS Y_01_ORG_PLAN_AMT,
+						(SELECT B.PLAN_AMT FROM ICOMBDGT B WHERE B.BUYER = #{st_com_code} AND B.DEPT = A.D01 AND B.ACCOUNT_TYPE = A.D02 AND B.TERM  = #{st_year} AND B.TERM_TYPE = #{st_term_type}) AS Y_02_ORG_PLAN_AMT,
+						(SELECT (B.RESULT_AMT + B.TEMP_AMT) FROM ICOMBDGT B WHERE B.BUYER = #{st_com_code} AND B.DEPT = A.D01 AND B.ACCOUNT_TYPE = A.D02 AND B.TERM = #{st_year} AND B.TERM_TYPE = #{st_term_type}) AS Y_01_RESULT_AMT,
+						(SELECT (B.RESULT_AMT + B.TEMP_AMT) FROM ICOMBDGT B WHERE B.BUYER = #{st_com_code} AND B.DEPT = A.D01 AND B.ACCOUNT_TYPE = A.D02 AND B.TERM = #{st_year} AND B.TERM_TYPE = #{st_term_type}) AS Y_02_RESULT_AMT,
+					</if>
+					<if test='st_term_type == "H"'>
+						A.D03 AS H_01_PLAN_AMT,
+						A.D04 AS H_02_PLAN_AMT,
+						(SELECT B.PLAN_AMT FROM ICOMBDGT B WHERE B.BUYER = #{st_com_code} AND B.DEPT = A.D01 AND B.ACCOUNT_TYPE = A.D02 AND B.TERM  = #{st_year}||'H1' AND B.TERM_TYPE = #{st_term_type}) AS H_01_ORG_PLAN_AMT,
+						(SELECT B.PLAN_AMT FROM ICOMBDGT B WHERE B.BUYER = #{st_com_code} AND B.DEPT = A.D01 AND B.ACCOUNT_TYPE = A.D02 AND B.TERM  = #{st_year}||'H2' AND B.TERM_TYPE = #{st_term_type}) AS H_02_ORG_PLAN_AMT,
+						(SELECT (B.RESULT_AMT + B.TEMP_AMT) FROM ICOMBDGT B WHERE B.BUYER = #{st_com_code} AND B.DEPT = A.D01 AND B.ACCOUNT_TYPE = A.D02 AND B.TERM = #{st_year}||'H1' AND B.TERM_TYPE = #{st_term_type}) AS H_01_RESULT_AMT,
+						(SELECT (B.RESULT_AMT + B.TEMP_AMT) FROM ICOMBDGT B WHERE B.BUYER = #{st_com_code} AND B.DEPT = A.D01 AND B.ACCOUNT_TYPE = A.D02 AND B.TERM = #{st_year}||'H2' AND B.TERM_TYPE = #{st_term_type}) AS H_02_RESULT_AMT,
+					</if>
+					<if test='st_term_type == "Q"'>
+						A.D03 AS Q_01_PLAN_AMT,
+						A.D04 AS Q_02_PLAN_AMT,
+						A.D05 AS Q_03_PLAN_AMT,
+						A.D06 AS Q_04_PLAN_AMT,
+						(SELECT B.PLAN_AMT FROM ICOMBDGT B WHERE B.BUYER = #{st_com_code} AND B.DEPT = A.D01 AND B.ACCOUNT_TYPE = A.D02 AND B.TERM  = #{st_year}||'Q1' AND B.TERM_TYPE = #{st_term_type}) AS Q_01_ORG_PLAN_AMT,
+						(SELECT B.PLAN_AMT FROM ICOMBDGT B WHERE B.BUYER = #{st_com_code} AND B.DEPT = A.D01 AND B.ACCOUNT_TYPE = A.D02 AND B.TERM  = #{st_year}||'Q2' AND B.TERM_TYPE = #{st_term_type}) AS Q_02_ORG_PLAN_AMT,
+						(SELECT B.PLAN_AMT FROM ICOMBDGT B WHERE B.BUYER = #{st_com_code} AND B.DEPT = A.D01 AND B.ACCOUNT_TYPE = A.D02 AND B.TERM  = #{st_year}||'Q3' AND B.TERM_TYPE = #{st_term_type}) AS Q_03_ORG_PLAN_AMT,
+						(SELECT B.PLAN_AMT FROM ICOMBDGT B WHERE B.BUYER = #{st_com_code} AND B.DEPT = A.D01 AND B.ACCOUNT_TYPE = A.D02 AND B.TERM  = #{st_year}||'Q4' AND B.TERM_TYPE = #{st_term_type}) AS Q_04_ORG_PLAN_AMT,
+						(SELECT (B.RESULT_AMT + B.TEMP_AMT) FROM ICOMBDGT B WHERE B.BUYER = #{st_com_code} AND B.DEPT = A.D01 AND B.ACCOUNT_TYPE = A.D02 AND B.TERM = #{st_year}||'Q1' AND B.TERM_TYPE = #{st_term_type}) AS Q_01_RESULT_AMT,
+						(SELECT (B.RESULT_AMT + B.TEMP_AMT) FROM ICOMBDGT B WHERE B.BUYER = #{st_com_code} AND B.DEPT = A.D01 AND B.ACCOUNT_TYPE = A.D02 AND B.TERM = #{st_year}||'Q2' AND B.TERM_TYPE = #{st_term_type}) AS Q_02_RESULT_AMT,
+						(SELECT (B.RESULT_AMT + B.TEMP_AMT) FROM ICOMBDGT B WHERE B.BUYER = #{st_com_code} AND B.DEPT = A.D01 AND B.ACCOUNT_TYPE = A.D02 AND B.TERM = #{st_year}||'Q3' AND B.TERM_TYPE = #{st_term_type}) AS Q_03_RESULT_AMT,
+						(SELECT (B.RESULT_AMT + B.TEMP_AMT) FROM ICOMBDGT B WHERE B.BUYER = #{st_com_code} AND B.DEPT = A.D01 AND B.ACCOUNT_TYPE = A.D02 AND B.TERM = #{st_year}||'Q4' AND B.TERM_TYPE = #{st_term_type}) AS Q_04_RESULT_AMT,
+					</if>
+					<if test='st_term_type == "M"'>
+						A.D03 AS M_01_PLAN_AMT,
+						A.D04 AS M_02_PLAN_AMT,
+						A.D05 AS M_03_PLAN_AMT,
+						A.D06 AS M_04_PLAN_AMT,
+						A.D07 AS M_05_PLAN_AMT,
+						A.D08 AS M_06_PLAN_AMT,
+						A.D09 AS M_07_PLAN_AMT,
+						A.D10 AS M_08_PLAN_AMT,
+						A.D11 AS M_09_PLAN_AMT,
+						A.D12 AS M_10_PLAN_AMT,
+						A.D13 AS M_11_PLAN_AMT,
+						A.D14 AS M_12_PLAN_AMT,
+						(SELECT B.PLAN_AMT FROM ICOMBDGT B WHERE B.BUYER = #{st_com_code} AND B.DEPT = A.D01 AND B.ACCOUNT_TYPE = A.D02 AND B.TERM  = #{st_year}||'01' AND B.TERM_TYPE = #{st_term_type}) AS M_01_ORG_PLAN_AMT,
+						(SELECT B.PLAN_AMT FROM ICOMBDGT B WHERE B.BUYER = #{st_com_code} AND B.DEPT = A.D01 AND B.ACCOUNT_TYPE = A.D02 AND B.TERM  = #{st_year}||'02' AND B.TERM_TYPE = #{st_term_type}) AS M_02_ORG_PLAN_AMT,
+						(SELECT B.PLAN_AMT FROM ICOMBDGT B WHERE B.BUYER = #{st_com_code} AND B.DEPT = A.D01 AND B.ACCOUNT_TYPE = A.D02 AND B.TERM  = #{st_year}||'03' AND B.TERM_TYPE = #{st_term_type}) AS M_03_ORG_PLAN_AMT,
+						(SELECT B.PLAN_AMT FROM ICOMBDGT B WHERE B.BUYER = #{st_com_code} AND B.DEPT = A.D01 AND B.ACCOUNT_TYPE = A.D02 AND B.TERM  = #{st_year}||'04' AND B.TERM_TYPE = #{st_term_type}) AS M_04_ORG_PLAN_AMT,
+						(SELECT B.PLAN_AMT FROM ICOMBDGT B WHERE B.BUYER = #{st_com_code} AND B.DEPT = A.D01 AND B.ACCOUNT_TYPE = A.D02 AND B.TERM  = #{st_year}||'05' AND B.TERM_TYPE = #{st_term_type}) AS M_05_ORG_PLAN_AMT,
+						(SELECT B.PLAN_AMT FROM ICOMBDGT B WHERE B.BUYER = #{st_com_code} AND B.DEPT = A.D01 AND B.ACCOUNT_TYPE = A.D02 AND B.TERM  = #{st_year}||'06' AND B.TERM_TYPE = #{st_term_type}) AS M_06_ORG_PLAN_AMT,
+						(SELECT B.PLAN_AMT FROM ICOMBDGT B WHERE B.BUYER = #{st_com_code} AND B.DEPT = A.D01 AND B.ACCOUNT_TYPE = A.D02 AND B.TERM  = #{st_year}||'07' AND B.TERM_TYPE = #{st_term_type}) AS M_07_ORG_PLAN_AMT,
+						(SELECT B.PLAN_AMT FROM ICOMBDGT B WHERE B.BUYER = #{st_com_code} AND B.DEPT = A.D01 AND B.ACCOUNT_TYPE = A.D02 AND B.TERM  = #{st_year}||'08' AND B.TERM_TYPE = #{st_term_type}) AS M_08_ORG_PLAN_AMT,
+						(SELECT B.PLAN_AMT FROM ICOMBDGT B WHERE B.BUYER = #{st_com_code} AND B.DEPT = A.D01 AND B.ACCOUNT_TYPE = A.D02 AND B.TERM  = #{st_year}||'09' AND B.TERM_TYPE = #{st_term_type}) AS M_09_ORG_PLAN_AMT,
+						(SELECT B.PLAN_AMT FROM ICOMBDGT B WHERE B.BUYER = #{st_com_code} AND B.DEPT = A.D01 AND B.ACCOUNT_TYPE = A.D02 AND B.TERM  = #{st_year}||'10' AND B.TERM_TYPE = #{st_term_type}) AS M_10_ORG_PLAN_AMT,
+						(SELECT B.PLAN_AMT FROM ICOMBDGT B WHERE B.BUYER = #{st_com_code} AND B.DEPT = A.D01 AND B.ACCOUNT_TYPE = A.D02 AND B.TERM  = #{st_year}||'11' AND B.TERM_TYPE = #{st_term_type}) AS M_11_ORG_PLAN_AMT,
+						(SELECT B.PLAN_AMT FROM ICOMBDGT B WHERE B.BUYER = #{st_com_code} AND B.DEPT = A.D01 AND B.ACCOUNT_TYPE = A.D02 AND B.TERM  = #{st_year}||'12' AND B.TERM_TYPE = #{st_term_type}) AS M_12_ORG_PLAN_AMT,
+						(SELECT (B.RESULT_AMT + B.TEMP_AMT) FROM ICOMBDGT B WHERE B.BUYER = #{st_com_code} AND B.DEPT = A.D01 AND B.ACCOUNT_TYPE = A.D02 AND B.TERM = #{st_year}||'01' AND B.TERM_TYPE = #{st_term_type}) AS M_01_RESULT_AMT,
+						(SELECT (B.RESULT_AMT + B.TEMP_AMT) FROM ICOMBDGT B WHERE B.BUYER = #{st_com_code} AND B.DEPT = A.D01 AND B.ACCOUNT_TYPE = A.D02 AND B.TERM = #{st_year}||'02' AND B.TERM_TYPE = #{st_term_type}) AS M_02_RESULT_AMT,
+						(SELECT (B.RESULT_AMT + B.TEMP_AMT) FROM ICOMBDGT B WHERE B.BUYER = #{st_com_code} AND B.DEPT = A.D01 AND B.ACCOUNT_TYPE = A.D02 AND B.TERM = #{st_year}||'03' AND B.TERM_TYPE = #{st_term_type}) AS M_03_RESULT_AMT,
+						(SELECT (B.RESULT_AMT + B.TEMP_AMT) FROM ICOMBDGT B WHERE B.BUYER = #{st_com_code} AND B.DEPT = A.D01 AND B.ACCOUNT_TYPE = A.D02 AND B.TERM = #{st_year}||'04' AND B.TERM_TYPE = #{st_term_type}) AS M_04_RESULT_AMT,
+						(SELECT (B.RESULT_AMT + B.TEMP_AMT) FROM ICOMBDGT B WHERE B.BUYER = #{st_com_code} AND B.DEPT = A.D01 AND B.ACCOUNT_TYPE = A.D02 AND B.TERM = #{st_year}||'05' AND B.TERM_TYPE = #{st_term_type}) AS M_05_RESULT_AMT,
+						(SELECT (B.RESULT_AMT + B.TEMP_AMT) FROM ICOMBDGT B WHERE B.BUYER = #{st_com_code} AND B.DEPT = A.D01 AND B.ACCOUNT_TYPE = A.D02 AND B.TERM = #{st_year}||'06' AND B.TERM_TYPE = #{st_term_type}) AS M_06_RESULT_AMT,
+						(SELECT (B.RESULT_AMT + B.TEMP_AMT) FROM ICOMBDGT B WHERE B.BUYER = #{st_com_code} AND B.DEPT = A.D01 AND B.ACCOUNT_TYPE = A.D02 AND B.TERM = #{st_year}||'07' AND B.TERM_TYPE = #{st_term_type}) AS M_07_RESULT_AMT,
+						(SELECT (B.RESULT_AMT + B.TEMP_AMT) FROM ICOMBDGT B WHERE B.BUYER = #{st_com_code} AND B.DEPT = A.D01 AND B.ACCOUNT_TYPE = A.D02 AND B.TERM = #{st_year}||'08' AND B.TERM_TYPE = #{st_term_type}) AS M_08_RESULT_AMT,
+						(SELECT (B.RESULT_AMT + B.TEMP_AMT) FROM ICOMBDGT B WHERE B.BUYER = #{st_com_code} AND B.DEPT = A.D01 AND B.ACCOUNT_TYPE = A.D02 AND B.TERM = #{st_year}||'09' AND B.TERM_TYPE = #{st_term_type}) AS M_09_RESULT_AMT,
+						(SELECT (B.RESULT_AMT + B.TEMP_AMT) FROM ICOMBDGT B WHERE B.BUYER = #{st_com_code} AND B.DEPT = A.D01 AND B.ACCOUNT_TYPE = A.D02 AND B.TERM = #{st_year}||'10' AND B.TERM_TYPE = #{st_term_type}) AS M_10_RESULT_AMT,
+						(SELECT (B.RESULT_AMT + B.TEMP_AMT) FROM ICOMBDGT B WHERE B.BUYER = #{st_com_code} AND B.DEPT = A.D01 AND B.ACCOUNT_TYPE = A.D02 AND B.TERM = #{st_year}||'11' AND B.TERM_TYPE = #{st_term_type}) AS M_11_RESULT_AMT,
+						(SELECT (B.RESULT_AMT + B.TEMP_AMT) FROM ICOMBDGT B WHERE B.BUYER = #{st_com_code} AND B.DEPT = A.D01 AND B.ACCOUNT_TYPE = A.D02 AND B.TERM = #{st_year}||'12' AND B.TERM_TYPE = #{st_term_type}) AS M_12_RESULT_AMT,
+					</if>
+		<![CDATA[
+						
+						DECODE((SELECT COUNT(*) FROM ICOMBDGT B WHERE B.BUYER = #{st_com_code} AND B.DEPT = A.D01 AND B.ACCOUNT_TYPE = A.D02 AND B.TERM LIKE #{st_year}||'%'), 0, 'N', 'Y') AS EXIST_YN,
+						(SELECT DISTINCT TERM_TYPE FROM ICOMBDGT B WHERE B.BUYER = #{st_com_code} AND B.DEPT = A.D01 AND B.ACCOUNT_TYPE = A.D02 AND B.TERM LIKE #{st_year}||'%') AS EXIST_TERM_TYPE,
+						DECODE((SELECT COUNT(*) FROM ICOMCOD3 WHERE BUYER = #{st_com_code} AND TYPE = 'DTOA' AND CODE1 = A.D01 AND CODE2 = A.D02), 0, 'N', 'Y') AS MAPPING_YN,
+						DECODE((SELECT COUNT(*) FROM ICOMCOD2 WHERE COMPANY_CODE = #{st_com_code} AND TYPE = 'C001' AND TYPE_FLAG IN ('A', 'B') AND FLAG = 'Y' AND CODE = A.D01), 0, 'N', 'Y') AS BUDGET_DEPT_YN
+			FROM	KEP_FILE_UPLOAD A
+			WHERE	1=1
+			AND		A.USER_ID = #{st_user_id}
+			AND		A.TYPE = 'B01'
+			ORDER BY SEQ
+		]]>
+	</select>
+	
+	<update id="delAllbudgetUploadData" parameterType="java.util.Map">
+		<![CDATA[
+			/* delAllbudgetUploadData */
+			DELETE FROM KEP_FILE_UPLOAD A
+			WHERE A.USER_ID = #{st_user_id}
+			AND A.TYPE = 'B01'
+		]]>
+	</update>
+	
+	<update id="insertBudgetUploadExcelUp" parameterType="java.util.Map">
+		<![CDATA[
+			/* insertBudgetUploadExcelUp */
+			
+		 	INSERT INTO KEP_FILE_UPLOAD (
+			 	USER_ID,
+				TYPE,
+				SEQ,
+				D01,
+				D02,
+				D03,
+				CREATE_DATE
+			)
+			SELECT
+				#{st_user_id},
+				'B01',
+				#{SEQ},
+				#{BUDGET_DEPT},
+				#{ACCOUNT},
+				#{BUDGET_AMT},
+				SYSDATE
+			FROM DUAL                                                			
+		]]>
+	</update>
+	<update id="insertBudgetUploadExcelUp_v2" parameterType="java.util.Map">
+		<![CDATA[
+			/* insertBudgetUploadExcelUp */
+			
+		 	INSERT INTO KEP_FILE_UPLOAD (
+			 	USER_ID,
+				TYPE,
+				SEQ,
+				D01,
+				D02,
+		]]>
+		<if test='st_term_type == "Y"'>
+				D03,
+		</if>
+		<if test='st_term_type == "H"'>
+				D03,
+				D04,
+		</if>
+		<if test='st_term_type == "Q"'>
+				D03,
+				D04,
+				D05,
+				D06,
+		</if>
+		<if test='st_term_type == "M"'>
+				D03,
+				D04,
+				D05,
+				D06,
+				D07,
+				D08,
+				D09,
+				D10,
+				D11,
+				D12,
+				D13,
+				D14,
+		</if>
+		<![CDATA[
+				CREATE_DATE
+			)
+			SELECT
+				#{st_user_id},
+				'B01',
+				#{SEQ},
+				#{BUDGET_DEPT},
+				#{ACCOUNT},
+		]]>
+		<if test='st_term_type == "Y"'>
+				#{Y_01_PLAN_AMT},
+		</if>
+		<if test='st_term_type == "H"'>
+				#{H_01_PLAN_AMT},
+				#{H_02_PLAN_AMT},
+		</if>
+		<if test='st_term_type == "Q"'>
+				#{Q_01_PLAN_AMT},
+				#{Q_02_PLAN_AMT},
+				#{Q_03_PLAN_AMT},
+				#{Q_04_PLAN_AMT},
+		</if>
+		<if test='st_term_type == "M"'>
+				#{M_01_PLAN_AMT},
+				#{M_02_PLAN_AMT},
+				#{M_03_PLAN_AMT},
+				#{M_04_PLAN_AMT},
+				#{M_05_PLAN_AMT},
+				#{M_06_PLAN_AMT},
+				#{M_07_PLAN_AMT},
+				#{M_08_PLAN_AMT},
+				#{M_09_PLAN_AMT},
+				#{M_10_PLAN_AMT},
+				#{M_11_PLAN_AMT},
+				#{M_12_PLAN_AMT},
+		</if>
+		<![CDATA[
+				SYSDATE
+			FROM DUAL                                                			
+		]]>
+	</update>
+	
+	<update id="updateBuyerMdAmBudgetUpload" parameterType="java.util.Map">
+		<![CDATA[
+			/* updateBuyerMdAmBudgetUpload */
+			
+		 	UPDATE	ICOMBDGT
+		 	SET		PLAN_AMT = #{BUDGET_AMT},
+		 				PLAN_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD'),
+		 				ADD_USER_ID = #{st_user_id}
+		 	WHERE	1=1
+		 	AND		BUYER = #{st_com_code}
+		 	AND		DEPT = #{BUDGET_DEPT}
+		 	AND		ACCOUNT_TYPE = #{ACCOUNT}
+		 	AND		TERM = #{st_term}
+		 	AND		TERM_TYPE = #{st_term_type}
+		]]>
+	</update>
+	
+	<update id="insertBuyerMdAmBudgetUpload" parameterType="java.util.Map">
+		<![CDATA[
+			/* insertBuyerMdAmBudgetUpload */
+			
+		 	INSERT INTO ICOMBDGT (
+			 	BUYER,
+				DEPT,
+				ACCOUNT_TYPE,
+				TERM,
+				TERM_TYPE,
+				FROM_DATE,
+				TO_DATE,
+				PLAN_AMT,
+				PLAN_DATE,
+				ADD_USER_ID,
+				BALANCE_AMT
+			)
+			SELECT
+				#{st_com_code},
+				#{BUDGET_DEPT},
+				#{ACCOUNT},
+				#{st_term},
+				#{st_term_type},
+				#{st_from_date},
+				#{st_to_date},
+				#{BUDGET_AMT},
+				TO_CHAR(SYSDATE, 'YYYYMMDD'),
+				#{st_user_id},
+				0
+			FROM DUAL                                                			
+		]]>
+	</update>
+	<update id="mergeBuyerMdAmBudgetUpload_v2" parameterType="java.util.Map">
+		<![CDATA[
+			/* mergeBuyerMdAmBudgetUpload_v2 */
+			MERGE
+			INTO ICOMBDGT
+			USING DUAL
+			ON (
+			BUYER = #{st_com_code}
+		 	AND		DEPT = #{BUDGET_DEPT}
+		 	AND		ACCOUNT_TYPE = #{ACCOUNT}
+		 	AND		TERM = #{TERM}
+		 	AND		TERM_TYPE = #{st_term_type})
+		 	WHEN MATCHED THEN
+		 		UPDATE
+		 		SET		PLAN_AMT = #{PLAN_AMT},
+		 				PLAN_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD'),
+		 				ADD_USER_ID = #{st_user_id}
+		 	WHEN NOT MATCHED THEN
+		 	INSERT(
+			 	BUYER,
+				DEPT,
+				ACCOUNT_TYPE,
+				TERM,
+				TERM_TYPE,
+				FROM_DATE,
+				TO_DATE,
+				PLAN_AMT,
+				PLAN_DATE,
+				ADD_USER_ID,
+				BALANCE_AMT
+			)VALUES(
+				#{st_com_code},
+				#{BUDGET_DEPT},
+				#{ACCOUNT},
+				#{TERM},
+				#{st_term_type},
+				#{FROM_DATE},
+				#{TO_DATE},
+				#{PLAN_AMT},
+				TO_CHAR(SYSDATE, 'YYYYMMDD'),
+				#{st_user_id},
+				0
+				)
+		]]>
+	</update>
+	
+	<select id="checkBuyerMdAmBudgetUploadAmt" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/* checkBuyerMdAmBudgetUploadAmt */
+			SELECT	SUM(X.PLAN_AMT) AS PLAN_AMT,
+						SUM(X.USED_AMT) AS USED_AMT
+			FROM	(
+						SELECT	TO_NUMBER(#{BUDGET_AMT}) AS PLAN_AMT,
+									RESULT_AMT + TEMP_AMT AS USED_AMT
+						FROM	ICOMBDGT                                  
+						WHERE	BUYER = #{st_com_code}                                     
+						AND		DEPT = #{BUDGET_DEPT}                                     
+						AND		ACCOUNT_TYPE = #{ACCOUNT}
+						AND		TERM = #{st_term}
+						AND		TERM_TYPE = #{st_term_type}
+						
+						UNION ALL
+						
+						SELECT	0 AS PLAN_AMT,
+									0 AS USED_AMT
+						FROM	DUAL
+			) X
+		]]>
+	</select>
+	
+	<update id="insertBuyerMdAmBudgetHistUpload" parameterType="java.util.Map">
+		<![CDATA[
+			/* insertBuyerMdAmBudgetHistUpload */
+			
+		 	INSERT INTO ICOMBDGT_HIST (
+			 	BUYER,
+				DEPT,
+				ACCOUNT_TYPE,
+				TERM,
+				REVISION,
+				TERM_TYPE,
+				FROM_DATE,
+				TO_DATE,
+				BEFORE_AMT,
+				CHANGE_AMT,
+				AFTER_AMT,
+				ADD_DATE,
+				ADD_USER_ID
+			)VALUES(
+				#{st_com_code},
+				#{BUDGET_DEPT},
+				#{ACCOUNT},
+				#{st_term},
+				(SELECT NVL(MAX(REVISION), 0) + 1 FROM ICOMBDGT_HIST WHERE BUYER = #{st_com_code} AND DEPT = #{BUDGET_DEPT} AND ACCOUNT_TYPE = #{ACCOUNT} AND TERM = #{st_term} AND TERM_TYPE = #{st_term_type}),
+				#{st_term_type},
+				#{st_from_date},
+				#{st_to_date},
+				#{BEFORE_BUDGET_AMT},
+				#{BUDGET_AMT} - #{BEFORE_BUDGET_AMT}, 
+				#{BUDGET_AMT},
+				SYSDATE,
+				#{st_user_id}
+			)
+		]]>
+	</update>
+	<update id="insertBuyerMdAmBudgetHistUpload_v2" parameterType="java.util.Map">
+		<![CDATA[
+			/* insertBuyerMdAmBudgetHistUpload_v2 */
+			
+		 	INSERT INTO ICOMBDGT_HIST (
+			 	BUYER,
+				DEPT,
+				ACCOUNT_TYPE,
+				TERM,
+				REVISION,
+				TERM_TYPE,
+				FROM_DATE,
+				TO_DATE,
+				BEFORE_AMT,
+				CHANGE_AMT,
+				AFTER_AMT,
+				ADD_DATE,
+				ADD_USER_ID
+			)VALUES(
+				#{st_com_code},
+				#{BUDGET_DEPT},
+				#{ACCOUNT},
+				#{TERM},
+				(SELECT NVL(MAX(REVISION), 0) + 1 FROM ICOMBDGT_HIST WHERE BUYER = #{st_com_code} AND DEPT = #{BUDGET_DEPT} AND ACCOUNT_TYPE = #{ACCOUNT} AND TERM = #{TERM} AND TERM_TYPE = #{st_term_type}),
+				#{st_term_type},
+				#{FROM_DATE},
+				#{TO_DATE},
+				#{ORG_PLAN_AMT},
+				#{PLAN_AMT} - #{ORG_PLAN_AMT}, 
+				#{PLAN_AMT},
+				SYSDATE,
+				#{st_user_id}
+			)
+		]]>
+	</update>
+</mapper>

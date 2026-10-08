@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mpso">
+	<!-- 조회 -->
+	<select id="selectMasterMpSoOrderStandbyList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.pagestart"/>	
+			<![CDATA[
+		    	SELECT /*selectMasterMpSoOrderStandbyList*/                            
+				 			A.BUYER
+				            , A.PR_NO
+				            , A.REF_NO
+				            , (SELECT to_char(MAX(PASSLN.PASS_DATE),'YYYY-MM-DD HH24:MI:SS') 
+				                 FROM ICOMTRGW TRGW
+				                    , ICOGDOCU DOCU
+				                    , ICOGPASSLN PASSLN
+				                WHERE TRGW.COM_CODE  = A.BUYER
+				                  AND TRGW.KEY_1     = A.REF_NO
+				                  AND TRGW.COM_CODE  = DOCU.COMPANY
+				                  AND TRGW.TARGET    = DOCU.DOCU_NO
+				                  AND DOCU.COMPANY   = PASSLN.COMPANY
+				                  AND DOCU.DOCU_NO   = PASSLN.DOCU_NO
+				                  AND CUR_ORDER_NO   = PASSLN.ORDER_NO
+				                  AND PASSLN.PASS_TP = '1' ) PASS_DATE
+				, E.PR_SUBJECT
+				            , RTRIM(
+				              MAX( DECODE(B.AGENT,A.AGENT,''
+				                                 ,NULL   ,'계약서없음 |'
+				                                         ,'공급사오류 |') ) 
+				            ||MAX( DECODE(B.UNIT_PRICE,A.TARGET_PRICE,''
+				                                      ,NULL          ,'계약서없음 |'
+				                                                     ,'판매단가오류 |') )
+				            ||MAX( DECODE(B.LIST_PRICE,A.LIST_PRICE,''
+				                                      ,NULL        ,'계약서없음 |'
+				                                                   ,'매입단가오류 |') )
+				                       , '|' ) AS ERROR_CTNT
+				            , C.COM_NAME_LOC  AS BUYER_NM
+				            , F.DEPT_NAME     AS PURCH_DEPT
+				            , D.USER_NAME_LOC AS PURCHASER
+				            , E.CHANGE_DATE
+				         FROM ICOMPRDT A
+				            , ICOMCQDT B
+				            , ICOMCMPY C
+				            , ICOMLUSR D
+				            , ICOMPRHD E
+				            , (SELECT COMPANY_CODE
+				                    , TEXT1 DEPT_NAME
+				                    , CODE DEPT_CODE 
+				                 FROM ICOMCOD2  
+				                WHERE TYPE='C001' 
+				              ) F 
+				        WHERE 1=1
+				          AND (A.BUYER,A.REF_NO) IN (
+				                                     SELECT BUYER,LEGACY_NO
+				                                       FROM IF_PROGRESS
+				                                      WHERE REMARK = 'BUDGET'
+				                                        AND GUBUN = 'XX'
+				                                        AND IF_FLAG NOT IN ('Y','D','C','Z')
+				                                    )
+				          AND A.BYIT_COMORG_CODE = B.BUYER(+)
+				          AND A.BUYER_ITEM_NO = B.BUYER_ITEM_NO(+)
+				          AND A.CONTRACT_NO = B.CONTRACT_NO(+)
+				          AND A.CONTRACT_SEQ= B.CONTRACT_SEQ(+)
+				          AND A.BUYER = C.COM_CODE(+)
+				          AND A.PURCHASER_ID = D.USER_ID(+)
+				          AND A.BUYER = E.BUYER(+)
+				          AND A.PR_NO = E.PR_NO(+)
+				          AND A.PURCHASER_DEPT = F.DEPT_CODE(+) 
+				          AND A.BUYER = F.COMPANY_CODE(+)
+				          AND B.STATUS(+) ^= 'D'
+				]]>
+		        <if test="st_buyer_code != null and st_buyer_code != ''">
+				          AND A.BUYER = #{st_buyer_code}
+		        </if>
+		        <if test="st_pr_no != null and st_pr_no != ''">
+				        AND A.PR_NO like  #{st_pr_no} || '%'
+		        </if>
+		        <if test="st_ref_no != null and st_ref_no != ''">
+				        AND A.REF_NO like #{st_ref_no} || '%'
+		        </if>
+		        <![CDATA[
+				        GROUP BY A.BUYER, A.PR_NO,A.REF_NO
+				            , E.PR_SUBJECT
+				            , C.COM_NAME_LOC
+				            , F.DEPT_NAME    
+				            , D.USER_NAME_LOC
+				            , E.CHANGE_DATE
+				       ORDER BY A.BUYER, A.PR_NO,A.REF_NO
+				]]>			
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+
+
+	<update  id="insertMasterMpSoOrderStandby" parameterType="java.util.Map" >
+		<![CDATA[
+				INSERT INTO	KEPQTDT					
+				(									
+					BUYER,							
+					QUOTATION_NO,					
+					QUOTATION_SEQ,					
+					REVISION,						
+					AGENT,							
+					AGENT_REVISION,					
+					STATUS,							
+					BUYER_ITEM_NO,					
+					DESCRIPTION,					
+					SPECIFICATION,					
+					UNIT_MEASURE,					
+					MAKER_NAME,						
+					ORIGIN_NAME,					
+					ATOS_DATE,						
+					ATOS_END_DATE,					
+					ATOS_END_TIME,					
+					ITEM_QTY,						
+					IMAGE_KEY,						
+					DSS_FLAG,						
+					DSS_CHOICE						
+				)									
+				(									
+				SELECT								
+					#{BUYER},									/* 1 : BUYER */
+					#{QUOTATION_NO},									/* 2 : QUOTATION_NO */
+					#{QUOTATION_SEQ},									/* 3 : QUOTATION_SEQ */
+					#{REVISION},									/* 4 : REVISION */
+					#{AGENT},									/* 5 : AGENT */
+					#{AGENT_REVISION},								/* 6 : AGENT_REVISION */
+					'C',						
+					BUYER_ITEM_NO,				
+					DESCRIPTION,				
+					SPECIFICATION,				
+					UNIT_MEASURE,				
+					MAKER_NAME,					
+					ORIGIN_CODE,				
+					TO_CHAR(SYSDATE, 'YYYYMMDD')AS ATOS_DATE,
+					#{ATOS_END_DATE},								/* 7 : ATOS_END_DATE */
+					#{ATOS_END_TIME},								/* 8 : ATOS_END_TIME */
+					ITEM_QTY,					
+					IMAGE_KEY,					
+					#{DSS_FLAG},								/*  9 : DSS_FLAG   if(chk_str[1].equals("A") || chk_str[1].equals("B") || chk_str[1].equals("C")|| chk_str[1].equals("S")) : Y , 기타  : N   */
+					#{DSS_CHOICE}								/*    10 : DSS_CHOICE */
+				   FROM KEPRQDT						
+				  WHERE BUYER=#{BUYER}							/* 11 : BUYER */           
+					AND QUOTATION_NO=#{QUOTATION_NO}					/* 12 : QUOTATION_NO     */
+					AND QUOTATION_SEQ=#{QUOTATION_SEQ}					/* 13 : QUOTATION_SEQ    */
+					AND REVISION=#{REVISION}						/* 14 : REVISION  */       
+					AND RECV_FLAG <> 'GD'			
+					AND STATUS IN ('C','R')			
+				)									
+
+		]]>
+							   <!-- /* CMS_USER_ID = 'TEMPUSER', */ -->
+		
+	</update>
+
+
+<!-- 삭제 -->
+	<update id="deleteMasterMpSoOrderStandby"  parameterType="java.util.Map">
+		<![CDATA[
+				UPDATE KEPRQDT					
+				   SET RECV_FLAG      = 'GD' 	
+				     , CANCEL_USER_ID = #{USR_ID}    		/*CANCEL_USER_ID*/
+				     , CANCEL_DATE    = SYSDATE	
+				     , CANCEL_REMARK  = #{CANCEL_REMARK}    		/*CANCEL_REMARK*/
+				 WHERE BUYER          = #{BUYER}			/*BUYER*/
+				   AND QUOTATION_NO   = #{QUOTATION_NO}	 		/*QUOTATION_NO*/
+				   AND QUOTATION_SEQ  = #{QUOTATION_SEQ}			/*QUOTATION_SEQ*/
+				   AND REVISION       = #{REVISION}			/*REVISION*/
+				   AND STATUS IN ('C','R')
+		]]>
+	</update>
+
+</mapper>   
+   

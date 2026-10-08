@@ -1,0 +1,225 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="common.home">
+	<!-- 지점부서 관리 사용자 체크 -->
+	<select id="selectBuyerHomeDeptBudgetPopChk" parameterType="java.util.Map" resultType="java.lang.Integer">
+		<![CDATA[
+			/*selectBuyerHomeDeptBudgetPopChk*/
+			SELECT	NVL(COUNT(*),0)
+			FROM	ICOMCOD3
+			WHERE	TYPE = 'SYSD'
+			AND		BUYER = #{st_com_code}
+			AND		CODE1 = #{st_user_id}
+			AND		FLAG = 'Y'             
+		]]>
+	</select>
+	
+	<!-- 부서별 예산조회 -->
+	<select id="selectBuyerHomeDeptBudgetPopList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.pagestart"/>	
+			<![CDATA[
+				/* selectBuyerHomeDeptBudgetPopList */
+				SELECT
+					X.DEPT
+					, X.DEPT_NAME
+					, X.BDGT_DEPT
+					, X.BDGT_DEPT_NAME
+					, X.ACCOUNT_TYPE
+					, X.ACCOUNT_TYPE_TEXT
+					, X.TERM_TYPE_TEXT
+					, X.TERM_TEXT
+					, X.PLAN_AMT
+					, X.RESULT_AMT
+					, X.TEMP_AMT
+					, X.BAL_AMT
+					, X.TO_DATE
+				FROM (
+				SELECT	B.CODE1 AS DEPT,
+						(SELECT COD.TEXT1 FROM ICOMCOD2 COD WHERE COD.COMPANY_CODE = A.BUYER AND COD.CODE = B.CODE1 AND COD.TYPE = 'C001') AS DEPT_NAME,
+						B.CODE2 AS BDGT_DEPT,
+						(SELECT COD.TEXT1 FROM ICOMCOD2 COD WHERE COD.COMPANY_CODE = A.BUYER AND COD.CODE = B.CODE2 AND COD.TYPE = 'C001') AS BDGT_DEPT_NAME,
+						A.ACCOUNT_TYPE AS ACCOUNT_TYPE,
+						(SELECT COD.TEXT1 FROM ICOMCOD2 COD WHERE COD.COMPANY_CODE = A.BUYER AND COD.CODE = A.ACCOUNT_TYPE AND COD.TYPE = 'Z014') AS ACCOUNT_TYPE_TEXT,
+						DECODE(A.TERM_TYPE,'Y','년','H','반기','Q','분기','M','월','') AS TERM_TYPE_TEXT,
+						SUBSTR(A.TERM,0,4)||DECODE(SUBSTR(A.TERM,5,2),
+							 'H1','년도 상반기','H2','년도 하반기'
+							,'Q1','년도 1/4분기','Q2','년도 2/4분기','Q3','년도 3/4분기','Q4','년도 4/4분기'
+							,'01','년도 1월','02','년도 2월','03','년도 3월','04','년도 4월','05','년도 5월','06','년도 6월','07','년도 7월','08','년도 8월','09','년도 9월','10','년도 10월','11','년도 11월','12','년도 12월'
+							,'년도'
+						) AS TERM_TEXT,
+						A.PLAN_AMT AS PLAN_AMT,
+						A.RESULT_AMT AS RESULT_AMT,
+						A.TEMP_AMT AS TEMP_AMT,
+						A.PLAN_AMT - A.RESULT_AMT - A.TEMP_AMT AS BAL_AMT,
+						A.TO_DATE
+				FROM	ICOMBDGT A, ICOMCOD3 B
+			]]>
+				<if test='st_account_flg == "Y"'>
+				, ICOMCOD3 C
+				</if>
+			<![CDATA[
+				WHERE	1=1
+				AND		A.BUYER = #{st_com_code}
+				AND		A.BUYER = B.BUYER
+				AND		A.DEPT = B.CODE2
+				AND		B.TYPE = 'DTOD'
+				AND		B.FLAG = 'Y'
+				AND 	A.VIEW_FLAG = 'Y'
+			]]>
+			<if test='st_account_flg == "Y"'>
+			<![CDATA[
+				AND		B.BUYER = C.BUYER
+				AND		B.CODE2 = C.CODE1
+				AND		C.TYPE  = 'DTOA'
+				AND		DECODE(C.FLAG,'Y','Y','N') = 'N'
+				AND		C.BUYER = A.BUYER(+)
+				AND		C.CODE1 = A.DEPT(+)
+				AND		C.CODE2 = A.ACCOUNT_TYPE(+)
+			]]>
+			</if>
+				
+			
+			<if test='st_user_type == "U"'>
+				AND	B.CODE1 IN (
+				<if test='multi_dept_user_yn == "Y"'>
+					(SELECT CODE2 FROM ICOMCOD3 WHERE TYPE = 'SYSD' AND BUYER = A.BUYER AND CODE1 = #{st_user_id} AND FLAG = 'Y')
+				</if>
+				<if test='multi_dept_user_yn == "N"'>
+					#{st_user_dept}
+				</if>
+				)
+			</if>
+			<if test="st_term_type != null and st_term_type != 'ALL'">
+				AND		A.TERM_TYPE = #{st_term_type}
+			</if>
+			<if test="st_term != null and st_term != ''">
+				AND		A.TERM = #{st_term}
+			</if>
+			<if test="st_dept_code != null and st_dept_code != ''">
+				AND		B.CODE1 = #{st_dept_code}
+			</if>
+			<![CDATA[
+				) X
+			]]>
+			<if test="st_account_name != null and st_account_name != ''">
+				WHERE	UPPER(X.ACCOUNT_TYPE_TEXT) LIKE '%'||UPPER(#{st_account_name})||'%'
+			</if>
+			<![CDATA[
+				ORDER BY X.DEPT, X.ACCOUNT_TYPE, X.TO_DATE DESC
+			]]>
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+	
+	<select id="selectBuyerHomeDeptBudgetPopList_v2" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.pagestart"/>	
+			<![CDATA[
+				/* selectBuyerHomeDeptBudgetPopList_v2 */
+				SELECT
+					X.DEPT
+					, X.DEPT_NAME
+					, X.BDGT_DEPT
+					, X.BDGT_DEPT_NAME
+					, X.ACCOUNT_TYPE
+					, X.ACCOUNT_TYPE_TEXT
+					, X.TERM_TYPE_TEXT
+					, X.TERM_TEXT
+					, X.PLAN_AMT
+					, X.RESULT_AMT
+					, X.TEMP_AMT
+					, X.BAL_AMT
+					, X.TO_DATE
+				FROM (
+				SELECT	B.CODE1 AS DEPT,
+						(SELECT COD.TEXT1 FROM ICOMCOD2 COD WHERE COD.COMPANY_CODE = A.BUYER AND COD.CODE = B.CODE1 AND COD.TYPE = 'C001') AS DEPT_NAME,
+						B.CODE2 AS BDGT_DEPT,
+						(SELECT COD.TEXT1 FROM ICOMCOD2 COD WHERE COD.COMPANY_CODE = A.BUYER AND COD.CODE = B.CODE2 AND COD.TYPE = 'C001') AS BDGT_DEPT_NAME,
+						A.ACCOUNT_TYPE AS ACCOUNT_TYPE,
+						(SELECT COD.TEXT1 FROM ICOMCOD2 COD WHERE COD.COMPANY_CODE = A.BUYER AND COD.CODE = A.ACCOUNT_TYPE AND COD.TYPE = 'Z014') AS ACCOUNT_TYPE_TEXT,
+						DECODE(A.TERM_TYPE,'Y','년','H','반기','Q','분기','M','월','') AS TERM_TYPE_TEXT,
+						SUBSTR(A.TERM,0,4)||DECODE(SUBSTR(A.TERM,5,2),
+							 'H1','년도 상반기','H2','년도 하반기'
+							,'Q1','년도 1/4분기','Q2','년도 2/4분기','Q3','년도 3/4분기','Q4','년도 4/4분기'
+							,'01','년도 1월','02','년도 2월','03','년도 3월','04','년도 4월','05','년도 5월','06','년도 6월','07','년도 7월','08','년도 8월','09','년도 9월','10','년도 10월','11','년도 11월','12','년도 12월'
+							,'년도'
+						) AS TERM_TEXT,
+						A.PLAN_AMT AS PLAN_AMT,
+						A.RESULT_AMT AS RESULT_AMT,
+						A.TEMP_AMT AS TEMP_AMT,
+						A.PLAN_AMT - A.RESULT_AMT - A.TEMP_AMT AS BAL_AMT,
+						A.TO_DATE
+				FROM	ICOMBDGT A, ICOMCOD3 B
+			]]>
+				<if test='st_account_flg == "Y"'>
+				, ICOMCOD3 C
+				</if>
+			<![CDATA[
+				WHERE	1=1
+				AND		A.BUYER = #{st_com_code}
+				AND		A.BUYER = B.BUYER
+				AND		A.DEPT = B.CODE2
+				AND		B.TYPE = 'DTOD'
+				AND		B.FLAG = 'Y'
+				AND 	A.VIEW_FLAG = 'Y'
+			]]>
+			<if test='st_account_flg == "Y"'>
+			<![CDATA[
+				AND		B.BUYER = C.BUYER
+				AND		B.CODE2 = C.CODE1
+				AND		C.TYPE  = 'DTOA'
+				AND		DECODE(C.FLAG,'Y','Y','N') = 'N'
+				AND		C.BUYER = A.BUYER(+)
+				AND		C.CODE1 = A.DEPT(+)
+				AND		C.CODE2 = A.ACCOUNT_TYPE(+)
+			]]>
+			</if>
+				
+			
+			<if test='st_user_type == "U"'>
+				AND	B.CODE1 IN (
+				<if test='multi_dept_user_yn == "Y"'>
+					(SELECT CODE2 FROM ICOMCOD3 WHERE TYPE = 'SYSD' AND BUYER = A.BUYER AND CODE1 = #{st_user_id} AND FLAG = 'Y')
+				</if>
+				<if test='multi_dept_user_yn == "N"'>
+					#{st_user_dept}
+				</if>
+				)
+			</if>
+			<choose>
+				<when test='st_term_type == "ALL"'>
+					AND	A.TERM LIKE #{st_year}||'%'
+				</when>
+				<when test='st_term_type == "Y"'>
+					AND	A.TERM = #{st_year}
+				</when>
+				<otherwise>
+					<choose>
+						<when test="st_term_dt != null and st_term_dt != ''">
+							AND		A.TERM = #{st_term}
+						</when>
+						<otherwise>
+							AND		A.TERM LIKE #{st_term}||'%'
+						</otherwise>
+					</choose>
+				</otherwise>
+			</choose>
+			
+			<if test="st_term_type != null and st_term_type != 'ALL'">
+				AND		A.TERM_TYPE = #{st_term_type}
+			</if>
+			
+			<![CDATA[
+				) X
+				WHERE 1=1
+			]]>
+			<if test="st_account_name != null and st_account_name != ''">
+				AND	UPPER(X.ACCOUNT_TYPE_TEXT) LIKE '%'||UPPER(#{st_account_name})||'%'
+			</if>
+			<if test="st_dept_name != null and st_dept_name != ''">
+				AND		UPPER(X.DEPT_NAME) LIKE '%'||UPPER(#{st_dept_name})||'%'
+			</if>
+			<![CDATA[
+				ORDER BY X.DEPT, X.ACCOUNT_TYPE, X.TO_DATE DESC
+			]]>
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+</mapper>

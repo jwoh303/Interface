@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="common.mprq">
+	
+	<select id="selectMasterMpRqQuotationUnitpriceHistoryPopList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*selectMasterMpRqQuotationUnitpriceHistoryPopList*/
+			SELECT               
+				     A.REVISION,              
+				     A.QUOTATION_NO,          
+				     A.QUOTATION_SEQ,         
+				     A.BUYER_ITEM_NO,         
+				     A.ATOB_DATE,             
+				     NVL((SELECT ATOB_UNIT_PRICE FROM KEPQTDT B WHERE B.BUYER=A.BUYER			   
+				   	   AND B.QUOTATION_NO=A.QUOTATION_NO	   
+				   	   AND B.QUOTATION_SEQ=A.QUOTATION_SEQ	   
+				   	   AND B.REVISION=A.REVISION	   
+				   	   AND B.BID_SUCCESS_FLAG='Y'	   
+				   	   AND B.AGENT_REVISION = (SELECT MAX(C.AGENT_REVISION) FROM KEPQTDT C WHERE C.BUYER=A.BUYER	   
+				   	      AND C.QUOTATION_NO=A.QUOTATION_NO	   
+				   	      AND C.QUOTATION_SEQ=A.QUOTATION_SEQ	   
+				   	      AND C.REVISION=A.REVISION )),0) AS ATOB_UNIT_PRICE,	   
+				     A.REJECT_REMARK,         
+				     A.BTOA_NEGO_PRICE,       
+				     NVL(A.BUYER_TARGET_PRICE,0) AS BUYER_TARGET_PRICE,    
+				     NVL(A.ADMIN_TARGET_PRICE,0) AS ADMIN_TARGET_PRICE
+				     , (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = A.BUYER AND STATUS IN ('C','R')) AS BUYER_NAME
+				     , B.CHANGE_DATE
+                     , B.UNIT_PRICE 
+                     , A.DESCRIPTION
+                     , A.SPECIFICATION
+                     , A.ITEM_QTY
+                     , A.KEP_DESCRIPTION
+                     , A.KEP_SPECIFICATION
+                     , A.MAKER_NAME
+                     , A.KEP_MAKER_NAME 
+                     , A.BUYER_ASSIGN_AGENT_CODE 
+                     , A.IMAGE_KEY AS IMAGE_KEY
+                     , DECODE(A.IMAGE_KEY,'',2,3) AS IMAGE_KEY_IMG
+			      FROM KEPRQDT A, ICOMCQDT B          
+			     WHERE A.BUYER=#{st_buyer_code}            
+			       AND A.QUOTATION_NO=#{st_quotation_no}      
+			       AND A.QUOTATION_SEQ=#{st_quotation_seq}
+			       AND A.RECV_FLAG <> 'GD'      
+			       AND A.STATUS <> 'D'
+			       AND A.BUYER = B.BUYER(+)
+                   AND A.CONTRACT_NO = B.CONTRACT_NO(+)
+                   AND A.CONTRACT_SEQ = B.CONTRACT_SEQ(+)
+                   AND B.STATUS(+) <> 'D'
+		]]>
+	</select>
+								
+	<select id="selectMasterMpRqQuotationUnitpriceHistoryPopList2" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*selectMasterMpRqQuotationUnitpriceHistoryPopList2*/
+			SELECT                                                                                     
+			           A.AGENT_REVISION,    
+			           A.QUOTATION_NO,       
+			           A.QUOTATION_SEQ,           
+			           A.BUYER_ITEM_NO,           
+			           (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE=A.AGENT AND STATUS <> 'D') AS AGENT_NAME,   
+			           A.STOA_DATE,                         
+  			   		   NVL(A.STOA_LIST_PRICE,0) AS STOA_LIST_PRICE ,			
+  			   		   NVL(A.STOA_LIST_PRICE,0) AS STOA_LIST_PRICE2 ,			
+			           A.STOA_REMARK,
+			           (SELECT RQ.ATOS_REMARK FROM KEPRQDT RQ WHERE RQ.BUYER = A.BUYER AND RQ.QUOTATION_NO = A.QUOTATION_NO AND RQ.QUOTATION_SEQ = A.QUOTATION_SEQ AND RQ.REVISION = A.REVISION) AS ATOS_REMARK,
+			           (SELECT RQ.ATOS_REMARK2 FROM KEPRQDT RQ WHERE RQ.BUYER = A.BUYER AND RQ.QUOTATION_NO = A.QUOTATION_NO AND RQ.QUOTATION_SEQ = A.QUOTATION_SEQ AND RQ.REVISION = A.REVISION) AS ATOS_REMARK2,
+			           SUBSTR(A.ATOS_END_DATE,0,4) ||'/'||SUBSTR(A.ATOS_END_DATE,5,2)||'/'||SUBSTR(A.ATOS_END_DATE,7,2) ||' ' ||SUBSTR(NVL(TRIM(A.ATOS_END_TIME),'19'),0,2)||':'||SUBSTR(NVL(TRIM(A.ATOS_END_TIME),'19'),3,2) AS ATOS_END_DATE,            
+			           NVL(A.BID_SUCCESS_FLAG, 'N') AS BID_SUCCESS_FLAG,		 
+			           A.ATOS_DATE,						 
+			           TO_CHAR(TO_DATE(A.ATOS_DATE, 'YYYYMMDD'),'YYYY/MM/DD') AS ATOS_DATE2,   
+			           A.BUYER,						
+			           A.QUOTATION_NO,						  
+			           A.QUOTATION_SEQ,					  
+			           A.REVISION,							   
+			           A.AGENT,							  
+			           A.STATUS,							
+			       		CASE WHEN A.ATOS_END_DATE||A.ATOS_END_TIME < TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS') THEN 'Y'      
+					   ELSE 'N' END AS END_TIME_FLAG,				  
+					       DECODE(NVL(     
+					   NVL((SELECT     
+					      COUNT(QT.AGENT)     
+						      FROM KEPQTDT QT     
+						     WHERE QT.BUYER=A.BUYER     
+						       AND QT.QUOTATION_NO=A.QUOTATION_NO     
+						       AND QT.QUOTATION_SEQ=A.QUOTATION_SEQ     
+						       AND QT.REVISION=A.REVISION     
+						       AND QT.STATUS IN ('C','R')     
+						           AND QT.AGENT_REVISION = A.AGENT_REVISION     
+						   GROUP BY QT.BUYER, QT.QUOTATION_NO, QT.QUOTATION_SEQ, QT.REVISION),0) -     
+						   NVL((SELECT     
+						     COUNT(B.AGENT)     
+			     FROM KEPQTDT B     
+			    WHERE B.BUYER=A.BUYER     
+			      AND B.QUOTATION_NO=A.QUOTATION_NO     
+			      AND B.QUOTATION_SEQ=A.QUOTATION_SEQ     
+			      AND B.REVISION=A.REVISION     
+			      AND B.SEL_USER_ID IS NOT NULL     
+			      AND B.STATUS IN ('C','R')     
+			          AND B.AGENT_REVISION = A.AGENT_REVISION     
+			   GROUP BY B.BUYER, B.QUOTATION_NO, B.QUOTATION_SEQ, B.REVISION),0),0), 0, 'Y','N') AS SEND_FLAG,   
+			   DECODE(A.SEL_USER_ID,NULL,'N','Y') AS AGENT_SEND_FLAG,  
+			       NVL(A.ATOB_UNIT_PRICE,0) AS ATOB_UNIT_PRICE,  
+			       NVL(A.LEAD_TIME,'0')  AS LEAD_TIME       
+			       , A.DESCRIPTION
+                   , A.SPECIFICATION
+                   , A.ITEM_QTY  
+                   , CASE WHEN (CASE WHEN A.ATOS_END_DATE||A.ATOS_END_TIME < TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS') THEN 'Y'      
+                       ELSE 'N' END) = 'N' AND A.ADMIN_CLOSE_FLAG = 'N' THEN 'N' ELSE 'Y' END OPEN_FLAG
+				   , A.MIN_ORDER_QTY
+				   , A.PUR_UNIT_QTY
+				   , A.SELLER_AREA
+				   , DECODE(A.SELLER_AREA,'','4','5') AS SELLER_AREA_IMG
+				   , A.PROCESS_TYPE
+				   , (SELECT TEXT2 FROM ICOMCOD1 COD
+						WHERE COD.TYPE = 'M034'
+						AND COD.FLAG = 'Y'
+						AND COD.CODE = A.PROCESS_TYPE) AS PROCESS_NM     
+					, A.SELLER_IMAGE_KEY
+					, DECODE(A.SELLER_IMAGE_KEY,'',2,3) AS IMAGE_KEY_IMG
+					, A.ADD_USER_ID
+					, (SELECT USR.USER_NAME_LOC FROM ICOMLUSR USR WHERE USR.USER_ID =A.ADD_USER_ID) AS ADD_USER_NM
+			      FROM KEPQTDT A           
+			     WHERE A.BUYER=#{st_buyer_code}             
+			       AND A.QUOTATION_NO=#{st_quotation_no}     
+			       AND A.QUOTATION_SEQ=#{st_quotation_seq}
+			       AND A.REVISION=#{st_revision}        
+			       AND A.STATUS <> 'D'     
+			     ORDER BY A.AGENT_REVISION DESC, A.ATOS_END_DATE ASC, A.ATOS_END_TIME ASC    
+		]]>
+	</select>
+	
+	<select id="selectMasterMpRqQuotationUnitpriceHistoryPopList3" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*selectMasterMpRqQuotationUnitpriceHistoryPopList3*/
+			SELECT                                                                                     
+			        A.BUYER
+                   , A.QUOTATION_NO
+                   , A.QUOTATION_SEQ
+                   , A.REVISION
+                   , A.NEGO_SEQ
+                   , A.NEGO_PRICE
+                   , TO_CHAR(A.NEGO_DATE,'YYYYMMDD') AS NEGO_DATE
+                   , A.BTOA_NEGO_PRICE
+                   , A.BTOA_NEGO_REMARK
+                   , A.CREATE_USER_ID        
+			      FROM BNTNEGOHISTORY A           
+			     WHERE A.BUYER=#{st_buyer_code}             
+			       AND A.QUOTATION_NO=#{st_quotation_no}     
+			       AND A.QUOTATION_SEQ=#{st_quotation_seq}
+			       AND A.REVISION=#{st_revision}        
+			     ORDER BY A.NEGO_SEQ DESC    
+		]]>
+	</select>							
+</mapper>

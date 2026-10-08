@@ -1,0 +1,666 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="buyer.mpso">
+	<select id="getBuyerDelyReturnList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.jsppagestart" />
+		/* buyer.mpso.getBuyerDelyReturnList */
+                SELECT K.*,
+                       (K.PO_QTY / DECODE(K.DV_CNT,0, 1, K.DV_CNT)) AS TARGET_QTY,
+                       (K.PO_QTY / DECODE(K.DV_CNT,0, 1, K.DV_CNT)) AS ITEM_QTY,
+                       (K.PO_QTY / DECODE(K.DV_CNT,0, 1, K.DV_CNT)) * K.UNIT_PRICE AS ITEM_AMT,
+                       (K.PO_QTY / DECODE(K.DV_CNT,0, 1, K.DV_CNT)) - K.RET_TARGET_QTY AS RET_POS_QTY
+                  FROM (
+                    SELECT
+                           PR.BUYER
+                           , PR.PR_NO
+                           , PR.PR_SEQ
+                           , PO.PO_NO
+                           , PO.PO_SEQ
+                           , GR.GR_NO
+                           , GR.GR_SEQ
+                           , CR.PERNR AS LEGACY_REQ_USER_ID
+                           , KK.USER_NAME_LOC AS REQ_USER_NAME_LOC
+                           , KK.USER_ID AS REQ_USER_ID
+                           , CR.MATNR AS BUYER_ITEM_NO
+                           , PO.BUYER_ITEM_NO AS ORG_BUYER_ITEM_NO
+                           , PO.DESCRIPTION
+                           , GR.UNIT_PRICE
+                           , PH.PO_CREATE_DATE
+                           , PO.ADD_DATE
+                           , GR.GR_DATE
+                           , PR.ADD_USER_DEPT
+                           , (SELECT TEXT1 FROM ICOMCOD2
+                               WHERE TYPE = 'C001'
+                                 AND CODE = PR.ADD_USER_DEPT
+                                 AND COMPANY_CODE = 'KRCOWA0001') AS ADD_USER_DEPT_NAME
+                           , PR.ADD_USER_ID
+                           , (SELECT LEGACY_USER_ID FROM ICOMLUSR
+                               WHERE USER_ID = PR.ADD_USER_ID ) AS LEGACY_ADD_USER_ID
+                           , PR.ADD_USER_NAME
+                           , GR.ITEM_QTY AS GR_QTY
+                           , PO.BYIT_COMORG_CODE
+                           , PO.CONTRACT_NO
+                           , PO.CONTRACT_SEQ
+                           , GR.AR_BILL_FLAG
+                           , #{st_zcode} || ',' || 
+                             CASE
+                               WHEN SUBSTR(PR.REMARK, INSTR(PR.REMARK,KK.USER_NAME_LOC) + LENGTH(KK.USER_NAME_LOC) , 1) IS NULL THEN 'N'
+                               WHEN SUBSTR(PR.REMARK, INSTR(PR.REMARK,KK.USER_NAME_LOC) + LENGTH(KK.USER_NAME_LOC) , 1) = ',' THEN 'N'
+                               ELSE SUBSTR(PR.REMARK, INSTR(PR.REMARK,KK.USER_NAME_LOC) + LENGTH(KK.USER_NAME_LOC) , 1)
+                             END AS MG_NOTE
+                           , PR.PO_QTY
+                           , PR.REF_PR_NO
+                           , CR.ZSTATUS AS ZSTATUS
+                           , CASE 
+                               WHEN RR.PR_NO IS NOT NULL THEN '반납'
+                               WHEN GR.AR_BILL_FLAG = 'Y' THEN '정산' 
+                               ELSE '입고'
+                             END AS STATUS
+                           , CASE 
+                               WHEN RR.PR_NO IS NOT NULL THEN 'RT'
+                               WHEN GR.AR_BILL_FLAG = 'Y' THEN 'JE' 
+                               ELSE 'GR'
+                             END AS STATUS_CODE
+                           , RR.PR_NO AS RET_PR_NO
+                           , RR.REF_PR_NO AS RET_REF_PR_NO
+                           , ABS(NVL(RR.TARGET_QTY,0)) AS RET_TARGET_QTY
+                           , CASE
+                               WHEN ABS(NVL(RR.TARGET_QTY,0)) = 0 THEN 'N'
+                               ELSE 'Y'
+                             END AS RET_CHECK
+                           , SUM(ABS(NVL(RR.TARGET_QTY,0))) OVER (PARTITION BY PR.BUYER, PR.PR_NO, PR.PR_SEQ ) AS TOT_RR_QTY
+                           , RR.REMARK
+                           , (SELECT COUNT(*) FROM COWAY_REQ_STATUS_DISPLAY
+                               WHERE BUYER  = PR.BUYER
+                                 AND PR_NO  = PR.PR_NO
+                                 AND PR_SEQ = PR.PR_SEQ) AS DV_CNT
+                      FROM ICOMGRDT GR
+                           INNER JOIN ICOMPODT PO ON (1 = 1
+                             AND PO.BUYER  = GR.BUYER
+                             AND PO.PO_NO  = GR.PO_NO
+                             AND PO.PO_SEQ = GR.PO_SEQ
+        <if test="st_date_type != null">
+            <if test="st_date_type == 'PO'">
+                <![CDATA[
+                             AND PO.ADD_DATE BETWEEN #{st_from_date } AND #{st_to_date }
+                ]]>
+            </if>
+        </if>
+                             AND PO.STATUS IN ('C','R')
+                           )
+                           INNER JOIN ICOMPRDT PR ON (1 = 1
+                             AND PR.BUYER  = PO.BUYER
+                             AND PR.PR_NO  = PO.PR_NO
+                             AND PR.PR_SEQ = PO.PR_SEQ
+                             AND PR.STATUS IN ('C','R')
+        <if test="st_pr_no != ''">
+            <![CDATA[
+                             AND PR.REF_PR_NO = #{st_pr_no }
+            ]]>
+        </if>
+        <if test="st_add_user_dept_code != ''">
+            <![CDATA[
+                             AND PR.ADD_USER_DEPT = #{st_add_user_dept_code }
+            ]]>
+        </if>        
+                           )
+                           INNER JOIN COWAY_REQ_STATUS_DISPLAY CR ON (1 = 1
+                             AND CR.BUYER  = PR.BUYER
+                             AND CR.PR_NO  = PR.PR_NO
+                             AND CR.PR_SEQ = PR.PR_SEQ
+                             AND CR.MBLNR  = PR.REF_PR_NO
+                             AND CR.BUYER_ITEM_NO = PR.BUYER_ITEM_nO
+        <if test="st_req_legacy_user_id != ''">
+            <![CDATA[
+                             AND CR.PERNR  LIKE UPPER(#{st_req_legacy_user_id })||'%'
+            ]]>
+        </if>
+        <if test="st_user_id != ''">
+                             AND CASE
+                                   WHEN (SELECT POSITION FROM ICOMLUSR
+                                          WHERE USER_ID = #{st_user_id}) IS NULL
+                                         AND CR.PERNR = SUBSTR(#{st_user_id}, 3)
+                                     THEN 'Y'
+                                   WHEN (SELECT POSITION FROM ICOMLUSR
+                                          WHERE USER_ID = #{st_user_id}) IS NOT NULL
+                                     THEN 'Y'
+                                   ELSE 'N'
+                                 END = 'Y'
+        </if>                        
+        <if test="st_dept != ''">   
+                             AND (CR.ORGEH = #{st_dept} OR 
+                                 #{st_dept} IN (SELECT DEPT_CODE FROM COWAY_HR_ORGDATA
+                                                 WHERE UP_DEPT_CODE = CR.ORGEH))
+        </if>                   
+                           )
+                           INNER JOIN ICOMLUSR KK ON (1 = 1
+                             AND KK.COM_CODE       = PR.BUYER
+                             AND KK.LEGACY_USER_ID = CR.PERNR
+        <if test="st_req_user_name != ''">
+            <![CDATA[
+                             AND UPPER(KK.USER_NAME_LOC) LIKE UPPER(#{st_req_user_name })||'%'
+            ]]>
+        </if>
+                           )
+                           LEFT OUTER JOIN ICOMPRDT RR ON (1 = 1
+                             AND RR.BUYER       = PR.BUYER
+                             AND RR.ORI_PR_NO   = PR.PR_NO
+                             AND RR.ORI_PR_SEQ  = PR.PR_SEQ
+                             AND RR.STATUS IN ('C','R')
+                             AND RR.RECV_FLAG NOT IN ('RR','PR')
+                           )
+                           INNER JOIN ICOMPOHD PH ON (1 = 1
+                             AND PH.BUYER       = PO.BUYER
+                             AND PH.PO_NO       = PO.PO_NO
+        <if test="st_date_type != null">
+            <if test="st_date_type == 'PH'">
+                <![CDATA[
+                             AND PH.PO_CREATE_DATE BETWEEN #{st_from_date } AND #{st_to_date }
+                ]]>
+            </if>
+        </if>
+                           )
+                     WHERE 1=1
+                       AND GR.BUYER = #{st_buyer }
+                       AND GR.ITEM_QTY > 0
+                       AND GR.STATUS IN ('C','R')
+                       AND EXISTS (
+                             SELECT 'X' FROM COWAY_BYIT
+                              WHERE ZCODE = #{st_zcode}
+                                AND MATNR = GR.BUYER_ITEM_NO
+                                AND RECHK = 'Y'
+                           )
+                  ) K
+                 WHERE 1 = 1
+        <if test="st_status != ''">
+                   AND K.STATUS_CODE = #{st_status }
+        </if>
+        		 ORDER BY REF_PR_NO, BUYER_ITEM_NO, LEGACY_REQ_USER_ID
+		<include refid="common.ibsheet.xml.jsppageend" /> 
+	</select>
+
+	<update id="delyReturnPrhdInsert" parameterType="java.util.Map">
+		<![CDATA[
+			/*buyer.mpso.delyReturnPrhdInsert*/
+			INSERT INTO ICOMPRHD ( 
+				   BUYER
+				 , PR_NO
+				 , STATUS
+				 , ADD_DATE
+				 , ADD_TIME
+				 , CHANGE_DATE
+				 , CHANGE_TIME
+				 , NOTIFY
+				 , PR_SUBJECT
+				 , PURCHASER_DEPT
+				 , RECV_FLAG
+				 , RETURN_REASON
+				 , ACCOUNT_TYPE
+				 , INVESTMENT_NO
+				 , SAMPLE_FLAG
+				 , DELY_TO_LOCATION
+				 , REMARK
+				 , ADD_USER_ID
+				 , ADD_USER_NAME
+				 , ADD_USER_TEL
+				 , ADD_USER_DEPT
+				 , CHANGE_USER_ID
+				 , CHANGE_USER_NAME
+				 , CHANGE_USER_TEL
+				 , CHANGE_USER_DEPT
+				 , SIGN_DATE
+				 , SIGN_PERSON_ID
+				 , SAVE_FLAG
+				 , IMAGE_KEY
+				 , DOC_TYPE 
+			   )
+			   (SELECT PH.BUYER
+					, #{DOC_NO } AS PR_NO
+					, 'C' AS STATUS
+					, TO_CHAR(SYSDATE, 'YYYYMMDD') AS ADD_DATE
+					, TO_CHAR(SYSDATE, 'HH24MISS') AS ADD_TIME
+					, TO_CHAR(SYSDATE, 'YYYYMMDD') AS CHANGE_DATE
+					, TO_CHAR(SYSDATE, 'HH24MISS') AS CHANGE_TIME
+					, PH.NOTIFY
+					, PH.PR_SUBJECT
+					, PH.PURCHASER_DEPT
+					, 'GA' AS RECV_FLAG
+					, PH.RETURN_REASON
+					, PH.ACCOUNT_TYPE
+					, PH.INVESTMENT_NO
+					, PH.SAMPLE_FLAG
+					, PH.DELY_TO_LOCATION
+					, PH.REMARK
+					, PH.ADD_USER_ID
+					, PH.ADD_USER_NAME
+					, PH.ADD_USER_TEL
+					, PH.ADD_USER_DEPT
+					, PH.CHANGE_USER_ID
+					, PH.CHANGE_USER_NAME
+					, PH.CHANGE_USER_TEL
+					, PH.CHANGE_USER_DEPT
+					, PH.SIGN_DATE
+					, PH.SIGN_PERSON_ID
+					, 'PR' AS SAVE_FLAG
+					, PH.IMAGE_KEY
+					, PH.DOC_TYPE 
+				 FROM ICOMPRHD PH
+					, ICOMPRDT PR
+					, ICOMPRDT PR_R
+				WHERE 1 = 1 
+					  AND PR_R.BUYER = #{BUYER}
+					  AND PR_R.PR_NO = #{DOC_NO}
+					  AND PH.BUYER  = PR.BUYER 
+					  AND PH.PR_NO  = PR.PR_NO 
+					  AND PR.BUYER  = PR_R.BUYER 
+					  AND PR.PR_NO  = PR_R.ORI_PR_NO 
+					  AND PR.PR_SEQ = PR_R.ORI_PR_SEQ
+					  AND ROWNUM = 1
+			   )
+		]]>
+	</update>
+	
+	<update id="delyReturnTrxlUpdate" parameterType="java.util.Map">
+		<![CDATA[
+		/* buyer.mpso.delyReturnTrxlUpdate */
+		UPDATE EAI.IF_COWAY_PR_SEND
+		   SET IF_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD'),
+		       IF_TIME = TO_CHAR(SYSDATE, 'HH24MISS'),
+		       IF_FLAG = 'Y',
+		       IF_MSG  = #{MESSAGE }
+		 WHERE BUYER   = #{BUYER }
+		   AND PR_NO   = #{PR_NO }
+		   AND I_MBLNR = #{I_REMBLNR }
+		]]>
+	</update>
+	
+	<update id="delyReturnTrxlInsert" parameterType="java.util.Map">
+		<![CDATA[
+			/*buyer.mpso.delyReturnTrxlInsert*/
+		    INSERT INTO EAI.IF_COWAY_PR_SEND (
+		      BUYER,        PR_NO,        PR_SEQ,
+		      I_AFNAM,      I_MBLNR,      I_STATUS,
+		      BUKRS,        ORGEH,        STEXT,
+		      PERNR,        ENAME,        HDATE,
+		      ZGISU,        NEWCK,        ZCODE,
+		      MATNR,        MAKTX,        GIMENGE,
+		      MEINS,        GUBUN,        ERSDA,
+		      ERNAM,        LAEDA,        AENAM,
+		      YUMUSANG,     DRSITE,       DRCP,
+		      DPOINT,       POST_CODE1,   CITY1,
+		      STREET,       TEL_NUMBER,   MOB_NUMBER,
+		      IF_DATE,      IF_TIME,      IF_FLAG,
+		      REG_DATE,     MBLNR
+		    )
+		    SELECT DISTINCT
+		           A.BUYER,
+		           A.PR_NO,
+		           A.PR_SEQ,
+		           B.LEGACY_USER_ID                 AS I_AFNAM,
+		           A.REF_PR_NO                      AS I_MBLNR,
+		           CASE
+		             WHEN A.STATUS = 'D' THEN 'X'
+		             ELSE 'R'
+		           END                              AS I_STATUS,
+		           '2000'                           AS BUKRS,
+		           CASE
+		             WHEN K.DEPT_TYPE = '70' THEN K.UP_DEPT_CODE
+		             ELSE D.DEPARTMENT
+		           END                              AS ORGEH,
+		           SUBSTRB(C.TEXT1,1,40)            AS STEXT,
+		           D.LEGACY_USER_ID                 AS PERNR,
+		           SUBSTRB(D.USER_NAME_LOC,1,40)    AS ENAME,
+		           D.REG_DATE                       AS HDATE,
+		           D.BLD_2                          AS ZGISU,
+		           'N'                              AS NEWCK,
+		           F_SPLIT(A.MG_NOTE,',', 1)        AS ZCODE,
+		           A.BUYER_ITEM_NO                  AS MATNR,
+		           SUBSTRB(A.DESCRIPTION, 1, 40)    AS MAKTX,
+		           A.TARGET_QTY                     AS GIMENGE,
+		           A.UNIT_MEASURE                   AS MEINS,
+		           'N'                              AS GUBUN,
+		           A.ADD_DATE                       AS ERSDA,
+		           SUBSTRB(A.ADD_USER_NAME,1,12)    AS ERNAM,
+		           A.CHANGE_DATE                    AS LAEDA,
+		           SUBSTRB(A.CHANGE_USER_NAME,1,12) AS AENAM,
+		           F_SPLIT(A.MG_NOTE,',', 2)        AS YUMUSANG,
+		           CASE
+		             WHEN A.BUYER = 'KRCOWA0002' THEN 'N'
+		             ELSE
+		               CASE
+		                 WHEN P.POINT_AMT IS NULL THEN 'N'
+		                 ELSE 'Y'
+		               END
+		           END                              AS DRSITE,
+		           CASE
+		             WHEN A.BUYER = 'KRCOWA0002' THEN 'C'
+		             ELSE
+		               CASE
+		                 WHEN P.POINT_AMT IS NULL THEN 'C'
+		                 ELSE 'P'
+		               END
+		           END                              AS DRCP,
+		           CASE
+		             WHEN A.BUYER = 'KRCOWA0002' THEN 0
+		             ELSE
+		               CASE
+		                 WHEN P.POINT_AMT IS NULL THEN 0
+		                 ELSE P.POINT_AMT
+		               END
+		           END                              AS DPOINT,
+		           SUBSTR(E.DELY_TO_LOCATION,1,7)   AS POST_CODE1,
+		           CASE
+		             WHEN INSTR(E.DELY_TO_LOCATION,'리 ') > 0 THEN TRIM(SUBSTR(E.DELY_TO_LOCATION,8, INSTR(E.DELY_TO_LOCATION,'리 ') -7 ))
+		             WHEN INSTR(E.DELY_TO_LOCATION,'동 ') > 0 THEN TRIM(SUBSTR(E.DELY_TO_LOCATION,8, INSTR(E.DELY_TO_LOCATION,'동 ') -7 ))
+		             WHEN INSTR(E.DELY_TO_LOCATION,'면 ') > 0 THEN TRIM(SUBSTR(E.DELY_TO_LOCATION,8, INSTR(E.DELY_TO_LOCATION,'면 ') -7 ))
+		             WHEN INSTR(E.DELY_TO_LOCATION,'읍 ') > 0 THEN TRIM(SUBSTR(E.DELY_TO_LOCATION,8, INSTR(E.DELY_TO_LOCATION,'읍 ') -7 ))
+		             WHEN INSTR(E.DELY_TO_LOCATION,'구 ') > 0 THEN TRIM(SUBSTR(E.DELY_TO_LOCATION,8, INSTR(E.DELY_TO_LOCATION,'구 ') -7 ))
+		             WHEN INSTR(E.DELY_TO_LOCATION,'군 ') > 0 THEN TRIM(SUBSTR(E.DELY_TO_LOCATION,8, INSTR(E.DELY_TO_LOCATION,'군 ') -7 ))
+		             WHEN INSTR(E.DELY_TO_LOCATION,'시 ') > 0 THEN TRIM(SUBSTR(E.DELY_TO_LOCATION,8, INSTR(E.DELY_TO_LOCATION,'시 ') -7 ))
+		             WHEN INSTR(E.DELY_TO_LOCATION,'도 ') > 0 THEN TRIM(SUBSTR(E.DELY_TO_LOCATION,8, INSTR(E.DELY_TO_LOCATION,'도 ') -7 ))
+		           END                              AS  CITY1,
+		           CASE
+		             WHEN INSTR(E.DELY_TO_LOCATION,'리 ') > 0 THEN TRIM(SUBSTR(E.DELY_TO_LOCATION,INSTR(E.DELY_TO_LOCATION,'리 ') + 1, LENGTH(E.DELY_TO_LOCATION) ))
+		             WHEN INSTR(E.DELY_TO_LOCATION,'동 ') > 0 THEN TRIM(SUBSTR(E.DELY_TO_LOCATION,INSTR(E.DELY_TO_LOCATION,'동 ') + 1, LENGTH(E.DELY_TO_LOCATION) ))
+		             WHEN INSTR(E.DELY_TO_LOCATION,'면 ') > 0 THEN TRIM(SUBSTR(E.DELY_TO_LOCATION,INSTR(E.DELY_TO_LOCATION,'면 ') + 1, LENGTH(E.DELY_TO_LOCATION) ))
+		             WHEN INSTR(E.DELY_TO_LOCATION,'읍 ') > 0 THEN TRIM(SUBSTR(E.DELY_TO_LOCATION,INSTR(E.DELY_TO_LOCATION,'읍 ') + 1, LENGTH(E.DELY_TO_LOCATION) ))
+		             WHEN INSTR(E.DELY_TO_LOCATION,'구 ') > 0 THEN TRIM(SUBSTR(E.DELY_TO_LOCATION,INSTR(E.DELY_TO_LOCATION,'구 ') + 1, LENGTH(E.DELY_TO_LOCATION) ))
+		             WHEN INSTR(E.DELY_TO_LOCATION,'군 ') > 0 THEN TRIM(SUBSTR(E.DELY_TO_LOCATION,INSTR(E.DELY_TO_LOCATION,'군 ') + 1, LENGTH(E.DELY_TO_LOCATION) ))
+		             WHEN INSTR(E.DELY_TO_LOCATION,'시 ') > 0 THEN TRIM(SUBSTR(E.DELY_TO_LOCATION,INSTR(E.DELY_TO_LOCATION,'시 ') + 1, LENGTH(E.DELY_TO_LOCATION) ))
+		             WHEN INSTR(E.DELY_TO_LOCATION,'도 ') > 0 THEN TRIM(SUBSTR(E.DELY_TO_LOCATION,INSTR(E.DELY_TO_LOCATION,'도 ') + 1, LENGTH(E.DELY_TO_LOCATION) ))
+		           END                              AS STREET,
+		           E.CHANGE_USER_TEL                AS TEL_NUMBER,
+		           ' '                              AS MOB_NUMBER,
+		           ' '                              AS IF_DATE,
+		           ' '                              AS IF_TIME,
+		           'N'                              AS IF_FLAG,
+		           SYSDATE                          AS REG_DATE,
+		           (SELECT REF_PR_NO FROM ICOMPRDT
+		             WHERE BUYER  = A.BUYER
+		               AND PR_NO  = A.ORI_PR_NO
+		               AND PR_SEQ = A.ORI_PR_SEQ )  AS MBLNR
+		      FROM ICOMPRDT A
+		           INNER JOIN ICOMPRHD E ON (1 = 1
+		             AND E.BUYER = A.BUYER
+		             AND E.PR_NO = A.PR_NO
+		             AND E.STATUS IN ('C','R')
+		           )
+		           INNER JOIN ICOMLUSR B ON (1 = 1
+		             AND B.USER_ID = A.ADD_USER_ID
+		           )
+		           INNER JOIN ICOMLUSR D ON (1 = 1
+		             AND D.USER_ID = A.REQ_USER_ID
+		           )
+		           INNER JOIN ICOMCOD2 C ON (1 = 1
+		             AND C.TYPE         = 'C001'
+		             AND C.COMPANY_CODE = D.COM_CODE
+		             AND C.CODE         = D.DEPARTMENT
+		             AND C.FLAG         = 'Y'
+		           )
+		           INNER JOIN COWAY_HR_ORGDATA K ON (1 = 1
+		             AND K.DEPT_CODE = D.DEPARTMENT
+		           )
+		           LEFT OUTER JOIN COWAY_POINT_HISTORY P ON (1 = 1
+		             AND P.BUYER  = A.BUYER
+		             AND P.PR_NO  = A.PR_NO
+		             AND P.PR_SEQ = A.PR_NO
+		           )
+		     WHERE 1 = 1
+			   AND A.BUYER = #{st_buyer }
+			   AND A.PR_NO = #{DOC_NO }
+		       AND A.RECV_FLAG = 'GA'
+		       AND A.SAVE_FLAG = 'PR'
+		       AND A.MG_NOTE IS NOT NULL
+		       AND A.STATUS IN ('C','R')
+		       AND NOT EXISTS (
+		             SELECT 'X' FROM IF_PROGRESS
+		              WHERE BUYER     = A.BUYER
+		                AND GUBUN     = 'XX'
+		                AND LEGACY_NO = A.PR_NO
+		                AND REMARK    = 'ZMM_GSYS_REREQUEST_CHECK')
+		]]>
+	</update>
+	
+	<update id="delyReturnPrdtInsert" parameterType="java.util.Map">
+		<selectKey keyProperty="DOC_SEQ" order="BEFORE" resultType="integer">
+			SELECT COUNT(PR_SEQ)+1 AS DOC_SEQ FROM ICOMPRDT WHERE BUYER = #{st_buyer } and PR_NO = #{DOC_NO }
+		</selectKey> 
+		<![CDATA[
+			/*buyer.mpso.delyReturnPrdtInsert*/
+			INSERT INTO ICOMPRDT ( 
+				   BUYER
+				 , PR_NO
+				 , PR_SEQ
+				 , STATUS
+				 , ADD_DATE
+				 , ADD_TIME
+				 , CHANGE_DATE
+				 , CHANGE_TIME
+				 , BUYER_ITEM_NO
+				 , SELLER_ITEM_NO
+				 , SELLER
+				 , CATALOG_ITEM_NO
+				 , ITEM_TYPE
+				 , DESCRIPTION
+				 , SPECIFICATION
+				 , HS_NO
+				 , MAKER_CODE
+				 , MAKER_NAME
+				 , MAKER_PART_NO
+				 , IMAGE_KEY
+				 , UNIT_MEASURE
+				 , CUR
+				 , RD_DATE
+				 , TARGET_PRICE
+				 , TARGET_QTY
+				 , DELY_TO_LOCATION
+				 , ACCOUNT_TYPE
+				 , BUDGET_DEPT
+				 , RECV_FLAG
+				 , PURCHASING_AGENT_FLAG
+				 , PO_QTY
+				 , RETURN_REASON
+				 , REMARK
+				 , RFQ_NO
+				 , RFQ_COUNT
+				 , RFQ_SEQ
+				 , SAMPLE_FLAG
+				 , COMPLETE_MARK
+				 , RECV_QTY
+				 , GR_QTY
+				 , CTR_QTY
+				 , PURCHASER_ID
+				 , SUB_PURCHASER_ID
+				 , PURCHASER_DEPT
+				 , SAVE_FLAG
+				 , ADD_USER_ID
+				 , ADD_USER_NAME
+				 , ADD_USER_TEL
+				 , ADD_USER_DEPT
+				 , CHANGE_USER_ID
+				 , CHANGE_USER_NAME
+				 , CHANGE_USER_TEL
+				 , CHANGE_USER_DEPT
+				 , REF_NO
+				 , REF_SEQ
+				 , REF_PR_NO
+				 , REF_ADD_USER_ID
+				 , REQ_USER_ID
+				 , REQ_DEPT
+				 , AGENT
+				 , CONTRACT_NO
+				 , CONTRACT_SEQ
+				 , LEGACY_PO_NO
+				 , LEGACY_PO_SEQ
+				 , REF_IF_NO
+				 , LIST_PRICE
+				 , DOC_TYPE
+				 , REQ_USER_INFO
+				 , PLAN_AMT_FLAG
+				 , BYIT_COMORG_CODE
+				 , PROCESS_TYPE
+				 , CATEG_ID
+				 , MG_CODE
+				 , MG_NOTE
+				 , ORI_PR_NO
+				 , ORI_PR_SEQ 
+			   ) 
+			   (SELECT PR.BUYER
+					, #{DOC_NO } AS PR_NO
+					, TO_CHAR(#{DOC_SEQ }, 'FM000000') AS PR_SEQ
+					, 'C' AS STATUS
+					, TO_CHAR(SYSDATE, 'YYYYMMDD') AS ADD_DATE
+					, TO_CHAR(SYSDATE, 'HH24MISS') AS ADD_TIME
+					, TO_CHAR(SYSDATE, 'YYYYMMDD') AS CHANGE_DATE
+					, TO_CHAR(SYSDATE, 'HH24MISS') AS CHANGE_TIME
+					, PR.BUYER_ITEM_NO
+					, PR.SELLER_ITEM_NO
+					, PR.SELLER
+					, PR.CATALOG_ITEM_NO
+					, PR.ITEM_TYPE
+					, PR.DESCRIPTION
+					, PR.SPECIFICATION
+					, PR.HS_NO
+					, PR.MAKER_CODE
+					, PR.MAKER_NAME
+					, PR.MAKER_PART_NO
+					, PR.IMAGE_KEY
+					, PR.UNIT_MEASURE
+					, PR.CUR
+					, PR.RD_DATE
+					, GR.UNIT_PRICE AS TARGET_PRICE
+					, #{st_return_qty } * -1 AS TARGET_QTY
+					, PR.DELY_TO_LOCATION
+					, PR.ACCOUNT_TYPE
+					, PR.BUDGET_DEPT
+					, 'GA' AS RECV_FLAG
+					, PR.PURCHASING_AGENT_FLAG
+					, 0
+					, PR.RETURN_REASON
+					, #{st_return_remark } AS REMARK
+					, PR.RFQ_NO
+					, PR.RFQ_COUNT
+					, PR.RFQ_SEQ
+					, PR.SAMPLE_FLAG
+					, PR.COMPLETE_MARK
+					, #{st_return_qty } * -1
+					, 0
+					, PR.CTR_QTY * -1
+					, PR.PURCHASER_ID
+					, PR.SUB_PURCHASER_ID
+					, PR.PURCHASER_DEPT
+					, 'PR' AS SAVE_FLAG
+					, PR.ADD_USER_ID
+					, PR.ADD_USER_NAME
+					, PR.ADD_USER_TEL
+					, PR.ADD_USER_DEPT
+					, PR.CHANGE_USER_ID
+					, PR.CHANGE_USER_NAME
+					, PR.CHANGE_USER_TEL
+					, PR.CHANGE_USER_DEPT
+					, PR.REF_NO
+					, PR.REF_SEQ
+					, #{I_REMBLNR}
+					, PR.REF_ADD_USER_ID
+					, #{st_req_user_id}
+					, PR.REQ_DEPT
+					, PR.AGENT
+					, PR.CONTRACT_NO
+					, PR.CONTRACT_SEQ
+					, ''
+					, ''
+					, PR.REF_IF_NO
+					, PR.LIST_PRICE
+					, PR.DOC_TYPE
+					, PR.REQ_USER_INFO
+					, PR.PLAN_AMT_FLAG
+					, PR.BYIT_COMORG_CODE
+					, PR.PROCESS_TYPE
+					, PR.CATEG_ID
+					, PR.MG_CODE
+					, #{st_mg_note}
+					, #{st_lis_pr_no } AS ORI_PR_NO
+					, #{st_lis_pr_seq } AS ORI_PR_SEQ
+				 FROM ICOMPRDT PR
+					, ICOMPODT PO
+					, ICOMGRDT GR 
+				WHERE 1 = 1 
+					  AND PR.BUYER  = PO.BUYER 
+					  AND PR.PR_NO  = PO.PR_NO 
+					  AND PR.PR_SEQ = PO.PR_SEQ 
+					  AND PO.BUYER  = GR.BUYER 
+					  AND PO.PO_NO  = GR.PO_NO 
+					  AND PO.PO_SEQ = GR.PO_SEQ 
+					  AND GR.BUYER  = #{st_buyer } 
+					  AND GR.GR_NO  = #{st_gr_no } 
+					  AND GR.GR_SEQ = #{st_gr_seq } 
+			   )
+		]]>
+	</update>
+	
+	<select id="getMblnrNo" resultType="String">
+		<![CDATA[
+			/*buyer.mpso.getMblnrNo*/
+			SELECT '2'||LPAD(SEQ_IF_COWAY_PR_SEND.NEXTVAL,9,'0') AS I_MBLNR FROM DUAL
+		]]>
+	</select>
+	
+	<select id="getOrderNo" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/*buyer.mpso.getOrderNo*/
+			SELECT DOC_TYPE||SUBSTR(YEAR,3,2)||LPAD(CUR_NO,6,0) AS DOC_NO
+			  FROM ICOMSQMT
+			 WHERE COMPANY = #{COM_CODE } 
+			   AND DOC_TYPE = #{DOC_TYPE }
+		]]>
+	</select>
+	
+	<update id="insertSqmt" parameterType="java.util.Map">
+		<![CDATA[
+			/*buyer.mpso.insertSqmt*/
+			INSERT INTO ICOMSQMT (
+				   COMPANY
+				 , DOC_TYPE
+				 , YEAR
+				 , CUR_NO
+			   ) 
+			   VALUES 
+			   (
+				   #{COM_CODE }
+				 , #{DOC_TYPE }
+				 , TO_CHAR(SYSDATE, 'YYYY')
+				 , 2
+			   )
+		]]>
+	</update>
+	<update id="updateSqmt" parameterType="java.util.Map">
+		<![CDATA[
+			/*buyer.mpso.updateSqmt*/
+			UPDATE ICOMSQMT
+			   SET YEAR = DECODE(YEAR, TO_CHAR(SYSDATE, 'YYYY'), YEAR, TO_CHAR(SYSDATE, 'YYYY'))
+	 			 , CUR_NO = DECODE(YEAR, TO_CHAR(SYSDATE, 'YYYY'), CUR_NO + 1, 1) 
+			 WHERE COMPANY = #{COM_CODE } 
+			   AND DOC_TYPE = #{DOC_TYPE }
+		]]>
+	</update>
+	
+	<select id="delyReturnTrxlSelect" parameterType="java.util.Map" resultType="java.util.Map">
+		/* buyer.mpso.delyReturnTrxlSelect */
+		SELECT 
+		       I_MBLNR,
+		       I_AFNAM,
+		       I_STATUS,
+		       MBLNR,
+		       BUKRS,
+		       ORGEH,
+		       PERNR,
+		       ZCODE,
+		       LPAD(MATNR, 18, '0') AS MATNR,
+		       GIMENGE * -1 AS REMENGE,
+		       YUMUSANG
+		  FROM EAI.IF_COWAY_PR_SEND
+		 WHERE BUYER   = #{BUYER}
+		   AND I_MBLNR = #{I_MBNLR}
+	</select>
+
+</mapper>

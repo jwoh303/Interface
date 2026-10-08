@@ -1,0 +1,650 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="common.mpiv">
+
+	<!-- 거래명세서 수정 및 출력 팝업 기본정보 조회 -->
+	<select id="selectSellerMpIvTranStatementAlterPrintPopInfo" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/*selectSellerMpIvTranStatementAlterPrintPopInfo*/
+			SELECT
+				  MAX(C.PO_NO) AS PO_NO	
+				, MAX(C.PO_CREATE_DATE) AS PO_CREATE_DATE
+				, MAX(C.AGENT_PO_TTL_AMT) AS AGENT_PO_TTL_AMT
+				, DECODE(MAX(C.DOC_TYPE),'X',  
+					DECODE(MAX(D.PROCESS_TYPE), 2, MAX((SELECT TEL_NO FROM ICOMCMPY WHERE COM_CODE = D.WAREHOUSE_CODE)), MAX((SELECT PHONE_NUMBER FROM ICOMLUSR WHERE USER_ID = C.ADD_USER_ID))),  
+						MAX((SELECT PHONE_NUMBER FROM ICOMLUSR WHERE USER_ID = C.ADD_USER_ID))) AS TEL_NO  
+				, DECODE(MAX(C.DOC_TYPE),'X', DECODE(MAX(D.PROCESS_TYPE),2,'',MAX(C.PURCHASER_NAME)), MAX(C.PURCHASER_NAME)) AS PURCHASER_NAME																					--0 발주번호
+				, MAX(DECODE(C.BUYER,'KREMK20001', DECODE(C.PROCESS_TYPE,'2','',C.PO_REMARK), C.PO_REMARK)) AS PO_REMARK		--1 발주비고
+				--, MAX(A.INV_AMT) AS INV_AMT																						--2 공급가액
+				, SUM(D.AGENT_PRICE * B.INV_QTY) AS INV_AMT
+				, MAX((SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = F_GET_HIDDEN_BUYER_NAME(C.BUYER, '01'))) AS SELLER_BUYER	--3 공급받는자				
+				, MIN(B.DS_DATE) AS DS_DATE																							--4 납품예정일
+				--, MIN(A.INV_TAX_AMT_1) AS INV_TAX_AMT																				--5 부가세
+				, SUM(FLOOR(D.AGENT_PRICE * B.INV_QTY/10)) AS INV_TAX_AMT
+				, MAX((SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = A.AGENT)) AS SELLER_COM_NAME								--6 공급원
+				--, MAX(A.INV_TTL_AMT) AS INV_TTL_AMT																					--7 총금액
+				, (SUM(D.AGENT_PRICE*B.INV_QTY) + SUM(FLOOR(D.AGENT_PRICE * B.INV_QTY/10)))  AS INV_TTL_AMT
+				, MAX(DECODE((	SELECT COUNT(*) 
+								FROM ICOMCOD2 
+								WHERE 
+										COMPANY_CODE = DECODE(C.PROCESS_TYPE,'2',F_GET_HUB_INFO(C.BUYER,C.PO_NO,'2'),C.BUYER)       
+									AND TYPE = 'C012' AND CODE = DECODE(C.PROCESS_TYPE,'2','001',C.DELY_TO_LOCATION))
+					, 0, C.DELY_TO_LOCATION , (	SELECT TEXT2 
+												FROM ICOMCOD2 
+												WHERE 
+														COMPANY_CODE = DECODE(C.PROCESS_TYPE,'2',F_GET_HUB_INFO(C.BUYER,C.PO_NO,'2'),C.BUYER) 
+													AND TYPE = 'C012' AND CODE = DECODE(C.PROCESS_TYPE,'2','001',C.DELY_TO_LOCATION)))) AS DELY_TO_LOCATION		--8 납품장소
+				, MAX(A.REMARK_INV) AS REMARK_INV																												--9
+				, MAX(A.INV_DATE) AS INV_DATE																													--10
+				, MAX(DECODE(NVL(A.LEGACY_IV_SERIAL,'미전송'),'미전송','미전송','전송완료')) AS IV_SERIAL														--11
+				, MAX(A.LEGACY_IV_SERIAL) AS LEGACY_IV_SERIAL																									--12
+				-------------------------------<-- 주문번호 PX번호 ------------------------------------------------------------
+				, MAX((SELECT /*+ INDEX(X ICOMPRDT) */ X.REF_NO FROM ICOMPRDT X WHERE X.BUYER = D.BUYER AND X.PR_NO = D.PR_NO AND ROWNUM = 1 ) ) AS PX_NO   
+				-------------------------------<-- 저장,삭제버튼 노출여부 컬럼 ------------------------------------------------
+				, CASE 	WHEN (	SUM(NVL(B.DELIVERY_QTY,0)) = 0   --납품실적수량
+							AND SUM(NVL(B.GR_QTY,0))       = 0   --(고객사)입고수량
+							AND SUM(NVL(B.WMS_GR_QTY,0))   = 0   --(WMS)입고수량
+							AND SUM(DECODE(B.HUB_FLAG, 'C', 1, 'G', 1, 0)) = 0	-- (간선)입출고
+						)
+						THEN 
+							CASE 	WHEN 	MAX(A.BUYER) = 'KRKORE0212' 
+										AND MAX(DECODE(D.PROCESS_TYPE,'2',TO_DATE(D.RD_DATE,'YYYYMMDD') - DECODE(TO_CHAR(TO_DATE(D.RD_DATE,'YYYYMMDD'),'D'),3,1,2), TO_DATE( D.RD_DATE,'YYYYMMDD'))) BETWEEN  SYSDATE - 6 AND SYSDATE + 6 
+										THEN '11'      --저장,삭제버튼 노출
+									WHEN MAX(A.BUYER) != 'KRKORE0212' 
+										THEN '11'      --저장,삭제버튼 노출
+									ELSE '00'      --비노출 
+						END
+					ELSE '00'  --비노출
+					END AS BTN_YN
+				-------------------------------<-- 납품지시서 리포트출력 고객사 ------------------------------------------------
+				, MAX(DECODE(E.BUYER, NULL, 'N', 'Y')) AS EXTR_RPT       --'Y'이면 납품지시서 출력 고객사               
+				-------------------------------<-- 납품지시서 리포트출력 고객사 ------------------------------------------------
+				, MAX(C.PROCESS_TYPE) AS PROCESS_TYPE
+				, MAX(F.BUYER) AS S_BUYER
+				, MAX(F.PROCESS_TYPE) AS S_PROCESS_TYPE
+				, MAX(F.BTN_NM) AS S_BTN_NM
+				, MAX(F.TYPE) AS S_TYPE
+				-------------------------------<-- 거래명세서 출력 버튼명 특수로직 ------------------------------------------------
+				, CASE 	WHEN 	MAX(F.BUYER) IS NOT NULL 
+							AND NVL(MAX(F.PROCESS_TYPE), MAX(C.PROCESS_TYPE)) = MAX(C.PROCESS_TYPE)
+							AND ( ( MAX(F.TYPE) ='LEGACY' AND MAX(NVL(TRIM(D.LEGACY_PO_NO), 'N')) != 'N')
+								OR ( MAX(F.TYPE) ='DOOWIN' 
+									AND ( LENGTH(MAX(NVL(TRIM(D.LEGACY_PO_NO), 'N'))) != 14 OR SUBSTR(MAX(NVL(TRIM(D.LEGACY_PO_NO), 'N')), 1, 1) IN ('4', '5', 'A'))
+								)
+							)
+						THEN MAX(F.BTN_NM)   
+				  ELSE '거래명세서 출력'
+				  END AS BTN_NM  
+				-------------------------------<-- 거래명세서 리포트조건 특수로직 ------------------------------------------------
+				--, 리포트 조건 컬럼 삽입 1 ~ 4   
+				, MAX(P.QRY_STR1) AS QRY_STR1
+				, MAX(P.QRY_STR2) AS QRY_STR2
+				, MAX(P.QRY_STR3) AS QRY_STR3
+				, MAX(P.QRY_STR4) AS QRY_STR4
+				, MAX(P.DEFAULT_RPT_URL) AS DEFAULT_RPT_URL
+				------------------------------<-- K TAG 사용 고객사 특수로직 --------------------------------------------------------
+				, MAX(DECODE(K.BUYER, NULL, 'N', 'Y')) AS KTAG_RPT       --'Y'이면 K TAG 사용 고객사  
+				, MAX(NVL(A.PARCEL_YN,NVL(C.PARCEL_YN,'N'))) AS PARCEL_YN 
+				, MAX(G.REMARK) AS DELIVERY_REMARK 
+				, MAX(D.DELY_TO_LOCATION) AS DELY_TO_LOCATION_CODE
+				, MAX((SELECT ITEM_NO FROM ICOMCQDT WHERE BUYER = D.BYIT_COMORG_CODE AND BELOW_COMORG_CODE = D.BUYER AND CONTRACT_NO = D.CONTRACT_NO AND CONTRACT_SEQ = D.CONTRACT_SEQ AND BUYER_ITEM_NO = D.BUYER_ITEM_NO)) AS CQDT_ITEM_NO
+			FROM
+				  ICOMIVHD A, ICOMIVDT B, ICOMPOHD C, ICOMPODT D, ICOMPRHD G
+				, (	SELECT B.COM_CODE AS BUYER
+					FROM BNTSLGDEF A, BNTSLGIMP B
+					WHERE 
+							A.SLG_ID = B.SLG_ID
+						AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN A.OPEN_DATE AND A.CLOSE_DATE     
+						AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN B.OPEN_DATE AND B.CLOSE_DATE
+						AND A.SLG_ID = 'P06-0000049'   --납품지시서 리포트 출력: 특수로직
+				) E
+				, (	SELECT 
+						  B.COM_CODE AS BUYER
+						, B.COL01_DATA AS BTN_NM
+						, B.COL02_DATA AS PROCESS_TYPE
+						, B.COL03_DATA AS TYPE
+					FROM BNTSLGDEF A, BNTSLGIMP B
+					WHERE
+							A.SLG_ID = B.SLG_ID
+						AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN A.OPEN_DATE AND A.CLOSE_DATE     
+						AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN B.OPEN_DATE AND B.CLOSE_DATE
+						AND A.SLG_ID = 'P06-0000001'   --거래명세서 출력버튼 : 특수로직
+				) F  
+				/*      리포트 조건의 특수로직 인라인 뷰 삽입      */    
+				, (
+					SELECT
+						  Y.QRY_STR1
+						, Y.QRY_STR2
+						, Y.QRY_STR3
+						, Y.QRY_STR4
+						, X.SLG_ID
+						, X.DEFAULT_RPT_URL
+					FROM (	SELECT 
+								  'P06-0000002' AS SLG_ID								-- ID 하드코딩 
+								, 'RD_06_S_001_83' AS DEFAULT_RPT_URL	--디폴트 유알엘 하드코딩 , 추후 변경 /kr/epro/buy/sheet/inv_prn.jsp  
+							FROM DUAL												--한건도 조회되지 않는 것 방지 
+						) X
+						, (
+							SELECT
+								  B.COL01_DATA QRY_STR1
+								, B.COL02_DATA QRY_STR2
+								, B.COL03_DATA QRY_STR3
+								, B.COL03_DATA QRY_STR4
+								, A.SLG_ID
+							FROM BNTSLGDEF A, BNTSLGIMP B
+							WHERE 
+									1=1
+								AND A.SLG_ID = B.SLG_ID --default url을 가져오기 위해 아우터조인 
+								AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN A.OPEN_DATE AND A.CLOSE_DATE
+								AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN B.OPEN_DATE AND B.CLOSE_DATE
+								AND B.COM_CODE = #{st_buyer} --고객사 회사코드
+								AND A.SLG_ID = 'P06-0000002' -- ID하드코딩 
+						) Y
+					WHERE 1=1
+						AND X.SLG_ID = Y.SLG_ID(+) 
+				) P 
+				, (	SELECT B.COM_CODE AS BUYER
+					FROM BNTSLGDEF A, BNTSLGIMP B
+					WHERE 
+							A.SLG_ID = B.SLG_ID
+						AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN A.OPEN_DATE AND A.CLOSE_DATE     
+						AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN B.OPEN_DATE AND B.CLOSE_DATE
+						AND A.SLG_ID = 'P06-0000054'   --K TAG 사용 관리: 특수로직
+				) K
+			WHERE 
+					A.INV_NO = #{st_inv_no}                                                                                                          
+				AND A.BUYER = #{st_buyer}                                                                                                          
+				AND A.BUYER = B.BUYER                                                                                                     
+				AND A.INV_NO = B.INV_NO                                                                                                    
+				AND B.BUYER = D.BUYER                                                                                                     
+				AND B.PO_NO = D.PO_NO                                                                                                     
+				AND B.PO_SEQ = D.PO_SEQ                                                                                                    
+				AND D.BUYER = C.BUYER                                                                                                     
+				AND D.PO_NO = C.PO_NO
+				AND D.BUYER = G.BUYER
+				AND D.PR_NO = G.PR_NO                                                                                                     
+				AND A.BUYER = E.BUYER(+)
+				AND A.BUYER = F.BUYER(+)
+				AND A.BUYER = K.BUYER(+)
+				AND A.STATUS <> 'D'                                                                                                       
+				AND B.STATUS <> 'D'                                                                                                       
+				AND C.STATUS <> 'D'                                                                                                       
+				AND D.STATUS <> 'D'
+				AND G.STATUS <> 'D'
+		]]>
+	</select>
+	<select id="selectSellerMpIvTranStatementAlterPrintPopInfo_v3" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/*selectSellerMpIvTranStatementAlterPrintPopInfo_v3*/
+			SELECT
+				  MAX(C.PO_NO) AS PO_NO	
+				, MAX(C.PO_CREATE_DATE) AS PO_CREATE_DATE
+				, MAX(C.AGENT_PO_TTL_AMT) AS AGENT_PO_TTL_AMT
+				, DECODE(MAX(C.DOC_TYPE),'X',  
+					DECODE(MAX(D.PROCESS_TYPE), 2, MAX((SELECT TEL_NO FROM ICOMCMPY WHERE COM_CODE = D.WAREHOUSE_CODE)), MAX((SELECT PHONE_NUMBER FROM ICOMLUSR WHERE USER_ID = C.ADD_USER_ID))),  
+						MAX((SELECT PHONE_NUMBER FROM ICOMLUSR WHERE USER_ID = C.ADD_USER_ID))) AS TEL_NO  
+				, DECODE(MAX(C.DOC_TYPE),'X', DECODE(MAX(D.PROCESS_TYPE),2,'',MAX(C.PURCHASER_NAME)), MAX(C.PURCHASER_NAME)) AS PURCHASER_NAME																					--0 발주번호
+				, MAX(DECODE(C.BUYER,'KREMK20001', DECODE(C.PROCESS_TYPE,'2','',C.PO_REMARK), C.PO_REMARK)) AS PO_REMARK		--1 발주비고
+				--, MAX(A.INV_AMT) AS INV_AMT																						--2 공급가액
+				, SUM(D.AGENT_PRICE * B.INV_QTY) AS INV_AMT
+				, MAX((SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = F_GET_HIDDEN_BUYER_NAME(C.BUYER, '01'))) AS SELLER_BUYER	--3 공급받는자				
+				, MIN(B.DS_DATE) AS DS_DATE																							--4 납품예정일
+				--, MIN(A.INV_TAX_AMT_1) AS INV_TAX_AMT																				--5 부가세
+				, SUM(FLOOR(D.AGENT_PRICE * B.INV_QTY/10)) AS INV_TAX_AMT
+				, MAX((SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = A.AGENT)) AS SELLER_COM_NAME								--6 공급원
+				--, MAX(A.INV_TTL_AMT) AS INV_TTL_AMT																					--7 총금액
+				, (SUM(D.AGENT_PRICE*B.INV_QTY) + SUM(FLOOR(D.AGENT_PRICE * B.INV_QTY/10)))  AS INV_TTL_AMT
+				, MAX(DECODE((	SELECT COUNT(*) 
+								FROM ICOMCOD2 
+								WHERE 
+										COMPANY_CODE = DECODE(C.PROCESS_TYPE,'2',F_GET_HUB_INFO(C.BUYER,C.PO_NO,'2'),C.BUYER)       
+									AND TYPE = 'C012' AND CODE = DECODE(C.PROCESS_TYPE,'2','001',C.DELY_TO_LOCATION))
+					, 0, C.DELY_TO_LOCATION , (	SELECT TEXT2 
+												FROM ICOMCOD2 
+												WHERE 
+														COMPANY_CODE = DECODE(C.PROCESS_TYPE,'2',F_GET_HUB_INFO(C.BUYER,C.PO_NO,'2'),C.BUYER) 
+													AND TYPE = 'C012' AND CODE = DECODE(C.PROCESS_TYPE,'2','001',C.DELY_TO_LOCATION)))) AS DELY_TO_LOCATION		--8 납품장소
+				, MAX(A.REMARK_INV) AS REMARK_INV																												--9
+				, MAX(A.INV_DATE) AS INV_DATE																													--10
+				, MAX(DECODE(NVL(A.LEGACY_IV_SERIAL,'미전송'),'미전송','미전송','전송완료')) AS IV_SERIAL														--11
+				, MAX(A.LEGACY_IV_SERIAL) AS LEGACY_IV_SERIAL																									--12
+				-------------------------------<-- 주문번호 PX번호 ------------------------------------------------------------
+				, MAX((SELECT /*+ INDEX(X ICOMPRDT) */ X.REF_NO FROM ICOMPRDT X WHERE X.BUYER = D.BUYER AND X.PR_NO = D.PR_NO AND ROWNUM = 1 ) ) AS PX_NO   
+				-------------------------------<-- 저장,삭제버튼 노출여부 컬럼 ------------------------------------------------
+				, CASE 	WHEN (	SUM(NVL(B.DELIVERY_QTY,0)) = 0   --납품실적수량
+							AND SUM(NVL(B.GR_QTY,0))       = 0   --(고객사)입고수량
+							AND SUM(NVL(B.WMS_GR_QTY,0))   = 0   --(WMS)입고수량
+							AND SUM(DECODE(B.HUB_FLAG, 'C', 1, 'G', 1, 0)) = 0	-- (간선)입출고
+						)
+						THEN 
+							CASE 	WHEN 	MAX(A.BUYER) = 'KRKORE0212' 
+										AND MAX(DECODE(D.PROCESS_TYPE,'2',TO_DATE(D.RD_DATE,'YYYYMMDD') - DECODE(TO_CHAR(TO_DATE(D.RD_DATE,'YYYYMMDD'),'D'),3,1,2), TO_DATE( D.RD_DATE,'YYYYMMDD'))) BETWEEN  SYSDATE - 6 AND SYSDATE + 6 
+										THEN '11'      --저장,삭제버튼 노출
+									WHEN MAX(A.BUYER) != 'KRKORE0212' 
+										THEN '11'      --저장,삭제버튼 노출
+									ELSE '00'      --비노출 
+						END
+					ELSE '00'  --비노출
+					END AS BTN_YN
+				-------------------------------<-- 납품지시서 리포트출력 고객사 ------------------------------------------------
+				, MAX(DECODE(E.BUYER, NULL, 'N', 'Y')) AS EXTR_RPT       --'Y'이면 납품지시서 출력 고객사               
+				-------------------------------<-- 납품지시서 리포트출력 고객사 ------------------------------------------------
+				, MAX(C.PROCESS_TYPE) AS PROCESS_TYPE
+				, MAX(F.BUYER) AS S_BUYER
+				, MAX(F.PROCESS_TYPE) AS S_PROCESS_TYPE
+				, MAX(F.BTN_NM) AS S_BTN_NM
+				, MAX(F.TYPE) AS S_TYPE
+				-------------------------------<-- 거래명세서 출력 버튼명 특수로직 ------------------------------------------------
+				, CASE 	WHEN 	MAX(F.BUYER) IS NOT NULL 
+							AND NVL(MAX(F.PROCESS_TYPE), MAX(C.PROCESS_TYPE)) = MAX(C.PROCESS_TYPE)
+							AND ( ( MAX(F.TYPE) ='LEGACY' AND MAX(NVL(TRIM(D.LEGACY_PO_NO), 'N')) != 'N')
+								OR ( MAX(F.TYPE) ='DOOWIN' 
+									AND ( LENGTH(MAX(NVL(TRIM(D.LEGACY_PO_NO), 'N'))) != 14 OR SUBSTR(MAX(NVL(TRIM(D.LEGACY_PO_NO), 'N')), 1, 1) IN ('4', '5', 'A'))
+								)
+							)
+						THEN MAX(F.BTN_NM)   
+				  ELSE '거래명세서 출력'
+				  END AS BTN_NM  
+				-------------------------------<-- 거래명세서 리포트조건 특수로직 ------------------------------------------------
+				--, 리포트 조건 컬럼 삽입 1 ~ 4   
+				, MAX(P.QRY_STR1) AS QRY_STR1
+				, MAX(P.QRY_STR2) AS QRY_STR2
+				, MAX(P.QRY_STR3) AS QRY_STR3
+				, MAX(P.QRY_STR4) AS QRY_STR4
+				, MAX(P.DEFAULT_RPT_URL) AS DEFAULT_RPT_URL
+				------------------------------<-- K TAG 사용 고객사 특수로직 --------------------------------------------------------
+				, MAX(DECODE(K.BUYER, NULL, 'N', 'Y')) AS KTAG_RPT       --'Y'이면 K TAG 사용 고객사  
+				, MAX(NVL(A.PARCEL_YN,NVL(C.PARCEL_YN,'N'))) AS PARCEL_YN 
+				, MAX(G.REMARK) AS DELIVERY_REMARK
+				, MAX(D.DELY_TO_LOCATION) AS DELY_TO_LOCATION_CODE
+				, MAX((SELECT ITEM_NO FROM ICOMCQDT WHERE BUYER = D.BYIT_COMORG_CODE AND BELOW_COMORG_CODE = D.BUYER AND CONTRACT_NO = D.CONTRACT_NO AND CONTRACT_SEQ = D.CONTRACT_SEQ AND BUYER_ITEM_NO = D.BUYER_ITEM_NO)) AS CQDT_ITEM_NO
+				, MAX(NVL(B.AP_BILL_FLAG,'N')) AS AP_BILL_FLAG
+			FROM
+				  ICOMIVHD A, ICOMIVDT B, ICOMPOHD C, ICOMPODT D, ICOMPRHD G
+				, (	SELECT B.COM_CODE AS BUYER
+					FROM BNTSLGDEF A, BNTSLGIMP B
+					WHERE 
+							A.SLG_ID = B.SLG_ID
+						AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN A.OPEN_DATE AND A.CLOSE_DATE     
+						AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN B.OPEN_DATE AND B.CLOSE_DATE
+						AND A.SLG_ID = 'P06-0000049'   --납품지시서 리포트 출력: 특수로직
+				) E
+				, (	SELECT 
+						  B.COM_CODE AS BUYER
+						, B.COL01_DATA AS BTN_NM
+						, B.COL02_DATA AS PROCESS_TYPE
+						, B.COL03_DATA AS TYPE
+					FROM BNTSLGDEF A, BNTSLGIMP B
+					WHERE
+							A.SLG_ID = B.SLG_ID
+						AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN A.OPEN_DATE AND A.CLOSE_DATE     
+						AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN B.OPEN_DATE AND B.CLOSE_DATE
+						AND A.SLG_ID = 'P06-0000001'   --거래명세서 출력버튼 : 특수로직
+				) F  
+				/*      리포트 조건의 특수로직 인라인 뷰 삽입      */    
+				, (
+					SELECT
+						  Y.QRY_STR1
+						, Y.QRY_STR2
+						, Y.QRY_STR3
+						, Y.QRY_STR4
+						, X.SLG_ID
+						, X.DEFAULT_RPT_URL
+					FROM (	SELECT 
+								  'P06-0000002' AS SLG_ID								-- ID 하드코딩 
+								, 'RD_06_S_001_83' AS DEFAULT_RPT_URL	--디폴트 유알엘 하드코딩 , 추후 변경 /kr/epro/buy/sheet/inv_prn.jsp  
+							FROM DUAL												--한건도 조회되지 않는 것 방지 
+						) X
+						, (
+							SELECT
+								  B.COL01_DATA QRY_STR1
+								, B.COL02_DATA QRY_STR2
+								, B.COL03_DATA QRY_STR3
+								, B.COL03_DATA QRY_STR4
+								, A.SLG_ID
+							FROM BNTSLGDEF A, BNTSLGIMP B
+							WHERE 
+									1=1
+								AND A.SLG_ID = B.SLG_ID --default url을 가져오기 위해 아우터조인 
+								AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN A.OPEN_DATE AND A.CLOSE_DATE
+								AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN B.OPEN_DATE AND B.CLOSE_DATE
+								AND B.COM_CODE = #{st_buyer} --고객사 회사코드
+								AND A.SLG_ID = 'P06-0000002' -- ID하드코딩 
+						) Y
+					WHERE 1=1
+						AND X.SLG_ID = Y.SLG_ID(+) 
+				) P 
+				, (	SELECT B.COM_CODE AS BUYER
+					FROM BNTSLGDEF A, BNTSLGIMP B
+					WHERE 
+							A.SLG_ID = B.SLG_ID
+						AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN A.OPEN_DATE AND A.CLOSE_DATE     
+						AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN B.OPEN_DATE AND B.CLOSE_DATE
+						AND A.SLG_ID = 'P06-0000054'   --K TAG 사용 관리: 특수로직
+				) K
+			WHERE 
+					A.INV_NO = #{st_inv_no}                                                                                                          
+				AND A.BUYER = #{st_buyer}                                                                                                          
+				AND A.BUYER = B.BUYER                                                                                                     
+				AND A.INV_NO = B.INV_NO                                                                                                    
+				AND B.BUYER = D.BUYER                                                                                                     
+				AND B.PO_NO = D.PO_NO                                                                                                     
+				AND B.PO_SEQ = D.PO_SEQ                                                                                                    
+				AND D.BUYER = C.BUYER                                                                                                     
+				AND D.PO_NO = C.PO_NO
+				AND D.BUYER = G.BUYER
+				AND D.PR_NO = G.PR_NO                                                                                                     
+				AND A.BUYER = E.BUYER(+)
+				AND A.BUYER = F.BUYER(+)
+				AND A.BUYER = K.BUYER(+)
+				AND A.STATUS <> 'D'                                                                                                       
+				AND B.STATUS <> 'D'                                                                                                       
+				AND C.STATUS <> 'D'                                                                                                       
+				AND D.STATUS <> 'D'
+				AND G.STATUS <> 'D'
+		]]>
+	</select>
+	
+	<!-- 거래명세서 수정 및 출력 팝업 리스트조회 -->
+	<select id="selectSellerMpIvTranStatementAlterPrintPopList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/*selectSellerMpIvTranStatementAlterPrintPopList*/
+			SELECT                                       
+				  C.REF_PR_NO																				--[00] 관리번호
+				, C.BUYER_ITEM_NO																			--[01] 품목코드
+				, C.DESCRIPTION||DECODE(TRIM(C.MAKER_NAME),NULL,'',' / '||C.MAKER_NAME) AS MAKER_NAME		--[02] 품명/규격
+				, C.SPECIFICATION																			--[03] 규격
+				, C.ITEM_QTY																				--[04] 발주수량
+				, C.UNIT_MEASURE																			--[05] 단위
+				, A.INV_QTY																					--[06] 납품수량
+				, C.AGENT_PRICE																				--[07] 단가
+				, C.AGENT_PRICE*A.INV_QTY AS SELLER_AMT														--[08] 공급가액
+				, A.DS_DATE																					--[09] 납품예정일
+				, DECODE(C.PROCESS_TYPE, '2'
+							, TO_CHAR(TO_DATE(C.RD_DATE,'YYYY/MM/DD') - DECODE(TO_CHAR(TO_DATE(C.RD_DATE,'YYYYMMDD'),'D'),3,1,2) ,'YYYYMMDD')
+				        	,C.RD_DATE) RD_DATE																--[10] 납기요청일
+				, C.PO_NO																					--[11] 발주번호
+				, C.PO_SEQ																					--[12] 발주항번
+				, A.INV_QTY																					--[13] 송장수량
+				, C.PROCESS_TYPE																			--[14] 제품조달방법
+				, A.INV_SEQ																					--[15] 송장항번
+				, C.BYIT_COMORG_CODE																		--[16]
+				, C.CONTRACT_NO																				--[17]
+				, C.CONTRACT_SEQ																			--[18]
+				, C.PO_REMARK																				--[19]
+				, B.DOC_TYPE																				--[20]
+				, DECODE(B.DOC_TYPE, 'X', SUBSTR(C.BUYER_ITEM_NO,1,7), 
+							(	SELECT STDCATLG_ID 
+								FROM ICOMCQDT 
+								WHERE 
+										BUYER = C.BYIT_COMORG_CODE 
+									AND BUYER_ITEM_NO = C.BUYER_ITEM_NO 
+									AND CONTRACT_NO = C.CONTRACT_NO 
+									AND CONTRACT_SEQ = C.CONTRACT_SEQ)) AS STDCATLG_ID						--[21]
+				, DECODE(B.DOC_TYPE,'X',(	SELECT NVL(TRIM(IMG_NO),'0') 
+											FROM ITEMMAST  
+											WHERE STDCATLG_ID = SUBSTR(C.BUYER_ITEM_NO,1,7)),'') AS IMG_NO	--[22]
+				, C.LEGACY_PO_NO																			--[23]
+				, C.LEGACY_PO_SEQ																			--[24]
+				, NVL(A.DES_INV_NO,0) AS DES_INV_NO															--[25]
+				, B.PURCHASER_ID AS PURCHASER_ID															--[26]
+				, A.LEGACY_IV_NO AS LEGACY_IV_NO															--[27]
+				,C.DESCRIPTION AS DESCRIPTION																	--[28]
+				,(SELECT MAX(KTAG_QTY) FROM ICOMKTAG WHERE BUYER=A.BUYER AND INV_NO=A.INV_NO AND INV_SEQ=A.INV_SEQ) AS KTAG_QTY --[29]
+				,F_GET_MSDS_INFO(C.BUYER, C.BUYER_ITEM_NO ,1) AS MSDS_NO 
+				,DECODE(F_GET_MSDS_INFO(C.BUYER, C.BUYER_ITEM_NO ,1),NULL,'N','Y') AS MSDS_YN
+				,A.SIZE_QTY
+				,A.SIZE_LEN
+				, (SELECT DECODE(COUNT(COD.CODE2),0,'N','Y')
+					FROM  ICOMCOD3 COD
+					WHERE 1=1
+					AND	COD.BUYER = C.BUYER
+					AND COD.TYPE = 'BICT'
+					AND COD.CODE2 =  C.CATEG_ID
+					AND COD.FLAG = 'Y'
+					) AS SIZE_YN
+			FROM ICOMIVDT A , ICOMPOHD B , ICOMPODT C    
+			WHERE 
+					A.INV_NO = #{st_inv_no}
+				AND A.BUYER = #{st_buyer}                           
+				AND A.BUYER = C.BUYER                      
+				AND A.PO_NO = C.PO_NO                      
+				AND A.PO_SEQ= C.PO_SEQ                     
+				AND C.BUYER = B.BUYER                      
+				AND C.PO_NO = B.PO_NO       
+				AND A.STATUS <> 'D'                        
+				AND B.STATUS <> 'D'                        
+				AND C.STATUS <> 'D'
+		]]>
+	</select>
+	<select id="getCommonMpIvTranStatementDetailIVPop_v2" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/*getCommonMpIvTranStatementDetailIVPop_v2*/
+			SELECT                                       
+				  C.REF_PR_NO																				--[00] 관리번호
+				, C.BUYER_ITEM_NO																			--[01] 품목코드
+				, C.DESCRIPTION||DECODE(TRIM(C.MAKER_NAME),NULL,'',' / '||C.MAKER_NAME) AS MAKER_NAME		--[02] 품명/규격
+				, C.SPECIFICATION																			--[03] 규격
+				, C.ITEM_QTY																				--[04] 발주수량
+				, C.UNIT_MEASURE																			--[05] 단위
+				, A.INV_QTY																					--[06] 납품수량
+				, C.AGENT_PRICE																				--[07] 단가
+				, C.AGENT_PRICE*A.INV_QTY AS SELLER_AMT														--[08] 공급가액
+				, A.DS_DATE																					--[09] 납품예정일
+				, DECODE(C.PROCESS_TYPE, '2'
+							, TO_CHAR(TO_DATE(C.RD_DATE,'YYYY/MM/DD') - DECODE(TO_CHAR(TO_DATE(C.RD_DATE,'YYYYMMDD'),'D'),3,1,2) ,'YYYYMMDD')
+				        	,C.RD_DATE) RD_DATE																--[10] 납기요청일
+				, C.PO_NO																					--[11] 발주번호
+				, C.PO_SEQ																					--[12] 발주항번
+				, A.INV_QTY																					--[13] 송장수량
+				, C.PROCESS_TYPE																			--[14] 제품조달방법
+				, A.INV_SEQ																					--[15] 송장항번
+				, C.BYIT_COMORG_CODE																		--[16]
+				, C.CONTRACT_NO																				--[17]
+				, C.CONTRACT_SEQ																			--[18]
+				, C.PO_REMARK																				--[19]
+				, B.DOC_TYPE																				--[20]
+				, DECODE(B.DOC_TYPE, 'X', SUBSTR(C.BUYER_ITEM_NO,1,7), 
+							(	SELECT STDCATLG_ID 
+								FROM ICOMCQDT 
+								WHERE 
+										BUYER = C.BYIT_COMORG_CODE 
+									AND BUYER_ITEM_NO = C.BUYER_ITEM_NO 
+									AND CONTRACT_NO = C.CONTRACT_NO 
+									AND CONTRACT_SEQ = C.CONTRACT_SEQ)) AS STDCATLG_ID						--[21]
+				, DECODE(B.DOC_TYPE,'X',(	SELECT NVL(TRIM(IMG_NO),'0') 
+											FROM ITEMMAST  
+											WHERE STDCATLG_ID = SUBSTR(C.BUYER_ITEM_NO,1,7)),'') AS IMG_NO	--[22]
+				, C.LEGACY_PO_NO																			--[23]
+				, C.LEGACY_PO_SEQ																			--[24]
+				, NVL(A.DES_INV_NO,0) AS DES_INV_NO															--[25]
+				, B.PURCHASER_ID AS PURCHASER_ID															--[26]
+				, A.LEGACY_IV_NO AS LEGACY_IV_NO															--[27]
+				,C.DESCRIPTION AS DESCRIPTION																	--[28]
+				,(SELECT MAX(KTAG_QTY) FROM ICOMKTAG WHERE BUYER=A.BUYER AND INV_NO=A.INV_NO AND INV_SEQ=A.INV_SEQ) AS KTAG_QTY --[29]
+				,F_GET_MSDS_INFO(C.BUYER, C.BUYER_ITEM_NO ,1) AS MSDS_NO 
+				,DECODE(F_GET_MSDS_INFO(C.BUYER, C.BUYER_ITEM_NO ,1),NULL,'N','Y') AS MSDS_YN
+				,A.SIZE_QTY
+				,A.SIZE_LEN
+				, (SELECT DECODE(COUNT(COD.CODE2),0,'N','Y')
+					FROM  ICOMCOD3 COD
+					WHERE 1=1
+					AND	COD.BUYER = C.BUYER
+					AND COD.TYPE = 'BICT'
+					AND COD.CODE2 =  C.CATEG_ID
+					AND COD.FLAG = 'Y'
+					) AS SIZE_YN
+				,A.INV_NO
+				,C.BUYER
+			FROM ICOMIVDT A , ICOMPOHD B , ICOMPODT C    
+			WHERE 
+					A.INV_NO = #{st_inv_no}
+				AND A.BUYER = #{st_buyer}                           
+				AND A.BUYER = C.BUYER                      
+				AND A.PO_NO = C.PO_NO                      
+				AND A.PO_SEQ= C.PO_SEQ                     
+				AND C.BUYER = B.BUYER                      
+				AND C.PO_NO = B.PO_NO       
+				AND A.STATUS <> 'D'                        
+				AND B.STATUS <> 'D'                        
+				AND C.STATUS <> 'D'
+		]]>
+	</select>
+		
+	<!-- 거래명세서 수정 및 출력 팝업 납품일 변경 UPDATE1 -->
+	<update id="updateInvoiceDateIvdt" parameterType="java.util.Map">
+		<![CDATA[
+			UPDATE ICOMIVDT				
+			SET 
+				  INVOICE_DATE = #{st_invoice_date}
+				, CHANGE_DATE  = TO_CHAR(SYSDATE,'YYYYMMDD')
+				, CHANGE_TIME  = TO_CHAR(SYSDATE,'HH24MISS')
+			WHERE
+					INV_NO	= #{st_inv_no}
+				AND BUYER	= #{st_buyer}
+		]]>
+	</update>
+	
+	<!-- 거래명세서 수정 및 출력 팝업 납품일 변경 UPDATE2 -->
+	<update id="updateInvoiceDateIvhd" parameterType="java.util.Map">
+		<![CDATA[
+			UPDATE ICOMIVHD                                 
+			SET  
+				  INV_DATE       = #{st_invoice_date}                       
+				, CHANGE_DATE    = TO_CHAR(SYSDATE,'YYYYMMDD')
+				, CHANGE_TIME    = TO_CHAR(SYSDATE,'HH24MISS')
+				, CHANGE_USER_ID = #{st_user_id}
+				, PARCEL_YN		 = #{st_parcel_yn}    
+			WHERE  
+					INV_NO	= #{st_inv_no} 
+				AND BUYER	= #{st_buyer}
+		]]>
+	</update>
+	
+	
+	<!-- 거래명세서 수정 및 출력 팝업 거래명세서 삭제 DELETE1 -->					
+	<update id="deleteTranStatementIvdt" parameterType="java.util.Map">
+		<![CDATA[
+			UPDATE ICOMIVDT
+			SET 
+				  STATUS		= 'D'
+				, SND_CHK		= 'N'
+				, CHANGE_DATE	= TO_CHAR(SYSDATE,'YYYYMMDD')
+				, CHANGE_TIME	= TO_CHAR(SYSDATE,'HH24MISS')      
+			WHERE
+					INV_NO      = #{inv_no}
+				AND SELLER      = #{seller}
+				AND BUYER       = #{buyer}
+		]]>
+	</update>
+			
+	<!-- 거래명세서 수정 및 출력 팝업 거래명세서 삭제 DELETE2 -->
+	<update id="deleteTranStatementIvhd" parameterType="java.util.Map">
+		<![CDATA[			
+			UPDATE ICOMIVHD                                        
+			SET
+				  STATUS			= 'D'
+				, SND_CHK			= 'N'
+				, SEND_DATE			= ' '
+				, INV_TTL_AMT		= 0
+				, INV_AMT			= 0
+				, INV_TAX_AMT_1		= 0
+				, INV_TAX_RATE_1	= 0.0
+				, SEND_TIME			= ' '
+				, CONFIRM_DATE		= ' '
+				, CONFIRM_TIME		= ' '
+				, CHANGE_DATE		= TO_CHAR(SYSDATE,'YYYYMMDD')
+				, CHANGE_TIME		= TO_CHAR(SYSDATE,'HH24MISS')
+				, CHANGE_USER_ID	= #{user_id}
+			WHERE
+					INV_NO		= #{inv_no}
+				AND BUYER		= #{buyer}
+				AND SELLER		= #{seller}
+		]]>
+	</update>	
+			
+	<!-- 거래명세서 수정 및 출력 팝업 거래명세서 삭제 DELETE3 -->		
+	<update id="deleteTranStatementPors" parameterType="java.util.Map">
+		<![CDATA[
+			UPDATE ICOMPORS
+			SET COMPLETE_MARK = 'N'
+			WHERE
+					BUYER		= #{buyer}
+				AND PO_NO		= #{po_no}
+				AND PO_SEQ		= #{po_seq}
+				AND DS_DATE		= #{ds_date}
+				AND STATUS	   != 'D'
+		]]>
+	</update>
+
+	<!-- 거래명세서 수정 및 출력 팝업 거래명세서 삭제 DELETE4 -->
+	<update id="deleteTranStatementPodt" parameterType="java.util.Map">
+		<![CDATA[
+			UPDATE  ICOMPODT
+			SET
+				  IV_QTY = DECODE(PROCESS_TYPE,'2',NVL(IV_QTY,0),(
+									SELECT NVL(SUM(INV_QTY),0)
+									FROM ICOMIVDT
+									WHERE
+											BUYER   = #{buyer}
+										AND SELLER  = #{seller}
+										AND PO_NO   = #{po_no}
+										AND PO_SEQ  = #{po_seq}
+										AND STATUS != 'D'))
+				, DI_QTY = DECODE(PROCESS_TYPE,'2',NVL(DI_QTY,0),(
+									SELECT NVL(SUM(DELIVERY_QTY),0)
+									FROM ICOMIVDT
+									WHERE
+											BUYER   = #{buyer}
+										AND SELLER  = #{seller}
+										AND PO_NO   = #{po_no}
+										AND PO_SEQ  = #{po_seq}
+										AND STATUS != 'D'))
+				, COMPLETE_MARK = 'N'
+			WHERE
+					BUYER         = #{buyer}
+				AND SELLER        = #{seller}
+				AND PO_NO         = #{po_no}
+				AND PO_SEQ        = #{po_seq}
+				AND STATUS       != 'D'                           		
+		]]>
+	</update>
+			
+	<!-- 거래명세서 수정 및 출력 팝업 거래명세서 삭제 DELETE5 -->
+	<update id="deleteTranStatementPohd" parameterType="java.util.Map">
+		<![CDATA[
+			UPDATE ICOMPOHD                                        
+			SET COMPLETE_MARK = 'N'                             
+			WHERE
+					BUYER  = #{buyer}   
+				AND SELLER = #{seller}  
+				AND PO_NO  = #{po_no}   
+		]]>
+	</update>
+	
+	<!-- 거래명세서 수정 및 출력 팝업 리스트조회 -->
+	<select id="selectMpIvTranStatementDeleteCheck" parameterType="java.util.Map" resultType="java.lang.String">
+		<![CDATA[
+			/*selectMpIvTranStatementDeleteCheck*/
+			SELECT
+				CASE	WHEN (	SUM(NVL(B.GR_QTY,0))       = 0   --(고객사)입고수량
+							AND SUM(NVL(B.WMS_GR_QTY,0))   = 0 ) --(WMS)입고수량
+						THEN '11' -- 삭제가능
+						ELSE '00' -- 삭제X
+				END AS BTN_YN
+			FROM ICOMIVHD A, ICOMIVDT B, ICOMPODT D
+			WHERE
+					A.INV_NO = #{inv_no}
+				AND A.BUYER  = #{buyer}
+				AND A.BUYER  = B.BUYER
+				AND A.INV_NO = B.INV_NO
+				AND B.BUYER  = D.BUYER
+				AND B.PO_NO  = D.PO_NO
+				AND B.PO_SEQ = D.PO_SEQ
+				AND A.STATUS <> 'D'
+				AND B.STATUS <> 'D'
+				AND D.STATUS <> 'D'
+		]]>
+	</select>
+	
+</mapper>

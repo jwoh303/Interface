@@ -1,0 +1,329 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.wmre">
+	<!-- 조회 -->
+	<select id="selectMasterWmReReturnProgressStateList" parameterType="java.util.Map" resultType="java.util.Map">
+	<include refid="common.ibsheet.xml.jsppagestart"/>
+			<![CDATA[
+			 /*selectMasterWmReReturnProgressStateList*/
+
+			                             
+      SELECT    	
+        	
+        	 -- 발주정보 
+        	W.WMRE_NO                                                                          -- 요청번호       
+        	,W.PO_NO                                                                            -- 발주번호
+        	,W.PO_SEQ                                                                           -- 발주순번
+        	,D.PO_CREATE_DATE  -- 발주일자
+        	,W.BUYER_ITEM_NO                                                                    -- 품목코드
+        	,W.DESCRIPTION                                                                      -- 품목명
+        	,W.SPECIFICATION                                                                    -- 규격
+        	,W.ITEM_QTY                                                                         -- 발주수량
+        	,W.UNIT_MEASURE                                                                     -- 단위 
+        	,(SELECT C.COM_NAME_LOC FROM ICOMCMPY C WHERE C.COM_CODE = W.SELLER) AS SELLER_NAME -- 협력사명        
+        	
+        	-- 고객사 요청정보  
+        	,(SELECT TEXT1 
+        	    FROM ICOMCOD2 
+        	   WHERE TYPE = 'C001' 
+        	     AND COMPANY_CODE = W.BUYER AND CODE = W.BUYER_DEPT_CODE ) AS BUYER_DEPT_NAME   -- 요청부서
+        	,W.BUYER_PERSON_NAME                                                                -- 요청자 
+            ,W.PROCESS_TYPE    
+			,(DECODE(W.PROCESS_TYPE,'0','직납','1','재고','2','TR','3','VMI')) PROCESS_TYPE_NM     -- 출고구분	
+        	,W.BUYER_PERSON_TEL
+            ,W.B_REQ_DATE   -- 요청일자
+            ,W.B_REQ_REMARK -- 요청사유(POP)
+            ,W. WMRE_QTY    -- 요청수량
+         	 ,(SELECT TEXT1 FROM ICOMCOD1
+                   WHERE TYPE = 'WM01'
+                     AND CODE = W.WMRE_TYPE ) AS WMRE_TYPE_NAME                                             -- 요청구분(01반품/02교환 /03주문취소)
+            ,W.WMRE_TYPE2          
+            ,W.WMRE_TYPE3
+            ,W.WMRE_TYPE_DETAIL  
+            ,CASE WHEN   W.WMRE_TYPE ='01' THEN  (SELECT TEXT1 
+                                                                          FROM ICOMCOD1
+                   														WHERE TYPE = 'WM02'
+                                                                            AND CODE = W.WMRE_TYPE2 )   
+                      WHEN W.WMRE_TYPE ='02'    THEN  (SELECT TEXT1 
+                                                                          FROM ICOMCOD1
+                   														WHERE TYPE = 'WM03'
+                                                                            AND CODE = W.WMRE_TYPE2 ) 
+                      ELSE ''   
+                      END  WMRE_TYPE2_NAME
+            ,CASE WHEN   W.WMRE_TYPE ='01' THEN  (SELECT TEXT1 
+                                                                          FROM ICOMCOD1
+                   														WHERE TYPE = 'WM04'
+                                                                            AND CODE = W.WMRE_TYPE3 )   
+                      WHEN W.WMRE_TYPE ='02'    THEN  (SELECT TEXT1 
+                                                                          FROM ICOMCOD1
+                   														WHERE TYPE = 'WM05'
+                                                                            AND CODE = W.WMRE_TYPE3 ) 
+                      ELSE ''   
+                      END  WMRE_TYPE3_NAME                                                                                                                               
+        	 -- 운영사 접수정보
+        	,(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = W.ADD_USER_ID ) AS ADD_USER_NAME      -- 접수자
+            , M_REC_DATE    --접수일자
+            ,(SELECT TEXT1 FROM ICOMCOD1
+                   WHERE TYPE = 'WM07'
+                     AND CODE = W.FLAG ) AS FLAG_NAME -- 진행상태
+            , W.END_DATE  --완료일자
+            , W.CANCEL_REMARK	--취소사유(POP)
+            ,W.S_REC_DATE
+            ,W.S_PRT_DATE
+            ,W.W_GR_DATE
+            ,W.W_RIV_DATE
+            ,W.S_GR_DATE
+            ,W.W_CHGR_DATE
+            ,W.W_CHDELI_DATE
+            ,W.S_CHDELI_DATE
+            ,W.CANCEL_DATE
+            ,W.WMRE_FILE
+            ,W.BUYER
+            ,W.FLAG
+            ,W.WMRE_TYPE
+            ,( SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = F_GET_HIDDEN_BUYER_NAME(W.BUYER, '01')  ) BUYER_NAME
+        FROM  	 BNTWMRE W, ICOMPOHD D
+        
+         WHERE W.BUYER = D.BUYER(+)
+             AND W.PO_NO = D.PO_NO(+)  
+             AND D.AGENT =#{st_com_code}
+			AND W.WMRE_TYPE != '09'						
+				]]>
+		        <if test='st_date_type =="rd_date"'>
+		    				AND W.M_REC_DATE BETWEEN #{st_from_date} AND #{st_to_date} 
+		        </if>
+		        <if test='st_date_type =="po_create_date"'>
+		    				 AND D.PO_CREATE_DATE BETWEEN #{st_from_date} AND #{st_to_date} 
+		        </if>
+		        <if test='st_date_type =="add_date"'>
+		    				 AND W.B_REQ_DATE BETWEEN #{st_from_date} AND #{st_to_date} 
+		        </if>		        
+		        <if test="st_WMRE_NO != null and st_WMRE_NO != ''">
+		    				  AND W.WMRE_NO LIKE  #{st_WMRE_NO} || '%'
+		        </if>
+		        <if test="st_PO_NO != null and st_PO_NO != ''">
+		    				AND W.PO_NO LIKE   #{st_PO_NO} || '%'
+		        </if>
+		        <if test="st_WMRE_TYPE != null and st_WMRE_TYPE != ''">
+		    				AND W.WMRE_TYPE =  #{st_WMRE_TYPE} 
+		        </if>
+		       <if test="st_flag != null and st_flag != ''">
+		       				AND W.FLAG = #{st_flag}
+		       </if>
+		       <if test="st_buyer_code != null and st_buyer_code != ''">
+		       				AND W.BUYER  =#{st_buyer_code}
+				</if>
+						       <if test="st_ADD_USER_NAME != null and st_ADD_USER_NAME != ''">
+		       				AND W.ADD_USER_NAME  LIKE #{st_ADD_USER_NAME}  || '%'
+				</if>
+ORDER BY W.WMRE_NO DESC
+				<include refid="common.ibsheet.xml.jsppageend"/>	
+	</select>
+	<select id="getMasterWmReReturnProgressStateList_v2" parameterType="java.util.Map" resultType="java.util.Map">
+			<![CDATA[
+			 /*getMasterWmReReturnProgressStateList_v2*/
+
+	SELECT X.* FROM (		                             
+      SELECT    	
+        	
+        	 -- 발주정보 
+        	W.WMRE_NO                                                                          -- 요청번호       
+        	,W.PO_NO                                                                            -- 발주번호
+        	,W.PO_SEQ                                                                           -- 발주순번
+        	,D.PO_CREATE_DATE  -- 발주일자
+        	,W.BUYER_ITEM_NO                                                                    -- 품목코드
+        	,W.DESCRIPTION                                                                      -- 품목명
+        	,W.SPECIFICATION                                                                    -- 규격
+        	,W.ITEM_QTY                                                                         -- 발주수량
+        	,W.UNIT_MEASURE                                                                     -- 단위 
+        	,(SELECT C.COM_NAME_LOC FROM ICOMCMPY C WHERE C.COM_CODE = W.SELLER) AS SELLER_NAME -- 협력사명        
+        	
+        	-- 고객사 요청정보  
+        	,(SELECT TEXT1 
+        	    FROM ICOMCOD2 
+        	   WHERE TYPE = 'C001' 
+        	     AND COMPANY_CODE = W.BUYER AND CODE = W.BUYER_DEPT_CODE ) AS BUYER_DEPT_NAME   -- 요청부서
+        	,W.BUYER_PERSON_NAME                                                                -- 요청자 
+            ,W.PROCESS_TYPE    
+			,(DECODE(W.PROCESS_TYPE,'0','직납','1','재고','2','TR','3','VMI')) PROCESS_TYPE_NM     -- 출고구분	
+        	,W.BUYER_PERSON_TEL
+            ,W.B_REQ_DATE   -- 요청일자
+            ,W.B_REQ_REMARK -- 요청사유(POP)
+            ,W. WMRE_QTY    -- 요청수량
+         	 ,(SELECT TEXT1 FROM ICOMCOD1
+                   WHERE TYPE = 'WM01'
+                     AND CODE = W.WMRE_TYPE ) AS WMRE_TYPE_NAME                                             -- 요청구분(01반품/02교환 /03주문취소)
+            ,W.WMRE_TYPE2          
+            ,W.WMRE_TYPE3
+            ,W.WMRE_TYPE_DETAIL  
+            ,CASE WHEN   W.WMRE_TYPE ='01' THEN  (SELECT TEXT1 
+                                                                          FROM ICOMCOD1
+                   														WHERE TYPE = 'WM02'
+                                                                            AND CODE = W.WMRE_TYPE2 )   
+                      WHEN W.WMRE_TYPE ='02'    THEN  (SELECT TEXT1 
+                                                                          FROM ICOMCOD1
+                   														WHERE TYPE = 'WM03'
+                                                                            AND CODE = W.WMRE_TYPE2 ) 
+                      ELSE ''   
+                      END  WMRE_TYPE2_NAME
+            ,CASE WHEN   W.WMRE_TYPE ='01' THEN  (SELECT TEXT1 
+                                                                          FROM ICOMCOD1
+                   														WHERE TYPE = 'WM04'
+                                                                            AND CODE = W.WMRE_TYPE3 )   
+                      WHEN W.WMRE_TYPE ='02'    THEN  (SELECT TEXT1 
+                                                                          FROM ICOMCOD1
+                   														WHERE TYPE = 'WM05'
+                                                                            AND CODE = W.WMRE_TYPE3 ) 
+                      ELSE ''   
+                      END  WMRE_TYPE3_NAME                                                                                                                               
+        	 -- 운영사 접수정보
+        	,(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = W.ADD_USER_ID ) AS ADD_USER_NAME      -- 접수자
+            , M_REC_DATE    --접수일자
+            ,(SELECT TEXT1 FROM ICOMCOD1
+                   WHERE TYPE = 'WM07'
+                     AND CODE = W.FLAG ) AS FLAG_NAME -- 진행상태
+            , W.END_DATE  --완료일자
+            , W.CANCEL_REMARK	--취소사유(POP)
+            ,W.S_REC_DATE
+            ,W.S_PRT_DATE
+            ,W.W_GR_DATE
+            ,W.W_RIV_DATE
+            ,W.S_GR_DATE
+            ,W.W_CHGR_DATE
+            ,W.W_CHDELI_DATE
+            ,W.S_CHDELI_DATE
+            ,W.CANCEL_DATE
+            ,W.WMRE_FILE
+            ,W.BUYER
+            ,W.FLAG
+            ,W.WMRE_TYPE
+            ,( SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = F_GET_HIDDEN_BUYER_NAME(W.BUYER, '01')  ) BUYER_NAME
+            ,DECODE(W.S_REC_DATE,NULL,'/resources/imgs/Btn_RegIng.gif','/resources/imgs/Btn_RegEnd.gif') AS REC_STATUS_BUTTON
+            ,DECODE(W.S_GR_DATE,NULL,'/resources/imgs/Btn_RegIng.gif','/resources/imgs/Btn_RegEnd.gif') AS GR_STATUS_BUTTON
+        FROM  	 BNTWMRE W, ICOMPOHD D
+        
+         WHERE W.BUYER = D.BUYER(+)
+             AND W.PO_NO = D.PO_NO(+)  
+             AND D.AGENT =#{st_com_code}
+			 AND W.WMRE_TYPE != '09'
+			 AND W.B_REQ_DATE BETWEEN #{st_from_date} AND #{st_to_date} 	
+				]]>
+		        <if test="st_wmre_no != null and st_wmre_no != ''">
+		    				  AND W.WMRE_NO LIKE  UPPER('%'||#{st_wmre_no} || '%')
+		        </if>
+		        <if test="st_po_no != null and st_po_no != ''">
+		    				AND W.PO_NO IN
+		    				<foreach item="item" collection="st_po_no"
+								open="(" separator="," close=")">
+								UPPER(#{item})
+							</foreach> 
+		        </if>
+		         <if test="st_buyer_item_no != null and st_buyer_item_no != ''">
+		       				AND W.BUYER_ITEM_NO LIKE UPPER('%'||TRIM(#{st_buyer_item_no})||'%')
+		       </if>
+		        <if test="st_description != null and st_description != ''">
+		       				AND W.DESCRIPTION LIKE '%'||TRIM(#{st_description})||'%'
+		       </if>
+		        <if test="st_wmre_type != null and st_wmre_type != ''">
+		    				AND W.WMRE_TYPE =  #{st_wmre_type} 
+		        </if>
+		       <if test="st_flag != null and st_flag != ''">
+		       				AND W.FLAG = #{st_flag}
+		       </if>
+		       <if test="st_buyer_code != null and st_buyer_code != ''">
+		       				AND W.BUYER  =#{st_buyer_code}
+				</if>
+		<![CDATA[
+		ORDER BY W.WMRE_NO DESC
+		)X
+		WHERE 1=1
+		]]>
+		<!-- 고객사 -->
+			<if test="st_buyer_name != null and st_buyer_name != ''">
+			<![CDATA[
+				AND REPLACE(UPPER(X.BUYER_NAME),' ','') LIKE '%'||UPPER(TRIM(REPLACE(#{st_buyer_name},' ','')))||'%'
+			]]>
+			</if>
+	</select>
+
+
+	<update  id="insertMasterWmReReturnProgressState" parameterType="java.util.Map" >
+		<![CDATA[
+				INSERT INTO	KEPQTDT					
+				(									
+					BUYER,							
+					QUOTATION_NO,					
+					QUOTATION_SEQ,					
+					REVISION,						
+					AGENT,							
+					AGENT_REVISION,					
+					STATUS,							
+					BUYER_ITEM_NO,					
+					DESCRIPTION,					
+					SPECIFICATION,					
+					UNIT_MEASURE,					
+					MAKER_NAME,						
+					ORIGIN_NAME,					
+					ATOS_DATE,						
+					ATOS_END_DATE,					
+					ATOS_END_TIME,					
+					ITEM_QTY,						
+					IMAGE_KEY,						
+					DSS_FLAG,						
+					DSS_CHOICE						
+				)									
+				(									
+				SELECT								
+					#{BUYER},									/* 1 : BUYER */
+					#{QUOTATION_NO},									/* 2 : QUOTATION_NO */
+					#{QUOTATION_SEQ},									/* 3 : QUOTATION_SEQ */
+					#{REVISION},									/* 4 : REVISION */
+					#{AGENT},									/* 5 : AGENT */
+					#{AGENT_REVISION},								/* 6 : AGENT_REVISION */
+					'C',						
+					BUYER_ITEM_NO,				
+					DESCRIPTION,				
+					SPECIFICATION,				
+					UNIT_MEASURE,				
+					MAKER_NAME,					
+					ORIGIN_CODE,				
+					TO_CHAR(SYSDATE, 'YYYYMMDD')AS ATOS_DATE,
+					#{ATOS_END_DATE},								/* 7 : ATOS_END_DATE */
+					#{ATOS_END_TIME},								/* 8 : ATOS_END_TIME */
+					ITEM_QTY,					
+					IMAGE_KEY,					
+					#{DSS_FLAG},								/*  9 : DSS_FLAG   if(chk_str[1].equals("A") || chk_str[1].equals("B") || chk_str[1].equals("C")|| chk_str[1].equals("S")) : Y , 기타  : N   */
+					#{DSS_CHOICE}								/*    10 : DSS_CHOICE */
+				   FROM KEPRQDT						
+				  WHERE BUYER=#{BUYER}							/* 11 : BUYER */           
+					AND QUOTATION_NO=#{QUOTATION_NO}					/* 12 : QUOTATION_NO     */
+					AND QUOTATION_SEQ=#{QUOTATION_SEQ}					/* 13 : QUOTATION_SEQ    */
+					AND REVISION=#{REVISION}						/* 14 : REVISION  */       
+					AND RECV_FLAG <> 'GD'			
+					AND STATUS IN ('C','R')			
+				)									
+
+		]]>
+							   <!-- /* CMS_USER_ID = 'TEMPUSER', */ -->
+		
+	</update>
+
+
+<!-- 삭제 -->
+	<update id="deleteMasterWmReReturnProgressState"  parameterType="java.util.Map">
+		<![CDATA[
+				UPDATE KEPRQDT					
+				   SET RECV_FLAG      = 'GD' 	
+				     , CANCEL_USER_ID = #{USR_ID}    		/*CANCEL_USER_ID*/
+				     , CANCEL_DATE    = SYSDATE	
+				     , CANCEL_REMARK  = #{CANCEL_REMARK}    		/*CANCEL_REMARK*/
+				 WHERE BUYER          = #{BUYER}			/*BUYER*/
+				   AND QUOTATION_NO   = #{QUOTATION_NO}	 		/*QUOTATION_NO*/
+				   AND QUOTATION_SEQ  = #{QUOTATION_SEQ}			/*QUOTATION_SEQ*/
+				   AND REVISION       = #{REVISION}			/*REVISION*/
+				   AND STATUS IN ('C','R')
+		]]>
+	</update>
+
+</mapper>   
+   

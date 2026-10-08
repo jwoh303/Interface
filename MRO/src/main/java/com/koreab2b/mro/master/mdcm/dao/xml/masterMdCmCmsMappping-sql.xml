@@ -1,0 +1,192 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mdcm">
+	<!-- 조회 -->
+	<select id="selectMasterMdCmCmsMapppingList" parameterType="java.util.Map" resultType="java.util.Map">
+			<![CDATA[
+		    /*	selectMasterMdCmCmsMapppingList */
+		    	SELECT SEQ AS SEQ, 
+		    			MAP.BUYER AS BUYER,
+						MAP.BUYER_ITEM_NO AS BUYER_ITEM_NO,
+			]]>
+			<choose>
+				<when test='st_site.equals("KA")'>
+						IT.DESCRIPTION_LOC AS BUYER_DESC,	
+				</when>
+				<when test='st_site.equals("KM")'>
+						IT.DESCRIPTION_LOC AS BUYER_DESC,
+				</when>
+				<when test='st_site.equals("SA")'>
+						IT.DESCRIPTION AS BUYER_DESC,
+				</when>
+			</choose>
+			<![CDATA[
+				       IT.SPECIFICATION AS BUYER_SPEC,
+				       IT.MAKER_CODE AS BUYER_MAKER_CODE,
+				       IT.MAKER_NAME AS BUYER_MAKER_NAME,
+				       IT.ORIGIN_CODE AS BUYER_ORIGIN_CODE,
+				       MAP.CMS_CATLG_ID AS CMS_CATLG_ID,
+				       DECODE (MAP.CMS_CATLG_ID,
+				               'TALK', 'TALK',
+				               'PASS', 'PASS',
+				               CMS.STD_FLAG) AS STD_FLAG,
+				       CMS.DESCRIPTION_LOC AS CMS_DESC,
+				       CMS.SPECIFICATION AS CMS_SPEC,
+				       CMS.MAKER_NAME AS CMS_MAKER_NAME,
+				       CMS.MAKER_CODE AS CMS_MAKER_CODE,
+				       CMS.ORIGIN_CODE AS CMS_ORIGIN_CODE,
+				       MAP.USER_ID AS USER_ID,
+				       MAP.REFER_MAPPING_FLAG AS REFER_MAPPING_FLAG
+				  FROM CMSMAPPING MAP, 
+			]]>
+			<choose>
+				<when test='st_site.equals("KA")'>
+						ICOMBYIT IT,	
+				</when>
+				<when test='st_site.equals("KM")'>
+						ITEMMAST IT,
+				</when>
+				<when test='st_site.equals("SA")'>
+						MALLCQDT IT,
+				</when>
+			</choose>	
+			<![CDATA[						  
+							CMSCATLG CMS
+				 WHERE     MAP.CMS_CATLG_ID = CMS.CMS_CATLG_ID(+)
+			]]>				 
+			<choose>
+				<when test='st_site.equals("KA")'>
+						AND MAP.BUYER = IT.BUYER(+)
+              			AND MAP.BUYER_ITEM_NO = IT.BUYER_ITEM_NO(+)
+				</when>
+				<when test='st_site.equals("KM")'>
+						AND MAP.BUYER_ITEM_NO = IT.STDCATLG_ID(+)
+				</when>
+				<when test='st_site.equals("SA")'>
+						AND MAP.BUYER_ITEM_NO = IT.ITEM_NO(+)
+				</when>
+			</choose>
+	</select>
+
+	<!-- 삭제 -->
+	<update id="deleteMasterMdCmCmsMappping"  parameterType="java.util.Map">
+		<![CDATA[
+				DELETE CMSMAPPING WHERE SEQ = #{SEQ}
+		]]>
+	</update>
+	
+	<!-- CMS매핑 KOREAB2B-->
+	<update id="updateMasterMdCmCmsMapppingKA"  parameterType="java.util.Map">
+		<![CDATA[
+				UPDATE ICOMBYIT IT
+				   SET CMS_CATLG_ID =
+				          (SELECT MAX(TRIM (CMS_CATLG_ID))
+				             FROM CMSMAPPING
+				            WHERE BUYER = IT.BUYER AND BUYER_ITEM_NO = IT.BUYER_ITEM_NO),
+				       CMS_CATEG_ID =
+				          DECODE (
+				             (SELECT CMS_CATEG_ID
+				                FROM CMSCATLG
+				               WHERE CMS_CATLG_ID =
+				                        (SELECT MAX(TRIM (CMS_CATLG_ID))
+				                           FROM CMSMAPPING
+				                          WHERE BUYER = IT.BUYER
+				                                AND BUYER_ITEM_NO = IT.BUYER_ITEM_NO)),
+				             NULL, CMS_CATEG_ID,
+				             (SELECT CMS_CATEG_ID
+				                FROM CMSCATLG
+				               WHERE CMS_CATLG_ID =
+				                        (SELECT MAX(TRIM (CMS_CATLG_ID))
+				                           FROM CMSMAPPING
+				                          WHERE BUYER = IT.BUYER
+				                                AND BUYER_ITEM_NO = IT.BUYER_ITEM_NO))),
+				       CMS_USER_ID =
+				          (SELECT MAX(TRIM (USER_ID))
+				             FROM CMSMAPPING
+				            WHERE BUYER = IT.BUYER AND BUYER_ITEM_NO = IT.BUYER_ITEM_NO),
+				       CMS_DATE = TO_CHAR (SYSDATE, 'YYYYMMDD')
+				 WHERE (BUYER, BUYER_ITEM_NO) IN
+				          (SELECT BUYER, BUYER_ITEM_NO FROM CMSMAPPING)
+		]]>
+	</update>
+	
+	<!-- CMS매핑 KEPMRO-->
+	<update id="updateMasterMdCmCmsMapppingKM"  parameterType="java.util.Map">
+		<![CDATA[
+				UPDATE ITEMMAST IT
+				   SET CMS_CATLG_ID =
+				          (SELECT TRIM (CMS_CATLG_ID)
+				             FROM CMSMAPPING
+				            WHERE BUYER_ITEM_NO = IT.STDCATLG_ID),
+				       CMS_CATEG_ID =
+				          DECODE (
+				             (SELECT CMS_CATEG_ID
+				                FROM CMSCATLG
+				               WHERE CMS_CATLG_ID = (SELECT TRIM (CMS_CATLG_ID)
+				                                       FROM CMSMAPPING
+				                                      WHERE BUYER_ITEM_NO = IT.STDCATLG_ID)),
+				             NULL, CMS_CATEG_ID,
+				             (SELECT CMS_CATEG_ID
+				                FROM CMSCATLG
+				               WHERE CMS_CATLG_ID = (SELECT TRIM (CMS_CATLG_ID)
+				                                       FROM CMSMAPPING
+				                                      WHERE BUYER_ITEM_NO = IT.STDCATLG_ID))),
+				       CMS_USER_ID =
+				          (SELECT TRIM (USER_ID)
+				             FROM CMSMAPPING
+				            WHERE BUYER_ITEM_NO = IT.STDCATLG_ID),
+				       CMS_DATE = TO_CHAR (SYSDATE, 'YYYYMMDD')
+				 WHERE STDCATLG_ID IN (SELECT BUYER_ITEM_NO FROM CMSMAPPING)
+		]]>
+	</update>
+	
+	<!-- CMS매핑 건설MRO-->
+	<update id="updateMasterMdCmCmsMapppingSA"  parameterType="java.util.Map">
+		<![CDATA[
+				UPDATE MALLCQDT IT
+				   SET CMS_CATLG_ID =
+				          (SELECT TRIM (CMS_CATLG_ID)
+				             FROM CMSMAPPING
+				            WHERE BUYER_ITEM_NO = IT.ITEM_NO),
+				       CMS_CATEG_ID =
+				          DECODE (
+				             (SELECT CMS_CATEG_ID
+				                FROM CMSCATLG
+				               WHERE CMS_CATLG_ID = (SELECT TRIM (CMS_CATLG_ID)
+				                                       FROM CMSMAPPING
+				                                      WHERE BUYER_ITEM_NO = IT.ITEM_NO)),
+				             NULL, CMS_CATEG_ID,
+				             (SELECT CMS_CATEG_ID
+				                FROM CMSCATLG
+				               WHERE CMS_CATLG_ID = (SELECT TRIM (CMS_CATLG_ID)
+				                                       FROM CMSMAPPING
+				                                      WHERE BUYER_ITEM_NO = IT.ITEM_NO))),
+				       CMS_USER_ID =
+				          (SELECT TRIM (USER_ID)
+				             FROM CMSMAPPING
+				            WHERE BUYER_ITEM_NO = IT.ITEM_NO),
+				       CMS_DATE = TO_CHAR (SYSDATE, 'YYYYMMDD')
+				 WHERE ITEM_NO IN (SELECT BUYER_ITEM_NO FROM CMSMAPPING)
+		]]>
+	</update>
+	
+	<!-- 파일업로드-->
+	<update id="batchMasterMdCmCmsMappping"  parameterType="java.util.Map">
+		<![CDATA[
+				INSERT INTO CMSMAPPING (SEQ,
+				                        BUYER,
+				                        BUYER_ITEM_NO,
+				                        CMS_CATLG_ID,
+				                        USER_ID,
+				                        REFER_MAPPING_FLAG)
+				     VALUES ( (SELECT NVL(MAX (TO_NUMBER (SEQ)), 0)+1 AS SEQ FROM CMSMAPPING),
+				             UPPER (#{BUYER}),
+				             #{BUYER_ITEM_NO},
+				             UPPER (#{CMS_CATLG_ID}),
+				             UPPER (#{USER_ID}),
+				             UPPER (#{REFER_MAPPING_FLAG}))
+		]]>
+	</update>
+
+</mapper>   
+   

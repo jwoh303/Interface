@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.cmcl">
+
+	<!-- 조회 -->
+	<select id="selectMasterCmClClosingTotalList" parameterType="java.util.Map" resultType="java.util.Map">
+	/*selectMasterCmClClosingTotalList*/
+		<![CDATA[
+			SELECT 
+			    X.*
+			FROM
+			(
+			    SELECT 
+			        (SELECT TEXT2 FROM ICOMCOD2 WHERE TYPE='C001' AND COMPANY_CODE='KRKORE0001' AND CODE=A.DEPT_CODE) AS DEPT_NAME
+			      , DECODE(A.TYPE, 'M', 'MRO', 'J', '재고') AS TYPE_TEXT
+			      , SUM(A.ITEM_AMT) AS ITEM_AMT
+			      , SUM(A.W_AMT) AS W_AMT
+			      , MAX(NVL(B.J_AMT, 0)) AS J_AMT
+			      , SUM(A.W_AMT) + MAX(NVL(B.J_AMT, 0)) AS WJ_AMT 
+			      , MAX(B.REMARK) AS REMARK
+			      , A.YYYYMM
+			      , A.DEPT_CODE
+			      , A.TYPE
+			    FROM 
+			        KEP_SUBUL_MNG A /* 수불관리 */
+			      , KEP_SUBUL_JOJUNG B /* 수불조정 */
+			    WHERE 1=1
+			    AND A.YYYYMM = #{st_from_date}
+			    AND A.YYYYMM = B.YYYYMM(+)
+			    AND A.DEPT_CODE = B.DEPT_CODE(+)
+			    AND A.TYPE = B.TYPE(+)
+			    GROUP BY 
+			        A.YYYYMM
+			      , A.DEPT_CODE
+			      , A.TYPE
+			) X
+			ORDER BY 
+			    X.DEPT_NAME
+			  , X.TYPE DESC 					
+		]]>
+	</select>
+
+
+	<!-- 저장 -->
+	<update  id="insertMasterCmClClosingTotal" parameterType="java.util.Map" >
+	/*insertMasterCmClClosingTotal*/
+		<![CDATA[
+			MERGE INTO KEP_SUBUL_JOJUNG A /* 수불조정 */
+			USING DUAL ON 
+			(
+			        A.YYYYMM    = #{sel_yyyymm}
+			    AND A.DEPT_CODE = #{sel_dept_code}
+			    AND A.TYPE      = #{sel_type}
+			)
+			WHEN MATCHED THEN
+			    UPDATE
+			    SET J_AMT       = #{sel_j_amt}
+			      , REMARK      = #{sel_remark}
+			      , ADD_DATE    = TO_CHAR(SYSDATE, 'YYYYMMDD')
+			      , ADD_TIME    = TO_CHAR(SYSDATE, 'HH24MISS')
+			      , ADD_USER_ID = #{st_user_id}
+			WHEN NOT MATCHED THEN
+			    INSERT 
+			    ( 
+			        YYYYMM
+			      , DEPT_CODE
+			      , TYPE
+			      , J_AMT
+			      , REMARK
+			      , ADD_DATE
+			      , ADD_TIME
+			      , ADD_USER_ID 
+			    )
+			    VALUES 
+			    ( 
+			        #{sel_yyyymm}
+			      , #{sel_dept_code}
+			      , #{sel_type}
+			      , #{sel_j_amt}
+			      , #{sel_remark}
+			      , TO_CHAR(SYSDATE, 'YYYYMMDD')
+			      , TO_CHAR(SYSDATE, 'HH24MISS')
+			      , #{st_user_id}
+			    )
+		]]>
+	</update>
+
+</mapper>   
+   

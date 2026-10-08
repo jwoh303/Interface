@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mprq">
+
+	<select id="selectMasterMpRqDailySourcingBuyerSelPopList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*selectMasterMpRqDailySourcingBuyerSelPopList*/
+			SELECT NVL(B.COMORG_NAME, A.COM_NAME_LOC) COMORG_NAME
+			     , A.BYCA_COMORG_CODE
+			     , A.COM_CODE
+			     , A.COM_NAME_LOC
+			  FROM ICOMCMPY A
+			     , BYCAORGL B
+			 WHERE A.BYCA_COMORG_CODE = B.COMORG_CODE(+)
+			   AND A.STATUS != 'D'
+			   AND A.BUSINESS_COND = 'B'
+			   AND A.COM_CODE IN (
+					SELECT COM_CODE FROM ICOMCMPY CMPY
+					 WHERE BUSINESS_COND IN ('B','M')
+					   AND STATUS IN ('R','C')
+					   AND COM_CODE IN (SELECT CMPY.COM_CODE
+					                      FROM ICOMCOD3 COD3
+					                     WHERE COD3.BUYER = 'KRKORE0001'
+					                       AND COD3.TYPE = 'CMPY'
+					                       AND COD3.CODE1 = 'ALL'
+					                       AND COD3.CODE2 = #{st_user_id}
+					                    UNION ALL
+					                    SELECT MNG.BUYER
+					                      FROM ICOMCOD3 COD3, MIS_BUYER_MNG MNG
+					                     WHERE COD3.BUYER = 'KRKORE0001'
+					                       AND COD3.TYPE = 'CMPY'
+					                       AND COD3.CODE1 = MNG.KEP_DEPT
+					                       AND COD3.CODE2 = #{st_user_id}
+					                       AND MNG.YEAR = TO_CHAR(SYSDATE,'YYYY')
+					                       AND MNG.STATUS = 'C'
+					                    UNION ALL
+					                    SELECT BUYER
+					                      FROM MIS_BUYER_MNG
+					                     WHERE YEAR = TO_CHAR(SYSDATE,'YYYY')
+					                       AND STATUS = 'C'
+					                       AND KEP_USER_ID = #{st_user_id}
+					                    UNION ALL
+					                    SELECT COD.CODE1
+					                      FROM ICOMCOD3 COD, ICOMCMPY CMPY
+					                     WHERE COD.BUYER = 'KRKORE0001'
+					                       AND COD.TYPE = 'CMPY'
+					                       AND COD.CODE1 = CMPY.COM_CODE
+					                       AND COD.CODE2 = #{st_user_id}
+					                       AND TO_CHAR(SYSDATE,'YYYYMMDD') BETWEEN TEXT2 AND TEXT3
+					                   )
+			   )
+		]]>
+		<if test="st_comorg_type != null and st_comorg_type.equals('RESP')">
+			<![CDATA[
+			   AND A.COM_CODE IN (SELECT DISTINCT M.BUYER
+			                        FROM MIS_BUYER_MNG M, ICOMCOD2 C
+			                       WHERE C.COMPANY_CODE = 'KRKORE0001'
+			                         AND C.TYPE = 'C001'
+			                         AND C.CODE = M.KEP_DEPT
+			                         AND M.YEAR = TO_CHAR(SYSDATE,'YYYY')
+			                         AND M.STATUS = 'C'
+			                         AND M.KEP_DEPT = #{st_dept}
+			                         AND M.KEP_USER_ID = #{st_user_id}
+			                     )
+			]]>
+		</if>
+		<if test="st_comorg_type != null and st_comorg_type.equals('MNG')">
+			<![CDATA[
+			   AND A.COM_CODE IN (SELECT BUYER FROM BUYEROWN WHERE USER_ID = #{st_user_id})
+			]]>
+		</if>
+		<if test="st_com_code_list != null and st_com_code_list.size() > 0">
+			   AND A.COM_CODE IN
+			<foreach item="item" collection="st_com_code_list" open="(" separator="," close=")">
+				#{item}
+			</foreach>
+		</if>
+		<if test="st_comorg_name != null and st_comorg_name != ''">
+			<![CDATA[	AND NVL(B.COMORG_NAME, A.COM_NAME_LOC) LIKE '%'||#{st_comorg_name}||'%'	]]>
+		</if>
+		<if test="st_com_name_loc != null and st_com_name_loc != ''">
+			<![CDATA[	AND A.COM_NAME_LOC LIKE '%'||#{st_com_name_loc}||'%'	]]>
+		</if>
+		<![CDATA[
+			 ORDER BY A.BYCA_COMORG_CODE, COMORG_NAME, A.COM_CODE
+		]]>
+	</select>
+
+</mapper>

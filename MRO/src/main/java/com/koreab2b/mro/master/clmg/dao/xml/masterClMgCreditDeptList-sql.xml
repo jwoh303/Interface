@@ -1,0 +1,266 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.clmg">
+	<!-- 조회 -->
+	<select id="selectMasterClMgCreditDeptList" parameterType="java.util.Map" resultType="java.util.Map">
+			<![CDATA[
+		    /*	selectMasterClMgCreditDeptList */
+		    SELECT	LOAN_NO	AS LOAN_NO
+			,			IRS_NO	AS IRS_NO
+			,			IRS_NM	AS COM_NAME
+			,			DEPT_CD	AS DEPT_CODE
+			,			DEPT_NM	AS DEPT_NAME
+			,			BASE_CREDIT_AMT	AS BASE_CREDIT_AMT
+			,			ADD_CREDIT_LIMIT_AMT	AS ADD_CREDIT_AMT
+			,			TOT_CREDIT_LIMIT_AMT	AS TOT_CREDIT_AMT
+			,			BOND_BALANCE	AS BOND_BAL_AMT
+			,			BILL_BALANCE	AS BILL_BAL_AMT
+			,			PO_BALANCE	AS PO_BAL_AMT
+			,			P_RECV_AMT	AS P_RECV_AMT
+			,			CREDIT_AMT_BALANCE	AS CREDIT_BAL_AMT
+			,			DUTY_CYCLE	AS CREDIT_RATE
+			,			CREDIT_STATUS_IMG	AS CREDIT_STATUS_IMG
+			 ,			(SELECT DECODE(COUNT(CMPY.COM_CODE),'0','7','8')
+						    FROM ICOMCOD3 COD , ICOMCMPY CMPY
+						    WHERE COD.BUYER ='KRKORE0001'
+						    AND COD.TYPE = 'BYMP'
+						    AND COD.FLAG = 'Y'
+						    AND COD.CODE1 = CMPY.COM_CODE
+						    AND COD.TEXT1 = REPLACE( X.IRS_NO,'-','')
+						    AND COD.TEXT2 =  X.DEPT_CD) AS COMCODE_GUBUN_IMG
+			 ,			(SELECT DECODE(COUNT(COD.CODE1),'0','7','8')
+						    FROM ICOMCOD3 COD 
+						    WHERE COD.BUYER ='KRKORE0001'
+						    AND COD.TYPE = 'CDMP'
+						    AND COD.FLAG = 'Y'
+						    AND COD.CODE1 = REPLACE( X.IRS_NO,'-','')
+						    AND COD.TEXT1 =  X.DEPT_CD) AS IRSNM_GUBUN_IMG
+			FROM	(
+					   SELECT	C.LOAN_NO
+						,			C.IRS_NO
+						,			C.IRS_NM
+						,			C.DEPT_CD
+						,			C.DEPT_NM
+						,			C.BASE_CREDIT_AMT
+						,			C.ADD_CREDIT_LIMIT_AMT
+						,			C.TOT_CREDIT_LIMIT_AMT
+						,			C.BOND_BALANCE
+						,			C.BILL_BALANCE
+						,			C.PO_BALANCE
+						,			C.P_RECV_AMT
+						,			C.CREDIT_AMT_BALANCE
+						,			C.DUTY_CYCLE
+						,			CASE	WHEN C.DUTY_CYCLE >= 100 THEN '0'
+											WHEN C.DUTY_CYCLE >= 90 THEN '1'
+											WHEN C.DUTY_CYCLE >= 80 THEN '2'
+											WHEN C.DUTY_CYCLE >= 0 THEN '3'
+						END	AS CREDIT_STATUS_IMG
+						FROM	(
+									SELECT	B.IRS_NO
+									,			B.IRS_NM
+									,			B.DEPT_CD
+									,			B.DEPT_NM
+									,			B.LOAN_NO
+									,			B.BASE_CREDIT_AMT
+									,			B.ADD_CREDIT_LIMIT_AMT
+									,			(B.BASE_CREDIT_AMT + B.ADD_CREDIT_LIMIT_AMT)	AS TOT_CREDIT_LIMIT_AMT
+									,			BOND_BALANCE
+									,			BILL_BALANCE
+									,			PO_BALANCE
+									,			P_RECV_AMT
+									,			(B.BASE_CREDIT_AMT + B.ADD_CREDIT_LIMIT_AMT+P_RECV_AMT)
+												- (BOND_BALANCE + BILL_BALANCE + PO_BALANCE)	AS CREDIT_AMT_BALANCE
+									,			(BOND_BALANCE + BILL_BALANCE + PO_BALANCE)
+												/ DECODE((B.BASE_CREDIT_AMT + B.ADD_CREDIT_LIMIT_AMT+P_RECV_AMT),0,1,(B.BASE_CREDIT_AMT + B.ADD_CREDIT_LIMIT_AMT+P_RECV_AMT)) * 100	AS DUTY_CYCLE
+									FROM	(
+												SELECT
+												 A.IRS_NO
+												 , A.IRS_NM
+												 , A.DEPT_CD
+												 , A.DEPT_NM
+												 , A.LOAN_NO
+												 , A.ADD_DATE
+												 , A.ADD_TIME
+												, NVL(A.BASE_CREDIT_AMT, 0)	AS BASE_CREDIT_AMT
+												,(
+															SELECT	NVL(SUM(CREDIT_LIMIT_AMT), 0)
+																	FROM	KEPCLOAD	C
+																	WHERE	A.LOAN_NO = C.LOAN_NO
+																	AND		A.IRS_NO = C.IRS_NO
+																	AND		A.DEPT_CD = C.DEPT_CD
+																	AND		C.STATUS IN ('C', 'R')
+												  )	AS ADD_CREDIT_LIMIT_AMT
+												, 0 AS BOND_BALANCE
+												, 0 AS BILL_BALANCE
+												, 0 AS PO_BALANCE
+												, 0 AS P_RECV_AMT
+												FROM KEPCLOBA A
+												WHERE NOT EXISTS (
+												 SELECT 1 FROM KEPCLOSM B
+												 WHERE B.STATUS = 'C'
+												 AND A.IRS_NO = B.IRS_NO
+												 AND A.DEPT_CD = B.B2B_DEPT
+												)
+												AND A.STATUS IN ('C','R')
+												UNION ALL
+												SELECT	B.IRS_NO
+												,			NVL(A.IRS_NM,MAX(B.ACCOUNT_IRS_NM)) IRS_NM
+												,			B.B2B_DEPT  AS DEPT_CD
+												,			B.B2B_DEPT_NM AS DEPT_NM
+												,			A.LOAN_NO
+												,			MAX(A.ADD_DATE) AS ADD_DATE
+												,			MAX(A.ADD_TIME) AS ADD_TIME
+												,			NVL(A.BASE_CREDIT_AMT, 0)	AS BASE_CREDIT_AMT
+												,			(
+															SELECT	NVL(SUM(CREDIT_LIMIT_AMT), 0)
+																	FROM	KEPCLOAD	C
+																	WHERE	A.LOAN_NO = C.LOAN_NO
+																	AND		B.IRS_NO = C.IRS_NO
+																	AND		B.B2B_DEPT = C.DEPT_CD
+																	AND		C.STATUS IN ('C', 'R')
+												)	AS ADD_CREDIT_LIMIT_AMT
+												,			NVL(SUM(B.BASIC_SALE_CREDIT), 0) + NVL(SUM(B.SALE_CREDIT), 0) + NVL(SUM(B.M_SALE_CREDIT), 0)	AS BOND_BALANCE
+												,			NVL(SUM(B.BASIC_BILLS_RECEIVABLE), 0) + NVL(SUM(B.P_BILLS_RECEIVABLE), 0)	AS BILL_BALANCE
+												,			NVL(SUM(B.PO_AMT), 0) - NVL(SUM(B.AR_AMT), 0)	AS PO_BALANCE
+												,			NVL(SUM(B.BASIC_ADVANCE_RECEIVED), 0) + NVL(SUM(B.P_ADVANCE_RECEIVED), 0)	AS P_RECV_AMT
+												FROM	KEPCLOBA	A
+												,			KEPCLOSM	B
+												WHERE	A.STATUS (+)IN ('C', 'R')
+												AND		B.STATUS = 'C'
+												AND		A.IRS_NO (+)= B.IRS_NO
+												AND		A.DEPT_CD (+)= B.B2B_DEPT
+
+												GROUP BY  B.IRS_NO
+												,			A.IRS_NM
+												,			B.B2B_DEPT
+												,			B.B2B_DEPT_NM
+												,			A.LOAN_NO	
+												,			A.BASE_CREDIT_AMT
+									) B
+						) C
+				) X
+	 			WHERE	(BASE_CREDIT_AMT!= 0 OR ADD_CREDIT_LIMIT_AMT != 0
+	 			OR TOT_CREDIT_LIMIT_AMT != 0 OR BOND_BALANCE !=0
+	 			OR BILL_BALANCE != 0 OR PO_BALANCE != 0 OR P_RECV_AMT != 0 OR CREDIT_AMT_BALANCE != 0)
+				AND		NOT EXISTS  (SELECT CODE1 FROM ICOMCOD3 COD
+												WHERE COD.TYPE = 'EXMP'
+												AND COD.FLAG = 'Y'
+												AND COD.CODE1 = REPLACE(X.IRS_NO,'-','')
+												AND COD.CODE2 = X.DEPT_CD)		
+			]]>
+			<if test="st_status != 'ALL'">
+				AND		CREDIT_STATUS_IMG = #{st_status}
+			</if>
+			<if test="st_buyer_name != null and st_buyer_name != ''">
+				AND		IRS_NM LIKE '%' || #{st_buyer_name} || '%'
+			</if>
+			<if test="st_dept != null and st_dept != ''">
+				AND		DEPT_CD = #{st_dept}
+			</if>
+			<if test="st_irs_no != null and st_irs_no != ''">
+				AND		IRS_NO LIKE #{st_irs_no} || '%'
+			</if>
+			<![CDATA[
+				ORDER BY LOAN_NO
+			]]>
+	</select>
+	<select id="selectMasterClMgCreditDeptDetailList" parameterType="java.util.Map" resultType="java.util.Map">
+			<![CDATA[
+		    /*	selectMasterClMgCreditDeptDetailList */
+												SELECT
+												 A.IRS_NO
+												 , A.IRS_NM AS COM_NAME
+												 , A.DEPT_CD AS DEPT_CODE
+												 , A.DEPT_NM AS DEPT_NAME
+												 , 1 IRS_SEQ
+												 , A.IRS_NO AS ACCOUNT_IRS_NO
+												 , A.IRS_NM AS  ACCOUNT_IRS_NM
+												 , A.DEPT_CD AS ACCOUNT_DEPT
+												 , A.DEPT_NM AS ACCOUNT_DEPT_NM
+												 , A.LOAN_NO
+												, NVL(A.BASE_CREDIT_AMT, 0)	AS BASE_CREDIT_AMT
+												,(
+															SELECT	NVL(SUM(CREDIT_LIMIT_AMT), 0)
+																	FROM	KEPCLOAD	C
+																	WHERE	A.LOAN_NO = C.LOAN_NO
+																	AND		A.IRS_NO = C.IRS_NO
+																	AND		A.DEPT_CD = C.DEPT_CD
+																	AND		C.STATUS IN ('C', 'R')
+												  )	AS ADD_CREDIT_LIMIT_AMT
+												, 0 AS BOND_BALANCE
+												, 0 AS BILL_BALANCE
+												, 0 AS PO_BALANCE
+												, 0 AS P_RECV_AMT
+												FROM KEPCLOBA A
+												WHERE NOT EXISTS (
+												 SELECT 1 FROM KEPCLOSM B
+												 WHERE B.STATUS = 'C'
+												 AND A.IRS_NO = B.IRS_NO
+												 AND A.DEPT_CD = B.B2B_DEPT
+												)
+												AND A.STATUS IN ('C','R')
+			]]>
+											<if test="st_buyer_name != null and st_buyer_name != ''">
+												AND		A.IRS_NM LIKE '%' || #{st_buyer_name} || '%'
+											</if>
+											<if test="st_dept != null and st_dept != ''">
+												AND		A.DEPT_CD = #{st_dept}
+											</if>
+											<if test="st_irs_no != null and st_irs_no != ''">
+												AND		A.IRS_NO LIKE #{st_irs_no} || '%'
+											</if>
+		<![CDATA[
+												UNION ALL
+												SELECT	B.IRS_NO
+												,			NVL(A.IRS_NM,B.ACCOUNT_IRS_NM) COM_NAME
+												,			B.B2B_DEPT  AS DEPT_CODE
+												,			B.B2B_DEPT_NM AS DEPT_NAME
+												,	RANK()OVER(PARTITION BY B.IRS_NO,B.B2B_DEPT ORDER BY  B.ACCOUNT_IRS_NO,B.BASIC_SALE_CREDIT) AS IRS_SEQ
+												, 			B.ACCOUNT_IRS_NO
+												,			B.ACCOUNT_IRS_NM
+												, 			B.ACCOUNT_DEPT
+												,           (SELECT TEXT1 FROM ICOMCOD2 COD
+																WHERE COD.TYPE = 'C001'
+																AND COD.COMPANY_CODE = 'KRKORE0001'
+																AND COD.CODE = B.ACCOUNT_DEPT)  AS ACCOUNT_DEPT_NM
+												,			A.LOAN_NO
+												,			NVL(A.BASE_CREDIT_AMT, 0)	AS BASE_CREDIT_AMT
+												,			(
+															SELECT	NVL(SUM(CREDIT_LIMIT_AMT), 0)
+																	FROM	KEPCLOAD	C
+																	WHERE	A.LOAN_NO = C.LOAN_NO
+																	AND		B.IRS_NO = C.IRS_NO
+																	AND		B.B2B_DEPT = C.DEPT_CD
+																	AND		C.STATUS IN ('C', 'R')
+												)	AS ADD_CREDIT_LIMIT_AMT
+												,			NVL(B.BASIC_SALE_CREDIT, 0) + NVL(B.SALE_CREDIT, 0) + NVL(B.M_SALE_CREDIT, 0)	AS BOND_BALANCE
+												,			NVL(B.BASIC_BILLS_RECEIVABLE, 0) + NVL(B.P_BILLS_RECEIVABLE, 0)	AS BILL_BALANCE
+												,			NVL(B.PO_AMT, 0) - NVL(B.AR_AMT, 0)	AS PO_BALANCE
+												,			NVL(B.BASIC_ADVANCE_RECEIVED, 0) + NVL(B.P_ADVANCE_RECEIVED, 0)	AS P_RECV_AMT
+												FROM	KEPCLOBA	A
+												,			KEPCLOSM	B
+												WHERE	A.STATUS (+)IN ('C', 'R')
+												AND		B.STATUS = 'C'
+												AND		A.IRS_NO (+)= B.IRS_NO
+												AND		A.DEPT_CD (+)= B.B2B_DEPT
+												AND		NOT EXISTS  (SELECT CODE1 FROM ICOMCOD3 COD
+																				WHERE COD.TYPE = 'EXMP'
+																				AND COD.FLAG = 'Y'
+																				AND COD.CODE1 = REPLACE(A.IRS_NO,'-','')
+																				AND COD.CODE2 = A.DEPT_CD)
+			]]>
+											<if test="st_buyer_name != null and st_buyer_name != ''">
+												AND		A.IRS_NM LIKE '%' || #{st_buyer_name} || '%'
+											</if>
+											<if test="st_dept != null and st_dept != ''">
+												AND		A.DEPT_CD = #{st_dept}
+											</if>
+											<if test="st_irs_no != null and st_irs_no != ''">
+												AND		A.IRS_NO LIKE #{st_irs_no} || '%'
+											</if>
+		<![CDATA[		
+												ORDER BY IRS_NO,DEPT_NAME
+		]]>
+	</select>
+</mapper>   
+   

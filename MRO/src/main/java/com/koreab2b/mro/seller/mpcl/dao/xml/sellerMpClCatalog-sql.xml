@@ -1,0 +1,570 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="seller.mpcl">
+	<select id="selectSellerMpClCatalogList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.jsppagestart"/>
+		<![CDATA[
+			/*selectSellerMpClCatalogList*/
+			SELECT A.BUYER_ITEM_NO AS BUYER_ITEM_NO,
+			         A.DESCRIPTION AS DESCRIPTION,
+			         A.SPECIFICATION AS SPECIFICATION,
+			         A.UNIT_MEASURE AS UNIT_MEASURE,
+			         A.LIST_PRICE AS LIST_PRICE,
+			         A.MAKER_NAME AS MAKER_NAME,
+			         (SELECT TEXT2
+			            FROM ICOMCOD1
+			           WHERE TYPE = 'M001' AND A.ORIGIN_CODE = CODE)
+			            AS ORIGIN_NAME,
+			         A.ADD_DATE AS ADD_DATE,
+			         A.CHANGE_DATE AS CHANGE_DATE,
+			         A.BUYER AS BYIT_COMORG_CODE,
+			         A.BELOW_COMORG_CODE AS BUYER,
+					(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = A.BELOW_COMORG_CODE) AS BUYER_NAME,
+			         A.CONTRACT_NO AS CONTRACT_NO,
+			         A.CONTRACT_SEQ AS CONTRACT_SEQ,
+			         A.SELLER_ITEM_NO AS SELLER_ITEM_NO,
+			         A.AGENT,
+			         DECODE (A.S_STOCK_FLAG, 'Y', '재고') AS S_STOCK_FLAG,
+			         B.IMGFILE_NAME,
+			         B.IMGFILE_DIR,
+			         B.DETAIL_IMGFILE_NAME,
+			         B.DETAIL_IMGFILE_DIR,
+			         KEP.F_GET_KEPREQIMG_STT(A.BELOW_COMORG_CODE, A.BUYER_ITEM_NO, A.AGENT,0) AS IMG_STATUS_CD,
+			         KEP.F_GET_KEPREQIMG_STT(A.BELOW_COMORG_CODE, A.BUYER_ITEM_NO, A.AGENT,1) AS IMG_STATUS_NM
+			    FROM ICOMCQDT A, ICOMBYIT B
+			   WHERE 1=1
+			   ]]>
+				<if test="st_buyer_code != null">
+					AND  A.BUYER IN
+				<foreach item="item" collection="st_buyer_code"
+					open="(" separator="," close=")">
+				#{item}
+				</foreach>
+				</if>
+				<![CDATA[
+			         AND A.AGENT = #{st_com_code}
+			         AND A.DESCRIPTION LIKE '%'||#{st_description}||'%'
+			         AND A.SPECIFICATION LIKE '%'||#{st_specification}||'%'
+			         AND A.BUYER_ITEM_NO LIKE '%'||#{st_buyer_item_no}||'%'
+			         AND A.STATUS <> 'D'
+			         AND B.STATUS <> 'D'
+			         AND A.BUYER = B.BUYER
+			         AND A.BUYER_ITEM_NO = B.BUYER_ITEM_NO
+			         AND B.PRODUCT_CLOSE_FLAG IN ('N', 'T')
+			ORDER BY A.BUYER_ITEM_NO
+	 		]]>
+
+		<include refid="common.ibsheet.xml.jsppageend"/>
+	</select> 
+	
+	<select id="selectSellerMpClCatalogExcelList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/*selectSellerMpClCatalogExcelList*/
+			SELECT DECODE ( (SELECT COUNT (*)
+				                     FROM BYCAORGL
+				                    WHERE COMORG_CODE = #{st_buyer_code}),
+				                 0, (SELECT COM_NAME_LOC
+				                       FROM ICOMCMPY
+				                      WHERE COM_CODE = #{st_buyer_code}),
+				                 DECODE ( (SELECT COMORG_LEVEL
+				                             FROM BYCAORGL
+				                            WHERE COMORG_CODE = #{st_buyer_code}),
+				                         '1', (SELECT COMORG_NAME
+				                                 FROM BYCAORGL
+				                                WHERE COMORG_CODE = #{st_buyer_code}),
+				                         (SELECT COMORG_NAME
+				                            FROM BYCAORGL
+				                           WHERE COMORG_CODE = #{st_buyer_code})))
+				            AS COMORG_NAME,
+				         DECODE (A.BELOW_COMORG_CODE,
+				                 'ABOVE', '그룹공통 or 회원사',
+				                 'THE_OTHERS', '외 나머지',
+				                 (SELECT COM_NAME_LOC
+				                    FROM ICOMCMPY
+				                   WHERE COM_CODE = F_GET_HIDDEN_BUYER_NAME(A.BELOW_COMORG_CODE, '01')))
+				            AS BUYER_NAME,
+				         A.BUYER_ITEM_NO AS BUYER_ITEM_NO,
+				         A.DESCRIPTION AS DESCRIPTION,
+				         A.SPECIFICATION AS SPECIFICATION,
+				         A.UNIT_MEASURE AS UNIT_MEASURE,
+				         A.LIST_PRICE AS LIST_PRICE,
+				         A.MAKER_NAME AS MAKER_NAME,
+				         A.MAKER_PART_NO AS MAKER_PART_NO,
+				         (SELECT TEXT2
+				            FROM ICOMCOD1
+				           WHERE TYPE = 'M001' AND A.ORIGIN_CODE = CODE)
+				            AS ORIGIN_NAME,
+				         A.ADD_DATE AS ADD_DATE,
+				         A.CHANGE_DATE AS CHANGE_DATE,
+				         A.SELLER_ITEM_NO,
+				         DECODE ( (SELECT COUNT (*)
+				                     FROM BYCAORGL
+				                    WHERE COMORG_CODE = #{st_buyer_code}),
+				                 0, (SELECT COM_CODE
+				                       FROM ICOMCMPY
+				                      WHERE COM_CODE = #{st_buyer_code}),
+				                 DECODE ( (SELECT COMORG_LEVEL
+				                             FROM BYCAORGL
+				                            WHERE COMORG_CODE = #{st_buyer_code}),
+				                         '1', (SELECT COMORG_CODE
+				                                 FROM BYCAORGL
+				                                WHERE COMORG_CODE = #{st_buyer_code}),
+				                         (SELECT COMORG_CODE
+				                            FROM BYCAORGL
+				                           WHERE COMORG_CODE = #{st_buyer_code})))
+				            AS COMORG_CODE,
+				         A.BUYER,
+				         A.BELOW_COMORG_CODE,
+				         A.CONTRACT_NO CONTRACT_NO,
+				         A.CONTRACT_SEQ CONTRACT_SEQ
+				    FROM ICOMCQDT A, ICOMBYIT B
+				   WHERE     A.BUYER = #{st_buyer_code}
+				         AND A.AGENT = #{st_com_code}
+				         AND A.DESCRIPTION LIKE '%'||#{st_description}||'%'
+				         AND A.SPECIFICATION LIKE '%'||#{st_specification}||'%'
+				         AND A.BUYER_ITEM_NO LIKE '%'||#{st_buyer_item_no}||'%'
+				         AND A.STATUS <> 'D'
+				         AND B.STATUS <> 'D'
+				         AND A.BUYER = B.BUYER
+				         AND A.BUYER_ITEM_NO = B.BUYER_ITEM_NO
+				         AND B.PRODUCT_CLOSE_FLAG IN ('N', 'T')
+				ORDER BY A.BUYER_ITEM_NO            
+	 		]]>	 
+	</select>
+	
+	<!-- 재고 상태 update -->
+	<update id="updateSellerMpClCatalog" parameterType="java.util.Map">
+		<![CDATA[
+ 		 	UPDATE ICOMCQDT
+			   SET S_STOCK_FLAG = 'Y'
+			 WHERE     BUYER = #{st_buyer}
+			       AND BUYER_ITEM_NO = #{st_buyer_item_no2}
+			       AND CONTRACT_NO = #{st_contract_no}
+			       AND CONTRACT_SEQ = #{st_contract_seq}       														
+		]]>
+	</update>
+	
+	<!-- 재고 등록 -->
+	<update id="insertSellerMpClCatalogStockReg" parameterType="java.util.Map">
+		<![CDATA[
+ 		 	INSERT INTO KEP_S_STOCK (BUYER,
+					                         BUYER_ITEM_NO,
+					                         SELLER,
+					                         SELLER_ITEM_NO,
+					                         STATUS,
+					                         STOCK_QTY,
+					                         CHANGE_USER_ID,
+					                         CHANGE_DATE,
+					                         CHANGE_TIME)
+					     VALUES (#{st_buyer},
+					             #{st_buyer_item_no2},
+					             #{st_com_code},
+					             #{st_seller_item_no},
+					             'C',
+					             0,
+					             #{st_user_id},
+					             TO_CHAR (SYSDATE, 'YYYYMMDD'),
+					             TO_CHAR (SYSDATE, 'HH24MISS'))           														
+		]]>
+	</update>
+	<update id="insertSellerMpClCatalogKEPREQIMGReg" parameterType="java.util.Map"> 
+	<![CDATA[
+	/*"insertSellerMpClCatalogKEPREQIMGReg"*/		 		
+ 		 	INSERT INTO KEPREQIMG (AGENT
+ 		 							,IMG_REQ_NO
+ 		 							,BUYER
+ 		 							,BUYER_ITEM_NO
+ 		 							,STATUS
+ 		 							,IMGFILE_NAME
+ 		 							,IMGFILE_DIR
+ 		 							,DETAIL_IMGFILE_NAME
+ 		 							,DETAIL_IMGFILE_DIR
+ 		 							,ADD_DATE
+ 		 							,ADD_TIME
+ 		 							,ADD_USER_ID
+ 		 							,CHANGE_DATE
+ 		 							,CHANGE_TIME
+ 		 							,CHANGE_USER_ID)
+					     VALUES (#{_agentComCode},
+					             #{IMG_REQ_NO},
+					             #{BUYER},
+					             #{BUYER_ITEM_NO},
+					             'S',
+					             #{IMGFILE_NAME},
+					             #{IMGFILE_DIR},
+					             #{DETAIL_IMGFILE_NAME},
+					             #{DETAILIMGFILE_DIR},
+					             TO_CHAR (SYSDATE, 'YYYYMMDD'),
+					             TO_CHAR (SYSDATE, 'HH24MISS'),
+					             #{_user_id},
+					             TO_CHAR (SYSDATE, 'YYYYMMDD'),
+					             TO_CHAR (SYSDATE, 'HH24MISS'),
+					             #{_user_id}
+					             )  
+	
+	]]>  
+	</update>
+
+	<select id="selectSellerMpClCatalogImgPopList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/*selectSellerMpClCatalogImgPopList*/
+				SELECT
+				IMG.IMG_REQ_NO
+				, IMG.BUYER
+				, IMG.BUYER_ITEM_NO
+				, IMG.STATUS
+				, DECODE(IMG.STATUS,'C','승인','S','요청','R','반려') AS STATUS_NM
+				, IMG.IMGFILE_NAME
+				, IMG.IMGFILE_DIR
+				, IMG.DETAIL_IMGFILE_NAME
+				, IMG.DETAIL_IMGFILE_DIR
+				, IMG.ADD_DATE
+				, IMG.ADD_USER_ID
+				, (SELECT USR.USER_NAME_LOC
+					FROM ICOMLUSR USR WHERE USR.USER_ID  = IMG.ADD_USER_ID) AS ADD_USER_LOC
+				, IMG.CONFIRM_DATE
+				, IMG.CONFIRM_USER_ID
+				, (SELECT USR.USER_NAME_LOC
+					FROM ICOMLUSR USR WHERE USR.USER_ID  = IMG.CONFIRM_USER_ID) AS CONFIRM_NAME_LOC
+				, IMG.REMARK
+				FROM KEPREQIMG IMG
+				WHERE IMG.AGENT = #{st_agent}
+				AND IMG.BUYER_ITEM_NO = #{st_buyer_item_no}
+				AND IMG.STATUS != 'D'
+  
+	 		]]>
+	</select>
+
+	<!-- 리뉴얼: 거래품목 조회 V2 (페이징 없음, 새로운 검색 조건) -->
+	<select id="selectSellerMpClCatalogListV2" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/*selectSellerMpClCatalogListV2 - 리뉴얼*/
+			SELECT
+				A.BUYER_ITEM_NO AS ITEM_CODE,
+				A.DESCRIPTION AS ITEM_NAME,
+				A.SPECIFICATION AS SPECIFICATION,
+				A.UNIT_MEASURE AS UNIT,
+				A.LIST_PRICE AS CONTRACT_PRICE,
+				A.MAKER_NAME AS MANUFACTURER,
+				(SELECT TEXT2 FROM ICOMCOD1
+				 WHERE TYPE = 'M001' AND A.ORIGIN_CODE = CODE) AS ORIGIN,
+				A.BELOW_COMORG_CODE AS BUYER_CODE,
+				(SELECT COM_NAME_LOC FROM ICOMCMPY
+				 WHERE COM_CODE = A.BELOW_COMORG_CODE) AS BUYER_NAME,
+				CASE
+					WHEN B.IMGFILE_DIR IS NOT NULL AND B.IMGFILE_NAME IS NOT NULL
+						AND TRIM(B.IMGFILE_DIR) != '' AND TRIM(B.IMGFILE_NAME) != ''
+					THEN B.IMGFILE_DIR || B.IMGFILE_NAME
+					ELSE '/resources/imgs/noimage.gif'
+				END AS PRODUCT_IMAGE,
+				CASE
+					WHEN B.DETAIL_IMGFILE_DIR IS NOT NULL AND B.DETAIL_IMGFILE_NAME IS NOT NULL
+						AND TRIM(B.DETAIL_IMGFILE_DIR) != '' AND TRIM(B.DETAIL_IMGFILE_NAME) != ''
+					THEN B.DETAIL_IMGFILE_DIR || B.DETAIL_IMGFILE_NAME
+					ELSE '/resources/imgs/noimage.gif'
+				END AS DETAIL_IMAGE,
+				KEP.F_GET_KEPREQIMG_STT(A.BELOW_COMORG_CODE, A.BUYER_ITEM_NO, A.AGENT, 0) AS IMAGE_STATUS_CODE,
+				KEP.F_GET_KEPREQIMG_STT(A.BELOW_COMORG_CODE, A.BUYER_ITEM_NO, A.AGENT, 1) AS IMAGE_STATUS,
+				TO_CHAR(TO_DATE(A.ADD_DATE, 'YYYYMMDD'), 'YYYY-MM-DD') AS REG_DATE,
+				TO_CHAR(TO_DATE(A.CHANGE_DATE, 'YYYYMMDD'), 'YYYY-MM-DD') AS MOD_DATE,
+				CASE
+					WHEN K.IMGFILE_NAME IS NOT NULL
+					THEN '첨부(1)'
+					ELSE '첨부'
+				END AS IMAGE_REGISTER,
+				CASE
+					WHEN K.DETAIL_IMGFILE_NAME IS NOT NULL
+					THEN '첨부(1)'
+					ELSE '첨부'
+				END AS DETAIL_REGISTER,
+	
+				A.CONTRACT_NO AS CONTRACT_NO,
+				A.CONTRACT_SEQ AS CONTRACT_SEQ,
+				A.SELLER_ITEM_NO AS SELLER_ITEM_NO,
+				A.AGENT,
+				DECODE (A.S_STOCK_FLAG, 'Y', '재고') AS S_STOCK_FLAG,
+				B.IMGFILE_NAME,
+				B.IMGFILE_DIR,
+				B.DETAIL_IMGFILE_NAME,
+				B.DETAIL_IMGFILE_DIR,
+				A.BUYER AS BYIT_COMORG_CODE,
+
+				-- 추가 정보 (리뉴얼 - 팝업용)
+				B.CATEGORY_TEXT AS CATEGORY_TEXT,
+				B.DOC_NO AS DOC_NO,
+				B.MSDS_YN AS MSDS_YN,
+				B.MSDS_ATTACH_YN AS MSDS_ATTACH_YN,
+				B.MSDS_NO AS MSDS_NO,
+				B.DELIVERY_LT AS DELIVERY_LT
+			FROM ICOMCQDT A
+			INNER JOIN ICOMBYIT B
+				ON A.BUYER = B.BUYER
+				AND A.BUYER_ITEM_NO = B.BUYER_ITEM_NO
+			LEFT JOIN KEPREQIMG K
+				ON A.BELOW_COMORG_CODE = K.BUYER
+				AND A.BUYER_ITEM_NO = K.BUYER_ITEM_NO
+				AND A.AGENT = K.AGENT
+				AND K.STATUS != 'D'
+				AND K.IMG_REQ_NO = (
+					SELECT MAX(K2.IMG_REQ_NO)
+					FROM KEPREQIMG K2
+					WHERE K2.BUYER = K.BUYER
+					AND K2.BUYER_ITEM_NO = K.BUYER_ITEM_NO
+					AND K2.AGENT = K.AGENT
+					AND K2.STATUS != 'D'
+				)
+			WHERE 1=1
+		]]>
+
+		<!-- 고객사 코드 (리뉴얼) - 단일/다중 선택 모두 지원 -->
+		<if test="buyerCodeList != null and buyerCodeList.size() > 0">
+			AND A.BUYER IN
+			<foreach item="item" collection="buyerCodeList" open="(" separator="," close=")">
+				#{item}
+			</foreach>
+		</if>
+
+		<!-- 이미지 상태 (리뉴얼) -->
+		<if test="imageStatus != null and imageStatus != ''">
+			<![CDATA[
+			AND KEP.F_GET_KEPREQIMG_STT(A.BELOW_COMORG_CODE, A.BUYER_ITEM_NO, A.AGENT, 0) = #{imageStatus}
+			]]>
+		</if>
+
+		<!-- 품목코드 (리뉴얼) -->
+		<if test="itemCode != null and itemCode != ''">
+			<![CDATA[
+			AND A.BUYER_ITEM_NO LIKE '%'||#{itemCode}||'%'
+			]]>
+		</if>
+
+		<!-- 제조사 (리뉴얼) -->
+		<if test="manufacturer != null and manufacturer != ''">
+			<![CDATA[
+			AND A.MAKER_NAME LIKE '%'||#{manufacturer}||'%'
+			]]>
+		</if>
+
+		<!-- 품목명 (리뉴얼) -->
+		<if test="itemName != null and itemName != ''">
+			<![CDATA[
+			AND A.DESCRIPTION LIKE '%'||#{itemName}||'%'
+			]]>
+		</if>
+
+		<!-- 규격 (리뉴얼) -->
+		<if test="specification != null and specification != ''">
+			<![CDATA[
+			AND A.SPECIFICATION LIKE '%'||#{specification}||'%'
+			]]>
+		</if>
+
+		<![CDATA[
+			AND A.AGENT = #{st_com_code}
+			AND A.STATUS <> 'D'
+			AND B.STATUS <> 'D'
+			AND A.BUYER = B.BUYER
+			AND A.BUYER_ITEM_NO = B.BUYER_ITEM_NO
+			AND B.PRODUCT_CLOSE_FLAG IN ('N', 'T')
+			ORDER BY A.BUYER_ITEM_NO
+		]]>
+	</select>
+
+	<!-- 페이징 쿼리 (V2) - 무한 스크롤용 -->
+	<select id="selectSellerMpClCatalogListV2Paging" parameterType="java.util.Map" resultType="java.util.Map">
+		SELECT * FROM (
+			SELECT ROWNUM AS RN, T.* FROM (
+				<![CDATA[
+				/*selectSellerMpClCatalogListV2Paging - 리뉴얼 무한스크롤*/
+				SELECT
+					A.BUYER_ITEM_NO AS ITEM_CODE,
+					A.DESCRIPTION AS ITEM_NAME,
+					A.SPECIFICATION AS SPECIFICATION,
+					A.UNIT_MEASURE AS UNIT,
+					A.LIST_PRICE AS CONTRACT_PRICE,
+					A.MAKER_NAME AS MANUFACTURER,
+					(SELECT TEXT2 FROM ICOMCOD1
+					 WHERE TYPE = 'M001' AND A.ORIGIN_CODE = CODE) AS ORIGIN,
+					A.BELOW_COMORG_CODE AS BUYER_CODE,
+					(SELECT COM_NAME_LOC FROM ICOMCMPY
+					 WHERE COM_CODE = A.BELOW_COMORG_CODE) AS BUYER_NAME,
+					CASE
+						WHEN B.IMGFILE_DIR IS NOT NULL AND B.IMGFILE_NAME IS NOT NULL
+							AND TRIM(B.IMGFILE_DIR) != '' AND TRIM(B.IMGFILE_NAME) != ''
+						THEN B.IMGFILE_DIR || B.IMGFILE_NAME
+						ELSE '/resources/imgs/noimage.gif'
+					END AS PRODUCT_IMAGE,
+					CASE
+						WHEN B.DETAIL_IMGFILE_DIR IS NOT NULL AND B.DETAIL_IMGFILE_NAME IS NOT NULL
+							AND TRIM(B.DETAIL_IMGFILE_DIR) != '' AND TRIM(B.DETAIL_IMGFILE_NAME) != ''
+						THEN B.DETAIL_IMGFILE_DIR || B.DETAIL_IMGFILE_NAME
+						ELSE '/resources/imgs/noimage.gif'
+					END AS DETAIL_IMAGE,
+					KEP.F_GET_KEPREQIMG_STT(A.BELOW_COMORG_CODE, A.BUYER_ITEM_NO, A.AGENT, 0) AS IMAGE_STATUS_CODE,
+					KEP.F_GET_KEPREQIMG_STT(A.BELOW_COMORG_CODE, A.BUYER_ITEM_NO, A.AGENT, 1) AS IMAGE_STATUS,
+					TO_CHAR(TO_DATE(A.ADD_DATE, 'YYYYMMDD'), 'YYYY-MM-DD') AS REG_DATE,
+					TO_CHAR(TO_DATE(A.CHANGE_DATE, 'YYYYMMDD'), 'YYYY-MM-DD') AS MOD_DATE,
+					CASE
+						WHEN K.IMGFILE_NAME IS NOT NULL
+						THEN '첨부(1)'
+						ELSE '첨부'
+					END AS IMAGE_REGISTER,
+					CASE
+						WHEN K.DETAIL_IMGFILE_NAME IS NOT NULL
+						THEN '첨부(1)'
+						ELSE '첨부'
+					END AS DETAIL_REGISTER,
+					A.CONTRACT_NO AS CONTRACT_NO,
+					A.CONTRACT_SEQ AS CONTRACT_SEQ,
+					A.SELLER_ITEM_NO AS SELLER_ITEM_NO,
+					A.AGENT,
+					DECODE (A.S_STOCK_FLAG, 'Y', '재고') AS S_STOCK_FLAG,
+					B.IMGFILE_NAME,
+					B.IMGFILE_DIR,
+					B.DETAIL_IMGFILE_NAME,
+					B.DETAIL_IMGFILE_DIR,
+					A.BUYER AS BYIT_COMORG_CODE,
+					B.CATEGORY_TEXT AS CATEGORY_TEXT,
+					B.IMAGE_KEY AS DOC_NO,
+					B.MSDS_YN AS MSDS_YN,
+					B.MSDS_ATTACH_YN AS MSDS_ATTACH_YN,
+					B.MSDS_NO AS MSDS_NO,
+					A.DELIVERY_LT AS DELIVERY_LT
+				FROM ICOMCQDT A
+				INNER JOIN ICOMBYIT B
+					ON A.BUYER = B.BUYER
+					AND A.BUYER_ITEM_NO = B.BUYER_ITEM_NO
+				LEFT JOIN KEPREQIMG K
+					ON A.BELOW_COMORG_CODE = K.BUYER
+					AND A.BUYER_ITEM_NO = K.BUYER_ITEM_NO
+					AND A.AGENT = K.AGENT
+					AND K.STATUS != 'D'
+					AND K.IMG_REQ_NO = (
+						SELECT MAX(K2.IMG_REQ_NO)
+						FROM KEPREQIMG K2
+						WHERE K2.BUYER = K.BUYER
+						AND K2.BUYER_ITEM_NO = K.BUYER_ITEM_NO
+						AND K2.AGENT = K.AGENT
+						AND K2.STATUS != 'D'
+					)
+				WHERE 1=1
+				]]>
+
+				<!-- 고객사 코드 -->
+				<if test="buyerCodeList != null and buyerCodeList.size() > 0">
+					AND A.BUYER IN
+					<foreach item="item" collection="buyerCodeList" open="(" separator="," close=")">
+						#{item}
+					</foreach>
+				</if>
+
+				<!-- 이미지 상태 -->
+				<if test="imageStatus != null and imageStatus != ''">
+					<![CDATA[
+					AND KEP.F_GET_KEPREQIMG_STT(A.BELOW_COMORG_CODE, A.BUYER_ITEM_NO, A.AGENT, 0) = #{imageStatus}
+					]]>
+				</if>
+
+				<!-- 품목코드 -->
+				<if test="itemCode != null and itemCode != ''">
+					<![CDATA[
+					AND A.BUYER_ITEM_NO LIKE '%'||#{itemCode}||'%'
+					]]>
+				</if>
+
+				<!-- 제조사 -->
+				<if test="manufacturer != null and manufacturer != ''">
+					<![CDATA[
+					AND A.MAKER_NAME LIKE '%'||#{manufacturer}||'%'
+					]]>
+				</if>
+
+				<!-- 품목명 -->
+				<if test="itemName != null and itemName != ''">
+					<![CDATA[
+					AND A.DESCRIPTION LIKE '%'||#{itemName}||'%'
+					]]>
+				</if>
+
+				<!-- 규격 -->
+				<if test="specification != null and specification != ''">
+					<![CDATA[
+					AND A.SPECIFICATION LIKE '%'||#{specification}||'%'
+					]]>
+				</if>
+
+				<![CDATA[
+					AND A.AGENT = #{st_com_code}
+					AND A.STATUS <> 'D'
+					AND B.STATUS <> 'D'
+					AND B.PRODUCT_CLOSE_FLAG IN ('N', 'T')
+					ORDER BY A.BUYER_ITEM_NO
+				) T WHERE ROWNUM <= #{endRow}
+			) WHERE RN > #{startRow}
+			]]>
+	</select>
+
+	<!-- 총 건수 조회 (V2) - 무한 스크롤용 -->
+	<select id="selectSellerMpClCatalogListV2Count" parameterType="java.util.Map" resultType="int">
+		<![CDATA[
+		/*selectSellerMpClCatalogListV2Count - 리뉴얼 무한스크롤 총건수*/
+		SELECT COUNT(*)
+		FROM ICOMCQDT A
+		INNER JOIN ICOMBYIT B
+			ON A.BUYER = B.BUYER
+			AND A.BUYER_ITEM_NO = B.BUYER_ITEM_NO
+		WHERE 1=1
+		]]>
+
+		<!-- 고객사 코드 -->
+		<if test="buyerCodeList != null and buyerCodeList.size() > 0">
+			AND A.BUYER IN
+			<foreach item="item" collection="buyerCodeList" open="(" separator="," close=")">
+				#{item}
+			</foreach>
+		</if>
+
+		<!-- 이미지 상태 -->
+		<if test="imageStatus != null and imageStatus != ''">
+			<![CDATA[
+			AND KEP.F_GET_KEPREQIMG_STT(A.BELOW_COMORG_CODE, A.BUYER_ITEM_NO, A.AGENT, 0) = #{imageStatus}
+			]]>
+		</if>
+
+		<!-- 품목코드 -->
+		<if test="itemCode != null and itemCode != ''">
+			<![CDATA[
+			AND A.BUYER_ITEM_NO LIKE '%'||#{itemCode}||'%'
+			]]>
+		</if>
+
+		<!-- 제조사 -->
+		<if test="manufacturer != null and manufacturer != ''">
+			<![CDATA[
+			AND A.MAKER_NAME LIKE '%'||#{manufacturer}||'%'
+			]]>
+		</if>
+
+		<!-- 품목명 -->
+		<if test="itemName != null and itemName != ''">
+			<![CDATA[
+			AND A.DESCRIPTION LIKE '%'||#{itemName}||'%'
+			]]>
+		</if>
+
+		<!-- 규격 -->
+		<if test="specification != null and specification != ''">
+			<![CDATA[
+			AND A.SPECIFICATION LIKE '%'||#{specification}||'%'
+			]]>
+		</if>
+
+		<![CDATA[
+			AND A.AGENT = #{st_com_code}
+			AND A.STATUS <> 'D'
+			AND B.STATUS <> 'D'
+			AND B.PRODUCT_CLOSE_FLAG IN ('N', 'T')
+		]]>
+	</select>
+
+</mapper>

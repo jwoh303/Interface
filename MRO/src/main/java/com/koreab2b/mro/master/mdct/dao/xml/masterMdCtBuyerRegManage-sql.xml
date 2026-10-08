@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mdct">
+	<!-- 조회 -->
+	<select id="selectMasterMdCtBuyerRegManageList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.pagestart"/>	
+			<![CDATA[
+			/* selectMasterMdCtBuyerRegManageList */
+			SELECT
+				ROWNUM ROWM,						/* 순번 */
+				B.COM_CODE,							/*  회원사코드 */
+				B.COM_NAME,							/* 회원사명 */
+				B.IRS_NO,									/* 사업자번호 */
+				B.ADD_DATE,								/* 신청일자 */
+				B.TEL_NO,								/* 전화번호 */
+				B.BUSINESS_COND,						/* 회원사구분 */
+				B.CEO_NAME,							/* 대표자명 */
+				B.STATUS,									/* 상태코드 */
+				B.REPORT_MAP_IMG,
+				B.REPORT_GROUP_CD,
+				DECODE(B.STATUS, 'C', '승인',
+											'R', '승인',
+											(SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'M069' AND CODE = B.STATUS))	AS STATUS_TEXT	/* 상태 */
+			FROM (                           
+				SELECT	    
+					COM_CODE,        
+					COM_NAME_LOC  AS COM_NAME,    
+					IRS_NO,          
+					ADD_DATE,        
+					TEL_NO,          
+					BUSINESS_COND,    
+					CEO_NAME_LOC AS CEO_NAME,    
+					STATUS,
+					(SELECT COD.TEXT1 FROM ICOMCOD2 COD
+						WHERE COD.COMPANY_CODE = 'KRKORE0001'
+						AND COD.TYPE ='RPMP'
+						AND COD.CODE = CMPY.COM_CODE
+						AND COD.FLAG = 'Y') AS REPORT_GROUP_CD,
+					(SELECT DECODE(COUNT(COD.CODE),0,'2','1') FROM ICOMCOD2 COD
+						WHERE COD.COMPANY_CODE = 'KRKORE0001'
+						AND COD.TYPE ='RPMP'
+						AND COD.CODE = CMPY.COM_CODE
+						AND COD.FLAG = 'Y') AS REPORT_MAP_IMG
+				FROM ICOMCMPY CMPY         
+				WHERE BUSINESS_COND = 'B'     /* 고객사만 선택 */
+				]]>
+				<if test="st_buyer_name != null and st_buyer_name != ''">
+				AND COM_NAME_LOC LIKE '%' || #{st_buyer_name} || '%'
+				</if>
+				<if test="st_ststus != null and st_ststus != ''">
+					<choose>
+						<when test="st_ststus == 'ALL'">
+						AND STATUS IN ('C', 'R', 'S', 'B', 'T', 'E')
+						</when>
+						<when test="st_ststus == '승인'">
+						AND STATUS IN ('C','R')
+						</when>
+						<when test="st_ststus == '요청'">
+						AND STATUS IN ('S')
+						</when>
+						<when test="st_ststus == '반려'">
+						AND STATUS IN ('B')
+						</when>
+						<when test="st_ststus == '결재중'">
+						AND STATUS IN ('T')
+						</when>
+						<when test="st_ststus == '결재선오류'">
+						AND STATUS IN ('E')
+						</when>
+					</choose>	
+				</if>
+			<![CDATA[			 
+			) B
+			ORDER BY ADD_DATE DESC
+			]]>
+			
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+
+
+	<update  id="insertMasterMdCtBuyerRegManage" parameterType="java.util.Map" >
+		<![CDATA[
+				INSERT INTO	KEPQTDT					
+				(									
+					BUYER,							
+					QUOTATION_NO,					
+					QUOTATION_SEQ,					
+					REVISION,						
+					AGENT,							
+					AGENT_REVISION,					
+					STATUS,							
+					BUYER_ITEM_NO,					
+					DESCRIPTION,					
+					SPECIFICATION,					
+					UNIT_MEASURE,					
+					MAKER_NAME,						
+					ORIGIN_NAME,					
+					ATOS_DATE,						
+					ATOS_END_DATE,					
+					ATOS_END_TIME,					
+					ITEM_QTY,						
+					IMAGE_KEY,						
+					DSS_FLAG,						
+					DSS_CHOICE						
+				)									
+				(									
+				SELECT								
+					#{BUYER},									/* 1 : BUYER */
+					#{QUOTATION_NO},									/* 2 : QUOTATION_NO */
+					#{QUOTATION_SEQ},									/* 3 : QUOTATION_SEQ */
+					#{REVISION},									/* 4 : REVISION */
+					#{AGENT},									/* 5 : AGENT */
+					#{AGENT_REVISION},								/* 6 : AGENT_REVISION */
+					'C',						
+					BUYER_ITEM_NO,				
+					DESCRIPTION,				
+					SPECIFICATION,				
+					UNIT_MEASURE,				
+					MAKER_NAME,					
+					ORIGIN_CODE,				
+					TO_CHAR(SYSDATE, 'YYYYMMDD')AS ATOS_DATE,
+					#{ATOS_END_DATE},								/* 7 : ATOS_END_DATE */
+					#{ATOS_END_TIME},								/* 8 : ATOS_END_TIME */
+					ITEM_QTY,					
+					IMAGE_KEY,					
+					#{DSS_FLAG},								/*  9 : DSS_FLAG   if(chk_str[1].equals("A") || chk_str[1].equals("B") || chk_str[1].equals("C")|| chk_str[1].equals("S")) : Y , 기타  : N   */
+					#{DSS_CHOICE}								/*    10 : DSS_CHOICE */
+				   FROM KEPRQDT						
+				  WHERE BUYER=#{BUYER}							/* 11 : BUYER */           
+					AND QUOTATION_NO=#{QUOTATION_NO}					/* 12 : QUOTATION_NO     */
+					AND QUOTATION_SEQ=#{QUOTATION_SEQ}					/* 13 : QUOTATION_SEQ    */
+					AND REVISION=#{REVISION}						/* 14 : REVISION  */       
+					AND RECV_FLAG <> 'GD'			
+					AND STATUS IN ('C','R')			
+				)									
+
+		]]>
+							   <!-- /* CMS_USER_ID = 'TEMPUSER', */ -->
+		
+	</update>
+
+
+<!-- 삭제 -->
+	<update id="deleteMasterMdCtBuyerRegManage"  parameterType="java.util.Map">
+		<![CDATA[
+				UPDATE KEPRQDT					
+				   SET RECV_FLAG      = 'GD' 	
+				     , CANCEL_USER_ID = #{USR_ID}    		/*CANCEL_USER_ID*/
+				     , CANCEL_DATE    = SYSDATE	
+				     , CANCEL_REMARK  = #{CANCEL_REMARK}    		/*CANCEL_REMARK*/
+				 WHERE BUYER          = #{BUYER}			/*BUYER*/
+				   AND QUOTATION_NO   = #{QUOTATION_NO}	 		/*QUOTATION_NO*/
+				   AND QUOTATION_SEQ  = #{QUOTATION_SEQ}			/*QUOTATION_SEQ*/
+				   AND REVISION       = #{REVISION}			/*REVISION*/
+				   AND STATUS IN ('C','R')
+		]]>
+	</update>
+
+</mapper>   
+   

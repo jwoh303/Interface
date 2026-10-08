@@ -1,0 +1,215 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="seller.mpiv">
+	<select id="selectSellerMpIvTranStatementPrintDeleteList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.jsppagestart"/>
+		<![CDATA[
+			/*selectSellerMpIvTranStatementPrintDeleteList*/
+			SELECT 
+				  S.BUYER_NAME
+				, S.PO_CREATE_DATE
+				, S.PO_NO
+				, S.INV_NO
+				, S.PO_AMT
+				, S.DS_DATE
+				, S.INVOICE_DATE
+				, S.PO_REMARK
+				, S.DS_ITEM_CNT
+				, S.BUYER
+				, S.SELLER
+				, S.PROCESS_TYPE
+				, S.LEGACY_PO_NO
+				, S.REF_IF_NO
+				, S.TR_BUYER
+				, S.DELY_TO_LOCATION
+				, S.ADD_USER_ID
+				, S.DI_REMAIN_QTY
+				, S.GR_REMAIN_QTY
+				, S.DELIVERY_QTY
+				, S.GR_QTY
+				, S.REF_PR_NO
+				, S.WMS_GR_QTY
+				, S.BUYER2
+				, S.REF_NO
+				, CASE 	WHEN NVL(S.PROCESS_TYPE,' ') = '0' 
+						THEN (	SELECT X.LEGACY_IV_SERIAL		
+								FROM ICOMIVHD X					
+								WHERE 1=1						
+									AND X.BUYER  = S.BUYER			
+									AND X.INV_NO = S.INV_NO
+									AND NVL(X.STATUS,' ') != 'D'
+									AND ROWNUM = 1 )			
+					ELSE '' END AS LEGACY_INVOICE_KEY
+				, DECODE(S.DOC_TYPE,'S','선입고','') AS BFRE_STCK_YN
+				, (SELECT USR.USER_NAME_LOC FROM ICOMLUSR USR WHERE USR.USER_ID = S.KEP_USER_ID) AS KEP_USER_NAME
+				, (SELECT USR.PHONE_NUMBER FROM ICOMLUSR USR WHERE USR.USER_ID = S.KEP_USER_ID) AS KEP_PHONE_NUMBER
+				, S.PARCEL_YN_TEXT
+				, S.INV_REMARK
+			FROM (
+				SELECT  /*+ INDEX(E ICOMIVHD_02) INDEX(D ICOMIVDT_03) */
+					  MAX(F_GET_EXPORT_BUYER_NAME(B.BUYER, B.PO_NO, B.DELY_TO_LOCATION)) AS BUYER_NAME			-- 1 구매사
+					, MAX(A.PO_CREATE_DATE) AS PO_CREATE_DATE 																	-- 2 발주일
+					, MAX(A.PO_NO) AS PO_NO 																					-- 3 발주번호
+					, DECODE(COUNT(DISTINCT D.INV_NO), 1, MAX(D.INV_NO), 'plural_inv.gif') AS INV_NO							-- 4 거래명세서번호
+					, SUM(DECODE(A.PR_TYPE,'PX', B.AGENT_PRICE, B.UNIT_PRICE)*D.INV_QTY) AS PO_AMT								-- 5 납품총금액
+					, MIN(C.DS_DATE) DS_DATE																					-- 6 납품예정일
+					, MAX(D.INVOICE_DATE) AS INVOICE_DATE																		-- 7 납품일
+					, MAX(DECODE(A.BUYER,'KREMK20001', DECODE(A.PROCESS_TYPE,'2','',A.PO_REMARK),  A.PO_REMARK)) AS PO_REMARK	-- 8 비고
+					, COUNT(*) AS DS_ITEM_CNT																					-- 9 납품품목수
+					, D.BUYER AS BUYER																							-- 10
+					, MAX(B.SELLER) AS SELLER																					-- 11
+					, MAX(A.PROCESS_TYPE) AS PROCESS_TYPE
+					, MAX(DECODE(TRIM(B.LEGACY_PO_NO), NULL,'N',B.LEGACY_PO_NO)) AS LEGACY_PO_NO
+					, MAX(B.REF_IF_NO) AS REF_IF_NO
+					, MAX(DECODE(B.PROCESS_TYPE,'2',B.WAREHOUSE_CODE,B.BUYER)) AS TR_BUYER
+					, MAX(B.DELY_TO_LOCATION) AS DELY_TO_LOCATION
+					, MAX(A.ADD_USER_ID) AS ADD_USER_ID
+					, (SUM(NVL(D.INV_QTY,0)) - SUM(NVL(D.DELIVERY_QTY,0))) AS DI_REMAIN_QTY
+					, (SUM(NVL(D.INV_QTY,0)) - SUM(NVL(D.GR_QTY,0))) AS GR_REMAIN_QTY
+					, SUM(NVL(D.DELIVERY_QTY,0)) AS DELIVERY_QTY
+					, SUM(NVL(D.GR_QTY,0)) AS GR_QTY
+					, MAX(B.REF_PR_NO) AS REF_PR_NO
+					, SUM(NVL(D.WMS_GR_QTY,0)) AS WMS_GR_QTY
+					, MAX(DECODE(A.DOC_TYPE,'X',DECODE(B.PROCESS_TYPE,'2',B.WAREHOUSE_CODE,F_GET_HIDDEN_BUYER_NAME(B.BUYER, '01')),F_GET_HIDDEN_BUYER_NAME(B.BUYER, '01'))) AS BUYER2   
+					, MAX(F.REF_NO ) AS REF_NO																					--PX번호
+					, MAX(A.DOC_TYPE) AS DOC_TYPE
+					, MAX((SELECT
+									MAX(MNG.KEP_USER_ID) AS KEP_USER_ID
+								FROM MIS_BUYER_MNG MNG
+								WHERE MNG.YEAR = TO_CHAR(SYSDATE,'YYYY')
+								AND MNG.BUYER = A.BUYER
+								AND MNG.PRIORITY = 'Y'
+								AND MNG.STATUS != 'O')) AS KEP_USER_ID
+					, DECODE(NVL(MAX(E.PARCEL_YN),MAX(A.PARCEL_YN)), 'Y', '택배', '자차') AS PARCEL_YN_TEXT
+					, MAX(E.REMARK_INV) AS INV_REMARK
+				FROM ICOMIVHD E , ICOMIVDT D , ICOMPOHD A , ICOMPODT B , ICOMPORS C, ICOMPRDT F
+				WHERE 
+						E.AGENT = #{st_com_code}  
+					AND E.INV_DATE BETWEEN #{st_from_date} AND #{st_to_date}
+		]]>
+				<!-- 고객사 -->
+				<if test="st_buyer_code != null and st_buyer_code != ''">
+					<![CDATA[
+						AND (B.BUYER = #{st_buyer_code} OR B.WAREHOUSE_CODE = #{st_buyer_code})
+			 		]]>	 
+				</if>
+				
+				<!-- 발주번호 -->
+				<if test="st_po_no != null and st_po_no != ''">
+					<![CDATA[
+						AND (B.PO_NO LIKE UPPER(#{st_po_no}||'%') OR B.LEGACY_PO_NO LIKE UPPER(#{st_po_no}||'%'))
+			 		]]>	 
+				</if>
+				
+		<![CDATA[ 
+					AND E.BUYER  = D.BUYER  
+					AND E.INV_NO = D.INV_NO  
+					AND E.SELLER = D.SELLER  
+					AND D.BUYER  = C.BUYER  
+					AND D.PO_NO  = C.PO_NO  
+					AND D.PO_SEQ = C.PO_SEQ  
+					AND D.DS_DATE= C.DS_DATE  
+					AND D.BUYER  = B.BUYER  
+					AND D.PO_NO  = B.PO_NO  
+					AND D.PO_SEQ = B.PO_SEQ  
+					AND D.BUYER  = A.BUYER  
+					AND D.PO_NO  = A.PO_NO  
+					AND B.BUYER = F.BUYER
+					AND B.PR_NO = F.PR_NO                             
+					AND B.PR_SEQ = F.PR_SEQ                           
+					AND A.STATUS <> 'D'  
+					AND B.STATUS <> 'D'  
+					AND C.STATUS <> 'D'  
+					AND D.STATUS <> 'D'  
+					AND F.STATUS <> 'D'
+		]]>  	
+			<!-- 납품완료유무 -->
+			<if test='st_dely_type == "DELY_YES"'>
+				<![CDATA[
+		 			AND  (NVL(D.DELIVERY_QTY,0) > 0  OR NVL(D.GR_QTY,0) > 0 )
+		 		]]>	 
+			</if>
+			<if test='st_dely_type != "DELY_YES"'>
+				<![CDATA[
+		 			AND  (NVL(D.DELIVERY_QTY,0) = 0 AND NVL(D.GR_QTY,0) = 0)
+		 		]]>	 
+			</if>
+		<![CDATA[		
+				GROUP BY D.BUYER , D.PO_NO , D.DS_DATE , D.INV_NO  
+				ORDER BY BUYER_NAME, PO_NO
+			) S
+			  			
+	 	]]>
+		<include refid="common.ibsheet.xml.jsppageend"/>	
+	</select> 
+	
+	<!-- 엑셀다운로드용 -->
+	<select id="selectSellerMpIvTranStatementPrintDeleteExcelList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.jsppagestart"/>
+		<![CDATA[
+			/*selectSellerMpIvTranStatementPrintDeleteExcelList*/
+			SELECT
+				  MAX(SUBSTR(F.REQ_USER_INFO,1,3)) AS RECV_USER_NAME
+				, MAX(TRIM(SUBSTR(F.REQ_USER_INFO,4,LENGTH(F.REQ_USER_INFO)))) AS RECV_USER_TEL
+				, MAX(TRIM(SUBSTR(A.DELY_TO_LOCATION,8,LENGTH(A.DELY_TO_LOCATION)))) AS ADDR
+				, MAX(SUBSTR(A.DELY_TO_LOCATION,1,7)) AS ZIP_CODE
+				, '신용' AS CALC_GUBUN
+				, D.PO_NO AS REMARK
+			FROM ICOMIVHD E, ICOMIVDT D, ICOMPOHD A, ICOMPODT B, ICOMPORS C, ICOMPRDT F
+			WHERE 
+					E.AGENT = #{st_com_code}
+				AND E.INV_DATE BETWEEN #{st_from_date} AND #{st_to_date}
+		]]>
+				<!-- 고객사 -->
+				<if test="st_buyer_code != null and st_buyer_code != ''">
+					<![CDATA[
+						AND (B.BUYER = #{st_buyer_code} OR B.WAREHOUSE_CODE = #{st_buyer_code}) 
+			 		]]>	 
+				</if>
+				
+				<!-- 발주번호 -->
+				<if test="st_po_no != null and st_po_no != ''">
+					<![CDATA[
+						AND (B.PO_NO LIKE UPPER(#{st_po_no}||'%') OR B.LEGACY_PO_NO LIKE UPPER(#{st_po_no}||'%'))
+			 		]]>	 
+				</if>
+				
+		<![CDATA[ 
+					AND E.BUYER  = D.BUYER
+					AND E.INV_NO = D.INV_NO
+					AND E.SELLER = D.SELLER
+					AND D.BUYER  = C.BUYER
+					AND D.PO_NO  = C.PO_NO
+					AND D.PO_SEQ = C.PO_SEQ
+					AND D.DS_DATE= C.DS_DATE
+					AND D.BUYER  = B.BUYER
+					AND D.PO_NO  = B.PO_NO
+					AND D.PO_SEQ = B.PO_SEQ
+					AND D.BUYER  = A.BUYER
+					AND D.PO_NO  = A.PO_NO
+					AND B.BUYER  = F.BUYER
+					AND B.PR_NO  = F.PR_NO
+					AND B.PR_SEQ = F.PR_SEQ
+					AND F.STATUS ^='D'
+					AND A.STATUS <> 'D'
+					AND B.STATUS <> 'D'
+					AND C.STATUS <> 'D'
+					AND D.STATUS <> 'D'
+		]]>		
+			<!-- 납품완료유무 -->
+			<if test='st_dely_type == "DELY_YES"'>
+				<![CDATA[
+		 			AND  (NVL(D.DELIVERY_QTY,0) > 0  OR NVL(D.GR_QTY,0) > 0 )
+		 		]]>	 
+			</if>
+			<if test='st_dely_type != "DELY_YES"'>
+				<![CDATA[
+		 			AND  (NVL(D.DELIVERY_QTY,0) = 0 AND NVL(D.GR_QTY,0) = 0)
+		 		]]>	 
+			</if>
+		<![CDATA[		
+			GROUP BY D.BUYER , D.PO_NO , D.DS_DATE , D.INV_NO
+	 	]]>
+		<include refid="common.ibsheet.xml.jsppageend"/>	
+	</select> 
+</mapper>

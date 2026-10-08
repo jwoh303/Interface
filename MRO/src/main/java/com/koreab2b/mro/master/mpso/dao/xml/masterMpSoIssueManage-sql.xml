@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mpso">
+	<!-- 조회 -->
+	<select id="selectMasterMpSoIssueManageList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.pagestart"/>
+			<![CDATA[
+			/* selectMasterMpSoIssueManageList */
+			SELECT	X.ADD_DATE,
+					X.PO_ADD_DATE,
+					X.TYPE,
+					X.TYPE_TEXT,
+					X.STATUS,
+					X.STATUS_TEXT,
+					X.AGENT,
+					X.AGENT_NAME,
+					X.BUYER,
+					X.BUYER_NAME,
+					X.PO_NO,
+					X.PO_SEQ,
+					F_SPLIT(X.BUYER_ITEM_INFO, '||', 4) AS BUYER_ITEM_NO,
+					X.NOTICE_DATE,
+					X.CONFIRM_USER_ID,
+					DECODE(SUBSTR(X.CONFIRM_USER_ID,1,3), 'FTP', '시스템', (SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = X.CONFIRM_USER_ID)) AS CONFIRM_USER_NAME,
+					X.CONFIRM_DATE,
+					F_SPLIT(X.BUYER_ITEM_INFO, '||', 1) AS BYIT_COMORG_CODE,
+					F_SPLIT(X.BUYER_ITEM_INFO, '||', 2) AS CONTRACT_NO,
+					F_SPLIT(X.BUYER_ITEM_INFO, '||', 3) AS CONTRACT_SEQ,
+					X.PLANT_DEPT
+			FROM	(
+					SELECT	A.ADD_DATE AS ADD_DATE,
+							(SELECT ADD_DATE FROM ICOMPOHD WHERE BUYER = A.BUYER AND PO_NO = A.PO_NO) AS PO_ADD_DATE,
+							A.TYPE,
+							(SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'PMNGTYPE' AND CODE = A.TYPE) AS TYPE_TEXT,
+							A.STATUS,
+							(SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'PMNGSTTS' AND CODE = A.STATUS) AS STATUS_TEXT,
+							A.AGENT,
+							(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = A.AGENT) AS AGENT_NAME,
+							A.BUYER,
+							(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = A.BUYER) AS BUYER_NAME,
+							A.PO_NO,
+							A.PO_SEQ,
+							(SELECT MAX(BYIT_COMORG_CODE||'||'||CONTRACT_NO||'||'||CONTRACT_SEQ||'||'||BUYER_ITEM_NO) FROM ICOMPODT WHERE BUYER = A.BUYER AND PO_NO = A.PO_NO AND PO_SEQ = DECODE(A.PO_SEQ, '000000', PO_SEQ, A.PO_SEQ)) AS BUYER_ITEM_INFO,
+							A.NOTICE_DATE,
+							A.CONFIRM_USER_ID,
+							TO_CHAR(A.CONFIRM_DATE, 'YYYYMMDD') AS CONFIRM_DATE,
+							(SELECT CHANGE_USER_DEPT FROM ICOMPOHD WHERE BUYER = A.BUYER AND PO_NO = A.PO_NO) AS PLANT_DEPT
+					FROM	KEP_PO_MNG A
+					WHERE	1=1
+			]]>
+				
+			/* 이철 실장님, 한애희, 홍지수, 한승준 (모니터용 임시) */
+			<choose>
+				<when test="st_user_id == 'KEP2229028' or st_user_id == 'KEP2109086' or st_user_id == 'KEP200008' or st_user_id == 'KEP2159512'">
+				</when>
+			
+				<otherwise>
+					<if test='st_smart_dept_yn == "N"'>
+					AND		A.BUYER IN (SELECT M.BUYER FROM MIS_BUYER_MNG M WHERE M.YEAR = TO_CHAR(SYSDATE, 'YYYY') AND M.STATUS = 'C' AND M.KEP_USER_ID = #{st_user_id} AND (M.PRIORITY = 'Y' OR M.MAIN_CLERK = 'Y'))
+					</if>
+				
+					<if test='st_smart_dept_yn == "Y"'>
+						<if test="st_plant_user_id == ''">
+						AND		A.BUYER IN (SELECT M.BUYER FROM MIS_BUYER_MNG M WHERE M.YEAR = TO_CHAR(SYSDATE, 'YYYY') AND M.STATUS = 'C' AND M.KEP_USER_ID = #{st_user_id})
+						</if>
+						<if test="st_plant_user_id != null and st_plant_user_id != '' and st_plant_user_id != 'ALL'">
+						AND		A.BUYER IN (SELECT M.BUYER FROM MIS_BUYER_MNG M WHERE M.YEAR = TO_CHAR(SYSDATE, 'YYYY') AND M.STATUS = 'C' AND M.KEP_USER_ID = #{st_plant_user_id})
+						</if>
+					</if>
+				</otherwise>
+			</choose>
+			
+			<if test='st_type != null and st_type != ""'>
+				<![CDATA[
+	                AND		A.TYPE = #{st_type} 
+	            ]]>
+			</if>
+			
+			<if test='st_date_type == "BA"'>
+				<![CDATA[
+	                AND		A.STATUS = 'S'
+	                AND		A.NOTICE_DATE  <= TO_CHAR(SYSDATE, 'YYYYMMDD')
+            	]]>
+            </if>
+			<if test='st_date_type == "RE"'>
+        		<![CDATA[
+        			AND		A.STATUS = 'S'
+                	AND		A.NOTICE_DATE BETWEEN NVL(#{st_from_date},'19990101') AND NVL(#{st_to_date},'99991231')
+            	]]>
+            </if>
+            <if test='st_date_type == "S"'>
+        		<![CDATA[
+	                AND  	TO_CHAR(A.ADD_DATE, 'YYYYMMDD') BETWEEN NVL(#{st_from_date},'19990101') AND NVL(#{st_to_date},'99991231')
+            	]]>
+            </if>
+            <if test='st_date_type == "CM"'>
+        		<![CDATA[
+                	AND  	TO_CHAR(A.CONFIRM_DATE, 'YYYYMMDD') BETWEEN NVL(#{st_from_date},'19990101') AND NVL(#{st_to_date},'99991231')
+            	]]>
+            </if>
+	        
+	        <if test="st_buyer_code != null and st_buyer_code != ''">
+	        	<![CDATA[
+	                AND		A.BUYER = #{st_buyer_code}
+	            ]]>    
+            </if>
+            
+            <if test="st_agent_code != null and st_agent_code != ''">
+	        	<![CDATA[
+	                AND		A.AGENT = #{st_agent_code}
+	            ]]>    
+	        </if>
+	        
+	        <if test="st_po_no != null and st_po_no != ''">
+	        	<![CDATA[
+	                AND		A.PO_NO LIKE '%' || UPPER(#{st_po_no}) || '%' 
+	            ]]>    
+	        </if>
+		<![CDATA[
+			) X
+			WHERE	1=1
+		]]>
+		<if test='st_smart_dept_yn == "Y"'>
+			<if test="st_plant_user_id == ''">
+			AND		(X.BUYER, X.PLANT_DEPT) NOT IN (SELECT TEXT1, CODE2 FROM ICOMCOD3 WHERE TYPE = 'ISMG')
+			</if>
+			<if test="st_plant_user_id != null and st_plant_user_id != '' and st_plant_user_id != 'ALL'">
+			AND		(X.BUYER, X.PLANT_DEPT) IN (SELECT TEXT1, CODE2 FROM ICOMCOD3 WHERE TYPE = 'ISMG' AND CODE1 = #{st_plant_user_id})
+			</if>
+		</if>
+		<if test="st_buyer_item_no != null and st_buyer_item_no != ''">
+			<![CDATA[
+            AND		X.BUYER_ITEM_NO LIKE '%' || UPPER(#{st_buyer_item_no}) || '%'
+           	]]>
+       	</if>
+        
+		<![CDATA[
+			ORDER BY X.ADD_DATE DESC
+		]]>
+        <include refid="common.ibsheet.xml.pageend"/>
+	</select>
+</mapper>   
+   

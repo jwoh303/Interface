@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="seller.mdam">
+
+	<select id="selectSellerMdAmDeadlineAdventCntList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.jsppagestart"/>
+		<![CDATA[
+			SELECT  B.PO_NO,
+				        B.PO_SEQ,
+				        B.LEGACY_PO_NO,
+				        B.LEGACY_PO_SEQ,
+				        B.REF_PR_NO,
+				        B.BUYER_ITEM_NO,
+				        B.DESCRIPTION,
+				        B.SPECIFICATION,
+				        B.UNIT_MEASURE,
+				        B.ITEM_QTY,
+				        B.UNIT_PRICE,
+				        B.ITEM_AMT,
+				        TO_DATE(C.DS_DATE,'YYYYMMDD') - TO_DATE(B.RD_DATE,'YYYYMMDD') AS DELAY_TIMES,
+				        B.DS_DELAY_REASON AS DELAY_REASON,
+				        (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = A.AGENT) AS AGENT_NAME,
+				        (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = A.BUYER) AS BUYER_NAME,
+				        A.PO_CREATE_DATE,
+				        B.RD_DATE,
+				        C.DS_DATE,
+				        D.ADD_USER_NAME,
+				        B.BUYER,
+				        D.CHANGE_USER_ID,
+				        B.DS_DELAY_REASON,
+				        A.AGENT,
+				        C.CD_QTY,
+				        (C.CD_QTY * B.UNIT_PRICE) AS CD_AMT,
+				        A.PURCHASER_NAME,
+				        B.BYIT_COMORG_CODE AS BYIT_COMORG_CODE,
+				        B.CONTRACT_NO AS CONTRACT_NO,
+				        B.CONTRACT_SEQ AS CONTRACT_SEQ,
+				        (SELECT TEXT1 FROM ICOMCOD2 WHERE COMPANY_CODE = B.BUYER AND TYPE='C001' AND CODE = D.REQ_DEPT) AS REQ_DEPT
+			FROM ICOMPOHD A , ICOMPODT B , ICOMPORS C , ICOMPRDT D
+			WHERE A.BUYER = B.BUYER
+			    AND A.BUYER = #{st_buyer_code}
+			    AND A.AGENT = #{st_com_code}
+			    AND B.RD_DATE BETWEEN TO_CHAR(SYSDATE , 'YYYYMMDD') AND TO_CHAR(SYSDATE +5 , 'YYYYMMDD')
+			    AND A.PO_NO = B.PO_NO
+			    AND NVL(B.ITEM_QTY,0) <> NVL(B.GR_QTY,0)
+			    AND NVL(B.ITEM_QTY,0) <> NVL(B.DI_QTY,0)
+		]]>
+			<if test="st_po_no != null and st_po_no != ''">
+				<![CDATA[
+		 			AND B.PO_NO LIKE UPPER( #{st_po_no} || '%')
+		 		]]>	 
+			</if>
+		<![CDATA[
+			    AND C.ADMIN_FLAG2 != 'Y'
+			    AND B.BUYER = C.BUYER
+			    AND B.PO_NO = C.PO_NO
+			    AND B.PO_SEQ = C.PO_SEQ
+			    AND B.BUYER  = D.BUYER
+			    AND B.PR_NO  = D.PR_NO
+			    AND B.PR_SEQ = D.PR_SEQ
+			    AND A.STATUS <> 'D'
+			    AND B.STATUS <> 'D'
+			    AND C.STATUS <> 'D'
+			    AND D.STATUS <> 'D'
+			ORDER BY B.BUYER , B.LEGACY_PO_NO, B.LEGACY_PO_SEQ
+ 		]]>  
+		<include refid="common.ibsheet.xml.jsppageend"/>	
+	</select> 
+	
+	<select id="selectDeliveryDelayListPop" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			SELECT  B.BUYER AS BUYER_CODE,
+				        MAX((SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = B.BUYER)) AS BUYER_NAME,
+				        COUNT(B.PO_NO||B.PO_SEQ) AS DEADLINE_CNT
+			FROM ICOMPOHD A , ICOMPODT B , ICOMPORS C , ICOMPRDT D
+			WHERE A.BUYER = B.BUYER
+			    AND A.AGENT = #{st_com_code}
+			    AND B.RD_DATE BETWEEN TO_CHAR(SYSDATE , 'YYYYMMDD') and TO_CHAR(SYSDATE +5 , 'YYYYMMDD')
+			    AND A.PO_NO = B.PO_NO
+			    AND NVL(B.ITEM_QTY,0) <> NVL(B.GR_QTY,0)
+			    AND NVL(B.ITEM_QTY,0) <> NVL(B.DI_QTY,0)
+			    AND C.ADMIN_FLAG2 != 'Y'
+			    AND B.BUYER = C.BUYER
+			    AND B.PO_NO = C.PO_NO
+			    AND B.PO_SEQ = C.PO_SEQ
+			    AND B.BUYER  = D.BUYER
+			    AND B.PR_NO  = D.PR_NO
+			    AND B.PR_SEQ = D.PR_SEQ
+			    AND A.STATUS <> 'D'
+			    AND B.STATUS <> 'D'
+			    AND C.STATUS <> 'D'
+			    AND D.STATUS <> 'D'
+			GROUP BY B.BUYER
+			ORDER BY B.BUYER
+		]]>
+	</select>
+	
+</mapper>

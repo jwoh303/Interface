@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="common.mpiv">
+
+
+	<select id="selectSellerMpIvDeliveryDelayBuyerChoicePopList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/*selectSellerMpIvDeliveryDelayBuyerChoicePopList*/
+				SELECT BUYER
+				      , (SELECT COM_NAME_LOC FROM ICOMCMPY
+				         WHERE COM_CODE = BUYER) AS BUYER_NAME
+				      , SUM(DELAY_CNT) AS DELAY_CNT
+				FROM (
+				SELECT C.BUYER
+				      , C.PO_NO
+				      , C.PO_SEQ
+				      , C.DS_DATE
+				      , COUNT(*) AS DELAY_CNT
+				FROM ICOMPOHD A, ICOMPODT B, ICOMPORS C
+				WHERE A.AGENT = #{st_com_code}
+				AND A.STATUS != 'D'
+				AND A.BUYER= B.BUYER
+				AND A.PO_NO = B.PO_NO
+				AND B.STATUS != 'D'
+				AND B.ITEM_QTY != B.GR_QTY
+				AND B.BUYER = C.BUYER
+				AND B.PO_NO = C.PO_NO
+				AND B.PO_SEQ= C.PO_SEQ
+				AND C.STATUS != 'D'
+				AND C.DS_DATE BETWEEN TO_CHAR(SYSDATE-31,'YYYYMMDD') AND TO_CHAR(SYSDATE-1,'YYYYMMDD')
+				GROUP BY C.BUYER
+				      , C.PO_NO
+				      , C.PO_SEQ
+				      , C.DS_DATE
+				
+				HAVING  SUM(C.CD_QTY) !=   NVL((SELECT SUM(DELIVERY_QTY) FROM ICOMIVDT
+				        WHERE BUYER = C.BUYER
+				        AND PO_NO = C.PO_NO
+				        AND PO_SEQ= C.PO_SEQ
+				        AND DS_DATE=C.DS_DATE
+				        AND STATUS != 'D'),0)
+				)
+				GROUP BY BUYER
+				ORDER BY 2
+		]]>
+	</select>
+</mapper>

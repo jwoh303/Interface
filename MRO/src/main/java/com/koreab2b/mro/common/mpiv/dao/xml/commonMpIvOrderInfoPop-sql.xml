@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="common.mpiv">
+
+
+	<select id="selectCommonMpIvOrderInfoPopList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/*selectCommonMpIvOrderInfoPopList*/
+			SELECT                                 
+				A.REF_PR_NO      AS REF_PR_NO,		--[00]
+				A.BUYER_ITEM_NO  AS BUYER_ITEM_NO,	--[01]
+				A.DESCRIPTION    AS DESCRIPTION,	--[02]
+				A.SPECIFICATION  AS SPECIFICATION,	--[03]
+				A.ITEM_QTY       AS ITEM_QTY,		--[04]
+				A.UNIT_MEASURE   AS UNIT_MEASURE,	--[05]
+				A.AGENT_PRICE    AS AGENT_PRICE,	--[06]
+				A.AGENT_ITEM_AMT AS AGENT_ITEM_AMT,	--[07]
+--				DECODE(A.PROCESS_TYPE, '0',A.RD_DATE, F_GET_DATE_TR(A.RD_DATE)) AS RD_DATE,
+				A.RD_DATE,
+				A.BYIT_COMORG_CODE,             --[09]
+				A.CONTRACT_NO,                  --[10]
+				A.CONTRACT_SEQ,                 --[11]
+				A.MAKER_NAME,                   --[12]
+				B.DOC_TYPE,                     --[13]
+				DECODE(B.DOC_TYPE,'X',SUBSTR(A.BUYER_ITEM_NO,1,7),                                         
+						(	SELECT STDCATLG_ID 
+							FROM ICOMCQDT                                        
+							WHERE
+									BUYER = A.BYIT_COMORG_CODE                               
+								AND BUYER_ITEM_NO = A.BUYER_ITEM_NO                                  
+								AND CONTRACT_NO   = A.CONTRACT_NO                                    
+								AND CONTRACT_SEQ  = A.CONTRACT_SEQ)) AS STDCATLG_ID,                  --[14]
+				DECODE(B.DOC_TYPE,'X',(	SELECT NVL(TRIM(IMG_NO),'0') 
+										FROM ITEMMAST                          
+										WHERE STDCATLG_ID = SUBSTR(A.BUYER_ITEM_NO,1,7)),'') AS IMG_NO,     --[15]
+				(SELECT MAX(PR.IMAGE_KEY) FROM ICOMPRDT PR  WHERE PR.BUYER = A.BUYER AND PR.PR_NO = A.PR_NO AND PR.PR_SEQ = A.PR_SEQ) AS  IMAGE_KEY,     --[16]
+				DECODE((SELECT MAX(PR.IMAGE_KEY) FROM ICOMPRDT PR  WHERE PR.BUYER = A.BUYER AND PR.PR_NO = A.PR_NO AND PR.PR_SEQ = A.PR_SEQ),NULL,'','Y') AS IMAGE_KEY_YN,
+				A.PO_REMARK,                     --[17]
+				A.ST_DATE
+			FROM ICOMPODT A , ICOMPOHD B         
+			WHERE 
+					A.BUYER = #{st_buyer}                   
+				AND A.PO_NO = #{st_po_no}                   
+				AND A.BUYER = B.BUYER               
+				AND A.PO_NO = B.PO_NO               
+				AND A.STATUS <> 'D'                 
+				AND B.STATUS <> 'D'
+		]]>
+	</select>
+								
+</mapper>

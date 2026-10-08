@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="seller.mpiv">
+	<select id="selectSellerMpIvDeliveryDelayStateList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.jsppagestart"/>
+		<![CDATA[
+			/*selectSellerMpIvDeliveryDelayStateList*/
+				SELECT MAX((SELECT COM_NAME_LOC FROM ICOMCMPY  WHERE COM_CODE  = F_GET_HIDDEN_BUYER_NAME(PODT.BUYER, '01'))||
+				           (SELECT '('||COM_NAME_LOC||')'
+				            FROM ICOMCMPY
+				            WHERE PODT.PROCESS_TYPE = '2'
+				            AND COM_CODE = DECODE(PODT.PROCESS_TYPE,'2',PODT.WAREHOUSE_CODE,PODT.BUYER))) AS BUYER_NAME
+				     , PODT.PO_NO AS PO_NO
+				     , MAX(PODT.BUYER_ITEM_NO) AS BUYER_ITEM_NO
+				     , POHD.PO_CREATE_DATE AS PO_CREATE_DATE
+				     , MAX(PODT.DESCRIPTION) AS DESCRIPTION
+				     , MAX(PODT.SPECIFICATION) AS SPECIFICATION
+				     , MAX(PODT.AGENT_PRICE) AS AGENT_PRICE
+				     , MAX(PODT.UNIT_MEASURE) AS UNIT_MEASURE
+				     , PORS.DS_DATE AS DS_DATE
+				     , MAX(PODT.ITEM_QTY) AS ITEM_QTY
+				     , MAX(PORS.CD_QTY) AS CD_QTY
+				     , POHD.PURCHASER_NAME AS PURCHASER
+				     , MAX(PRDT.ADD_USER_NAME) AS REQ_USER
+				     , MAX(PODT.REF_PR_NO) AS REF_PR_NO
+				     , MAX((SELECT TEXT1 FROM ICOMCOD2 WHERE COMPANY_CODE = PODT.BUYER AND TYPE='C001' AND CODE = PRDT.REQ_DEPT)) AS REQ_DEPT
+				     , DECODE(NVL(MAX(PORS.DS_REMARK) ,'icon') , 'icon' ,'but_img_off.gif' ,'but_img_on.gif') AS DS_REMARK_IMG
+				     , TO_DATE(TO_CHAR(SYSDATE,'YYYYMMDD'),'YYYYMMDD') - TO_DATE(PORS.DS_DATE,'YYYYMMDD') AS DS_DELAY_DAY
+				     , MAX(PORS.DS_REMARK) AS DS_REMARK
+				     , PODT.BUYER
+				     , PODT.PO_SEQ AS PO_SEQ
+				     , MAX(PODT.BYIT_COMORG_CODE) AS BYIT_COMORG_CODE
+				     , MAX(PODT.CONTRACT_NO) AS CONTRACT_NO
+				     , MAX(PODT.CONTRACT_SEQ) AS CONTRACT_SEQ
+				     , MAX(PODT.ST_DATE) AS ST_DATE
+				     , MAX(PODT.GR_QTY)   AS GR_QTY
+				     , NVL(SUM(IVDT.INV_QTY),0)      AS INV_QTY
+				     , NVL(SUM(IVDT.DELIVERY_QTY),0) AS DLVRY_QTY
+				     , F_GET_HIDDEN_BUYER_NAME(PODT.BUYER, '01') AS BUYER2
+				FROM ICOMPOHD POHD, ICOMPODT PODT, ICOMPORS PORS, ICOMIVDT IVDT, ICOMPRDT PRDT
+				WHERE 1=1
+				AND POHD.AGENT = #{st_com_code} 
+				AND POHD.BUYER = #{st_buyer_code}
+				AND PODT.BUYER = #{st_buyer_code}
+				AND POHD.BUYER = PODT.BUYER
+				AND POHD.PO_NO = PODT.PO_NO
+				AND PODT.BUYER = PORS.BUYER
+				AND PODT.PO_NO = PORS.PO_NO
+				AND PODT.PO_SEQ = PORS.PO_SEQ
+				AND POHD.STATUS <> 'D'
+				AND PODT.STATUS <> 'D'
+				AND PORS.STATUS <> 'D'
+				AND PORS.BUYER = IVDT.BUYER(+)
+				AND PORS.PO_NO = IVDT.PO_NO(+)
+				AND PORS.PO_SEQ= IVDT.PO_SEQ(+)
+				AND PORS.DS_DATE=IVDT.DS_DATE(+)
+				AND IVDT.STATUS(+) != 'D'
+				AND PODT.ST_DATE < TO_CHAR(SYSDATE,'YYYYMMDD')
+				AND PODT.ST_DATE >= TO_CHAR(SYSDATE-31,'YYYYMMDD')
+				AND PORS.DS_DATE < TO_CHAR(SYSDATE,'YYYYMMDD')
+				AND PODT.BUYER = PRDT.BUYER
+				AND PODT.PR_NO = PRDT.PR_NO
+				AND PODT.PR_SEQ= PRDT.PR_SEQ
+		]]>
+		<!-- 발주번호 -->
+		<if test="st_po_no != null and st_po_no != ''">
+			<![CDATA[
+				AND (POHD.PO_NO  LIKE UPPER(#{st_po_no}||'%') OR PODT.LEGACY_PO_NO LIKE UPPER(#{st_po_no}||'%'))
+			]]>
+		</if>	
+		<![CDATA[
+				GROUP BY   PODT.BUYER
+				         , POHD.PO_CREATE_DATE
+				         , POHD.PURCHASER_NAME
+				         , PODT.PO_NO
+				         , PODT.PO_SEQ
+				         , PORS.DS_DATE
+				HAVING MAX(PODT.ITEM_QTY) != MAX(PODT.GR_QTY)
+				AND    SUM(PORS.CD_QTY)   != NVL(SUM(DELIVERY_QTY),0)
+				ORDER BY ST_DATE DESC, PODT.BUYER, PODT.PO_NO,PODT.PO_SEQ
+ 		]]>
+		<include refid="common.ibsheet.xml.jsppageend"/>	
+	</select> 
+	
+	
+	<!-- 납품지연사유 저장-->
+	<update id="updateSellerMpIvDeliveryDelayState" parameterType="java.util.Map">
+		<![CDATA[
+			/*updateSellerMpIvDeliveryDelayState*/
+			UPDATE ICOMPORS
+			SET 
+				  DS_REMARK = #{ds_remark}        
+			WHERE
+					BUYER	= #{buyer}
+				AND PO_NO	= #{po_no}
+				AND PO_SEQ	= #{po_seq}
+				AND DS_DATE = #{ds_date}
+				AND STATUS != 'D'
+		]]>
+	</update> 
+	
+</mapper>

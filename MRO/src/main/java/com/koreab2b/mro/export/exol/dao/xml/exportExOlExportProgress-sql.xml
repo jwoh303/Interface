@@ -1,0 +1,275 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="export.exol">
+	<!-- 조회 -->
+	<select id="selectExportExOlExportProgressList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.pagestart"/>	
+			<![CDATA[
+			SELECT	/* selectExportExOlExportProgressList */
+						CH.BUYER,
+						(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = CH.BUYER) AS BUYER_NAME,
+						CASE	WHEN	CH.COMPLETE_MARK = 'Y' THEN '납품완료'
+								ELSE	CASE	WHEN	CH.BL_COMPLETE_MARK = 'Y' THEN 'B/L생성'
+												ELSE	'C/I, P/L생성'
+								END
+						END AS STATUS,
+						CH.CI_NO,
+						CH.CI_DATE,
+						BD.BL_NO,
+						BD.BL_SEQ,
+						CH.FORWARDER,
+						(SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'EP01' AND CODE = CH.FORWARDER) AS FORWARDER_NAME,
+						CH.SHIP_METHOD,
+						(SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'EP02' AND CODE = CH.SHIP_METHOD) AS SHIP_METHOD_NAME,
+						CH.CURRENCY_CODE,
+						CH.ITEM_AMT,
+						CH.TOTAL_WEIGHT,
+						CH.CI_IMAGE_KEY,
+						DECODE(CH.CI_IMAGE_KEY, '', 3, 2) AS CI_IMAGE_KEY_IMG,
+						BH.IMAGE_KEY AS BL_IMAGE_KEY,
+						DECODE(BH.IMAGE_KEY, '', 3, 2) AS BL_IMAGE_KEY_IMG,
+						CH.EXP_REPORT_DATE,
+						CH.EXP_SHIP_DATE,
+						CH.ENTRY_EXCHANGE_RATE,
+						CH.IMAGE_KEY,
+						DECODE(CH.IMAGE_KEY, '', 3, 2) AS IMAGE_KEY_IMG,
+						6 AS CI_SHEET,
+						6 AS PL_SHEET,
+						DECODE((SELECT COUNT(*) FROM KEP_EXP_LOT_INFO WHERE PKG_COMPANY_CODE = CH.PKG_COMPANY_CODE AND BUYER = CH.BUYER AND CI_NO = CH.CI_NO AND STATUS IN ('C', 'R')), 0, 4, 5) AS LOT_IMG,
+						CH.BL_COMPLETE_MARK,
+						CH.COMPLETE_MARK,
+						BH.RESULT_MSG,
+						DECODE(BH.RESULT_FLAG, 'CONFIRM', '고객사승인', 'REJECT', '고객사반려') AS RESULT_STATUS,
+						BH.RESULT_FLAG,
+						TO_CHAR(TO_DATE(BH.RESULT_DATE, 'YYYYMMDD'),'YYYY/MM/DD') AS RESULT_DATE,
+						BH.BUYER_SHIPPING_NO
+			FROM	KEP_EXP_CIHD CH,
+						KEP_EXP_BLDT BD,
+						KEP_EXP_BLHD BH
+			WHERE	1=1
+			AND		CH.BUYER = BD.BUYER(+)
+			AND		CH.PKG_COMPANY_CODE = BD.PKG_COMPANY_CODE(+)
+			AND		CH.CI_NO = BD.CI_NO(+)
+			
+			AND		BD.BUYER = BH.BUYER(+)
+			AND		BD.PKG_COMPANY_CODE = BH.PKG_COMPANY_CODE(+)
+			AND		BD.BL_NO = BH.BL_NO(+)
+			
+			AND		CH.PKG_COMPANY_CODE = #{st_pkg_cmpy_no}
+			AND		CH.CI_DATE BETWEEN #{st_from_date} AND #{st_to_date}
+			AND		CH.STATUS IN ('C', 'R')
+			]]>
+			
+			<if test="st_buyerArr != null and st_buyerArr != ''">
+				AND	CH.BUYER IN
+				<foreach item="item" collection="st_buyerArr" open="(" separator="," close=")">
+					#{item}
+				</foreach>
+			</if>
+			
+			<if test="st_ci_no != null and st_ci_no != ''">
+			<![CDATA[
+            	AND	CH.CI_NO LIKE #{st_ci_no} || '%'
+			]]>
+            </if>
+			
+			<if test="st_bl_no != null and st_bl_no != ''">
+			<![CDATA[
+            	AND	BD.BL_NO LIKE #{st_bl_no} || '%'
+			]]>
+            </if>
+            
+            <choose>
+            	<when test="st_recv_flag == 'CI' ">
+            		AND	BD.BL_NO IS NULL
+            	</when>
+            	<when test="st_recv_flag == 'BL' ">
+            		AND	CH.BL_COMPLETE_MARK = 'Y'
+            		AND	CH.COMPLETE_MARK = 'N'
+            	</when>
+            	<when test="st_recv_flag == 'CMPL' ">
+            		AND	CH.COMPLETE_MARK = 'Y'
+            	</when>
+            </choose>
+			ORDER BY CH.PKG_COMPANY_CODE, CH.BUYER, CH.CI_NO
+		<include refid="common.ibsheet.xml.pageend"/>			
+	</select>
+
+	<select id="selectExportExOlExportEndCheck" parameterType="java.util.Map" resultType="java.lang.String">
+		<![CDATA[
+		/* selectExportExOlExportEndCheck */
+		SELECT	COUNT(*)
+		FROM	KEP_EXP_CIHD
+		WHERE	1=1
+		AND		BUYER = #{BUYER}
+		AND		PKG_COMPANY_CODE = #{st_pkg_cmpy_no}
+		AND		COMPLETE_MARK = 'Y'
+		AND		STATUS IN ('C', 'R')
+		AND		CI_NO IN	(
+									SELECT	CI_NO
+									FROM	KEP_EXP_BLDT
+									WHERE	1=1
+									AND		BUYER = #{BUYER}
+									AND		PKG_COMPANY_CODE = #{st_pkg_cmpy_no}
+									AND		BL_NO = #{BL_NO}
+		)
+		]]>
+	</select>
+	
+	<update id="updateExportExOlExportProgressHd" parameterType="java.util.Map">
+		<![CDATA[
+		/* updateExportExOlExportProgressHd */
+		UPDATE	KEP_EXP_CIHD A
+		SET		EXP_REPORT_DATE = #{EXP_REPORT_DATE},
+					EXP_SHIP_DATE = #{EXP_SHIP_DATE},
+					ENTRY_EXCHANGE_RATE = #{ENTRY_EXCHANGE_RATE}, 
+					IMAGE_KEY = #{IMAGE_KEY},
+					CI_IMAGE_KEY = #{CI_IMAGE_KEY},
+					CHANGE_DATE = SYSDATE,
+					CHANGE_USER_ID = #{st_user_id},
+					STATUS = 'R'
+		]]>					
+		<if test='st_complete_mark == "Y" '>
+		<![CDATA[
+			,COMPLETE_MARK = 'Y'
+		]]>
+		</if>
+		<![CDATA[
+		WHERE	PKG_COMPANY_CODE = #{st_pkg_cmpy_no}
+		AND		BUYER = #{BUYER}
+		AND		CI_NO = #{CI_NO}
+		]]>
+	</update>
+	<update id="updateExportExOlExportProgressBlHd" parameterType="java.util.Map">
+		<![CDATA[
+		/* updateExportExOlExportProgressBlHd */
+		UPDATE	KEP_EXP_BLHD A
+		SET		A.CHANGE_DATE = SYSDATE
+					,A.CHANGE_USER_ID = #{st_user_id}
+		]]>					
+		<if test='st_complete_mark == "Y" '>
+		<![CDATA[
+			, RESULT_FLAG ='N'
+			, RESULT_MSG = NULL
+			, RESULT_DATE = NULL
+			, BUYER_SHIPPING_NO = NULL
+		]]>
+		</if>
+		<![CDATA[
+		WHERE	A.PKG_COMPANY_CODE = #{st_pkg_cmpy_no}
+		AND	(A.BUYER, A.PKG_COMPANY_CODE, A.BL_NO) IN (
+			SELECT BLDT.BUYER, BLDT.PKG_COMPANY_CODE, BLDT.BL_NO
+			FROM KEP_EXP_BLDT BLDT
+			WHERE BLDT.BUYER = #{BUYER} 
+			AND BLDT.CI_NO = #{CI_NO} 
+		)		
+		]]>
+	</update>
+	<update id="deleteBlExportExOlExportProgressBldt" parameterType="java.util.Map">
+		<![CDATA[
+		/* deleteBlExportExOlExportProgressBldt */
+		DELETE	KEP_EXP_BLDT
+		WHERE	PKG_COMPANY_CODE = #{st_pkg_cmpy_no}
+		AND		BUYER = #{BUYER}
+		AND		BL_NO = #{BL_NO}
+		]]>
+	</update>
+	
+	<update id="deleteBlExportExOlExportProgressBlhd" parameterType="java.util.Map">
+		<![CDATA[
+		/* deleteBlExportExOlExportProgressBlhd */
+		DELETE	KEP_EXP_BLHD
+		WHERE	PKG_COMPANY_CODE = #{st_pkg_cmpy_no}
+		AND		BUYER = #{BUYER}
+		AND		BL_NO = #{BL_NO}
+		]]>
+	</update>
+	
+	<update id="deleteCiExportExOlExportProgressCidt" parameterType="java.util.Map">
+		<![CDATA[
+		/* deleteCiExportExOlExportProgressCidt */
+		DELETE	KEP_EXP_CIDT A
+		WHERE	PKG_COMPANY_CODE = #{st_pkg_cmpy_no}
+		AND		BUYER = #{BUYER}
+		AND		CI_NO = #{CI_NO}
+		]]>
+	</update>
+	
+	<update id="deleteCiExportExOlExportProgressCihd" parameterType="java.util.Map">
+		<![CDATA[
+		/* deleteCiExportExOlExportProgressCihd */
+		DELETE	KEP_EXP_CIHD A
+		WHERE	PKG_COMPANY_CODE = #{st_pkg_cmpy_no}
+		AND		BUYER = #{BUYER}
+		AND		CI_NO = #{CI_NO}
+		]]>
+	</update>
+	
+	<update id="deleteBlExportExOlExportProgressCihd" parameterType="java.util.Map">
+		<![CDATA[
+		/* updateExportExOlExportProgressCihd */
+		UPDATE	KEP_EXP_CIHD A
+		SET		BL_COMPLETE_MARK = 'N',
+					CHANGE_DATE = SYSDATE,
+					CHANGE_USER_ID = #{st_user_id},
+					STATUS = 'R'
+		WHERE	PKG_COMPANY_CODE = #{st_pkg_cmpy_no}
+		AND		BUYER = #{BUYER}
+		AND		CI_NO IN ( SELECT CI_NO FROM KEP_EXP_BLDT
+							WHERE BUYER = #{BUYER}
+							AND BL_NO = #{BL_NO}
+						  )
+		]]>
+	</update>
+	
+	<update id="updateExportExOlExportIcomivdt" parameterType="java.util.Map">
+		<![CDATA[
+		/* updateExportExOlExportIcomivdt */
+		MERGE	INTO	ICOMIVDT A
+     	USING	(SELECT	CIDT.BUYER,
+      							CIDT.INV_NO,
+      							CIDT.INV_SEQ,
+								SUM(CIDT.INV_QTY)INV_QTY
+					FROM	KEP_EXP_CIDT CIDT
+					WHERE	CIDT.PKG_COMPANY_CODE = #{st_pkg_cmpy_no}
+             		AND		CIDT.BUYER = #{BUYER}
+             		AND		CIDT.CI_NO = #{CI_NO}
+             		GROUP BY CIDT.BUYER,
+      							CIDT.INV_NO,
+      							CIDT.INV_SEQ
+		) B
+        ON	(		A.BUYER = B.BUYER
+				AND	A.INV_NO = B.INV_NO
+            	AND	A.INV_SEQ = B.INV_SEQ
+		)
+		WHEN	MATCHED
+		THEN		UPDATE SET A.PKG_CI_QTY = A.PKG_CI_QTY- B.INV_QTY
+		]]>
+	</update>
+	
+	<update id="updateExportExOlExportWmsivdt" parameterType="java.util.Map">
+		<![CDATA[
+		/* updateExportExOlExportWmsivdt */
+		MERGE	INTO	WMSIVDT A
+     	USING	(SELECT	CIDT.BUYER,
+      							CIDT.INV_NO,
+      							CIDT.INV_SEQ,
+								SUM(CIDT.INV_QTY)INV_QTY
+					FROM	KEP_EXP_CIDT CIDT
+					WHERE	CIDT.PKG_COMPANY_CODE = #{st_pkg_cmpy_no}
+             		AND		CIDT.BUYER = #{BUYER}
+             		AND		CIDT.CI_NO = #{CI_NO}
+             		GROUP BY CIDT.BUYER,
+      							CIDT.INV_NO,
+      							CIDT.INV_SEQ
+		) B
+        ON	(		A.BUYER = B.BUYER
+				AND	A.INV_NO = B.INV_NO
+            	AND	A.INV_SEQ = B.INV_SEQ
+		)
+		WHEN	MATCHED
+		THEN		UPDATE SET A.PKG_CI_QTY = A.PKG_CI_QTY- B.INV_QTY
+		]]>
+	</update>
+</mapper>   
+   

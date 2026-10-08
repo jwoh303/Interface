@@ -1,0 +1,320 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.cmcl">
+
+	<!-- 조회 -->
+	<select id="selectMasterCmClSalesLogisticCostReg_Check" parameterType="java.util.Map" resultType="java.lang.Integer">
+	/*selectMasterCmClSalesLogisticCostReg_Check*/
+		<![CDATA[
+			SELECT
+			    COUNT(*) AS CNT
+			FROM 
+			    BNTKEPTEXUP TM /* 매출물류비세금계산서 업로드 임시 테이블 */
+			WHERE 1=1
+			AND TM.BUYER = #{BUYER}
+			AND TM.AGENT = #{AGENT}
+			AND TM.AR_MONTH = #{AR_MONTH}
+			AND TM.ISSUE_DATE = #{ISSUE_DATE}
+			AND TM.SITE = 'KA'
+		]]>
+	</select>
+
+	<select id="selectMasterCmClSalesLogisticCostRegList" parameterType="java.util.Map" resultType="java.util.Map">
+	/*selectMasterCmClSalesLogisticCostRegList*/
+		<![CDATA[
+			SELECT
+				DECODE(TAX_BILL_NO, NULL, '미생성', '생성') AS STATUS
+			  , (SELECT TEXT2 FROM ICOMCOD1 WHERE TYPE = 'TX01' AND CODE = TM.KEP_IRS) AS KEP_IRS_NAME 
+			  , TM.KEP_IRS AS KEP_IRS_NO
+			  , TM.BUYER
+			  , DECODE(IR.IRS_NO, NULL, CM.COM_NAME_LOC, IR.IRS_NAME) AS BUYER_NAME
+			  , TM.BUYER_IRS_NO
+			  , TM.AGENT
+			  , (SELECT COM_NAME_LOC FROM ICOMCMPY /* 회원사정보 */ WHERE COM_CODE = TM.AGENT) AS AGENT_NAME
+			  , TM.AGENT_IRS_NO
+			  , TM.DEPT_CODE AS KEP_DEPT
+			  , (SELECT TEXT2 FROM ICOMCOD1 /* 마스터코드 관리 */ WHERE TYPE = 'TX06' AND CODE = TM.DEPT_CODE) AS KEP_DEPT_NAME
+			  , TM.GR_AMT
+			  , TM.FEE_PERCENT
+			  , TM.LOGISTICS_FEE
+			  , TM.SUPP_PRICE
+			  , TM.TAX_PRICE
+			  , TM.AMT
+			  , TM.AR_CLOSE_MONTH
+			  , TM.AR_CLOSE_REVISION
+			  , TM.AR_MONTH
+			  , TM.ISSUE_DATE
+			  /*, '' AS LAST_DAY*/
+			FROM 
+			    BNTKEPTEXUP TM /* 매출물류비세금계산서 업로드 임시 테이블 */
+			  , ICOMCMPY CM /* 회원사정보 */
+			  , KEPTIRSN IR /* 고객사 사업자정보 */
+			WHERE 1=1
+			AND TM.BUYER = CM.COM_CODE
+			AND TM.SITE = IR.SITE(+)
+			AND TM.BUYER_IRS_NO = IR.IRS_NO(+)
+			AND TM.BUYER = IR.COM_CODE(+)
+			AND TM.SITE = 'KA'
+		]]>
+		<if test="st_buyer_code != null and st_buyer_code != '' ">
+			AND TM.BUYER = #{st_buyer_code}
+		</if>
+		<![CDATA[
+			AND TM.AR_MONTH = #{st_from_date}
+			ORDER BY 
+			    TM.BUYER
+			  , TM.AGENT
+			  , TM.ISSUE_DATE
+		]]>
+	</select>
+
+
+	<!-- 저장 -->
+	<update  id="insertMasterCmClSalesLogisticCostReg" parameterType="java.util.Map" >
+	/*insertMasterCmClSalesLogisticCostReg*/
+		<![CDATA[
+			INSERT INTO BNTKEPTEXUP /* 매출물류비세금계산서 업로드 임시 테이블 */
+			(
+			    BUYER
+			  , AGENT
+			  , AR_MONTH
+			  , ISSUE_DATE
+			  
+			  , KEP_IRS
+			  , SITE
+			  , BUYER_IRS_NO
+			  , AGENT_IRS_NO
+			  , DEPT_CODE
+			  
+			  , GR_AMT
+			  , FEE_PERCENT
+			  , LOGISTICS_FEE
+			  , SUPP_PRICE
+			  , TAX_PRICE
+			  , AMT
+			  
+			  , AR_CLOSE_MONTH
+			  , AR_CLOSE_REVISION
+			  , ADD_USER_ID
+			  , CREATE_DATETIME
+			)
+			VALUES
+			(
+			    #{BUYER}
+			  , #{AGENT}
+			  , #{AR_MONTH}
+			  , #{ISSUE_DATE}
+			  
+			  , #{KEP_IRS_NO}
+			  , 'KA'
+			  , #{BUYER_IRS_NO}
+			  , #{AGENT_IRS_NO}
+			  , #{KEP_DEPT}
+			  
+			  , #{GR_AMT}
+			  , #{FEE_PERCENT}
+			  , #{LOGISTICS_FEE}
+			  , #{SUPP_PRICE}
+			  , #{TAX_PRICE}
+			  , #{AMT}
+			  
+			  , ''
+			  , ''
+			  , #{st_user_id}
+			  , SYSDATE
+			)
+		]]>
+	</update>
+
+
+	<!-- 생성 -->
+	<update  id="updateMasterCmClSalesLogisticCostReg" parameterType="java.util.Map" >
+	/*updateMasterCmClSalesLogisticCostReg*/
+		<![CDATA[
+			UPDATE BNTKEPTEXUP /* 매출물류비세금계산서 업로드 임시 테이블 */
+			SET TAX_BILL_NO       = #{order_no}
+			  , AR_CLOSE_MONTH    = #{AR_MONTH}
+			  , AR_CLOSE_REVISION = #{st_close_revision}
+			WHERE 1=1
+			AND BUYER      = #{BUYER} 
+			AND AGENT      = #{AGENT}
+			AND AR_MONTH   = #{AR_MONTH}
+			AND ISSUE_DATE = #{ISSUE_DATE} 
+			AND TAX_BILL_NO IS NULL
+		]]>
+	</update>
+	
+	<update  id="insertMasterCmClSalesLogisticCostReg_BNTKEPTARDT" parameterType="java.util.Map" >
+	/*insertMasterCmClSalesLogisticCostReg_BNTKEPTARDT*/
+		<![CDATA[
+			INSERT INTO BNTKEPTARDT /* 물류비_외상매출_세금계산서 */
+			(
+			    TAX_BILL_NO
+			  , DEPT_CODE
+			  , KEP_IRS
+			  , SITE
+			  , STATUS
+			  , ISSUE_DATE
+			  , CUSTOMER_NAME
+			  , IRS_NO
+			  , BUYER_CODE
+			
+			  , TOT_SUPP_PRICE
+			  , TOT_TAX_PRICE
+			  , TOT_AMT
+			  , SUPP_PRICE
+			  , TAX_PRICE
+			  , AMT
+			
+			  , TAX_TYPE
+			  , BILL_TYPE
+			  , PRINT_DATE
+			  , PRINT_USER_ID
+			  , PRINT_CNT
+			  , PRINT_AVAIL_CNT
+			  , CONFIRM_FLAG
+			  
+			  , REMARK_DESCRIPTION
+			  , REMARK_SPECIFICATION
+			  , REMARK_QTY
+			  , REMARK_PRICE
+			  , ASK_TYPE
+			  
+			  , ADD_DATE
+			  , ADD_TIME
+			  , ADD_USER_ID
+			  , CHANGE_DATE
+			  , CHANGE_TIME
+			  , CHANGE_USER_ID
+			  , SEND_DATE
+			  , SEND_TIME
+			  , SEND_USER_ID
+			  , IF_SEND_DATE
+			  , IF_SEND_TIME
+			  , IF_SEND_FLAG
+			  
+			  , AR_CLOSE_MONTH
+			  , AR_CLOSE_REVISION
+			  
+			  , KEP_IRS_NAME
+			  , KEP_CEO_NAME_LOC
+			  , KEP_INDUSTRY_TYPE
+			  , KEP_BUSINESS_ITEMS
+			  , KEP_ADDRESS_LOC
+			  , IRS_NAME
+			  , CEO_NAME_LOC
+			  , INDUSTRY_TYPE
+			  , BUSINESS_ITEMS
+			  , ADDRESS_LOC
+			)
+			VALUES
+			(
+			    #{order_no}
+			  , #{KEP_DEPT}
+			  , #{KEP_IRS_NO}
+			  , 'KA'
+			  , 'C'
+			  , #{AR_MONTH} || #{issue_last_day}
+			  , #{BUYER_NAME}
+			  , #{BUYER_IRS_NO}
+			  , #{BUYER}
+			
+			  , #{SUPP_PRICE}
+			  , #{TAX_PRICE}
+			  , #{AMT}
+			  , #{SUPP_PRICE}
+			  , #{TAX_PRICE}
+			  , #{AMT}
+			
+			  , '1A'
+			  , (SELECT BILL_TYPE FROM ICOMCMPY WHERE COM_CODE = #{BUYER})
+			  , ''
+			  , ''
+			  , 0
+			  , 1
+			  , 'N'
+			  
+			  , 'MRO품목외'
+			  , 'MRO품목외'
+			  , 1
+			  , #{SUPP_PRICE}
+			  , '2'
+			  
+			  , TO_CHAR(SYSDATE,'YYYYMMDD')
+			  , TO_CHAR(SYSDATE,'HH24MISS')
+			  , #{st_user_id}
+			  , TO_CHAR(SYSDATE,'YYYYMMDD')
+			  , TO_CHAR(SYSDATE,'HH24MISS')
+			  , #{st_user_id}
+			  , ''
+			  , ''
+			  , ''
+			  , ''
+			  , ''
+			  , ''
+			  
+			  , #{AR_MONTH}
+			  , #{st_close_revision}
+			  
+			  , #{kep_irs_name}
+			  , #{kep_ceo_name_loc}
+			  , #{kep_industry_type}
+			  , #{kep_business_items}
+			  , #{kep_address_loc}
+			  , #{buyer_irs_name}
+			  , #{buyer_ceo_name_loc}
+			  , #{buyer_industry_type}
+			  , #{buyer_business_items}
+			  , #{buyer_address_loc}
+			)
+		]]>
+	</update>
+
+	<update  id="insertMasterCmClSalesLogisticCostReg_BNTKEPTITEM" parameterType="java.util.Map" >
+	/*insertMasterCmClSalesLogisticCostReg_BNTKEPTITEM*/
+		<![CDATA[
+			INSERT INTO BNTKEPTITEM /* 물류비_세금계산서 품목정보 */
+			(
+			    TAX_BILL_NO
+			  , ITEM_SEQ
+			  , REMARK_DESCRIPTION
+			  , REMARK_SPECIFICATION
+			  , REMARK_QTY
+			  , REMARK_PRICE
+			  , SUPP_PRICE
+			  , TAX_PRICE
+			  , REMARK_DATE
+			)
+			VALUES
+			(
+			    #{order_no}
+			  , '000001'
+			  , 'MRO용품외'
+			  , ''
+			  , ''
+			  , ''
+			  , TRUNC(#{SUPP_PRICE})
+			  , TRUNC(#{SUPP_PRICE}*0.1)
+			  , TO_CHAR(SYSDATE, 'YYYYMMDD')
+			)
+		]]>
+	</update>
+
+
+	<!-- 삭제 -->
+	<update id="deleteMasterCmClSalesLogisticCostReg"  parameterType="java.util.Map">
+		<![CDATA[
+			DELETE 
+			    BNTKEPTEXUP /* 매출물류비세금계산서 업로드 임시 테이블 */ 
+			WHERE 1=1 
+			AND BUYER = #{BUYER} 
+			AND AGENT = #{AGENT} 
+			AND AR_MONTH = #{AR_MONTH}
+			AND ISSUE_DATE = #{ISSUE_DATE}
+			AND TAX_BILL_NO IS NULL
+		]]>
+	</update>
+
+
+</mapper>   
+   

@@ -1,0 +1,1898 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="buyer.wmgr">
+
+	<!-- 화면초기 호출시 특수로직 조회하여 화면 구성 -->
+	<select id="selectBuyerWmGrWarehousingRegSlogic" parameterType="java.util.Map" resultType="java.util.Map">
+	<![CDATA[
+		/*selectBuyerWmGrWarehousingRegSlogic*/
+		SELECT 
+			  X.BUYER
+			, DECODE(Y.BUYER, NULL, 'N', 'Y') AS ROW_CNT_YN    --그리드 행개수
+			, DECODE(Y.BUYER, NULL, 10, Y.ROW_CNT) AS ROW_CNT  --그리드 default 개수
+			, DECODE(V.BUYER, NULL, 'N', 'Y') AS CARD_YN       --신용카드 사용고객사  
+			, NVL(W.DEPT_FIX, 'N') AS DEPT_FIX                 --요청부서 조건 고정
+			, NVL(W.PR_USER_FIX, 'N') AS PR_USER_FIX           --요청자로 조건 고정 
+			, NVL(W.PO_USER_FIX, 'N') AS PO_USER_FIX           --발주자로 조건 고정  
+		FROM (
+			SELECT #{com_code} BUYER  -- SESSION COMCODE
+			FROM DUAL
+		) X
+		, (
+			/* SLOGIC-BEGIN(P07-0000004) 그리드 출력 초기 rowcount 100 (default rowcount 10) */
+			SELECT B.COM_CODE BUYER, B.COL01_DATA ROW_CNT
+			FROM BNTSLGDEF A, BNTSLGIMP B
+			WHERE	1=1
+				AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN A.OPEN_DATE AND A.CLOSE_DATE
+				AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN B.OPEN_DATE AND B.CLOSE_DATE
+				AND A.SLG_ID = B.SLG_ID                                          
+				AND A.SLG_ID = 'P07-0000004'  
+			/* SLOGIC-END */
+		) Y    
+		, ( 
+			/* SLOGIC-BEGIN(P07-0000043) 신용카드사용 고객사   */ 
+			SELECT B.COM_CODE BUYER
+			FROM BNTSLGDEF A, BNTSLGIMP B
+			WHERE 	1=1
+				AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN A.OPEN_DATE AND A.CLOSE_DATE
+				AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN B.OPEN_DATE AND B.CLOSE_DATE
+				AND A.SLG_ID = B.SLG_ID                                          
+				AND A.SLG_ID = 'P06-0000043'        --<-- P07-0000006 : ID 대체
+			/* SLOGIC-END */
+		) V
+		, (
+			/* SLOGIC-BEGIN(P07-0000008) 조회조건 */
+			SELECT 
+				  B.COM_CODE BUYER
+				, B.COL01_DATA DEPT_FIX
+				, B.COL02_DATA PR_USER_FIX
+				, B.COL03_DATA PO_USER_FIX
+			FROM BNTSLGDEF A, BNTSLGIMP B
+			WHERE 	1=1
+				AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN A.OPEN_DATE AND A.CLOSE_DATE
+				AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN B.OPEN_DATE AND B.CLOSE_DATE
+				AND A.SLG_ID = B.SLG_ID                                          
+				AND A.SLG_ID = 'P07-0000008'
+				AND NOT EXISTS (SELECT 'X' FROM ICOMLUSR
+	                WHERE USER_ID = #{user_id}
+	                AND   USER_TYPE = 'A')
+			/* SLOGIC-END */  
+		) W
+		WHERE 
+				X.BUYER = Y.BUYER(+)
+			AND X.BUYER = V.BUYER(+)
+			AND X.BUYER = W.BUYER(+)
+	]]>
+	</select>
+
+	<!-- 리스트 조회 -->
+	<select id="selectBuyerWmGrWarehousingRegList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.jsppagestart"/>
+		<![CDATA[
+			/*selectBuyerWmGrWarehousingRegList*/
+			SELECT
+				  S.PO_NO									-- 1 
+				, S.INV_NO									-- 2 
+				, S.BUYER_ITEM_NO							-- 3 
+				, S.REF_PR_NO								-- 4 
+				, S.DESCRIPTION								-- 5
+				, S.SPECIFICATION							-- 6 
+				, S.PO_QTY									-- 7 
+				, S.UNIT_MEASURE							-- 8 
+				, S.PO_CREATE_DATE							-- 9
+				, S.UNIT_PRICE								-- 10 
+				, S.PO_AMT									-- 11 
+				, S.INV_QTY									-- 12 
+				, S.GR_QTY									-- 13
+				, S.AVAIL_GR_QTY
+				, S.PO_CREATOR								-- 14 
+				, DECODE((	SELECT AGENT_OPEN_FLAG 
+							FROM ICOMCMPY 
+							WHERE COM_CODE = #{st_com_code}),'N','코리아이플랫폼(주)',S.AGENT_NAME) AS AGENT_NAME	-- 15
+				, S.REQ_DEPT_NAME							-- 16 
+				, S.BUYER									-- 17
+				, S.SELLER									-- 18
+				, S.PO_SEQ									-- 19
+				, S.INV_SEQ									-- 20
+				, S.AGENT									-- 21
+				, S.AGENT_PRICE								-- 22
+				, S.BYIT_COMORG_CODE						-- 23
+				, S.CONTRACT_NO								-- 24
+				, S.CONTRACT_SEQ							-- 25
+				, S.REQ_DEPT								-- 26
+				, DECODE((SELECT AGENT_OPEN_FLAG FROM ICOMCMPY WHERE COM_CODE = #{st_com_code}),'N','KRKORE0001',S.AGENT) AS AGENT_CODE	-- 27
+				, S.WAREHOUSE_CODE							-- 28
+				, S.PURCHASER_ID							-- 29
+				, (SELECT CARD_USE_FLAG FROM ICOMPRHD PRHD WHERE S.BUYER = PRHD.BUYER AND S.PR_NO = PRHD.PR_NO AND ROWNUM =1 ) AS CARD_USE_FLAG			-- 30
+				, (SELECT CARD_CONFIRM_NO FROM ICOMPRHD PRHD WHERE S.BUYER = PRHD.BUYER AND S.PR_NO = PRHD.PR_NO AND ROWNUM =1 ) AS CARD_CONFIRM_NO		-- 31
+				, S.PX_NO
+				, '0' AS TEMP_GR_QTY
+				, S.RECV_FLAG
+				, S.PCO_REF_PR_NO
+				, S.PCO_LEGACY_PO_NO
+				, S.ADD_USER_NAME
+				, S.SIZE_QTY
+				, S.SIZE_LEN
+				, (SELECT CM.COM_NAME_LOC FROM ICOMCMPY CM WHERE CM.COM_CODE =S.BUYER) COM_NAME_LOC
+				, S.AUTO_GR_FLAG
+				, S.IMAGE_KEY_SIGN
+				, S.IMAGE_KEY_INV
+				, S.PR_USER_NAME
+				, S.SND_CHK
+				, S.CATEG_NAME
+				, S.MAKER_NAME
+				, S.ORIGIN_NAME
+				, S.PO_TTL_AMT
+				, S.CUR
+				, S.PRE_GR_YN
+				, S.FAST_PO_YN
+				, S.PR_NO
+				, S.PR_SEQ
+				, S.RD_DATE
+				, S.CD_DATE
+				, S.STATUS_TEXT
+				, S.INVOICE_DATE
+				, '' AS DELIVERY_PERSON_NAME
+				, '' AS DELIVERY_PERSON_PHONE
+				, '' AS DELIVERY_CAR_NO
+				, (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'C019' AND CODE = S.PARCEL_COM_CODE) AS PARCEL_COM_NAME
+				, S.PARCEL_INV_NO
+				, S.ADD_USER_TEL
+				, TO_CHAR(SYSDATE, 'YYYY-MM-DD HH24:MI') AS TODAY_DATE
+				, S.ADD_USER_NAME_ENG
+				, S.ADD_USER_EMAIL
+				, '1052552' AS ASN_VENDOR_CODE
+				, (CASE WHEN TRIM(S.PARCEL_INFO) IS NOT NULL THEN '택배' ELSE ' ' END) AS PARCEL_INFO
+				, S.GR_LOCK_MONTH
+			FROM (
+				SELECT
+					  PODT.PO_NO
+					, DECODE(PODT.PROCESS_TYPE,'0',IV.INV_NO, WMS.INV_NO ) AS INV_NO
+					, PODT.BUYER_ITEM_NO AS BUYER_ITEM_NO
+					, PODT.REF_PR_NO||DECODE(PODT.BUYER,'KRDAEW0016','-'||TO_NUMBER(PODT.LEGACY_PO_SEQ),'') AS REF_PR_NO
+					, PODT.DESCRIPTION AS DESCRIPTION
+					, PODT.SPECIFICATION AS SPECIFICATION
+					, PODT.UNIT_PRICE AS UNIT_PRICE
+					, DECODE(PODT.PROCESS_TYPE,'0',IV.INV_QTY, WMS.INV_QTY ) * PODT.UNIT_PRICE AS PO_AMT
+					, PODT.UNIT_MEASURE AS UNIT_MEASURE
+					, POHD.PO_CREATE_DATE
+					, PODT.ITEM_QTY AS PO_QTY
+					, DECODE(PODT.PROCESS_TYPE,'0',IV.INV_QTY, WMS.INV_QTY ) AS INV_QTY
+					, NVL(PODT.GR_QTY,0) GR_QTY
+					, DECODE(PODT.PROCESS_TYPE,'0',IV.INV_QTY- NVL(IV.GR_QTY,0) ,WMS.INV_QTY- NVL(WMS.BUYER_GR_QTY,0)) AS AVAIL_GR_QTY	-- 입고가능수량
+					, (SELECT USER_NAME_LOC FROM ICOMLUSR
+					      WHERE USER_ID = DECODE(PODT.BUYER,'KRDUPO0001',PR.ADD_USER_ID,PR.PURCHASER_ID)) AS PO_CREATOR
+					, (SELECT  COM_NAME_LOC FROM ICOMCMPY
+					 WHERE COM_CODE = POHD.AGENT AND STATUS !='D') AS AGENT_NAME
+					, (SELECT TEXT1 FROM ICOMCOD2
+					      WHERE COMPANY_CODE = PR.BUYER
+						AND TYPE = 'C001'
+						AND CODE = PR.REQ_DEPT) AS REQ_DEPT_NAME
+					, PODT.BUYER
+					, DECODE(PODT.PROCESS_TYPE,'0',IV.SELLER, WMS.SELLER ) AS SELLER
+					, PODT.PO_SEQ
+					, DECODE(PODT.PROCESS_TYPE,'0',IV.INV_SEQ, WMS.INV_SEQ ) AS INV_SEQ
+					, POHD.AGENT
+					, PODT.AGENT_PRICE
+					, PODT.BYIT_COMORG_CODE AS BYIT_COMORG_CODE
+					, PODT.CONTRACT_NO AS CONTRACT_NO
+					, PODT.CONTRACT_SEQ AS CONTRACT_SEQ
+					, PR.REQ_DEPT AS REQ_DEPT
+					, DECODE(PODT.PROCESS_TYPE,'0','',WMS.WAREHOUSE_CODE) AS WAREHOUSE_CODE
+					, POHD.PURCHASER_ID AS PURCHASER_ID
+					, PR.PR_NO
+					, PR.REF_NO AS PX_NO
+					, PR.RECV_FLAG
+					, PODT.REF_PR_NO AS PCO_REF_PR_NO
+					, PODT.LEGACY_PO_NO AS PCO_LEGACY_PO_NO
+					, PR.ADD_USER_NAME
+					, PR.SIZE_QTY
+					, PR.SIZE_LEN
+					, (SELECT USR.USER_NAME_LOC FROM ICOMLUSR USR WHERE USR.USER_ID = PR.ADD_USER_ID) AS PR_USER_NAME
+					, NVL(BUYER.AUTO_GR_FLAG, 'N') AS AUTO_GR_FLAG
+					, DECODE(PODT.PROCESS_TYPE, '0', IVHD.IMAGE_KEY_SIGN, WMS.IMAGE_KEY_SIGN) AS IMAGE_KEY_SIGN
+					, DECODE(PODT.PROCESS_TYPE, '0', IVHD.IMAGE_KEY_INV, WMS.IMAGE_KEY_INV) AS IMAGE_KEY_INV 
+					, DECODE(PODT.PROCESS_TYPE,'0',IV.SND_CHK ,WMS.SND_CHK) AS SND_CHK
+					, (SELECT CATEG_NAME FROM ICOMBYCA WHERE COM_CODE = PODT.BYIT_COMORG_CODE AND STD_CATEG_ID = PODT.CATEG_ID) AS CATEG_NAME
+					, PODT.MAKER_NAME
+					, (SELECT TEXT2 FROM ICOMCOD1 WHERE TYPE = 'M001' AND CODE = PODT.ORIGIN_CODE) AS ORIGIN_NAME
+					, PODT.ITEM_QTY * PODT.UNIT_PRICE AS PO_TTL_AMT
+					, POHD.CUR
+					, DECODE(POHD.DOC_TYPE, 'S', 'Y', 'N') AS PRE_GR_YN
+					, DECODE(POHD.DOC_TYPE, 'F', 'Y', 'N') AS FAST_PO_YN
+					, PR.PR_SEQ
+					, PR.RD_DATE
+					, CASE WHEN PODT.PROCESS_TYPE = '0' THEN (  SELECT MAX(DS_DATE) FROM ICOMPORS WHERE BUYER = PODT.BUYER AND PO_NO = PODT.PO_NO AND PO_SEQ = PODT.PO_SEQ AND DS_DATE = PODT.DS_DATE AND STATUS != 'D' )
+            	 	 			ELSE (SELECT MAX(SCHEDULED_DATE) FROM WMSIVDT WHERE BUYER = PODT.BUYER AND PO_NO = PODT.PO_NO AND PO_SEQ = PODT.PO_SEQ AND STATUS != 'D') END AS CD_DATE
+     				, F_GET_PR_STTS(PR.BUYER, PR.PR_NO, PR.PR_SEQ , 1) AS STATUS_TEXT
+     				, (DECODE(PODT.PROCESS_TYPE,'0',
+     						(SELECT MIN(INVOICE_DATE) FROM ICOMIVDT WHERE BUYER = PODT.BUYER AND PO_NO = PODT.PO_NO AND PO_SEQ = PODT.PO_SEQ AND STATUS <>'D'),
+     						(SELECT MIN(INV_DATE) FROM WMSIVDT WHERE BUYER = PODT.BUYER AND PO_NO = PODT.PO_NO AND PO_SEQ = PODT.PO_SEQ AND STATUS <> 'D'))
+     				) AS INVOICE_DATE
+     				, IVHD.PARCEL_COM_CODE
+     				, IVHD.PARCEL_INV_NO
+     				, PR.ADD_USER_TEL
+     				, (SELECT USER_NAME_ENG FROM ICOMLUSR WHERE USER_ID = PR.ADD_USER_ID) AS ADD_USER_NAME_ENG
+     				, (SELECT EMAIL FROM ICOMLUSR WHERE USER_ID = PR.ADD_USER_ID) AS ADD_USER_EMAIL
+     				, DECODE(PODT.PROCESS_TYPE, '0', IVHD.PARCEL_INV_NO, WMS.DELIVERY_NO)  AS PARCEL_INFO
+     				, (SELECT MAX(CODE) FROM ICOMCOD2 WHERE TYPE = 'NOGR' AND COMPANY_CODE = PODT.BUYER AND FLAG = 'Y') AS GR_LOCK_MONTH 
+				FROM  ICOMPOHD POHD, ICOMPODT PODT ,ICOMPRDT PR , ICOMIVDT IV, WMSIVDT WMS, KEP_BUYER_FLAG BUYER, ICOMIVHD IVHD
+				WHERE  POHD.PO_CREATE_DATE BETWEEN #{st_from_date} AND #{st_to_date}
+		]]>
+				<choose>
+					<when test='st_group_mng_flag == "Y"'>
+					<choose>
+						<when test="st_group_info != null and st_group_info != '' ">
+						<![CDATA[
+							AND	PODT.BUYER IN (SELECT COD3.CODE2 FROM ICOMCOD3 COD3 WHERE COD3.TYPE = 'BGCM' AND COD3.CODE1 = #{st_user_id} AND COD3.TEXT1 = #{st_group_info}  AND 	COD3.FLAG = 'Y')
+						]]>
+						</when>
+						<otherwise>
+							<choose>
+								<when test="st_com_code != null and st_com_code != '' ">
+								<![CDATA[
+									AND	PODT.BUYER = #{st_com_code}
+								]]>
+								</when>
+								<otherwise>
+								<![CDATA[
+									AND	PODT.BUYER IN (SELECT COD3.CODE2 FROM ICOMCOD3 COD3 WHERE COD3.TYPE = 'TGCM' AND COD3.CODE1 = #{st_user_id} AND COD3.FLAG = 'Y')
+								]]>
+								</otherwise>
+							</choose>
+						</otherwise>
+					</choose>
+					</when>
+					<when test='st_group_mng_flag == "N"'>
+					<![CDATA[
+						AND	PODT.BUYER = #{st_com_code}
+					]]>
+					</when>
+				</choose>
+		<!-- 관리번호 -->
+		<if test="st_ref_pr_no != null and st_ref_pr_no != ''">
+			<![CDATA[
+				AND  PODT.REF_PR_NO LIKE #{st_ref_pr_no}||'%'
+			]]>
+		</if>
+		<!-- 펀치아웃 발주번호 -->
+		<if test="st_legacy_po_no != null and st_legacy_po_no != ''">
+			<![CDATA[
+				AND PODT.LEGACY_PO_NO  LIKE #{st_legacy_po_no}||'%'
+			]]>
+		</if>
+		<!-- 펀치아웃품목코드 -->
+		<if test="st_buyer_item_no != null and st_buyer_item_no != ''">
+			<![CDATA[
+				AND (UPPER( PR.BUYER_ITEM_NO)  LIKE  UPPER(#{st_buyer_item_no}||'%') OR .BUYER_ITEM_NO IN 
+					(SELECT DISTINCT BUYER_ITEM_NO FROM ICOMCQDT CQDT
+					WHERE CQDT.BUYER = PODT.BUYER 
+					AND CQDT.STATUS <> 'D'    
+					AND CQDT.ITEM_NO LIKE UPPER('#{st_buyer_item_no}||'%')))
+			]]>
+		</if>
+		<!-- 펀치사용자ID-->
+		<if test="st_change_user_id != null and st_change_user_id != ''">
+			<![CDATA[
+				AND PR.ADD_USER_ID  =  #{st_change_user_id}
+			]]>
+		</if>
+		<!-- 송장번호 / 발주번호 -->
+		<if test="st_search_no != null and st_search_no != ''">
+			<if test='st_no_type == "IV"'>
+			    AND DECODE(PODT.PROCESS_TYPE,'0',IV.INV_NO, WMS.INV_NO ) LIKE '%'||UPPER(#{st_search_no})||'%'
+			</if>
+			<if test='st_no_type == "PO"'>
+			    AND PODT.PO_NO LIKE '%'||UPPER(#{st_search_no})||'%'
+			</if>
+			<if test='st_no_type == "DESC"'>
+			    AND PODT.DESCRIPTION LIKE '%'||UPPER(#{st_search_no})||'%'
+			</if>
+		</if>
+		
+		<!-- 발주자/요청자 -->
+		<if test="st_po_user_id != null and st_po_user_id != ''">
+			<if test='st_user_type == "PO"'>	
+				<![CDATA[
+					AND PR.PURCHASER_ID = #{st_po_user_id}
+				]]>
+			</if>
+			<if test='st_user_type != "PO"'>	
+				<![CDATA[
+					AND PR.ADD_USER_ID = #{st_po_user_id}
+				]]>
+			</if>
+		</if>
+		
+		<!-- 요청부서 -->
+		<if test="st_req_dept_code != null and st_req_dept_code != ''">
+			<![CDATA[
+				AND  PR.REQ_DEPT = #{st_req_dept_code}
+			]]>
+		</if>
+		
+		<!-- 배송완료 체크박스 -->
+		<if test='st_di_yn == "Y"'>
+			<![CDATA[
+				AND  PODT.IV_QTY = PODT.DI_QTY
+			]]>
+		</if>
+		
+		<![CDATA[	
+					AND PODT.BUYER = POHD.BUYER
+					AND PODT.PO_NO = POHD.PO_NO
+					AND PODT.STATUS <> 'D'
+					AND PODT.ITEM_QTY <> NVL(PODT.GR_QTY, 0)
+					AND PODT.BUYER = IV.BUYER
+					AND PODT.PO_NO = IV.PO_NO
+					AND PODT.PO_SEQ = IV.PO_SEQ
+					AND IV.STATUS <> 'D'
+					AND IV.BUYER = IVHD.BUYER
+					AND IV.INV_NO = IVHD.INV_NO
+					AND PODT.BUYER = PR.BUYER
+					AND PODT.PR_NO = PR.PR_NO
+					AND PODT.PR_SEQ = PR.PR_SEQ
+					AND PR.STATUS <> 'D'
+					AND IV.BUYER = WMS.BUYER(+)
+					AND IV.INV_NO = WMS.S_INV_NO(+)
+					AND IV.INV_SEQ = WMS.S_INV_SEQ(+)
+					AND PODT.BUYER = BUYER.COM_CODE(+)
+					AND WMS.STATUS(+) <> 'D'
+					AND DECODE(PODT.PROCESS_TYPE,'0',IV.INV_NO, WMS.INV_NO ) IS NOT NULL
+					AND DECODE(PODT.PROCESS_TYPE,'0',NVL(IV.GR_QTY,0), NVL(WMS.BUYER_GR_QTY,0)) <> DECODE(PODT.PROCESS_TYPE,'0',NVL(IV.INV_QTY,0), NVL(WMS.INV_QTY,0))
+				ORDER BY PO_NO, INV_NO, INV_SEQ
+			) S
+ 		]]>
+		<include refid="common.ibsheet.xml.jsppageend"/>	
+	</select> 
+	
+	<select id="getBuyerWmGrWarehousingRegList_v2" parameterType="java.util.Map" resultType="java.util.Map">
+		<if test='st_all_page == "N"'>
+			<include refid="common.ibsheet.xml.pagestart"/>
+		</if>
+		<![CDATA[
+			/*getBuyerWmGrWarehousingRegList_v2*/
+			SELECT
+				  S.PO_NO									-- 1 
+				, S.INV_NO									-- 2 
+				, S.BUYER_ITEM_NO							-- 3 
+				, S.REF_PR_NO								-- 4 
+				, S.DESCRIPTION								-- 5
+				, S.SPECIFICATION							-- 6 
+				, S.PO_QTY									-- 7 
+				, S.UNIT_MEASURE							-- 8 
+				, S.PO_CREATE_DATE							-- 9
+				, S.UNIT_PRICE								-- 10 
+				, S.PO_AMT									-- 11 
+				, S.INV_QTY									-- 12 
+				, S.GR_QTY									-- 13
+				, S.AVAIL_GR_QTY
+				, S.PO_CREATOR								-- 14 
+				, DECODE((	SELECT AGENT_OPEN_FLAG 
+							FROM ICOMCMPY 
+							WHERE COM_CODE = #{st_com_code}),'N','코리아이플랫폼(주)',S.AGENT_NAME) AS AGENT_NAME	-- 15
+				, S.REQ_DEPT_NAME							-- 16 
+				, S.BUYER									-- 17
+				, S.SELLER									-- 18
+				, S.PO_SEQ									-- 19
+				, S.INV_SEQ									-- 20
+				, S.AGENT									-- 21
+				, S.AGENT_PRICE								-- 22
+				, S.BYIT_COMORG_CODE						-- 23
+				, S.CONTRACT_NO								-- 24
+				, S.CONTRACT_SEQ							-- 25
+				, S.REQ_DEPT								-- 26
+				, DECODE((SELECT AGENT_OPEN_FLAG FROM ICOMCMPY WHERE COM_CODE = #{st_com_code}),'N','KRKORE0001',S.AGENT) AS AGENT_CODE	-- 27
+				, S.WAREHOUSE_CODE							-- 28
+				, S.PURCHASER_ID							-- 29
+				, (SELECT CARD_USE_FLAG FROM ICOMPRHD PRHD WHERE S.BUYER = PRHD.BUYER AND S.PR_NO = PRHD.PR_NO AND ROWNUM =1 ) AS CARD_USE_FLAG			-- 30
+				, (SELECT CARD_CONFIRM_NO FROM ICOMPRHD PRHD WHERE S.BUYER = PRHD.BUYER AND S.PR_NO = PRHD.PR_NO AND ROWNUM =1 ) AS CARD_CONFIRM_NO		-- 31
+				, S.PX_NO
+				, '0' AS TEMP_GR_QTY
+				, S.RECV_FLAG
+				, S.PCO_REF_PR_NO
+				, S.PCO_LEGACY_PO_NO
+				, S.ADD_USER_NAME
+				, S.SIZE_QTY
+				, S.SIZE_LEN
+				, (SELECT CM.COM_NAME_LOC FROM ICOMCMPY CM WHERE CM.COM_CODE =S.BUYER) COM_NAME_LOC
+				, S.AUTO_GR_FLAG
+				, S.IMAGE_KEY_SIGN
+				, S.IMAGE_KEY_INV
+				, S.PR_USER_NAME
+				, S.SND_CHK
+				, S.CATEG_NAME
+				, S.MAKER_NAME
+				, S.ORIGIN_NAME
+				, S.PO_TTL_AMT
+				, S.CUR
+				, S.PRE_GR_YN
+				, S.FAST_PO_YN
+				, S.PR_NO
+				, S.PR_SEQ
+				, S.RD_DATE
+				, S.CD_DATE
+				, S.STATUS_TEXT
+				, S.INVOICE_DATE
+				, '' AS DELIVERY_PERSON_NAME
+				, '' AS DELIVERY_PERSON_PHONE
+				, '' AS DELIVERY_CAR_NO
+				, (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'C019' AND CODE = S.PARCEL_COM_CODE) AS PARCEL_COM_NAME
+				, S.PARCEL_INV_NO
+				, S.ADD_USER_TEL
+				, TO_CHAR(SYSDATE, 'YYYY-MM-DD HH24:MI') AS TODAY_DATE
+				, S.ADD_USER_NAME_ENG
+				, S.ADD_USER_EMAIL
+				, '1052552' AS ASN_VENDOR_CODE
+				, (CASE WHEN TRIM(S.PARCEL_INFO) IS NOT NULL THEN '택배' ELSE ' ' END) AS PARCEL_INFO
+				, S.GR_LOCK_MONTH
+				, S.GW_NO
+				, S.PO_CREATE_DEPT_NAME
+				, S.PR_CHANGE_DATE
+				, S.PH_REMARK
+				, S.BUDGET_DEPT
+				, S.ACCOUNT_NAME
+			FROM (
+				SELECT
+					  PODT.PO_NO
+					, DECODE(PODT.PROCESS_TYPE,'0',IV.INV_NO, WMS.INV_NO ) AS INV_NO
+					, PODT.BUYER_ITEM_NO AS BUYER_ITEM_NO
+					, PODT.REF_PR_NO||DECODE(PODT.BUYER,'KRDAEW0016','-'||TO_NUMBER(PODT.LEGACY_PO_SEQ),'') AS REF_PR_NO
+					, PODT.DESCRIPTION AS DESCRIPTION
+					, PODT.SPECIFICATION AS SPECIFICATION
+					, PODT.UNIT_PRICE AS UNIT_PRICE
+					, DECODE(PODT.PROCESS_TYPE,'0',IV.INV_QTY, WMS.INV_QTY ) * PODT.UNIT_PRICE AS PO_AMT
+					, PODT.UNIT_MEASURE AS UNIT_MEASURE
+					, POHD.PO_CREATE_DATE
+					, PODT.ITEM_QTY AS PO_QTY
+					, DECODE(PODT.PROCESS_TYPE,'0',IV.INV_QTY, WMS.INV_QTY ) AS INV_QTY
+					, NVL(PODT.GR_QTY,0) GR_QTY
+					, DECODE(PODT.PROCESS_TYPE,'0',IV.INV_QTY- NVL(IV.GR_QTY,0) ,WMS.INV_QTY- NVL(WMS.BUYER_GR_QTY,0)) AS AVAIL_GR_QTY	-- 입고가능수량
+					, (SELECT USER_NAME_LOC FROM ICOMLUSR
+					      WHERE USER_ID = DECODE(PODT.BUYER,'KRDUPO0001',PR.ADD_USER_ID,PR.PURCHASER_ID)) AS PO_CREATOR
+					, (SELECT  COM_NAME_LOC FROM ICOMCMPY
+					 WHERE COM_CODE = POHD.AGENT AND STATUS !='D') AS AGENT_NAME
+					, (SELECT TEXT1 FROM ICOMCOD2
+					      WHERE COMPANY_CODE = PR.BUYER
+						AND TYPE = 'C001'
+						AND CODE = PR.REQ_DEPT) AS REQ_DEPT_NAME
+					, (SELECT TEXT1 FROM ICOMCOD2 WHERE COMPANY_CODE = PR.BUYER AND CODE = PR.PURCHASER_DEPT AND TYPE = 'C001') AS PO_CREATE_DEPT_NAME
+					, PODT.BUYER
+					, DECODE(PODT.PROCESS_TYPE,'0',IV.SELLER, WMS.SELLER ) AS SELLER
+					, PODT.PO_SEQ
+					, DECODE(PODT.PROCESS_TYPE,'0',IV.INV_SEQ, WMS.INV_SEQ ) AS INV_SEQ
+					, POHD.AGENT
+					, PODT.AGENT_PRICE
+					, PODT.BYIT_COMORG_CODE AS BYIT_COMORG_CODE
+					, PODT.CONTRACT_NO AS CONTRACT_NO
+					, PODT.CONTRACT_SEQ AS CONTRACT_SEQ
+					, PR.REQ_DEPT AS REQ_DEPT
+					, DECODE(PODT.PROCESS_TYPE,'0','',WMS.WAREHOUSE_CODE) AS WAREHOUSE_CODE
+					, POHD.PURCHASER_ID AS PURCHASER_ID
+					, PR.PR_NO
+					, PR.REF_NO AS PX_NO
+					, PR.RECV_FLAG
+					, PODT.REF_PR_NO AS PCO_REF_PR_NO
+					, PODT.LEGACY_PO_NO AS PCO_LEGACY_PO_NO
+					, PR.ADD_USER_NAME
+					, PR.SIZE_QTY
+					, PR.SIZE_LEN
+					, (SELECT USR.USER_NAME_LOC FROM ICOMLUSR USR WHERE USR.USER_ID = PR.ADD_USER_ID) AS PR_USER_NAME
+					, NVL(BUYER.AUTO_GR_FLAG, 'N') AS AUTO_GR_FLAG
+					, DECODE(PODT.PROCESS_TYPE, '0', IVHD.IMAGE_KEY_SIGN, WMS.IMAGE_KEY_SIGN) AS IMAGE_KEY_SIGN
+					, DECODE(PODT.PROCESS_TYPE, '0', IVHD.IMAGE_KEY_INV, WMS.IMAGE_KEY_INV) AS IMAGE_KEY_INV 
+					, DECODE(PODT.PROCESS_TYPE,'0',IV.SND_CHK ,WMS.SND_CHK) AS SND_CHK
+					, (SELECT CATEG_NAME FROM ICOMBYCA WHERE COM_CODE = PODT.BYIT_COMORG_CODE AND STD_CATEG_ID = PODT.CATEG_ID) AS CATEG_NAME
+					, PODT.MAKER_NAME
+					, (SELECT TEXT2 FROM ICOMCOD1 WHERE TYPE = 'M001' AND CODE = PODT.ORIGIN_CODE) AS ORIGIN_NAME
+					, PODT.ITEM_QTY * PODT.UNIT_PRICE AS PO_TTL_AMT
+					, POHD.CUR
+					, DECODE(POHD.DOC_TYPE, 'S', 'Y', 'N') AS PRE_GR_YN
+					, DECODE(POHD.DOC_TYPE, 'F', 'Y', 'N') AS FAST_PO_YN
+					, PR.PR_SEQ
+					, PR.RD_DATE
+					, CASE WHEN PODT.PROCESS_TYPE = '0' THEN (  SELECT MAX(DS_DATE) FROM ICOMPORS WHERE BUYER = PODT.BUYER AND PO_NO = PODT.PO_NO AND PO_SEQ = PODT.PO_SEQ AND DS_DATE = PODT.DS_DATE AND STATUS != 'D' )
+            	 	 			ELSE (SELECT MAX(SCHEDULED_DATE) FROM WMSIVDT WHERE BUYER = PODT.BUYER AND PO_NO = PODT.PO_NO AND PO_SEQ = PODT.PO_SEQ AND STATUS != 'D') END AS CD_DATE
+     				, F_GET_PR_STTS(PR.BUYER, PR.PR_NO, PR.PR_SEQ , 1) AS STATUS_TEXT
+     				, (DECODE(PODT.PROCESS_TYPE,'0',
+     						(SELECT MIN(INVOICE_DATE) FROM ICOMIVDT WHERE BUYER = PODT.BUYER AND PO_NO = PODT.PO_NO AND PO_SEQ = PODT.PO_SEQ AND STATUS <>'D'),
+     						(SELECT MIN(INV_DATE) FROM WMSIVDT WHERE BUYER = PODT.BUYER AND PO_NO = PODT.PO_NO AND PO_SEQ = PODT.PO_SEQ AND STATUS <> 'D'))
+     				) AS INVOICE_DATE
+     				, IVHD.PARCEL_COM_CODE
+     				, IVHD.PARCEL_INV_NO
+     				, PR.ADD_USER_TEL
+     				, (SELECT MAX(TARGET) FROM ICOMTRGW WHERE COM_CODE = PR.BUYER AND DOC_NAME = 'PR' AND KEY_1 = PR.PR_NO) AS GW_NO
+     				, (SELECT USER_NAME_ENG FROM ICOMLUSR WHERE USER_ID = PR.ADD_USER_ID) AS ADD_USER_NAME_ENG
+     				, (SELECT EMAIL FROM ICOMLUSR WHERE USER_ID = PR.ADD_USER_ID) AS ADD_USER_EMAIL
+     				, DECODE(PODT.PROCESS_TYPE, '0', IVHD.PARCEL_INV_NO, WMS.DELIVERY_NO)  AS PARCEL_INFO
+     				, (SELECT MAX(CODE) FROM ICOMCOD2 WHERE TYPE = 'NOGR' AND COMPANY_CODE = PODT.BUYER AND FLAG = 'Y') AS GR_LOCK_MONTH 
+     				, PR.CHANGE_DATE AS PR_CHANGE_DATE
+     				, POHD.PO_REMARK AS PH_REMARK
+     				, (SELECT TEXT1 FROM ICOMCOD2 WHERE COMPANY_CODE = PR.BUYER AND CODE = PR.BUDGET_DEPT AND TYPE = 'C001') AS BUDGET_DEPT
+					, (SELECT TEXT2 FROM ICOMCOD2 WHERE COMPANY_CODE = PR.BUYER AND TYPE = 'Z014' AND CODE = PR.ACCOUNT_TYPE) AS ACCOUNT_NAME
+				FROM  ICOMPOHD POHD, ICOMPODT PODT ,ICOMPRDT PR , ICOMIVDT IV, WMSIVDT WMS, KEP_BUYER_FLAG BUYER, ICOMIVHD IVHD
+				WHERE 1=1
+		]]>
+				<choose>
+					<when test='st_group_mng_flag == "Y"'>
+					<choose>
+						<when test="st_group_info != null and st_group_info != '' ">
+						<![CDATA[
+							AND	PODT.BUYER IN (SELECT COD3.CODE2 FROM ICOMCOD3 COD3 WHERE COD3.TYPE = 'BGCM' AND COD3.CODE1 = #{st_user_id} AND COD3.TEXT1 = #{st_group_info}  AND 	COD3.FLAG = 'Y')
+						]]>
+						</when>
+						<otherwise>
+							<choose>
+								<when test="st_com_code != null and st_com_code != '' ">
+								<![CDATA[
+									AND	PODT.BUYER = #{st_com_code}
+								]]>
+								</when>
+								<otherwise>
+								<![CDATA[
+									AND	PODT.BUYER IN (SELECT COD3.CODE2 FROM ICOMCOD3 COD3 WHERE COD3.TYPE = 'TGCM' AND COD3.CODE1 = #{st_user_id} AND COD3.FLAG = 'Y')
+								]]>
+								</otherwise>
+							</choose>
+						</otherwise>
+					</choose>
+					</when>
+					<when test='st_group_mng_flag == "N"'>
+					<![CDATA[
+						AND	PODT.BUYER = #{st_com_code}
+					]]>
+					</when>
+				</choose>
+			<if test='st_date_type == "PR_DATE"'>	
+					<![CDATA[
+						AND PR.CHANGE_DATE BETWEEN #{st_from_date} AND #{st_to_date}
+					]]>
+			</if>
+			<if test='st_date_type == "PO_DATE"'>	
+					<![CDATA[
+						AND POHD.PO_CREATE_DATE BETWEEN #{st_from_date} AND #{st_to_date}
+					]]>
+			</if>
+		<!-- 관리번호 -->
+		<if test="st_ref_pr_no != null and st_ref_pr_no != ''">
+			<![CDATA[
+				AND  PODT.REF_PR_NO LIKE #{st_ref_pr_no}||'%'
+			]]>
+		</if>
+		<if test="st_search_no2 != null and st_search_no2 != ''">
+			<!-- 품목명 -->
+			<if test='st_no_type2 == "ITEMNAME"'>
+				<![CDATA[
+					AND UPPER(PODT.DESCRIPTION) LIKE UPPER('%'||#{st_search_no2}||'%')
+				]]>
+			</if>
+			<!-- 품목코드 -->
+			<if test='st_no_type2 == "ITEMNO"'>
+				<![CDATA[
+					AND UPPER( PODT.BUYER_ITEM_NO)  LIKE  UPPER('%'||#{st_search_no2}||'%')
+				]]>
+			</if>	
+			<!-- 규격 -->
+			<if test='st_no_type2 == "SPECIFICATION"'>
+				<![CDATA[
+					AND UPPER(PODT.SPECIFICATION) LIKE UPPER('%'||#{st_search_no2}||'%')
+				]]>
+			</if>		
+		</if>
+		<if test="st_search_no != null and st_search_no != ''">
+			<!-- 송장번호 -->
+			<if test='st_no_type == "IV"'>	
+				<![CDATA[
+					AND DECODE(PODT.PROCESS_TYPE,'0',IV.INV_NO, WMS.INV_NO ) LIKE '%'||UPPER(#{st_search_no})||'%'
+				]]>
+			</if>
+			<!-- 구매요청번호 -->
+			<if test='st_no_type == "PR"'>	
+				<![CDATA[
+					AND PR.PR_NO LIKE '%'||UPPER(#{st_search_no})||'%'
+				]]>
+			</if>
+			<!-- 발주번호 -->
+			<if test='st_no_type == "PO"'>	
+				<![CDATA[
+					AND PODT.PO_NO LIKE '%'||UPPER(#{st_search_no})||'%'
+				]]>
+			</if>
+		</if>
+		<choose>
+			<when test="st_po_user_id != null and st_po_user_id != ''">
+				<if test='st_user_type == "PR"'>
+					AND  PR.ADD_USER_ID = #{st_po_user_id}
+				</if>
+				<if test='st_user_type == "PO"'>
+					AND  PR.PURCHASER_ID = #{st_po_user_id}
+				</if>
+			</when>
+			<otherwise>
+				<if test="st_po_user_name != null and st_po_user_name != ''">
+					<if test='st_user_type == "PR"'>
+						<choose>
+						<when test='st_group_mng_flag == "Y"'>
+						<choose>
+							<when test="st_group_info != null and st_group_info != '' ">
+								<![CDATA[
+									AND  PR.ADD_USER_ID IN ( SELECT USER_ID FROM ICOMLUSR WHERE USER_NAME_LOC LIKE '%'||#{st_po_user_name}||'%' AND COM_CODE IN  (SELECT COD3.CODE2 FROM ICOMCOD3 COD3 WHERE COD3.TYPE = 'BGCM' AND COD3.CODE1 = #{st_user_id} AND COD3.TEXT1 = #{st_group_info}  AND 	COD3.FLAG = 'Y'))
+								]]>
+							</when>
+							<otherwise>
+								<choose>
+									<when test="st_com_code != null and st_com_code != '' ">
+									<![CDATA[
+										AND  PR.ADD_USER_ID IN ( SELECT USER_ID FROM ICOMLUSR WHERE USER_NAME_LOC LIKE '%'||#{st_po_user_name}||'%' AND COM_CODE = #{st_com_code})
+									]]>
+									</when>
+									<otherwise>
+									<![CDATA[
+										AND  PR.ADD_USER_ID IN ( SELECT USER_ID FROM ICOMLUSR WHERE USER_NAME_LOC LIKE '%'||#{st_po_user_name}||'%' AND COM_CODE IN  (SELECT COD3.CODE2 FROM ICOMCOD3 COD3 WHERE COD3.TYPE = 'TGCM' AND COD3.CODE1 = #{st_user_id} AND COD3.FLAG = 'Y'))
+									]]>
+									</otherwise>
+								</choose>
+							</otherwise>
+						</choose>
+						</when>
+						<when test='st_group_mng_flag == "N"'>
+						<![CDATA[
+							AND  PR.ADD_USER_ID IN ( SELECT USER_ID FROM ICOMLUSR WHERE USER_NAME_LOC LIKE '%'||#{st_po_user_name}||'%' AND COM_CODE = #{st_com_code})
+						]]>
+						</when>
+						</choose>
+					</if>
+					<if test='st_user_type == "PO"'>
+						<choose>
+						<when test='st_group_mng_flag == "Y"'>
+						<choose>
+							<when test="st_group_info != null and st_group_info != '' ">
+								<![CDATA[
+									AND  PR.PURCHASER_ID IN ( SELECT USER_ID FROM ICOMLUSR WHERE USER_NAME_LOC LIKE '%'||#{st_po_user_name}||'%' AND COM_CODE IN  (SELECT COD3.CODE2 FROM ICOMCOD3 COD3 WHERE COD3.TYPE = 'BGCM' AND COD3.CODE1 = #{st_user_id} AND COD3.TEXT1 = #{st_group_info}  AND 	COD3.FLAG = 'Y'))
+								]]>
+							</when>
+							<otherwise>
+								<choose>
+									<when test="st_com_code != null and st_com_code != '' ">
+									<![CDATA[
+										AND  PR.PURCHASER_ID IN ( SELECT USER_ID FROM ICOMLUSR WHERE USER_NAME_LOC LIKE '%'||#{st_po_user_name}||'%' AND COM_CODE = #{st_com_code})
+									]]>
+									</when>
+									<otherwise>
+									<![CDATA[
+										AND  PR.PURCHASER_ID IN ( SELECT USER_ID FROM ICOMLUSR WHERE USER_NAME_LOC LIKE '%'||#{st_po_user_name}||'%' AND COM_CODE IN  (SELECT COD3.CODE2 FROM ICOMCOD3 COD3 WHERE COD3.TYPE = 'TGCM' AND COD3.CODE1 = #{st_user_id} AND COD3.FLAG = 'Y'))
+									]]>
+									</otherwise>
+								</choose>
+							</otherwise>
+						</choose>
+						</when>
+						<when test='st_group_mng_flag == "N"'>
+						<![CDATA[
+							AND  PR.PURCHASER_ID IN ( SELECT USER_ID FROM ICOMLUSR WHERE USER_NAME_LOC LIKE '%'||#{st_po_user_name}||'%' AND COM_CODE = #{st_com_code})
+						]]>
+					</when>
+					</choose>
+					</if>
+		 		</if>
+			</otherwise>
+		</choose>
+		
+		<!-- 발주부서/요청부서/예산부서 -->
+		<if test="st_req_dept_code != null and st_req_dept_code != ''">
+			<if test='st_dept_type == "PR"'>
+				AND PR.CHANGE_USER_DEPT = #{st_req_dept_code}
+			</if>
+			<if test='st_dept_type == "PO"'>
+				AND PR.PURCHASER_DEPT = #{st_req_dept_code}
+			</if>
+			<if test='st_dept_type == "BD"'>
+				AND PR.BUDGET_DEPT = #{st_req_dept_code}
+			</if>
+		</if>
+		
+		<!-- 배송완료 select -->
+			<if test='st_di_yn == "Y"'>
+				<![CDATA[
+					AND  PODT.IV_QTY = PODT.DI_QTY
+				]]>
+			</if>
+			<if test='st_di_yn == "N"'>
+				<![CDATA[
+					AND  PODT.IV_QTY <> PODT.DI_QTY
+				]]>
+			</if>
+		
+		<![CDATA[	
+					AND PODT.BUYER = POHD.BUYER
+					AND PODT.PO_NO = POHD.PO_NO
+					AND PODT.STATUS <> 'D'
+					AND PODT.ITEM_QTY <> NVL(PODT.GR_QTY, 0)
+					AND PODT.BUYER = IV.BUYER
+					AND PODT.PO_NO = IV.PO_NO
+					AND PODT.PO_SEQ = IV.PO_SEQ
+					AND IV.STATUS <> 'D'
+					AND IV.BUYER = IVHD.BUYER
+					AND IV.INV_NO = IVHD.INV_NO
+					AND PODT.BUYER = PR.BUYER
+					AND PODT.PR_NO = PR.PR_NO
+					AND PODT.PR_SEQ = PR.PR_SEQ
+					AND PR.STATUS <> 'D'
+					AND IV.BUYER = WMS.BUYER(+)
+					AND IV.INV_NO = WMS.S_INV_NO(+)
+					AND IV.INV_SEQ = WMS.S_INV_SEQ(+)
+					AND PODT.BUYER = BUYER.COM_CODE(+)
+					AND WMS.STATUS(+) <> 'D'
+					AND DECODE(PODT.PROCESS_TYPE,'0',IV.INV_NO, WMS.INV_NO ) IS NOT NULL
+					AND DECODE(PODT.PROCESS_TYPE,'0',NVL(IV.GR_QTY,0), NVL(WMS.BUYER_GR_QTY,0)) <> DECODE(PODT.PROCESS_TYPE,'0',NVL(IV.INV_QTY,0), NVL(WMS.INV_QTY,0))
+				ORDER BY PO_NO, INV_NO, INV_SEQ
+			) S
+ 		]]>
+ 		<if test='st_all_page == "N"'>
+			<include refid="common.ibsheet.xml.pageend"/>	
+ 		</if>
+	</select>
+	<select id="getBuyerWmGrWarehousingRegList_v3" parameterType="java.util.Map" resultType="java.util.Map">
+		<if test='st_all_page == "N"'>
+			<include refid="common.ibsheet.xml.pagestart"/>
+		</if>
+		<![CDATA[
+			/*getBuyerWmGrWarehousingRegList_v3*/
+			SELECT
+				  S.PO_NO									-- 1 
+				, S.INV_NO									-- 2 
+				, S.BUYER_ITEM_NO							-- 3 
+				, S.REF_PR_NO								-- 4 
+				, S.DESCRIPTION								-- 5
+				, S.SPECIFICATION							-- 6 
+				, S.PO_QTY									-- 7 
+				, S.UNIT_MEASURE							-- 8 
+				, S.PO_CREATE_DATE							-- 9
+				, S.UNIT_PRICE								-- 10 
+				, S.PO_AMT									-- 11 
+				, S.INV_QTY									-- 12 
+				, S.GR_QTY									-- 13
+				, S.AVAIL_GR_QTY
+				, S.PO_CREATOR								-- 14 
+				, DECODE((	SELECT AGENT_OPEN_FLAG 
+							FROM ICOMCMPY 
+							WHERE COM_CODE = #{st_com_code}),'N','코리아이플랫폼(주)',S.AGENT_NAME) AS AGENT_NAME	-- 15
+				, S.REQ_DEPT_NAME							-- 16 
+				, S.BUYER									-- 17
+				, S.SELLER									-- 18
+				, S.PO_SEQ									-- 19
+				, S.INV_SEQ									-- 20
+				, S.AGENT									-- 21
+				, S.AGENT_PRICE								-- 22
+				, S.BYIT_COMORG_CODE						-- 23
+				, S.CONTRACT_NO								-- 24
+				, S.CONTRACT_SEQ							-- 25
+				, S.REQ_DEPT								-- 26
+				, DECODE((SELECT AGENT_OPEN_FLAG FROM ICOMCMPY WHERE COM_CODE = #{st_com_code}),'N','KRKORE0001',S.AGENT) AS AGENT_CODE	-- 27
+				, S.WAREHOUSE_CODE							-- 28
+				, S.PURCHASER_ID							-- 29
+				, (SELECT CARD_USE_FLAG FROM ICOMPRHD PRHD WHERE S.BUYER = PRHD.BUYER AND S.PR_NO = PRHD.PR_NO AND ROWNUM =1 ) AS CARD_USE_FLAG			-- 30
+				, (SELECT CARD_CONFIRM_NO FROM ICOMPRHD PRHD WHERE S.BUYER = PRHD.BUYER AND S.PR_NO = PRHD.PR_NO AND ROWNUM =1 ) AS CARD_CONFIRM_NO		-- 31
+				, S.PX_NO
+				, '0' AS TEMP_GR_QTY
+				, S.RECV_FLAG
+				, S.PCO_REF_PR_NO
+				, S.PCO_LEGACY_PO_NO
+				, S.ADD_USER_NAME
+				, S.SIZE_QTY
+				, S.SIZE_LEN
+				, (SELECT CM.COM_NAME_LOC FROM ICOMCMPY CM WHERE CM.COM_CODE =S.BUYER) COM_NAME_LOC
+				, S.AUTO_GR_FLAG
+				, S.IMAGE_KEY_SIGN
+				, S.IMAGE_KEY_INV
+				, S.PR_USER_NAME
+				, S.SND_CHK
+				, S.CATEG_NAME
+				, S.MAKER_NAME
+				, S.ORIGIN_NAME
+				, S.PO_TTL_AMT
+				, S.CUR
+				, S.PRE_GR_YN
+				, S.FAST_PO_YN
+				, S.PR_NO
+				, S.PR_SEQ
+				, S.RD_DATE
+				, S.CD_DATE
+				, S.STATUS_TEXT
+				, S.INVOICE_DATE
+				, '' AS DELIVERY_PERSON_NAME
+				, '' AS DELIVERY_PERSON_PHONE
+				, '' AS DELIVERY_CAR_NO
+				, (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'C019' AND CODE = S.PARCEL_COM_CODE) AS PARCEL_COM_NAME
+				, S.PARCEL_INV_NO
+				, S.ADD_USER_TEL
+				, TO_CHAR(SYSDATE, 'YYYY-MM-DD HH24:MI') AS TODAY_DATE
+				, S.ADD_USER_NAME_ENG
+				, S.ADD_USER_EMAIL
+				, '1052552' AS ASN_VENDOR_CODE
+				, (CASE WHEN TRIM(S.PARCEL_INFO) IS NOT NULL THEN '택배' ELSE ' ' END) AS PARCEL_INFO
+				, S.GR_LOCK_MONTH
+				, S.GW_NO
+				, S.PO_CREATE_DEPT_NAME
+				, S.PR_CHANGE_DATE
+				, S.PH_REMARK
+				, S.BUDGET_DEPT
+				, S.ACCOUNT_NAME
+				, S.DELIVERY_DATE
+			FROM (
+				SELECT
+					  PODT.PO_NO
+					, DECODE(PODT.PROCESS_TYPE,'0',IV.INV_NO, WMS.INV_NO ) AS INV_NO
+					, PODT.BUYER_ITEM_NO AS BUYER_ITEM_NO
+					, PODT.REF_PR_NO||DECODE(PODT.BUYER,'KRDAEW0016','-'||TO_NUMBER(PODT.LEGACY_PO_SEQ),'') AS REF_PR_NO
+					, PODT.DESCRIPTION AS DESCRIPTION
+					, PODT.SPECIFICATION AS SPECIFICATION
+					, PODT.UNIT_PRICE AS UNIT_PRICE
+					, DECODE(PODT.PROCESS_TYPE,'0',IV.INV_QTY, WMS.INV_QTY ) * PODT.UNIT_PRICE AS PO_AMT
+					, PODT.UNIT_MEASURE AS UNIT_MEASURE
+					, POHD.PO_CREATE_DATE
+					, PODT.ITEM_QTY AS PO_QTY
+					, DECODE(PODT.PROCESS_TYPE,'0',IV.INV_QTY, WMS.INV_QTY ) AS INV_QTY
+					, NVL(PODT.GR_QTY,0) GR_QTY
+					, DECODE(PODT.PROCESS_TYPE,'0',IV.INV_QTY- NVL(IV.GR_QTY,0) ,WMS.INV_QTY- NVL(WMS.BUYER_GR_QTY,0)) AS AVAIL_GR_QTY	-- 입고가능수량
+					, (SELECT USER_NAME_LOC FROM ICOMLUSR
+					      WHERE USER_ID = DECODE(PODT.BUYER,'KRDUPO0001',PR.ADD_USER_ID,PR.PURCHASER_ID)) AS PO_CREATOR
+					, (SELECT  COM_NAME_LOC FROM ICOMCMPY
+					 WHERE COM_CODE = POHD.AGENT AND STATUS !='D') AS AGENT_NAME
+					, (SELECT TEXT1 FROM ICOMCOD2
+					      WHERE COMPANY_CODE = PR.BUYER
+						AND TYPE = 'C001'
+						AND CODE = PR.REQ_DEPT) AS REQ_DEPT_NAME
+					, (SELECT TEXT1 FROM ICOMCOD2 WHERE COMPANY_CODE = PR.BUYER AND CODE = PR.PURCHASER_DEPT AND TYPE = 'C001') AS PO_CREATE_DEPT_NAME
+					, PODT.BUYER
+					, DECODE(PODT.PROCESS_TYPE,'0',IV.SELLER, WMS.SELLER ) AS SELLER
+					, PODT.PO_SEQ
+					, DECODE(PODT.PROCESS_TYPE,'0',IV.INV_SEQ, WMS.INV_SEQ ) AS INV_SEQ
+					, POHD.AGENT
+					, PODT.AGENT_PRICE
+					, PODT.BYIT_COMORG_CODE AS BYIT_COMORG_CODE
+					, PODT.CONTRACT_NO AS CONTRACT_NO
+					, PODT.CONTRACT_SEQ AS CONTRACT_SEQ
+					, PR.REQ_DEPT AS REQ_DEPT
+					, DECODE(PODT.PROCESS_TYPE,'0','',WMS.WAREHOUSE_CODE) AS WAREHOUSE_CODE
+					, POHD.PURCHASER_ID AS PURCHASER_ID
+					, PR.PR_NO
+					, PR.REF_NO AS PX_NO
+					, PR.RECV_FLAG
+					, PODT.REF_PR_NO AS PCO_REF_PR_NO
+					, PODT.LEGACY_PO_NO AS PCO_LEGACY_PO_NO
+					, PR.ADD_USER_NAME
+					, PR.SIZE_QTY
+					, PR.SIZE_LEN
+					, (SELECT USR.USER_NAME_LOC FROM ICOMLUSR USR WHERE USR.USER_ID = PR.ADD_USER_ID) AS PR_USER_NAME
+					, NVL(BUYER.AUTO_GR_FLAG, 'N') AS AUTO_GR_FLAG
+					, DECODE(PODT.PROCESS_TYPE, '0', IVHD.IMAGE_KEY_SIGN, WMS.IMAGE_KEY_SIGN) AS IMAGE_KEY_SIGN
+					, DECODE(PODT.PROCESS_TYPE, '0', IVHD.IMAGE_KEY_INV, WMS.IMAGE_KEY_INV) AS IMAGE_KEY_INV 
+					, DECODE(PODT.PROCESS_TYPE,'0',IV.SND_CHK ,WMS.SND_CHK) AS SND_CHK
+					, (SELECT CATEG_NAME FROM ICOMBYCA WHERE COM_CODE = PODT.BYIT_COMORG_CODE AND STD_CATEG_ID = PODT.CATEG_ID) AS CATEG_NAME
+					, PODT.MAKER_NAME
+					, (SELECT TEXT2 FROM ICOMCOD1 WHERE TYPE = 'M001' AND CODE = PODT.ORIGIN_CODE) AS ORIGIN_NAME
+					, PODT.ITEM_QTY * PODT.UNIT_PRICE AS PO_TTL_AMT
+					, POHD.CUR
+					, DECODE(POHD.DOC_TYPE, 'S', 'Y', 'N') AS PRE_GR_YN
+					, DECODE(POHD.DOC_TYPE, 'F', 'Y', 'N') AS FAST_PO_YN
+					, PR.PR_SEQ
+					, PR.RD_DATE
+					, CASE WHEN PODT.PROCESS_TYPE = '0' THEN (  SELECT MAX(DS_DATE) FROM ICOMPORS WHERE BUYER = PODT.BUYER AND PO_NO = PODT.PO_NO AND PO_SEQ = PODT.PO_SEQ AND DS_DATE = PODT.DS_DATE AND STATUS != 'D' )
+            	 	 			ELSE (SELECT MAX(SCHEDULED_DATE) FROM WMSIVDT WHERE BUYER = PODT.BUYER AND PO_NO = PODT.PO_NO AND PO_SEQ = PODT.PO_SEQ AND STATUS != 'D') END AS CD_DATE
+     				, F_GET_PR_STTS(PR.BUYER, PR.PR_NO, PR.PR_SEQ , 1) AS STATUS_TEXT
+     				, (DECODE(PODT.PROCESS_TYPE,'0',
+     						(SELECT MIN(INVOICE_DATE) FROM ICOMIVDT WHERE BUYER = PODT.BUYER AND PO_NO = PODT.PO_NO AND PO_SEQ = PODT.PO_SEQ AND STATUS <>'D'),
+     						(SELECT MIN(INV_DATE) FROM WMSIVDT WHERE BUYER = PODT.BUYER AND PO_NO = PODT.PO_NO AND PO_SEQ = PODT.PO_SEQ AND STATUS <> 'D'))
+     				) AS INVOICE_DATE
+     				, IVHD.PARCEL_COM_CODE
+     				, IVHD.PARCEL_INV_NO
+     				, PR.ADD_USER_TEL
+     				, (SELECT MAX(TARGET) FROM ICOMTRGW WHERE COM_CODE = PR.BUYER AND DOC_NAME = 'PR' AND KEY_1 = PR.PR_NO) AS GW_NO
+     				, (SELECT USER_NAME_ENG FROM ICOMLUSR WHERE USER_ID = PR.ADD_USER_ID) AS ADD_USER_NAME_ENG
+     				, (SELECT EMAIL FROM ICOMLUSR WHERE USER_ID = PR.ADD_USER_ID) AS ADD_USER_EMAIL
+     				, DECODE(PODT.PROCESS_TYPE, '0', IVHD.PARCEL_INV_NO, WMS.DELIVERY_NO)  AS PARCEL_INFO
+     				, (SELECT MAX(CODE) FROM ICOMCOD2 WHERE TYPE = 'NOGR' AND COMPANY_CODE = PODT.BUYER AND FLAG = 'Y') AS GR_LOCK_MONTH 
+     				, PR.CHANGE_DATE AS PR_CHANGE_DATE
+     				, POHD.PO_REMARK AS PH_REMARK
+     				, (SELECT TEXT1 FROM ICOMCOD2 WHERE COMPANY_CODE = PR.BUYER AND CODE = PR.BUDGET_DEPT AND TYPE = 'C001') AS BUDGET_DEPT
+					, (SELECT TEXT2 FROM ICOMCOD2 WHERE COMPANY_CODE = PR.BUYER AND TYPE = 'Z014' AND CODE = PR.ACCOUNT_TYPE) AS ACCOUNT_NAME
+					, IV.DELIVERY_DATE AS DELIVERY_DATE
+				FROM  ICOMPOHD POHD, ICOMPODT PODT ,ICOMPRDT PR , ICOMIVDT IV, WMSIVDT WMS, KEP_BUYER_FLAG BUYER, ICOMIVHD IVHD
+				WHERE 1=1
+		]]>
+				<choose>
+					<when test='st_group_mng_flag == "Y"'>
+					<choose>
+						<when test="st_group_info != null and st_group_info != '' ">
+						<![CDATA[
+							AND	PODT.BUYER IN (SELECT COD3.CODE2 FROM ICOMCOD3 COD3 WHERE COD3.TYPE = 'BGCM' AND COD3.CODE1 = #{st_user_id} AND COD3.TEXT1 = #{st_group_info}  AND 	COD3.FLAG = 'Y')
+						]]>
+						</when>
+						<otherwise>
+							<choose>
+								<when test="st_com_code != null and st_com_code != '' ">
+								<![CDATA[
+									AND	PODT.BUYER = #{st_com_code}
+								]]>
+								</when>
+								<otherwise>
+								<![CDATA[
+									AND	PODT.BUYER IN (SELECT COD3.CODE2 FROM ICOMCOD3 COD3 WHERE COD3.TYPE = 'TGCM' AND COD3.CODE1 = #{st_user_id} AND COD3.FLAG = 'Y')
+								]]>
+								</otherwise>
+							</choose>
+						</otherwise>
+					</choose>
+					</when>
+					<when test='st_group_mng_flag == "N"'>
+					<![CDATA[
+						AND	PODT.BUYER = #{st_com_code}
+					]]>
+					</when>
+				</choose>
+			<if test='st_date_type == "PR_DATE"'>	
+					<![CDATA[
+						AND PR.CHANGE_DATE BETWEEN #{st_from_date} AND #{st_to_date}
+					]]>
+			</if>
+			<if test='st_date_type == "PO_DATE"'>	
+					<![CDATA[
+						AND POHD.PO_CREATE_DATE BETWEEN #{st_from_date} AND #{st_to_date}
+					]]>
+			</if>
+		<!-- 관리번호 -->
+		<if test="st_ref_pr_no != null and st_ref_pr_no != ''">
+			<![CDATA[
+				AND  PODT.REF_PR_NO LIKE #{st_ref_pr_no}||'%'
+			]]>
+		</if>
+		<if test="st_search_no2 != null and st_search_no2 != ''">
+			<!-- 품목명 -->
+			<if test='st_no_type2 == "ITEMNAME"'>
+				<![CDATA[
+					AND UPPER(PODT.DESCRIPTION) LIKE UPPER('%'||#{st_search_no2}||'%')
+				]]>
+			</if>
+			<!-- 품목코드 -->
+			<if test='st_no_type2 == "ITEMNO"'>
+				<![CDATA[
+					AND UPPER( PODT.BUYER_ITEM_NO)  LIKE  UPPER('%'||#{st_search_no2}||'%')
+				]]>
+			</if>	
+			<!-- 규격 -->
+			<if test='st_no_type2 == "SPECIFICATION"'>
+				<![CDATA[
+					AND UPPER(PODT.SPECIFICATION) LIKE UPPER('%'||#{st_search_no2}||'%')
+				]]>
+			</if>		
+		</if>
+		<if test="st_search_no != null and st_search_no != ''">
+			<!-- 송장번호 -->
+			<if test='st_no_type == "IV"'>	
+				<![CDATA[
+					AND DECODE(PODT.PROCESS_TYPE,'0',IV.INV_NO, WMS.INV_NO ) LIKE '%'||UPPER(#{st_search_no})||'%'
+				]]>
+			</if>
+			<!-- 구매요청번호 -->
+			<if test='st_no_type == "PR"'>	
+				<![CDATA[
+					AND PR.PR_NO LIKE '%'||UPPER(#{st_search_no})||'%'
+				]]>
+			</if>
+			<!-- 발주번호 -->
+			<if test='st_no_type == "PO"'>	
+				<![CDATA[
+					AND PODT.PO_NO LIKE '%'||UPPER(#{st_search_no})||'%'
+				]]>
+			</if>
+		</if>
+		<choose>
+			<when test="st_po_user_id != null and st_po_user_id != ''">
+				<if test='st_user_type == "PR"'>
+					AND  PR.ADD_USER_ID = #{st_po_user_id}
+				</if>
+				<if test='st_user_type == "PO"'>
+					AND  PR.PURCHASER_ID = #{st_po_user_id}
+				</if>
+			</when>
+			<otherwise>
+				<if test="st_po_user_name != null and st_po_user_name != ''">
+					<if test='st_user_type == "PR"'>
+						<choose>
+						<when test='st_group_mng_flag == "Y"'>
+						<choose>
+							<when test="st_group_info != null and st_group_info != '' ">
+								<![CDATA[
+									AND  PR.ADD_USER_ID IN ( SELECT USER_ID FROM ICOMLUSR WHERE USER_NAME_LOC LIKE '%'||#{st_po_user_name}||'%' AND COM_CODE IN  (SELECT COD3.CODE2 FROM ICOMCOD3 COD3 WHERE COD3.TYPE = 'BGCM' AND COD3.CODE1 = #{st_user_id} AND COD3.TEXT1 = #{st_group_info}  AND 	COD3.FLAG = 'Y'))
+								]]>
+							</when>
+							<otherwise>
+								<choose>
+									<when test="st_com_code != null and st_com_code != '' ">
+									<![CDATA[
+										AND  PR.ADD_USER_ID IN ( SELECT USER_ID FROM ICOMLUSR WHERE USER_NAME_LOC LIKE '%'||#{st_po_user_name}||'%' AND COM_CODE = #{st_com_code})
+									]]>
+									</when>
+									<otherwise>
+									<![CDATA[
+										AND  PR.ADD_USER_ID IN ( SELECT USER_ID FROM ICOMLUSR WHERE USER_NAME_LOC LIKE '%'||#{st_po_user_name}||'%' AND COM_CODE IN  (SELECT COD3.CODE2 FROM ICOMCOD3 COD3 WHERE COD3.TYPE = 'TGCM' AND COD3.CODE1 = #{st_user_id} AND COD3.FLAG = 'Y'))
+									]]>
+									</otherwise>
+								</choose>
+							</otherwise>
+						</choose>
+						</when>
+						<when test='st_group_mng_flag == "N"'>
+						<![CDATA[
+							AND  PR.ADD_USER_ID IN ( SELECT USER_ID FROM ICOMLUSR WHERE USER_NAME_LOC LIKE '%'||#{st_po_user_name}||'%' AND COM_CODE = #{st_com_code})
+						]]>
+						</when>
+						</choose>
+					</if>
+					<if test='st_user_type == "PO"'>
+						<choose>
+						<when test='st_group_mng_flag == "Y"'>
+						<choose>
+							<when test="st_group_info != null and st_group_info != '' ">
+								<![CDATA[
+									AND  PR.PURCHASER_ID IN ( SELECT USER_ID FROM ICOMLUSR WHERE USER_NAME_LOC LIKE '%'||#{st_po_user_name}||'%' AND COM_CODE IN  (SELECT COD3.CODE2 FROM ICOMCOD3 COD3 WHERE COD3.TYPE = 'BGCM' AND COD3.CODE1 = #{st_user_id} AND COD3.TEXT1 = #{st_group_info}  AND 	COD3.FLAG = 'Y'))
+								]]>
+							</when>
+							<otherwise>
+								<choose>
+									<when test="st_com_code != null and st_com_code != '' ">
+									<![CDATA[
+										AND  PR.PURCHASER_ID IN ( SELECT USER_ID FROM ICOMLUSR WHERE USER_NAME_LOC LIKE '%'||#{st_po_user_name}||'%' AND COM_CODE = #{st_com_code})
+									]]>
+									</when>
+									<otherwise>
+									<![CDATA[
+										AND  PR.PURCHASER_ID IN ( SELECT USER_ID FROM ICOMLUSR WHERE USER_NAME_LOC LIKE '%'||#{st_po_user_name}||'%' AND COM_CODE IN  (SELECT COD3.CODE2 FROM ICOMCOD3 COD3 WHERE COD3.TYPE = 'TGCM' AND COD3.CODE1 = #{st_user_id} AND COD3.FLAG = 'Y'))
+									]]>
+									</otherwise>
+								</choose>
+							</otherwise>
+						</choose>
+						</when>
+						<when test='st_group_mng_flag == "N"'>
+						<![CDATA[
+							AND  PR.PURCHASER_ID IN ( SELECT USER_ID FROM ICOMLUSR WHERE USER_NAME_LOC LIKE '%'||#{st_po_user_name}||'%' AND COM_CODE = #{st_com_code})
+						]]>
+					</when>
+					</choose>
+					</if>
+		 		</if>
+			</otherwise>
+		</choose>
+		
+		<!-- 발주부서/요청부서/예산부서 -->
+		<if test="st_req_dept_code != null and st_req_dept_code != ''">
+			<if test='st_dept_type == "PR"'>
+				AND PR.CHANGE_USER_DEPT = #{st_req_dept_code}
+			</if>
+			<if test='st_dept_type == "PO"'>
+				AND PR.PURCHASER_DEPT = #{st_req_dept_code}
+			</if>
+			<if test='st_dept_type == "BD"'>
+				AND PR.BUDGET_DEPT = #{st_req_dept_code}
+			</if>
+		</if>
+		
+		<!-- 배송완료 select -->
+			<if test='st_di_yn == "Y"'>
+				<![CDATA[
+					AND  PODT.IV_QTY = PODT.DI_QTY
+				]]>
+			</if>
+			<if test='st_di_yn == "N"'>
+				<![CDATA[
+					AND  PODT.IV_QTY <> PODT.DI_QTY
+				]]>
+			</if>
+		
+		<![CDATA[	
+					AND PODT.BUYER = POHD.BUYER
+					AND PODT.PO_NO = POHD.PO_NO
+					AND PODT.STATUS <> 'D'
+					AND PODT.ITEM_QTY <> NVL(PODT.GR_QTY, 0)
+					AND PODT.BUYER = IV.BUYER
+					AND PODT.PO_NO = IV.PO_NO
+					AND PODT.PO_SEQ = IV.PO_SEQ
+					AND IV.STATUS <> 'D'
+					AND IV.BUYER = IVHD.BUYER
+					AND IV.INV_NO = IVHD.INV_NO
+					AND PODT.BUYER = PR.BUYER
+					AND PODT.PR_NO = PR.PR_NO
+					AND PODT.PR_SEQ = PR.PR_SEQ
+					AND PR.STATUS <> 'D'
+					AND IV.BUYER = WMS.BUYER(+)
+					AND IV.INV_NO = WMS.S_INV_NO(+)
+					AND IV.INV_SEQ = WMS.S_INV_SEQ(+)
+					AND PODT.BUYER = BUYER.COM_CODE(+)
+					AND WMS.STATUS(+) <> 'D'
+					AND DECODE(PODT.PROCESS_TYPE,'0',IV.INV_NO, WMS.INV_NO ) IS NOT NULL
+					AND DECODE(PODT.PROCESS_TYPE,'0',NVL(IV.GR_QTY,0), NVL(WMS.BUYER_GR_QTY,0)) <> DECODE(PODT.PROCESS_TYPE,'0',NVL(IV.INV_QTY,0), NVL(WMS.INV_QTY,0))
+				ORDER BY PO_NO, INV_NO, INV_SEQ
+			) S
+ 		]]>
+ 		<if test='st_all_page == "N"'>
+			<include refid="common.ibsheet.xml.pageend"/>	
+ 		</if>
+	</select>
+	<!-- PO USER LIST 조회 -->
+	<select id="selectBuyerWmGrWarehousingRegPoUserList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.jsppagestart"/>
+		<![CDATA[
+			/*selectBuyerWmGrWarehousingRegPoUserList*/
+			SELECT
+			  A.USER_ID
+			, A.USER_NAME_LOC
+			FROM  ICOMLUSR A
+				, (	SELECT DISTINCT PURCHASER_ID
+					FROM ICOMPRDT
+					WHERE BUYER = #{st_com_code}) B
+			WHERE
+					A.USER_ID = B.PURCHASER_ID
+				AND A.STATUS <> 'D'
+			ORDER BY A.USER_NAME_LOC
+		]]>
+		<include refid="common.ibsheet.xml.jsppageend"/>	
+	</select> 
+	
+	<!-- USER LIST 조회 -->
+	<select id="selectBuyerWmGrWarehousingRegUserList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.jsppagestart"/>
+		<![CDATA[
+			/*selectBuyerWmGrWarehousingRegPoUserList*/
+			SELECT
+			  A.USER_ID
+			, A.USER_NAME_LOC
+			FROM  ICOMLUSR A
+				, (	SELECT DISTINCT ADD_USER_ID
+					FROM ICOMPRDT
+					WHERE BUYER = #{st_com_code}) B
+			WHERE
+					A.USER_ID = B.ADD_USER_ID
+				AND A.STATUS <> 'D'
+			ORDER BY A.USER_NAME_LOC
+		]]>
+		<include refid="common.ibsheet.xml.jsppageend"/>	
+	</select> 
+	
+	<!-- 입고번호 조회 -->
+	<select id="selectBuyerWmGrWarehousingGrNo" parameterType="java.util.Map" resultType="java.lang.String">
+		<![CDATA[
+			/*selectBuyerWmGrWarehousingGrNo*/
+			SELECT DOC_TYPE||SUBSTR(YEAR,3,2)||LPAD(CUR_NO,6,0)
+			FROM ICOMSQMT
+			WHERE 
+					COMPANY		= #{st_com_code} 
+				AND DOC_TYPE 	= #{st_doc_type}                     
+		]]>
+	</select>
+	
+	<!-- 입고번호 조회 후 insert -->
+	<update id="insertBuyerWmGrWarehousingGrNo" parameterType="java.util.Map">
+		<![CDATA[
+			/*insertBuyerWmGrWarehousingGrNo*/
+			INSERT INTO ICOMSQMT (
+				  COMPANY
+				, DOC_TYPE
+				, YEAR
+				, CUR_NO
+			) VALUES (
+				  #{st_com_code}
+				, #{st_doc_type}
+				, TO_CHAR(SYSDATE,'YYYY')
+				, 2
+			)
+		]]>
+	</update>
+	
+	<!-- 입고번호 조회 후 UPDATE -->
+	<update id="updateBuyerWmGrWarehousingGrNo" parameterType="java.util.Map">
+		<![CDATA[
+			/*updateBuyerWmGrWarehousingGrNo*/
+			UPDATE ICOMSQMT 
+			SET 
+				  YEAR   = DECODE(YEAR,TO_CHAR(SYSDATE,'YYYY'), YEAR, TO_CHAR(SYSDATE,'YYYY'))
+				, CUR_NO = DECODE(YEAR,TO_CHAR(SYSDATE,'YYYY'),CUR_NO+1,1)
+			WHERE 
+					COMPANY  = #{st_com_code} 
+				AND DOC_TYPE = #{st_doc_type}
+		]]>
+	</update>
+	
+	<!-- 입고등록1 -->
+	<update id="updateBuyerWmGrWarehousingPrdt" parameterType="java.util.Map">
+		<![CDATA[
+			/*updateBuyerWmGrWarehousingPrdt*/
+			UPDATE ICOMPRDT
+			SET
+				REF_PR_NO = #{gr_ref_pr_no}  -- 2024.02.02 관리번호 통일을 위해 REF_PR_NO 추가
+			WHERE
+				(BUYER, PR_NO, PR_SEQ) IN 
+				(
+					SELECT BUYER, PR_NO, PR_SEQ 
+					FROM ICOMPODT 
+					WHERE	BUYER 	= #{buyer}
+						AND SELLER  = #{seller}
+						AND PO_NO   = #{po_no}
+						AND PO_SEQ  = #{po_seq}
+						AND STATUS != 'D'
+						AND ITEM_QTY >= (NVL(GR_QTY,0) + ${gr_qty})
+				)
+		]]>
+	</update>
+	
+	<!-- 입고등록1 -->
+	<update id="updateBuyerWmGrWarehousingPodt" parameterType="java.util.Map">
+		<![CDATA[
+			/*updateBuyerWmGrWarehousingPodt*/
+			UPDATE ICOMPODT
+			SET
+				GR_QTY = NVL(GR_QTY,0) + ${gr_qty},
+				REF_PR_NO = #{gr_ref_pr_no}
+			WHERE
+					BUYER 	= #{buyer}
+				AND SELLER  = #{seller}
+				AND PO_NO   = #{po_no}
+				AND PO_SEQ  = #{po_seq}
+				AND STATUS != 'D'
+				AND ITEM_QTY >= (NVL(GR_QTY,0) + ${gr_qty})
+		]]>
+	</update>
+	
+	<!--입고등록2 -->
+	<select id="selectBuyerWmGrWarehousingProcessInfo" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/*selectBuyerWmGrWarehousingProcessInfo*/
+			SELECT 
+				  HD.PROCESS_TYPE
+				, DECODE(PO.PROCESS_TYPE, '2', PO.WAREHOUSE_CODE, HD.AGENT) AS WAREHOUSE_CODE
+			FROM ICOMPODT PO, ICOMPOHD HD
+			WHERE
+					PO.BUYER 	= #{buyer}
+				AND PO.PO_NO 	= #{po_no}
+				AND PO.PO_SEQ 	= #{po_seq}
+				AND PO.BUYER 	= HD.BUYER
+				AND PO.PO_NO 	= HD.PO_NO
+				AND PO.STATUS <> 'D'
+				AND HD.STATUS <> 'D'                  
+		]]>
+	</select>
+	
+	<!-- 입고등록3 INSERT INTO ICOMGRDT -->
+	<update id="insertBuyerWmGrWarehousingGrdt" parameterType="java.util.Map">
+		<![CDATA[
+			/*insertBuyerWmGrWarehousingGrdt*/
+			INSERT INTO ICOMGRDT (
+				  BUYER
+				, GR_NO
+				, GR_SEQ
+				, STATUS
+				, SEND_DATE
+				, SEND_TIME
+				, ADD_DATE
+				, ADD_TIME
+				, CHANGE_DATE
+				, CHANGE_TIME
+				, CONFIRM_DATE
+				, CONFIRM_TIME
+				, SELLER
+				, GR_DATE
+				, PAY_TERMS
+				, USANCE_DAYS
+				, BUYER_ITEM_NO
+				, SELLER_ITEM_NO
+				, DESCRIPTION
+				, SPECIFICATION
+				, CUR
+				, UNIT_MEASURE
+				, ITEM_QTY
+				, UNIT_PRICE
+				, ITEM_AMT
+				, INV_NO
+				, INV_SEQ
+				, PO_NO
+				, PO_SEQ
+				, DO_NO
+				, DO_SEQ
+				, EXCHANGE_RATE
+				, GR_LOC_AMT
+				, LC_NO
+				, AP_NO
+				, PROCESS_TYPE
+				, RO_QTY
+				, ADD_USER_ID
+				, NOTIFY
+				, PAYER
+				, PAYEE
+				, GR_BAL_QTY
+				, AGENT
+				, AGENT_PRICE
+				, CHANGE_USER_ID
+				, AGENT_ITEM_AMT
+				, LEGACY_PO_NO
+				, LEGACY_PO_SEQ
+				, BYIT_COMORG_CODE
+				, REF_PR_NO
+			) (
+				SELECT
+					  D.BUYER
+					, #{gr_no}
+					, TO_CHAR(#{gr_seq},'FM000000')
+					, 'C'
+					, ' '
+					, ' '
+					, TO_CHAR(SYSDATE,'YYYYMMDD')
+					, TO_CHAR(SYSDATE,'HH24MISS')
+					, TO_CHAR(SYSDATE,'YYYYMMDD')
+					, TO_CHAR(SYSDATE,'HH24MISS')
+					, ' '
+					, ' '
+					, D.SELLER
+					, #{gr_date}
+					, H.PAY_TERMS
+					, H.USANCE_DAYS
+					, D.BUYER_ITEM_NO
+					, D.SELLER_ITEM_NO
+					, D.DESCRIPTION
+					, D.SPECIFICATION
+					, H.CUR
+					, D.UNIT_MEASURE
+					, ${gr_qty}
+					, T.UNIT_PRICE
+					, ROUND(${gr_qty} * T.UNIT_PRICE)
+					, D.INV_NO
+					, D.INV_SEQ
+					, D.PO_NO
+					, D.PO_SEQ
+					, D.DO_NO
+					, D.DO_SEQ
+					, '12'
+					, '1'
+					, D.LC_NO
+					, ''
+					, H.INV_TYPE
+					, 0
+					, #{user_id}
+					, D.NOTIFY
+					, D.PAYER
+					, D.PAYEE
+					, ${gr_qty}
+					, #{agent}
+					, ${agent_price}
+					, #{user_id}
+					, ROUND(${gr_qty} * T.AGENT_PRICE)
+					, T.LEGACY_PO_NO
+					, T.LEGACY_PO_SEQ
+					, T.BYIT_COMORG_CODE
+					, #{gr_ref_pr_no}
+				FROM ICOMIVDT D, ICOMIVHD H, ICOMPODT T
+				WHERE
+						D.BUYER    = #{buyer}
+					AND D.SELLER   = #{seller}
+					AND D.INV_NO   = #{inv_no}
+					AND D.INV_SEQ  = #{inv_seq}
+					AND D.STATUS  != 'D'
+					AND D.BUYER    = H.BUYER
+					AND D.SELLER   = H.SELLER
+					AND D.INV_NO   = H.INV_NO
+					AND D.BUYER    = T.BUYER
+					AND D.PO_NO    = T.PO_NO
+					AND D.PO_SEQ   = T.PO_SEQ
+					AND H.STATUS  != 'D'
+			)
+		]]>
+	</update>
+	
+	<!-- 입고등록4 UPDATE ICOMIVDT -->
+	<update id="updateBuyerWmGrWarehousingIvdt" parameterType="java.util.Map">
+		<![CDATA[
+			/*updateBuyerWmGrWarehousingIvdt*/
+			UPDATE ICOMIVDT A 
+			SET
+				 A.GR_QTY = NVL(A.GR_QTY,0) + ${gr_qty}
+				,A.REF_PR_NO = #{gr_ref_pr_no} -- 관리번호 통일을 위해 REF_PR_NO 추가 24.02.02 
+			WHERE 
+					A.BUYER		= #{buyer}
+				AND A.SELLER	= #{seller}
+				AND A.INV_NO	= #{inv_no}
+				AND A.INV_SEQ	= #{inv_seq}
+				AND A.STATUS   != 'D'
+				AND A.INV_QTY	= (NVL(A.GR_QTY,0) + ${gr_qty})
+		]]>
+	</update>
+	
+	<!-- 입고등록5 UPDATE ICOMIVHD -->
+	<update id="updateBuyerWmGrWarehousingIvhd" parameterType="java.util.Map">
+		<![CDATA[
+			/*updateBuyerWmGrWarehousingIvhd*/
+			UPDATE ICOMIVHD
+			SET
+				GR_DATE = TO_CHAR(SYSDATE,'YYYYMMDD')
+			WHERE 
+					BUYER	= #{buyer}
+				AND SELLER  = #{seller}
+				AND INV_NO  = #{inv_no}
+				AND STATUS != 'D'
+		]]>
+	</update>
+	
+	
+	<!-- 입고등록3_1 INSERT INTO ICOMGRDT -->
+	<update id="insertBuyerWmGrWarehousingGrdt1" parameterType="java.util.Map">
+		<![CDATA[
+			/*insertBuyerWmGrWarehousingGrdt1*/
+			INSERT INTO ICOMGRDT (
+				  BUYER
+				, GR_NO
+				, GR_SEQ
+				, STATUS
+				, SEND_DATE
+				, SEND_TIME
+				, ADD_DATE
+				, ADD_TIME
+				, CHANGE_DATE
+				, CHANGE_TIME
+				, CONFIRM_DATE
+				, CONFIRM_TIME
+				, SELLER
+				, GR_DATE
+				, PAY_TERMS
+				, USANCE_DAYS
+				, BUYER_ITEM_NO
+				, SELLER_ITEM_NO
+				, DESCRIPTION
+				, SPECIFICATION
+				, CUR
+				, UNIT_MEASURE
+				, ITEM_QTY
+				, UNIT_PRICE
+				, ITEM_AMT
+				, INV_NO
+				, INV_SEQ
+				, PO_NO
+				, PO_SEQ
+				, DO_NO
+				, DO_SEQ
+				, EXCHANGE_RATE
+				, GR_LOC_AMT
+				, LC_NO
+				, AP_NO
+				, PROCESS_TYPE
+				, RO_QTY
+				, ADD_USER_ID
+				, NOTIFY
+				, PAYER
+				, PAYEE
+				, GR_BAL_QTY
+				, AGENT
+				, AGENT_PRICE
+				, CHANGE_USER_ID
+				, AGENT_ITEM_AMT
+				, LEGACY_PO_NO
+				, LEGACY_PO_SEQ
+				, BYIT_COMORG_CODE
+				, REF_PR_NO 
+			) (
+				SELECT
+					  D.BUYER
+					, #{gr_no}
+					, TO_CHAR(#{gr_seq},'FM000000')
+					, 'C'
+					, ' '
+					, ' '
+					, TO_CHAR(SYSDATE,'YYYYMMDD')
+					, TO_CHAR(SYSDATE,'HH24MISS')
+					, TO_CHAR(SYSDATE,'YYYYMMDD')
+					, TO_CHAR(SYSDATE,'HH24MISS')
+					, ' '
+					, ' '
+					, D.SELLER
+					, #{gr_date}
+					, H.PAY_TERMS
+					, H.USANCE_DAYS
+					, D.BUYER_ITEM_NO
+					, D.SELLER_ITEM_NO
+					, D.DESCRIPTION
+					, D.SPECIFICATION
+					, H.CUR
+					, D.UNIT_MEASURE
+					, ${gr_qty}
+					, T.UNIT_PRICE
+					, ROUND(${gr_qty} * T.UNIT_PRICE)
+					, W.INV_NO
+					, W.INV_SEQ
+					, W.PO_NO
+					, W.PO_SEQ
+					, D.DO_NO
+					, D.DO_SEQ
+					, '12'		--EXCHANGE_RATE
+					, '1'		--GR_LOC_AMT
+					, D.LC_NO
+					, ''
+					, H.INV_TYPE
+					, 0
+					, #{user_id}
+					, D.NOTIFY
+					, D.PAYER
+					, D.PAYEE
+					, ${gr_qty}
+					, #{agent}
+					, ${agent_price}
+					, #{user_id}
+					, ROUND(${gr_qty} * T.AGENT_PRICE)
+					, T.LEGACY_PO_NO
+					, T.LEGACY_PO_SEQ
+					, T.BYIT_COMORG_CODE
+					, #{gr_ref_pr_no}
+				FROM ICOMIVDT D, ICOMIVHD H, ICOMPODT T, WMSIVDT W
+				WHERE
+						W.BUYER    = #{buyer}
+					AND W.SELLER   = #{seller}
+					AND W.INV_NO   = #{inv_no}
+					AND W.INV_SEQ  = #{inv_seq}
+					AND D.STATUS  != 'D'
+					AND D.BUYER    = H.BUYER
+					AND D.SELLER   = H.SELLER
+					AND D.INV_NO   = H.INV_NO
+					AND D.BUYER    = W.BUYER
+					AND D.INV_NO   = W.S_INV_NO
+					AND D.INV_SEQ  = W.S_INV_SEQ
+					AND D.BUYER    = T.BUYER
+					AND D.PO_NO    = T.PO_NO
+					AND D.PO_SEQ   = T.PO_SEQ
+					AND H.STATUS  != 'D'
+			)
+		]]>
+	</update>
+	
+	<!-- 입고등록4_1 UPDATE WMSIVDT -->
+	<update id="updateBuyerWmGrWarehousingIvdt1" parameterType="java.util.Map">
+		<![CDATA[
+			/*updateBuyerWmGrWarehousingIvdt1*/
+			UPDATE WMSIVDT A 
+			SET
+				  A.BUYER_GR_QTY = NVL(A.BUYER_GR_QTY,0) + ${gr_qty}
+				, CHANGE_DATE = TO_CHAR(SYSDATE,'YYYYMMDD')
+				, CHANGE_TIME = TO_CHAR(SYSDATE,'HH24MISS')
+				, REF_PR_NO = #{gr_ref_pr_no}  -- 2024.02.02 관리번호 통일을 위해 REF_PR_NO 추가
+			WHERE 
+					A.BUYER  = #{buyer}
+				AND A.WAREHOUSE_CODE = DECODE(A.PROCESS_TYPE, '2', #{warehouse_code}, (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE ='HUB' AND CODE = #{warehouse_code}))
+				AND A.SELLER   = #{seller}
+				AND A.INV_NO   = #{inv_no}
+				AND A.INV_SEQ  = #{inv_seq}
+				AND A.STATUS  != 'D'
+		]]>
+	</update>
+		<!-- 입고등록4_2 UPDATE ICOMIVDT -->
+	<update id="updateBuyerWmGrWarehousingIvdt2" parameterType="java.util.Map">
+		<![CDATA[
+			/*updateBuyerWmGrWarehousingIvdt2*/
+			UPDATE ICOMIVDT A 
+			SET
+				A.REF_PR_NO = #{gr_ref_pr_no} -- 관리번호 통일을 위해 REF_PR_NO 추가 24.02.02 
+			WHERE 
+					A.BUYER 	= #{buyer}
+				AND A.SELLER	= #{seller}
+				AND A.PO_NO		= #{po_no}
+				AND A.PO_SEQ	= #{po_seq}
+				AND A.STATUS	!= 'D'
+		]]>
+	</update>
+	<select id="selectBuyerWmGrWarehousingGrQtyCheck" parameterType="java.util.Map" resultType="java.lang.String">
+		<![CDATA[
+			/*selectBuyerWmGrWarehousingGrQtyCheck*/
+			SELECT
+				(${gr_qty} + NVL(GR_QTY,0)) - NVL(INV_QTY,0) AS GR_QTY
+			FROM (
+				SELECT		 
+					  --NVL(B.GR_QTY,0) AS GR_QTY	-- 기입고수량
+					  DECODE(B.PROCESS_TYPE,'0',NVL(C.GR_QTY, 0),NVL(D.BUYER_GR_QTY, 0)) AS GR_QTY	-- 기입고수량 
+					, DECODE(B.PROCESS_TYPE,'0',NVL(C.INV_QTY,0),NVL(D.INV_QTY,0)) AS INV_QTY	-- 송장수량
+				FROM ICOMPODT B, ICOMIVDT C, WMSIVDT D
+				WHERE 
+						B.BUYER  = #{buyer}
+					AND B.PO_NO  = #{po_no}
+					AND B.PO_SEQ = #{po_seq}
+					AND DECODE(B.PROCESS_TYPE,'0',C.INV_NO,D.INV_NO) = #{inv_no}
+					AND DECODE(B.PROCESS_TYPE,'0',C.INV_SEQ,D.INV_SEQ) = #{inv_seq}
+					AND B.BUYER  = C.BUYER
+					AND B.PO_NO  = C.PO_NO
+					AND B.PO_SEQ = C.PO_SEQ
+					AND C.BUYER  = D.BUYER(+)
+					AND C.INV_NO = D.S_INV_NO(+)
+					AND C.INV_SEQ = D.S_INV_SEQ(+)
+					AND D.STATUS(+) <> 'D'
+					AND B.STATUS <> 'D'
+					AND C.STATUS <> 'D'
+			) S
+		]]>
+	</select>
+	
+	<select id="selectBuyerWmGrWarehousingCarStockCheck" parameterType="java.util.Map" resultType="String">
+		<![CDATA[
+			/*selectBuyerWmGrWarehousingCarStockCheck*/
+			SELECT COUNT(1) AS CNT
+			FROM CAR_STOCK CAR
+			WHERE CAR.BUYER = #{buyer}
+			AND CAR.BUYER_ITEM_NO = #{buyer_item_no}
+		]]>
+	</select>
+	
+	<update id="insertBuyerWmGrWarehousingCarStock" parameterType="java.util.Map">
+		<![CDATA[
+			/*insertBuyerWmGrWarehousingCarStock*/
+			INSERT INTO CAR_STOCK (
+				BUYER
+				,BUYER_ITEM_NO
+				,BYIT_COMORG_CODE
+				,GR_QTY
+				,IV_QTY
+				,ADD_USER_ID
+				,ADD_DATE
+				,CHANGE_USER_ID
+				,CHANGE_DATE
+				,STATUS
+			) VALUES (
+				#{buyer}
+				,#{buyer_item_no}
+				,(SELECT BYCA_COMORG_CODE FROM ICOMCMPY WHERE COM_CODE = #{buyer})
+				,#{gr_qty}
+				,0
+				,#{user_id}
+				,SYSDATE
+				,#{user_id}
+				,SYSDATE
+				,'C'
+			)
+		]]>
+	</update>
+	
+	<update id="updateBuyerWmGrWarehousingCarStockAdd" parameterType="java.util.Map">
+		<![CDATA[
+			/*updateBuyerWmGrWarehousingCarStockAdd*/
+			UPDATE CAR_STOCK SET
+			GR_QTY = (GR_QTY+#{gr_qty})
+			,CHANGE_USER_ID = #{user_id}
+			,CHANGE_DATE = SYSDATE
+			WHERE BUYER = #{buyer}
+			AND BUYER_ITEM_NO = #{buyer_item_no}
+		]]>
+	</update>
+	
+	<update id="insertBuyerWmGrWarehousingCarStockGrdt" parameterType="java.util.Map">
+		<![CDATA[
+			/*insertBuyerWmGrWarehousingCarStockGrdt*/
+			INSERT INTO CAR_STOCK_GRDT (
+				BUYER
+				,GR_NO
+				,GR_SEQ
+				,BYIT_COMORG_CODE
+				,BUYER_ITEM_NO
+				,GR_QTY
+				,ADD_USER_ID
+				,ADD_DATE
+				,CHANGE_USER_ID
+				,CHANGE_DATE
+				,STATUS
+			) VALUES (
+				#{buyer}
+				,#{gr_no}
+				,TO_CHAR(#{gr_seq},'FM000000')
+				,(SELECT BYCA_COMORG_CODE FROM ICOMCMPY WHERE COM_CODE = #{buyer})
+				,#{buyer_item_no}
+				,#{gr_qty}
+				,#{user_id}
+				,SYSDATE
+				,#{user_id}
+				,SYSDATE
+				,'C'
+			)
+		]]>
+	</update>
+	
+	<select id="selectBuyerWmGrWarehousingGrAppSendList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			
+			SELECT RANK() OVER(PARTITION BY BUYER ORDER BY BUYER,INV_NO,INV_SEQ) AS SEQ_NO
+				     , BUYER
+				     , INV_NO
+				     , INV_SEQ
+				     , DESCRIPTION
+				     , UNIT_MEASURE
+				     , INV_QTY
+				     , F_SPLIT(BUDGET_DEPT,'-',1) AS BUDGET_DEPT
+				     , (SELECT TEXT1 FROM ICOMCOD2 
+				         WHERE TYPE = 'Z014'
+				           AND CODE = X.ACCOUNT_TYPE
+				           AND COMPANY_CODE = X.BUYER
+				           AND FLAG = 'Y'
+				         ) AS ACCOUNT_TYPE
+				     , BUYER_ITEM_NO
+				     , ST_AREA
+				     , UNIT_PRICE
+				     , (SELECT NVL(REF_PR_NO, ' ') FROM ICOMPRDT
+				        WHERE BUYER = X.BUYER
+				        AND   PR_NO = X.PR_NO
+				        AND   PR_SEQ= X.PR_SEQ) AS DEPT_CD
+				     , ITEM_AMT
+				     , LEGACY_IV_SERIAL
+				FROM (
+				SELECT IVDT.BUYER
+				      , IVDT.PO_NO
+				      , IVDT.PO_SEQ
+				      , IVDT.INV_NO
+				      , IVDT.INV_SEQ
+				      , PODT.DESCRIPTION
+				      , PODT.UNIT_MEASURE
+				      , IVDT.INV_QTY
+				      , PODT.BUDGET_DEPT
+				      , PODT.ACCOUNT_TYPE
+				      , PODT.BUYER_ITEM_NO
+				      , NULL AS ST_AREA
+				      , IVDT.UNIT_PRICE
+				      , IVDT.ITEM_AMT
+				      , PODT.PR_NO
+				      , PODT.PR_SEQ
+				      , NVL(IVDT.LEGACY_IV_SERIAL_DT, ' ') AS LEGACY_IV_SERIAL
+				FROM ICOMIVDT IVDT, ICOMPODT PODT
+				WHERE IVDT.BUYER = #{buyer}
+				--AND  IVDT.LEGACY_IV_SERIAL_DT = &H_LEGACY_IV_SERIAL_DT
+				AND  IVDT.INV_NO = #{inv_no}
+				AND  IVDT.INV_SEQ = #{inv_seq}
+				AND  IVDT.STATUS != 'D'
+				AND  IVDT.BUYER = PODT.BUYER
+				AND  IVDT.PO_NO = PODT.PO_NO
+				AND  IVDT.PO_SEQ= PODT.PO_SEQ
+				AND  PODT.STATUS != 'D'
+				AND  PODT.PROCESS_TYPE = '0'
+				AND  IVDT.SND_CHK = 'N'
+				UNION
+				SELECT IVDT.BUYER
+				      , IVDT.PO_NO
+				      , IVDT.PO_SEQ
+				      , IVDT.INV_NO
+				      , IVDT.INV_SEQ
+				      , PODT.DESCRIPTION
+				      , PODT.UNIT_MEASURE
+				      , IVDT.INV_QTY
+				      , PODT.BUDGET_DEPT
+				      , PODT.ACCOUNT_TYPE
+				      , PODT.BUYER_ITEM_NO
+				      , NULL AS ST_AREA
+				      , IVDT.UNIT_PRICE
+				      , IVDT.UNIT_AMT   AS ITEM_AMT
+				      , PODT.PR_NO
+				      , PODT.PR_SEQ
+				      , NVL(IVDT.LEGACY_IV_SERIAL, ' ')
+				FROM WMSIVDT IVDT, ICOMPODT PODT
+				WHERE IVDT.BUYER = #{buyer}
+				--AND  IVDT.LEGACY_IV_SERIAL  = &H_LEGACY_IV_SERIAL_DT
+				AND  IVDT.INV_NO = #{inv_no}
+				AND  IVDT.INV_SEQ = #{inv_seq}
+				AND  IVDT.STATUS != 'D'
+				AND  IVDT.BUYER = PODT.BUYER
+				AND  IVDT.PO_NO = PODT.PO_NO
+				AND  IVDT.PO_SEQ= PODT.PO_SEQ
+				AND  PODT.STATUS != 'D'
+				AND  PODT.PROCESS_TYPE != '0'
+				AND  IVDT.SND_CHK = 'N'
+				) X
+			
+			  
+		]]>
+	</select>
+	
+	<select id="selectBuyerWmGrWarehousingGrAppSendUserId" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			SELECT
+				 LEGACY_USER_ID 
+				,DEPARTMENT 
+				,USER_NAME_LOC
+			FROM ICOMLUSR
+			WHERE USER_ID = #{st_user_id}
+			  AND COM_CODE = #{st_com_code}
+			
+		]]>
+	</select>
+	<select id="selectBuyerWmGrWarehousingGetKeyNo" parameterType="java.util.Map" resultType="java.lang.String">
+		<![CDATA[
+			SELECT 'G'||TO_CHAR(SYSDATE,'YYMM')||TO_CHAR(FUN_MAX_SEQ_MNG('MAX_LOTTECS_GR','YYMM'),'FM00000') AS KEY_NO
+			  FROM DUAL 
+		]]>
+	</select>
+	
+	<update id="updateBuyerWmGrWarehousingLegacyIvNo1" parameterType="java.util.Map">
+		<![CDATA[
+			  /*updateBuyerWmGrWarehousingLegacyIvNo1*/
+			UPDATE ICOMIVDT
+			   SET LEGACY_IV_SERIAL_DT = #{key_no} 
+			     , SND_CHK = 'S'
+			     , SND_DATM  = sysdate
+				 , SEND_DATE = to_char(sysdate,'YYYYMMDD')
+				 , SEND_TIME = to_char(sysdate,'HH24MISS')
+			 WHERE BUYER = #{BUYER}  
+			   AND INV_NO = #{INV_NO}
+			   AND INV_SEQ = #{INV_SEQ}
+		]]>
+	</update>
+	
+	<update id="updateBuyerWmGrWarehousingLegacyIvNo2" parameterType="java.util.Map">
+		<![CDATA[
+			/*updateBuyerWmGrWarehousingLegacyIvNo2*/
+			UPDATE WMSIVDT
+			   SET LEGACY_IV_SERIAL = #{key_no} 
+			     , SND_CHK = 'S'
+			     , SND_DATM  = sysdate
+				 , SEND_DATE = to_char(sysdate,'YYYYMMDD')
+				 , SEND_TIME = to_char(sysdate,'HH24MISS')
+			 WHERE BUYER = #{BUYER}  
+			   AND INV_NO = #{INV_NO}
+			   AND INV_SEQ = #{INV_SEQ}
+		]]>
+	</update>
+	
+	<select id="selectBuyerWmGrWarehousingGrAppSendDBlinkList" parameterType="java.util.Map" resultType="integer">
+		<![CDATA[
+			SELECT COUNT(*) AS CNT 
+			  FROM KEP_APIF_LOTTECS@keplink
+			 WHERE AP_TYPE = 'G' 
+			   AND AP_NO = #{LEGACY_IV_SERIAL}
+			   AND AP_RESULT != '7'
+			
+		]]>
+	</select>
+	
+	<update id="updateBuyerWmGrWarehousingGrAppSendDBlinkList" parameterType="java.util.Map">
+		<![CDATA[
+			INSERT INTO KEP_APIF_LOTTECS@keplink (AP_TYPE, AP_NO, AP_RESULT, AP_NOTE, AP_DATE, IF_FLAG, IF_DATE, MNG_DATE)
+			       VALUES ('G',#{key_no},null,null,null,'Y',SYSDATE, #{ori_gr_date})
+		]]>
+	</update>
+	
+	<update id="updateBuyerPWmGrWarehousingGrAppSendDBlinkList" parameterType="java.util.Map">
+		<![CDATA[
+			INSERT INTO KEP_APIF_LOTTECS@keplink (AP_TYPE, AP_NO, AP_RESULT, AP_NOTE, AP_DATE, IF_FLAG, IF_DATE, MNG_DATE)
+			       VALUES ('GP',#{key_no},null,null,null,'Y',SYSDATE, #{ori_gr_date})
+		]]>
+	</update>
+	
+	<select id="selectResetGrWarehousingRegCnt" parameterType="java.util.Map" resultType="integer">
+		<![CDATA[
+			SELECT COUNT(*) AS CNT 
+			  FROM ICOMIVDT
+			 WHERE BUYER = #{BUYER}  
+			   AND LEGACY_IV_SERIAL_DT = #{LEGACY_IV_SERIAL_DT}
+			   AND SND_CHK != 'S'
+		]]>
+	</select>
+	
+	<update id="updateResetGrWarehousingReg" parameterType="java.util.Map">
+		<![CDATA[
+			UPDATE ICOMIVDT
+			   SET LEGACY_IV_SERIAL_DT = NULL
+			     , SND_CHK = 'N'
+			 WHERE BUYER = #{BUYER}  
+			   AND LEGACY_IV_SERIAL_DT = #{LEGACY_IV_SERIAL_DT}
+			   AND  SND_CHK = 'S'
+		]]>
+	</update>
+	
+	<select id="selectBuyerWmGrWarehousingGrYnCheck" parameterType="java.util.Map" resultType="java.lang.String">
+		<![CDATA[
+			/*selectBuyerWmGrWarehousingGrYnCheck*/
+			SELECT	NVL(COUNT(*), 0) AS YN_FLAG
+			FROM	ICOMCOD2
+			WHERE	1=1
+			AND		TYPE = 'NOGR'
+			AND		COMPANY_CODE = #{buyer}
+			AND		FLAG = 'Y'
+			AND		CODE >= SUBSTR(#{gr_date}, 0, 6)
+		]]>
+	</select>
+</mapper>

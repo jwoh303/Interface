@@ -1,0 +1,1162 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mdcm">
+	<!-- 조회 -->
+	<select id="selectMasterMdCmCatalogRegList" parameterType="java.util.Map" resultType="java.util.Map">
+			<![CDATA[
+		    	/*selectMasterMdCmCatalogRegList*/
+		    	SELECT   
+					         ROWNUM No,    --[01]
+					         DECODE((SELECT COUNT(*) FROM ICOMCQDT  
+					                  WHERE BUYER = A.BUYER  
+					                    AND BUYER_ITEM_NO = A.BUYER_ITEM_NO),  
+					                0,'0','1')  AS CQDT_COUNT,    --[02]
+					         DECODE(A.STATUS,'X','2', 'J','2', DECODE((SELECT COUNT(*) FROM ICOMBYIT_ADD D  
+					                  WHERE D.BUYER = A.BUYER  
+					                    AND D.BUYER_ITEM_NO ^= 'NO_CODE'        
+					                    AND D.BUYER_ITEM_NO = A.BUYER_ITEM_NO  
+					                    AND D.AGENT_CODE = A.AGENT_CODE    
+					                    AND D.BELOW_COMORG_CODE = A.BELOW_COMORG_CODE),  
+					                1,'0',0,'0','1'))  AS ADD_COUNT,    --[03]
+					         nvl((SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = 
+					             (SELECT CMS_USER_ID FROM KEPRQDT 
+					              WHERE BUYER = A.COM_CODE AND QUOTATION_NO=A.QUOTATION_NO AND QUOTATION_SEQ = A.QUOTATION_SEQ AND REVISION = A.REVISION)), ' ') CMS_USER, --[04]
+					 nvl((SELECT TO_CHAR(TO_DATE(CMS_RECV_DATE,'YYYYMMDD'),'YYYY-MM-DD')||' '||TO_CHAR(TO_DATE(CMS_RECV_TIME,'HH24MISS'),'HH24:MI') 
+					  FROM KEPRQDT   
+					  WHERE BUYER = A.COM_CODE AND QUOTATION_NO=A.QUOTATION_NO AND QUOTATION_SEQ = A.QUOTATION_SEQ AND REVISION = A.REVISION),' ')  AS CMS_RECV_TIME ,--[05]접수시간 
+					         (SELECT Y.CATEG_NAME FROM CMSCATEG Y  
+					           WHERE Y.CMS_CATEG_ID = A.CMS_CATEG_ID AND STATUS IN ('C', 'R') AND Y.CATEG_TYPE = 'ITM')  AS CMS_CATEG_NAME,    --[06]
+					         A.CMS_CATLG_ID  ,    --[07]
+					         A.BUYER_ITEM_NO  ,    --[08]
+					         NVL(A.CATEGORY_TEXT,(SELECT DISTINCT CATEG_NAME FROM ICOMBYCA WHERE COM_CODE = A.BUYER AND STD_CATEG_ID = A.CATEGORY_NO)) AS CATEGORY_TEXT ,    --[09]
+					         A.DESCRIPTION  ,    --[10]
+					         A.SPECIFICATION  ,    --[11]
+					         NVL(A.MAKER_NAME,(SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE='M104' AND CODE= A.MAKER_CODE))  AS MAKER_NAME,    --[12]
+					         A.MAKER_PART_NO  ,    --[13]
+					         A.UNIT_MEASURE  ,    --[14]
+					        (SELECT P.COM_NAME_LOC FROM ICOMCMPY P  
+					                    WHERE P.COM_CODE = A.BELOW_COMORG_CODE)  AS BELOW_COMORG_NAME,    --[15]
+					         NVL(A.AGENT_NAME,(SELECT DISTINCT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = A.AGENT_CODE))  AS AGENT_NAME,    --[16]
+					         NVL(A.UNIT_PRICE,0) AS UNIT_PRICE ,    --[17]
+					         NVL(A.LIST_PRICE,0)  AS LIST_PRICE,    --[18]
+					         NVL(A.PREV_DEAL_PRICE,0) AS PREV_DEAL_PRICE ,    --[19]
+					         A.DELIVERY_LT  ,    --[20]
+					         A.CONTRACT_NO  ,    --[21]
+					         A.SELLER_ITEM_NO  ,    --[22]
+					         (SELECT O.TEXT2 FROM ICOMCOD1 O  
+					           WHERE O.TYPE = 'M034'  
+					             AND O.CODE = A.PROCESS_TYPE)  AS PROCESS_TYPE_NAME,    --[23]
+					         (SELECT R.TEXT2 FROM ICOMCOD1 R  
+					           WHERE R.TYPE = 'M001'  
+					             AND R.CODE = A.ORIGIN_CODE)  AS ORIGIN_NAME,    --[24]
+					         (SELECT W.COM_NAME_LOC FROM ICOMCMPY W  
+					           WHERE W.COM_CODE = A.ORIGIN_AGENT)  AS ORIGIN_AGENT_NAME,    --[25]
+					         A.CMS_CATEG_ID  ,    --[26]
+					         A.CATEGORY_NO  ,    --[27]
+					         A.AGENT_CODE  ,    --[28]
+					         A.BELOW_COMORG_CODE  ,    --[29]
+					         A.PROCESS_TYPE  ,    --[30]
+					         A.ORIGIN_CODE  ,    --[31]
+					         A.ORIGIN_AGENT  ,    --[32]
+					         A.SEQ  ,    --[33]
+					         A.ITEM_SEQ,    --[34]
+					         DECODE((SELECT COUNT(*) FROM CMSCATTR T  
+					                 WHERE T.CMS_CATEG_ID = A.STDCATEG_ID),  
+					                 0,'N','Y')  AS CMSCATTR_COUNT,    --[35]
+					         TRIM(A.QUOTATION_NO)  QUOTATION_NO,    --[36]
+					         A.COM_CODE,   --[37]
+					         A.QUOTATION_SEQ,      --[38]
+					         A.REVISION,   --[39]
+					                   (SELECT NVL(DECODE(ITEM_QTY, NULL, 1, 0, 1,ITEM_QTY),1) FROM KEPQTDT WHERE BUYER=A.COM_CODE   
+					                                                  AND QUOTATION_NO=A.QUOTATION_NO    
+					                                                  AND QUOTATION_SEQ=A.QUOTATION_SEQ  
+					                                                  AND REVISION=A.REVISION    
+					                                                  AND BID_SUCCESS_FLAG='Y'   
+					                                                  AND STATUS IN ('C','R'))  ITEM_QTY,      --[40]
+					                 (SELECT NVL(DECODE(ITEM_QTY, NULL, 1, 0, 1,ITEM_QTY),1)*ATOB_UNIT_PRICE FROM KEPQTDT WHERE BUYER=A.COM_CODE 
+					                                                  AND QUOTATION_NO=A.QUOTATION_NO    
+					                                                  AND QUOTATION_SEQ=A.QUOTATION_SEQ  
+					                                                  AND REVISION=A.REVISION    
+					                                                  AND BID_SUCCESS_FLAG='Y'   
+					                                                  AND STATUS IN ('C','R'))  QUOTATION_SUM,     --[41]
+					         decode(a.item_group,'M','사업팀','O','OPA팀') AS ITEM_GROUP_NAME, a.item_group , A.MAKER_CODE, A.STATUS,A.ITEM_NO,   --[42],[41],[42], [43]
+					            NVL(A.IMPORT_FLAG,' ') AS IMPORT_FLAG,            -- 47
+					            NVL(A.PRICE_RATE,0) AS PRICE_RATE,                -- 48
+					            NVL(A.S_PRICE,0) AS S_PRICE,                                -- 49
+					            NVL(A.LOGISTICS_FEE,0) AS LOGISTICS_FEE,                            -- 50
+					         NVL(A.KEP_DESCRIPTION,' ') AS KEP_DESCRIPTION,                            --    51
+					         NVL(A.KEP_SPECIFICATION,' ') AS KEP_SPECIFICATION,                        --    52 
+					         DECODE(A.KEP_MAKER_NAME,' ',(SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE='M104' AND CODE= A.MAKER_CODE),NVL(A.KEP_MAKER_NAME,(SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE='M104' AND CODE= A.MAKER_CODE))) AS KEP_MAKER_NAME,                     --    53
+					         NVL(A.KEP_MAKER_PART_NO,' ') AS KEP_MAKER_PART_NO,                              --    54    
+					         NVL(A.KEP_UNIT_MEASURE,' ') AS KEP_UNIT_MEASURE,                              --    55
+					         NVL(A.KEP_ORIGIN_NAME,' ') AS KEP_ORIGIN_NAME,                                  --    56
+					         NVL(A.KEP_MAKER_CODE,' ') AS KEP_MAKER_CODE,                            --    57
+					         NVL(A.KEP_ORIGIN_CODE,' ') AS KEP_ORIGIN_CODE,                            --    58  
+					         NVL(A.IMGFILE_NAME,' ') AS IMGFILE_NAME,                              --    59  
+					         NVL(A.IMGFILE_DIR,' ') AS IMGFILE_DIR,                                --    60  
+					         A.BUYER,
+                             NVL((SELECT RATE FROM KEP_BUYER_RATE WHERE BUYER = A.BUYER AND CONTRACT_FLAG = 'F' AND ROWNUM = 1),0) AS STANDARD_RATE,
+                             F_GET_DSS_CHK(A.BUYER,A.AGENT_CODE,0) AS H_AGENT_USE_FLAG,
+                             F_GET_DSS_CHK(A.BUYER,A.AGENT_CODE,1) AS H_AGENT_USE_MSG,
+                             A.GPM_NO,
+                             A.ITEM_MAKE_TYPE,
+                             (SELECT BYIT.PRODUCT_CLOSE_FLAG FROM ICOMBYIT BYIT 
+                             	WHERE BYIT.BUYER = A.BUYER AND BYIT.BUYER_ITEM_NO = A.BUYER_ITEM_NO) PRODUCT_CLOSE_FLAG,
+                             NVL(A.MOQ_QTY,1) AS MOQ_QTY,	
+                             A.CATEGORY_CHOICE_TYPE,
+                             (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'DQCT' AND FLAG = 'Y' AND CODE = A.CATEGORY_CHOICE_TYPE) AS CATEGORY_CHOICE_TYPE_NM,
+                             NVL(A.TO_DATE,'29991231') AS TO_DATE,
+                             A.MIN_ORDER_QTY,
+                             A.PUR_UNIT_QTY,
+                             /*SLOGIC-BEGIN(P04-4041-01)*/
+                             DECODE((SELECT COUNT(*) FROM BNTSLGIMP WHERE SLG_ID = 'P04-4041-01' AND COM_CODE = A.BUYER AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN OPEN_DATE AND CLOSE_DATE), 0, 'N', 'Y') AS MOQ_USE_FLAG,
+                             /*SLOGIC-END*/
+                             A.SELLER_AREA,
+                             DECODE(A.SELLER_AREA,'','4','5') AS SELLER_AREA_IMG,
+                             /*SLOGIC-BEGIN(P04-4041-02)*/
+                             DECODE((SELECT COUNT(*) FROM BNTSLGIMP WHERE SLG_ID = 'P04-4041-02' AND COM_CODE = A.BUYER AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN OPEN_DATE AND CLOSE_DATE), 0, 'N', 'Y') AS AREA_USE_FLAG,
+                             /*SLOGIC-END*/
+                             NVL(A.TAX_TYPE, '11') AS TAX_TYPE,
+                              A.CATALOG_CHOICE_TYPE,
+                             (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'DQCT' AND FLAG = 'Y' AND CODE = A.CATALOG_CHOICE_TYPE) AS CATALOG_CHOICE_TYPE_NM,
+                             A.EXP_CODE,
+                             /*SLOGIC-BEGIN(P04-4041-05)*/
+                             DECODE((SELECT COUNT(*) FROM BNTSLGIMP WHERE SLG_ID = 'P04-4041-05' AND COM_CODE = A.BUYER AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN OPEN_DATE AND CLOSE_DATE), 0, 'N', 'Y') AS ENG_USE_FLAG,
+                             /*SLOGIC-END*/
+                             A.DESCRIPTION_ENG,
+                             A.SPECIFICATION_ENG,
+                             A.SELL_CLOSE_DATE,
+                             A.BUY_CLOSE_DATE
+                             
+					    FROM  
+					        (SELECT *  
+					           FROM ICOMBYIT_ADD T  
+					          WHERE T.BUYER = #{st_buyer_code}  
+			]]>
+			<if test="st_buyer_item_no != null and st_buyer_item_no != ''">					          
+					           AND T.BUYER_ITEM_NO LIKE UPPER(#{st_buyer_item_no} || '%')  
+			</if>
+	        <if test="st_description != null and st_description != ''">  
+	        					AND T.DESCRIPTION LIKE UPPER(#{st_description} || '%')
+			</if>
+			<if test="st_status_ing == 'CO'">
+			<![CDATA[			
+					            AND T.CATEGORY_NO > '0'  
+					            AND T.AGENT_CODE > 'KR'  
+					            AND T.UNIT_PRICE > 0  
+					            AND T.LIST_PRICE > 0  
+					            AND T.BUYER_ITEM_NO IS NOT NULL  
+					            AND T.DESCRIPTION IS NOT NULL  
+					            AND T.SPECIFICATION IS NOT NULL  
+					            AND T.MAKER_NAME IS NOT NULL  
+					            AND T.BELOW_COMORG_CODE IS NOT NULL  
+					            AND T.DELIVERY_LT IS NOT NULL  
+					            AND T.CONTRACT_NO IS NOT NULL  
+					            AND T.PROCESS_TYPE IS NOT NULL  
+					            AND T.ORIGIN_CODE IS NOT NULL
+					            AND EXISTS (SELECT 'X' FROM ICOMCMPY WHERE BYCA_COMORG_CODE = T.BUYER AND COM_CODE = T.BELOW_COMORG_CODE)
+			]]>					            
+			</if>
+			<if test="st_status_ing == 'IN'">
+			<![CDATA[			
+					            AND (T.CATEGORY_NO IS NULL  
+					             OR T.AGENT_CODE < 'KR'  
+					             OR NVL(T.UNIT_PRICE,0) = 0 OR NVL(T.LIST_PRICE,0) = 0  
+					             OR T.BUYER_ITEM_NO IS NULL  
+					             OR T.DESCRIPTION IS NULL  
+					             OR T.SPECIFICATION IS NULL  
+					             OR T.MAKER_NAME IS NULL  
+					             OR T.BELOW_COMORG_CODE IS NULL  
+					             OR T.DELIVERY_LT IS NULL  
+					             OR T.CONTRACT_NO IS NULL  
+					             OR T.PROCESS_TYPE IS NULL  
+					             OR T.ORIGIN_CODE IS NULL
+					             OR NOT EXISTS (SELECT 'X' FROM ICOMCMPY WHERE BYCA_COMORG_CODE = T.BUYER AND COM_CODE = T.BELOW_COMORG_CODE)
+					             )
+			]]>					             
+			</if>
+			<![CDATA[			
+					            AND T.SO_CA_FLAG='CA'    
+					            AND T.STATUS ^='R'  
+					         ORDER BY T.BUYER_ITEM_NO, T.CONTRACT_NO ) A
+					          WHERE NOT EXISTS
+							          (SELECT 'A'
+					                    FROM KEPMGPHD C, KEPMGPDT D, ICOMTRGW E
+					                   WHERE C.BUYER = D.BUYER
+					                       AND C.PM_NO = E.KEY_1
+					                       AND E.COM_CODE = 'KRKORE0001'
+					                       AND C.PM_NO = D.PM_NO
+					                       AND C.STATUS = 'C'   -- 추가수정 2019.02.14 NOT IN ('B', 'D') 에서 변경
+					                       AND C.GUBUN = 'NCA'
+					                       AND C.BUYER = A.BELOW_COMORG_CODE
+										-- 추가시작 2019.02.14
+											AND D.RE_UNIT_PRICE = A.UNIT_PRICE
+											AND D.RE_LIST_PRICE = A.LIST_PRICE
+											AND D.AGENT = A.AGENT_CODE
+										-- 추가종료 2019.02.14
+					                       AND D.PO_NO = TO_CHAR (A.SEQ)
+					                       AND D.BUYER_ITEM_NO = A.BUYER_ITEM_NO)
+							ORDER BY A.BUYER_ITEM_NO, A.CONTRACT_NO
+			]]>					          										
+	</select>
+
+
+	<update  id="updateMasterMdCmCatalogReg" parameterType="java.util.Map" >
+		<![CDATA[
+		/* updateMasterMdCmCatalogReg */
+				UPDATE ICOMBYIT_ADD     
+			        SET BUYER_ITEM_NO     = upper(#{BUYER_ITEM_NO}),            --1
+			            CATEGORY_NO       = #{CATEGORY_NO},                   --2
+			            CATEGORY_TEXT     = #{CATEGORY_TEXT},                   --3
+			            DESCRIPTION       = #{DESCRIPTION},                   --4
+			            SPECIFICATION     = #{SPECIFICATION},                   --5
+			            MAKER_NAME        = #{MAKER_NAME},                   --6
+			            MAKER_PART_NO     = #{MAKER_PART_NO},                   --7
+			            AGENT_CODE        = #{AGENT_CODE},                   --8
+			            AGENT_NAME        = #{AGENT_NAME},                   --9
+			            UNIT_MEASURE      = #{UNIT_MEASURE},                   --10
+			            UNIT_PRICE        = #{UNIT_PRICE},                   --11
+			            LIST_PRICE        = #{LIST_PRICE},                   --12
+			            DELIVERY_LT       = #{DELIVERY_LT},                   --13
+			            CONTRACT_NO       = #{CONTRACT_NO},                   --14
+			            PURCHASER_ID      = #{st_user_id},                   --15
+			            BELOW_COMORG_CODE = #{BELOW_COMORG_CODE},                   --16
+			            PROCESS_TYPE      = #{PROCESS_TYPE},                   --17
+			            ORIGIN_CODE       = #{ORIGIN_CODE},                   --18
+			            ORIGIN_AGENT      = #{ORIGIN_AGENT},                   --19
+			            SELLER_ITEM_NO    = #{SELLER_ITEM_NO},                   --20
+			            ITEM_SEQ          = #{ITEM_SEQ},                   --21
+			            PREV_DEAL_PRICE   = #{PREV_DEAL_PRICE},                   --22
+			            ITEM_GROUP        = #{ITEM_GROUP},                   --23
+			            MAKER_CODE        = #{MAKER_CODE},                   --24
+			            CMS_CATEG_ID      = #{CMS_CATEG_ID},                   --25
+			            CMS_CATLG_ID      = #{CMS_CATLG_ID},                   --26
+			            ITEM_NO           = #{ITEM_NO},                   --27
+			            IMPORT_FLAG = NVL(#{IMPORT_FLAG},'N'),   	           --28
+			            S_PRICE = NVL(#{S_PRICE},0),	   	                 --30
+			            PRICE_RATE = NVL(#{PRICE_RATE},0),	    	           --31
+			            LOGISTICS_FEE = NVL(#{LOGISTICS_FEE},0),   	           --32	
+			            KEP_DESCRIPTION		= #{KEP_DESCRIPTION},                   --33
+			            KEP_SPECIFICATION	= #{KEP_SPECIFICATION},                   --34
+			            KEP_MAKER_NAME		= #{KEP_MAKER_NAME},                   --35
+			            KEP_MAKER_PART_NO = #{KEP_MAKER_PART_NO},               --36
+			            KEP_UNIT_MEASURE	= #{KEP_UNIT_MEASURE},                     --37
+			            KEP_ORIGIN_NAME		= #{KEP_ORIGIN_NAME},                   --38
+			            KEP_MAKER_CODE		= #{KEP_MAKER_CODE},                   --39
+			            KEP_ORIGIN_CODE		= #{KEP_ORIGIN_CODE},                   --40
+			            GPM_NO					= #{GPM_NO},                   				--41
+			            ITEM_MAKE_TYPE			= #{ITEM_MAKE_TYPE},                     --42 
+			            SO_CA_FLAG        = 'CA' ,         
+			            MOQ_QTY			= #{MOQ_QTY},                                      --43
+			            CATEGORY_CHOICE_TYPE = #{CATEGORY_CHOICE_TYPE},
+			            TO_DATE = #{SELL_CLOSE_DATE},
+			            MIN_ORDER_QTY = DECODE(#{MIN_ORDER_QTY}, '', 1, #{MIN_ORDER_QTY}),
+			            PUR_UNIT_QTY = DECODE(#{PUR_UNIT_QTY}, '', 1, #{PUR_UNIT_QTY}),
+			            SELLER_AREA = #{SELLER_AREA},
+			            TAX_TYPE = #{TAX_TYPE},
+			            CATALOG_CHOICE_TYPE = #{CATALOG_CHOICE_TYPE},
+			            EXP_CODE = #{EXP_CODE},
+			            DESCRIPTION_ENG = #{DESCRIPTION_ENG},
+			            SPECIFICATION_ENG = #{SPECIFICATION_ENG},
+			            SELL_CLOSE_DATE = #{SELL_CLOSE_DATE},
+			            BUY_CLOSE_DATE = #{BUY_CLOSE_DATE}
+			      WHERE BUYER             = #{BUYER}                    						--44
+			        AND SEQ               = #{SEQ}                    							--45								
+		]]>
+	</update>
+	
+	<update id="insertMasterMdCmCatalogReg" parameterType="java.util.Map" >
+		<selectKey keyProperty="SEQ" order="BEFORE" resultType="integer"> 
+			SELECT NVL(MAX(SEQ),0)+1 AS SEQ FROM ICOMBYIT_ADD WHERE BUYER=#{BUYER} 
+		</selectKey> 
+		<![CDATA[
+				INSERT INTO ICOMBYIT_ADD (  
+				      BUYER,               
+				      SEQ,                 
+				      BUYER_ITEM_NO,       
+				      CATEGORY_NO,         
+				      CATEGORY_TEXT,       
+				      DESCRIPTION,         
+				      SPECIFICATION,       
+				      MAKER_NAME,          
+				      MAKER_PART_NO,       
+				      AGENT_CODE,          
+				      AGENT_NAME,          
+				      UNIT_MEASURE,        
+				      UNIT_PRICE,          
+				      LIST_PRICE,          
+				      DELIVERY_LT,         
+				      REMARK,              
+				      CONTRACT_NO,         
+				      CONTRACT_SEQ,        
+				      PURCHASER_ID,        
+				      PURCHASER_NAME,      
+				      ADD_DATE,            
+				      REF_PR_NO,           
+				      BUYER_UNIT_PRICE,    
+				      IMGFILE_NAME,        
+				      IMGFILE_DIR,         
+				      BELOW_COMORG_CODE,          
+				      CMS_CATEG_ID,        
+				      PROCESS_TYPE,               
+				      CMS_CATLG_ID,        
+				      ORIGIN_CODE,         
+				      ORIGIN_AGENT,        
+				      STATUS,              
+				      PRODUCT_CLOSE_FLAG,  
+				      ITEM_SEQ,            
+				      SELLER_ITEM_NO,      
+				      PREV_DEAL_PRICE,     
+				      ITEM_GROUP,          
+				      MAKER_CODE ,         
+				      ITEM_NO,             
+				      IMPORT_FLAG,           
+				      S_PRICE,                 
+				      PRICE_RATE,             
+				      LOGISTICS_FEE,       
+				      SO_CA_FLAG,          
+				      KEP_DESCRIPTION,     
+				      KEP_SPECIFICATION,   
+				      KEP_MAKER_NAME,      
+				      KEP_MAKER_PART_NO,   
+				      KEP_UNIT_MEASURE,    
+				      KEP_ORIGIN_NAME,     
+				      KEP_MAKER_CODE,      
+				      KEP_ORIGIN_CODE,
+				      GPM_NO,
+				      ITEM_MAKE_TYPE,
+				      MOQ_QTY,
+				      CATEGORY_CHOICE_TYPE,
+				      TAX_TYPE,
+				      CATALOG_CHOICE_TYPE,
+				      SELL_CLOSE_DATE,
+				      BUY_CLOSE_DATE        
+				  )                        
+				  VALUES(  
+				      #{BUYER},        --1  BUYER
+				      #{SEQ},        --2  SEQ
+				      upper(#{BUYER_ITEM_NO}),        --3  BUYER_ITEM_NO
+				      #{CATEGORY_NO},        --4  CATEGORY_NO
+				      #{CATEGORY_TEXT},        --5  CATEGORY_TEXT
+				      #{DESCRIPTION},        --6  DESCRIPTION
+				      #{SPECIFICATION},        --7  SPECIFICATION
+				      #{MAKER_NAME},        --8  MAKER_NAME
+				      #{MAKER_PART_NO},        --9  MAKER_PART_NO
+				      #{AGENT_CODE},        --10 AGENT_CODE
+				      #{AGENT_NAME},        --11 AGENT_NAME
+				      #{UNIT_MEASURE},        --12 UNIT_MEASURE
+				      #{UNIT_PRICE},        --13 UNIT_PRICE
+				      #{LIST_PRICE},        --14 LIST_PRICE
+				      #{DELIVERY_LT},        --15 DELIVERY_LT
+				      '',        --16 REMARK
+				      #{CONTRACT_NO},        --17 CONTRACT_NO
+				      null,        --   CONTRACT_SEQ
+				      #{st_user_id},        --18 PURCHASER_ID
+				      null,        --   PURCHASER_NAME
+				      TO_CHAR(SYSDATE,'YYYYMMDD'),        --   ADD_DATE
+				      null,        --   REF_PR_NO
+				      0,        --   BUYER_UNIT_PRICE
+				      null,        --   IMGFILE_NAME
+				      null,        --   IMGFILE_DIR
+				      #{BELOW_COMORG_CODE},        --19 BELOW_COMORG_CODE
+				      #{CMS_CATEG_ID},        --20 CMS_CATEG_ID
+				      #{PROCESS_TYPE},        --21 PROCESS_TYPE
+				      #{CMS_CATLG_ID},        --22 CMS_CATLG_ID
+				      #{ORIGIN_CODE},        --23 ORIGIN_CODE
+				      #{ORIGIN_AGENT},        --24 ORIGIN_AGENT
+				      'C',        --   STATUS
+				      'N',        --   PRODUCT_CLOSE_FLAG
+				      #{ITEM_SEQ},        --25 ITEM_SEQ
+				      upper(#{SELLER_ITEM_NO}),        --26 SELLER_ITEM_NO
+				      #{PREV_DEAL_PRICE},        --27 PREV_DEAL_PRICE
+				      #{ITEM_GROUP},        --28 ITEM_GROUP
+				      #{MAKER_CODE},        --29 MAKER_CODE
+				      #{ITEM_NO},        --30 ITEM_NO       
+				      NVL(#{IMPORT_FLAG},'N'),         --31 IMPORT_FLAG
+				      NVL(#{S_PRICE},0),           --33 STANDARD_PRICE
+				      NVL(#{PRICE_RATE},0),           --34 PRICE_RATE
+				      NVL(#{LOGISTICS_FEE},0),           --35 LOGISTICS_FEE
+				      'CA',             
+				      NVL(#{KEP_DESCRIPTION},' '),           --36 KEP_DESCRIPTION
+				      NVL(#{KEP_SPECIFICATION},' '),           --37 KEP_SPECIFICATION
+				      NVL(#{KEP_MAKER_NAME},' '),           --38 KEP_MAKER_NAME
+				      NVL(#{KEP_MAKER_PART_NO},' '),           --39 KEP_MAKER_PART_NO
+				      NVL(#{KEP_UNIT_MEASURE},' '),           --40 KEP_UNIT_MEASURE
+				      NVL(#{KEP_ORIGIN_NAME},' '),           --41 KEP_ORIGIN_NAME
+				      NVL(#{KEP_MAKER_CODE},' '),           --42 KEP_MAKER_CODE
+				      NVL(#{KEP_ORIGIN_CODE},' '),           --43 KEP_ORIGIN_CODE
+				      NVL(#{GPM_NO},' '),			              --44 GPM_NO
+				      NVL(#{ITEM_MAKE_TYPE},' '),			  --45 ITEM_MAKE_TYPE 
+				      NVL(#{MOQ_QTY},1),			              --46 MOQ_QTY
+				      #{CATEGORY_CHOICE_TYPE},	-- 47 CATEGORY_CHOICE_TYPE
+				      NVL(#{TAX_TYPE}, '11'), -- 48 TAX_TYPE
+				      #{CATALOG_CHOICE_TYPE},	-- 49 CATALOG_CHOICE_TYPE
+				      #{SELL_CLOSE_DATE},
+				      #{BUY_CLOSE_DATE}
+				  ) 								
+		]]>
+	</update>
+	
+	<update  id="batchMasterMdCmCatalogReg" parameterType="java.util.Map" >
+		<selectKey keyProperty="SEQ" order="BEFORE" resultType="integer"> 
+			SELECT NVL(MAX(SEQ),1)+1 AS SEQ FROM ICOMBYIT_ADD 
+		</selectKey> 
+		<![CDATA[
+		/*batchMasterMdCmCatalogReg*/
+				INSERT INTO ICOMBYIT_ADD (  
+													      BUYER,              
+													      SEQ,                
+													      BUYER_ITEM_NO,      
+													      CATEGORY_NO,        
+													      CATEGORY_TEXT,      
+													      DESCRIPTION,        
+													      SPECIFICATION,      
+													      MAKER_CODE,         
+													      MAKER_PART_NO,      
+													      AGENT_CODE,         
+													      AGENT_NAME,         
+													      UNIT_MEASURE,       
+													      UNIT_PRICE,         
+													      LIST_PRICE,         
+													      DELIVERY_LT,        
+													      REMARK,             
+													      CONTRACT_NO,        
+													      CONTRACT_SEQ,       
+													      PURCHASER_ID,       
+													      PURCHASER_NAME,     
+													      ADD_DATE,           
+													      REF_PR_NO,          
+													      BUYER_UNIT_PRICE,   
+													      IMGFILE_NAME,       
+													      IMGFILE_DIR,        
+													      PREV_DEAL_PRICE,    
+													      BELOW_COMORG_CODE,  
+													      STDCATEG_ID,        
+													      PROCESS_TYPE,       
+													      STDCATLG_ID,        
+													      ORIGIN_CODE,        
+													      ORIGIN_AGENT,       
+													      STATUS,             
+													      PRODUCT_CLOSE_FLAG, 
+													      ITEM_SEQ,           
+													      SELLER_ITEM_NO,     
+													      ITEM_GROUP,	      	
+													      MAKER_NAME,		      
+													      CMS_CATEG_ID,		    
+													      CMS_CATLG_ID,		    
+													      ITEM_NO,  			    
+													      SO_CA_FLAG,			    
+													      KEP_DESCRIPTION,		
+													      KEP_SPECIFICATION,	
+													      KEP_UNIT_MEASURE,		
+													      KEP_MAKER_PART_NO,	
+													      KEP_MAKER_CODE,			
+													      KEP_ORIGIN_CODE,		 
+													      KEP_MAKER_NAME,			
+													      KEP_ORIGIN_NAME,
+													      GPM_NO ,
+													      ITEM_MAKE_TYPE,
+													      MOQ_QTY,
+													      CATEGORY_CHOICE_TYPE,
+													      TO_DATE,
+													      MIN_ORDER_QTY,
+													      PUR_UNIT_QTY,
+													      SELLER_AREA,
+													      TAX_TYPE,
+													      CATALOG_CHOICE_TYPE,
+													      EXP_CODE,
+													      DESCRIPTION_ENG,
+													      SPECIFICATION_ENG,
+													      SELL_CLOSE_DATE,
+													      BUY_CLOSE_DATE
+													    )                     
+													 VALUES(                  
+													        #{BUYER},                      -- 01  BUYER
+													        #{SEQ},                      -- 02  SEQ
+													        DECODE(#{BUYER_ITEM_NO},'0',NULL,#{BUYER_ITEM_NO}),   -- 03,04  BUYER_ITEM_NO
+													        DECODE(#{CATEGORY_NO},'0',NULL,#{CATEGORY_NO}),   -- 05,06  CATEGORY_NO
+													        DECODE(#{CATEGORY_NO},'0',NULL,(SELECT DISTINCT CATEG_NAME FROM ICOMBYCA  
+													                       WHERE COM_CODE = #{BUYER} AND STD_CATEG_ID = #{CATEGORY_NO})), -- CATEGORY_TEXT[07:CATEGORY_NO, 08:BUYER, 09:CATEGORY_NO]
+													        DECODE(#{DESCRIPTION},'0',NULL,#{DESCRIPTION}),   -- 10/11  DESCRIPTION,
+													        DECODE(#{SPECIFICATION},'0',NULL,#{SPECIFICATION}),   -- 12/13  SPECIFICATION
+													        (SELECT CODE FROM ICOMCOD1 WHERE TYPE='M104' AND CODE= #{MAKER_CODE}),   -- 14/  MAKER_CODE
+													        DECODE(#{MAKER_PART_NO},'0',NULL,#{MAKER_PART_NO}),   -- 15/16  MAKER_PART_NO
+													        NVL((SELECT COM_CODE FROM ICOMCMPY WHERE COM_CODE = #{AGENT_CODE} AND BUSINESS_COND = 'S' AND STATUS IN ('C','R')),NULL), -- 17/18  AGENT_CODE
+															NVL((SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = #{AGENT_CODE} AND BUSINESS_COND = 'S' AND STATUS IN ('C','R')),NULL), -- AGENT_NAME[19:AGENT_CODE, 20:AGENT_CODE]
+													        DECODE(#{UNIT_MEASURE},'0',NULL,#{UNIT_MEASURE}),   -- 21/22  UNIT_MEASURE
+													        DECODE(#{UNIT_PRICE},0,NULL,#{UNIT_PRICE}),     -- 23/24  UNIT_PRICE
+													        DECODE(#{LIST_PRICE},0,NULL,#{LIST_PRICE}),     -- 25/26  LIST_PRICE
+													        DECODE(#{DELIVERY_LT},'0',NULL,#{DELIVERY_LT}),   -- 27/28  DELIVERY_LT
+													        NULL,                   -- REMARK
+													        DECODE(#{CONTRACT_NO},'0',NULL,(SELECT CONTRACT_NO FROM ICOMCQHD WHERE BUYER = #{BUYER} AND CONTRACT_NO = #{CONTRACT_NO})),   -- 29/30  CONTRACT_NO
+													        NULL,                   -- CONTRACT_SEQ
+													        DECODE(#{st_user_id},'0',NULL,#{st_user_id}),   -- 31/32  PURCHASER_ID
+													        NULL,                   -- PURCHASER_NAME
+													        TO_CHAR(SYSDATE,'YYYYMMDD'),  -- ADD_DATE
+													        NULL,                   -- REF_PR_NO
+													        0,                      -- BUYER_UNIT_PRICE
+													        #{IMGFILE_NAME},                      -- IMGFILE_NAME
+													        #{IMGFILE_DIR},                      -- IMGFILE_DIR
+													        DECODE(#{PREV_DEAL_PRICE},0,NULL,#{PREV_DEAL_PRICE}),     -- 33/34  PREV_DEAL_PRICE
+													        DECODE(#{BELOW_COMORG_CODE},'0',NULL,#{BELOW_COMORG_CODE}),   -- 35/36  BELOW_COMORG_CODE
+													        DECODE(#{CMS_CATEG_ID},'0',NULL,#{CMS_CATEG_ID}),   -- 37/38  CMS_CATEG_ID
+													        DECODE(#{PROCESS_TYPE},NULL,'0',#{PROCESS_TYPE}),   -- 39/40  PROCESS_TYPE
+													        '',   -- 41/42  STDCATLG_ID
+													        DECODE(#{ORIGIN_CODE},'0',NULL,#{ORIGIN_CODE}),   -- 43/44  ORIGIN_CODE
+													        DECODE(#{PROCESS_TYPE},NULL,NULL,'0',NULL,'2',NVL((SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'W001' AND TEXT4 = 'B' AND FLAG = 'Y' AND TEXT1 = #{ORIGIN_AGENT}),NULL),#{ORIGIN_AGENT}),   -- 45/46  ORIGIN_AGENT
+													        'C',                    -- STATUS
+													        'N',                    -- PRODUCT_CLOSE_FLAG
+													        NULL,                   -- ITEM_SEQ
+													        DECODE(#{SELLER_ITEM_NO},'0',NULL,#{SELLER_ITEM_NO}),   -- 47/48  SELLER_ITEM_NO
+													        DECODE(#{ITEM_GROUP},'0',NULL,#{ITEM_GROUP}),   -- 49/50  ITEM_GROUP
+													        NVL((SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE='M104' AND CODE= #{MAKER_CODE} ),NULL),      -- 51 MAKER_NAME(MAKER_CODE)
+													        DECODE(#{CMS_CATEG_ID},'0',NULL,#{CMS_CATEG_ID}),   -- 52/53  CMS_CATEG_ID
+													        DECODE(#{CMS_CATLG_ID},'0',NULL,#{CMS_CATLG_ID}),   -- 54/55  CMS_CATLG_ID
+													        #{ITEM_NO},					            -- 56     ITEM_NO
+													        'CA',						        
+													        DECODE(#{KEP_DESCRIPTION},'0',NULL,#{KEP_DESCRIPTION}),		-- 57, 58     KEP_DESCRIPTION
+													        DECODE(#{KEP_SPECIFICATION},'0',NULL,#{KEP_SPECIFICATION}),		-- 59, 60     KEP_SPECIFICATION
+													        DECODE(#{KEP_UNIT_MEASURE},'0',NULL,#{KEP_UNIT_MEASURE}),		-- 61, 62     KEP_UNIT_MEASURE
+													        DECODE(#{KEP_MAKER_PART_NO},'0',NULL,#{KEP_MAKER_PART_NO}),		-- 63, 64     KEP_MAKER_PART_NO
+													        DECODE(#{KEP_MAKER_CODE},'0',NULL,#{KEP_MAKER_CODE}),		-- 65, 66     KEP_MAKER_CODE
+													        DECODE(#{KEP_ORIGIN_CODE},'0',NULL,#{KEP_ORIGIN_CODE}),		-- 67, 68     KEP_ORIGIN_CODE
+													        NVL((SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE='M104' AND CODE= #{KEP_MAKER_CODE} ),NULL),  -- 69     KEP_MAKER_NAME
+													        NVL((SELECT TEXT2 FROM ICOMCOD1 WHERE TYPE='M001' AND CODE= #{KEP_ORIGIN_CODE} ),NULL),  -- 70     KEP_ORIGIN_NAME
+													        #{GPM_NO}                      																										  , -- 71     GPM_NO
+													        #{ITEM_MAKE_TYPE} ,                     																							   -- 72     	ITEM_MAKE_TYPE  
+													        #{MOQ_QTY},                      																							   -- 73     	MOQ_QTY
+													        #{CATEGORY_CHOICE_TYPE},	-- 74 CATEGORY_CHOICE_TYPE
+													        #{SELL_CLOSE_DATE},
+													        #{MIN_ORDER_QTY},
+													        #{PUR_UNIT_QTY},
+													        #{SELLER_AREA},
+													        #{TAX_TYPE},
+													        #{CATALOG_CHOICE_TYPE},
+													        #{EXP_CODE},
+													        #{DESCRIPTION_ENG},
+													        #{SPECIFICATION_ENG},
+													        #{SELL_CLOSE_DATE},
+													        #{BUY_CLOSE_DATE}
+													    ) 								
+		]]>
+	</update>
+	
+	<update  id="copyMasterMdCmCatalogReg" parameterType="java.util.Map" >
+		<![CDATA[
+				INSERT INTO ICOMBYIT_ADD (BUYER,
+                          SEQ,
+                          BUYER_ITEM_NO,
+                          CATEGORY_NO,
+                          CATEGORY_TEXT,
+                          DESCRIPTION,
+                          SPECIFICATION,
+                          MAKER_NAME,
+                          MAKER_PART_NO,
+                          AGENT_CODE,
+                          AGENT_NAME,
+                          UNIT_MEASURE,
+                          UNIT_PRICE,
+                          LIST_PRICE,
+                          DELIVERY_LT,
+                          REMARK,
+                          CONTRACT_NO,
+                          CONTRACT_SEQ,
+                          PURCHASER_ID,
+                          PURCHASER_NAME,
+                          ADD_DATE,
+                          REF_PR_NO,
+                          BUYER_UNIT_PRICE,
+                          IMGFILE_NAME,
+                          IMGFILE_DIR,
+                          PREV_DEAL_PRICE,
+                          BELOW_COMORG_CODE,
+                          STDCATEG_ID,
+                          PROCESS_TYPE,
+                          STDCATLG_ID,
+                          ORIGIN_CODE,
+                          ORIGIN_AGENT,
+                          STATUS,
+                          PRODUCT_CLOSE_FLAG,
+                          ITEM_SEQ,
+                          SELLER_ITEM_NO,
+                          COM_CODE,
+                          QUOTATION_NO,
+                          QUOTATION_SEQ,
+                          REVISION,
+                          ITEM_GROUP,
+                          MAKER_CODE,
+                          CMS_CATEG_ID,
+                          CMS_CATLG_ID,
+                          MARGIN_RE,
+                          ITEM_NO,
+                          SO_CA_FLAG,
+                          IMPORT_FLAG,
+                          PRICE_RATE,
+                          S_PRICE,
+                          LOGISTICS_FEE,
+                          KEP_DESCRIPTION,
+                          KEP_SPECIFICATION,
+                          KEP_UNIT_MEASURE,
+                          KEP_MAKER_NAME,
+                          KEP_ORIGIN_NAME,
+                          KEP_MAKER_PART_NO,
+                          KEP_MAKER_CODE,
+                          KEP_ORIGIN_CODE,
+                          REFER_MAPPING_FLAG,
+                          GREEN_FLAG,
+                          REFINE_FLAG,
+                          REFINE_USER_ID,
+                          REFINE_DATE,
+                          GPM_NO,
+                          ITEM_MAKE_TYPE,
+                          MOQ_QTY
+                          )
+				   (SELECT A.BUYER,
+				           (SELECT TO_NUMBER (MAX (T.SEQ) + 1)
+				              FROM ICOMBYIT_ADD T
+				             WHERE BUYER = #{st_buyer_code}) AS SEQ,
+				                    A.BUYER_ITEM_NO,
+				                    A.CATEGORY_NO,
+				                    A.CATEGORY_TEXT,
+				                    A.DESCRIPTION,
+				                    A.SPECIFICATION,
+				                    A.MAKER_NAME,
+				                    A.MAKER_PART_NO,
+				                    NULL AS AGENT_CODE,
+				                    NULL AS AGENT_NAME,
+				                    A.UNIT_MEASURE,
+				                    A.UNIT_PRICE,
+				                    A.LIST_PRICE,
+				                    A.DELIVERY_LT,
+				                    A.REMARK,
+				                    A.CONTRACT_NO,
+				                    NULL AS CONTRACT_SEQ,
+				                    A.PURCHASER_ID,
+				                    NULL AS PURCHASER_NAME,
+				                    A.ADD_DATE,
+				                    NULL REF_PR_NO,
+				                    0 AS BUYER_UNIT_PRICE,
+				                    NULL AS IMGFILE_NAME,
+				                    NULL AS IMGFILE_DIR,
+				                    A.PREV_DEAL_PRICE,
+				                    A.BELOW_COMORG_CODE,
+				                    A.STDCATEG_ID,
+				                    A.PROCESS_TYPE,
+				                    NULL AS STDCATLG_ID,
+				                    A.ORIGIN_CODE,
+				                    A.ORIGIN_AGENT,
+				                    DECODE(A.STATUS, 'X', 'C', A.STATUS) AS STATUS,
+				                    A.PRODUCT_CLOSE_FLAG,
+				                    NULL AS ITEM_SEQ,
+				                    A.SELLER_ITEM_NO,
+				                    NULL AS COM_CODE,
+				                    NULL AS QUOTATION_NO,
+				                    NULL AS QUOTATION_SEQ,
+				                    NULL AS REVISION,
+				                    A.ITEM_GROUP,
+				                    A.MAKER_CODE,
+				                    NULL AS CMS_CATEG_ID,
+				                    NULL AS CMS_CATLG_ID,
+				                    NULL AS MARGIN_RE,
+				                    NULL AS TEM_NO,
+				                    'CA' AS SO_CA_FLAG,
+				                    'N' AS IMPORT_FLAG,
+				                    0 AS PRICE_RATE,
+				                    0 AS S_PRICE,
+				                    0 AS LOGISTICS_FEE,
+				                    A.KEP_DESCRIPTION,
+				                    A.KEP_SPECIFICATION,
+				                    A.KEP_UNIT_MEASURE,
+				                    A.KEP_MAKER_NAME,
+				                    A.KEP_ORIGIN_NAME,
+				                    A.KEP_MAKER_PART_NO,
+				                    A.KEP_MAKER_CODE,
+				                    A.KEP_ORIGIN_CODE,
+				                    A.REFER_MAPPING_FLAG,
+				                    A.GREEN_FLAG,
+				                    A.REFINE_FLAG,
+				                    A.REFINE_USER_ID,
+				                    A.REFINE_DATE,
+				                    A.GPM_NO,
+                          			A.ITEM_MAKE_TYPE,
+                          			A.MOQ_QTY
+				           FROM ICOMBYIT_ADD A
+				          WHERE A.BUYER = #{st_buyer_code}
+				            AND A.SEQ = #{SEQ}
+				            AND A.BUYER_ITEM_NO = #{BUYER_ITEM_NO})								
+		]]>
+	</update>
+
+
+<!-- 삭제 -->
+	<update id="deleteMasterMdCmCatalogReg"  parameterType="java.util.Map">
+		<![CDATA[
+				DELETE FROM ICOMBYIT_ADD
+				WHERE BUYER          = #{BUYER}
+				   AND SEQ              = #{SEQ}
+				   AND BUYER_ITEM_NO  = #{BUYER_ITEM_NO}
+		]]>
+	</update>
+	
+	<update  id="regMasterMdCmCatalogReg" parameterType="java.util.Map" >
+		<![CDATA[
+				UPDATE ICOMBYIT_ADD SET STATUS = 'R', PRODUCT_CLOSE_FLAG = 'N'
+				 WHERE  BUYER = #{st_buyer_code}
+				    AND BUYER_ITEM_NO = #{BUYER_ITEM_NO}
+				    AND SEQ = #{SEQ}
+		]]>
+	</update>
+	
+	<update  id="consMasterMdCmCatalogReg" parameterType="java.util.Map" >
+		<![CDATA[
+				INSERT INTO ICOMTRXL (  
+													DOC_NAME,    
+													TARGET,      
+													KEY_1,       
+													KEY_2,       
+													KEY_3,       
+													KEY_4,       
+													KEY_5,       
+													KEY_6,       
+													KEY_7,       
+													KEY_8,       
+													KEY_9,       
+													KEY_10       
+													) VALUES(     
+													 'KEPMGPDT',   --DOC_NAME
+													  #{st_buyer_code},           --[01] TARGET    st_buyer_code
+													  #{BUYER_ITEM_NO},           --[02] KEY_1     BUYER_ITEM_NO
+													  #{AGENT_CODE},           --[03] KEY_2     AGENT_CODE
+													  #{CONTRACT_NO},           --[04] KEY_3     CONTRACT_NO
+													  ' ',           --[05] KEY_4     CONTRACT_SEQ
+													  #{SEQ},           --[06] KEY_5     SEQ
+													  #{st_org_com_code},           --[07] KEY_6     st_org_com_code
+													  #{st_user_id},  --[08] KEY_7     reg_user_id
+													  'NCA',           --[09] KEY_8     trxl_gubun
+													  #{SEQ},     
+													  ' '             --     KEY_10
+													)
+		]]>
+	</update>
+	
+	<update id="insertNcaKEPMGPHD" parameterType="java.util.Map" >
+		<![CDATA[
+				INSERT INTO KEPMGPHD (  /*insertNcaKEPMGPHD*/ 
+                                 BUYER,              
+                                 PM_NO,              
+                                 STATUS,             
+                                 REG_DATE,           
+                                 CHANGE_DATE,        
+                                 REFER_DATE,         
+                                 CONFIRM_DATE,       
+                                 REG_USER_ID,        
+                                 REG_USER_DEPT,      
+                                 CONFIRM_USER_ID,    
+                                 CONFIRM_USER_DEPT,  
+                                 GUBUN,              
+                                 CA_FLAG,            
+                                 SUBJECT,            
+                                 REMARK,             
+                                 CON_REMARK,         
+                                 CONFIRM_CODE        
+                               ) VALUES (  
+                                          #{st_org_com_code},
+                                          #{PM_NO},
+                                          'C',
+                                          SYSDATE,
+                                          SYSDATE,
+                                          '',
+                                          '',
+                                          #{st_user_id},
+                                          #{st_user_dept},
+                                          '',
+                                          '',
+                                          'NCA',
+                                          'N',
+                                          '',
+                                          '',
+                                          '',
+                                          '' 
+                                        ) 
+		]]>
+	</update>
+	
+	<update id="insertNcaKEPMGPDT" parameterType="java.util.Map" >
+		<![CDATA[
+				INSERT INTO KEPMGPDT (  /*insertNcaKEPMGPDT*/
+                                 BUYER,             
+                                 PM_NO,             
+                                 PM_SEQ,            
+                                 STATUS,            
+                                 REG_DATE,          
+                                 CHANGE_DATE,       
+                                 CONFIRM_DATE,      
+                                 REG_USER_ID,       
+                                 CONFIRM_USER_ID,   
+                                 BUYER_ITEM_NO,     
+                                 AGENT,             
+                                 RE_UNIT_PRICE,     
+                                 CH_UNIT_PRICE,     
+                                 RE_LIST_PRICE,     
+                                 CH_LIST_PRICE,     
+                                 RE_PRICE_RATE,     
+                                 CH_PRICE_RATE,     
+                                 PO_NO,             
+                                 PO_SEQ,            
+                                 MARGIN_RE     
+                                 , CH_DESCRIPTION
+                                 , CH_UNIT_MEASURE
+                                 , CMS_CATLG_ID
+                                 , CH_SPECIFICATION
+                                 , CH_ORIGIN_CODE   
+                                 , RE_AGENT
+                                 , CH_MIN_ORDER_QTY
+                                 , CH_PUR_UNIT_QTY
+                                 , CH_SELLER_AREA
+                               ) VALUES (  
+                                          #{st_org_com_code},                          
+                                          #{PM_NO},                         
+                                          TO_CHAR(#{PM_SEQ},'FM000000'),
+                                          'C', 
+                                          SYSDATE,                   
+                                          SYSDATE,                   
+                                          '',                         
+                                          #{st_user_id},                         
+                                          '',                     
+                                          #{BUYER_ITEM_NO},
+                                          #{AGENT_CODE},
+                                          #{UNIT_PRICE},
+                                          #{UNIT_PRICE},
+                                          #{LIST_PRICE},
+                                          #{LIST_PRICE},
+                                          #{PRICE_RATE},
+                                          #{PRICE_RATE},
+                                          #{SEQ},      
+                                          '',      
+                                          ''
+                                          , DECODE(#{DESCRIPTION},'0',NULL,#{DESCRIPTION})
+		                                  , DECODE(#{UNIT_MEASURE},'0',NULL,#{UNIT_MEASURE})
+		                                  , DECODE(#{CMS_CATLG_ID},'0',NULL,#{CMS_CATLG_ID})
+		                                  , DECODE(#{SPECIFICATION},'0',NULL,#{SPECIFICATION})
+		                                  , DECODE(#{PROCESS_TYPE},NULL,'0',#{PROCESS_TYPE})  
+		                                  , DECODE(#{BELOW_COMORG_CODE},'0',NULL,#{BELOW_COMORG_CODE})
+		                                  , DECODE(#{MIN_ORDER_QTY}, '', 1, #{MIN_ORDER_QTY})
+		                                  , DECODE(#{PUR_UNIT_QTY}, '', 1, #{PUR_UNIT_QTY})
+		                                  , #{SELLER_AREA}
+                                        )
+		]]>
+	</update>
+	
+	<update  id="confirmInsertMasterMdCmCatalogReg" parameterType="java.util.Map" >
+		<![CDATA[
+			INSERT INTO KEPRQDT (BUYER,
+		                     QUOTATION_NO,
+		                     QUOTATION_SEQ,
+		                     REVISION,
+		                     STATUS,
+		                     RECV_FLAG,
+		                     BUYER_ITEM_NO,
+		                     DESCRIPTION,
+		                     SPECIFICATION,
+		                     UNIT_MEASURE,
+		                     MAKER_CODE,
+		                     MAKER_NAME,
+		                     ORIGIN_CODE,
+		                     ORIGIN_NAME,
+		                     BTOA_DATE,
+		                     BTOA_TIME,
+		                     BTOA_END_DATE,
+		                     BTOA_END_TIME,
+		                     BTOA_USER_ID,
+		                     BTOA_USER_NAME,
+		                     BTOA_USER_DEPT,
+		                     BTOA_USER_TEL,
+		                     BTOA_USER_FAX,
+		                     BTOA_USER_MAIL,
+		                     SO_CA_FLAG,
+		                     KEP_RECV_USER_ID,
+		                     AGENT_NAME)
+		   (SELECT A.BUYER AS BUYER, #{QUOTATION_NO} AS QUOTATION_NO,                 -- 1 : QUOTATION_NO
+		              LPAD(#{QUOTATION_SEQ}, 6, '0') AS QUOTATION_SEQ,                        -- 2 : QUOTATION_SEQ
+		              1 AS REVISION,
+		              'C' AS STATUS,
+		              'NW' AS RECV_FLAG,
+		              A.BUYER_ITEM_NO AS BUYER_ITEM_NO,
+		              A.DESCRIPTION AS DESCRIPTION,
+		              A.SPECIFICATION AS SPECIFICATION,
+		              A.UNIT_MEASURE AS UNIT_MEASURE,
+		              A.MAKER_CODE AS MAKER_CODE,
+		              A.MAKER_NAME AS MAKER_NAME,
+		              A.ORIGIN_CODE AS ORIGIN_CODE,
+		              (SELECT TEXT2 FROM ICOMCOD1 WHERE TYPE='M001' AND CODE=A.ORIGIN_CODE) AS ORIGIN_NAME,
+		              TO_CHAR(SYSDATE,'YYYYMMDD') AS BTOA_DATE,
+		              TO_CHAR(SYSDATE, 'HH24MISS') AS BTOA_TIME,
+		              TO_CHAR(SYSDATE,'YYYYMMDD') AS BTOA_DATE,
+		              TO_CHAR(SYSDATE, 'HH24MISS') AS BTOA_TIME,
+		              #{st_user_id} AS BTOA_USER_ID,                                    -- 2 : st_user_id
+		              (SELECT USER_NAME_LOC FROM ICOMLUSR
+		                WHERE USER_ID = #{st_user_id}) AS BTOA_USER_NAME,                -- 3 : st_user_id
+		              (SELECT DEPARTMENT FROM ICOMLUSR
+		                WHERE USER_ID = #{st_user_id}) AS BTOA_USER_DEPT,                -- 4 : st_user_id
+		              (SELECT PHONE_NUMBER FROM ICOMLUSR
+		                WHERE USER_ID = #{st_user_id}) AS BTOA_USER_TEL,                -- 5 : st_user_id
+		              (SELECT FAX_NUMBER FROM ICOMLUSR
+		                WHERE USER_ID = #{st_user_id}) AS BTOA_USER_FAX,                -- 6 : st_user_id
+		              (SELECT EMAIL FROM ICOMLUSR
+		                WHERE USER_ID = #{st_user_id}) AS BTOA_USER_MAIL,                -- 7 : st_user_id
+		              'CA' AS SO_CA_FLAG,
+		              #{st_user_id} AS KEP_RECV_USER_ID,                                -- 8 : st_user_id
+		              AGENT_NAME
+		        FROM ICOMBYIT_ADD A
+		        WHERE A.BUYER = #{st_buyer_code}                                            -- 9 : st_buyer_code
+		        AND A.BUYER_ITEM_NO=#{BUYER_ITEM_NO} -- 10 : BUYER_ITEM_NO
+		        AND A.SEQ=#{SEQ}                                -- 11 : SEQ
+		        AND A.STATUS = 'C'
+		        )
+		]]>
+	</update>
+	
+	<update  id="confirmUpdateMasterMdCmCatalogReg" parameterType="java.util.Map" >
+		<![CDATA[
+		UPDATE ICOMBYIT_ADD A                        
+           SET A.STATUS='X',                        
+                A.COM_CODE=BUYER,                    
+                A.QUOTATION_NO=#{QUOTATION_NO},
+                A.QUOTATION_SEQ=LPAD(#{QUOTATION_SEQ}, 6, '0'),
+                A.REVISION=1                        
+         WHERE A.BUYER = #{st_buyer_code}
+                    AND A.BUYER_ITEM_NO=#{BUYER_ITEM_NO}
+                    AND A.SEQ=#{SEQ}
+		]]>
+	</update>
+	
+	<select id="getBuyerRateAdaptFlag" parameterType="java.util.Map" resultType="String">
+		<![CDATA[
+		/*getBuyerRateAdaptFlag*/
+		SELECT NVL(PRIMECOST_ADAPT,'N') AS ADAPT_FLAG FROM TBL_BUYER_PRIMECOST_MNG           
+		 WHERE BUYER          		= #{st_buyer_code}                
+		   AND STATUS='C'         
+		]]>	 
+	</select>
+	
+	 <select id="getBuyerRateInfo" parameterType="java.util.Map" resultType="String">
+ 		<![CDATA[
+		/*getBuyerRateInfo*/
+		SELECT NVL(TOT_RATE,0) AS BUYER_RATE FROM TBL_BUYER_PRIMECOST_MNG           
+		 WHERE BUYER          		= #{st_buyer_code}                
+		   AND STATUS='C'
+		]]>	 
+	</select>
+	
+	<select id="getProcessTypeRateInfo" parameterType="java.util.Map" resultType="String">
+ 		<![CDATA[
+		/*getProcessTypeRateInfo*/
+		SELECT DECODE(#{st_process_type},0, NVL(SUPPLY_DIRECT_RATE,0), 1, NVL(STOCK_RATE,0),2,NVL(TR_RATE,0),3,NVL(VMI_RATE,0))+DECODE(#{st_import_flag},'Y', NVL(IMPORT_RATE,0), 'N', 0,0) AS RLT_RATE          
+		  FROM TBL_PROCESSTYPE_PRIMECOST_MNG
+		 WHERE STATUS='C'
+		]]>
+	</select>
+	
+	<select id="getBuyerStandardRate" parameterType="java.util.Map" resultType="String">
+ 		<![CDATA[
+		/*getBuyerStandardRate*/
+		SELECT NVL(RATE,0) AS STANDARD_RATE FROM KEP_BUYER_RATE WHERE BUYER=#{st_buyer_code} AND TO_DATE='299912'
+		]]>
+	</select>
+	
+	<select id="getTotProcessTypeRateInfo" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			SELECT NVL (SUPPLY_DIRECT_RATE, 0) AS SUPPLY_DIRECT_RATE,
+		       NVL (STOCK_RATE, 0) AS STOCK_RATE,
+		       NVL (TR_RATE, 0) AS TR_RATE,
+		       NVL (VMI_RATE, 0) AS VMI_RATE,
+		       NVL (IMPORT_RATE, 0) AS IMPORT_RATE
+		  FROM TBL_PROCESSTYPE_PRIMECOST_MNG
+		 WHERE STATUS = 'C' 
+		 ]]>
+	</select>
+	
+	<update  id="updateApprovalICOMBYITADD" parameterType="java.util.Map" >
+		<![CDATA[
+		UPDATE ICOMBYIT_ADD X
+   SET STATUS = 'R',
+       MARGIN_RE =
+          (SELECT B.MARGIN_RE
+             FROM KEPMGPHD A, KEPMGPDT B, ICOMCMPY C
+            WHERE     A.BUYER = #{KEY_2}                               --[01]  BUYER
+                  AND A.PM_NO = #{KEY_1}                               --[02]  PM_NO
+                  AND A.BUYER = B.BUYER
+                  AND A.PM_NO = B.PM_NO
+                  AND A.STATUS <> 'D'
+                  AND B.STATUS <> 'D'
+                  AND A.BUYER = C.COM_CODE
+                  AND X.BUYER = C.BYCA_COMORG_CODE
+                  AND X.BUYER_ITEM_NO = B.BUYER_ITEM_NO
+                  AND X.SEQ = B.PO_NO)
+ WHERE BUYER = (SELECT BYCA_COMORG_CODE
+                  FROM ICOMCMPY
+                 WHERE COM_CODE = #{KEY_2})                            --[03]  BUYER
+       AND BUYER_ITEM_NO IN
+              (SELECT B.BUYER_ITEM_NO
+                 FROM KEPMGPHD A, KEPMGPDT B
+                WHERE     A.BUYER = #{KEY_2}                           --[04]  BUYER
+                      AND A.PM_NO = #{KEY_1}                           --[05]  PM_NO
+                      AND A.BUYER = B.BUYER
+                      AND A.PM_NO = B.PM_NO
+                      AND A.STATUS <> 'D'
+                      AND A.STATUS <> 'D')
+       AND (BUYER_ITEM_NO, AGENT_CODE, SEQ) IN
+              (SELECT B.BUYER_ITEM_NO, B.AGENT, B.PO_NO
+                 FROM KEPMGPHD A, KEPMGPDT B
+                WHERE     A.BUYER = #{KEY_2}                           --[06]  BUYER
+                      AND A.PM_NO = #{KEY_1}                           --[07]  PM_NO
+                      AND A.BUYER = B.BUYER
+                      AND A.PM_NO = B.PM_NO
+                      AND A.STATUS <> 'D'
+                      AND A.STATUS <> 'D')
+       AND STATUS IN ('C', 'Q')
+		]]>
+	</update>
+
+	<update  id="updateCancelICOMBYITADD" parameterType="java.util.Map" >
+		<![CDATA[
+			DELETE FROM ICOMBYIT_ADD A
+		      WHERE (A.COM_CODE, A.QUOTATION_NO, A.QUOTATION_SEQ, A.REVISION) IN
+		               (SELECT BUYER,
+		                       QUOTATION_NO,
+		                       QUOTATION_SEQ,
+		                       REVISION
+		                  FROM KEPMGPDT
+		                 WHERE BUYER = #{KEY_2} AND PM_NO = #{KEY_1} AND STATUS = 'C')
+		]]>
+	</update>
+	
+	<select id="selectNcaApprovalRequestList" parameterType="java.util.Map" resultType="java.util.Map">
+ 		<![CDATA[
+		/*selectNcaApprovalRequestList*/ 
+		SELECT  (SELECT BYCA_COMORG_CODE
+		          FROM ICOMCMPY
+		         WHERE COM_CODE = KEPMGPDT.BUYER)
+		          AS BUYER,
+		       BUYER_ITEM_NO,
+		       PO_NO AS SEQ
+		  FROM KEPMGPDT
+		WHERE BUYER = #{KEY_2}
+		    AND PM_NO = #{KEY_1}
+	    ]]>
+	</select>
+	
+	<update id="updateInitICOMBYITADD" parameterType="java.util.Map" >
+		<![CDATA[
+			UPDATE ICOMBYIT_ADD	/*updateInitICOMBYITADD*/			   
+			  SET PRODUCT_CLOSE_FLAG     = 'N'	
+			WHERE BUYER         = #{BUYER}
+			  AND BUYER_ITEM_NO  = #{BUYER_ITEM_NO}
+			  AND SEQ = #{SEQ}
+		]]>
+	</update>
+	
+	<select id="selectNcaResultList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			SELECT /*selectNcaResultList*/ 
+						BUYER_ITEM_NO
+                       , CH_UNIT_PRICE AS UNIT_PRICE
+                       , CH_LIST_PRICE AS LIST_PRICE
+                       , DECODE(CH_UNIT_PRICE,0,0,ROUND(((CH_UNIT_PRICE - CH_LIST_PRICE)/CH_UNIT_PRICE) * 100, 2)) AS RATE
+                       , CH_DESCRIPTION AS DESCRIPTION 
+                       , CH_UNIT_MEASURE AS UNIT_MEASURE 
+                       , CMS_CATLG_ID 
+                       , (SELECT COM_NAME_LOC
+                            FROM ICOMCMPY
+                           WHERE COM_CODE = AGENT) AS AGENT_TEXT
+                       , CH_SPECIFICATION AS SPECIFICATION 
+                       , DECODE (CH_ORIGIN_CODE, 
+						               '0', '직납',
+						               '1', '재고',
+						               '2', 'TR',
+						               '3', 'VMI')
+									    AS PROCESS_TEXT
+						, (SELECT COM_NAME_LOC
+						     FROM ICOMCMPY
+						    WHERE COM_CODE = RE_AGENT) AS BUYER_NAME
+                FROM KEPMGPDT
+			   WHERE BUYER = #{KEY_2} 
+			       AND PM_NO = #{DOCU_NO}
+		]]>
+	</select>
+	
+	<select id="selectScaResultList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			SELECT /*selectScaResultList*/ 
+			 X.DESCRIPTION_LOC
+			 ,X.SPECIFICATION
+			 ,X.CMS_CATEG_ID
+			 ,(SELECT TEG.CATEG_NAME FROM CMSCATEG TEG
+			 	WHERE TEG.CMS_CATEG_ID = X.CMS_CATEG_ID) AS CATEG_NAME
+			 ,X.MAKER_NAME
+			 ,(SELECT TEXT2
+			       FROM ICOMCOD1
+			      WHERE TYPE = 'M001' AND CODE = X.ORIGIN_CODE)  AS ORIGIN_NM
+			 ,X.ORIGIN_CODE
+			 ,X.ORDER_MEASURE
+			 ,NVL(X.MODEL_INFO,' ')  AS MODEL_INFO
+			FROM CMSCATLG_ADD X
+			WHERE PM_NO = #{DOCU_NO}
+		]]>
+	</select>
+	
+	<select id="selectCatalogRegBottomOrgCodeMultiPop" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[  /*selectCatalogRegBottomOrgCodeMultiPop*/ 
+	
+				SELECT COM_CODE   
+			  FROM ICOMCMPY A 
+			 WHERE    1=1
+			       AND A.STATUS IN ('C', 'R')
+			       AND A.BUSINESS_COND IN ('B', 'M')
+			       AND A.BYCA_COMORG_CODE = #{st_buyer_code}
+		]]>
+	</select>
+	
+	<update  id="updateCancleKepRcdt" parameterType="java.util.Map" >
+		<![CDATA[
+			/*updateCancleKepRcdt*/
+			UPDATE KEP_RCDT A
+			SET RC_TYPE = 'S'
+			, CHANGE_DATE = SYSDATE
+			WHERE (RC_NO,RC_SEQ,REVISION) IN (
+			 SELECT QUOTATION_NO, QUOTATION_SEQ, REVISION
+			 FROM KEPMGPDT
+			 WHERE BUYER = #{KEY_2}
+			 AND PM_NO = #{KEY_1} 
+			)
+		]]>
+	</update>
+	<update  id="call_PROC_KEPRCDT_UPDATE" parameterType="java.util.Map" >
+		<![CDATA[
+				 /*call_PROC_KEPRCDT_UPDATE*/
+				call KEP.PROC_KEPRCDT_UPDATE(#{KEY_2},#{KEY_1})
+		]]>
+	</update>
+	<update  id="call_PROC_KEPRCDT_RETURN" parameterType="java.util.Map" >
+		<![CDATA[
+				 /*call_PROC_KEPRCDT_RETURN*/
+				call KEP.PROC_KEPRCDT_RETURN(#{KEY_2},#{KEY_1})
+		]]>
+	</update>	
+	<update  id="call_PROC_CATALOG_STATUS_UPDATE" parameterType="java.util.Map" >
+		<![CDATA[
+				 /*call_PROC_CATALOG_STATUS_UPDATE*/
+				call KEP.PROC_CATALOG_STATUS_UPDATE(#{KEY_2},#{KEY_1},#{REG_USER_ID})
+		]]>
+	</update>
+	
+	<select id="selectMasterMdCmCatalogRegBNot" parameterType="java.util.Map" resultType="String">
+		/*selectMasterMdCmCatalogRegBNot*/
+		<![CDATA[		
+		    SELECT NVL(F_GET_DSS_CHK(#{BUYER}, #{AGENT}, 0),'Y')
+		    FROM DUAL		    
+         ]]>        
+	</select>
+		
+</mapper>   
+   

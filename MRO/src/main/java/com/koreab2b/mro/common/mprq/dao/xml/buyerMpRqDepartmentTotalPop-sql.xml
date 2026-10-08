@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="common.mprq">
+
+
+	<select id="selectHdForm" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			SELECT      /*selectHdForm*/      
+                    DECODE(MAX(BTOA_DATE), '', MAX((SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE=A.BUYER AND STATUS <> 'D')), MAX((SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE=A.BUYER AND STATUS <> 'D'))  || ' (의뢰일 : ' || MAX(TO_CHAR(TO_DATE(A.BTOA_DATE, 'YYYYMMDD'),'YYYY/MM/DD')) || ')' ) AS BUYER_NAME  
+                    , MAX(A.BTOA_USER_NAME) AS BTOA_USER_NAME                                                                                                                                                                
+                    , MAX(A.BTOA_USER_TEL) AS BTOA_USER_TEL                                                                               
+                    , MAX(A.BTOA_USER_MAIL) AS BTOA_USER_MAIL                                                                                
+               FROM KEPRQDT A                                                                                           
+             WHERE A.BUYER=#{st_buyer}        
+		        AND A.QUOTATION_NO=#{st_quotation_no}       
+		        AND A.REVISION=#{st_revision} 																	     		
+                AND A.STATUS <> 'D'           
+			            
+			]]>	
+	</select>
+	<select id="selectTotalPopList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		SELECT      /* selectTotalPopList */
+						X.REVISION,
+						X.BUYER_ITEM_NO,
+						X.DESCRIPTION,
+						X.ITEM_QTY,
+						X.MAKER_NAME,
+						X.AGENT,
+						X.GR_FLAG,
+						X.CONFIRM_USER_ID,
+						X.BTOA_REMARK,
+						X.IMAGE_KEY,
+						X.QUOTATION_SEQ,
+						X.SOURCING_STATUS,
+						X.SPECIFICATION,
+						X.UNIT_MEASURE,
+						X.ORIGIN_NAME,
+						X.BUYER_TARGET_PRICE,
+						X.PO_FLAG,
+						X.CANCEL_REMARK,
+						(
+							SELECT	DECODE(COUNT(*), 0, '', COUNT(*))	        
+							FROM	BNTNEGOHISTORY	H          
+							WHERE	H.BUYER=X.BUYER             
+							AND		H.QUOTATION_NO=X.QUOTATION_NO      
+							AND		H.QUOTATION_SEQ=X.QUOTATION_SEQ
+							AND		H.REVISION=X.REVISION
+						)	AS NEGO_COUNT
+		FROM		(
+			SELECT						
+					   MAX(A.REVISION) AS REVISION,           
+			           MAX(A.BUYER_ITEM_NO) AS BUYER_ITEM_NO,         
+			           MAX(A.DESCRIPTION) AS DESCRIPTION,         
+			           MAX(A.ITEM_QTY) AS ITEM_QTY,           
+			           MAX(A.MAKER_NAME) AS MAKER_NAME,           
+			           MAX(A.AGENT_NAME) AS AGENT,        
+			           '' AS GR_FLAG,        
+			           MAX((SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID=A.CONFIRM_USER_ID)) AS CONFIRM_USER_ID,          
+			           MAX(A.BTOA_REMARK) AS BTOA_REMARK,         
+			           MAX(A.IMAGE_KEY) AS IMAGE_KEY,         
+			           MAX(A.QUOTATION_SEQ) AS QUOTATION_SEQ,         
+			              CASE WHEN MAX(A.RECV_FLAG)='GD' THEN '견적취소'               
+			          ELSE CASE WHEN MAX(A.RECV_FLAG)='CC' THEN '장바구니'       
+			          ELSE CASE WHEN MAX(A.RECV_FLAG)='CM' THEN '합의완료'       
+			          ELSE CASE WHEN MAX(A.RECV_FLAG) = 'GS' THEN '결재진행중'       
+			          ELSE CASE WHEN MAX(A.RECV_FLAG) = 'GR' THEN '결재반려'       
+			          ELSE CASE WHEN MAX(A.KEP_USER_ID) IS NULL THEN '견적의뢰'       
+			          ELSE CASE WHEN MAX(A.BTOA_NEGO_PRICE)<>0 AND MAX(A.ATOB_UNIT_PRICE)=0 AND       
+			          MAX(A.ATOB_SEND_FLAG)='Y' THEN 'Nego견적의뢰'       
+			          ELSE CASE WHEN MAX(A.ATOB_UNIT_PRICE)=0 AND MAX(A.BTOA_NEGO_PRICE)=0 AND       
+			          MAX(A.ATOB_SEND_FLAG)='N' THEN '견적진행중'       
+			          ELSE CASE WHEN MAX(A.ATOB_UNIT_PRICE)=0 AND MAX(A.BTOA_NEGO_PRICE)<>0 AND       
+			          MAX(A.ATOB_SEND_FLAG)='N' THEN 'Nego진행중'       
+			          ELSE CASE WHEN MAX(A.ATOB_UNIT_PRICE)<>0 AND MAX(A.BTOA_NEGO_PRICE)=0 AND       
+			          MAX(A.ATOB_SEND_FLAG)='Y' AND MAX(B.BID_SUCCESS_FLAG)='Y' THEN '단가합의대상'       
+			          ELSE CASE WHEN MAX(A.BTOA_NEGO_PRICE)<>0 AND MAX(A.ATOB_UNIT_PRICE)<>0 AND       
+			          MAX(A.ATOB_SEND_FLAG)='Y' AND MAX(B.BID_SUCCESS_FLAG)='Y' THEN 'Nego합의대상'       
+			          END END END END END END END END END END END AS SOURCING_STATUS,       
+			           MAX(A.SPECIFICATION) AS SPECIFICATION,         
+			           MAX(A.UNIT_MEASURE) AS UNIT_MEASURE,           
+			           MAX((SELECT TEXT2 FROM ICOMCOD1 WHERE TYPE='M001' AND CODE=A.ORIGIN_NAME)) AS ORIGIN_NAME,         
+			           MAX(A.BUYER_TARGET_PRICE) BUYER_TARGET_PRICE,          
+			           '' AS PO_FLAG,        
+			           MAX(A.CANCEL_REMARK) AS CANCEL_REMARK,
+			           MAX(A.BUYER)	AS BUYER,
+			           MAX(A.QUOTATION_NO)	AS QUOTATION_NO         
+			      FROM KEPRQDT A, KEPQTDT B           
+			     WHERE A.BUYER=#{st_buyer}        
+			       AND A.QUOTATION_NO=#{st_quotation_no}       
+			       AND A.REVISION=#{st_revision}        
+			       AND A.BUYER=B.BUYER(+)         
+			       AND A.QUOTATION_NO=B.QUOTATION_NO(+)           
+			       AND A.QUOTATION_SEQ=B.QUOTATION_SEQ(+)         
+			       AND A.REVISION=B.REVISION(+)           
+			       AND A.STATUS IN ('C','R')          
+			       AND B.STATUS(+) <> 'D'         
+			       AND B.STATUS(+) <> 'O'         
+			     GROUP BY A.BUYER, A.QUOTATION_NO, A.QUOTATION_SEQ, A.REVISION
+		)	X
+			]]>	
+	</select>
+								
+</mapper>

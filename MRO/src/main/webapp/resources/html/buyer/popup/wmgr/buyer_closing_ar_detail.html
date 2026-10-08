@@ -1,0 +1,336 @@
+
+<div class="DIVpopup-overlay" id="DIVpopupOverlay"></div>
+<div class="DIVpopup" id="DIVpopup" style="width: 1100px; height: 500px; overflow: hidden;">
+  <div class="wrapPopup" style="height: 100%; box-sizing: border-box; display: flex; flex-direction: column; padding: 20px;">
+    <div class="PopupTit" style="flex-shrink: 0;">상세내역보기<span><a href="#" id="DIVclosePopup"><img src="/resources/imgs/Icon_close.png" /></a></span></div>
+    <table class="PopTableThLTdL" width="100%" style="flex-shrink: 0;">
+      <colgroup>
+        <col width="10%" />
+        <col width="30%" />
+        <col width="10%" />
+        <col width="20%" />
+        <col width="10%" />
+        <col width="20%" />
+      </colgroup>
+      <tr>
+        <th>AR번호</th>
+        <td><input class="input40" id="disp_ar_no" value="" style="width:80%" type="text" readonly /></td>
+        <th>KeP담당자명</th>
+        <td><input class="input40" id="disp_manager_name" value="" style="width:80%" type="text" readonly /></td>
+        <th>담당자연락처</th>
+        <td><input class="input40" id="disp_manager_tel" value="" style="width:80%" type="text" readonly /></td>
+      </tr>
+    </table>
+    <div style="flex-shrink: 0; text-align: right; margin-top: 12px; font-size: 13px; color: #404046; letter-spacing: -0.5px;">
+      총 <span id="disp_total_count" style="font-weight:600; color:#333;">0</span>건 &nbsp;&nbsp; 공급가액 <span id="disp_total_amt" style="font-weight:600; color:#333;">0</span>원
+    </div>
+    <div class="IBSheetPopup" style="flex: 1; min-height: 0; margin-top: 8px; overflow-y: auto; overflow-x: hidden; border: 1px solid #ddd; border-radius: 4px;">
+      <div style="min-height: min-content;">
+        <table class="IBSheetTablePopup" id="arDetailTable" style="width:100%;">
+          <colgroup>
+            <col width="9%" />
+            <col width="10%" />
+            <col width="9%" />
+            <col width="9%" />
+            <col width="11%" />
+            <col width="14%" />
+            <col width="14%" />
+            <col width="8%" />
+            <col width="8%" />
+            <col width="8%" />
+          </colgroup>
+          <thead>
+            <tr>
+              <th>발주번호</th>
+              <th>관리번호</th>
+              <th>발주일</th>
+              <th>입고일</th>
+              <th>품목코드</th>
+              <th>품명</th>
+              <th>규격</th>
+              <th>입고수량</th>
+              <th>입고단가</th>
+              <th>입고금액</th>
+            </tr>
+          </thead>
+          <tbody id="arDetailTableBody">
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="PopupListBtnBox_Center mt20" style="flex-shrink: 0;">
+      <button class="But_ExcelDown48" id="excelDownBtn">엑셀 다운로드</button>
+      <button class="ButPrimary_large" id="confirmBtn">확인</button>
+    </div>
+  </div>
+</div>
+
+<style>
+#DIVpopup {
+  display: flex;
+  flex-direction: column;
+  height: 500px !important;
+}
+.wrapPopup {
+  height: 100% !important;
+  max-height: 100% !important;
+  overflow: hidden !important;
+}
+.IBSheetTablePopup {
+  width: 100%;
+  height: auto;
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: fixed;
+}
+.IBSheetTablePopup thead {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.IBSheetTablePopup th {
+  height: 40px;
+  line-height: 40px;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: -0.8px;
+  color: #5B5C61;
+  vertical-align: middle;
+  border-bottom: 1px solid #dedede;
+  border-left: 1px solid #dedede;
+  background-color: #f2f7ff;
+}
+.IBSheetTablePopup th:first-child {
+  border-left: 0px;
+}
+.IBSheetTablePopup tbody tr {
+  transition: background-color 0.2s;
+}
+.IBSheetTablePopup tbody tr:hover:not(.loading-row):not(.message-row) {
+  background-color: #f1f3f5;
+}
+.IBSheetTablePopup td {
+  height: 30px;
+  line-height: 18px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: -0.5px;
+  vertical-align: middle;
+  color: #404046;
+  border-bottom: 1px solid #eeeeee;
+  border-left: 1px solid #eeeeee;
+  background-color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.IBSheetTablePopup td:first-child {
+  border-left: 0px;
+}
+/* 품명, 규격 좌측 정렬 + 말줄임 */
+.IBSheetTablePopup tbody td:nth-child(6),
+.IBSheetTablePopup tbody td:nth-child(7) {
+  text-align: left;
+  padding-left: 6px;
+}
+/* 입고수량, 입고단가, 입고금액 우측 정렬 */
+.IBSheetTablePopup tbody td:nth-child(8),
+.IBSheetTablePopup tbody td:nth-child(9),
+.IBSheetTablePopup tbody td:nth-child(10) {
+  text-align: right;
+  padding-right: 6px;
+}
+</style>
+
+<script type="text/javascript">
+/**
+ * 상세내역보기 팝업 API
+ * - 레거시 인터페이스 사용 (jQuery.ajax)
+ * - 데이터 URL: /wmgr/getBuyerWmGrClosingArDetailPop_v2.do
+ */
+window.createPopupAPI = function(overlayId, containerId, options) {
+    var $overlay = $('#' + overlayId);
+    var $container = $('#' + containerId);
+    var animationType = $container.data('animationType') || 'default';
+
+    var taxBillNo = (options && options.data && options.data.taxBillNo) ? options.data.taxBillNo : '';
+    var comCode = (options && options.data && options.data.comCode) ? options.data.comCode : '';
+    var detailData = []; // 엑셀 다운로드용 데이터 보관
+
+    var api = {};
+
+    function close() {
+        var $popup = $container.find('.DIVpopup');
+        if ($popup.hasClass('popup-exit')) return;
+
+        var exitClass = animationType === 'fromButton' ? 'popup-button-exit' : 'popup-exit';
+        var duration = animationType === 'fromButton' ? 1000 : 200;
+
+        $popup.removeClass('popup-enter popup-button-enter').addClass(exitClass);
+        $overlay.removeClass('popup-enter').addClass('popup-exit');
+
+        setTimeout(function() {
+            $overlay.remove();
+            $container.remove();
+            if ($('[id^="popup-overlay-"]').length === 0) {
+                var scrollY = $('body').data('scrollY') || 0;
+                $('body').css({'position':'','top':'','left':'','right':'','overflow-y':''});
+                window.scrollTo(0, scrollY);
+            }
+        }, duration);
+    }
+
+    /**
+     * 서버에서 데이터 로드 (레거시 jQuery.ajax 사용)
+     */
+    api.loadData = function(billNo, code) {
+        if (billNo) taxBillNo = billNo;
+        if (code) comCode = code;
+        if (!taxBillNo) return api;
+
+        var $tbody = $container.find('#arDetailTableBody');
+        $tbody.html('<tr class="loading-row"><td colspan="10" style="padding:60px 20px; text-align:center;">' +
+                    '<img src="/resources/libs/ibsheet7/js/DeepBlue/90px.gif" alt="로딩중..." /></td></tr>');
+
+        jQuery.ajax({
+            url: "/wmgr/getBuyerWmGrClosingArDetailPop_v2.do",
+            type: "POST",
+            data: "st_tax_bill_no=" + taxBillNo + "&st_com_code=" + comCode,
+            dataType: "json",
+            success: function(result) {
+                // 헤더 정보 바인딩
+                if (result.header) {
+                    $container.find('#disp_ar_no').val(result.header.AR_NO || taxBillNo);
+                    $container.find('#disp_manager_name').val(result.header.KEP_MANAGER_NAME || '-');
+                    $container.find('#disp_manager_tel').val(result.header.KEP_MANAGER_TEL || '-');
+                }
+                // 테이블 렌더링
+                if (result.data && result.data.length > 0) {
+                    detailData = result.data;
+                    renderTable(result.data);
+                    updateSummary(result.data);
+                } else {
+                    detailData = [];
+                    $tbody.html('<tr class="message-row"><td colspan="10" style="text-align:center; color:#6c757d; padding:40px 0;">조회된 데이터가 없습니다.</td></tr>');
+                    updateSummary([]);
+                }
+            },
+            error: function() {
+                $tbody.html('<tr class="message-row"><td colspan="10" style="text-align:center; color:#dc3545; padding:40px 0;">조회 중 오류가 발생했습니다.</td></tr>');
+            }
+        });
+        return api;
+    };
+
+    function renderTable(data) {
+        var $tbody = $container.find('#arDetailTableBody');
+        $tbody.empty();
+        for (var i = 0; i < data.length; i++) {
+            var d = data[i];
+            var row = '<tr>' +
+                '<td>' + (d.PO_NO || '') + '</td>' +
+                '<td>' + (d.REF_PR_NO || '') + '</td>' +
+                '<td>' + (d.PO_CREATE_DATE || '') + '</td>' +
+                '<td>' + (d.GR_DATE || '') + '</td>' +
+                '<td>' + (d.BUYER_ITEM_NO || '') + '</td>' +
+                '<td title="' + (d.DESCRIPTION || '') + '">' + (d.DESCRIPTION || '') + '</td>' +
+                '<td title="' + (d.SPECIFICATION || '') + '">' + (d.SPECIFICATION || '') + '</td>' +
+                '<td>' + formatNumber(d.GR_ITEM_QTY) + '</td>' +
+                '<td>' + formatNumber(d.UNIT_PRICE) + '</td>' +
+                '<td>' + formatNumber(d.ITEM_AMT) + '</td>' +
+                '</tr>';
+            $tbody.append(row);
+        }
+    }
+
+    function updateSummary(data) {
+        var totalCount = data.length;
+        var totalAmt = 0;
+        for (var i = 0; i < data.length; i++) {
+            totalAmt += parseInt(data[i].ITEM_AMT || 0, 10);
+        }
+        $container.find('#disp_total_count').text(formatNumber(totalCount));
+        $container.find('#disp_total_amt').text(formatNumber(totalAmt));
+    }
+
+    function formatNumber(num) {
+        if (!num || num == '0') return '0';
+        return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    }
+
+    /**
+     * 엑셀 다운로드 (IBSheet Down2Excel 양식 호환)
+     */
+    function doExcelDown() {
+        if (detailData.length === 0) {
+            alert('조회된 데이터가 없습니다.');
+            return;
+        }
+        var nowDate = new Date().toISOString().slice(0,10).replace(/-/g,'');
+        var fileName = '마감현황_상세내역_' + nowDate;
+        var headers = ['발주번호','관리번호','발주일','입고일','품목코드','품명','규격','입고수량','입고단가','입고금액'];
+
+        var html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">';
+        html += '<head><meta charset="utf-8"/><!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet>';
+        html += '<x:Name>상세내역</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions>';
+        html += '</x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]--></head><body>';
+        html += '<table border="1" style="border-collapse:collapse;">';
+        // 헤더
+        html += '<tr>';
+        for (var h = 0; h < headers.length; h++) {
+            html += '<td style="background-color:#C6EFCE; font-weight:bold; text-align:center; border:1px solid #999; height:25px; font-size:11pt;">' + headers[h] + '</td>';
+        }
+        html += '</tr>';
+        // 데이터
+        for (var i = 0; i < detailData.length; i++) {
+            var d = detailData[i];
+            html += '<tr>';
+            html += '<td style="text-align:center; border:1px solid #ddd;">' + (d.PO_NO || '') + '</td>';
+            html += '<td style="text-align:center; border:1px solid #ddd;">' + (d.REF_PR_NO || '') + '</td>';
+            html += '<td style="text-align:center; border:1px solid #ddd;">' + (d.PO_CREATE_DATE || '') + '</td>';
+            html += '<td style="text-align:center; border:1px solid #ddd;">' + (d.GR_DATE || '') + '</td>';
+            html += '<td style="text-align:center; border:1px solid #ddd;">' + (d.BUYER_ITEM_NO || '') + '</td>';
+            html += '<td style="text-align:left; border:1px solid #ddd;">' + (d.DESCRIPTION || '') + '</td>';
+            html += '<td style="text-align:left; border:1px solid #ddd;">' + (d.SPECIFICATION || '') + '</td>';
+            html += '<td style="text-align:right; border:1px solid #ddd; mso-number-format:\"\\#\\,\\#\\#0\";">' + (d.GR_ITEM_QTY || '0') + '</td>';
+            html += '<td style="text-align:right; border:1px solid #ddd; mso-number-format:\"\\#\\,\\#\\#0\";">' + (d.UNIT_PRICE || '0') + '</td>';
+            html += '<td style="text-align:right; border:1px solid #ddd; mso-number-format:\"\\#\\,\\#\\#0\";">' + (d.ITEM_AMT || '0') + '</td>';
+            html += '</tr>';
+        }
+        html += '</table></body></html>';
+
+        var blob = new Blob(['\uFEFF' + html], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+        if (navigator.msSaveBlob) {
+            navigator.msSaveBlob(blob, fileName + '.xls');
+        } else {
+            var link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = fileName + '.xls';
+            link.click();
+        }
+    }
+
+    function bindEvents() {
+        $container.find('#DIVclosePopup').off('click').on('click', function(e) { e.preventDefault(); close(); });
+        $container.find('#confirmBtn').off('click').on('click', function(e) { e.preventDefault(); close(); });
+        $overlay.off('click').on('click', function() { close(); });
+        $container.find('#excelDownBtn').off('click').on('click', function(e) { e.preventDefault(); doExcelDown(); });
+    }
+
+    api.close = close;
+    api.$overlay = $overlay;
+    api.$container = $container;
+
+    bindEvents();
+
+    // data가 전달되었으면 자동 로드
+    if (taxBillNo) {
+        api.loadData(taxBillNo, comCode);
+    }
+
+    return api;
+};
+</script>

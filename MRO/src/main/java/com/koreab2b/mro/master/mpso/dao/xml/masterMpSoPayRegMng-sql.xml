@@ -1,0 +1,306 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mpso">
+	<update id="updateMasterMpSoPayRegMngGrList" parameterType="java.util.Map">
+		<![CDATA[
+			/* updateMasterMpSoPayRegMngGrList */
+			UPDATE	PAY_REG_MNG A
+			SET		(GR_NO, GR_SEQ, BILL_CLOSE_MONTH) =
+			(
+					SELECT	F_SPLIT(GR_INFO, '^', 2) AS GR_NO,
+							F_SPLIT(GR_INFO, '^', 3) AS GR_SEQ,
+							F_SPLIT(GR_INFO, '^', 4) AS AR_CLOSE_MONTH
+					FROM	(							
+							SELECT	MAX(GR_INFO) AS GR_INFO
+							FROM	(
+					
+								SELECT	MAX(BUYER||'^'||GR_NO||'^'||GR_SEQ||'^'||#{st_from_date}) AS GR_INFO
+								FROM	ICOMGRDT
+								WHERE	1=1
+								AND		STATUS IN ('C', 'R')
+								AND		AR_CLOSE_MONTH = TO_CHAR(ADD_MONTHS(TO_DATE(#{st_from_date},'YYYYMM'), -1), 'YYYYMM')
+								AND		(BUYER, PO_NO, PO_SEQ) IN (
+										SELECT	BUYER, PO_NO, PO_SEQ
+										FROM	ICOMPODT
+										WHERE	1=1
+										AND		STATUS IN ('C', 'R')
+										AND		(BUYER, PR_NO, PR_SEQ) IN (
+												SELECT	BUYER, PR_NO, PR_SEQ
+												FROM	PAY_REG_MNG
+												WHERE	1=1
+												AND		SCHD_CLOSE_MONTH = #{st_from_date}
+												AND		PAY_REG_STATUS = 'C'
+												AND		BUYER = A.BUYER
+												AND		PR_NO = A.PR_NO
+												AND		PR_SEQ = A.PR_SEQ
+												AND     PAY_REG_TYPE = 'D'
+										)
+								)
+								
+								UNION
+								
+								SELECT	MAX(BUYER||'^'||GR_NO||'^'||GR_SEQ||'^'||AR_CLOSE_MONTH) AS GR_INFO
+								FROM	ICOMGRDT
+								WHERE	1=1
+								AND		STATUS IN ('C', 'R')
+								AND		AR_CLOSE_MONTH = #{st_from_date}
+								AND		(BUYER, PO_NO, PO_SEQ) IN (
+										SELECT	BUYER, PO_NO, PO_SEQ
+										FROM	ICOMPODT
+										WHERE	1=1
+										AND		STATUS IN ('C', 'R')
+										AND		(BUYER, PR_NO, PR_SEQ) IN (
+												SELECT	BUYER, PR_NO, PR_SEQ
+												FROM	PAY_REG_MNG
+												WHERE	1=1
+												AND		SCHD_CLOSE_MONTH = #{st_from_date}
+												AND		PAY_REG_STATUS = 'C'
+												AND		BUYER = A.BUYER
+												AND		PR_NO = A.PR_NO
+												AND		PR_SEQ = A.PR_SEQ
+												AND     PAY_REG_TYPE != 'D'
+										)
+								)
+							)
+					)
+			)
+			WHERE	1=1
+			AND		A.SCHD_CLOSE_MONTH = #{st_from_date}
+			AND		A.PAY_REG_STATUS = 'C'
+		]]>
+	</update>
+	
+	<!-- 조회 -->
+	<select id="selectMasterMpSoPayRegMngList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.pagestart"/>
+			<![CDATA[
+			/* selectMasterMpSoPayRegMngList */
+			SELECT 	 PRM.PAY_REG_NO
+					,PRM.PAY_REG_SEQ
+					,PRM.GW_PAY_REG_NO	
+				  	,DECODE(PRM.PAY_REG_STATUS,'S', '신규등록', DECODE(PRM.PAY_REG_STATUS, 'T', '품의중', DECODE(PRM.PAY_REG_STATUS, 'B', '품의반려', '확정'))) AS PAY_REG_STATUS -- S:신규등록,T:품의중,B:품의반려, C:확정
+				  	,PRM.PO_NO
+				  	,PRM.PO_SEQ
+				  	,PRM.BUYER
+				  	,PRM.BUYER_ITEM_NO
+				  	,'0' AS BUYER_ITEM_NO_IMG	
+				  	,PRM.PR_NO
+				  	,PRM.PR_SEQ
+				  	,PRM.GR_NO
+				  	,PRM.GR_SEQ
+				  	,PRM.AGENT
+				  	,PRM.BUYER_NAME
+				  	,PRM.BUYER_IRS_NO
+				  	,PRM.AGENT_NAME
+				  	,PRM.AGENT_IRS_NO
+				  	,TO_CHAR(TO_DATE(PRM.SCHD_CLOSE_MONTH, 'YYYYMM'), 'YYYY/MM') AS SCHD_CLOSE_MONTH
+				  	,TO_CHAR(TO_DATE(PRM.SCHD_CLOSE_MONTH, 'YYYYMM'), 'YYYY/MM') AS DB_SCHD_CLOSE_MONTH
+				  	,'1' AS SCHD_CLOSE_MONTH_IMG
+				  	,PRM.PAY_REG_TYPE
+				  	,DECODE(PRM.PAY_REG_TYPE, 'A', PRM.PAY_AMT, '') AS PAY_AMT1
+					,DECODE(PRM.PAY_REG_TYPE, 'B', PRM.PAY_AMT, '') AS PAY_AMT2
+					,DECODE(PRM.PAY_REG_TYPE, 'C', PRM.PAY_AMT, '') AS PAY_AMT3
+					,DECODE(PRM.PAY_REG_TYPE, 'D', PRM.PAY_AMT, '') AS PAY_AMT4
+				  	,PRM.REMARK
+				  	,TO_CHAR(PRM.ADD_DATE, 'YYYY/MM/DD') AS ADD_DATE
+				  	,PRM.ADD_USER_ID				  	
+				  	,(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = PRM.ADD_USER_ID) AS ADD_USER_NAME
+				  	,TO_CHAR(TO_DATE(PRM.BILL_CLOSE_MONTH, 'YYYYMM'), 'YYYY/MM') AS BILL_CLOSE_MONTH
+				  	,TAX_AMT
+				  FROM PAY_REG_MNG PRM
+				  WHERE 1=1
+				  AND PRM.STATUS IN ('C','R')
+				  ]]>
+				  				  
+				  <if test="st_from_date != null and st_from_date != ''">
+				        AND  PRM.SCHD_CLOSE_MONTH = #{st_from_date}
+		        	</if>			  
+				  <if test="st_buyer_code != null and st_buyer_code != ''">
+				        AND  PRM.BUYER = #{st_buyer_code}
+		        	</if>
+		        	<if test="st_buyer_irs_no != null and st_buyer_irs_no != ''">
+				        AND  PRM.BUYER_IRS_NO LIKE '%'|| #{st_buyer_irs_no} ||'%'
+		        	</if>
+		        	<if test="st_pay_reg_status != null and st_pay_reg_status != ''">
+				        AND  PRM.PAY_REG_STATUS = #{st_pay_reg_status}
+		        	</if>		        	
+		        	<if test="st_add_user_name != null and st_add_user_name != ''">
+				        AND  (SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = PRM.ADD_USER_ID) LIKE '%'|| #{st_add_user_name} ||'%'
+		        	</if>
+		        	<if test="st_agent_code != null and st_agent_code != ''">
+				        AND  PRM.AGENT = #{st_agent_code}
+		        	</if>
+		        	<if test="st_agent_irs_no != null and st_agent_irs_no != ''">
+				        AND  REPLACE(PRM.AGENT_IRS_NO,'-','') LIKE '%'|| REPLACE(#{st_agent_irs_no},'-','') ||'%'
+		        	</if>
+		        	<if test="st_po_no != null and st_po_no != ''">		        		
+				        AND  UPPER(PRM.PO_NO) LIKE UPPER('%'||#{st_po_no}||'%') 
+		        	</if>
+		        	<if test="st_buyer_item_no != null and st_buyer_item_no != ''">
+				        AND  PRM.BUYER_ITEM_NO LIKE '%'|| #{st_buyer_item_no} ||'%'
+		        	</if>
+		
+        <include refid="common.ibsheet.xml.pageend"/>
+	</select>
+	
+	<update id="updateMasterMpSoPayRegMngList" parameterType="java.util.Map">
+		<![CDATA[
+			/* updateMasterMpSoPayRegMngList */
+			UPDATE PAY_REG_MNG
+			SET  BUYER = #{BUYER}
+				,STATUS = 'R'
+				,PO_NO = #{PO_NO}
+				,PO_SEQ = #{PO_SEQ}
+				,BUYER_ITEM_NO = #{BUYER_ITEM_NO}
+				,PR_NO = #{PR_NO}
+				,PR_SEQ = #{PR_SEQ}
+				,GR_NO = #{GR_NO}
+				,GR_SEQ = #{GR_SEQ}
+				,AGENT = #{AGENT}
+				,AGENT_NAME = #{AGENT_NAME}
+				,AGENT_IRS_NO = #{AGENT_IRS_NO}
+				,BUYER_NAME = #{BUYER_NAME}
+				,BUYER_IRS_NO = #{BUYER_IRS_NO}
+				,SCHD_CLOSE_MONTH = #{SCHD_CLOSE_MONTH}
+				,PAY_REG_TYPE = #{PAY_REG_TYPE}
+				,PAY_AMT = #{PAY_AMT}
+				,TAX_AMT = #{TAX_AMT}
+				,CHANGE_DATE = SYSDATE
+				,CHANGE_USER_ID = #{st_user_id}
+				,CHANGE_USER_NAME = (SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = #{st_user_id})
+			WHERE 1=1
+			AND PAY_REG_NO = #{PAY_REG_NO}
+			AND PAY_REG_SEQ = #{PAY_REG_SEQ}
+		]]>
+	</update>
+	
+	<update id="deleteMasterMpSoPayRegMngList" parameterType="java.util.Map">
+		<![CDATA[
+			/* deleteMasterMpSoPayRegMngList */
+			UPDATE PAY_REG_MNG
+			SET  
+				 STATUS = 'D'				
+				,CHANGE_DATE = SYSDATE
+				,CHANGE_USER_ID = #{st_user_id}
+				,CHANGE_USER_NAME = (SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = #{st_user_id})
+			WHERE 1=1
+			AND PAY_REG_NO = #{PAY_REG_NO}
+			AND PAY_REG_SEQ = #{PAY_REG_SEQ}
+		]]>
+	</update>
+	
+	<update id="savePayRegMngRemarkPop"  parameterType="java.util.Map">
+		<![CDATA[
+		/* savePayRegMngRemarkPop */
+				UPDATE PAY_REG_MNG					
+				   SET   REMARK = REMARK || '@@' || #{re_remark} 
+				   		,SCHD_CLOSE_MONTH = #{re_schd_close_month}
+				   		,SCHD_CHANGE_DATE = SYSDATE
+				   		,SCHD_CHANGE_USER_ID = #{st_user_id}
+				   		,SCHD_CHANGE_USER_NAME = (SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = #{st_user_id})	
+				   WHERE 1=1
+				   AND PAY_REG_NO = #{re_pay_reg_no}
+				   AND PAY_REG_SEQ = #{re_pay_reg_seq}			     
+				 
+		]]>
+	</update>
+	
+	<update id="approvalMasterMpSoPayRegMngList" parameterType="java.util.Map">
+		<![CDATA[
+			/* approvalMasterMpSoPayRegMngList */
+			UPDATE PAY_REG_MNG
+			SET  
+			]]>	
+				<choose>
+					<when test='PAY_REG_TYPE == "C"'>					
+						PAY_REG_STATUS = 'C'
+					</when>				
+					<otherwise>				
+						PAY_REG_STATUS = 'T'
+						,GW_PAY_REG_NO = #{gprmNo}
+					</otherwise>
+				</choose>
+		<![CDATA[				
+				
+			WHERE 1=1
+			AND PAY_REG_NO = #{PAY_REG_NO}
+			AND PAY_REG_SEQ = #{PAY_REG_SEQ}
+		]]>
+	</update>	
+	
+	<select id="selectMasterMpSoPayRegMngGrList_BillCloseM" parameterType="java.util.Map" resultType="String">
+		/*selectMasterMpSoPayRegMngGrList_BillCloseM*/
+		<![CDATA[
+		 SELECT BILL_CLOSE_MONTH
+		 FROM PAY_REG_MNG
+		 WHERE 1=1
+		 AND PAY_REG_NO = #{PAY_REG_NO}
+		 AND PAY_REG_SEQ = #{PAY_REG_SEQ}
+         ]]>        
+	</select>
+	
+	
+	<update  id="approvalMasterMpSoPayRegMngList_insert" parameterType="java.util.Map" >	
+		<![CDATA[
+		/*approvalMasterMpSoPayRegMngList_insert*/
+				INSERT INTO AR_CLOSE_CONFIRM_LIST (  
+													      SITE,              
+													      TAX_BILL_NO,                
+													      BUYER_CODE,      
+													      AGENT_CODE,        
+													      TAX_IRS_NO,   
+													      AR_TYPE,
+													      AR_CLOSE_MONTH,         
+													      ISSUE_DATE,         
+													      BM_LEGACY_USER_ID,        
+													      BM_USER_NAME,             
+													      PM_LEGACY_USER_ID,        
+													      PM_USER_NAME,
+													      KEP_DEPT,
+													      COM_NAME_LOC,
+													      CUSTOMER_NAME,
+													      AR_BUYER_AMT,
+													      AR_TAX_AMT,
+													      CONFIRM_LEGACY_USER_ID,
+													      CONFIRM_USER_NAME,
+														  ADD_DATE,
+														  AR_CLOSE_CONFIRM_YN,
+														  AR_CLOSE_CONFIRM_DATE,
+														  ERP_SEND_YN,
+														  ERP_SEND_DATE													           
+													    )                     
+													 VALUES(                  
+													        'KA',
+													        #{arlgNo} || TO_CHAR(SYSDATE, 'YYMMDDHH'),
+													        #{BUYER},
+													        #{AGENT},
+													        #{BUYER_IRS_NO},
+													        'LG_M',													        
+													        #{BILL_CLOSE_MONTH},
+													        TO_CHAR(SYSDATE, 'YYYYMMDD'),
+													        NVL((SELECT LEGACY_USER_ID FROM ICOMLUSR WHERE USER_ID = 
+													        		(SELECT KEP_USER_ID FROM MIS_BUYER_MNG WHERE YEAR = TO_CHAR(SYSDATE, 'YYYY') AND STATUS = 'C' AND MAIN_CLERK = 'Y' AND BUYER = #{BUYER})),''),
+											        		NVL((SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = 	
+													        		(SELECT KEP_USER_ID FROM MIS_BUYER_MNG WHERE YEAR = TO_CHAR(SYSDATE, 'YYYY') AND STATUS = 'C' AND MAIN_CLERK = 'Y' AND BUYER = #{BUYER})),''),
+															NVL((SELECT LEGACY_USER_ID FROM ICOMLUSR WHERE USER_ID = 
+													        		(SELECT KEP_USER_ID FROM MIS_BUYER_MNG WHERE YEAR = TO_CHAR(SYSDATE, 'YYYY') AND STATUS = 'C' AND PRIORITY = 'Y' AND BUYER = #{BUYER})),''),
+													        NVL((SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = 
+													        		(SELECT KEP_USER_ID FROM MIS_BUYER_MNG WHERE YEAR = TO_CHAR(SYSDATE, 'YYYY') AND STATUS = 'C' AND PRIORITY = 'Y' AND BUYER = #{BUYER})),''),
+													        NVL((SELECT KEP_DEPT FROM MIS_BUYER_MNG	WHERE YEAR = TO_CHAR(SYSDATE, 'YYYY') AND STATUS = 'C' AND PRIORITY = 'Y' AND BUYER = #{BUYER}), ''),
+													        NVL((SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = #{BUYER}), ''),																        		
+													        NVL((SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = #{BUYER}), ''),
+													        #{PAY_AMT3},
+													        #{TAX_AMT},
+													        (SELECT LEGACY_USER_ID FROM ICOMLUSR WHERE USER_ID = #{st_user_id}),
+													      	(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = #{st_user_id}),
+														    SYSDATE,
+														    'N',
+														    NULL,
+														    'N',
+														    NULL	
+													    ) 								
+		]]>
+	</update>
+	
+</mapper>   
+   

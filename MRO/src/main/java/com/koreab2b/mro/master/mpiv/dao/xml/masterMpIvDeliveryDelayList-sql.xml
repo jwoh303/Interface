@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mpiv">
+	
+	<!--조회-->
+	<select id="selectMasterMpIvDeliveryDelayList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.pagestart"/>	
+			<![CDATA[
+			/*selectMasterMpIvDeliveryDelayList*/
+				SELECT
+					 X.BUYER AS BUYER_CODE
+					, (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE=X.BUYER) AS BUYER_NAME
+ 					, X.AGENT AS AGENT_CODE
+ 					, (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE=X.AGENT) AS AGENT_NAME
+ 					, MAX(DO_CNT) AS DO_CNT
+ 					, MAX(DS_CNT) AS DS_CNT
+ 					, MAX(IV_CNT) AS IV_CNT
+				FROM (
+					SELECT
+						B.BUYER
+						, B.AGENT
+						, COUNT(A.PO_NO) AS DO_CNT
+						, 0 AS DS_CNT
+						, 0 AS IV_CNT
+					FROM ICOMPODT A, ICOMPOHD B
+					WHERE A.BUYER = B.BUYER
+					AND B.PO_CREATE_DATE BETWEEN #{st_from_date} AND #{st_to_date}
+					AND B.PO_CREATE_DATE <= KEP.F_GET_M_WORKINGDAY(TO_CHAR(SYSDATE,'YYYYMMDD'),2)
+					AND A.DO_QTY = 0
+					AND A.PO_NO = B.PO_NO
+					AND A.STATUS != 'D'
+					AND B.STATUS != 'D'
+					AND A.BUYER = #{st_buyer_code}
+					GROUP BY B.BUYER, B.AGENT
+				
+					UNION ALL
+	
+					SELECT
+						B.BUYER
+						, B.AGENT
+						, 0 AS DO_CNT
+						, COUNT(A.PO_NO) AS DS_CNT
+						, 0 AS IV_CNT
+					FROM ICOMPODT A, ICOMPOHD B
+					WHERE A.BUYER = B.BUYER
+					AND A.PO_NO = B.PO_NO
+					AND B.PO_CREATE_DATE BETWEEN #{st_from_date} AND #{st_to_date}
+					AND A.DO_QTY > 0
+					AND A.STATUS != 'D'
+					AND B.STATUS != 'D'
+					AND A.COMPLETE_MARK ='N'
+					AND A.DS_DATE <= KEP.F_GET_M_WORKINGDAY(TO_CHAR(SYSDATE,'YYYYMMDD'),2)
+					AND A.BUYER = #{st_buyer_code}
+					GROUP BY B.BUYER, B.AGENT
+	
+					UNION ALL
+					
+					SELECT
+						B.BUYER
+						, B.AGENT
+						, 0 AS DO_CNT
+						, 0 AS DS_CNT
+						, COUNT(A.PO_NO) AS IV_CNT
+					FROM ICOMPODT A, ICOMPOHD B
+					WHERE A.BUYER = B.BUYER
+					AND A.PO_NO = B.PO_NO
+					AND B.PO_CREATE_DATE BETWEEN #{st_from_date} AND #{st_to_date}
+					AND A.STATUS != 'D'
+					AND B.STATUS != 'D'
+					AND A.ST_DATE BETWEEN TO_CHAR(SYSDATE,'YYYYMMDD') AND KEP.F_GET_WORKINGDAY(TO_CHAR(SYSDATE,'YYYYMMDD'),3)
+					AND A.BUYER = #{st_buyer_code}
+					AND (DO_QTY=0 OR A.COMPLETE_MARK ='N')
+					GROUP BY B.BUYER, B.AGENT
+				) X
+			]]>
+				<if test="st_agent_code != null and st_agent_code != ''">
+				<![CDATA[
+					WHERE X.AGENT = #{st_agent_code}
+				]]>
+				</if>
+			<![CDATA[
+				GROUP BY X.BUYER, X.AGENT
+				ORDER BY AGENT_NAME
+			]]>
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+</mapper>
+   

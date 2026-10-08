@@ -1,0 +1,174 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="buyer.mpst">
+
+	<!-- 조회 -->
+	<select id="selectBuyerMpStWarehouseGiList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.pagestart"/>	
+		<![CDATA[
+			/*selectBuyerMpStWarehouseGiList*/
+			SELECT 
+				CAR.IV_NO AS IV_NO
+				,CAR.ADD_DATE AS IV_DATE
+				,CAR.BUYER_ITEM_NO AS BUYER_ITEM_NO
+				,BYIT.DESCRIPTION_LOC AS DESCRIPTION
+				,BYIT.SPECIFICATION AS SPECIFICATION
+				,(SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE='M104' AND CODE = BYIT.MAKER_CODE) AS MAKER_NAME
+				,BYIT.UNIT_MEASURE AS UNIT_MEASURE
+				,CAR.IV_QTY AS IV_QTY
+				,CAR.CAR_NO AS CAR_NO
+				,CAR.ADD_USER_ID AS ADD_USER_ID
+				,(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = CAR.ADD_USER_ID) AS ADD_USER_NAME
+				,BYIT.BUYER AS BYIT_COMORG_CODE
+				,(SELECT CONTRACT_NO FROM ICOMCQDT WHERE BUYER=BYIT.BUYER AND BUYER_ITEM_NO = BYIT.BUYER_ITEM_NO AND ROWNUM=1) AS CONTRACT_NO
+				,(SELECT CONTRACT_SEQ FROM ICOMCQDT WHERE BUYER=BYIT.BUYER AND BUYER_ITEM_NO = BYIT.BUYER_ITEM_NO AND ROWNUM=1) AS CONTRACT_SEQ
+				
+			FROM CAR_STOCK_IVDT CAR , ICOMBYIT BYIT
+			WHERE CAR.BUYER = #{st_buyer}
+			AND BYIT.BUYER = (SELECT BYCA_COMORG_CODE FROM ICOMCMPY WHERE COM_CODE = CAR.BUYER)
+			AND BYIT.BUYER_ITEM_NO = CAR.BUYER_ITEM_NO
+			AND BYIT.PRODUCT_CLOSE_FLAG = 'N'
+			AND BYIT.STATUS != 'D'
+			AND CAR.STATUS != 'D'
+ 		]]>
+ 		<if test="st_description != null and st_description != '' ">
+			    AND BYIT.DESCRIPTION_LOC LIKE '%' || #{st_description} || '%'
+ 		</if>  
+ 		<if test="st_specification != null and st_specification != '' ">
+			    AND BYIT.SPECIFICATION LIKE '%' || #{st_specification} || '%'
+ 		</if>
+ 		<if test="st_car_no != null and st_car_no != '' ">
+			    AND CAR.CAR_NO LIKE '%' || #{st_car_no} || '%'
+ 		</if>
+ 		<if test="st_add_user_id != null and st_add_user_id != '' ">
+			    AND CAR.ADD_USER_ID = #{st_add_user_id}
+ 		</if>
+ 		<![CDATA[
+ 			AND TO_CHAR(CAR.ADD_DATE,'YYYYMMDD') BETWEEN #{st_from_date} AND #{st_to_date} 
+ 		]]>  
+
+		<include refid="common.ibsheet.xml.pageend"/>	
+	</select> 
+	
+	<update id="updateBuyerMpStWarehouseGiMinus" parameterType="java.util.Map">
+		<![CDATA[
+		/*updateBuyerMpStWarehouseGiMinus*/
+			UPDATE CAR_STOCK
+			SET IV_QTY = IV_QTY - #{IV_QTY}
+			,CHANGE_DATE = SYSDATE
+			,CHANGE_USER_ID = #{st_user_id}
+			
+			WHERE BUYER = #{st_buyer}
+			AND BUYER_ITEM_NO = #{BUYER_ITEM_NO}
+			AND STATUS != 'D'
+		]]>
+	</update>
+	
+	<update id="deleteBuyerMpStWarehouseGi" parameterType="java.util.Map">
+		<![CDATA[
+		/*deleteBuyerMpStWarehouseGi*/
+			UPDATE CAR_STOCK_IVDT
+			SET STATUS = 'D'
+			,CHANGE_DATE = SYSDATE
+			,CHANGE_USER_ID = #{st_user_id}
+			
+			WHERE BUYER = #{st_buyer}
+			AND IV_NO = #{IV_NO}
+			AND BUYER_ITEM_NO = #{BUYER_ITEM_NO}
+			AND STATUS != 'D'
+		]]>
+	</update>
+
+	<select id="selectBuyerMpStWarehouseGiUserList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/*selectBuyerMpStWarehouseGiUserList*/
+			SELECT
+			  A.USER_ID AS CODE
+			, A.USER_NAME_LOC AS TEXT1
+			FROM  ICOMLUSR A
+				, (	SELECT DISTINCT PURCHASER_ID
+					FROM ICOMPRDT
+					WHERE BUYER = #{SEARCH}) B
+			WHERE
+					A.USER_ID = B.PURCHASER_ID
+				AND A.STATUS <> 'D'
+			ORDER BY A.USER_NAME_LOC
+		]]>
+	</select>
+	
+	<select id="selectBuyerMpStWarehouseGiStockCheck" parameterType="java.util.Map" resultType="String">
+		<![CDATA[
+			/*selectBuyerMpStWarehouseGiStockCheck*/
+			SELECT COUNT(1) AS CNT
+			FROM CAR_STOCK CAR
+			WHERE CAR.BUYER = #{st_buyer}
+			AND CAR.BUYER_ITEM_NO = #{BUYER_ITEM_NO}
+		]]>
+	</select>
+	
+	<select id="selectBuyerMpStWarehouseGiCheckQty" parameterType="java.util.Map" resultType="java.lang.String">
+		<![CDATA[
+			/*selectBuyerMpStWarehouseGiCheckQty*/
+			SELECT
+				(IV_QTY-#{IV_QTY}) AS CHECK_QTY
+			FROM CAR_STOCK
+			WHERE BUYER = #{st_buyer}
+			AND BUYER_ITEM_NO = #{BUYER_ITEM_NO}
+		]]>
+	</select>
+	
+	<select id="selectBuyerMpStWarehouseGiCheckStockQty" parameterType="java.util.Map" resultType="java.lang.String">
+		<![CDATA[
+			/*selectBuyerMpStWarehouseGiCheckStockQty*/
+			SELECT
+				(GR_QTY-IV_QTY)-#{IV_QTY} AS CHECK_QTY
+			FROM CAR_STOCK
+			WHERE BUYER = #{st_buyer}
+			AND BUYER_ITEM_NO = #{BUYER_ITEM_NO}
+		]]>
+	</select>
+	
+	<update id="updateBuyerMpStWarehouseGiAdd" parameterType="java.util.Map">
+		<![CDATA[
+		/*updateBuyerMpStWarehouseGiAdd*/
+			UPDATE CAR_STOCK
+			SET IV_QTY = IV_QTY + #{IV_QTY}
+			,CHANGE_DATE = SYSDATE
+			,CHANGE_USER_ID = #{st_user_id}
+			
+			WHERE BUYER = #{st_buyer}
+			AND BUYER_ITEM_NO = #{BUYER_ITEM_NO}
+			AND STATUS != 'D'
+		]]>
+	</update> 
+	
+	<update id="insertBuyerMpStWarehouseGi" parameterType="java.util.Map">
+		<![CDATA[
+			/*insertBuyerMpStWarehouseGi*/
+			INSERT INTO CAR_STOCK_IVDT (
+				BUYER
+				,IV_NO
+				,BUYER_ITEM_NO
+				,IV_QTY
+				,CAR_NO
+				,ADD_USER_ID
+				,ADD_DATE
+				,CHANGE_USER_ID
+				,CHANGE_DATE
+				,STATUS
+			) VALUES (
+				#{st_buyer}
+				,#{IV_NO}
+				,#{BUYER_ITEM_NO}
+				,#{IV_QTY}
+				,#{CAR_NO}
+				,#{st_user_id}
+				,SYSDATE
+				,#{st_user_id}
+				,SYSDATE
+				,'C'
+			)
+		]]>
+	</update>
+	
+</mapper>

@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mdct">
+	<!-- 팝업 조회 -->
+	<select id="selectMasterMdCtBuyerReContractPopList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/* selectMasterMdCtBuyerReContractPopList */
+			SELECT	A.CONTRACT_NO,
+					A.ORG_CODE,
+					A.CONTRACT_STATUS,
+					(SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE='RWST' AND CODE = A.CONTRACT_STATUS) AS CONTRACT_STATUS_TEXT,
+					A.CONTRACT_TYPE,
+					(SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE='CTTP' AND CODE = A.CONTRACT_TYPE) AS CONTRACT_TYPE_TEXT,
+					A.CONTRACT_START,
+					A.CONTRACT_END,
+					A.CONTRACT_USER_ID,
+					A.PAR_AMOUNT,
+					A.PAR_AGR_YN,
+					A.SALES_USER_ID,
+					(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = A.SALES_USER_ID) AS SALES_USER_NAME,
+					A.SOURCING_USER_ID,
+					(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = A.SOURCING_USER_ID) AS SOURCING_USER_NAME,
+					A.PRE_MEETING_DATE,
+					A.SOURCING_DIS_DATE,
+					A.SOURCING_ASS_DATE,
+					A.IN_REPORTING_DATE,
+					A.BUYER_PROPOSAL_DATE,
+					(SELECT DECODE(COUNT(*), 0, 'N', 'Y') FROM KEP_CA_CREATE WHERE CT_NO = #{contract_no} AND STATUS != 'D') AS SOURCING_DIS_YN,
+					DECODE((SELECT DECODE(COUNT(*), 0, 'N', 'Y') FROM KEP_CA_CREATE WHERE CT_NO = #{contract_no} AND STATUS != 'D'), 'N', 'N',
+						(SELECT DECODE(COUNT(*), 0, 'Y', 'N') FROM KEP_CA_CREATE WHERE CT_NO = #{contract_no} AND STATUS IN ('Q', 'R', 'G'))) AS SOURCING_SUBM_YN,
+					A.IN_APPR_ID,
+					A.IN_APPR_STATUS,
+					(SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE='CTST' AND CODE = A.IN_APPR_STATUS) AS IN_APPR_STATUS_TEXT,
+					A.BUYER_PROPOSAL_YN,
+					A.ORDER_RESULT,
+					(SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE='CTRS' AND CODE = A.ORDER_RESULT) AS ORDER_RESULT_TEXT,
+					A.ORDER_IN_APPR_ID,
+					A.ORDER_IN_APPR_STATUS,
+					(SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE='CTST' AND CODE = A.ORDER_IN_APPR_STATUS) AS ORDER_IN_APPR_STATUS_TEXT,
+					A.CONTRACT_IMAGE_KEY,
+					(SELECT DECODE(COUNT(*), 0, 'Y', 'N') FROM KEP_CA_CREATE WHERE CT_NO = #{contract_no} AND STATUS NOT IN ('C', 'D')) AS RE_CONTRACT_SYSTEM_YN,
+					A.COMPLETION_YN,
+					A.ADD_DATE,
+					A.ADD_USER_ID,
+					A.CHANGE_DATE,
+					A.CHANGE_USER_ID
+			FROM	KEP_RE_CONTRACT A
+			WHERE	1=1
+			AND		A.CONTRACT_NO = #{contract_no}
+		]]>
+	</select>
+	
+	<!-- 저장 -->
+	<update  id="saveMasterMdCtBuyerReContractPop" parameterType="java.util.Map" >
+		<![CDATA[
+			/* saveMasterMdCtBuyerReContractPop */
+			UPDATE	KEP_RE_CONTRACT A
+			SET		A.SALES_USER_ID = #{st_sales_user_id},
+					A.SOURCING_USER_ID = #{st_sourcing_user_id},
+					A.PRE_MEETING_DATE = #{st_pre_meeting_date},
+					A.SOURCING_DIS_DATE = #{st_sourcing_dis_date},
+					A.SOURCING_ASS_DATE = #{st_sourcing_ass_date},
+					A.IN_REPORTING_DATE = #{st_in_reporting_date},
+					A.BUYER_PROPOSAL_DATE = #{st_buyer_proposal_date},
+		]]>
+			<if test='st_contract_status == "A"'>
+				<if test='st_tobe_contract_status == "S"'>
+					A.CONTRACT_STATUS = 'S',
+				</if>
+					A.PAR_AGR_YN = #{st_par_agr_yn},
+			</if>
+			<if test='st_contract_status == "S"'>
+				<if test='st_tobe_contract_status == "R"'>
+					A.CONTRACT_STATUS = 'R',
+				</if>
+					A.BUYER_PROPOSAL_YN = #{st_buyer_proposal_yn},
+					A.SOURCING_DIS_YN = (SELECT DECODE(COUNT(*), 0, 'N', 'Y') FROM KEP_CA_CREATE WHERE CT_NO = #{st_contract_no} AND STATUS != 'D'), 
+					A.SOURCING_SUBM_YN = (SELECT DECODE(COUNT(*), 0, 'N', 'Y') FROM KEP_CA_CREATE WHERE CT_NO = #{st_contract_no} AND STATUS IN ('S', 'U', 'C')),
+			</if>
+			<if test='st_contract_status == "R"'>
+				<if test='st_tobe_contract_status == "C"'>
+					<if test='st_order_result == "F"'>
+						A.COMPLETION_YN = 'Y',
+					</if>
+					<if test='st_order_result == "C"'>
+						A.CONTRACT_STATUS = 'C',
+					</if>
+				</if>
+					A.ORDER_RESULT = #{st_order_result},
+					A.RE_CONTRACT_SYSTEM_YN = (SELECT DECODE(COUNT(*), 0, 'N', 'Y') FROM KEP_CA_CREATE WHERE CT_NO = #{st_contract_no} AND STATUS = 'C'),
+			</if>
+			<if test='st_contract_status == "C"'>
+					A.CONTRACT_IMAGE_KEY = #{st_contract_image_key},
+				<if test='st_tobe_contract_status == "Y"'>
+					A.RE_CONTRACT_SYSTEM_YN = #{st_re_contract_system_yn},
+					A.COMPLETION_YN = #{st_re_contract_system_yn},
+				</if>
+			</if>
+		<![CDATA[
+					A.CHANGE_DATE = SYSDATE,
+					A.CHANGE_USER_ID = #{st_user_id}
+			WHERE	1=1
+			AND		A.CONTRACT_NO = #{st_contract_no}
+		]]>
+	</update>
+</mapper>   
+   

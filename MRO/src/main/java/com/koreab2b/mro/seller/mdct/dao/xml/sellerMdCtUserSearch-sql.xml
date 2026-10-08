@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="seller.mdct">
+	<select id="selectSellerMdCtUserSearchList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.jsppagestart"/>
+		<![CDATA[
+		/* selectSellerMdCtUserSearchList */
+		SELECT 
+			S.ROWM,
+			S.USER_ID,
+			S.USER_NAME_LOC,
+			S.PHONE_NUMBER,
+			S.EMAIL,
+			S.DEPARTMENT,
+			S.DEPT_NAME,
+			S.STATUS,
+			S.STATUS_TEXT
+		FROM (
+			SELECT
+				ROWNUM ROWM,																																												/* 순번 */
+				L.USER_ID,																																														/* 사용자 ID */
+				L.USER_NAME_LOC,																																												/* 사용자 이름 */
+				L.PHONE_NUMBER,																																												/* 핸드폰번호 */
+				L.EMAIL,																																															/* 이메일 */
+				L.DEPARTMENT,																																													/* 부서코드 */
+				(SELECT TEXT1 FROM ICOMCOD2 WHERE COMPANY_CODE = L.COM_CODE AND TYPE='C001' AND CODE = L.DEPARTMENT) DEPT_NAME,								/* 부서명 */
+				L.STATUS,																																															/* 상태 */
+				decode(L.STATUS,'D','삭제','사용') AS STATUS_TEXT																																		/* 상태값 */
+			FROM ICOMLUSR L
+			WHERE L.STATUS IN ('C','R')
+			AND L.COM_CODE = #{st_com_code}
+		]]>
+		<if test="st_search_user_id != null and st_search_user_id != ''">
+		<![CDATA[	
+			AND L.USER_ID = UPPER(#{st_search_user_id})
+		]]>
+		</if>
+		<if test="st_search_user_name != null and st_search_user_name != ''">
+		<![CDATA[		
+			AND L.USER_NAME_LOC LIKE '%'||#{st_search_user_name}||'%'
+		]]>
+		</if>
+		<if test="st_btoa_user_dept_code != null and st_btoa_user_dept_code != ''">
+		<![CDATA[		
+			AND L.DEPARTMENT = #{st_btoa_user_dept_code}
+		]]>
+		</if>	
+		<![CDATA[		
+			ORDER BY L.REG_DATE DESC
+		) S 
+ 		]]>
+		<include refid="common.ibsheet.xml.jsppageend"/>	
+	</select>
+	
+	<!-- 사용자상태 수정-->
+	<update id="updateSellerMdCtUserSearchList" parameterType="java.util.Map">
+		<![CDATA[
+ 		 	/*updateSellerMdCtUserSearchList*/
+			UPDATE	ICOMLUSR
+			SET		STATUS = 'D',
+						EXPIRE_DATE = TO_CHAR(SYSDATE,'YYYYMMDD'),
+						CONFIRM_USER_ID = #{st_user_id}
+			WHERE	USER_ID = #{st_change_user_id}
+			AND		COM_CODE = #{st_com_code}
+		]]>
+	</update>
+
+	<!-- 리뉴얼용: 사용자 목록 조회 (페이징 없음) -->
+	<select id="selectSellerMdCtUserSearchList_v2" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/* selectSellerMdCtUserSearchList_v2 */
+		SELECT
+			L.USER_ID,
+			L.USER_NAME_LOC,
+			L.PHONE_NUMBER,
+			L.EMAIL,
+			L.DEPARTMENT,
+			(SELECT TEXT1 FROM ICOMCOD2
+			 WHERE COMPANY_CODE = L.COM_CODE
+			 AND TYPE='C001'
+			 AND CODE = L.DEPARTMENT) AS DEPT_NAME
+		FROM ICOMLUSR L
+		WHERE L.STATUS IN ('C','R')
+		  AND L.COM_CODE = #{st_com_code}
+		]]>
+		<if test="st_search_user_name != null and st_search_user_name != ''">
+		<![CDATA[
+			AND L.USER_NAME_LOC LIKE '%'||#{st_search_user_name}||'%'
+		]]>
+		</if>
+		<if test="st_btoa_user_dept_name != null and st_btoa_user_dept_name != ''">
+		<![CDATA[
+			AND EXISTS (
+				SELECT 1 FROM ICOMCOD2
+				WHERE COMPANY_CODE = L.COM_CODE
+				AND TYPE='C001'
+				AND CODE = L.DEPARTMENT
+				AND TEXT1 LIKE '%'||#{st_btoa_user_dept_name}||'%'
+			)
+		]]>
+		</if>
+		<![CDATA[
+			ORDER BY L.REG_DATE DESC
+		]]>
+	</select>
+</mapper>

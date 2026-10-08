@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="common.mpso">
+
+	<select id="selectMasterMpSoOrderStandbyOrderReqHeaderPopList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*selectMasterMpSoOrderStandbyOrderReqHeaderPopList*/
+		SELECT A.BUYER
+		            , A.PR_NO
+		            , A.REF_NO
+		            , E.PR_SUBJECT
+		            , C.COM_NAME_LOC  AS BUYER_NM
+		            , F.DEPT_NAME     AS PURCH_DEPT
+		            , D.USER_NAME_LOC AS PURCHASER
+		            , E.CHANGE_DATE
+		         FROM ICOMPRDT A
+		            , ICOMCQDT B
+		            , ICOMCMPY C
+		            , ICOMLUSR D
+		            , ICOMPRHD E
+		            , (SELECT COMPANY_CODE
+		                    , TEXT1 DEPT_NAME
+		                    , CODE DEPT_CODE 
+		                 FROM ICOMCOD2  
+		                WHERE TYPE='C001' 
+		              ) F 
+		        WHERE 1=1
+				  AND A.BYIT_COMORG_CODE = B.BUYER(+)
+		          AND A.BUYER_ITEM_NO = B.BUYER_ITEM_NO(+)
+		          AND A.CONTRACT_NO = B.CONTRACT_NO(+)
+		          AND A.CONTRACT_SEQ= B.CONTRACT_SEQ(+)
+		          AND A.BUYER = C.COM_CODE(+)
+		          AND A.PURCHASER_ID = D.USER_ID(+)
+		          AND A.BUYER = E.BUYER(+)
+		          AND A.PR_NO = E.PR_NO(+)
+		          AND A.STATUS != 'D'
+		          AND A.PURCHASER_DEPT = F.DEPT_CODE(+) 
+		          AND A.BUYER = F.COMPANY_CODE(+)
+		       		
+		          AND B.STATUS(+) ^= 'D'
+		          AND A.BUYER = #{st_buyer}
+		          AND A.PR_NO = #{st_pr_no}
+		        GROUP BY A.BUYER, A.PR_NO,A.REF_NO
+		            , E.PR_SUBJECT
+		            , C.COM_NAME_LOC
+		            , F.DEPT_NAME    
+		            , D.USER_NAME_LOC
+		            , E.CHANGE_DATE
+		       ORDER BY A.BUYER, A.PR_NO, A.REF_NO
+		]]>
+	</select>			
+
+
+	<select id="selectMasterMpSoOrderStandbyOrderReqDetailPopList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*selectMasterMpSoOrderStandbyOrderReqDetailPopList*/
+			SELECT A.BUYER
+            , A.PR_NO
+            , A.PR_SEQ
+            , A.REF_NO
+            , (SELECT to_char(MAX(PASSLN.PASS_DATE),'YYYY-MM-DD HH24:MI:SS') 
+                 FROM ICOMTRGW TRGW
+                    , ICOGDOCU DOCU
+                    , ICOGPASSLN PASSLN
+                WHERE TRGW.COM_CODE  = A.BUYER
+                  AND TRGW.KEY_1     = A.REF_NO
+                  AND TRGW.COM_CODE  = DOCU.COMPANY
+                  AND TRGW.TARGET    = DOCU.DOCU_NO
+                  AND DOCU.COMPANY   = PASSLN.COMPANY
+                  AND DOCU.DOCU_NO   = PASSLN.DOCU_NO
+                  AND CUR_ORDER_NO   = PASSLN.ORDER_NO
+                  AND PASSLN.PASS_TP = '1' ) PASS_DATE
+            , DECODE(B.AGENT,A.AGENT,'OK',NULL   ,'계약서없음','공급사오류')   AS AGENT_ERROR 
+            , DECODE(B.UNIT_PRICE,A.TARGET_PRICE,'OK',NULL ,'계약서없음' ,'판매단가오류') AS UNIT_ERROR
+            , DECODE(B.LIST_PRICE,A.LIST_PRICE,'OK' ,NULL        ,'계약서없음 |' ,'매입단가오류 |') AS LIST_ERROR
+            , A.TARGET_PRICE AS UNIT_PRICE         --매출단가_주문
+            , A.LIST_PRICE AS LIST_PRICE           --매입단가_주문
+            , A.AGENT                              --협력사_주문
+            ,(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = A.AGENT) AS AGENT_NAME
+            , NVL(B.AGENT,'NULL') AS C_AGENT       --협력사_계약 
+            ,(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = B.AGENT) AS C_AGENT_NAME
+            , NVL(B.UNIT_PRICE,0) AS C_UNIT_PRICE  --매출단가_계약
+            , NVL(B.LIST_PRICE,0) AS C_LIST_PRICE  --매입단가_계약 
+            , A.BYIT_COMORG_CODE
+            , A.BUYER_ITEM_NO --품목코드 
+            , A.CONTRACT_NO  --계약서 번호
+            , A.CONTRACT_SEQ --계약서 항번 
+         FROM ICOMPRDT A
+            , ICOMCQDT B
+        WHERE 1=1
+          AND A.BYIT_COMORG_CODE = B.BUYER(+)
+          AND A.BUYER_ITEM_NO = B.BUYER_ITEM_NO(+)
+          AND A.CONTRACT_NO = B.CONTRACT_NO(+)
+          AND A.CONTRACT_SEQ= B.CONTRACT_SEQ(+)
+          AND B.STATUS(+) ^= 'D'
+          AND A.BUYER = #{st_buyer}
+          AND A.PR_NO = #{st_pr_no}
+		]]>
+	</select>
+
+
+	<update id="updateMasterMpSoOrderStandbyOrderReqDetailPop_1" parameterType="java.util.Map" >
+		<![CDATA[
+		/*updateMasterMpSoOrderStandbyOrderReqDetailPop_1*/
+		  UPDATE ICOMPRDT
+		        SET TARGET_PRICE = #{UNIT_PRICE}
+		           , LIST_PRICE = #{LIST_PRICE}
+		           , AGENT = #{AGENT}
+		       WHERE BUYER = #{st_buyer}
+		         AND PR_NO = #{PR_NO}
+		         AND PR_SEQ = #{PR_SEQ}
+		]]>
+	</update>
+
+
+	<update id="updateMasterMpSoOrderStandbyOrderReqDetailPop_2" parameterType="java.util.Map" >
+		<![CDATA[
+		/*updateMasterMpSoOrderStandbyOrderReqDetailPop_2*/
+			UPDATE IF_PROGRESS
+	               SET IF_FLAG ='C'
+					,CHANGE_DATE =TO_CHAR(SYSDATE,'YYYYMMDD')
+					,CHANGE_TIME = TO_CHAR(SYSDATE,'HHMISS')
+					,AGENCY_USER_ID =  #{USER_ID}
+					,CONFIRM_DATE =TO_CHAR(SYSDATE,'YYYYMMDD')
+					,CONFIRM_TIME = TO_CHAR(SYSDATE,'HHMISS')
+		       WHERE BUYER     = #{st_buyer}
+		         AND GUBUN     = 'XX'
+		         AND LEGACY_NO = #{REF_NO}
+		         AND REVISION  = (SELECT /*+ INDEX_DESC(A SYS_C0041013) */ REVISION
+		                           FROM IF_PROGRESS A
+		                          WHERE BUYER =  #{st_buyer}
+		                            AND GUBUN = 'XX'
+		                            AND LEGACY_NO = #{REF_NO}
+		                            AND ROWNUM = 1
+		                           )
+		]]>
+	</update>									
+</mapper>

@@ -1,0 +1,1145 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mdcm">
+	<!-- 조회 -->
+	<select id="selectMasterMdCmCatalogAlterList" parameterType="java.util.Map" resultType="java.util.Map" fetchSize="100">
+	<include refid="common.ibsheet.xml.pagestart"/>	
+			<![CDATA[
+			/*selectMasterMdCmCatalogAlterList*/
+		    	SELECT /*+LEADING(D)*/
+	                A.BUYER_ITEM_NO AS BUYER_ITEM_NO,  
+	                (SELECT COM_NAME_LOC FROM ICOMCMPY  
+	                  WHERE COM_CODE = C.AGENT) AS AGENT_NAME,  
+	                C.MAKER_NAME AS MAKER_NAME,  
+	                C.UNIT_PRICE AS UNIT_PRICE,  
+	                C.LIST_PRICE AS LIST_PRICE,  
+	                C.UNIT_MEASURE AS UNIT_MEASURE,  
+	                (SELECT COM_NAME_LOC FROM ICOMCMPY  
+	                          WHERE COM_CODE = C.BELOW_COMORG_CODE) AS BELOW_TEXT,										
+			]]>
+			<!-- SLOGIC-BEGIN(P03-3020-03) -->
+			<choose>
+				<when test="st_buyer_code != null and st_buyer_code != ''">
+					<choose>
+						<when test='st_buyer_code == "KRDUPO0001"  or st_buyer_code == "KRDUPO0002" or st_buyer_code == "KRDUPO0003" '>
+							<![CDATA[
+							DECODE(A.STATUS,'D','삭제',DECODE(C.STATUS,'D','삭제',  
+		                	DECODE(A.PRODUCT_CLOSE_FLAG,'N','승인','Y','단종','A','일회용_미발주','C','일회용_기발주','B','BLOCKED' ))) AS STATUS_TEXT,
+		                	]]>
+						</when>
+						<when test='st_buyer_code == "KRDOOD0001" '>
+							<![CDATA[
+							DECODE(A.STATUS,'D','삭제',DECODE(C.STATUS,'D','삭제',  
+							DECODE(A.PRODUCT_CLOSE_FLAG,'N','승인','Y','단종','A','일회용_미발주','C','신규요청품목'))) AS STATUS_TEXT,
+							]]>
+						</when>
+						<otherwise>
+						<![CDATA[
+						DECODE(A.STATUS,'D','삭제',DECODE(C.STATUS,'D','삭제',  
+						DECODE(A.PRODUCT_CLOSE_FLAG,'N','승인','Y','단종','T','I/F품목'))) AS STATUS_TEXT,
+						]]>
+						</otherwise>
+					</choose>
+				</when> 
+			</choose>
+			<!-- SLOGIC-END -->
+			<![CDATA[
+					DECODE(NVL(DECODE(SUBSTR(A.STDCATLG_ID,0,1),'M',A.STDCATLG_ID,''),'00'),'00','NO','YES') AS MAPP_TEXT,  
+                    A.DESCRIPTION_LOC AS DESCRIPTION,  
+                    A.SPECIFICATION AS SPECIFICATION,  
+                    A.BUYER AS BUYER,  
+                    A.STATUS AS BYIT_STATUS,  
+                    A.CMS_CATLG_ID AS STDCATLG_ID,  
+                    A.CMS_CATEG_ID AS STDCATEG_ID,  
+                    A.PRODUCT_CLOSE_FLAG AS PRODUCT_CLOSE_FLAG,  
+                    C.BELOW_COMORG_CODE AS BELOW_COMORG_CODE,  
+                    C.STATUS AS CQDT_STATUS,  
+                    C.CONTRACT_NO AS CONTRACT_NO,  
+                    C.CONTRACT_SEQ AS CONTRACT_SEQ,  
+                    C.AGENT AS AGENT,  
+                    (SELECT /*+USE_NL(C P)*/ COUNT(*) FROM ICOMCQEP P  
+                      WHERE P.BUYER = C.BUYER  
+                        AND P.BUYER_ITEM_NO = C.BUYER_ITEM_NO  
+                        AND P.CONTRACT_NO = C.CONTRACT_NO  
+                        AND P.CONTRACT_SEQ = C.CONTRACT_SEQ) AS CQEP_CNT,  
+                    C.CHANGE_DATE AS CHANGE_DATE,
+                    C.ADD_DATE AS ADD_DATE,  
+                    C.ITEM_MAKE_TYPE,
+                    C.DELIVERY_LT,
+                    A.MSDS_NO,
+                    (SELECT MSDS_URL FROM KEPMSDSHD WHERE MSDS_NO = A.MSDS_NO) AS MSDS_URL,
+                    DECODE((SELECT TRIM(MSDS_URL) FROM KEPMSDSHD WHERE MSDS_NO = A.MSDS_NO), '', '미등록', '이동' ) AS MSDS_URL_YN,
+                    1 AS PRINT,
+                    5 AS ERASE_MSDS_NO,
+                    A.REFINE_NOTE,
+                    C.TO_DATE,
+                    A.MAKER_PART_NO,
+                    A.KEP_MAKER_PART_NO,
+                    (SELECT USR.USER_NAME_LOC FROM ICOMLUSR USR WHERE USR.USER_ID =  A.REFINE_USER_ID) AS REFINE_USER_NM,
+					(SELECT COUNT(MNG.BUYER_ITEM_NO) FROM KEPBTOA_MNG MNG
+						WHERE MNG.BUYER = C.BUYER
+						AND MNG.BELOW_COMORG_CODE = C.BELOW_COMORG_CODE
+						AND MNG.BUYER_ITEM_NO =  C.BUYER_ITEM_NO ) BTOA_MNG_CNT,
+					 F_GET_RE_SGMNG(C.BELOW_COMORG_CODE, A.CMS_CATEG_ID, '',3) AS SOUR_MNG,
+					 A.DESCRIPTION_ENG,
+					 A.SPECIFICATION_ENG,
+					 4 AS APPR_INFO,
+					 (SELECT DECODE(COUNT(*), 0, DECODE(A.MATERIAL_TYPE, 'H', 'Y', 'N'), NVL(MAX(CMC_HARMFUL_YN), DECODE(A.MATERIAL_TYPE, 'H', 'Y', 'N'))) FROM KEPMSDSHD WHERE MSDS_NO = A.MSDS_NO) AS CMC_HARMFUL_YN,
+					 (SELECT DECODE(COUNT(*), 0, 'N', 'Y') FROM KEP_CMC_MAILSEND WHERE BUYER = C.BELOW_COMORG_CODE AND BUYER_ITEM_NO = A.BUYER_ITEM_NO) AS MSDS_MAIL_SEND,
+                 	 (SELECT DECODE(COUNT(*), 0, 'N', 'Y') FROM KEP_CMC_MAILSEND WHERE BUYER = C.BELOW_COMORG_CODE AND BUYER_ITEM_NO = A.BUYER_ITEM_NO AND MAIL_RECV_YN = 'Y') AS MSDS_MAIL_RECV,
+					 A.BUYER AS KEY1,
+					 A.BUYER_ITEM_NO AS KEY2,
+					 C.BELOW_COMORG_CODE AS KEY3,
+					 ' ' AS KEY4,
+					 ' ' AS KEY5,
+					 DECODE((SELECT COUNT(COD.CODE) FROM ICOMCOD1 COD
+						WHERE COD.TYPE = 'CM11'
+						AND COD.CODE = A.CMS_CATEG_ID
+						AND COD.FLAG = 'Y'),0,'N','Y') AS MSDS_YN,
+					NVL2 (TRIM(A.IMGFILE_DIR), 'https://keps3.koreab2b.com/'||A.IMGFILE_DIR|| '/' ||A.IMGFILE_NAME, '/resources/images/icon_emptyimg.gif') AS ITEM_IMAGE,
+					A.IMGFILE_DIR,
+					A.IMGFILE_NAME,
+					A.DETAIL_IMGFILE_NAME,
+					A.DETAIL_IMGFILE_DIR,
+					NVL2 (TRIM(A.DETAIL_IMGFILE_DIR), 'https://keps3.koreab2b.com/'||A.DETAIL_IMGFILE_DIR|| '/' ||A.DETAIL_IMGFILE_NAME, '/resources/images/icon_emptyimg.gif') AS DETAIL_ITEM_IMAGE,
+					(SELECT COD.TEXT1 FROM ICOMCOD1 COD
+						WHERE COD.TYPE = 'PRDTTP'
+						AND COD.CODE = A.ITEM_FLAG) AS ITEM_FLAG,
+					C.BUY_CLOSE_DATE,
+					C.SELL_CLOSE_DATE,
+					(SELECT MAX(B.USER_NAME_LOC) FROM ICOMCOD3 A, ICOMLUSR B
+						WHERE A.BUYER ='KRKORE0001'
+						AND A.TYPE ='CMSM'
+						AND A.CODE1 =D.SG_ID
+						AND A.TEXT1 = B.USER_ID
+						AND A.TEXT2 = 'Y') AS SM_MNG_NM,
+					(SELECT MAX(B.USER_NAME_LOC) FROM ICOMCOD3 A, ICOMLUSR B
+						WHERE A.BUYER ='KRKORE0001'
+						AND A.TYPE ='CMDSM'
+						AND A.CODE1 =D.SG_ID
+						AND A.TEXT1 = B.USER_ID
+						AND A.TEXT2 = 'Y') AS DSM_MNG_NM,
+					A.BUY_GREEN_ITEM_NM,
+					A.BUY_GREEN_ITEM_CNO,
+					A.BUY_GREEN_ITEM_FROM_DATE,
+					A.BUY_GREEN_ITEM_TO_DATE,
+					A.CLOSE_STATUS_CODE,
+					C.DEL_STATUS_CODE,
+					(SELECT CMPY.COM_NAME_LOC FROM ICOMCMPY CMPY WHERE CMPY.COM_CODE =C.BELOW_COMORG_CODE) AS COM_NAME_LOC,
+					(SELECT
+						COUNT(EXP_CODE)
+						FROM  KEP_CURRENCY_DT DT
+						WHERE DT.BUYER = C.BUYER
+						AND DT.BUYER_ITEM_NO = C.BUYER_ITEM_NO
+						AND DT.CONTRACT_NO = C.CONTRACT_NO
+						AND DT.CONTRACT_SEQ = C.CONTRACT_SEQ) AS CURRENCY_CNT 
+               FROM ICOMBYIT A, 
+               			ICOMCQDT C,
+               			CMSCATEG D
+                       WHERE   A.CMS_CATEG_ID = D.CMS_CATEG_ID(+)
+                			AND C.BUYER = #{BYCA_COMORG_CODE}
+                			AND A.PRODUCT_CLOSE_FLAG NOT IN ('S', 'G')
+			]]>
+             <if test="st_agent_code != null and st_agent_code != ''">
+				AND (C.AGENT = #{st_agent_code} OR C.ORIGIN_AGENT = #{st_agent_code})
+			</if>
+              <if test="st_add_user_id != null and st_add_user_id != ''">
+				AND A.ADD_USER_ID = #{st_add_user_id}
+			</if>
+			<choose>
+				<when test='st_group_type == "N"'>
+					<![CDATA[
+						AND C.BELOW_COMORG_CODE = #{st_buyer_code}
+					]]>
+				</when>
+			</choose>
+			<if test="st_buyer_item_no != null and st_buyer_item_no != ''">
+				AND C.BUYER_ITEM_NO LIKE #{st_buyer_item_no}||'%'
+			</if>
+			<if test="st_from_date != null and st_from_date != '' and st_to_date != null and st_to_date != '' and  st_date.equals('RE')">
+				AND C.ADD_DATE BETWEEN REPLACE(#{st_from_date}, '/', '') AND REPLACE(#{st_to_date}, '/', '')
+			</if>
+			<if test="st_from_date != null and st_from_date != '' and st_to_date != null and st_to_date != '' and  st_date.equals('CH')">
+				AND C.CHANGE_DATE BETWEEN REPLACE(#{st_from_date}, '/', '') AND REPLACE(#{st_to_date}, '/', '')
+			</if>
+			
+			<if test='st_description_field != null and st_description_field != "ALL"'>
+				<foreach collection="RESULT_IN_DESCRIPTION" item="resultInDescription" >
+					AND UPPER(A.DESCRIPTION_LOC) LIKE UPPER('%'||#{resultInDescription}||'%')
+				</foreach>
+			</if>
+			<if test='st_specification_field != null and st_specification_field != "ALL"'>
+				<foreach collection="RESULT_IN_SPECIFICATION" item="resultInSpecification" >
+					AND (UPPER(A.SPECIFICATION) LIKE UPPER('%'||#{resultInSpecification}||'%') OR  UPPER(A.REFINE_NOTE) LIKE UPPER('%'||#{resultInSpecification}||'%'))
+				</foreach>
+			</if>
+			<if test='st_maker_name_field != null and st_maker_name_field != "ALL"'>
+				<foreach collection="RESULT_IN_MAKER" item="resultInMaker" >
+					AND UPPER(C.MAKER_NAME) LIKE UPPER('%'||#{resultInMaker}||'%')
+				</foreach>
+			</if>
+			<if test="st_stdcatlg_id != null and st_stdcatlg_id != ''">
+				AND A.CMS_CATLG_ID LIKE #{st_stdcatlg_id}||'%'
+			</if>
+			<![CDATA[			           
+                AND A.BUYER = C.BUYER   
+                AND A.BUYER_ITEM_NO = C.BUYER_ITEM_NO 
+                AND C.ADD_DATE BETWEEN '20010416' AND TO_CHAR(SYSDATE,'YYYYMMDD')
+				]]>				
+			<if test="st_categ_id != null and st_categ_id != ''">
+				AND A.CATEGORY_NO =#{st_categ_id}
+			</if>
+			<if test='st_todate_cqdt != null and st_todate_cqdt.equals("60")'>	
+				<![CDATA[
+				AND TO_DATE(C.SELL_CLOSE_DATE,'YYYYMMDD')- TO_DATE(TO_CHAR(SYSDATE,'YYYYMMDD'),'YYYYMMDD') < 60 
+				]]>
+			</if>
+			<if test='st_todate_cqdt != null and st_todate_cqdt.equals("90")'>	
+				<![CDATA[
+				AND TO_DATE(C.SELL_CLOSE_DATE,'YYYYMMDD')- TO_DATE(TO_CHAR(SYSDATE,'YYYYMMDD'),'YYYYMMDD') < 90 
+				]]>
+			</if>
+			<![CDATA[
+				AND A.PURCHASING_AGENT_FLAG = 'Y'
+			]]>
+			<if test='st_item_make_type != null and st_item_make_type !="" '>	
+				<![CDATA[
+				AND C.ITEM_MAKE_TYPE = #{st_item_make_type}
+				]]>
+			</if>
+			<if test='st_maker_part_no != null and st_maker_part_no !="" '>	
+				<![CDATA[
+				AND A.MAKER_PART_NO LIKE  #{st_maker_part_no}||'%'
+				]]>
+			</if>
+			<if test='st_status != null and st_status.equals("N")'>
+				<![CDATA[
+				AND A.STATUS NOT IN ('D','S') AND C.STATUS NOT IN ('D','S') AND A.PRODUCT_CLOSE_FLAG = 'N'
+				]]>
+			</if>
+			<if test='st_status != null and st_status.equals("Y")'>
+				<![CDATA[
+				AND A.STATUS NOT IN ('D','S') AND A.PRODUCT_CLOSE_FLAG = 'Y'
+				]]>
+			</if>
+			<if test='st_status != null and st_status.equals("A")'>
+				<![CDATA[
+				AND A.STATUS NOT IN ('D','S') AND A.PRODUCT_CLOSE_FLAG = 'A'
+				]]>
+			</if>
+			<if test='st_status != null and st_status.equals("C")'>
+				<![CDATA[
+				AND A.STATUS NOT IN ('D','S') AND A.PRODUCT_CLOSE_FLAG = 'C'
+				]]>
+			</if>
+			<if test='st_status != null and st_status.equals("B")'>
+				<![CDATA[
+				AND A.STATUS NOT IN ('D','S') AND A.PRODUCT_CLOSE_FLAG = 'B'
+				]]>
+			</if>
+			<if test='st_status != null and st_status.equals("T")'>
+				<![CDATA[
+				AND A.STATUS NOT IN ('D','S') AND A.PRODUCT_CLOSE_FLAG = 'T'
+				]]>
+			</if>
+			<if test='st_status != null and st_status.equals("D")'>
+				<![CDATA[
+				AND (A.STATUS = 'D' OR C.STATUS = 'D') 
+				]]>
+			</if>
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+
+	<select id="selectMasterMdCmBuyerMsDsPop" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/*selectMasterMdCmBuyerMsDsPop*/
+			SELECT	MSDS_NO,
+					DESCRIPTION,
+					SPECIFICATION,
+					UNIT_MEASURE,
+					MAKER_NAME,
+					ORIGIN_CODE,
+					(SELECT TEXT2 FROM ICOMCOD1 WHERE TYPE = 'M001' AND CODE = A.ORIGIN_CODE) AS ORIGIN_NM,
+					F_SPLIT(A.CAS_NO,'/',1) AS CAS_NO_1,
+					F_SPLIT(A.CAS_NO,'/',2) AS CAS_NO_2,
+					F_SPLIT(A.CAS_NO,'/',3) AS CAS_NO_3,
+					F_SPLIT(A.CAS_NO,'/',4) AS CAS_NO_4,
+					F_SPLIT(A.CAS_NO,'/',5) AS CAS_NO_5,
+					F_SPLIT(A.CAS_NO,'/',6) AS CAS_NO_6,
+					F_SPLIT(A.CAS_NO,'/',7) AS CAS_NO_7,
+					F_SPLIT(A.CAS_NO,'/',8) AS CAS_NO_8,
+					F_SPLIT(A.CAS_NO,'/',9) AS CAS_NO_9,
+					F_SPLIT(A.CAS_NO,'/',10) AS CAS_NO_10,
+					F_SPLIT(A.CAS_NO,'/',11) AS CAS_NO_11,
+					F_SPLIT(A.CAS_NO,'/',12) AS CAS_NO_12,
+					F_SPLIT(A.CAS_NO,'/',13) AS CAS_NO_13,
+					F_SPLIT(A.CAS_NO,'/',14) AS CAS_NO_14,
+					F_SPLIT(A.CAS_NO,'/',15) AS CAS_NO_15,
+					F_SPLIT(A.CAS_NO,'/',16) AS CAS_NO_16,
+					F_SPLIT(A.CAS_NO,'/',17) AS CAS_NO_17,
+					F_SPLIT(A.CAS_NO,'/',18) AS CAS_NO_18,
+					F_SPLIT(A.CAS_NO,'/',19) AS CAS_NO_19,
+					F_SPLIT(A.CAS_NO,'/',20) AS CAS_NO_20,
+					(SELECT USR.USER_NAME_LOC FROM ICOMLUSR USR WHERE USR.USER_ID = A.ADD_USER_ID ) AS ADD_USER_NM,
+					ADD_USER_ID,
+					ADD_DATE,
+					ADD_TIME,
+					LAST_REVISION_DATE,
+					CHANGE_USER_ID,
+					CHANGE_DATE,
+					CHANGE_TIME,
+					CMC_HARMFUL_YN,
+					MSDS_SUBMISSION_NUMBER
+			FROM	KEPMSDSHD A
+			WHERE	1=1
+		]]>
+		<if test="st_msds_no != null and st_msds_no != ''">	     
+			   <![CDATA[
+			   AND  UPPER(A.MSDS_NO) LIKE UPPER('%'||#{st_msds_no}||'%')
+			   ]]>  
+		</if>
+		<if test="st_description != null and st_description != ''">	     
+			   <![CDATA[
+			   AND  UPPER(A.DESCRIPTION) LIKE UPPER('%'||#{st_description}||'%')
+			   ]]>  
+		</if>
+		<if test="st_specification != null and st_specification != ''">	     
+			   <![CDATA[
+			   AND UPPER(A.SPECIFICATION) LIKE UPPER('%'||#{st_specification}||'%')
+			   ]]>  
+		</if>
+		<if test="st_cas_no != null and st_cas_no != ''">	     
+			   <![CDATA[
+			   AND UPPER(A.CAS_NO) LIKE UPPER('%'||#{st_cas_no}||'%')
+			   ]]>  
+		</if>
+		<if test="st_maker_name != null and st_maker_name != ''">	     
+			   <![CDATA[
+			   AND UPPER(A.MAKER_NAME) LIKE UPPER('%'||#{st_maker_name}||'%')
+			   ]]>  
+		</if>
+		<if test="st_submission_number != null and st_submission_number != ''">	     
+			   <![CDATA[
+			   AND	A.MSDS_SUBMISSION_NUMBER LIKE '%'|| #{st_submission_number} || '%'
+			   ]]>  
+		</if>
+		<![CDATA[
+			ORDER BY A.MSDS_NO
+		]]>
+	</select>
+	
+	<select id="selectMasterMdCmBuyerMsDsHeadDetailPop" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/*selectMasterMdCmBuyerMsDsHeadDetailPop*/
+			SELECT	A.MSDS_NO,
+					A.DESCRIPTION,
+					A.SPECIFICATION,
+					A.UNIT_MEASURE,
+					A.MAKER_NAME,
+					A.ORIGIN_CODE,
+					(SELECT TEXT2 FROM ICOMCOD1 WHERE TYPE = 'M001' AND CODE = A.ORIGIN_CODE) AS ORIGIN_NM,
+					F_SPLIT(A.CAS_NO,'/',1) AS CAS_NO_1,
+					F_SPLIT(A.CAS_NO,'/',2) AS CAS_NO_2,
+					F_SPLIT(A.CAS_NO,'/',3) AS CAS_NO_3,
+					F_SPLIT(A.CAS_NO,'/',4) AS CAS_NO_4,
+					F_SPLIT(A.CAS_NO,'/',5) AS CAS_NO_5,
+					F_SPLIT(A.CAS_NO,'/',6) AS CAS_NO_6,
+					F_SPLIT(A.CAS_NO,'/',7) AS CAS_NO_7,
+					F_SPLIT(A.CAS_NO,'/',8) AS CAS_NO_8,
+					F_SPLIT(A.CAS_NO,'/',9) AS CAS_NO_9,
+					F_SPLIT(A.CAS_NO,'/',10) AS CAS_NO_10,
+					F_SPLIT(A.CAS_NO,'/',11) AS CAS_NO_11,
+					F_SPLIT(A.CAS_NO,'/',12) AS CAS_NO_12,
+					F_SPLIT(A.CAS_NO,'/',13) AS CAS_NO_13,
+					F_SPLIT(A.CAS_NO,'/',14) AS CAS_NO_14,
+					F_SPLIT(A.CAS_NO,'/',15) AS CAS_NO_15,
+					F_SPLIT(A.CAS_NO,'/',16) AS CAS_NO_16,
+					F_SPLIT(A.CAS_NO,'/',17) AS CAS_NO_17,
+					F_SPLIT(A.CAS_NO,'/',18) AS CAS_NO_18,
+					F_SPLIT(A.CAS_NO,'/',19) AS CAS_NO_19,
+					F_SPLIT(A.CAS_NO,'/',20) AS CAS_NO_20,
+					F_SPLIT(A.MIN_MAKE_RATE,'/',1) AS CAS_NO_MIN_1,
+					F_SPLIT(A.MIN_MAKE_RATE,'/',2) AS CAS_NO_MIN_2,
+					F_SPLIT(A.MIN_MAKE_RATE,'/',3) AS CAS_NO_MIN_3,
+					F_SPLIT(A.MIN_MAKE_RATE,'/',4) AS CAS_NO_MIN_4,
+					F_SPLIT(A.MIN_MAKE_RATE,'/',5) AS CAS_NO_MIN_5,
+					F_SPLIT(A.MIN_MAKE_RATE,'/',6) AS CAS_NO_MIN_6,
+					F_SPLIT(A.MIN_MAKE_RATE,'/',7) AS CAS_NO_MIN_7,
+					F_SPLIT(A.MIN_MAKE_RATE,'/',8) AS CAS_NO_MIN_8,
+					F_SPLIT(A.MIN_MAKE_RATE,'/',9) AS CAS_NO_MIN_9,
+					F_SPLIT(A.MIN_MAKE_RATE,'/',10) AS CAS_NO_MIN_10,
+					F_SPLIT(A.MIN_MAKE_RATE,'/',11) AS CAS_NO_MIN_11,
+					F_SPLIT(A.MIN_MAKE_RATE,'/',12) AS CAS_NO_MIN_12,
+					F_SPLIT(A.MIN_MAKE_RATE,'/',13) AS CAS_NO_MIN_13,
+					F_SPLIT(A.MIN_MAKE_RATE,'/',14) AS CAS_NO_MIN_14,
+					F_SPLIT(A.MIN_MAKE_RATE,'/',15) AS CAS_NO_MIN_15,
+					F_SPLIT(A.MIN_MAKE_RATE,'/',16) AS CAS_NO_MIN_16,
+					F_SPLIT(A.MIN_MAKE_RATE,'/',17) AS CAS_NO_MIN_17,
+					F_SPLIT(A.MIN_MAKE_RATE,'/',18) AS CAS_NO_MIN_18,
+					F_SPLIT(A.MIN_MAKE_RATE,'/',19) AS CAS_NO_MIN_19,
+					F_SPLIT(A.MIN_MAKE_RATE,'/',20) AS CAS_NO_MIN_20,
+					F_SPLIT(A.MAX_MAKE_RATE,'/',1) AS CAS_NO_MAX_1,
+					F_SPLIT(A.MAX_MAKE_RATE,'/',2) AS CAS_NO_MAX_2,
+					F_SPLIT(A.MAX_MAKE_RATE,'/',3) AS CAS_NO_MAX_3,
+					F_SPLIT(A.MAX_MAKE_RATE,'/',4) AS CAS_NO_MAX_4,
+					F_SPLIT(A.MAX_MAKE_RATE,'/',5) AS CAS_NO_MAX_5,
+					F_SPLIT(A.MAX_MAKE_RATE,'/',6) AS CAS_NO_MAX_6,
+					F_SPLIT(A.MAX_MAKE_RATE,'/',7) AS CAS_NO_MAX_7,
+					F_SPLIT(A.MAX_MAKE_RATE,'/',8) AS CAS_NO_MAX_8,
+					F_SPLIT(A.MAX_MAKE_RATE,'/',9) AS CAS_NO_MAX_9,
+					F_SPLIT(A.MAX_MAKE_RATE,'/',10) AS CAS_NO_MAX_10,
+					F_SPLIT(A.MAX_MAKE_RATE,'/',11) AS CAS_NO_MAX_11,
+					F_SPLIT(A.MAX_MAKE_RATE,'/',12) AS CAS_NO_MAX_12,
+					F_SPLIT(A.MAX_MAKE_RATE,'/',13) AS CAS_NO_MAX_13,
+					F_SPLIT(A.MAX_MAKE_RATE,'/',14) AS CAS_NO_MAX_14,
+					F_SPLIT(A.MAX_MAKE_RATE,'/',15) AS CAS_NO_MAX_15,
+					F_SPLIT(A.MAX_MAKE_RATE,'/',16) AS CAS_NO_MAX_16,
+					F_SPLIT(A.MAX_MAKE_RATE,'/',17) AS CAS_NO_MAX_17,
+					F_SPLIT(A.MAX_MAKE_RATE,'/',18) AS CAS_NO_MAX_18,
+					F_SPLIT(A.MAX_MAKE_RATE,'/',19) AS CAS_NO_MAX_19,
+					F_SPLIT(A.MAX_MAKE_RATE,'/',20) AS CAS_NO_MAX_20,
+					F_SPLIT(A.CML_ACUT_HAZD_YN,'/',1) AS CAS_NO_ACUT_1,
+					F_SPLIT(A.CML_ACUT_HAZD_YN,'/',2) AS CAS_NO_ACUT_2,
+					F_SPLIT(A.CML_ACUT_HAZD_YN,'/',3) AS CAS_NO_ACUT_3,
+					F_SPLIT(A.CML_ACUT_HAZD_YN,'/',4) AS CAS_NO_ACUT_4,
+					F_SPLIT(A.CML_ACUT_HAZD_YN,'/',5) AS CAS_NO_ACUT_5,
+					F_SPLIT(A.CML_ACUT_HAZD_YN,'/',6) AS CAS_NO_ACUT_6,
+					F_SPLIT(A.CML_ACUT_HAZD_YN,'/',7) AS CAS_NO_ACUT_7,
+					F_SPLIT(A.CML_ACUT_HAZD_YN,'/',8) AS CAS_NO_ACUT_8,
+					F_SPLIT(A.CML_ACUT_HAZD_YN,'/',9) AS CAS_NO_ACUT_9,
+					F_SPLIT(A.CML_ACUT_HAZD_YN,'/',10) AS CAS_NO_ACUT_10,
+					F_SPLIT(A.CML_ACUT_HAZD_YN,'/',11) AS CAS_NO_ACUT_11,
+					F_SPLIT(A.CML_ACUT_HAZD_YN,'/',12) AS CAS_NO_ACUT_12,
+					F_SPLIT(A.CML_ACUT_HAZD_YN,'/',13) AS CAS_NO_ACUT_13,
+					F_SPLIT(A.CML_ACUT_HAZD_YN,'/',14) AS CAS_NO_ACUT_14,
+					F_SPLIT(A.CML_ACUT_HAZD_YN,'/',15) AS CAS_NO_ACUT_15,
+					F_SPLIT(A.CML_ACUT_HAZD_YN,'/',16) AS CAS_NO_ACUT_16,
+					F_SPLIT(A.CML_ACUT_HAZD_YN,'/',17) AS CAS_NO_ACUT_17,
+					F_SPLIT(A.CML_ACUT_HAZD_YN,'/',18) AS CAS_NO_ACUT_18,
+					F_SPLIT(A.CML_ACUT_HAZD_YN,'/',19) AS CAS_NO_ACUT_19,
+					F_SPLIT(A.CML_ACUT_HAZD_YN,'/',20) AS CAS_NO_ACUT_20,
+					F_SPLIT(A.CML_CHRO_HAZD_YN,'/',1) AS CAS_NO_CHRO_1,
+					F_SPLIT(A.CML_CHRO_HAZD_YN,'/',2) AS CAS_NO_CHRO_2,
+					F_SPLIT(A.CML_CHRO_HAZD_YN,'/',3) AS CAS_NO_CHRO_3,
+					F_SPLIT(A.CML_CHRO_HAZD_YN,'/',4) AS CAS_NO_CHRO_4,
+					F_SPLIT(A.CML_CHRO_HAZD_YN,'/',5) AS CAS_NO_CHRO_5,
+					F_SPLIT(A.CML_CHRO_HAZD_YN,'/',6) AS CAS_NO_CHRO_6,
+					F_SPLIT(A.CML_CHRO_HAZD_YN,'/',7) AS CAS_NO_CHRO_7,
+					F_SPLIT(A.CML_CHRO_HAZD_YN,'/',8) AS CAS_NO_CHRO_8,
+					F_SPLIT(A.CML_CHRO_HAZD_YN,'/',9) AS CAS_NO_CHRO_9,
+					F_SPLIT(A.CML_CHRO_HAZD_YN,'/',10) AS CAS_NO_CHRO_10,
+					F_SPLIT(A.CML_CHRO_HAZD_YN,'/',11) AS CAS_NO_CHRO_11,
+					F_SPLIT(A.CML_CHRO_HAZD_YN,'/',12) AS CAS_NO_CHRO_12,
+					F_SPLIT(A.CML_CHRO_HAZD_YN,'/',13) AS CAS_NO_CHRO_13,
+					F_SPLIT(A.CML_CHRO_HAZD_YN,'/',14) AS CAS_NO_CHRO_14,
+					F_SPLIT(A.CML_CHRO_HAZD_YN,'/',15) AS CAS_NO_CHRO_15,
+					F_SPLIT(A.CML_CHRO_HAZD_YN,'/',16) AS CAS_NO_CHRO_16,
+					F_SPLIT(A.CML_CHRO_HAZD_YN,'/',17) AS CAS_NO_CHRO_17,
+					F_SPLIT(A.CML_CHRO_HAZD_YN,'/',18) AS CAS_NO_CHRO_18,
+					F_SPLIT(A.CML_CHRO_HAZD_YN,'/',19) AS CAS_NO_CHRO_19,
+					F_SPLIT(A.CML_CHRO_HAZD_YN,'/',20) AS CAS_NO_CHRO_20,
+					F_SPLIT(A.CML_ECOL_HAZD_YN,'/',1) AS CAS_NO_ECOL_1,
+					F_SPLIT(A.CML_ECOL_HAZD_YN,'/',2) AS CAS_NO_ECOL_2,
+					F_SPLIT(A.CML_ECOL_HAZD_YN,'/',3) AS CAS_NO_ECOL_3,
+					F_SPLIT(A.CML_ECOL_HAZD_YN,'/',4) AS CAS_NO_ECOL_4,
+					F_SPLIT(A.CML_ECOL_HAZD_YN,'/',5) AS CAS_NO_ECOL_5,
+					F_SPLIT(A.CML_ECOL_HAZD_YN,'/',6) AS CAS_NO_ECOL_6,
+					F_SPLIT(A.CML_ECOL_HAZD_YN,'/',7) AS CAS_NO_ECOL_7,
+					F_SPLIT(A.CML_ECOL_HAZD_YN,'/',8) AS CAS_NO_ECOL_8,
+					F_SPLIT(A.CML_ECOL_HAZD_YN,'/',9) AS CAS_NO_ECOL_9,
+					F_SPLIT(A.CML_ECOL_HAZD_YN,'/',10) AS CAS_NO_ECOL_10,
+					F_SPLIT(A.CML_ECOL_HAZD_YN,'/',11) AS CAS_NO_ECOL_11,
+					F_SPLIT(A.CML_ECOL_HAZD_YN,'/',12) AS CAS_NO_ECOL_12,
+					F_SPLIT(A.CML_ECOL_HAZD_YN,'/',13) AS CAS_NO_ECOL_13,
+					F_SPLIT(A.CML_ECOL_HAZD_YN,'/',14) AS CAS_NO_ECOL_14,
+					F_SPLIT(A.CML_ECOL_HAZD_YN,'/',15) AS CAS_NO_ECOL_15,
+					F_SPLIT(A.CML_ECOL_HAZD_YN,'/',16) AS CAS_NO_ECOL_16,
+					F_SPLIT(A.CML_ECOL_HAZD_YN,'/',17) AS CAS_NO_ECOL_17,
+					F_SPLIT(A.CML_ECOL_HAZD_YN,'/',18) AS CAS_NO_ECOL_18,
+					F_SPLIT(A.CML_ECOL_HAZD_YN,'/',19) AS CAS_NO_ECOL_19,
+					F_SPLIT(A.CML_ECOL_HAZD_YN,'/',20) AS CAS_NO_ECOL_20,
+					F_SPLIT(A.CML_HARMFUL_YN,'/',1) AS CAS_NO_HARMFUL_1,
+					F_SPLIT(A.CML_HARMFUL_YN,'/',2) AS CAS_NO_HARMFUL_2,
+					F_SPLIT(A.CML_HARMFUL_YN,'/',3) AS CAS_NO_HARMFUL_3,
+					F_SPLIT(A.CML_HARMFUL_YN,'/',4) AS CAS_NO_HARMFUL_4,
+					F_SPLIT(A.CML_HARMFUL_YN,'/',5) AS CAS_NO_HARMFUL_5,
+					F_SPLIT(A.CML_HARMFUL_YN,'/',6) AS CAS_NO_HARMFUL_6,
+					F_SPLIT(A.CML_HARMFUL_YN,'/',7) AS CAS_NO_HARMFUL_7,
+					F_SPLIT(A.CML_HARMFUL_YN,'/',8) AS CAS_NO_HARMFUL_8,
+					F_SPLIT(A.CML_HARMFUL_YN,'/',9) AS CAS_NO_HARMFUL_9,
+					F_SPLIT(A.CML_HARMFUL_YN,'/',10) AS CAS_NO_HARMFUL_10,
+					F_SPLIT(A.CML_HARMFUL_YN,'/',11) AS CAS_NO_HARMFUL_11,
+					F_SPLIT(A.CML_HARMFUL_YN,'/',12) AS CAS_NO_HARMFUL_12,
+					F_SPLIT(A.CML_HARMFUL_YN,'/',13) AS CAS_NO_HARMFUL_13,
+					F_SPLIT(A.CML_HARMFUL_YN,'/',14) AS CAS_NO_HARMFUL_14,
+					F_SPLIT(A.CML_HARMFUL_YN,'/',15) AS CAS_NO_HARMFUL_15,
+					F_SPLIT(A.CML_HARMFUL_YN,'/',16) AS CAS_NO_HARMFUL_16,
+					F_SPLIT(A.CML_HARMFUL_YN,'/',17) AS CAS_NO_HARMFUL_17,
+					F_SPLIT(A.CML_HARMFUL_YN,'/',18) AS CAS_NO_HARMFUL_18,
+					F_SPLIT(A.CML_HARMFUL_YN,'/',19) AS CAS_NO_HARMFUL_19,
+					F_SPLIT(A.CML_HARMFUL_YN,'/',20) AS CAS_NO_HARMFUL_20,
+					F_SPLIT(A.CML_PRE_TROUBLE_YN,'/',1) AS CAS_NO_PREPARE_1,
+					F_SPLIT(A.CML_PRE_TROUBLE_YN,'/',2) AS CAS_NO_PREPARE_2,
+					F_SPLIT(A.CML_PRE_TROUBLE_YN,'/',3) AS CAS_NO_PREPARE_3,
+					F_SPLIT(A.CML_PRE_TROUBLE_YN,'/',4) AS CAS_NO_PREPARE_4,
+					F_SPLIT(A.CML_PRE_TROUBLE_YN,'/',5) AS CAS_NO_PREPARE_5,
+					F_SPLIT(A.CML_PRE_TROUBLE_YN,'/',6) AS CAS_NO_PREPARE_6,
+					F_SPLIT(A.CML_PRE_TROUBLE_YN,'/',7) AS CAS_NO_PREPARE_7,
+					F_SPLIT(A.CML_PRE_TROUBLE_YN,'/',8) AS CAS_NO_PREPARE_8,
+					F_SPLIT(A.CML_PRE_TROUBLE_YN,'/',9) AS CAS_NO_PREPARE_9,
+					F_SPLIT(A.CML_PRE_TROUBLE_YN,'/',10) AS CAS_NO_PREPARE_10,
+					F_SPLIT(A.CML_PRE_TROUBLE_YN,'/',11) AS CAS_NO_PREPARE_11,
+					F_SPLIT(A.CML_PRE_TROUBLE_YN,'/',12) AS CAS_NO_PREPARE_12,
+					F_SPLIT(A.CML_PRE_TROUBLE_YN,'/',13) AS CAS_NO_PREPARE_13,
+					F_SPLIT(A.CML_PRE_TROUBLE_YN,'/',14) AS CAS_NO_PREPARE_14,
+					F_SPLIT(A.CML_PRE_TROUBLE_YN,'/',15) AS CAS_NO_PREPARE_15,
+					F_SPLIT(A.CML_PRE_TROUBLE_YN,'/',16) AS CAS_NO_PREPARE_16,
+					F_SPLIT(A.CML_PRE_TROUBLE_YN,'/',17) AS CAS_NO_PREPARE_17,
+					F_SPLIT(A.CML_PRE_TROUBLE_YN,'/',18) AS CAS_NO_PREPARE_18,
+					F_SPLIT(A.CML_PRE_TROUBLE_YN,'/',19) AS CAS_NO_PREPARE_19,
+					F_SPLIT(A.CML_PRE_TROUBLE_YN,'/',20) AS CAS_NO_PREPARE_20,
+					F_SPLIT(A.CML_LIMIT_OBJECT_YN,'/',1) AS CAS_NO_LIMIT_1,
+					F_SPLIT(A.CML_LIMIT_OBJECT_YN,'/',2) AS CAS_NO_LIMIT_2,
+					F_SPLIT(A.CML_LIMIT_OBJECT_YN,'/',3) AS CAS_NO_LIMIT_3,
+					F_SPLIT(A.CML_LIMIT_OBJECT_YN,'/',4) AS CAS_NO_LIMIT_4,
+					F_SPLIT(A.CML_LIMIT_OBJECT_YN,'/',5) AS CAS_NO_LIMIT_5,
+					F_SPLIT(A.CML_LIMIT_OBJECT_YN,'/',6) AS CAS_NO_LIMIT_6,
+					F_SPLIT(A.CML_LIMIT_OBJECT_YN,'/',7) AS CAS_NO_LIMIT_7,
+					F_SPLIT(A.CML_LIMIT_OBJECT_YN,'/',8) AS CAS_NO_LIMIT_8,
+					F_SPLIT(A.CML_LIMIT_OBJECT_YN,'/',9) AS CAS_NO_LIMIT_9,
+					F_SPLIT(A.CML_LIMIT_OBJECT_YN,'/',10) AS CAS_NO_LIMIT_10,
+					F_SPLIT(A.CML_LIMIT_OBJECT_YN,'/',11) AS CAS_NO_LIMIT_11,
+					F_SPLIT(A.CML_LIMIT_OBJECT_YN,'/',12) AS CAS_NO_LIMIT_12,
+					F_SPLIT(A.CML_LIMIT_OBJECT_YN,'/',13) AS CAS_NO_LIMIT_13,
+					F_SPLIT(A.CML_LIMIT_OBJECT_YN,'/',14) AS CAS_NO_LIMIT_14,
+					F_SPLIT(A.CML_LIMIT_OBJECT_YN,'/',15) AS CAS_NO_LIMIT_15,
+					F_SPLIT(A.CML_LIMIT_OBJECT_YN,'/',16) AS CAS_NO_LIMIT_16,
+					F_SPLIT(A.CML_LIMIT_OBJECT_YN,'/',17) AS CAS_NO_LIMIT_17,
+					F_SPLIT(A.CML_LIMIT_OBJECT_YN,'/',18) AS CAS_NO_LIMIT_18,
+					F_SPLIT(A.CML_LIMIT_OBJECT_YN,'/',19) AS CAS_NO_LIMIT_19,
+					F_SPLIT(A.CML_LIMIT_OBJECT_YN,'/',20) AS CAS_NO_LIMIT_20,
+					(SELECT USR.USER_NAME_LOC FROM ICOMLUSR USR WHERE USR.USER_ID = A.ADD_USER_ID) AS ADD_USER_NM,
+					A.CMC_HARMFUL_YN,
+					A.LAST_REVISION_DATE,
+					A.CMC_USE_CODE,
+					A.CMC_USE_NOTE,
+					A.CMC_INFO_CODE,
+					TO_CHAR(A.CMC_INFO_LEVEL) AS CMC_INFO_LEVEL,
+					A.MSDS_SUBMISSION_NUMBER
+			FROM	KEPMSDSHD  A
+			WHERE	1=1
+		]]>
+		<if test="st_msds_no != null and st_msds_no != ''">
+			<![CDATA[
+			AND		A.MSDS_NO = #{st_msds_no}
+			]]>
+		</if>
+		<![CDATA[
+			ORDER BY A.MSDS_NO
+		]]>
+	</select>
+	
+	<select id="selectMasterMdCmBuyerMsDsHeadDetailPop_v2" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/*selectMasterMdCmBuyerMsDsHeadDetailPop_v2*/
+			SELECT	A.MSDS_NO,
+					A.DESCRIPTION,
+					A.SPECIFICATION,
+					A.UNIT_MEASURE,
+					A.MAKER_NAME,
+					A.ORIGIN_CODE,
+					(SELECT TEXT2 FROM ICOMCOD1 WHERE TYPE = 'M001' AND CODE = A.ORIGIN_CODE) AS ORIGIN_NM,
+					(SELECT USR.USER_NAME_LOC FROM ICOMLUSR USR WHERE USR.USER_ID = A.ADD_USER_ID) AS ADD_USER_NM,
+					A.CMC_HARMFUL_YN,
+					A.LAST_REVISION_DATE,
+					A.CMC_USE_CODE,
+					(SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'CM02' AND CODE = A.CMC_USE_CODE AND FLAG = 'Y') AS CMC_USE_NAME,
+					A.CMC_USE_NOTE,
+					A.CMC_INFO_CODE,
+					(SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'CM06' AND CODE = A.CMC_INFO_CODE AND FLAG = 'Y') AS CMC_INFO_NAME,
+					TO_CHAR(A.CMC_INFO_LEVEL) AS CMC_INFO_LEVEL,
+					A.MSDS_SUBMISSION_NUMBER
+			FROM	KEPMSDSHD  A
+			WHERE	1=1
+		]]>
+		<if test="st_msds_no != null and st_msds_no != ''">
+			<![CDATA[
+			AND		A.MSDS_NO = #{st_msds_no}
+			]]>
+		</if>
+		<![CDATA[
+			ORDER BY A.MSDS_NO
+		]]>
+	</select>
+	
+	<select id="selectMasterMdCmBuyerMsDsHeadCasDetailPop_v2" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/*selectMasterMdCmBuyerMsDsHeadCasDetailPop_v2*/
+			SELECT	
+					TO_CHAR(LEVEL) AS NO,
+					REGEXP_SUBSTR(T.CAS_NO,'[^/]*',1,LEVEL) AS CAS_NO,
+            		REGEXP_SUBSTR(T.MIN_MAKE_RATE,'[^/]*',1,LEVEL) AS CAS_NO_MIN,
+            		REGEXP_SUBSTR(T.MAX_MAKE_RATE,'[^/]*',1,LEVEL) AS CAS_NO_MAX,
+            		REGEXP_SUBSTR(T.CML_HARMFUL_YN,'[^/]*',1,LEVEL) AS CAS_NO_HARMFUL,
+            		REGEXP_SUBSTR(T.CML_PRE_TROUBLE_YN,'[^/]*',1,LEVEL) AS CAS_NO_PREPARE,
+            		REGEXP_SUBSTR(T.CML_LIMIT_OBJECT_YN,'[^/]*',1,LEVEL) AS CAS_NO_LIMIT,
+            		REGEXP_SUBSTR(T.CML_ACUT_HAZD_YN,'[^/]*',1,LEVEL) AS CAS_NO_ACUT,
+            		REGEXP_SUBSTR(T.CML_CHRO_HAZD_YN,'[^/]*',1,LEVEL) AS CAS_NO_CHRO,
+            		REGEXP_SUBSTR(T.CML_ECOL_HAZD_YN,'[^/]*',1,LEVEL) AS CAS_NO_ECOL
+            FROM (
+            	SELECT A.* FROM KEPMSDSHD A
+            	WHERE 1=1
+		]]>
+            	<if test="st_msds_no != null and st_msds_no != ''">
+				<![CDATA[
+					AND	A.MSDS_NO = #{st_msds_no}
+				]]>
+				</if>
+				<![CDATA[
+					ORDER BY A.MSDS_NO
+				]]>
+			<![CDATA[
+            ) T
+            CONNECT BY LEVEL <= REGEXP_COUNT(T.CAS_NO, '/') +1
+            AND PRIOR ROWID = ROWID
+            AND PRIOR SYS_GUID() IS NOT NULL
+            AND REGEXP_SUBSTR(T.CAS_NO,'[^/]*',1,LEVEL) IS NOT NULL
+            ]]>
+	</select>
+
+	<select id="selectMasterMdCmBuyerMsDsDetailPop" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*selectMasterMdCmBuyerMsDsDetailPop*/
+			SELECT
+			 A.MSDS_NO
+			,B.CODE AS FILE_NO
+			,TO_CHAR(A.REVISION) AS MSDS_REVISION
+			,B.TEXT1
+			, A.IMAGE_KEY
+			, A.FILE_DATE
+			, A.NOTE
+			FROM KEPMSDSDT A, ICOMCOD1 B
+			WHERE A.FILE_NO (+)= B.CODE
+			AND B.TYPE ='M068'
+			AND A.STATUS (+)= 'C'
+			AND B.CODE IN ('R1', 'R9')
+		]]>
+		<if test="st_msds_no != null and st_msds_no != ''">	     
+			   <![CDATA[
+			   AND  A.MSDS_NO (+) =  #{st_msds_no}
+			   ]]>  
+		</if>
+	</select>
+	<select id="selectMasterMdCmBuyerMsDsRegPop" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*selectMasterMdCmBuyerMsDsRegPop*/
+			SELECT
+			 '' MSDS_NO
+			,B.CODE AS FILE_NO
+			,'' AS MSDS_REVISION
+			, B.TEXT1
+			, '' AS IMAGE_KEY
+			, '' AS FILE_DATE
+			, '' AS NOTE
+			FROM ICOMCOD1 B
+			WHERE B.TYPE ='M068'
+			AND		B.CODE IN ('R1', 'R9')
+		]]>
+	</select>
+	<select id="selectMasterMdCmBycaComorgSelect" parameterType="java.util.Map" resultType="String">
+		<![CDATA[
+		SELECT BYCA_COMORG_CODE FROM ICOMCMPY WHERE COM_CODE =#{st_buyer_code}
+		]]>
+	</select>
+	
+	<select id="selectMasterMdCmCatalogAlterExcelList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		SELECT B.CATEGORY_NAME AS CATEGORY_NAME,
+			       DECODE (B.CATEG_TYPE, 'ITM', NVL (A.CNT, 0), A.CNT) AS CATEG_TYPE_CNT,
+			       B.STD_CATEG_ID AS STD_CATEG_ID,
+			       B.CATEG_NAME AS CATEG_NAME,
+			       DECODE (B.CATEG_TYPE, 'ITM', '상품', '분류') AS CATEG_TYPE
+			  FROM (SELECT BUYER, CATEGORY_NO, COUNT (*) CNT
+			          FROM ICOMBYIT
+			         WHERE BUYER = #{BYCA_COMORG_CODE} AND STATUS <> 'D'
+			                               GROUP BY BUYER, CATEGORY_NO) A,
+			                             (SELECT COM_CODE, LPAD(DEPTH||' ', DEPTH*4) ||CATEG_NAME CATEGORY_NAME,
+			                                             STD_CATEG_ID , CATEG_NAME , CATEG_SYS_CODE, CATEG_TYPE
+			                                FROM
+			                                             (SELECT * FROM ICOMBYCA WHERE  COM_CODE =#{BYCA_COMORG_CODE} AND STATUS <> 'D')
+			                               CONNECT BY PRIOR STD_CATEG_ID = PID START WITH CATEG_TYPE = 'ROT') B
+			               WHERE A.BUYER(+)       = B.COM_CODE
+			                 AND A.CATEGORY_NO(+) = B.STD_CATEG_ID
+			             ORDER BY B.CATEG_SYS_CODE
+		]]>
+	</select>
+	
+	<select id="selectMasterMdCmCmsCatalogAlterExcelList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		SELECT 		 CMS_CATEG_ID,
+					 STATUS,
+					 CATEG_NAME,
+					 CATEG_SYS_ID,
+					 CATEG_TYPE, 
+					 PID, 
+					 DEPTH,
+					 SG_ID,
+					 CATEG_PATH,
+					 DESCRIPT
+					 FROM CMSCATEG
+					 ORDER BY CMS_CATEG_ID, CATEG_TYPE
+		]]>
+	</select>
+
+
+	<update  id="insertMasterMdCmCatalogAlter" parameterType="java.util.Map" >
+		<![CDATA[
+				INSERT INTO	KEPQTDT					
+				(									
+					BUYER,							
+					QUOTATION_NO,					
+					QUOTATION_SEQ,					
+					REVISION,						
+					AGENT,							
+					AGENT_REVISION,					
+					STATUS,							
+					BUYER_ITEM_NO,					
+					DESCRIPTION,					
+					SPECIFICATION,					
+					UNIT_MEASURE,					
+					MAKER_NAME,						
+					ORIGIN_NAME,					
+					ATOS_DATE,						
+					ATOS_END_DATE,					
+					ATOS_END_TIME,					
+					ITEM_QTY,						
+					IMAGE_KEY,						
+					DSS_FLAG,						
+					DSS_CHOICE						
+				)									
+				(									
+				SELECT								
+					#{BUYER},									/* 1 : BUYER */
+					#{QUOTATION_NO},									/* 2 : QUOTATION_NO */
+					#{QUOTATION_SEQ},									/* 3 : QUOTATION_SEQ */
+					#{REVISION},									/* 4 : REVISION */
+					#{AGENT},									/* 5 : AGENT */
+					#{AGENT_REVISION},								/* 6 : AGENT_REVISION */
+					'C',						
+					BUYER_ITEM_NO,				
+					DESCRIPTION,				
+					SPECIFICATION,				
+					UNIT_MEASURE,				
+					MAKER_NAME,					
+					ORIGIN_CODE,				
+					TO_CHAR(SYSDATE, 'YYYYMMDD')AS ATOS_DATE,
+					#{ATOS_END_DATE},								/* 7 : ATOS_END_DATE */
+					#{ATOS_END_TIME},								/* 8 : ATOS_END_TIME */
+					ITEM_QTY,					
+					IMAGE_KEY,					
+					#{DSS_FLAG},								/*  9 : DSS_FLAG   if(chk_str[1].equals("A") || chk_str[1].equals("B") || chk_str[1].equals("C")|| chk_str[1].equals("S")) : Y , 기타  : N   */
+					#{DSS_CHOICE}								/*    10 : DSS_CHOICE */
+				   FROM KEPRQDT						
+				  WHERE BUYER=#{BUYER}							/* 11 : BUYER */           
+					AND QUOTATION_NO=#{QUOTATION_NO}					/* 12 : QUOTATION_NO     */
+					AND QUOTATION_SEQ=#{QUOTATION_SEQ}					/* 13 : QUOTATION_SEQ    */
+					AND REVISION=#{REVISION}						/* 14 : REVISION  */       
+					AND RECV_FLAG <> 'GD'			
+					AND STATUS IN ('C','R')			
+				)									
+
+		]]>
+							   <!-- /* CMS_USER_ID = 'TEMPUSER', */ -->
+		
+	</update>
+
+
+<!-- 삭제 -->
+	<update id="deleteMasterMdCmCatalogAlter"  parameterType="java.util.Map">
+		<![CDATA[
+				UPDATE KEPRQDT					
+				   SET RECV_FLAG      = 'GD' 	
+				     , CANCEL_USER_ID = #{USR_ID}    		/*CANCEL_USER_ID*/
+				     , CANCEL_DATE    = SYSDATE	
+				     , CANCEL_REMARK  = #{CANCEL_REMARK}    		/*CANCEL_REMARK*/
+				 WHERE BUYER          = #{BUYER}			/*BUYER*/
+				   AND QUOTATION_NO   = #{QUOTATION_NO}	 		/*QUOTATION_NO*/
+				   AND QUOTATION_SEQ  = #{QUOTATION_SEQ}			/*QUOTATION_SEQ*/
+				   AND REVISION       = #{REVISION}			/*REVISION*/
+				   AND STATUS IN ('C','R')
+		]]>
+	</update>
+	<update id="deleteMasterMdCmMsdsDetail"  parameterType="java.util.Map">
+		<![CDATA[
+			/* deleteMasterMdCmMsdsDetail */
+			UPDATE	KEPMSDSDT
+			SET		STATUS = #{status},
+					CHANGE_USER_ID = #{user_id},
+					CHANGE_DATE = SYSDATE
+			WHERE	MSDS_NO = #{msds_no}
+			AND		FILE_NO = #{file_no}
+			AND		REVISION = #{revision}
+		]]>
+	</update>
+	<update id="saveMasterMsdsMapping"  parameterType="java.util.Map">
+		<![CDATA[
+				/*saveMasterMsdsMapping*/
+				UPDATE KEPRQDT 
+				   SET MSDS_NO = #{MSDS_NO}
+				       ,MSDS_A_CONFIRM_ID = #{st_user_id}
+		]]>
+		<if test="p_return != null and p_return != ''">	     
+			   <![CDATA[
+				       ,MSDS_STATUS =#{p_return}
+			   ]]>  
+		</if>
+		<![CDATA[
+				WHERE BUYER =#{p_buyer}
+				   AND QUOTATION_NO = #{p_quotation_no}
+				   AND QUOTATION_SEQ =#{p_quotation_seq}
+				   AND REVISION = #{p_revision}
+				   AND MSDS_YN = 'Y'    
+		]]>
+	</update>
+	<update id="saveMasterMsdsByitMappingByQuot"  parameterType="java.util.Map">
+		<![CDATA[
+			/*saveMasterMsdsByitMappingByQuot*/
+			UPDATE	ICOMBYIT A
+			SET		MSDS_NO = DECODE(#{MSDS_NO}, 'MS88888888', '', #{MSDS_NO}),
+					MSDS_YN = 'Y',
+					MATERIAL_TYPE = (SELECT DECODE(CMC_HARMFUL_YN, 'Y', 'H', NULL) FROM KEPMSDSHD WHERE MSDS_NO = #{MSDS_NO})
+			WHERE	1=1
+			AND		BUYER = (SELECT BYCA_COMORG_CODE FROM ICOMCMPY WHERE COM_CODE = #{p_buyer})
+			AND		BUYER_ITEM_NO = (SELECT BUYER_ITEM_NO FROM KEPRQDT WHERE BUYER = #{p_buyer} AND QUOTATION_NO = #{p_quotation_no} AND QUOTATION_SEQ = #{p_quotation_seq} AND REVISION = #{p_revision} AND RECV_FLAG IN ('CM','PC','CC'))
+		]]>
+	</update>
+
+	<update id="saveMasterMsdsByitMapping"  parameterType="java.util.Map">
+		<![CDATA[
+			/*saveMasterMsdsByitMapping*/
+			UPDATE	ICOMBYIT
+			SET		MSDS_NO = DECODE(#{MSDS_NO}, 'MS88888888', '', #{MSDS_NO}),
+					MSDS_YN ='Y',
+					MATERIAL_TYPE = (SELECT DECODE(CMC_HARMFUL_YN, 'Y', 'H', NULL) FROM KEPMSDSHD WHERE MSDS_NO = #{MSDS_NO})
+			WHERE	BUYER = #{p_buyer}
+			AND		BUYER_ITEM_NO = #{p_buyer_item_no}
+		]]>
+	</update>
+
+	<update id="updateMasterMdCmMsdsDetail"  parameterType="java.util.Map">
+		<![CDATA[
+				/*updateMasterMdCmMsdsDetail*/
+				INSERT INTO  KEPMSDSDT(
+					MSDS_NO
+				  ,FILE_NO
+				  ,REVISION
+				  ,STATUS
+				  ,IMAGE_KEY
+				  ,FILE_DATE
+				  ,NOTE
+				  ,ADD_USER_ID
+				  ,ADD_DATE
+				  ,CHANGE_USER_ID
+				  ,CHANGE_DATE)
+				  VALUES(
+				  	 #{msds_no}
+				  	, #{file_no}
+				  	, (SELECT NVL(MAX(A.REVISION),0)+1 FROM KEPMSDSDT A 
+				  			WHERE A.MSDS_NO = #{msds_no}
+				  			AND A.FILE_NO = #{file_no})
+				  	,'C'
+				  	, #{image_key}
+				  	, TO_CHAR(SYSDATE, 'YYYYMMDD')
+				  	, #{note}
+				  	, #{user_id}
+				  	, SYSDATE
+				  	, #{user_id}
+				  	, SYSDATE				  			
+				  )
+				  
+		]]>
+	</update>
+
+	<update id="insertMasterMdCmMsdsHd"  parameterType="java.util.Map">
+		<![CDATA[
+			/*insertMasterMdCmMsdsHd*/
+			INSERT INTO KEPMSDSHD(
+				MSDS_NO,
+				DESCRIPTION,
+				SPECIFICATION,
+				MAKER_NAME,
+				CAS_NO,
+				LAST_REVISION_DATE,
+				ADD_USER_ID,
+				ADD_DATE,
+				ADD_TIME,
+				CMC_HARMFUL_YN,
+				MIN_MAKE_RATE,
+				MAX_MAKE_RATE,
+				CML_ACUT_HAZD_YN,
+				CML_CHRO_HAZD_YN,
+				CML_ECOL_HAZD_YN,
+				CML_HARMFUL_YN,
+				CML_PRE_TROUBLE_YN,
+				CML_LIMIT_OBJECT_YN,
+				CMC_USE_CODE,
+				CMC_USE_NOTE,
+				CMC_INFO_CODE,
+				CMC_INFO_LEVEL,
+				MSDS_SUBMISSION_NUMBER,
+				CHANGE_USER_ID,
+				CHANGE_DATE,
+				CHANGE_TIME
+			)
+			VALUES
+			(
+				#{msds_no},
+				#{description},
+				#{specification},
+				#{maker_name},
+				#{cas_no},
+				#{last_revision_date},
+				#{user_id},
+				TO_CHAR(SYSDATE,'YYYYMMDD'),
+				TO_CHAR(SYSDATE,'HH24MISS'),
+				#{cmc_harmful_yn},
+				#{cas_no_min},
+				#{cas_no_max},
+				#{cas_no_acut},
+				#{cas_no_chro},
+				#{cas_no_ecol},
+				#{cas_no_harmful},
+				#{cas_no_prepare},
+				#{cas_no_limit},
+				#{use_cd},
+				#{use_note},
+				#{info_cd},
+				#{info_level},
+				#{submission_number},
+				#{user_id},
+				TO_CHAR(SYSDATE,'YYYYMMDD'),
+				TO_CHAR(SYSDATE,'HH24MISS')
+			)
+		]]>
+	</update>
+	
+	<select id="selectMasterMdCmCatalogAlterApprInfoList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.pagestart"/>
+		<![CDATA[
+			/* selectMasterMdCmCatalogAlterApprInfoList */
+			SELECT
+				XX.GUBUN
+				,XX.REG_DATE
+				,XX.REG_USER_NAME
+				,XX.CONFIRM_DATE
+				,XX.CONFIRM_USER_NAME
+				,F_SPLIT(XX.CONT,'^^@@',1) AS DOCU_NO
+				,F_SPLIT(XX.CONT,'^^@@',2) AS DOCU_TITLE
+				,F_SPLIT(XX.CONT,'^^@@',3) AS DOCU_CONT
+				,F_SPLIT(XX.CONT,'^^@@',4) AS COMPANY
+			FROM (
+				SELECT
+				(SELECT	TEXT1 FROM ICOMCOD1 WHERE TYPE = 'APPR' AND CODE = D.GUBUN) AS GUBUN
+				,TO_CHAR(C.REG_DATE, 'YYYY/MM/DD') AS REG_DATE
+				,(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = C.REG_USER_ID) AS REG_USER_NAME
+				,TO_CHAR(C.CONFIRM_DATE, 'YYYY/MM/DD') AS CONFIRM_DATE
+				,(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = C.CONFIRM_USER_ID) AS CONFIRM_USER_NAME
+				,(SELECT A.DOCU_NO||'^^@@'||A.DOCU_TITLE||'^^@@'||A.DOCU_CONT||'^^@@'||A.COMPANY||'^^@@'||B.KEY_2
+				FROM ICOGDOCU A, ICOMTRGW B
+				WHERE  A.COMPANY = B.COM_CODE
+				AND A.DOCU_NO = B.TARGET
+				AND A.COMPANY = 'KRKORE0001'
+				AND B.KEY_2 = #{st_below_comorg_code}
+				AND B.KEY_1 = C.PM_NO) AS CONT
+				, C.BUYER
+				FROM KEPMGPDT C, KEPMGPHD D
+				WHERE C.BUYER = D.BUYER
+				AND C.PM_NO = D.PM_NO
+				AND C.BUYER = #{st_buyer}
+				AND C.BUYER_ITEM_NO = #{st_buyer_item_no}
+				AND C.STATUS = 'A'
+				) XX
+			WHERE F_SPLIT(CONT,'^^@@',5) = #{st_below_comorg_code}	
+			ORDER BY XX.REG_DATE DESC
+		]]>
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+	
+	<update id="updateMasterMdCmMsdsLastRevisionDate"  parameterType="java.util.Map">
+		<![CDATA[
+				/*updateMasterMdCmMsdsLastRevisionDate*/
+				UPDATE	KEPMSDSHD
+				SET		LAST_REVISION_DATE = #{last_revision_date},
+				   		CAS_NO = #{cas_no},
+				   		DESCRIPTION = #{description},
+				   		SPECIFICATION = #{specification},
+				   		MAKER_NAME = #{maker_name},
+				   		CMC_HARMFUL_YN = #{cmc_harmful_yn},
+				   		MIN_MAKE_RATE = #{cas_no_min},
+				   		MAX_MAKE_RATE = #{cas_no_max},
+				   		CML_ACUT_HAZD_YN = #{cas_no_acut},
+				   		CML_CHRO_HAZD_YN = #{cas_no_chro},
+				   		CML_ECOL_HAZD_YN = #{cas_no_ecol},
+				   		CML_HARMFUL_YN = #{cas_no_harmful},
+				   		CML_PRE_TROUBLE_YN = #{cas_no_prepare},
+				   		CML_LIMIT_OBJECT_YN = #{cas_no_limit},
+				   		CMC_USE_CODE = #{use_cd},
+				   		CMC_USE_NOTE = #{use_note},
+				   		CMC_INFO_CODE = #{info_cd},
+				   		CMC_INFO_LEVEL = #{info_level},
+				   		MSDS_SUBMISSION_NUMBER = #{submission_number},
+				   		CHANGE_USER_ID = #{user_id},
+				   		CHANGE_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD'),
+				   		CHANGE_TIME = TO_CHAR(SYSDATE, 'HH24MISS')
+				WHERE	MSDS_NO = #{msds_no} /*msds_no*/
+		]]>
+	</update>
+		<update id="insertCASTKEPMGPHD" parameterType="java.util.Map" >
+		<![CDATA[
+				INSERT INTO KEPMGPHD (  /*insertCASTKEPMGPHD*/ 
+                                 BUYER,              
+                                 PM_NO,              
+                                 STATUS,             
+                                 REG_DATE,           
+                                 CHANGE_DATE,        
+                                 REFER_DATE,         
+                                 CONFIRM_DATE,       
+                                 REG_USER_ID,        
+                                 REG_USER_DEPT,      
+                                 CONFIRM_USER_ID,    
+                                 CONFIRM_USER_DEPT,  
+                                 GUBUN,              
+                                 CA_FLAG,            
+                                 SUBJECT,            
+                                 REMARK,             
+                                 CON_REMARK,         
+                                 CONFIRM_CODE        
+                               ) VALUES (  
+                                          #{BELOW_COMORG_CODE},
+                                          #{PM_NO},
+                                          'C',
+                                          SYSDATE,
+                                          SYSDATE,
+                                          '',
+                                          '',
+                                          #{st_user_id},
+                                          #{st_user_dept},
+                                          '',
+                                          '',
+                                          'CAST',
+                                          'N',
+                                          '',
+                                          '',
+                                          '',
+                                          '' 
+                                        ) 
+		]]>
+	</update>
+	
+	<update id="insertCASTKEPMGPDT" parameterType="java.util.Map" >
+		<![CDATA[
+				INSERT INTO KEPMGPDT (  /*insertCASTKEPMGPDT*/
+                                 BUYER,             
+                                 PM_NO,             
+                                 PM_SEQ,            
+                                 STATUS,            
+                                 REG_DATE,          
+                                 CHANGE_DATE,       
+                                 REG_USER_ID,       
+                                 BUYER_ITEM_NO,          
+                                 CONTRACT_NO,             
+                                 CONTRACT_SEQ,
+                                 RE_DESCRIPTION,
+                                 CH_DESCRIPTION,
+                                 RE_SPECIFICATION,
+                                 CH_SPECIFICATION,
+                                 RE_UNIT_MEASURE,
+                                 CH_UNIT_MEASURE,
+                                 RE_MAKER_NAME,
+                                 CH_MAKER_NAME,
+                                 RE_UNIT_PRICE,
+                                 CH_UNIT_PRICE,
+                                 RE_LIST_PRICE,
+                                 CH_LIST_PRICE,
+                                 RE_CQDT_STATUS,
+                                 CH_CQDT_STATUS,
+                                 RE_PRODUCT_CLOSE_FLAG,
+                                 CH_PRODUCT_CLOSE_FLAG,
+                                 RE_DEL_STATUS_CODE,
+                                 CH_DEL_STATUS_CODE,
+                                 RE_CLOSE_STATUS_CODE,
+                                 CH_CLOSE_STATUS_CODE,
+                                 GW_NO
+                               ) VALUES (  
+                                          #{BELOW_COMORG_CODE},                          
+                                          #{PM_NO},                         
+                                          TO_CHAR(#{PM_SEQ},'FM000000'),
+                                          'C', 
+                                          SYSDATE,                   
+                                          SYSDATE,                   
+                                          #{st_user_id},                         
+                                          #{BUYER_ITEM_NO},
+                                          #{CONTRACT_NO},
+                                          #{CONTRACT_SEQ},
+                                          #{DESCRIPTION},
+                                          #{DESCRIPTION},
+                                          #{SPECIFICATION},
+                                          #{SPECIFICATION},
+                                          #{UNIT_MEASURE},
+                                          #{UNIT_MEASURE},
+                                          #{MAKER_NAME},
+                                          #{MAKER_NAME},
+                                          #{UNIT_PRICE},
+                                          #{UNIT_PRICE},
+                                          #{LIST_PRICE},
+                                          #{LIST_PRICE},
+                                          #{CQDT_STATUS},
+                                          #{CH_CQDT_STATUS},
+                                          #{PRODUCT_CLOSE_FLAG},
+                                          #{CH_PRODUCT_CLOSE_FLAG},
+                                          #{DEL_STATUS_CODE},
+                                          #{CH_DEL_STATUS_CODE},
+                                          #{CLOSE_STATUS_CODE},
+                                          #{CH_CLOSE_STATUS_CODE},
+                                          #{st_gubun}
+                                        )
+		]]>
+	</update>
+	
+	<update id="updateMasterMdCmMsdsHarmfulByit"  parameterType="java.util.Map">
+		<![CDATA[
+			/* updateMasterMdCmMsdsHarmfulByit */
+			UPDATE	ICOMBYIT
+			SET		MATERIAL_TYPE = DECODE(#{cmc_harmful_yn}, 'Y', 'H', NULL)
+			WHERE	MSDS_NO = #{msds_no}
+			AND		MSDS_NO IS NOT NULL
+		]]>
+	</update>
+	
+	<select id="selectMasterMdCmMsdsDetailChange" parameterType="java.util.Map" resultType="String">
+		<![CDATA[
+			/* selectMasterMdCmMsdsDetailChange */
+			SELECT	DECODE(COUNT(*), 0, 'Y', 'N') AS CHANGE_YN
+			FROM	KEPMSDSDT
+			WHERE	1=1
+			AND		MSDS_NO = #{msds_no}
+			AND		FILE_NO = #{file_no}
+			AND		REVISION = #{revision}
+			AND		IMAGE_KEY = #{image_key}
+			AND		NVL(NOTE, 'X') = NVL(#{note}, 'X')
+		]]>
+	</select>
+	
+	<update id="updateMasterMdCmCatalogMsdsClean" parameterType="java.util.Map">
+		<![CDATA[
+			/* updateMasterMdCmCatalogMsdsClean */
+			UPDATE	ICOMBYIT A
+			SET		A.MSDS_NO = F_HST_ICOMBYIT(A.BUYER, A.BUYER_ITEM_NO, 'MSDS_NO', '', #{st_user_id}),
+					A.MSDS_YN = (SELECT DECODE(COUNT(COD.CODE),0,'N','Y') FROM ICOMCOD1 COD WHERE COD.CODE = A.CMS_CATEG_ID AND COD.TYPE = 'CM11' AND COD.FLAG = 'Y'),
+					A.MATERIAL_TYPE = NULL
+			WHERE	1=1
+			AND		A.BUYER = #{BUYER}
+			AND		A.BUYER_ITEM_NO = #{BUYER_ITEM_NO}
+		]]>
+	</update>
+</mapper>

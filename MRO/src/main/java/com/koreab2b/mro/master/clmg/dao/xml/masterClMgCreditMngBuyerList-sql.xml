@@ -1,0 +1,201 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.clmg">
+	<!-- 조회 -->
+	<select id="selectMasterClMgCreditMngBuyerList" parameterType="java.util.Map" resultType="java.util.Map">
+			<![CDATA[
+		    /*	selectMasterClMgCreditMngBuyerList */
+		    SELECT	LOAN_NO	AS LOAN_NO
+		    ,			COM_CODE
+		    , 			COM_NAME_LOC
+		    ,			BUYER_IRS_NO
+			,			IRS_NO	AS IRS_NO
+			,			IRS_NM	AS COM_NAME
+			,			DEPT_CD	AS DEPT_CODE
+			,			DEPT_NM	AS DEPT_NAME
+			,			BASE_CREDIT_AMT	AS BASE_CREDIT_AMT
+			,			ADD_CREDIT_LIMIT_AMT	AS ADD_CREDIT_AMT
+			,			TOT_CREDIT_LIMIT_AMT	AS TOT_CREDIT_AMT
+			,			BOND_BALANCE	AS BOND_BAL_AMT
+			,			BILL_BALANCE	AS BILL_BAL_AMT
+			,			PO_BALANCE	AS PO_BAL_AMT
+			,			P_RECV_AMT	AS P_RECV_AMT
+			,			CREDIT_AMT_BALANCE	AS CREDIT_BAL_AMT
+			,			DUTY_CYCLE	AS CREDIT_RATE
+			,			CREDIT_STATUS_IMG	AS CREDIT_STATUS_IMG
+			FROM	(
+					   SELECT	C.LOAN_NO
+					    ,			C.COM_CODE
+					    ,			C.COM_NAME_LOC
+					    ,			C.BUYER_IRS_NO
+						,			C.IRS_NO
+						,			C.IRS_NM
+						,			C.DEPT_CD
+						,			C.DEPT_NM
+						,			C.BASE_CREDIT_AMT
+						,			C.ADD_CREDIT_LIMIT_AMT
+						,			C.TOT_CREDIT_LIMIT_AMT
+						,			C.BOND_BALANCE
+						,			C.BILL_BALANCE
+						,			C.PO_BALANCE
+						,			C.P_RECV_AMT
+						,			C.CREDIT_AMT_BALANCE
+						,			C.DUTY_CYCLE
+						,			CASE	WHEN C.DUTY_CYCLE >= 100 THEN '0'
+											WHEN C.DUTY_CYCLE >= 90 THEN '1'
+											WHEN C.DUTY_CYCLE >= 80 THEN '2'
+											WHEN C.DUTY_CYCLE >= 0 THEN '3'
+						END	AS CREDIT_STATUS_IMG
+						FROM	(
+									SELECT	
+									CMPY.COM_CODE
+									, 			CMPY.COM_NAME_LOC
+									,			CMPY.IRS_NO AS BUYER_IRS_NO
+									,			B.IRS_NO
+									,			B.IRS_NM
+									,			B.DEPT_CD
+									,			B.DEPT_NM
+									,			B.LOAN_NO
+									,			B.BASE_CREDIT_AMT
+									,			B.ADD_CREDIT_LIMIT_AMT
+									,			(B.BASE_CREDIT_AMT + B.ADD_CREDIT_LIMIT_AMT)	AS TOT_CREDIT_LIMIT_AMT
+									,			BOND_BALANCE
+									,			BILL_BALANCE
+									,			PO_BALANCE
+									,			P_RECV_AMT
+									,			(B.BASE_CREDIT_AMT + B.ADD_CREDIT_LIMIT_AMT+P_RECV_AMT)
+												- (BOND_BALANCE + BILL_BALANCE + PO_BALANCE)	AS CREDIT_AMT_BALANCE
+									,			(BOND_BALANCE + BILL_BALANCE + PO_BALANCE)
+												/ DECODE((B.BASE_CREDIT_AMT + B.ADD_CREDIT_LIMIT_AMT+P_RECV_AMT),0,1,(B.BASE_CREDIT_AMT + B.ADD_CREDIT_LIMIT_AMT+P_RECV_AMT)) * 100	AS DUTY_CYCLE
+									FROM	ICOMCOD3 COD ,ICOMCMPY CMPY,(
+												SELECT
+												 A.IRS_NO
+												 , A.IRS_NM
+												 , A.DEPT_CD
+												 , A.DEPT_NM
+												 , A.LOAN_NO
+												 , A.ADD_DATE
+												 , A.ADD_TIME
+												, NVL(A.BASE_CREDIT_AMT, 0)	AS BASE_CREDIT_AMT
+												,(
+															SELECT	NVL(SUM(CREDIT_LIMIT_AMT), 0)
+																	FROM	KEPCLOAD	C
+																	WHERE	A.LOAN_NO = C.LOAN_NO
+																	AND		A.IRS_NO = C.IRS_NO
+																	AND		A.DEPT_CD = C.DEPT_CD
+																	AND		C.STATUS IN ('C', 'R')
+												  )	AS ADD_CREDIT_LIMIT_AMT
+												, 0 AS BOND_BALANCE
+												, 0 AS BILL_BALANCE
+												, 0 AS PO_BALANCE
+												, 0 AS P_RECV_AMT
+												FROM KEPCLOBA A
+												WHERE NOT EXISTS (
+												 SELECT 1 FROM KEPCLOSM B
+												 WHERE B.STATUS = 'C'
+												 AND A.IRS_NO = B.IRS_NO
+												 AND A.DEPT_CD = B.B2B_DEPT
+												)
+												AND A.STATUS IN ('C','R')
+												UNION ALL
+												SELECT	
+												B.IRS_NO
+												,			NVL(A.IRS_NM,MAX(B.ACCOUNT_IRS_NM)) IRS_NM
+												,			B.B2B_DEPT  AS DEPT_CD
+												,			B.B2B_DEPT_NM AS DEPT_NM
+												,			A.LOAN_NO
+												,			MAX(A.ADD_DATE) AS ADD_DATE
+												,			MAX(A.ADD_TIME) AS ADD_TIME
+												,			NVL(A.BASE_CREDIT_AMT, 0)	AS BASE_CREDIT_AMT
+												,			(
+															SELECT	NVL(SUM(CREDIT_LIMIT_AMT), 0)
+																	FROM	KEPCLOAD	C
+																	WHERE	A.LOAN_NO = C.LOAN_NO
+																	AND		B.IRS_NO = C.IRS_NO
+																	AND		B.B2B_DEPT = C.DEPT_CD
+																	AND		C.STATUS IN ('C', 'R')
+												)	AS ADD_CREDIT_LIMIT_AMT
+												,			NVL(SUM(B.BASIC_SALE_CREDIT), 0) + NVL(SUM(B.SALE_CREDIT), 0) + NVL(SUM(B.M_SALE_CREDIT), 0)	AS BOND_BALANCE
+												,			NVL(SUM(B.BASIC_BILLS_RECEIVABLE), 0) + NVL(SUM(B.P_BILLS_RECEIVABLE), 0)	AS BILL_BALANCE
+												,			NVL(SUM(B.PO_AMT), 0) - NVL(SUM(B.AR_AMT), 0)	AS PO_BALANCE
+												,			NVL(SUM(B.BASIC_ADVANCE_RECEIVED), 0) + NVL(SUM(B.P_ADVANCE_RECEIVED), 0)	AS P_RECV_AMT
+												FROM	KEPCLOBA	A
+												,			KEPCLOSM	B
+												WHERE	A.STATUS (+)IN ('C', 'R')
+												AND		B.STATUS = 'C'
+												AND		A.IRS_NO (+)= B.IRS_NO
+												AND		A.DEPT_CD (+)= B.B2B_DEPT
+												AND		NOT EXISTS  (SELECT CODE1 FROM ICOMCOD3 COD
+																				WHERE COD.TYPE = 'EXMP'
+																				AND COD.FLAG = 'Y'
+																				AND COD.CODE1 = REPLACE(A.IRS_NO,'-','')
+																				AND COD.CODE2 = A.DEPT_CD)				
+												GROUP BY  B.IRS_NO
+												,			A.IRS_NM
+												,			B.B2B_DEPT
+												,			B.B2B_DEPT_NM
+												,			A.LOAN_NO	
+												,			A.BASE_CREDIT_AMT
+									) B
+								    WHERE COD.BUYER = 'KRKORE0001'
+								    AND COD.TYPE = 'BYMP'
+								    AND COD.TEXT1 = REPLACE(B.IRS_NO(+),'-','')
+								    AND COD.TEXT2 = B.DEPT_CD(+)
+								    AND COD.CODE1 = CMPY.COM_CODE
+						) C
+				) XX
+	 			WHERE	1=1
+			]]>
+			<if test="st_user_id != null and st_user_id != ''">	     
+							   <![CDATA[
+							   AND  XX.COM_CODE  IN (
+															SELECT XX.COM_CODE
+											                 FROM ICOMCOD3 COD3
+											                 WHERE COD3.BUYER = 'KRKORE0001'
+											                 AND   COD3.TYPE = 'CMPY'
+											                 AND   COD3.CODE1= 'ALL'
+											                 AND   COD3.CODE2 = #{st_user_id}
+											                 UNION ALL
+											                 SELECT MNG.BUYER
+											                 FROM  ICOMCOD3 COD3, MIS_BUYER_MNG MNG
+											                 WHERE COD3.BUYER = 'KRKORE0001'
+											                 AND   COD3.TYPE = 'CMPY'
+											                 AND   COD3.CODE1= MNG.KEP_DEPT
+											                 AND   COD3.CODE2 = #{st_user_id}
+											                 AND   MNG.YEAR = TO_CHAR(SYSDATE,'YYYY')	
+											                 AND   MNG.STATUS = 'C'
+											                 UNION ALL
+											                 SELECT BUYER
+											                 FROM  MIS_BUYER_MNG
+											                 WHERE YEAR = TO_CHAR(SYSDATE,'YYYY')
+											                 AND   STATUS = 'C'
+											                 AND   KEP_USER_ID = #{st_user_id}
+											                 UNION ALL
+											                 SELECT COD.CODE1
+															FROM ICOMCOD3 COD , ICOMCMPY CMPY
+															WHERE  COD.BUYER = 'KRKORE0001'
+															AND COD.TYPE = 'CMPY'
+															AND COD.CODE1 = CMPY.COM_CODE
+															AND COD.CODE2 = #{st_user_id}
+															AND TO_CHAR(SYSDATE,'YYYYMMDD') BETWEEN TEXT2 AND TEXT3
+											                 )
+							   ]]>  
+			</if>   
+			<if test="st_status != 'ALL'">
+				AND		XX.CREDIT_STATUS_IMG = #{st_status}
+			</if>
+			<if test="st_buyer_name != null and st_buyer_name != ''">
+				AND		XX.COM_NAME_LOC LIKE '%' || #{st_buyer_name} || '%'
+			</if>
+		<if test="st_dept != null and st_dept != ''">
+			AND		XX.DEPT_CD = #{st_dept}
+		</if>
+		<if test="st_irs_no != null and st_irs_no != ''">
+			AND		XX.BUYER_IRS_NO LIKE #{st_irs_no} || '%'
+		</if>
+			<![CDATA[
+				ORDER BY BUYER_IRS_NO, COM_CODE
+			]]>
+	</select>
+</mapper>   
+   

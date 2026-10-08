@@ -1,0 +1,182 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="common.mpds">
+
+
+	<select id="selectMasterMpDsOrderCreationPopList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*selectMasterMpDsOrderCreationPopList*/
+            SELECT  /*+USE_NL(A B)*/
+                   A.BUYER_ITEM_NO AS BUYER_ITEM_NO,                --[00]
+                   MAX(A.DESCRIPTION) AS DESCRIPTION,               --[01]
+                   MAX(A.SPECIFICATION) AS SPECIFICATION,           --[02]
+                   MAX((SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE=A.AGENT)) AS AGENT_NAME,                 --[03]
+                   A.BUYER AS BUYER,                                --[04]
+                   MAX(A.BELOW_COMORG_CODE) AS BELOW_COMORG_CODE,   --[05]
+                   MAX(A.CONTRACT_NO) AS CONTRACT_NO,               --[06]
+                   MAX(A.CONTRACT_SEQ) AS CONTRACT_SEQ,             --[07]
+                   MAX(A.AGENT) AS AGENT                            --[08]
+              FROM ICOMCQDT A, ICOMBYIT B, ICOMCMPY C
+             WHERE A.BUYER =C.BYCA_COMORG_CODE 
+		]]>
+		<if test="st_byca_comorg_code != null and st_byca_comorg_code == 'KRKORE0001' || st_req_buyer =='ALL'">
+				<if test = "st_com_type !=null and st_com_type=='buyer'">
+				    AND C.COM_CODE IN ('KRDONG0110','KRDONG0107','KRDONG0128') 
+				</if>
+				<if test = "st_com_type ==null or st_com_type!='buyer'">
+					AND C.COM_CODE IN ('KRDONG0110','KRDONG0107','KRDONG0128','KRDONG0732') 
+				</if>
+		</if>		
+		<if test="st_byca_comorg_code != null and st_byca_comorg_code != 'KRKORE0001'  and st_req_buyer !='ALL'">
+					AND C.COM_CODE = #{st_req_buyer}
+		</if>
+		<![CDATA[
+               AND A.STATUS <> 'D'  
+			  AND A.BUYER=B.BUYER	
+			  AND A.BUYER_ITEM_NO=B.BUYER_ITEM_NO	
+			  AND B.PRODUCT_CLOSE_FLAG IN ('N','T')	
+		]]>
+		<if test="st_req_buyer != null and st_req_buyer != 'ALL'">
+			  AND (A.BELOW_COMORG_CODE=#{st_req_buyer} OR A.BELOW_COMORG_CODE='ABOVE')	
+		</if>		
+		<if test="st_buyer_item_no != null and st_buyer_item_no != ''">
+              AND A.BUYER_ITEM_NO LIKE #{st_buyer_item_no} || '%'  
+		</if>		
+		<if test="st_desc_spec != null and st_desc_spec != ''">
+              AND (A.DESCRIPTION LIKE '%' || #{st_desc_spec}  || '%' OR A.SPECIFICATION LIKE '%' || #{st_desc_spec}  || '%')   
+		</if>		
+		<if test="st_agent_name != null and st_agent_name != ''">
+              AND (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE=A.AGENT) LIKE '%' || #{st_agent_name}  || '%'  
+		</if>		
+<![CDATA[
+             GROUP BY A.BUYER,A.BUYER_ITEM_NO  
+             ORDER BY 1,2  						 
+		]]>
+		
+	</select>
+
+
+	<select id="selectMasterMpDsOrderCreationPopList_2" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*selectMasterMpDsOrderCreationPopList_2*/
+            SELECT																		
+				A.BUYER_ITEM_NO AS BUYER_ITEM_NO,											-- 0
+				A.DESCRIPTION AS DESCRIPTION,												-- 1
+				A.UNIT_MEASURE AS UNIT_MEASURE,												-- 2
+				(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE=A.AGENT) AS AGENT_NAME,	-- 3
+				A.BUYER AS BUYER,															-- 4
+				A.BELOW_COMORG_CODE AS BELOW_COMORG_CODE,									-- 5
+				A.CONTRACT_NO AS CONTRACT_NO,												-- 6
+				A.CONTRACT_SEQ AS CONTRACT_SEQ,												-- 7
+				A.AGENT AS AGENT,															-- 8
+				A.UNIT_PRICE AS UNIT_PRICE,													-- 9
+				A.LIST_PRICE AS LIST_PRICE,													-- 10
+				'0' AS REF_NO_IMG,
+				'0' AS REMARK_IMG
+              FROM ICOMCQDT A  
+             WHERE A.BUYER||CONTRACT_NO||CONTRACT_SEQ IN (${st_query_list})  
+			   AND A.BUYER IN ( 'KRDONGG004','KRDONG0732')	  
+               AND A.STATUS <> 'D'  
+             ORDER BY 1,2  
+		]]>
+		
+	</select>
+
+	
+	<update  id="insertDbOffPo" parameterType="java.util.Map" >
+		<![CDATA[
+		INSERT INTO DB_OFF_PO (			
+			BUYER,								
+			ADD_DATE,							
+			SEQ,								
+			STATUS,								
+			ADD_TIME,							
+			ADD_USER_ID,						
+			BYIT_COMORG_CODE,					
+			BUYER_ITEM_NO,						
+			CONTRACT_NO,						
+			CONTRACT_SEQ,					   
+			UNIT_PRICE,							
+			ITEM_AMT,							
+			PO_DATE,						
+			PR_QTY,								
+			CLOSE_FLAG,							
+			AGENT,								
+			PURCHASER_ID,						
+			PURCHASER_DEPT,						
+			REF_NO,								
+
+			AGENT_PRICE,					
+			AGENT_ITEM_AMT,					
+			DELY_TO_LOCATION_TEXT,CHANGE_DATE, CHANGE_TIME, CHANGE_USER_ID )			
+			VALUES							
+			(								
+			#{st_buyer_code},									--1 : BUYER
+			TO_CHAR(SYSDATE, 'YYYYMMDD'),	
+			SEQ_DB_OFF_PO.NEXTVAL,			
+			'C',							
+			TO_CHAR(SYSDATE, 'HH24MISS'),	
+			#{PURCHASER_ID},									--2 : ADD_USER_ID
+			#{BUYER},									--3 : BYIT_COMORG_CODE
+			#{BUYER_ITEM_NO},									--4 : BUYER_ITEM_NO
+			#{CONTRACT_NO},									--5 : CONTRACT_NO
+			#{CONTRACT_SEQ},									--6 : CONTRACT_SEQ
+			#{UNIT_PRICE},									--7 : UNIT_PRICE
+			(${UNIT_PRICE} * ${ITEM_QTY} ),									--8 : ITEM_AMT
+			#{PO_CREATE_DATE},									--9 : PO_DATE
+			#{ITEM_QTY},									--10 : PR_QTY
+			'N',							
+			#{AGENT},									--11 : AGENT
+			#{PURCHASER_ID},									--12 : PURCHASER_ID
+			(SELECT DEPARTMENT FROM ICOMLUSR WHERE USER_ID=#{PURCHASER_ID}),		--13 : PURCHASER_DEPT
+			#{REF_NO},									--14 : REF_NO
+			#{LIST_PRICE},									--15 : AGENT_PRICE
+			(${LIST_PRICE} * ${ITEM_QTY} ),									--16 : AGENT_ITEM_AMT
+			#{DELY_TO_LOCATION},									--17 : DELY_TO_LOCATION_TEXT
+			TO_CHAR(SYSDATE, 'YYYYMMDD'),		
+			TO_CHAR(SYSDATE, 'HH24MISS'),		
+			#{st_user_id}									--18 : CHANGE_USER_ID
+			)								
+	
+		]]>
+	</update>
+
+				
+	<update  id="insertDbOffIv" parameterType="java.util.Map" >
+		<![CDATA[
+			INSERT INTO DB_OFF_IV			
+			(								
+				BUYER,						
+				ADD_DATE,					
+				SEQ ,						
+				DS_SEQ,						
+				STATUS,						
+				ADD_TIME,					
+				BYIT_COMORG_CODE,			
+				CONTRACT_NO,				
+				CONTRACT_SEQ,				
+				RD_DATE,					
+				BUYER_ITEM_NO,				
+				DS_QTY,						
+				BTOA_REMARK					
+			)								
+			VALUES							
+			(								
+				#{st_buyer_code},								--1 : BUYER
+				TO_CHAR(SYSDATE,'YYYYMMDD'),
+				SEQ_DB_OFF_PO.CURRVAL,		
+				SEQ_DB_OFF_IV.NEXTVAL,		
+				'C',						
+				TO_CHAR(SYSDATE,'HH24MISS'),
+				#{BUYER},								--2 : BYIT_COMORG_CODE
+				#{CONTRACT_NO},								--3 : CONTRACT_NO
+				#{CONTRACT_SEQ},								--4 : CONTRACT_SEQ
+				#{RD_DATE},								--5 : RD_DATE
+				#{BUYER_ITEM_NO},								--6 : BUYER_ITEM_NO
+				#{DS_QTY},								--7 : DS_QTY
+				#{REMARK}								--8 : BTOA_REMARK
+			)								
+		]]>
+	</update>
+	
+</mapper>

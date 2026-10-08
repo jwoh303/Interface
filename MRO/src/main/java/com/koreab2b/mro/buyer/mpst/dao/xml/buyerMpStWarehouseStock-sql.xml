@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="buyer.mpst">
+
+	<!-- 조회 -->
+	<select id="selectBuyerMpStWarehouseStockList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.pagestart"/>	
+		<![CDATA[
+			/*selectBuyerMpStWarehouseStockList*/
+			SELECT 
+				CAR.BUYER AS BUYER
+				,(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = CAR.BUYER) AS BUYER_NAME
+				,CAR.BUYER_ITEM_NO AS BUYER_ITEM_NO
+				,BYIT.DESCRIPTION_LOC AS DESCRIPTION
+				,BYIT.SPECIFICATION AS SPECIFICATION
+				,(SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE='M104' AND CODE = BYIT.MAKER_CODE) AS MAKER_NAME
+				,BYIT.UNIT_MEASURE AS UNIT_MEASURE
+				,(CAR.GR_QTY - CAR.IV_QTY) AS STOCK_QTY
+				,CAR.GR_QTY AS GR_QTY
+				,CAR.IV_QTY AS IV_QTY
+				,BYIT.BUYER AS BYIT_COMORG_CODE
+				,(SELECT CONTRACT_NO FROM ICOMCQDT WHERE BUYER=BYIT.BUYER AND BUYER_ITEM_NO = BYIT.BUYER_ITEM_NO AND ROWNUM=1) AS CONTRACT_NO
+				,(SELECT CONTRACT_SEQ FROM ICOMCQDT WHERE BUYER=BYIT.BUYER AND BUYER_ITEM_NO = BYIT.BUYER_ITEM_NO AND ROWNUM=1) AS CONTRACT_SEQ
+				
+			FROM CAR_STOCK CAR , ICOMBYIT BYIT
+			WHERE 1=1
+			]]>
+			<choose>
+				<when test='st_group_mng_flag == "Y"'>
+					<choose>
+						<when test="st_group_info != null and st_group_info != '' ">
+						<![CDATA[
+							AND	CAR.BUYER IN (SELECT COD3.CODE2 FROM ICOMCOD3 COD3 WHERE COD3.TYPE = 'BGCM' AND COD3.CODE1 = #{st_user_id} AND COD3.TEXT1 = #{st_group_info}  AND 	COD3.FLAG = 'Y')
+						]]>
+						</when>
+						<otherwise>
+							<choose>
+								<when test="st_buyer != null and st_buyer != '' ">
+								<![CDATA[
+									AND	CAR.BUYER = #{st_buyer}
+								]]>
+								</when>
+								<otherwise>
+								<![CDATA[
+									AND	CAR.BUYER IN (SELECT COD3.CODE2 FROM ICOMCOD3 COD3 WHERE COD3.TYPE = 'TGCM' AND COD3.CODE1 = #{st_user_id} AND COD3.FLAG = 'Y')
+								]]>
+								</otherwise>
+							</choose>
+						</otherwise>
+					</choose>
+				</when>
+				<when test='st_group_mng_flag == "N"'>
+					<![CDATA[
+						AND	CAR.BUYER = #{st_buyer}
+					]]>
+				</when>
+			</choose>
+			<![CDATA[  
+			AND BYIT.BUYER = (SELECT BYCA_COMORG_CODE FROM ICOMCMPY WHERE COM_CODE = CAR.BUYER)
+			AND BYIT.BUYER_ITEM_NO = CAR.BUYER_ITEM_NO
+			AND BYIT.PRODUCT_CLOSE_FLAG = 'N'
+			AND BYIT.STATUS != 'D'
+			AND CAR.STATUS != 'D'
+			]]>
+ 		
+ 		<if test="st_buyer_item_no != null and st_buyer_item_no != '' ">
+			    AND BYIT.BUYER_ITEM_NO LIKE '%' || #{st_buyer_item_no} || '%'
+ 		</if>  
+ 		<if test="st_description != null and st_description != '' ">
+			    AND BYIT.DESCRIPTION_LOC LIKE '%' || #{st_description} || '%'
+ 		</if>  
+ 		<if test="st_specification != null and st_specification != '' ">
+			    AND BYIT.SPECIFICATION LIKE '%' || #{st_specification} || '%'
+ 		</if>
+			
+		<![CDATA[
+			ORDER BY 2,3
+ 		]]>
+		<include refid="common.ibsheet.xml.pageend"/>	
+	</select> 
+	
+</mapper>

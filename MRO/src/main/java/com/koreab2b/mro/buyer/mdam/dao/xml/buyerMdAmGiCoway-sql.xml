@@ -1,0 +1,541 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="buyer.mdam">
+	<select id="getPrDetail" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/*getPrDetail*/
+			SELECT A.DESCRIPTION ||' '||A.SPECIFICATION ITEM_INFO
+				 , (SELECT C.USER_NAME_LOC FROM ICOMLUSR C WHERE C.COM_CODE=B.COMPANY_CODE AND C.LEGACY_USER_ID=B.TEXT3 AND ROWNUM=1 ) AS S_USER_NM
+				 , A.ADD_USER_TEL S_USER_TEL
+				 , B.TEXT3
+				 , A.DESCRIPTION
+				 , A.SPECIFICATION
+				 , A.TARGET_QTY
+				 , A.RETURN_REASON
+				 , DECODE(A.RECV_FLAG, 'AT', 'I/F','GA','발주대기','PT','발주대기','GR','결재반려','GS','결재중','PS','결재중','PA','일반승인','PC','발주시','RR','반려','PR','반려','TS','임시저장','GD','상신취소','PD','상신취소') RECV_FLAG
+				 , A.REMARK
+				 , (SELECT USER_NAME_LOC FROM ICOMLUSR WHERE LEGACY_USER_ID = A.REQ_USER_ID AND ROWNUM = 1) REQ_USER_NAME
+				 , UNIT_MEASURE
+				 , a.ref_pr_no
+				 , a.buyer_item_no
+			  FROM ICOMPRDT A, ICOMCOD2 B
+			 WHERE 1=1
+			   AND A.STATUS <> 'D'
+			   AND A.BUYER= B.COMPANY_CODE
+			   AND A.ADD_USER_DEPT = B.CODE
+			   AND B.TYPE='C001'
+			   AND a.BUYER = #{BUYER }
+			   AND a.PR_NO = #{PR_NO }
+		]]>
+			<if test="BUYER_ITEM_NO != null and BUYER_ITEM_NO != ''">
+				<![CDATA[
+			   AND a.BUYER_ITEM_NO = #{BUYER_ITEM_NO }
+				]]>
+			</if> 
+		<![CDATA[
+			   AND ROWNUM = 1
+		]]>
+	</select>
+	<select id="getReqUserInfo" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/*getReqUserInfo*/
+			SELECT (SELECT COM_NAME_LOC 
+			         FROM ICOMCMPY 
+			        WHERE COM_CODE = A.BUYER 
+			       ) COM_NAME_LOC 
+			     , A.ADD_DATE 
+			     , A.SIGN_DATE 
+			     , '지급' REQ_STATUS 
+			     , '신청' PROCESS_STATUS 
+			     , ADD_USER_NAME USER_NAME_LOC
+			     , ADD_USER_TEL PHONE_NUMBER
+			     , (SELECT MOBILE_PHONE FROM ICOMLUSR WHERE USER_ID = A.ADD_USER_ID)MOBILE_PHONE
+			     , ADD_USER_ID
+			  FROM ICOMPRHD A
+			 WHERE 1=1 
+			   AND A.BUYER = #{BUYER } 
+			   AND A.PR_NO = #{PR_NO } 
+			   AND A.STATUS != 'D' 
+			   AND ROWNUM = 1
+		]]>
+	</select>
+	<select id="getReqDeptInfo" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/*getReqDeptInfo*/
+			SELECT DEPT.TEXT1 HQ_DEPT_NAME 
+			     , DEPT.TEXT4 HQ_ADDRESS 
+			     , LUSR.LEGACY_USER_ID HQ_USER_ID
+			     , LUSR.PHONE_NUMBER 
+			     , LUSR.USER_NAME_LOC HQ_NAME_LOC
+			     , LUSR.MOBILE_PHONE 
+			     , LUSR.EMAIL HQ_EMAIL 
+			  FROM ICOMCOD2 DEPT
+			     , ICOMLUSR LUSR 
+			 WHERE DEPT.TYPE = 'C001' 
+			       AND DEPT.COMPANY_CODE = #{BUYER } 
+			       AND LUSR.COM_CODE = DEPT.COMPANY_CODE 
+			       AND LUSR.LEGACY_USER_ID = DEPT.TEXT3 
+			       AND LUSR.STATUS IN ('C', 'R') 
+			       AND CODE =  #{DEPARTMENT } 
+			       AND ROWNUM = 1
+		]]>
+	</select>
+	<select id="getHqUserInfo" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/*getHqUserInfo*/
+			SELECT COMPANY_CODE BUYER
+			     , (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = COMPANY_CODE) BUYER_NAME
+			     , TEXT1 DEPT_NAME
+			     , CODE DEPARTMENT
+			     , USER_NAME_LOC
+			     , USER_ID 
+			     , LEGACY_USER_ID
+			     , (SELECT TEXT1 FROM ICOMCOD2 WHERE TYPE = 'C003' AND CODE=LUSR.POSITION AND COMPANY_CODE = LUSR.COM_CODE)POSITION_NAME 
+			  FROM ICOMCOD2 DEPT
+			     , ICOMLUSR LUSR 
+			 WHERE DEPT.TYPE = 'C001' 
+			       AND DEPT.COMPANY_CODE LIKE 'KRCOWA000%' 
+			       AND LUSR.COM_CODE = DEPT.COMPANY_CODE 
+			       AND LUSR.LEGACY_USER_ID = DEPT.TEXT3 
+			       AND LUSR.STATUS IN ('C', 'R') 
+		]]>
+			<if test="DEPT_NAME != null and DEPT_NAME != ''">
+				<![CDATA[
+			       AND TEXT1 LIKE '%'||#{DEPT_NAME }||'%'
+			    ]]>
+			</if>
+			<if test="DEPTARTMENT != null and DEPTARTMENT != ''">
+				<![CDATA[
+			       AND CODE LIKE '%'||#{DEPTARTMENT }||'%'
+			    ]]>
+			</if>
+			<if test="USER_NAME_LOC != null and USER_NAME_LOC != ''">
+				<![CDATA[
+			       AND USER_NAME_LOC LIKE '%'||#{USER_NAME_LOC }||'%'
+			    ]]>
+			</if>
+			<if test="USER_ID != null and USER_ID != ''">
+				<![CDATA[
+			       AND USER_ID LIKE '%'||#{USER_ID }||'%'
+			    ]]>
+			</if>
+		<![CDATA[
+			ORDER BY COMPANY_CODE
+			     , CODE
+			     , USER_ID
+		]]>
+	</select>
+	<select id="getOriPrInfo" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/*getOriPrInfo*/
+			SELECT A.BUYER
+			     , A.PR_NO
+			     , A.PR_SEQ
+			     , A.I_AFNAM
+			     , A.I_MBLNR
+			     , A.I_STATUS
+			     , A.BUKRS
+			     , A.ORGEH
+			     , A.STEXT
+			     , A.PERNR
+			     , A.ENAME
+			     , A.HDATE
+			     , A.ZGISU
+			     , A.NEWCK
+			     , A.ZCODE
+			     , A.MATNR
+			     , A.MAKTX
+			     , A.GIMENGE
+			     , A.MEINS
+			     , A.GUBUN
+			     , A.ERSDA
+			     , A.ERNAM
+			     , A.LAEDA
+			     , A.AENAM
+			     , A.YUMUSANG
+			     , A.DRSITE
+			     , A.DRCP
+			     , A.DPOINT
+			     , A.POST_CODE1
+			     , A.CITY1
+			     , A.STREET
+			     , A.TEL_NUMBER
+			     , A.MOB_NUMBER
+			     , A.REG_DATE
+			     , A.IF_DATE
+			     , A.IF_TIME
+			     , A.IF_FLAG
+			     , A.IF_MSG 
+			  FROM EAI.IF_COWAY_PR_SEND A
+			 WHERE A.I_MBLNR = #{MBLNR } 
+			   AND LPAD(A.MATNR, 18, '0') = #{MATNR }
+		]]>
+	</select>
+	<select id="getGiReqExcelList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/*getGiReqExcelList*/
+			SELECT A.ERSDA
+			     , A.I_MBLNR
+			     , A.STEXT
+			     , A.ENAME
+			     , A.MATNR
+			     , A.MAKTX
+			     , A.GIMENGE
+			     , A.GIMENGE GIMENGE2
+			     , A.POST_CODE1
+			     , A.CITY1
+			     , A.STREET
+			     , A.TEL_NUMBER
+			     , (SELECT SPECIFICATION FROM ICOMBYIT WHERE  BUYER = A.BUYER AND BUYER_ITEM_NO = A.MATNR)SPECIFICATION
+				 , A.MEINS
+				 , A.ERNAM
+				 , ROWNUM SEQ
+				 , (SELECT USR.USER_NAME_LOC FROM ICOMLUSR USR WHERE USR.USER_ID =B.REQ_USER_ID) DAESG_NM
+			  FROM EAI.IF_COWAY_PR_SEND A  , ICOMPRDT B
+			 WHERE A.BUYER = B.BUYER
+			 AND A.PR_NO = B.PR_NO
+			 AND A.PR_SEQ = B.PR_SEQ
+			 AND (
+			           A.BUYER
+			         , A.PR_NO
+			         , A.PR_SEQ
+			       ) IN (
+		]]>
+			       <foreach collection="PR_ARRAY" item="item" index="i" separator="," >
+		<![CDATA[
+					(#{item.BUYER }, #{item.PR_NO }, #{item.PR_SEQ })
+		]]>
+				</foreach>   
+		<![CDATA[
+			       )
+		]]>
+	</select>
+	<select id="getRecvUserInfo" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/*getRecvUserInfo*/
+			SELECT * FROM (
+				SELECT SUBSTR(USER_ID, 3, LENGTH(USER_ID)) LEGACY_USER_ID
+					 , PHONE_NUMBER
+					 , USER_NAME_LOC
+					 , MOBILE_PHONE 
+					 , EMAIL
+					 , USER_NAME_LOC||'/'||SUBSTR(USER_ID, 3, LENGTH(USER_ID))||'/기존/'||SUBSTR(BEGIN_DATE, 1, 4)||'-'||SUBSTR(BEGIN_DATE, 5, 2)||'-'||SUBSTR(BEGIN_DATE, 7, 2) DATA1
+					 , 'N' DATA2
+					 , '' DATA3
+					 , '' DATA4
+				  FROM ICOMLUSR LUSR 
+				 WHERE 1=1
+				   AND COM_CODE = #{BUYER } 
+				   AND DEPARTMENT = #{ORGEH }
+				   AND EXISTS 
+					   (SELECT 1 
+						 FROM ICOMCOD2 
+						WHERE LUSR.COM_CODE = COMPANY_CODE 
+						  AND LUSR.DEPARTMENT = CODE
+						  AND FLAG = 'Y' 
+					   ) 
+				   AND EXISTS 
+					   (SELECT 1 
+						 FROM ICOMCOD2 
+						WHERE TYPE = 'C003' 
+						  AND CODE = LUSR.POSITION 
+						  AND COMPANY_CODE = LUSR.COM_CODE 
+						  AND TEXT1 = '지국장'
+						  AND FLAG = 'Y'
+					   ) 
+				UNION ALL
+				SELECT SUBSTR(USER_ID, 3, LENGTH(USER_ID)) LEGACY_USER_ID
+					 , PHONE_NUMBER
+					 , USER_NAME_LOC
+					 , MOBILE_PHONE 
+					 , EMAIL
+					 , USER_NAME_LOC||'/'||SUBSTR(USER_ID, 3, LENGTH(USER_ID))||'/기존/'||SUBSTR(BEGIN_DATE, 1, 4)||'-'||SUBSTR(BEGIN_DATE, 5, 2)||'-'||SUBSTR(BEGIN_DATE, 7, 2) DATA1
+					 , 'N' DATA2
+					 , '' DATA3
+					 , '' DATA4
+				  FROM ICOMLUSR LUSR 
+				 WHERE 1=1
+				   AND USER_ID = #{ADD_USER_ID }
+			)
+			 WHERE ROWNUM = 1
+		]]>
+	</select>
+	<select id="getPassUserInfo" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/*getPassUserInfo*/
+			SELECT B.PASS_TP
+				 , USER_NAME_LOC
+				 , MOBILE_PHONE
+				 , EMAIL
+				 , PASS_DATE 
+				 , NVL((SELECT TEXT1 FROM ICOMCOD2 WHERE CODE = C.POSITION AND TYPE = 'C003' AND COMPANY_CODE = C.COM_CODE), '기타') POSITION
+				 , PASS_ADD
+				 , DECODE(B.PASS_TP, 0, '기안', 1, '승인', 2, '참조', 3, '반려', 4, '상신취소', 9, '임시저장')PASS_TP_NAME
+			  FROM ICOMTRGW A
+				 , ICOGPASSLN B
+				 , ICOMLUSR C 
+			 WHERE A.COM_CODE = B.COMPANY 
+			   AND B.COMPANY = #{BUYER }
+			   AND A.TARGET = B.DOCU_NO 
+			   AND A.DOC_NAME = 'PR' 
+			   AND A.KEY_1 = #{PR_NO }
+			   AND C.USER_ID = B.USER_ID
+		]]>
+			<if test="PASS_TP != null and PASS_TP != ''">
+				<![CDATA[
+			   AND B.PASS_TP = #{PASS_TP }
+				]]>
+			</if> 
+		<![CDATA[
+			ORDER BY TO_NUMBER(ORDER_NO)
+		]]>
+	</select>
+
+	<select id="selectGsysDeliveryDisplaySum" parameterType="java.util.Map" resultType="java.util.Map">
+		/*buyer.mdam.selectGsysDeliveryDisplaySum*/
+        SELECT A.*
+          FROM (
+                SELECT 
+                       A.SCREEN_ID,      A.USER_ID,        A.MBLNR,
+                       A.MATNR,          A.ORGEH,          A.STEXT,
+                       A.POST_CODE1,     A.CITY1,          A.STREET,
+                       A.TEL_NUMBER,     A.MOB_NUMBER,     A.LAEDA,
+                       A.RQMENGE,        A.RQCMENGE,
+                       (SELECT MAX(B.DESCRIPTION_LOC) FROM ICOMBYIT B
+                         WHERE 1 = 1 
+                           AND B.BUYER IN ('KRCOWA0002', 'KRCOWA0003', 'KRCOWA0007', 'KRCOWA0008')
+                           AND B.BUYER_ITEM_NO = TO_CHAR(TO_NUMBER(A.MATNR)) ) AS S_ITEM_NM,
+                       D.USER_NAME_LOC AS S_USER_NM,
+                       CASE
+                         WHEN E.ADD_USER_TEL IS NOT NULL THEN E.ADD_USER_TEL
+                         ELSE D.PHONE_NUMBER
+                       END AS S_USER_TEL
+                  FROM COWAY_ZMM_GSYS_DE_RER_DISPLAY A
+                     , ICOMCOD2 C
+                     , ICOMLUSR D
+                     , ICOMPRDT E
+                 WHERE 1 = 1
+                   AND A.SCREEN_ID = #{st_screen_id}
+                   AND A.USER_ID   = #{st_user_id}
+                   
+                   AND C.TYPE = 'C001'
+                   AND C.CODE = A.ORGEH
+                   AND C.COMPANY_CODE = 'KRCOWA0001'
+                   
+                   AND D.COM_CODE       = C.COMPANY_CODE
+                   AND D.LEGACY_USER_ID = C.TEXT3
+                   
+                   AND A.BUYER  = E.BUYER(+) 
+                   AND A.PR_NO  = E.PR_NO(+) 
+                   AND A.PR_SEQ = E.PR_SEQ(+)
+                         
+             ORDER BY A.MBLNR, A.MATNR
+          ) A
+	</select>
+
+
+	<select id="selectGsysDeliveryDisplay" parameterType="java.util.Map" resultType="java.util.Map">
+		
+		<include refid="common.ibsheet.xml.jsppagestart"/>
+		<![CDATA[
+		
+		/*buyer.mdam.selectGsysDeliveryDisplay*/
+		
+		
+                SELECT
+                       A.SCREEN_ID,      A.USER_ID,        A.MBLNR,
+                       A.MATNR,          A.ORGEH,          A.STEXT,
+                       A.POST_CODE1,     A.CITY1,          A.STREET,
+                       A.TEL_NUMBER,     A.MOB_NUMBER,     A.BUYER,
+                       A.PR_NO,          A.PR_SEQ,         SUBSTR(A.MBLNR,1,2) AS MBLNR_PREFIX,
+                       A.ERSDA,          A.ENAME
+                  FROM COWAY_ZMM_GSYS_DE_RER_DISPLAY A
+                     , ICOMCOD2 C
+                     , ICOMLUSR D
+                 WHERE 1 = 1
+		]]>
+                   AND A.SCREEN_ID = #{st_screen_id}
+                   AND A.USER_ID   = #{st_user_id}
+		<![CDATA[
+                   AND C.TYPE = 'C001'
+                   AND C.CODE = A.ORGEH
+                   AND C.COMPANY_CODE = 'KRCOWA0001'
+
+                   AND D.COM_CODE = C.COMPANY_CODE
+                   AND D.LEGACY_USER_ID = C.TEXT3
+             ORDER BY MBLNR, MATNR
+		]]>
+		
+		<include refid="common.ibsheet.xml.jsppageend"/>
+	</select>	
+
+	<delete id="deleteGsysDeliveryDisplaySum" parameterType="java.util.Map">
+		/*buyer.mdam.deleteGsysDeliveryDisplaySum*/
+		DELETE FROM COWAY_ZMM_GSYS_DE_RER_DISPLAY
+		 WHERE 1 = 1
+		   AND SCREEN_ID = #{st_screen_id}
+		   AND USER_ID   = #{st_user_id}
+	</delete>
+
+	<update id="insertGsysDeliveryDisplay" parameterType="java.util.Map" useGeneratedKeys="false">
+        /*buyer.mdam.insertGsysDeliveryDisplay*/
+        INSERT INTO COWAY_ZMM_GSYS_DE_RER_DISPLAY (
+            SCREEN_ID,      USER_ID,        MBLNR,
+            MATNR,          ORGEH,          STEXT,
+            POST_CODE1,     CITY1,          STREET,
+            TEL_NUMBER,     MOB_NUMBER,     ERSDA,
+            ENAME
+        ) VALUES (
+            #{SCREEN_ID},    #{USER_ID},     #{MBLNR},
+            #{MATNR},        #{ORGEH},       #{STEXT},
+            #{POST_CODE1},   #{CITY1},       #{STREET},
+            #{TEL_NUMBER},   #{MOB_NUMBER},  #{ERSDA},  
+            #{ENAME}
+        )
+	</update>
+
+	<update id="insertGsysDeliveryDisplayBatch" parameterType="java.util.Map" useGeneratedKeys="false">
+        /*buyer.mdam.insertGsysDeliveryDisplay*/
+        INSERT ALL
+        <foreach collection="list" item="item">
+        INTO COWAY_ZMM_GSYS_DE_RER_DISPLAY (
+            SCREEN_ID,      USER_ID,        MBLNR,
+            MATNR,          ORGEH,          STEXT,
+            POST_CODE1,     CITY1,          STREET,
+            TEL_NUMBER,     MOB_NUMBER,     ERSDA,
+            ENAME
+        ) VALUES (
+            #{item.SCREEN_ID},    #{item.USER_ID},     #{item.MBLNR},
+            #{item.MATNR},        #{item.ORGEH},       #{item.STEXT},
+            #{item.POST_CODE1},   #{item.CITY1},       #{item.STREET},
+            #{item.TEL_NUMBER},   #{item.MOB_NUMBER},  #{item.ERSDA},  
+            #{item.ENAME}
+        )
+        </foreach>
+        SELECT * FROM DUAL
+	</update>
+
+	<update id="insertGsysDeliveryDisplaySumBatch" parameterType="java.util.Map" useGeneratedKeys="false">
+        /*buyer.mdam.insertGsysDeliveryDisplaySumBatch*/
+        INSERT ALL
+        <foreach collection="list" item="item">
+        INTO COWAY_ZMM_GSYS_DE_RER_DISPLAY (
+            SCREEN_ID,      USER_ID,        MBLNR,
+            MATNR,          ORGEH,          STEXT,
+            MAKTX,          GIMENGE,        RQMENGE,
+            RQCMENGE,       SPEME,          MEINS,
+            BUKRS,          LAEDA,          MOB_NUMBER,
+            POST_CODE1,     CITY1,          STREET,
+            TEL_NUMBER
+        ) VALUES (
+            #{item.SCREEN_ID},     #{item.USER_ID},      #{item.MBLNR},
+            #{item.MATNR},         #{item.ORGEH},        #{item.STEXT},
+            #{item.MAKTX},         trim(#{item.GIMENGE}),trim(#{item.RQMENGE}),
+            trim(#{item.RQCMENGE}),trim(#{item.SPEME}),  #{item.MEINS},
+            #{item.BUKRS},         #{item.LAEDA},        #{item.MOB_NUMBER},
+            #{item.POST_CODE1},    #{item.CITY1},        #{item.STREET},
+            #{item.TEL_NUMBER}
+        )
+        </foreach>
+        SELECT * FROM DUAL
+	</update>
+	
+	<update id="updateGsysExcelInfo" parameterType="java.util.Map">
+	/* buyer.mdam.updateGsysExcelInfo */
+	UPDATE COWAY_ZMM_GSYS_DE_RER_DISPLAY
+	   SET STEXT      = #{STEXT}
+	     , MAKTX      = #{MAKTX}
+	     , GIMENGE    = trim(#{GIMENGE})
+	     , RQMENGE    = trim(#{RQMENGE})
+	     , RQCMENGE   = trim(#{RQCMENGE})
+	     , SPEME      = trim(#{SPEME})
+	     , MEINS      = #{MEINS}
+	     , BUKRS      = #{BUKRS}
+	     , LAEDA      = #{LAEDA}
+	     , MOB_NUMBER = #{MOB_NUMBER}
+	     , POST_CODE1 = #{POST_CODE1}
+	     , CITY1      = #{CITY1}
+	     , STREET     = #{STREET}
+	     , TEL_NUMBER = #{TEL_NUMBER}
+	 WHERE 1 = 1
+	   AND SCREEN_ID = #{SCREEN_ID}
+	   AND USER_ID   = #{USER_ID}
+	   AND MBLNR     = #{MBLNR}
+	   AND MATNR     = #{MATNR}
+	   AND ORGEH     = #{ORGEH}
+	</update>
+	
+	<update id="updateGsysDeliveryDisplayPrInfo" parameterType="java.util.Map">
+        /*buyer.mdam.updateGsysDeliveryDisplayPrInfo*/
+        
+        UPDATE COWAY_ZMM_GSYS_DE_RER_DISPLAY A
+           SET (BUYER, PR_NO, PR_SEQ) = 
+               (SELECT BUYER, PR_NO, PR_SEQ
+                  FROM EAI.IF_COWAY_PR_SEND
+                 WHERE 1 = 1
+                   AND I_MBLNR = A.MBLNR
+                   AND MATNR   = TO_CHAR(TO_NUMBER(A.MATNR)))
+		 WHERE 1 = 1
+		   AND SCREEN_ID = #{st_screen_id}
+		   AND USER_ID   = #{st_user_id}
+	</update>
+	
+	<update id="insertGsysDeliveryDisplaySum" parameterType="java.util.Map" useGeneratedKeys="false">
+		/*buyer.mdam.insertGsysDeliveryDisplaySum*/
+		INSERT INTO COWAY_ZMM_GSYS_DE_RER_DISPLAY (
+		    SCREEN_ID,      USER_ID,        MBLNR,
+		    MATNR,          MAKTX,          GIMENGE,
+		    RQMENGE,        RQCMENGE,       SPEME,
+		    MEINS,          BUKRS,          ORGEH,
+		    STEXT,          POST_CODE1,     CITY1,          
+		    STREET,         TEL_NUMBER,     MOB_NUMBER,
+		    ADD_DATE,       ADD_TIME
+		) VALUES (
+		    #{SCREEN_ID},
+		    #{USER_ID},
+		    #{MBLNR},
+		    #{MATNR},
+		    #{MAKTX},
+		    TRIM(#{GIMENGE}),
+		    TRIM(#{RQMENGE}),
+		    TRIM(#{RQCMENGE}),
+		    TRIM(#{SPEME}),
+		    #{MEINS},
+		    #{BUKRS},
+		    #{ORGEH},
+		    #{STEXT},
+		    #{POST_CODE1},
+		    #{CITY1},
+		    #{STREET},
+		    #{TEL_NUMBER},
+		    #{MOB_NUMBER},
+		    TO_CHAR(SYSDATE, 'YYYYMMDD'),
+		    TO_CHAR(SYSDATE, 'HH24MISS')
+		)	
+	</update>
+	
+	<select id="selectGiDetailInfo" parameterType="java.util.Map" resultType="java.util.Map">
+		SELECT
+			   BUYER
+			 , PR_NO
+			 , MBLNR
+			 , ERSDA
+			 , CITY1
+			 , STREET
+			 , TEL_NUMBER
+			 , STEXT
+			 , ENAME
+			 , MATNR
+			 , MOB_NUMBER
+			 , ORGEH
+			 , POST_CODE1
+		  FROM COWAY_ZMM_GSYS_DE_RER_DISPLAY
+		 WHERE 1 = 1
+		   AND SCREEN_ID = #{SCREEN_ID}
+		   AND USER_ID   = #{st_pop_user_id}
+		   AND MBLNR     = #{st_pop_mblnr}
+		   AND MATNR     = #{st_pop_matnr}
+		   AND ORGEH     = #{st_pop_orgeh}
+	</select>
+	
+</mapper>

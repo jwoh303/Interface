@@ -1,0 +1,302 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="master.mdcm">
+
+	<!--
+		구매정보 일괄등록 결과 - 업로드한 상품정보코드의 기본정보.
+		여기 돌아오지 않은 코드가 곧 '상품정보코드 미존재' 다.
+	-->
+	<select id="selectMasterMdCmCmsBuyInfoRegItemList" parameterType="java.util.Map" resultType="java.util.Map">
+		/*selectMasterMdCmCmsBuyInfoRegItemList*/
+		SELECT C.CMS_CATLG_ID
+		     , C.DESCRIPTION_LOC		AS DESCRIPTION_LOC		/* 품목명 */
+		     , C.MODEL_INFO				AS MODEL_INFO			/* 모델번호 */
+		     , C.SPECIFICATION			AS SPECIFICATION		/* 규격 */
+		     , C.MAKER_NAME				AS MAKER_NAME			/* 제조사 */
+		     , C.ORDER_MEASURE			AS ORDER_MEASURE				/* 단위 */
+		     , C.STATUS					AS ITEM_STATUS			/* 상품상태 */
+		  FROM CMSCATLG C
+		 WHERE C.CMS_CATLG_ID IN
+		<foreach item="item" collection="codeList" open="(" separator="," close=")">
+			#{item}
+		</foreach>
+	</select>
+
+	<!--
+		구매정보 일괄등록 결과 - 이미 등록된 구매정보의 중복 판정 키
+		(상품정보코드 + 협력사코드 + 거래유형 + 최소주문수량 + 주문배수수량).
+		⚠ 수량은 NUMBER 라 TO_CHAR 로 내린다 - 그대로 두면 Map<String,String> 에 BigDecimal 이 담긴다.
+		   화면은 숫자로 정규화해 비교한다("10" 과 "10.000" 이 같은 키다).
+	-->
+	<select id="selectMasterMdCmCmsBuyInfoRegDupKeyList" parameterType="java.util.Map" resultType="java.util.Map">
+		/*selectMasterMdCmCmsBuyInfoRegDupKeyList*/
+		SELECT P.CMS_CATLG_ID
+		     , P.AGENT							AS AGENT
+		     , P.PROCESS_TYPE					AS PROCESS_TYPE
+		     , TRIM(TO_CHAR(P.MIN_ORDER_QTY))	AS MIN_ORDER_QTY
+		     , TRIM(TO_CHAR(P.PUR_UNIT_QTY))	AS PUR_UNIT_QTY
+		  FROM CMSPRICE P
+		 WHERE P.CMS_CATLG_ID IN
+		<foreach item="item" collection="codeList" open="(" separator="," close=")">
+			#{item}
+		</foreach>
+	</select>
+
+	<!--
+		구매정보 일괄등록 결과 - 협력사 실재 여부·명칭.
+		협력사 팝업(masterMdCmSellerCmpyMultiSelPop)과 같은 조건을 쓴다.
+	-->
+	<select id="selectMasterMdCmCmsBuyInfoRegAgentList" parameterType="java.util.Map" resultType="java.util.Map">
+		/*selectMasterMdCmCmsBuyInfoRegAgentList*/
+		SELECT A.COM_CODE			AS AGENT
+		     , A.COM_NAME_LOC		AS AGENT_NAME
+		  FROM ICOMCMPY A
+		 WHERE A.BUSINESS_COND = 'S'
+		   AND A.STATUS IN ('C', 'R')
+		   AND A.COM_CODE IN
+		<foreach item="item" collection="codeList" open="(" separator="," close=")">
+			#{item}
+		</foreach>
+	</select>
+
+	<!--
+		구매정보 일괄등록 - 품목구분 목록(ICOMCOD1 M132). 양식 드롭다운 원본이자 업로드 값 검증 기준이다.
+		반환 계약: CODE / TYPE_NAME
+	-->
+	<select id="selectMasterMdCmCmsBuyInfoItemMakeTypeList" resultType="java.util.Map">
+		<![CDATA[
+			/*selectMasterMdCmCmsBuyInfoItemMakeTypeList*/
+			SELECT MD.CODE  AS CODE
+			     , MD.TEXT1 AS TYPE_NAME
+			  FROM ICOMCOD1 MD
+			 WHERE MD.TYPE = 'M132'
+			   AND MD.FLAG = 'Y'
+			 ORDER BY MD.VALUE1, MD.CODE
+		]]>
+	</select>
+
+	<!--
+		구매정보 일괄등록 - 입고TR(물류센터) 목록.
+		ICOMCOD1 W001 이 센터 정본이다 : TEXT1 = 센터 회사코드 · TEXT2 = 센터명 · TEXT4 = B(구매사측)/S(공급사측).
+		입고는 구매사측 코드로 잡히므로 TEXT4='B' 만 쓴다(ICOMPODT.WAREHOUSE_CODE 실적값과 같은 계열).
+		반환 계약: CODE / WAREHOUSE_NAME
+	-->
+	<select id="selectMasterMdCmCmsBuyInfoWarehouseList" resultType="java.util.Map">
+		<![CDATA[
+			/*selectMasterMdCmCmsBuyInfoWarehouseList*/
+			SELECT MD.TEXT1 AS CODE
+			     , MD.TEXT2 AS WAREHOUSE_NAME
+			  FROM ICOMCOD1 MD
+			 WHERE MD.TYPE  = 'W001'
+			   AND MD.FLAG  = 'Y'
+			   AND MD.TEXT4 = 'B'
+			   AND MD.TEXT1 IS NOT NULL
+			   AND MD.TEXT2 IS NOT NULL
+			 ORDER BY MD.TEXT2, MD.CODE
+		]]>
+	</select>
+
+	<!--
+		구매정보 일괄수정 - 구매정보코드별 현재값(양식의 앞 14열 + [기존] 밴드).
+		여기 돌아오지 않은 코드가 곧 '구매정보코드 미존재' 다.
+		⚠ 숫자 컬럼은 TO_CHAR 로 내린다 - 양식 생성기가 Map 값을 String 으로 읽는다.
+		⚠ 공급상태·품목구분·과세구분은 명칭으로 내린다([기존]과 [변경]이 나란히 비교돼야 한다).
+	-->
+	<select id="selectMasterMdCmCmsBuyInfoModBeforeList" parameterType="java.util.Map" resultType="java.util.Map">
+		/*selectMasterMdCmCmsBuyInfoModBeforeList*/
+		SELECT P.CMS_CATLG_ID
+		     , P.CMS_CATLG_ID || '-' || LPAD(P.CATLG_SEQ, 5, '0')	AS BUY_INFO_ID
+		     , LPAD(P.CATLG_SEQ, 5, '0')							AS BUY_INFO_SEQ	/* 구매정보코드 : 화면 표기는 순번만 쓴다(상품정보코드는 옆 열에 있다) */
+		     , C.DESCRIPTION_LOC									AS DESCRIPTION_LOC
+		     , C.MODEL_INFO											AS MODEL_INFO
+		     , C.SPECIFICATION										AS SPECIFICATION
+		     , C.MAKER_NAME											AS MAKER_NAME
+		     , (SELECT MD.TEXT2 FROM ICOMCOD1 MD
+		         WHERE MD.TYPE = 'M001' AND MD.CODE = C.ORIGIN_CODE)	AS ORIGIN_CODE_NAME
+		     , C.ORDER_MEASURE										AS ORDER_MEASURE
+		     , TRIM(TO_CHAR(P.MIN_ORDER_QTY))						AS MIN_ORDER_QTY
+		     , TRIM(TO_CHAR(P.PUR_UNIT_QTY))						AS PUR_UNIT_QTY
+		     , (SELECT MD.TEXT2 FROM ICOMCOD1 MD
+		         WHERE MD.TYPE = 'M034' AND MD.CODE = P.PROCESS_TYPE)	AS PROCESS_TYPE
+		     , (SELECT MD.TEXT1 FROM ICOMCOD1 MD
+		         WHERE MD.TYPE = 'M186' AND MD.CODE = P.DELIVERY_TYPE)	AS DELIVERY_TYPE
+		     , (SELECT CMPY.COM_NAME_LOC FROM ICOMCMPY CMPY
+		         WHERE CMPY.COM_CODE = P.AGENT)						AS AGENT_NAME
+		     , P.AGENT												AS AGENT
+		     , DECODE(P.STATUS, 'D', '불가', '가능')					AS STATUS_BEFORE
+		     , TRIM(TO_CHAR(P.BUY_PRICE))							AS BUY_PRICE_BEFORE
+		     , P.BUY_OPEN_DATE										AS BUY_OPEN_DATE_BEFORE
+		     , P.BUY_CLOSE_DATE										AS BUY_CLOSE_DATE_BEFORE
+		     , TRIM(TO_CHAR(P.DELIVERY_LT))							AS DELIVERY_LT_BEFORE
+		     , (SELECT MD.TEXT1 FROM ICOMCOD1 MD
+		         WHERE MD.TYPE = 'M132' AND MD.CODE = P.ITEM_MAKE_TYPE)	AS ITEM_MAKE_TYPE_BEFORE
+		     , (SELECT MD.TEXT1 FROM ICOMCOD1 MD
+		         WHERE MD.TYPE = 'TX17' AND MD.CODE = P.TAX_TYPE)		AS TAX_TYPE_BEFORE
+		     , P.SELLER_ITEM_NO										AS SELLER_ITEM_NO_BEFORE
+		  FROM CMSPRICE P, CMSCATLG C
+		 WHERE P.CMS_CATLG_ID = C.CMS_CATLG_ID
+		   AND P.CMS_CATLG_ID || '-' || LPAD(P.CATLG_SEQ, 5, '0') IN
+		<foreach item="item" collection="codeList" open="(" separator="," close=")">
+			#{item}
+		</foreach>
+	</select>
+
+	<!--
+		구매정보 일괄수정 - 공급상태 변경사유 목록(ICOMCOD1 M185).
+		TEXT3 = OUT(가능->불가) / IN(불가->가능) / SYS(시스템 전용, 화면에 안 띄운다).
+		⚠ ALT_REQUIRED : 원래는 TEXT4='Y' 가 대체코드 필수 표시인데 운영 10건 전부 NULL 이다.
+		   비어 있는 동안 'DUP'(중복존재)로 대신 판정한다 - 적재되면 TEXT4 가 이긴다.
+		반환 계약: CODE / REASON_NAME / DIRECTION / ALT_REQUIRED
+	-->
+	<select id="selectMasterMdCmCmsBuyInfoSupplyReasonList" resultType="java.util.Map">
+		<![CDATA[
+			/*selectMasterMdCmCmsBuyInfoSupplyReasonList*/
+			SELECT MD.CODE  AS CODE
+			     , MD.TEXT1 AS REASON_NAME
+			     , MD.TEXT3 AS DIRECTION
+			     , NVL(MD.TEXT4, DECODE(MD.CODE, 'DUP', 'Y', 'N')) AS ALT_REQUIRED
+			  FROM ICOMCOD1 MD
+			 WHERE MD.TYPE = 'M185'
+			   AND MD.FLAG = 'Y'
+			   AND NVL(MD.TEXT3, ' ') != 'SYS'
+			 ORDER BY MD.VALUE1, MD.CODE
+		]]>
+	</select>
+
+	<!--
+		구매정보 일괄수정 - 과세구분 목록(ICOMCOD1 TX17). 반환 계약: CODE / TAX_NAME
+	-->
+	<select id="selectMasterMdCmCmsBuyInfoTaxTypeList" resultType="java.util.Map">
+		<![CDATA[
+			/*selectMasterMdCmCmsBuyInfoTaxTypeList*/
+			SELECT MD.CODE  AS CODE
+			     , MD.TEXT1 AS TAX_NAME
+			  FROM ICOMCOD1 MD
+			 WHERE MD.TYPE = 'TX17'
+			   AND MD.FLAG = 'Y'
+			 ORDER BY MD.VALUE1, MD.CODE
+		]]>
+	</select>
+
+	<!--
+		구매정보 일괄수정 - 대체코드 실재 확인. 대체코드는 상품정보코드다.
+	-->
+	<select id="selectMasterMdCmCmsBuyInfoCatlgExists" parameterType="java.util.Map" resultType="String">
+		/*selectMasterMdCmCmsBuyInfoCatlgExists*/
+		SELECT C.CMS_CATLG_ID
+		  FROM CMSCATLG C
+		 WHERE C.CMS_CATLG_ID IN
+		<foreach item="item" collection="codeList" open="(" separator="," close=")">
+			#{item}
+		</foreach>
+	</select>
+
+	<!--
+		구매정보 일괄수정 [확인] - 1건 반영.
+		값이 온 항목만 <set> 에 실린다. 각 항목은 F_HST_CMSPRICE 를 통과시켜 CMSPRICE_HST 에 이력을 남긴다
+		(함수가 새 값을 그대로 돌려주므로 대입식이 곧 이력 기록이다. 값이 같으면 함수가 SKIP 한다).
+		⚠ 매입단가 인상은 품의 대상이라 여기서 반영하지 않는다 - 화면이 BUY_PRICE_AFTER 를 비워 보낸다.
+		⚠ 대체코드는 담을 컬럼이 CMSPRICE 에도 CMSPRICE_HST 에도 없다 - 검증만 하고 저장하지 않는다.
+		⚠ 공급상태 외의 항목은 변경사유가 자유입력이라 코드가 없다 - 사유는 REMARK 자리에만 남는다.
+	-->
+	<update id="updateMasterMdCmCmsBuyInfoModApplyBulk" parameterType="java.util.Map">
+		UPDATE CMSPRICE
+		<set>
+			<if test="STATUS_AFTER != null and STATUS_AFTER != ''">
+				STATUS = F_HST_CMSPRICE(CMS_CATLG_ID, CATLG_SEQ, 'STATUS'
+				                      , DECODE(#{STATUS_AFTER}, '불가', 'D', 'C')
+				                      , #{st_user_id}
+				                      , (SELECT MIN(CODE) FROM ICOMCOD1
+				                          WHERE TYPE = 'M185' AND FLAG = 'Y' AND TEXT1 = #{STATUS_REASON})
+				                      , #{STATUS_REASON}) ,
+				SUPPLY_REASON_CODE = (SELECT MIN(CODE) FROM ICOMCOD1
+				                       WHERE TYPE = 'M185' AND FLAG = 'Y' AND TEXT1 = #{STATUS_REASON}) ,
+				SUPPLY_REASON_REMARK = #{STATUS_REASON} ,
+			</if>
+			<if test="BUY_PRICE_AFTER != null and BUY_PRICE_AFTER != ''">
+			<![CDATA[
+				BUY_PRICE = CASE WHEN BUY_PRICE IS NOT NULL AND TO_NUMBER(#{BUY_PRICE_AFTER}) > BUY_PRICE THEN BUY_PRICE
+				                 ELSE TO_NUMBER(F_HST_CMSPRICE(CMS_CATLG_ID, CATLG_SEQ, 'BUY_PRICE'
+				                                             , #{BUY_PRICE_AFTER}, #{st_user_id}, NULL, #{BUY_PRICE_REASON})) END ,
+			]]>
+			</if>
+			<if test="BUY_OPEN_DATE_AFTER != null and BUY_OPEN_DATE_AFTER != ''">
+				BUY_OPEN_DATE = F_HST_CMSPRICE(CMS_CATLG_ID, CATLG_SEQ, 'BUY_OPEN_DATE'
+				                             , #{BUY_OPEN_DATE_AFTER}, #{st_user_id}, NULL, #{BUY_DATE_REASON}) ,
+			</if>
+			<if test="BUY_CLOSE_DATE_AFTER != null and BUY_CLOSE_DATE_AFTER != ''">
+				BUY_CLOSE_DATE = F_HST_CMSPRICE(CMS_CATLG_ID, CATLG_SEQ, 'BUY_CLOSE_DATE'
+				                              , #{BUY_CLOSE_DATE_AFTER}, #{st_user_id}, NULL, #{BUY_DATE_REASON}) ,
+			</if>
+			<if test="DELIVERY_LT_AFTER != null and DELIVERY_LT_AFTER != ''">
+				DELIVERY_LT = TO_NUMBER(F_HST_CMSPRICE(CMS_CATLG_ID, CATLG_SEQ, 'DELIVERY_LT'
+				                                     , #{DELIVERY_LT_AFTER}, #{st_user_id}, NULL, #{DELIVERY_LT_REASON})) ,
+			</if>
+			<if test="ITEM_MAKE_TYPE_AFTER != null and ITEM_MAKE_TYPE_AFTER != ''">
+				ITEM_MAKE_TYPE = F_HST_CMSPRICE(CMS_CATLG_ID, CATLG_SEQ, 'ITEM_MAKE_TYPE'
+				                              , (SELECT MIN(CODE) FROM ICOMCOD1
+				                                  WHERE TYPE = 'M132' AND FLAG = 'Y' AND TEXT1 = #{ITEM_MAKE_TYPE_AFTER})
+				                              , #{st_user_id}, NULL, #{ITEM_MAKE_TYPE_REASON}) ,
+			</if>
+			<if test="TAX_TYPE_AFTER != null and TAX_TYPE_AFTER != ''">
+				TAX_TYPE = F_HST_CMSPRICE(CMS_CATLG_ID, CATLG_SEQ, 'TAX_TYPE'
+				                        , (SELECT MIN(CODE) FROM ICOMCOD1
+				                            WHERE TYPE = 'TX17' AND FLAG = 'Y' AND TEXT1 = #{TAX_TYPE_AFTER})
+				                        , #{st_user_id}, NULL, #{TAX_TYPE_REASON}) ,
+			</if>
+			<if test="SELLER_ITEM_NO_AFTER != null and SELLER_ITEM_NO_AFTER != ''">
+				SELLER_ITEM_NO = F_HST_CMSPRICE(CMS_CATLG_ID, CATLG_SEQ, 'SELLER_ITEM_NO'
+				                              , DECODE(UPPER(#{SELLER_ITEM_NO_AFTER}), 'DELETE', NULL, #{SELLER_ITEM_NO_AFTER})
+				                              , #{st_user_id}, NULL, #{SELLER_ITEM_NO_REASON}) ,
+			</if>
+			CHANGE_USER_ID = #{st_user_id} ,
+			CHANGE_DATE    = TO_CHAR(SYSDATE,'YYYYMMDD') ,
+			CHANGE_TIME    = TO_CHAR(SYSDATE,'HH24MISS')
+		</set>
+		<![CDATA[
+		 WHERE CMS_CATLG_ID = SUBSTR(#{BUY_INFO_ID}, 1, INSTR(#{BUY_INFO_ID}, '-') - 1)
+		   AND CATLG_SEQ    = TO_NUMBER(SUBSTR(#{BUY_INFO_ID}, INSTR(#{BUY_INFO_ID}, '-') + 1))
+		]]>
+	</update>
+
+	<!--
+		구매정보 일괄등록 [확인] - 1건 등록.
+		CATLG_SEQ 는 상품 안에서 1부터 증가한다 → 같은 상품의 현재 최대값 + 1.
+		⚠ INSERT ... SELECT 인데도 <update> 인 이유 : 전역 useGeneratedKeys=true 가 <insert> 에
+		   RETURNING 절을 덧붙여 ORA-00933 이 난다. 로그에는 정상 SQL 로 보이므로 찾기 어렵다.
+		⚠ 수량·단가는 화면이 콤마를 턴 숫자문자열로 보낸다. 빈 문자열은 TO_NUMBER 가 NULL 로 받도록 NULLIF 를 건다.
+	-->
+	<update id="insertMasterMdCmCmsBuyInfoReg" parameterType="java.util.Map">
+		/*insertMasterMdCmCmsBuyInfoReg*/
+		INSERT INTO CMSPRICE
+		(
+			  CMS_CATLG_ID, CATLG_SEQ, STATUS
+			, ADD_USER_ID, ADD_DATE, ADD_TIME
+			, AGENT, BUY_PRICE, PROCESS_TYPE, DELIVERY_TYPE, DELIVERY_LT
+			, MIN_ORDER_QTY, PUR_UNIT_QTY, BUY_OPEN_DATE, BUY_CLOSE_DATE
+			, SELLER_ITEM_NO, TAX_TYPE, ITEM_MAKE_TYPE, WAREHOUSE_CODE
+		)
+		SELECT #{CMS_CATLG_ID}
+		     , NVL(MAX(P.CATLG_SEQ), 0) + 1
+		     , 'C'
+		     , #{st_user_id}
+		     , TO_CHAR(SYSDATE, 'YYYYMMDD')
+		     , TO_CHAR(SYSDATE, 'HH24MISS')
+		     , #{AGENT}
+		     , TO_NUMBER(NULLIF(#{BUY_PRICE},     ''))
+		     , #{PROCESS_TYPE}
+		     , #{DELIVERY_TYPE}
+		     , TO_NUMBER(NULLIF(#{DELIVERY_LT},   ''))
+		     , TO_NUMBER(NULLIF(#{MIN_ORDER_QTY}, ''))
+		     , TO_NUMBER(NULLIF(#{PUR_UNIT_QTY},  ''))
+		     , #{BUY_OPEN_DATE}
+		     , #{BUY_CLOSE_DATE}
+		     , #{SELLER_ITEM_NO}
+		     , #{TAX_TYPE}
+		     , #{ITEM_MAKE_TYPE}
+		     , #{WAREHOUSE_CODE}
+		  FROM CMSPRICE P
+		 WHERE P.CMS_CATLG_ID = #{CMS_CATLG_ID}
+	</update>
+
+</mapper>

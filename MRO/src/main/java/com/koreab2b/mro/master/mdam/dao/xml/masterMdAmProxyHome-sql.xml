@@ -1,0 +1,586 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mdam">
+	<!-- 조회 -->
+	<select id="selectMasterMdAmProxyHomeList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.jsppagestart"/>	
+			<![CDATA[
+				/*master.mdam.selectMasterMdAmProxyHomeList*/
+				SELECT
+				 MAX((SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = A.BUYER)) AS BUYER_NM
+ 				 , ROUND(SUM(DECODE(A.YYYY, TO_CHAR(SYSDATE,'YYYY'),A.SALES_AMT, 0))/1000,0) AS TTL_SALE_WAREHOUSING
+ 				 , ROUND(SUM(DECODE(A.YYYY, TO_CHAR(SYSDATE,'YYYY'),A.MARGIN_AMT, 0))/1000,0) AS TTL_SALE_MARGIN_WAREHOUSING
+				 , ROUND(SUM(DECODE(A.YYYYMM, TO_CHAR(ADD_MONTHS(SYSDATE , -1),'YYYYMM'),A.SALES_AMT, 0))/1000,0) AS LM_SALE_WAREHOUSING
+				 , ROUND(SUM(DECODE(A.YYYYMM, TO_CHAR(ADD_MONTHS(SYSDATE , -1),'YYYYMM'),A.MARGIN_AMT, 0))/1000,0) AS LM_SALE_MARGIN_WAREHOUSING
+				 , ROUND(SUM(DECODE(A.YYYYMM, TO_CHAR(SYSDATE,'YYYYMM'),A.SALES_AMT, 0))/1000,0)  AS M_SALE_WAREHOUSING
+				 , ROUND(SUM(DECODE(A.YYYYMM, TO_CHAR(SYSDATE,'YYYYMM'),A.MARGIN_AMT, 0))/1000,0) AS M_SALE_MARGIN_WAREHOUSING
+				FROM BNTMIS_CUST A
+				WHERE YYYY IN(TO_CHAR(ADD_MONTHS(SYSDATE , -1),'YYYY'),TO_CHAR(SYSDATE,'YYYY'))
+				AND A.BUYER IN (
+				                 SELECT MNG.BUYER
+				                 FROM  ICOMCOD3 COD3, MIS_BUYER_MNG MNG
+				                 WHERE COD3.BUYER = 'KRKORE0001'
+				                 AND   COD3.TYPE = 'CMPY'
+				                 AND   COD3.CODE1= MNG.KEP_DEPT
+				                 AND   COD3.CODE2 = #{user_id} 
+				                 AND   MNG.YEAR = TO_CHAR(SYSDATE,'YYYY')
+				                 AND   MNG.STATUS = 'C'     
+								 UNION 
+                 				 SELECT BUYER
+				                 FROM  MIS_BUYER_MNG B
+				                 WHERE B.YEAR = TO_CHAR(SYSDATE,'YYYY')
+				                 AND   B.STATUS = 'C'
+				                 AND   B.KEP_USER_ID = #{user_id})
+				GROUP BY A.BUYER
+				ORDER BY 1
+			]]>
+		<include refid="common.ibsheet.xml.jsppageend"/>
+	</select>
+	
+	<!-- 나의주요업무 권한 조회 -->
+	<select id="selectMasterMdAmProxyMainWorkProcessAuthGbn" parameterType="java.util.Map" resultType="java.lang.String">
+		<include refid="common.ibsheet.xml.jsppagestart"/>
+			<![CDATA[
+				/*master.mdam.selectMasterMdAmProxyMainWorkProcessAuthGbn*/
+				/* SLOGIC-BEGIN (P07-0000018) */
+				SELECT 
+					CASE
+						WHEN COL01_DATA LIKE '%'||#{user_id}||'%' THEN 'DL'
+						WHEN COL02_DATA LIKE '%'||#{user_id}||'%' THEN 'TL'
+						WHEN COL03_DATA LIKE '%'||#{user_id}||'%' THEN 'BL'
+						ELSE 'MB' END AS AUTH_GBN
+				FROM BNTSLGIMP
+				WHERE 
+						SLG_ID = 'P07-0000018'
+					AND COM_CODE = #{com_code}
+				/* SLOGIC-END */
+			]]>
+		<include refid="common.ibsheet.xml.jsppageend"/>
+	</select>
+	
+	<!-- 주요업무처리 리스트 -->
+	<select id="selectMasterMdAmProxyMainWorkProcessList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.jsppagestart"/>
+			<![CDATA[
+				/*master.mdam.selectMasterMdAmProxyMainWorkProcessList*/
+				SELECT 
+					  DISTINCT(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE=A.BUYER)		AS BUYER_NAME_LOC			-- 0 구매사
+					, NVL(B.IV_DO_NO_CNT,0)														AS IV_DO_NO_CNT				-- 1 수주접수_미접수건
+					, NVL(B.IV_LONG_DO_NO_CNT,0)												AS IV_LONG_DO_NO_CNT		-- 2 수주접수_장기미접수건
+					, NVL(B.IV_EXPECT_DELAY_CNT,0)												AS IV_EXPECT_DELAY_CNT		-- 3 납기_지연예상건
+					, NVL(B.IV_DELAY_CNT,0)														AS IV_DELAY_CNT				-- 4 납기_지연건
+					, NVL(B.IV_LONG_EXPECT_DELAY_CNT,0)											AS IV_LONG_EXPECT_DELAY_CNT	-- 5 납기_장기지연건
+					, NVL(B.IV_DI_NO_CNT,0)														AS IV_DI_NO_CNT				-- 6 납기_실적미등록건
+					, NVL((SELECT SUM(QT_RECV_CNT) FROM KEP_PM_PA_MNG WHERE BUYER = B.BUYER),0)	AS QT_RECV_CNT				-- 7 견적_의뢰건
+						--KEPRQDT.ITEM_GROUP = NULL 이면 취합시 'M'으로 카운트, (OPA팀 확인불가), 해서 M+O한 수량을 사업팀 OPA팀 표시.
+					, NVL(B.QT_DELAY_CNT,0)														AS QT_DELAY_CNT				-- 8 견적_제출지연건
+					, NVL(B.QT_LONG_DELAY_CNT,0)												AS QT_LONG_DELAY_CNT		-- 9 견적_장기지연건
+					, A.BUYER																	AS BUYER					-- 10
+					, NVL(B.IV_BAD_DELAY_CNT,0)													AS IV_BAD_DELAY_CNT			-- 11 납기_악성지연건
+					, (	SELECT COUNT(*) 
+						FROM IF_PROGRESS C 
+						WHERE 	C.BUYER =A.BUYER 
+							AND C.IF_FLAG IN ('A','N') AND C.GUBUN = 'PO')						AS IF_ERR_CNT				-- 12 I/F오류
+					, (	SELECT COUNT(DISTINCT X.PR_NO||Y.LEGACY_PO_NO||X.BUYER) 
+						FROM ICOMPRHD X, ICOMPRDT Y 
+						WHERE	X.RECV_FLAG = 'AT'
+							AND X.PR_NO = Y.PR_NO
+							AND X.BUYER = Y.BUYER
+							AND X.BUYER = A.BUYER
+							AND X.SAVE_FLAG = 'PX'
+							AND X.STATUS != 'D'
+							AND Y.STATUS != 'D')												AS IF_STOP_CNT				-- I/F 임시저장
+					, (	SELECT USER_NAME_LOC
+						FROM ICOMLUSR 
+						WHERE USER_ID=A.KEP_USER_ID)											AS KEP_USER_NAME			-- 13
+					, NVL(B.GR_NO_CNT,0)														AS GR_NO_CNT				-- 14 납기_미입고건
+					, A.ITEM_GROUP																AS ITEM_GROUP
+					, NVL(B.NW_ITM_SPEC_REQ_CNT,0)												AS NW_ITM_SPEC_REQ_CNT		-- 신규상품규격의뢰
+					, NVL(B.NW_ITM_SPEC_CHK_CNT,0)												AS NW_ITM_SPEC_CHK_CNT		-- 신규상품규격의뢰확인
+					, NVL(B.QT_NEGO_REQ_CNT,0)													AS QT_NEGO_REQ_CNT			-- Nego의뢰건
+					, TO_CHAR(B.PROC_DTTM,'YYYYMMDD')											AS PROC_DT					-- 집계 처리날짜
+					, TO_CHAR(B.PROC_DTTM,'HH24:MI')											AS PROC_TM					-- 집계 처리시간
+				FROM MIS_BUYER_MNG A, KEP_PM_PA_MNG B
+				WHERE
+						A.YEAR=TO_CHAR(SYSDATE, 'YYYY')
+			]]>
+				<if test="buyer != null and buyer != ''">
+					AND A.BUYER = #{buyer}
+				</if>
+			<![CDATA[
+					AND A.KEP_USER_ID = #{user_id}
+					AND A.STATUS ='C'
+				     AND B.ITEM_GROUP (+)= 'M'
+					AND A.BUYER=B.BUYER(+)
+				ORDER BY 1
+			]]>
+		<include refid="common.ibsheet.xml.jsppageend"/>
+	</select>
+	
+	<!-- 주요업무처리 합계 -->
+	<select id="selectMasterMdAmProxyMainWorkProcessSumList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.jsppagestart"/>
+			<![CDATA[
+				/*master.mdam.selectMasterMdAmProxyMainWorkProcessSumList*/
+				SELECT 
+					  SUM(IV_DO_NO_CNT)				AS IV_DO_NO_CNT
+					, SUM(IV_LONG_DO_NO_CNT)		AS IV_LONG_DO_NO_CNT
+					, SUM(IV_EXPECT_DELAY_CNT)		AS IV_EXPECT_DELAY_CNT
+					, SUM(IV_DELAY_CNT)				AS IV_DELAY_CNT
+					, SUM(IV_LONG_EXPECT_DELAY_CNT) AS IV_LONG_EXPECT_DELAY_CNT
+					, SUM(IV_DI_NO_CNT)				AS IV_DI_NO_CNT
+					, SUM(QT_RECV_CNT)				AS QT_RECV_CNT
+					, SUM(QT_DELAY_CNT)				AS QT_DELAY_CNT
+					, SUM(QT_LONG_DELAY_CNT)		AS QT_LONG_DELAY_CNT
+					, SUM(IV_BAD_DELAY_CNT)			AS IV_BAD_DELAY_CNT
+					, SUM(IF_ERR_CNT)				AS IF_ERR_CNT
+					, SUM(IF_STOP_CNT)				AS IF_STOP_CNT
+					, SUM(GR_NO_CNT)				AS GR_NO_CNT
+					, SUM(NW_ITM_SPEC_REQ_CNT)		AS NW_ITM_SPEC_REQ_CNT
+					, SUM(NW_ITM_SPEC_CHK_CNT)		AS NW_ITM_SPEC_CHK_CNT
+					, SUM(QT_NEGO_REQ_CNT)			AS QT_NEGO_REQ_CNT
+				FROM (
+					SELECT 
+						  DISTINCT(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE=A.BUYER)		AS BUYER_NAME_LOC			-- 0 구매사
+						, NVL(B.IV_DO_NO_CNT,0)														AS IV_DO_NO_CNT				-- 1 수주접수_미접수건
+						, NVL(B.IV_LONG_DO_NO_CNT,0)												AS IV_LONG_DO_NO_CNT		-- 2 수주접수_장기미접수건
+						, NVL(B.IV_EXPECT_DELAY_CNT,0)												AS IV_EXPECT_DELAY_CNT		-- 3 납기_지연예상건
+						, NVL(B.IV_DELAY_CNT,0)														AS IV_DELAY_CNT				-- 4 납기_지연건
+						, NVL(B.IV_LONG_EXPECT_DELAY_CNT,0)											AS IV_LONG_EXPECT_DELAY_CNT	-- 5 납기_장기지연건
+						, NVL(B.IV_DI_NO_CNT,0)														AS IV_DI_NO_CNT				-- 6 납기_실적미등록건
+						, NVL((SELECT SUM(QT_RECV_CNT) FROM KEP_PM_PA_MNG WHERE BUYER = B.BUYER),0)	AS QT_RECV_CNT				-- 7 견적_의뢰건
+							--KEPRQDT.ITEM_GROUP = NULL 이면 취합시 'M'으로 카운트, (OPA팀 확인불가), 해서 M+O한 수량을 사업팀 OPA팀 표시.
+						, NVL(B.QT_DELAY_CNT,0)														AS QT_DELAY_CNT				-- 8 견적_제출지연건
+						, NVL(B.QT_LONG_DELAY_CNT,0)												AS QT_LONG_DELAY_CNT		-- 9 견적_장기지연건
+						, A.BUYER																	AS BUYER					-- 10
+						, NVL(B.IV_BAD_DELAY_CNT,0)													AS IV_BAD_DELAY_CNT			-- 11 납기_악성지연건
+						, (	SELECT COUNT(*) 
+							FROM IF_PROGRESS C 
+							WHERE 	C.BUYER =A.BUYER 
+								AND C.IF_FLAG IN ('A','N') AND C.GUBUN = 'PO')						AS IF_ERR_CNT				-- 12 I/F오류
+						, (	SELECT COUNT(DISTINCT X.PR_NO||Y.LEGACY_PO_NO||X.BUYER) 
+							FROM ICOMPRHD X, ICOMPRDT Y 
+							WHERE	X.RECV_FLAG = 'AT'
+								AND X.PR_NO = Y.PR_NO
+								AND X.BUYER = Y.BUYER
+								AND X.BUYER = A.BUYER
+								AND X.SAVE_FLAG = 'PX'
+								AND X.STATUS != 'D'
+								AND Y.STATUS != 'D')												AS IF_STOP_CNT				-- I/F 임시저장
+						, (	SELECT USER_NAME_LOC
+							FROM ICOMLUSR 
+							WHERE USER_ID=A.KEP_USER_ID)											AS KEP_USER_NAME			-- 13
+						, NVL(B.GR_NO_CNT,0)														AS GR_NO_CNT				-- 14 납기_미입고건
+						, A.ITEM_GROUP																AS ITEM_GROUP
+						, NVL(B.NW_ITM_SPEC_REQ_CNT,0)												AS NW_ITM_SPEC_REQ_CNT		-- 품목정비
+						, NVL(B.NW_ITM_SPEC_CHK_CNT,0)												AS NW_ITM_SPEC_CHK_CNT		-- 물질정보
+						, NVL(B.QT_NEGO_REQ_CNT,0)													AS QT_NEGO_REQ_CNT			-- Nego의뢰건
+					FROM MIS_BUYER_MNG A, KEP_PM_PA_MNG B
+					WHERE
+							A.YEAR=TO_CHAR(SYSDATE, 'YYYY')
+						AND A.KEP_USER_ID = #{user_id}
+						AND A.STATUS ='C'
+				        AND 'M'=B.ITEM_GROUP
+						AND A.BUYER=B.BUYER(+)
+					ORDER BY 1
+				) X
+			]]>
+		<include refid="common.ibsheet.xml.jsppageend"/>
+	</select>
+	
+	<!-- 긴급납기/선입고 리스트 -->
+	<select id="selectMasterMdAmProxyDocTypeFPoList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.jsppagestart"/>
+			<![CDATA[
+				/*master.mdam.selectMasterMdAmProxyDocTypeFPoList*/
+				SELECT 
+					  (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE=X.BUYER) AS BUYER_NAME
+					, X.BUYER
+					, NVL((	SELECT COUNT(*) 
+							FROM ICOMPOHD A, ICOMPODT B
+							WHERE	A.BUYER=X.BUYER
+								AND A.DOC_TYPE ^='X'
+								AND A.PO_CREATE_DATE>=TO_CHAR(SYSDATE-30, 'YYYYMMDD')
+								AND A.STATUS ^='D'
+								AND A.DOC_TYPE='F'
+								AND A.BUYER=B.BUYER
+								AND A.PO_NO=B.PO_NO
+								AND B.STATUS ^='D'
+								AND B.ITEM_QTY>B.GR_QTY
+								AND B.ITEM_QTY>B.DI_QTY GROUP BY B.BUYER),0) AS GINGEUB_CNT	-- 긴급납기
+					, (SELECT COUNT(*) FROM KEP_BEFORE_STOCKED_MNG WHERE BUYER=X.BUYER AND STATUS='C') AS BS_REG_CNT		-- 선입고_선입고요청
+					, (SELECT COUNT(*) FROM KEP_BEFORE_STOCKED_MNG WHERE BUYER=X.BUYER AND STATUS='F') AS BS_FINISH_CNT		-- 선입고_발주완료
+					, (SELECT COUNT(*) FROM KEP_BEFORE_STOCKED_MNG WHERE BUYER=X.BUYER AND STATUS='P') AS BS_PARTIAL_CNT	-- 선입고_부분완료
+					, (SELECT COUNT(*) FROM KEP_BEFORE_STOCKED_MNG WHERE BUYER=X.BUYER AND STATUS='D') AS BS_CANCEL_CNT		-- 선입고_선입고취소
+				FROM BUYEROWN X 
+				WHERE X.USER_ID = #{user_id}
+			]]>
+		<include refid="common.ibsheet.xml.jsppageend"/>
+	</select>
+	
+	<update  id="SP_PROC_KEP_PM_PA_DB" parameterType="java.util.Map" >
+		<![CDATA[
+				/*SP_PROC_KEP_PM_PA_DB*/
+				call PROC_KEP_PM_PA_DB(#{buyer}, #{user_id})
+		]]>
+	</update>
+
+	<!-- 나의주요업무 부서장용 -->
+	<select id="selectMasterMdAmProxyMainWorkProcessDLList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.jsppagestart"/>
+			<![CDATA[
+				/*master.mdam.selectMasterMdAmProxyMainWorkProcessDLList*/
+				WITH TOT_PMPA_CNT AS (
+					SELECT
+						B.KEP_DEPT AS KEP_DEPT,
+						A.GUBUN,
+						COUNT(DISTINCT A.BUYER||A.KEY1||A.KEY2||A.KEY3||A.KEY4) AS CNT
+					FROM KEP_PM_PA_LIST A, MIS_BUYER_MNG B
+					WHERE A.BUYER=B.BUYER
+					AND B.YEAR=TO_CHAR(SYSDATE, 'YYYY')
+					AND B.STATUS='C'
+					AND B.PRIORITY = 'Y'
+					GROUP BY B.KEP_DEPT, A.GUBUN
+					ORDER BY 2
+				)
+				SELECT
+					C.TEXT2 AS DEPT_NAME,
+					NVL((SELECT COUNT(DISTINCT A.BUYER||A.LEGACY_NO) AS IF_ERR_CNT
+						FROM IF_PROGRESS A, MIS_BUYER_MNG B
+						WHERE
+								A.IF_FLAG IN ('A','N')
+							AND A.GUBUN='PO'
+							AND A.BUYER=B.BUYER
+							AND B.YEAR=TO_CHAR(SYSDATE, 'YYYY')
+							AND B.STATUS='C'
+							AND B.KEP_DEPT=C.CODE
+						GROUP BY B.KEP_DEPT
+					),0) AS IF_ERR_CNT,
+					NVL((SELECT NVL(CNT,0) FROM TOT_PMPA_CNT WHERE KEP_DEPT=C.CODE AND GUBUN='IV_DO_NO'),0) AS IV_DO_NO_CNT,
+					NVL((SELECT NVL(CNT,0) FROM TOT_PMPA_CNT WHERE KEP_DEPT=C.CODE AND GUBUN='IV_LONG_DO_NO'),0) AS IV_LONG_DO_NO_CNT,
+					NVL((SELECT NVL(CNT,0) FROM TOT_PMPA_CNT WHERE KEP_DEPT=C.CODE AND GUBUN='IV_EXPECT_DELAY'),0) AS IV_EXPECT_DELAY_CNT,
+					NVL((SELECT NVL(CNT,0) FROM TOT_PMPA_CNT WHERE KEP_DEPT=C.CODE AND GUBUN='IV_DELAY'),0) AS IV_DELAY_CNT,
+					NVL((SELECT NVL(CNT,0) FROM TOT_PMPA_CNT WHERE KEP_DEPT=C.CODE AND GUBUN='IV_LONG_EXPECT_DELAY'),0) AS IV_LONG_EXPECT_DELAY_CNT,
+					NVL((SELECT NVL(CNT,0) FROM TOT_PMPA_CNT WHERE KEP_DEPT=C.CODE AND GUBUN='IV_BAD_DELAY'),0) AS IV_BAD_DELAY_CNT,
+					NVL((SELECT NVL(CNT,0) FROM TOT_PMPA_CNT WHERE KEP_DEPT=C.CODE AND GUBUN='IV_DI_NO'),0) AS IV_DI_NO_CNT,
+					NVL((SELECT NVL(CNT,0) FROM TOT_PMPA_CNT WHERE KEP_DEPT=C.CODE AND GUBUN='QT_RECV'),0) AS QT_RECV_CNT,
+					NVL((SELECT NVL(CNT,0) FROM TOT_PMPA_CNT WHERE KEP_DEPT=C.CODE AND GUBUN='QT_DELAY'),0) AS QT_DELAY_CNT,
+					NVL((SELECT NVL(CNT,0) FROM TOT_PMPA_CNT WHERE KEP_DEPT=C.CODE AND GUBUN='QT_LONG_DELAY'),0) AS QT_LONG_DELAY_CNT,
+					NVL((SELECT NVL(CNT,0) FROM TOT_PMPA_CNT WHERE KEP_DEPT=C.CODE AND GUBUN='GR_NOT'),0) AS GR_NO_DELAY,
+					C.CODE
+				FROM ICOMCOD2 C
+				WHERE
+						C.COMPANY_CODE='KRKORE0001'
+					AND C.TEXT3 = 'ARAP'
+					AND C.TYPE='C001'
+					AND C.FLAG='Y'
+				ORDER BY 1
+			]]>
+		<include refid="common.ibsheet.xml.jsppageend"/>
+	</select>
+	
+	<!-- 나의주요업무 팀장용 -->
+	<select id="selectMasterMdAmProxyMainWorkProcessTLList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.jsppagestart"/>
+			<![CDATA[
+				/*master.mdam.selectMasterMdAmProxyMainWorkProcessTLList*/
+				SELECT
+					(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE=B.BUYER) AS BUYER_NAME_LOC,
+					(SELECT COUNT(*) FROM IF_PROGRESS C 
+						WHERE
+							C.BUYER =B.BUYER
+							AND C.IF_FLAG IN ('A','N')
+							AND C.GUBUN = 'PO'
+					) AS IF_ERR_CNT,
+					MAX(B.IV_DO_NO_CNT) AS IV_DO_NO_CNT,
+					MAX(B.IV_LONG_DO_NO_CNT) AS IV_LONG_DO_NO_CNT,
+					MAX(B.IV_EXPECT_DELAY_CNT) AS IV_EXPECT_DELAY_CNT,
+					MAX(B.IV_DELAY_CNT) AS IV_DELAY_CNT,
+					MAX(B.IV_LONG_EXPECT_DELAY_CNT) AS IV_LONG_EXPECT_DELAY_CNT,
+					MAX(B.IV_BAD_DELAY_CNT) AS IV_BAD_DELAY_CNT,
+					MAX(B.IV_DI_NO_CNT) AS IV_DI_NO_CNT,
+					SUM(distinct NVL(B.GR_NO_CNT,0)) AS GR_NO_CNT,
+					MAX(B.QT_RECV_CNT) AS QT_RECV_CNT,
+					MAX(B.QT_DELAY_CNT) AS QT_DELAY_CNT,
+					MAX(B.QT_LONG_DELAY_CNT) AS QT_LONG_DELAY_CNT,
+					B.BUYER,
+					MAX((SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID=A.KEP_USER_ID)) AS KEP_USER_NAME,
+					B.ITEM_GROUP
+				FROM MIS_BUYER_MNG A, KEP_PM_PA_MNG B
+				WHERE
+						A.YEAR=TO_CHAR(SYSDATE ,'YYYY')
+					AND A.STATUS='C'
+					AND A.ITEM_GROUP=B.ITEM_GROUP
+					AND A.KEP_DEPT = #{dept_code}
+					AND A.BUYER=B.BUYER
+				GROUP BY B.BUYER, B.ITEM_GROUP
+			]]>
+		<include refid="common.ibsheet.xml.jsppageend"/>
+	</select>
+
+	<!-- 나의주요업무 사업부장용 -->
+	<select id="selectMasterMdAmProxyMainWorkProcessBLList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.jsppagestart"/>
+			<![CDATA[
+				/*master.mdam.selectMasterMdAmProxyMainWorkProcessBLList*/
+				WITH TOT_PMPA_CNT AS (	
+					SELECT	
+						B.KEP_DEPT AS KEP_DEPT,	
+						A.GUBUN,	
+						A.KEY4,	
+						B.POSITION_GROUP,	
+						COUNT(DISTINCT A.BUYER||A.KEY1||A.KEY2||A.KEY3||A.KEY4) AS CNT	
+					FROM KEP_PM_PA_LIST A, MIS_BUYER_MNG B	
+					WHERE
+							A.BUYER=B.BUYER	
+						AND A.KEY4=B.ITEM_GROUP	
+						AND B.YEAR=TO_CHAR(SYSDATE, 'YYYY')	
+						AND B.STATUS='C'	
+						AND B.KEP_DEPT IN (${param1})	
+					GROUP BY B.KEP_DEPT, A.GUBUN, A.KEY4, B.POSITION_GROUP	
+					ORDER BY 2	
+				)	
+				SELECT	
+					C.TEXT2 AS DEPT_NAME,
+					NVL((SELECT	
+							COUNT(DISTINCT A.BUYER||A.LEGACY_NO) AS IF_ERR_CNT	
+						FROM IF_PROGRESS A, MIS_BUYER_MNG B	
+						WHERE
+								A.IF_FLAG IN ('A','N')	
+							AND A.GUBUN='PO'	
+							AND A.BUYER=B.BUYER	
+							AND B.YEAR=TO_CHAR(SYSDATE, 'YYYY')	
+							AND B.STATUS='C'	
+							AND B.KEP_DEPT=C.CODE	
+							AND B.ITEM_GROUP  = DECODE(B.KEP_DEPT,'017','O','M')	
+						GROUP BY B.KEP_DEPT	
+						),0) AS IF_ERR_CNT,	
+					NVL((SELECT NVL(CNT,0) FROM TOT_PMPA_CNT WHERE KEP_DEPT=C.CODE AND GUBUN='IV_DO_NO' AND POSITION_GROUP='PA' AND KEY4 = DECODE(C.CODE,'017','O','M')),0) AS IV_DO_NO_CNT,	
+					NVL((SELECT NVL(CNT,0) FROM TOT_PMPA_CNT WHERE KEP_DEPT=C.CODE AND GUBUN='IV_LONG_DO_NO' AND POSITION_GROUP='PM' AND KEY4 = DECODE(C.CODE,'017','O','M')),0) AS IV_LONG_DO_NO_CNT,	
+					NVL((SELECT NVL(CNT,0) FROM TOT_PMPA_CNT WHERE KEP_DEPT=C.CODE AND GUBUN='IV_EXPECT_DELAY' AND POSITION_GROUP='PA' AND KEY4 = DECODE(C.CODE,'017','O','M')),0) AS IV_EXPECT_DELAY_CNT,	
+					NVL((SELECT NVL(CNT,0) FROM TOT_PMPA_CNT WHERE KEP_DEPT=C.CODE AND GUBUN='IV_DELAY' AND POSITION_GROUP='PA' AND KEY4 = DECODE(C.CODE,'017','O','M')),0) AS IV_DELAY_CNT,	
+					NVL((SELECT NVL(CNT,0) FROM TOT_PMPA_CNT WHERE KEP_DEPT=C.CODE AND GUBUN='IV_LONG_EXPECT_DELAY' AND POSITION_GROUP='PM' AND KEY4 = DECODE(C.CODE,'017','O','M')),0) AS IV_LONG_EXPECT_DELAY_CNT,	
+					NVL((SELECT NVL(CNT,0) FROM TOT_PMPA_CNT WHERE KEP_DEPT=C.CODE AND GUBUN='IV_BAD_DELAY' AND POSITION_GROUP='PA' AND KEY4 = DECODE(C.CODE,'017','O','M')),0) AS IV_BAD_DELAY_CNT,	
+					NVL((SELECT NVL(CNT,0) FROM TOT_PMPA_CNT WHERE KEP_DEPT=C.CODE AND GUBUN='IV_DI_NO' AND POSITION_GROUP='PA' AND KEY4 = DECODE(C.CODE,'017','O','M')),0) AS IV_DI_NO_CNT,	
+					NVL((SELECT NVL(CNT,0) FROM TOT_PMPA_CNT WHERE KEP_DEPT=C.CODE AND GUBUN='QT_RECV' AND POSITION_GROUP='PA' AND KEY4 = DECODE(C.CODE,'017','O','M')),0) AS QT_RECV_CNT,	
+					NVL((SELECT NVL(CNT,0) FROM TOT_PMPA_CNT WHERE KEP_DEPT=C.CODE AND GUBUN='QT_DELAY' AND POSITION_GROUP='PA' AND KEY4 = DECODE(C.CODE,'017','O','M')),0) AS QT_DELAY_CNT,	
+					NVL((SELECT NVL(CNT,0) FROM TOT_PMPA_CNT WHERE KEP_DEPT=C.CODE AND GUBUN='QT_LONG_DELAY' AND POSITION_GROUP='PA' AND KEY4 = DECODE(C.CODE,'017','O','M')),0) AS QT_LONG_DELAY_CNT,	
+					NVL((SELECT NVL(CNT,0) FROM TOT_PMPA_CNT WHERE KEP_DEPT=C.CODE AND GUBUN='GR_NOT' AND POSITION_GROUP='PA' AND KEY4 = DECODE(C.CODE,'017','O','M')),0) AS GR_NO_DELAY,	
+					C.CODE	
+				FROM ICOMCOD2 C	
+				WHERE
+						C.COMPANY_CODE='KRKORE0001'	
+					AND C.CODE IN (${param1})	
+					AND C.TYPE='C001'	
+					AND C.FLAG='Y'	
+				ORDER BY 1	
+			]]>
+		<include refid="common.ibsheet.xml.jsppageend"/>
+	</select>
+
+	<!-- 담당자별 처리현황 -->
+	<select id="selectWorkProcessListByUser" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.jsppagestart"/>
+			<![CDATA[
+				/*master.mdam.selectWorkProcessListByUser*/
+				WITH TOT_PMPA_CNT AS (
+					SELECT A.BUYER, B.KEP_USER_ID, A.GUBUN, B.POSITION_GROUP, COUNT(*) AS CNT
+					FROM KEP_PM_PA_LIST A, MIS_BUYER_MNG B
+					WHERE 	A.BUYER=B.BUYER
+						AND A.KEY4=B.ITEM_GROUP
+						AND B.YEAR=TO_CHAR(SYSDATE, 'YYYY')
+						AND B.STATUS='C'
+					GROUP BY A.BUYER, B.KEP_USER_ID, A.GUBUN, B.POSITION_GROUP
+				)
+				SELECT
+					MAX(X.KEP_USER_NAME) AS KEP_USER_NAME,
+					SUM(X.IF_ERR_CNT) AS IF_ERR_CNT,
+					SUM(X.IV_DO_NO) AS IV_DO_NO_CNT,
+					SUM(X.IV_LONG_DO_NO) AS IV_LONG_DO_NO_CNT,
+					SUM(X.IV_EXPECT_DELAY) AS IV_EXPECT_DELAY_CNT,
+					SUM(X.IV_DELAY) AS IV_DELAY_CNT,
+					SUM(X.IV_LONG_EXPECT_DELAY) AS IV_LONG_EXPECT_DELAY_CNT,
+					SUM(X.IV_DI_NO) AS IV_DI_NO_CNT,
+					SUM(X.QT_RECV) AS QT_RECV_CNT,
+					SUM(X.QT_DELAY) AS QT_DELAY_CNT,
+					SUM(X.QT_LONG_DELAY) AS QT_LONG_DELAY_CNT,
+					SUM(X.IV_BAD_DELAY) AS IV_BAD_DELAY_CNT,
+					SUM(X.GR_NO_DELAY) AS GR_NO_DELAY_CNT
+				FROM(
+				SELECT
+					(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID=A.KEP_USER_ID) AS KEP_USER_NAME,
+					0 AS IF_ERR_CNT,
+					(SELECT NVL(SUM(CNT),0) FROM TOT_PMPA_CNT WHERE KEP_USER_ID=A.KEP_USER_ID AND GUBUN='IV_DO_NO' AND POSITION_GROUP='PA') AS IV_DO_NO,
+					(SELECT NVL(SUM(CNT),0) FROM TOT_PMPA_CNT WHERE KEP_USER_ID=A.KEP_USER_ID AND GUBUN='IV_LONG_DO_NO'  AND POSITION_GROUP='PM') AS IV_LONG_DO_NO,
+					(SELECT NVL(SUM(CNT),0) FROM TOT_PMPA_CNT WHERE KEP_USER_ID=A.KEP_USER_ID AND GUBUN='IV_EXPECT_DELAY' AND POSITION_GROUP='PA') AS IV_EXPECT_DELAY,
+					(SELECT NVL(SUM(CNT),0) FROM TOT_PMPA_CNT WHERE KEP_USER_ID=A.KEP_USER_ID AND GUBUN='IV_DELAY' AND POSITION_GROUP='PA') AS IV_DELAY,
+					(SELECT NVL(SUM(CNT),0) FROM TOT_PMPA_CNT WHERE KEP_USER_ID=A.KEP_USER_ID AND GUBUN='IV_LONG_EXPECT_DELAY' AND POSITION_GROUP='PM') AS IV_LONG_EXPECT_DELAY,
+					(SELECT NVL(SUM(CNT),0) FROM TOT_PMPA_CNT WHERE KEP_USER_ID=A.KEP_USER_ID AND GUBUN='IV_DI_NO' AND POSITION_GROUP='PA') AS IV_DI_NO,
+					(SELECT NVL(SUM(CNT),0) FROM TOT_PMPA_CNT WHERE KEP_USER_ID=A.KEP_USER_ID AND GUBUN='QT_RECV' AND POSITION_GROUP='PA') AS QT_RECV,
+					(SELECT NVL(SUM(CNT),0) FROM TOT_PMPA_CNT WHERE KEP_USER_ID=A.KEP_USER_ID AND GUBUN='QT_DELAY' AND POSITION_GROUP='PA') AS QT_DELAY,
+					(SELECT NVL(SUM(CNT),0) FROM TOT_PMPA_CNT WHERE KEP_USER_ID=A.KEP_USER_ID AND GUBUN='QT_LONG_DELAY' AND POSITION_GROUP='PA') AS QT_LONG_DELAY,
+					(SELECT NVL(SUM(CNT),0) FROM TOT_PMPA_CNT WHERE KEP_USER_ID=A.KEP_USER_ID AND GUBUN='IV_BAD_DELAY' AND POSITION_GROUP='BM') AS IV_BAD_DELAY,
+					(SELECT NVL(SUM(CNT),0) FROM TOT_PMPA_CNT WHERE KEP_USER_ID=A.KEP_USER_ID AND GUBUN='GR_NO_DELAY' AND POSITION_GROUP='PA') AS GR_NO_DELAY,
+					A.KEP_USER_ID
+				FROM MIS_BUYER_MNG A
+				WHERE
+						A.YEAR=TO_CHAR(SYSDATE, 'YYYY')
+					AND A.STATUS='C'
+					AND A.KEP_DEPT = #{dept_code}
+				GROUP BY A.KEP_USER_ID, A.ITEM_GROUP
+				UNION
+				SELECT
+					(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID=B.KEP_USER_ID) AS KEP_USER_NAME,
+					COUNT(*) AS IF_ERR_CNT,
+					0 AS IV_DO_NO,
+					0 AS IV_LONG_DO_NO,
+					0 AS IV_EXPECT_DELAY,
+					0 AS IV_DELAY,
+					0 AS IV_LONG_EXPECT_DELAY,
+					0 AS IV_DI_NO,
+					0 AS QT_RECV,
+					0 AS QT_DELAY,
+					0 AS QT_LONG_DELAY,
+					0 AS IV_BAD_DELAY,
+					0 AS GR_NO_DELAY,
+					B.KEP_USER_ID
+				FROM IF_PROGRESS A, MIS_BUYER_MNG B
+				WHERE
+						A.IF_FLAG IN ('A','N')
+					AND A.GUBUN='PO'
+					AND A.BUYER=B.BUYER
+					AND B.YEAR=TO_CHAR(SYSDATE, 'YYYY')
+					AND B.STATUS='C'
+					AND B.KEP_DEPT = #{dept_code}
+					AND B.POSITION_GROUP='PA'
+				GROUP BY B.KEP_USER_ID,B.ITEM_GROUP) X GROUP BY KEP_USER_ID
+			]]>
+		<include refid="common.ibsheet.xml.jsppageend"/>
+	</select>
+	<!-- 나의주요업무 사업부장용 -->
+	<select id="selectMasterMdAmProxyMainWorkProcessSSList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.jsppagestart"/>
+			<![CDATA[
+				/*master.mdam.selectMasterMdAmProxyMainWorkProcessSSList*/
+				SELECT
+					(SELECT COD.TEXT1 FROM ICOMCOD1 COD
+						WHERE COD.TYPE ='USRTYPE'
+						AND COD.CODE =  'SS' /**P*/
+						AND COD.FLAG ='Y') AS DEPT
+				  , MAX(X.TOT_3_TARGET) AS TOT_3_TARGET
+				  , MAX(X.TOT_TARGET)
+				  , MAX(X.TOT_COMP)
+				  , DECODE(MAX(X.TOT_COMP),0,0,ROUND(MAX(X.TOT_TARGET) / MAX(X.TOT_COMP)*100,2)) AS TOT_RATE
+				FROM (
+				SELECT
+				 '1' GBN
+				 ,COUNT(BUYER_ITEM_NO) AS TOT_3_TARGET
+				 , 0 AS TOT_TARGET
+				 , 0 AS TOT_COMP
+				FROM KEPRQDT A
+				WHERE A.SG_D_DATE IS NULL
+				AND A.BTOA_DATE >= TO_CHAR(SYSDATE-7,'YYYYMMDD')
+				AND A.RECV_FLAG  IN ('NW', 'GA')
+				AND A.BTOA_NEGO_PRICE = 0
+				AND A.KEP_USER_ID IS NULL
+				AND NOT EXISTS (
+				      SELECT 1 FROM ICOMCOD1 COD
+				      WHERE COD.TYPE ='EXCCMPY'
+				      AND COD.CODE = A.BUYER
+				      AND NVL(COD.TEXT4, 'N') != 'Y'
+				     )
+
+				UNION ALL
+				SELECT
+				 '1' GBN
+				 ,0 AS TOT_3_TARGET
+				 , COUNT(A.BUYER_ITEM_NO) AS TOT_TARGET
+				 , 0 AS TOT_COMP
+				FROM KEPRQDT A
+				WHERE A.SG_D_DATE IS NOT NULL
+				AND A.BTOA_DATE BETWEEN TO_CHAR(SYSDATE-1,'YYYYMMDD') AND TO_CHAR(SYSDATE,'YYYYMMDD')
+				AND A.STATUS IN ('C','R')
+				AND A.RECV_FLAG != 'GD'
+				AND NOT EXISTS (
+				      SELECT 1 FROM ICOMCOD1 COD
+				      WHERE COD.TYPE ='EXCCMPY'
+				      AND COD.CODE = A.BUYER
+				      AND NVL(COD.TEXT4, 'N') != 'Y'
+				     )
+				UNION ALL
+				SELECT
+				 '1' GBN
+				 , 0 AS TOT_3_TARGET
+				 , 0 AS TOT_TARGET
+				 , COUNT(A.BUYER_ITEM_NO) AS TOT_COMP
+				FROM KEPRQDT A
+				WHERE A.BTOA_DATE BETWEEN TO_CHAR(SYSDATE-1,'YYYYMMDD') AND TO_CHAR(SYSDATE,'YYYYMMDD')
+				AND A.STATUS IN ('C','R')
+				AND A.RECV_FLAG != 'GD'
+				AND NOT EXISTS (
+				      SELECT 1 FROM ICOMCOD1 COD
+				      WHERE COD.TYPE ='EXCCMPY'
+				      AND COD.CODE = A.BUYER
+				      AND NVL(COD.TEXT4, 'N') != 'Y'
+				     )
+				) X
+				GROUP BY GBN
+			]]>
+		<include refid="common.ibsheet.xml.jsppageend"/>
+	</select>
+	<select id="selectMasterMdAmProxyMainWorkProcessSMList" parameterType="java.util.Map" resultType="java.util.Map">
+			<![CDATA[
+				/*master.mdam.selectMasterMdAmProxyMainWorkProcessSMList*/
+				SELECT
+				 A.USER_DEPT
+				 ,(SELECT COD.TEXT1 FROM ICOMCOD2 COD
+					WHERE COD.TYPE ='C001'
+					AND COD.COMPANY_CODE ='KRKORE0001'
+					AND COD.CODE = A.USER_DEPT) AS USER_DEPT_NM
+				 ,A.USER_ID
+				 ,(SELECT USR.USER_NAME_LOC FROM ICOMLUSR USR
+				 	WHERE USR.USER_ID = A.USER_ID) AS USR_NM
+				 ,A.T_ITEM_CNT
+				 ,A.EXPIRED_ITEM_CNT
+				 ,A.MON_01
+				 ,A.MON_02
+				 ,A.MON_03
+				 ,A.MON_04
+				 ,A.MON_05
+				 ,A.MON_06
+				 ,A.MON_07
+				 ,A.MON_08
+				 ,A.MON_09
+				 ,A.MON_10
+				 ,A.MON_11
+				 ,A.MON_12
+				 ,A.UNPROCESSED_VOC_CNT
+				FROM KEP_SM_BOARD A
+				WHERE A.USER_DEPT = DECODE(#{user_type},'SOF',A.USER_DEPT,#{dept_code})
+				ORDER BY 2, 4
+			]]>
+	</select>
+	<select id="selectMasterMdAmProxyMainWorkProcessDSMList" parameterType="java.util.Map" resultType="java.util.Map">
+			<![CDATA[
+				/*master.mdam.selectMasterMdAmProxyMainWorkProcessDSMList*/
+				SELECT
+				 XX.USER_DEPT
+				 ,(SELECT COD.TEXT1 FROM ICOMCOD2 COD
+					WHERE COD.TYPE ='C001'
+					AND COD.COMPANY_CODE ='KRKORE0001'
+					AND COD.CODE = XX.USER_DEPT) AS USER_DEPT_NM
+				 ,XX.USER_ID
+				 ,(SELECT USR.USER_NAME_LOC FROM ICOMLUSR USR
+				 	WHERE USR.USER_ID = XX.USER_ID) AS USR_NM
+				 ,XX.SOURCING_CM_CNT
+				 ,XX.SOURCING_CM_1DAY
+				 ,XX.SOURCING_CM_2DAY
+				 ,XX.SOURCING_CM_3_4DAY
+				 ,XX.SOURCING_CM_5DAY_OVER
+				 ,XX.UNPROCESSED_VOC_CNT
+				FROM KEP.KEP_DSM_BOARD XX
+				WHERE XX.USER_DEPT =  DECODE(#{user_type},'SOF',XX.USER_DEPT,REPLACE(#{dept_code},'_A',''))
+				ORDER BY 2, 4
+			]]>
+	</select>
+</mapper>

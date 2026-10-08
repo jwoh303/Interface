@@ -1,0 +1,581 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="seller.mpiv">
+	<select id="selectSellerMpIvDeliveryProgressStateList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.jsppagestart"/>
+		<![CDATA[
+			/*selectSellerMpIvDeliveryProgressStateList*/		 			
+			SELECT
+				  X.BUYER2 AS BUYER_NAME  --1구매사
+				, DECODE(X.DS_DATE, NULL,'발주', DECODE(Y.INV_NO, NULL, '수주접수',
+						DECODE(Y.DELIVERY_DATE,NULL,'거래명세서생성','납품완료'))) AS STATUS   --2상태
+				, (SELECT DECODE(COUNT(*), 0, '', '(요청)') FROM KEP_PO_MNG
+					WHERE BUYER = X.BUYER_CODE
+					AND PO_NO = X.PO_NO
+					AND PO_SEQ IN ('000000', X.PO_SEQ)
+					AND DS_SEQ IN ('000000', X.DS_SEQ)
+					AND STATUS = 'S'
+					AND TYPE IN (SELECT CODE FROM ICOMCOD1 WHERE TYPE = 'PMNGTYPE' AND FLAG = 'Y' AND TEXT4 = 'Y')
+				) AS PMNG_STATUS
+				, X.PO_CREATE_DATE  --3발주일
+				, X.PO_NO   --4발주번호
+				, X.DS_DATE --5납품예정일
+				, Y.INV_NO  --6거래명세서번호
+				, Y.DELIVERY_DATE   --7납품일
+				, X.BUYER_ITEM_NO   --8품목코드
+				, X.DESCRIPTION --9품명
+				, X.SPECIFICATION   --10규격
+				, X.ITEM_QTY    --11발주수량
+				, X.CD_QTY  --12납품예정수량
+				, Y.DELIVERY_QTY    --13납품확정수량
+				, X.LEGACY_PO_NO    --14구매사발주번호
+				, X.AGENT_PRICE --15단가
+				, X.UNIT_MEASURE    --16단위
+				, DECODE(SIGN(TRIM(Y.DELIVERY_DATE) - NVL(X.DS_DATE,0)),1, '납기지연납품',NULL,'미납품','납기내납품') AS DELIVERY_STATUS   --17납품현황
+				, X.BUYER_CODE  --18
+				, X.BYIT_COMORG_CODE    --19
+				, X.CONTRACT_NO --20
+				, X.CONTRACT_SEQ    --21
+				, X.DELY_TO_LOCATION	--22
+				, X.PO_REMARK
+				, X.PO_REMARK_2
+				, X.REF_PR_NO
+				, Y.INV_QTY
+				, X.LEGACY_PO_SEQ
+				, Y.INVOICE_DATE
+				, F_GET_HIDDEN_BUYER_NAME(X.BUYER_CODE, '01') AS BUYER_CODE2
+				, X.MAKER_NAME         --제조사 추가
+				, X.MAKER_PART_NO    --모델번호 추가
+				, X.PO_SEQ
+				, X.DS_SEQ
+				, X.AGENT
+				, X.PR_NO
+				, X.PR_SEQ
+				, (SELECT COUNT(*) FROM KEP_PO_MNG WHERE BUYER = X.BUYER_CODE AND PO_NO = X.PO_NO AND PO_SEQ = X.PO_SEQ AND DS_SEQ = X.DS_SEQ AND AGENT = X.AGENT AND TYPE = 'G' AND STATUS = 'CM') AS REQ_CNT
+				, (SELECT DECODE(COUNT(*), 0, 'Y', 'N') FROM ICOMIVDT WHERE BUYER = X.BUYER_CODE AND PO_NO = X.PO_NO AND STATUS <> 'D') AS INIT_ABLE_YN
+				, (SELECT DECODE(COUNT(*), 0, 'N', 'Y') FROM KEP_PO_MNG WHERE BUYER = X.BUYER_CODE AND PO_NO = X.PO_NO AND AGENT = X.AGENT AND TYPE = 'I' AND STATUS = 'S') AS INFO_CHANGE_REQ_YN
+			FROM (
+				SELECT
+					  (	SELECT COM_NAME_LOC FROM ICOMCMPY  WHERE COM_CODE  = F_GET_HIDDEN_BUYER_NAME(B.BUYER, '01'))||
+						(	SELECT '('||COM_NAME_LOC||')' 
+							FROM ICOMCMPY 
+							WHERE	B.PROCESS_TYPE = '2'
+								AND COM_CODE = DECODE(B.PROCESS_TYPE,'2',B.WAREHOUSE_CODE,B.BUYER))	AS BUYER2
+					, A.PO_CREATE_DATE AS PO_CREATE_DATE
+					, B.PO_NO AS PO_NO
+					, B.PO_SEQ AS PO_SEQ
+					, C.DS_DATE AS DS_DATE
+					, B.BUYER_ITEM_NO AS BUYER_ITEM_NO
+					, B.DESCRIPTION AS DESCRIPTION
+					, B.SPECIFICATION AS SPECIFICATION
+					, B.ITEM_QTY AS ITEM_QTY
+					, C.CD_QTY AS CD_QTY
+					, B.LEGACY_PO_NO AS LEGACY_PO_NO
+					, B.LEGACY_PO_SEQ AS LEGACY_PO_SEQ
+					, B.AGENT_PRICE AS AGENT_PRICE
+					, B.UNIT_MEASURE AS UNIT_MEASURE
+					, B.BUYER BUYER_CODE
+					, B.BYIT_COMORG_CODE AS BYIT_COMORG_CODE
+					, B.CONTRACT_NO AS CONTRACT_NO
+					, B.CONTRACT_SEQ AS CONTRACT_SEQ
+					, B.BUYER BUYER
+					, A.DELY_TO_LOCATION
+					, B.PO_REMARK AS PO_REMARK
+					, A.PO_REMARK AS PO_REMARK_2
+					, B.REF_PR_NO
+					, D.MAKER_NAME  --제조사 추가
+					, D.MAKER_PART_NO    --모델번호 추가
+					, C.DS_SEQ
+					, A.AGENT
+					, D.PR_NO
+					, D.PR_SEQ
+				FROM ICOMPOHD A, ICOMPODT B, ICOMPORS C, ICOMPRDT D
+				WHERE 
+						A.AGENT = #{st_com_code}
+					AND A.PO_CREATE_DATE BETWEEN #{st_from_date} AND #{st_to_date}
+					AND A.BUYER = B.BUYER
+		]]>
+		
+		<!-- 고객사 -->
+		<if test="st_buyer_code != null and st_buyer_code != ''">
+			<![CDATA[
+				AND A.BUYER = #{st_buyer_code}
+			]]>
+		</if>
+		
+		<!-- 발주번호 -->
+		<if test="st_po_no != null and st_po_no != ''">
+			<![CDATA[
+				AND A.PO_NO  LIKE UPPER(#{st_po_no}||'%')
+			]]>
+		</if>	
+		
+		<!-- 고객사 발주번호 -->
+		<if test="st_legacy_po_no != null and st_legacy_po_no != ''">
+			<![CDATA[
+				AND B.LEGACY_PO_NO LIKE UPPER(#{st_legacy_po_no}||'%')
+			]]>
+		</if>	
+		
+		<!-- 품목코드 -->
+		<if test="st_buyer_item_no != null and st_buyer_item_no != ''">
+			<![CDATA[
+				AND B.BUYER_ITEM_NO  LIKE UPPER(#{st_buyer_item_no}||'%')
+			]]>
+		</if>	
+					
+		<![CDATA[
+					AND A.PO_NO = B.PO_NO
+					AND A.STATUS <> 'D'
+					AND B.STATUS <> 'D'
+					AND B.BUYER = C.BUYER(+)
+					AND B.PO_NO = C.PO_NO(+)
+					AND B.PO_SEQ = C.PO_SEQ(+)
+					AND C.STATUS(+) <> 'D'
+					AND B.BUYER=D.BUYER    --추가
+					AND B.PR_NO= D.PR_NO   --추가
+					AND B.PR_SEQ=D.PR_SEQ  --추가
+				) X, ICOMIVDT Y
+			WHERE
+					X.BUYER = Y.BUYER(+)
+				AND X.PO_NO = Y.PO_NO(+)
+				AND X.PO_SEQ = Y.PO_SEQ(+)
+				AND X.DS_DATE = Y.DS_DATE(+)
+				AND Y.STATUS(+) <> 'D'
+		]]>
+				
+		<!-- 상태 -->
+		<if test='st_status != null and st_status != "" and st_status != "ALL"'>
+			<![CDATA[
+				AND DECODE(X.DS_DATE, NULL,'발주', DECODE(Y.INV_NO, NULL, '수주접수', DECODE(Y.DELIVERY_DATE,NULL,'거래명세서생성','납품완료'))) = #{st_status}
+			]]>
+		</if>
+
+		<![CDATA[
+			--ORDER BY BUYER_NAME, PO_NO
+		]]>
+		
+		<if test='st_order_by == "1"'>
+ 			-- 1 : 발주일
+			ORDER BY PO_CREATE_DATE DESC
+ 		</if>
+ 		<if test='st_order_by == "2"'>
+ 			-- 2 : 발주번호
+			ORDER BY PO_NO
+ 		</if>
+ 		<if test='st_order_by == "3"'>
+ 			-- 3 : 납품예정일
+			ORDER BY DS_DATE DESC
+ 		</if>
+ 		<if test='st_order_by == "4"'>
+ 			-- 4 : 거래명세서번호
+			ORDER BY INV_NO
+ 		</if>
+ 		<if test='st_order_by == "5"'>
+ 			-- 5 : 납품확정일
+			ORDER BY DELIVERY_DATE DESC
+ 		</if>
+ 		<if test='st_order_by == "6"'>
+ 			-- 6 : 품목코드
+			ORDER BY BUYER_ITEM_NO
+ 		</if>
+		
+		<include refid="common.ibsheet.xml.jsppageend"/>	
+	</select> 
+	
+	<!-- 납품예정일 변경요청 -->
+	<update id="insertSellerMpIvDsDateChangeReq" parameterType="java.util.Map">
+		<![CDATA[
+		/* insertSellerMpIvDsDateChangeReq */
+			INSERT INTO KEP_PO_MNG (
+				BUYER,
+				PO_NO,
+				PO_SEQ,
+				DS_SEQ,
+				SEQ,
+				PR_NO,
+				PR_SEQ,
+				AGENT,
+				STATUS,
+				TYPE,
+				NOTICE_DATE,
+				RE_DS_DATE,
+				CH_DS_DATE,
+				AGENT_REMARK,
+				ADD_USER_ID,
+				ADD_DATE,
+				CHANGE_USER_ID,
+				CHANGE_DATE
+			) VALUES (
+			    #{buyer},
+			    #{po_no},
+			    #{po_seq},  
+			    #{ds_seq},
+			    (SELECT NVL(MAX(SEQ), 0) + 1 FROM KEP_PO_MNG WHERE BUYER = #{buyer} AND PO_NO = #{po_no} AND PO_SEQ = #{po_seq} AND DS_SEQ = #{ds_seq} AND STATUS <> 'D'),
+			    #{pr_no},
+			    #{pr_seq},
+			    #{agent},
+			    'S', -- ICOMCOD1.PMNGSTTS
+			    'G', -- ICOMCOD1.PMNGTYPE
+			    TO_CHAR(SYSDATE,'YYYYMMDD'),
+			    #{re_ds_date},
+			    #{ch_ds_date},
+			    #{delay_reason},
+			    #{st_user_id},
+			    SYSDATE,
+			    #{st_user_id},
+			    SYSDATE
+			)
+		]]>
+	</update>
+	
+	<!-- 수주접수 초기화요청 -->
+	<update id="insertSellerMpIvIvInfoChangeReq" parameterType="java.util.Map">
+		<![CDATA[
+		/* insertSellerMpIvIvInfoChangeReq */
+			INSERT INTO KEP_PO_MNG (
+				BUYER,
+				PO_NO,
+				PO_SEQ,
+				DS_SEQ,
+				SEQ,
+				AGENT,
+				STATUS,
+				TYPE,
+				NOTICE_DATE,
+				AGENT_REMARK,
+				ADD_USER_ID,
+				ADD_DATE,
+				CHANGE_USER_ID,
+				CHANGE_DATE
+			) VALUES (
+			    #{buyer},
+			    #{po_no},
+			    '000000',  
+			    '000000',
+			    (SELECT NVL(MAX(SEQ), 0) + 1 FROM KEP_PO_MNG WHERE BUYER = #{buyer} AND PO_NO = #{po_no} AND PO_SEQ = '000000' AND DS_SEQ = '000000' AND STATUS <> 'D'),
+			    #{agent},
+			    'S', -- ICOMCOD1.PMNGSTTS
+			    'I', -- ICOMCOD1.PMNGTYPE
+			    TO_CHAR(SYSDATE,'YYYYMMDD'),
+			    #{change_reason},
+			    #{st_user_id},
+			    SYSDATE,
+			    #{st_user_id},
+			    SYSDATE
+			)
+		]]>
+	</update>
+	
+	<select id="getSellerMpIvDsDateDupChk" parameterType="java.util.Map" resultType="String">
+		<![CDATA[
+		 /* getSellerMpIvDsDateDupChk */
+		 	SELECT	DECODE(COUNT(*), 0, 'N', 'Y') AS DUP_YN 
+	 		FROM	ICOMPORS
+ 			WHERE	1=1
+ 			AND		BUYER = #{buyer}
+ 			AND		PO_NO = #{po_no}
+ 			AND		PO_SEQ = #{po_seq}
+			AND		DS_DATE = #{ch_ds_date}
+			AND		STATUS <> 'D'
+		]]>
+	</select>
+	
+	<select id="getSellerMpIvDeliveryProgressStateList_v2" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/*getSellerMpIvDeliveryProgressStateList_v2*/		 			
+		SELECT XX.* FROM (
+			SELECT
+				  X.BUYER2 AS BUYER_NAME  --1구매사
+				, DECODE(X.DS_DATE, NULL,'수주접수대상', DECODE(Y.INV_NO, NULL, '거래명세서 생성대상',
+						DECODE(Y.DELIVERY_DATE,NULL,'납품실적 등록대상','납품완료'))) AS STATUS   --2상태
+				, DECODE(X.DS_DATE, NULL,'/resources/imgs/State_01.png', DECODE(Y.INV_NO, NULL, '/resources/imgs/State_02.png',
+						DECODE(Y.DELIVERY_DATE,NULL,'/resources/imgs/State_03.png','/resources/imgs/State_04.png'))) AS STATUS_BUTTON   --2상태이미지
+				, (SELECT DECODE(COUNT(*), 0, 'N', 'Y') FROM KEP_PO_MNG
+					WHERE BUYER = X.BUYER_CODE
+					AND PO_NO = X.PO_NO
+					AND PO_SEQ IN ('000000', X.PO_SEQ)
+					AND DS_SEQ IN ('000000', X.DS_SEQ)
+					AND STATUS = 'S'
+					AND TYPE IN ('D','E','G','I')
+				) AS PMNG_STATUS
+				, X.PO_CREATE_DATE  --3발주일
+				, X.PO_NO   --4발주번호
+				, X.DS_DATE --5납품예정일
+				, Y.INV_NO  --6거래명세서번호
+				, Y.DELIVERY_DATE   --7납품일
+				, X.BUYER_ITEM_NO   --8품목코드
+				, X.DESCRIPTION --9품명
+				, X.SPECIFICATION   --10규격
+				, X.ITEM_QTY    --11발주수량
+				, X.CD_QTY  --12납품예정수량
+				, Y.DELIVERY_QTY    --13납품확정수량
+				, X.LEGACY_PO_NO    --14구매사발주번호
+				, X.AGENT_PRICE --15단가
+				, (X.AGENT_PRICE * X.ITEM_QTY) AS AGENT_AMT
+				, X.UNIT_MEASURE    --16단위
+				, DECODE(SIGN(TRIM(Y.DELIVERY_DATE) - NVL(X.DS_DATE,0)),1, '납기지연납품',NULL,'미납품','납기내납품') AS DELIVERY_STATUS   --17납품현황
+				, X.BUYER_CODE  --18
+				, X.BYIT_COMORG_CODE    --19
+				, X.CONTRACT_NO --20
+				, X.CONTRACT_SEQ    --21
+				, X.HD_DELY_TO_LOCATION
+				, X.DELY_TO_LOCATION	--22
+				, X.PO_REMARK
+				, X.PO_REMARK_2
+				, X.REF_PR_NO
+				, Y.INV_QTY
+				, X.LEGACY_PO_SEQ
+				, Y.INVOICE_DATE
+				, F_GET_HIDDEN_BUYER_NAME(X.BUYER_CODE, '01') AS BUYER_CODE2
+				, X.MAKER_NAME         --제조사 추가
+				, X.MAKER_PART_NO    --모델번호 추가
+				, X.PO_SEQ
+				, X.DS_SEQ
+				, X.AGENT
+				, X.PR_NO
+				, X.PR_SEQ
+				, (SELECT COUNT(*) FROM KEP_PO_MNG WHERE BUYER = X.BUYER_CODE AND PO_NO = X.PO_NO AND PO_SEQ = X.PO_SEQ AND DS_SEQ = X.DS_SEQ AND AGENT = X.AGENT AND TYPE = 'G' AND STATUS = 'CM') AS REQ_CNT
+				, (SELECT DECODE(COUNT(*), 0, 'Y', 'N') FROM ICOMIVDT WHERE BUYER = X.BUYER_CODE AND PO_NO = X.PO_NO AND STATUS <> 'D') AS INIT_ABLE_YN
+				, (SELECT DECODE(COUNT(*), 0, 'N', 'Y') FROM KEP_PO_MNG WHERE BUYER = X.BUYER_CODE AND PO_NO = X.PO_NO AND AGENT = X.AGENT AND TYPE = 'I' AND STATUS = 'S') AS INFO_CHANGE_REQ_YN
+				, X.RD_DATE
+				, X.ST_DATE
+				, CASE WHEN X.DS_DATE IS NOT NULL AND Y.DELIVERY_DATE IS NULL 
+					   	THEN CASE WHEN TO_DATE(TO_CHAR(SYSDATE,'YYYYMMDD'),'YYYYMMDD') <= TO_DATE(X.DS_DATE,'YYYYMMDD') 
+					   				THEN '-'
+					   			  ELSE '-'||(TO_DATE(TO_CHAR(SYSDATE,'YYYYMMDD'),'YYYYMMDD') - TO_DATE(X.DS_DATE,'YYYYMMDD'))||'일'
+					   			  END
+					   WHEN X.DS_DATE IS NOT NULL AND Y.DELIVERY_DATE IS NOT NULL
+					   	THEN CASE WHEN TO_DATE(Y.DELIVERY_DATE,'YYYYMMDD') <= TO_DATE(X.DS_DATE,'YYYYMMDD') 
+					   				THEN '-'
+					   			  ELSE '-'||(TO_DATE(Y.DELIVERY_DATE,'YYYYMMDD') - TO_DATE(X.DS_DATE,'YYYYMMDD'))||'일'
+					   			  END
+					   ELSE '-'
+				   END AS DS_DELAY_DAY
+				, DECODE(Y.PARCEL_YN,NULL, '-', 'N', '자차', '택배') AS PARCEL_YN_TEXT
+				, F_GET_MIS_BUYER_MNG(X.BUYER,X.PO_NO,X.PO_SEQ) AS KEP_USER_INFO
+				, X.DOC_TYPE
+				, DECODE(X.DOC_TYPE,'S',X.PO_CREATE_DATE,'-') AS BFRE_STCK_YN
+				, X.SELLER
+				, Y.LEGACY_IV_SERIAL
+				, DECODE(X.PROCESS_TYPE,'2',X.WAREHOUSE_CODE,Y.BUYER) AS TR_BUYER
+				, TO_CHAR(TO_DATE(X.PORS_ADD_DATE||X.PORS_ADD_TIME,'yyyymmddhh24miss'),'yyyy-mm-dd hh24:mi') AS PORS_DATE
+				, TO_CHAR(TO_DATE(Y.IVDT_ADD_DATE||Y.IVDT_ADD_TIME,'yyyymmddhh24miss'),'yyyy-mm-dd hh24:mi') AS IVDT_DATE
+				, TO_CHAR(Y.DELIVERY_ADD_DATE,'yyyy-mm-dd hh24:mi') AS DELIVERY_ADD_DATE
+				, X.PROCESS_TYPE
+				, X.SELLER_ITEM_NO
+				, DECODE(X.PROCESS_TYPE, '0', '직납', '2', 'TR(' ||
+										(SELECT TEXT2 FROM ICOMCOD1 WHERE TYPE = 'W001' AND TEXT4 = 'B' AND FLAG = 'Y' AND TEXT1 = X.TR_CENTER) || ')', ' ') AS PROCESS_TYPE_TEXT			
+			FROM (
+				SELECT
+					  (	SELECT COM_NAME_LOC FROM ICOMCMPY  WHERE COM_CODE  = F_GET_HIDDEN_BUYER_NAME(B.BUYER, '01'))	AS BUYER2
+					, A.PO_CREATE_DATE AS PO_CREATE_DATE
+					, B.PO_NO AS PO_NO
+					, B.PO_SEQ AS PO_SEQ
+					, C.DS_DATE AS DS_DATE
+					, B.BUYER_ITEM_NO AS BUYER_ITEM_NO
+					, B.DESCRIPTION AS DESCRIPTION
+					, B.SPECIFICATION AS SPECIFICATION
+					, B.ITEM_QTY AS ITEM_QTY
+					, C.CD_QTY AS CD_QTY
+					, B.LEGACY_PO_NO AS LEGACY_PO_NO
+					, B.LEGACY_PO_SEQ AS LEGACY_PO_SEQ
+					, B.AGENT_PRICE AS AGENT_PRICE
+					, B.UNIT_MEASURE AS UNIT_MEASURE
+					, B.BUYER BUYER_CODE
+					, B.BYIT_COMORG_CODE AS BYIT_COMORG_CODE
+					, B.CONTRACT_NO AS CONTRACT_NO
+					, B.CONTRACT_SEQ AS CONTRACT_SEQ
+					, B.BUYER BUYER
+					, A.DELY_TO_LOCATION AS HD_DELY_TO_LOCATION
+					, B.PO_REMARK AS PO_REMARK
+					, A.PO_REMARK AS PO_REMARK_2
+					, B.REF_PR_NO
+					, D.MAKER_NAME  --제조사 추가
+					, D.MAKER_PART_NO    --모델번호 추가
+					, C.DS_SEQ
+					, A.AGENT
+					, D.PR_NO
+					, D.PR_SEQ
+					, B.RD_DATE
+					, B.ST_DATE
+					, A.DOC_TYPE
+					, B.SELLER
+					, B.PROCESS_TYPE
+					, B.WAREHOUSE_CODE
+					, C.ADD_DATE AS PORS_ADD_DATE
+					, C.ADD_TIME AS PORS_ADD_TIME
+					, B.SELLER_ITEM_NO
+					,DECODE((SELECT COUNT(*) FROM ICOMCOD2 
+							WHERE
+									COMPANY_CODE = DECODE(B.PROCESS_TYPE,'2',F_GET_HUB_INFO(A.BUYER,A.PO_NO,'2'),A.BUYER) 
+								AND TYPE = 'C012' 
+								AND CODE = DECODE(B.PROCESS_TYPE,'2','001',A.DELY_TO_LOCATION)),0,A.DELY_TO_LOCATION, 
+												(SELECT TEXT2 FROM ICOMCOD2 
+												WHERE 
+														COMPANY_CODE = DECODE(B.PROCESS_TYPE,'2',F_GET_HUB_INFO(A.BUYER,A.PO_NO,'2'),A.BUYER) 
+													AND TYPE = 'C012' AND CODE = DECODE(B.PROCESS_TYPE,'2','001',A.DELY_TO_LOCATION))) AS DELY_TO_LOCATION
+					 , NVL((SELECT DELY_TO_CENTER FROM SUPLINFO2 WHERE SUPPLIER = A.AGENT), B.WAREHOUSE_CODE) AS TR_CENTER
+				FROM ICOMPOHD A, ICOMPODT B, ICOMPORS C, ICOMPRDT D
+				WHERE A.BUYER = B.BUYER
+		]]>
+		<choose>
+			<when test='st_date_type == "st_po_create_date"'>
+				AND A.AGENT = #{st_com_code}
+				AND A.PO_CREATE_DATE BETWEEN #{st_from_date} AND #{st_to_date}
+			</when>
+			<when test='st_date_type == "st_rd_date"'>
+				AND A.AGENT = #{st_com_code}
+				AND B.RD_DATE BETWEEN #{st_from_date} AND #{st_to_date}
+			</when>
+			<when test='st_date_type == "st_ds_date"'>
+				AND  C.AGENT =  #{st_com_code}
+			    AND  C.DS_DATE BETWEEN  #{st_from_date}  AND  #{st_to_date}
+			</when>
+			<when test='st_date_type == "st_ivdt_add_date"'>
+				AND A.AGENT = #{st_com_code}
+			</when>
+			<when test='st_date_type == "st_delivery_date"'>
+				AND A.AGENT = #{st_com_code}
+			</when>
+		</choose>
+		<!-- 고객사 -->
+		<if test="st_buyer_code != null and st_buyer_code != ''">
+			<![CDATA[
+				AND A.BUYER = #{st_buyer_code}
+			]]>
+		</if>
+		
+		<!-- 품목코드 -->
+		<if test="st_buyer_item_no != null and st_buyer_item_no != ''">
+			<![CDATA[
+				AND B.BUYER_ITEM_NO  LIKE UPPER('%'||TRIM(#{st_buyer_item_no})||'%')
+			]]>
+		</if>
+		<!-- 품목명 -->
+		<if test="st_description != null and st_description != ''">
+			<![CDATA[
+				AND B.DESCRIPTION  LIKE '%'||TRIM(#{st_description})||'%'
+			]]>
+		</if>
+		<!-- 선입고여부 -->
+		<choose>
+		<when test='st_bfre_stck_yn == "S"'>
+			AND A.DOC_TYPE = #{st_bfre_stck_yn}
+		</when>
+		<when test='st_bfre_stck_yn == "N"'>
+			AND A.DOC_TYPE != 'S'
+		</when>
+		<otherwise>
+		</otherwise>	
+		</choose>	
+		<![CDATA[
+					AND A.PO_NO = B.PO_NO
+					AND A.STATUS <> 'D'
+					AND B.STATUS <> 'D'
+					AND B.BUYER = C.BUYER(+)
+					AND B.PO_NO = C.PO_NO(+)
+					AND B.PO_SEQ = C.PO_SEQ(+)
+					AND C.STATUS(+) <> 'D'
+					AND B.BUYER=D.BUYER    --추가
+					AND B.PR_NO= D.PR_NO   --추가
+					AND B.PR_SEQ=D.PR_SEQ  --추가
+				) X,
+				(SELECT E.PO_NO ,E.PO_SEQ ,E.BUYER ,E.DS_DATE ,E.INV_NO ,E.INV_QTY ,E.DELIVERY_DATE ,E.INVOICE_DATE ,F.PARCEL_YN ,E.STATUS ,E.DELIVERY_QTY ,F.LEGACY_IV_SERIAL ,E.DELIVERY_ADD_DATE, E.ADD_DATE AS IVDT_ADD_DATE, E.ADD_TIME AS IVDT_ADD_TIME 
+                FROM ICOMIVDT E, ICOMIVHD F
+                WHERE E.BUYER = F.BUYER
+                AND E.INV_NO = F.INV_NO
+                AND E.STATUS != 'D'
+                AND F.STATUS != 'D'
+                AND F.AGENT = #{st_com_code}
+                ]]>
+			<if test='st_date_type == "st_ivdt_add_date"'>
+				<![CDATA[
+				AND E.ADD_DATE BETWEEN #{st_from_date} AND #{st_to_date}
+				]]>
+			</if>
+			<if test='st_date_type == "st_delivery_date"'>
+				<![CDATA[
+				AND E.DELIVERY_DATE BETWEEN #{st_from_date} AND #{st_to_date}
+				]]>
+			</if>
+				<![CDATA[
+                )Y
+			WHERE
+					X.BUYER = Y.BUYER(+)
+				AND X.PO_NO = Y.PO_NO(+)
+				AND X.PO_SEQ = Y.PO_SEQ(+)
+				AND X.DS_DATE = Y.DS_DATE(+)
+				AND Y.STATUS(+) <> 'D'
+				]]>
+			<!-- 거래명세서생성일은 INNER JOIN 되어야 함 -->
+			<if test='st_date_type == "st_ivdt_add_date"'>
+				<![CDATA[
+				AND Y.STATUS != 'D'
+				AND Y.IVDT_ADD_DATE BETWEEN #{st_from_date} AND #{st_to_date}
+				]]>
+			</if>
+			<!-- 납품실적등록일은 INNER JOIN 되어야 함 -->
+			<if test='st_date_type == "st_delivery_date"'>
+				<![CDATA[
+				AND Y.STATUS != 'D'
+				AND Y.DELIVERY_DATE BETWEEN #{st_from_date} AND #{st_to_date}
+				]]>
+			</if>
+			
+		<!-- 상태 -->
+		<if test='st_status != null and st_status != "" and st_status != "ALL"'>
+			<![CDATA[
+				AND DECODE(X.DS_DATE, NULL,'수주접수대상', DECODE(Y.INV_NO, NULL, '거래명세서 생성대상', DECODE(Y.DELIVERY_DATE,NULL,'납품실적 등록대상','납품완료'))) = #{st_status}
+			]]>
+		</if>
+		<!-- 배송유형 -->
+		<if test='st_parcel_yn_text != null and st_parcel_yn_text != ""'>
+			<![CDATA[
+				AND DECODE(Y.PARCEL_YN,NULL, '-', 'N', '자차', '택배') = #{st_parcel_yn_text}
+			]]>
+		</if>
+		<!-- 지연여부 -->
+		<if test='st_delay_yn != null and st_delay_yn != ""'>
+			<![CDATA[
+				AND CASE WHEN DECODE(Y.DELIVERY_DATE,NULL,TO_DATE(TO_CHAR(SYSDATE,'YYYYMMDD'),'YYYYMMDD'),TO_DATE(Y.DELIVERY_DATE,'YYYYMMDD')) > TO_DATE(X.DS_DATE,'YYYYMMDD') THEN 'Y'
+					ELSE 'N'
+				END = #{st_delay_yn}
+			]]>
+		</if>
+		
+			
+
+		<![CDATA[
+			ORDER BY PO_CREATE_DATE DESC , BUYER_NAME, PO_NO
+			)XX
+			WHERE 1=1
+		]]>
+		<!-- 발주번호 -->
+		<if test="st_po_no != null and st_po_no != ''">
+			<if test='st_po_type == "kep_po_no"'>
+				AND XX.PO_NO  IN 
+				<foreach item="item" collection="st_po_no"
+					open="(" separator="," close=")">
+					UPPER(#{item})
+				</foreach>
+			</if>
+			<if test='st_po_type == "legacy_po_no"'>
+				AND XX.LEGACY_PO_NO  IN 
+				<foreach item="item" collection="st_po_no"
+					open="(" separator="," close=")">
+					UPPER(#{item})
+				</foreach>
+			</if>
+				
+		</if>
+		<!-- 고객사 -->
+		<if test="st_buyer_name != null and st_buyer_name != ''">
+			<![CDATA[
+				AND REPLACE(UPPER(XX.BUYER_NAME),' ','') LIKE '%'||UPPER(TRIM(REPLACE(#{st_buyer_name},' ','')))||'%'
+			]]>
+		</if>
+			
+	</select>
+	
+</mapper>

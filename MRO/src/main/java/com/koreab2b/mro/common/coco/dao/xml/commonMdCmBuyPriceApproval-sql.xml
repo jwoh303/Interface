@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<!--
+	표준DB 구매정보 매입단가 인상 결재 (DOC_TYPE = SP 단건 / SPM 일괄)
+
+	★ 방향 주의 : 매입단가는 인상이 결재, 인하는 즉시 반영이다. 기준가(BP/BPM)와 반대다.
+
+	결재 프레임워크 계약 : KEY_1 = PM_NO, KEY_2 = BUYER(회사코드), KEY_3 = 상신자 USER_ID.
+	  상신    → /common/approval/MdCmBuyPriceCommonRequest.do
+	  승인/반려 → /common/approval/MdCmBuyPriceCommonApproval.do
+	  취소    → /common/approval/MdCmBuyPriceCommonCancel.do
+	STATUS : C=결재중(상신) / A=승인 / B=반려 / D=취소
+
+	KEPMGPDT 사용 컬럼
+	  CMS_CATLG_ID + CATLG_SEQ : 구매정보 키
+	  AGENT                    : 협력사코드 (결재대상 화면의 협력사별 묶음)
+	  RE_LIST_PRICE/CH_LIST_PRICE : 기존/변경 매입단가
+	  BELOW_TEXT               : 인상사유 텍스트. 사유 전용 텍스트 컬럼이 없어 빌려 쓴다
+	                             (다른 GUBUN 과 값이 섞이지 않도록 이 매퍼는 항상 PM_NO 로 좁힌다)
+-->
+<mapper namespace="commonMdCmBuyPriceApproval">
+
+	<!-- 결재대상 조회. 협력사별 묶음·총계는 화면이 계산하므로 협력사 순으로 정렬해 내린다.
+	     ⚠ 금액·율은 NUMBER 라 전부 TO_CHAR 로 문자열화한다(Map<String,String> CCE 방지). -->
+	<select id="selectBuyPriceApprList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/*commonMdCmBuyPriceApproval.selectBuyPriceApprList*/
+			SELECT
+			  TO_CHAR(ROWNUM) AS NO
+			 ,A.CMS_CATLG_ID
+			 ,A.BUY_INFO_ID
+			 ,A.BUY_INFO_SEQ
+			 ,A.DESCRIPTION_LOC
+			 ,A.MODEL_INFO
+			 ,A.SPECIFICATION
+			 ,A.MAKER_NAME
+			 ,A.ORDER_MEASURE
+			 ,A.AGENT
+			 ,A.AGENT_NAME
+			 ,A.RE_BUY_PRICE_VIEW
+			 ,A.CH_BUY_PRICE_VIEW
+			 ,A.RE_BUY_PRICE_RAW
+			 ,A.CH_BUY_PRICE_RAW
+			 ,A.UP_RATE
+			 ,A.CHANGE_REASON
+			  FROM (
+				SELECT
+				  D.CMS_CATLG_ID
+				 ,D.CMS_CATLG_ID || '-' || LPAD(TO_CHAR(D.CATLG_SEQ), 5, '0') AS BUY_INFO_ID
+				 ,LPAD(TO_CHAR(D.CATLG_SEQ), 5, '0') AS BUY_INFO_SEQ	/* 구매정보코드 : 화면 표기는 순번만 쓴다(상품정보코드는 옆 열에 있다) */
+				 ,C.DESCRIPTION_LOC
+				 ,C.MODEL_INFO
+				 ,C.SPECIFICATION
+				 ,(SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'M104' AND CODE = C.MAKER_CODE) AS MAKER_NAME
+				 ,C.ORDER_MEASURE
+				 ,D.AGENT
+				 ,(SELECT M.COM_NAME_LOC FROM ICOMCMPY M WHERE M.COM_CODE = D.AGENT) AS AGENT_NAME
+				 ,TRIM(TO_CHAR(D.RE_LIST_PRICE, 'FM999,999,999,990')) AS RE_BUY_PRICE_VIEW
+				 ,TRIM(TO_CHAR(D.CH_LIST_PRICE, 'FM999,999,999,990')) AS CH_BUY_PRICE_VIEW
+				 ,TRIM(TO_CHAR(D.RE_LIST_PRICE)) AS RE_BUY_PRICE_RAW
+				 ,TRIM(TO_CHAR(D.CH_LIST_PRICE)) AS CH_BUY_PRICE_RAW
+				 ,CASE WHEN NVL(D.RE_LIST_PRICE,0) = 0 THEN ''
+				       ELSE TRIM(TO_CHAR(ROUND((D.CH_LIST_PRICE - D.RE_LIST_PRICE) / D.RE_LIST_PRICE * 100, 2), 'FM990.00')) || '%'
+				  END AS UP_RATE
+				 ,D.BELOW_TEXT AS CHANGE_REASON
+				 ,D.PM_SEQ
+				  FROM KEPMGPDT D, CMSCATLG C
+				 WHERE D.CMS_CATLG_ID = C.CMS_CATLG_ID
+				   AND D.BUYER = #{KEY_2}
+				   AND D.PM_NO = #{DOCU_NO}
+				 ORDER BY D.AGENT, D.PM_SEQ
+			  ) A
+		]]>
+	</select>
+
+	<!-- 신청 헤더/디테일 상태 갱신 (승인 A / 반려 B / 취소 D) -->
+	<update id="updateBuyPriceReqHdStatus" parameterType="java.util.Map">
+		<![CDATA[
+			/*commonMdCmBuyPriceApproval.updateBuyPriceReqHdStatus*/
+			UPDATE KEPMGPHD
+			   SET STATUS          = #{STATUS}
+			     , CONFIRM_DATE    = SYSDATE
+			     , CONFIRM_USER_ID = #{USER_ID}
+			     , CHANGE_DATE     = SYSDATE
+			 WHERE BUYER = #{KEY_2}
+			   AND PM_NO = #{KEY_1}
+			   AND STATUS = 'C'
+		]]>
+	</update>
+
+	<update id="updateBuyPriceReqDtStatus" parameterType="java.util.Map">
+		<![CDATA[
+			/*commonMdCmBuyPriceApproval.updateBuyPriceReqDtStatus*/
+			UPDATE KEPMGPDT
+			   SET STATUS          = #{STATUS}
+			     , CONFIRM_DATE    = SYSDATE
+			     , CONFIRM_USER_ID = #{USER_ID}
+			     , CHANGE_DATE     = SYSDATE
+			 WHERE BUYER = #{KEY_2}
+			   AND PM_NO = #{KEY_1}
+		]]>
+	</update>
+
+	<!-- 승인 반영 대상 : 이 신청에 달린 디테일 전건(단건이면 1행, 일괄이면 N행) -->
+	<select id="selectBuyPriceReqDtList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/*commonMdCmBuyPriceApproval.selectBuyPriceReqDtList*/
+			SELECT
+			  D.CMS_CATLG_ID
+			 ,TRIM(TO_CHAR(D.CATLG_SEQ))     AS CATLG_SEQ
+			 ,TRIM(TO_CHAR(D.CH_LIST_PRICE)) AS CH_BUY_PRICE
+			 ,D.BELOW_TEXT                   AS CHANGE_REASON
+			  FROM KEPMGPDT D
+			 WHERE D.BUYER = #{KEY_2}
+			   AND D.PM_NO = #{KEY_1}
+			 ORDER BY D.PM_SEQ
+		]]>
+	</select>
+
+	<!-- 승인 확정분을 CMSPRICE 에 반영. 이력은 SET 절의 F_HST_CMSPRICE 가 남긴다.
+	     상신 시점에는 이력을 남기지 않는다 — 반려된 건이 이력에 섞이면 안 되기 때문이다.
+	     변경사유는 코드가 아니라 텍스트(품의사유)라 CHANGE_REASON_CODE 는 NULL 로 둔다. -->
+	<update id="updateBuyPriceApply" parameterType="java.util.Map">
+		<![CDATA[
+			/*commonMdCmBuyPriceApproval.updateBuyPriceApply*/
+			UPDATE CMSPRICE
+			   SET BUY_PRICE      = TO_NUMBER(F_HST_CMSPRICE(CMS_CATLG_ID
+			                                               , CATLG_SEQ
+			                                               , 'BUY_PRICE'
+			                                               , #{CH_BUY_PRICE}
+			                                               , #{USER_ID}
+			                                               , NULL
+			                                               , #{CHANGE_REASON}))
+			     , CHANGE_USER_ID = #{USER_ID}
+			     , CHANGE_DATE    = TO_CHAR(SYSDATE,'YYYYMMDD')
+			     , CHANGE_TIME    = TO_CHAR(SYSDATE,'HH24MISS')
+			 WHERE CMS_CATLG_ID = #{CMS_CATLG_ID}
+			   AND CATLG_SEQ    = TO_NUMBER(#{CATLG_SEQ})
+		]]>
+	</update>
+
+</mapper>

@@ -1,0 +1,378 @@
+
+<!-- CSS 추가 -->
+<style>
+/* 드래그 앤 드롭 시각적 피드백 */
+.Uploader.drag-over {
+    background-color: #e3f2fd !important;
+    border: 2px dashed #2196f3 !important;
+    transform: scale(1.02);
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 12px rgba(33, 150, 243, 0.3);
+}
+
+.Uploader.drag-over .Title {
+    color: #2196f3 !important;
+    font-weight: bold;
+    animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+/* UploaderList flex 왼쪽 정렬 - 한 줄에 5개씩 */
+.UploaderList {
+    display: flex;
+    flex-wrap: wrap;
+    column-gap: 15px; /* 좌우 간격 */
+    row-gap: 10px;    /* 상하 간격 */
+    justify-content: flex-start;
+    align-items: flex-start;
+    padding-left: 10px;
+    padding-right: 10px;
+    box-sizing: border-box;
+}
+
+.UploaderList .UploaderListImg {
+    flex: 0 0 calc((100% - 60px) / 5); /* 5개 배치: (전체 너비 - gap 4개분 - padding 양쪽) / 5 */
+    max-width: calc((100% - 60px) / 5);
+    box-sizing: border-box;
+}
+
+/* 삭제 예정 파일 반투명 스타일 */
+.UploaderList .UploaderListImg.deleted,
+.Uploader .UploaderListImg.deleted {
+    opacity: 0.4;
+    pointer-events: none;
+    position: relative;
+}
+
+/* 삭제 예정 표시 오버레이 */
+.UploaderList .UploaderListImg.deleted::after,
+.Uploader .UploaderListImg.deleted::after {
+    content: '삭제 예정';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(255, 0, 0, 0.8);
+    color: white;
+    padding: 6px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: bold;
+    pointer-events: none;
+    z-index: 10;
+    text-align: center;
+    line-height: 1.3;
+    max-width: 30px;
+    word-break: keep-all;
+    word-wrap: break-word;
+}
+
+/* 삭제 버튼 숨김 (삭제 예정 파일) */
+.UploaderList .UploaderListImg.deleted .Delete,
+.Uploader .UploaderListImg.deleted .Delete {
+    display: none;
+}
+</style>
+
+<div class="DIVpopup" id="DIVpopup">
+  <div class="wrapPopup">
+    <div class="PopupTit">이미지첨부<span><a href="#" id="DIVclosePopup"><img src="/resources/imgs/Icon_close.png" /></a></span></div>
+    <div class="h15"></div>
+    <div class="Importance_Popup_row2" style="width:540px; height:30px; line-height:25px">
+      · &nbsp; 이미지 파일 1개를 등록할 수 있습니다. (JPG, JPEG, GIF, PNG / 최대 5MB)
+    </div>
+    <div class="h20"></div>
+
+    <!-- 드롭존 (파일이 없을 때 표시) -->
+    <div id="imageDropZone" class="Uploader" style="width:560px; height:100px">
+      <p class="Title">
+        <img src="/resources/imgs/Icon_Drop.png" /><br/>
+        파일을 끌어다 넣으시거나 [파일찾기] 버튼을 통해 등록가능합니다.
+      </p>
+    </div>
+
+    <!-- 파일 리스트 (파일이 있을 때 표시) - UploaderList 클래스 추가 -->
+    <div id="imageFileListContainer" class="UploaderList" style="display:none; width:560px; min-height:100px;"></div>
+
+    <div class="PopupTitSubSmall" style="position:relative;width:560px;">
+      <button class="ButDarkGray_Medium" id="fileSearchBtn" style=" position:absolute; right:0; top:5px" >파일찾기</button>
+    </div>
+    <div class="h15"></div>
+    <div class="PopupListBtnBox_Center" style="width:560px;">
+      <button class="ButQuaternary_large" id="cancelBtn">취소</button>
+      <button class="ButPrimary_large" id="confirmBtn">확인</button>
+    </div>
+  </div><!-- wrapPopup 끝-->
+</div>
+
+<!-- DragDropUploader -->
+<script src="/resources/js/DragDropUploader.js"></script>
+
+<script type="text/javascript">
+/**
+ * 이미지 첨부 팝업 API 생성 함수
+ * PopupUtil에서 window.createPopupAPI를 자동으로 호출하여 팝업 API 객체를 받습니다.
+ *
+ * @param {string} overlayId - 오버레이 ID (PopupUtil에서 자동 생성하여 전달)
+ * @param {string} containerId - 컨테이너 ID (PopupUtil에서 자동 생성하여 전달)
+ * @returns {Object} 팝업 API 객체
+ */
+window.createPopupAPI = function(overlayId, containerId) {
+    var $overlay = $('#' + overlayId);
+    var $container = $('#' + containerId);
+    var confirmCallback = null;
+    var cancelCallback = null;
+    var uploader = null;  // DragDropUploader 인스턴스
+
+    /**
+     * 팝업 닫기
+     */
+    function close() {
+        // DragDropUploader 정리
+        if (uploader) {
+            uploader.destroy();
+            uploader = null;
+        }
+
+        $overlay.remove();
+        $container.remove();
+
+        // ✅ body 스크롤 복원 (모든 팝업이 닫혔는지 확인)
+        if ($('[id^="popup-overlay-"]').length === 0) {
+            var scrollY = $('body').data('scrollY') || 0;
+            $('body').css({
+                'position': '',
+                'top': '',
+                'left': '',
+                'right': '',
+                'overflow-y': ''
+            });
+            window.scrollTo(0, scrollY);
+            console.log('[이미지 첨부 팝업] body 스크롤 복원');
+        }
+
+        console.log('[이미지 첨부 팝업] 팝업 닫힘');
+    }
+
+    /**
+     * 확인 버튼 클릭 콜백 설정
+     */
+    function onConfirm(callback) {
+        confirmCallback = callback;
+        return api; // 체이닝 지원
+    }
+
+    /**
+     * 취소(닫기) 콜백 설정
+     */
+    function onCancel(callback) {
+        cancelCallback = callback;
+        return api; // 체이닝 지원
+    }
+
+    /**
+     * 업로드된 파일 목록 가져오기
+     */
+    function getUploadedFiles() {
+        if (uploader) {
+            return uploader.getUploadedFiles();
+        }
+        return [];
+    }
+
+    /**
+     * 기존 첨부 파일 로드 (서버 전송 전 tempImageStorage에서)
+     * @param {Object} fileInfo - { file: File, name: string }
+     * @param {string} itemCode - 품목코드
+     * @param {string} imageType - 'PRODUCT' 또는 'DETAIL'
+     */
+    var currentItemCode = null;
+    var currentImageType = null;
+
+    function loadExistingFile(fileInfo, itemCode, imageType) {
+        // 현재 품목코드와 이미지 타입 저장 (삭제 시 사용)
+        currentItemCode = itemCode;
+        currentImageType = imageType;
+
+        if (!fileInfo || !fileInfo.file) {
+            console.log('[이미지 첨부 팝업] 기존 파일 없음');
+            return;
+        }
+
+        console.log('[이미지 첨부 팝업] 기존 파일 로드:', fileInfo.name, imageType);
+
+        // DragDropUploader에 기존 파일 추가
+        if (uploader) {
+            var file = fileInfo.file;
+            var fileName = fileInfo.name || file.name;
+            var ext = fileName.substring(fileName.lastIndexOf(".") + 1).toLowerCase();
+            var icon = uploader.getFileIcon(fileName);
+            var fileNameOnly = fileName.replace('.' + ext, '');
+
+            // 파일 리스트에 HTML 추가
+            var $fileList = $('#imageFileListContainer');
+            var fileHtml =
+                '<div class="UploaderListImg" data-filename="' + fileName + '" data-client-file="true">' +
+                '    <img class="Delete" src="/resources/imgs/delete_02.png" />' +
+                '    <img class="img" src="' + icon + '" />' +
+                '    <div class="Txt"><p>' + fileNameOnly + '</p><span>.' + ext + '</span></div>' +
+                '</div>';
+
+            $fileList.html(fileHtml);
+            $fileList.show();
+            $('#imageDropZone').hide();
+
+            // uploader의 uploadedFiles에도 추가
+            uploader.uploadedFiles = [{
+                file: file,
+                name: fileName,
+                size: file.size
+            }];
+
+            console.log('[이미지 첨부 팝업] 기존 파일 로드 완료:', fileName);
+        }
+    }
+
+    /**
+     * DragDropUploader 초기화
+     */
+    function initUploader() {
+        console.log('[이미지 첨부 팝업] DragDropUploader 초기화 시작');
+
+        // DragDropUploader 인스턴스 생성
+        uploader = new DragDropUploader({
+            dropZoneId: 'imageDropZone',
+            fileListId: 'imageFileListContainer',
+            uploadButtonSelector: '#fileSearchBtn',
+            maxFiles: 1,                                    // 최대 1개 (이미지)
+            maxFileSize: 5 * 1024 * 1024,                  // 5MB
+            allowedExtensions: ['jpg', 'jpeg', 'gif', 'png'], // 이미지만
+            container: $container,                          // 팝업 컨테이너
+            onFileAdded: function(file) {
+                console.log('[이미지 첨부 팝업] 파일 추가됨:', file.name);
+
+                // 클라이언트 파일(기존 첨부 파일)이 있으면 제거
+                $container.find('.UploaderListImg[data-client-file="true"]').remove();
+            },
+            onFileRemoved: function(filename, isExisting) {
+                console.log('[이미지 첨부 팝업] 파일 삭제됨:', filename);
+            },
+            onFileCountChange: function(count) {
+                console.log('[이미지 첨부 팝업] 파일 개수 변경:', count);
+            }
+        });
+
+        console.log('[이미지 첨부 팝업] DragDropUploader 초기화 완료');
+    }
+
+    /**
+     * 이벤트 바인딩 (내부 함수, 자동 실행)
+     */
+    function bindEvents() {
+        // 기존 이벤트 제거 (중복 방지)
+        $container.find('#DIVclosePopup').off('click');
+        $container.find('#cancelBtn').off('click');
+        $container.find('#confirmBtn').off('click');
+        $overlay.off('click');
+
+        // X 버튼 클릭 이벤트
+        $container.find('#DIVclosePopup').on('click', function(e) {
+            e.preventDefault();
+            if (cancelCallback) cancelCallback();
+            close();
+        });
+
+        // 취소 버튼 클릭 이벤트
+        $container.find('#cancelBtn').on('click', function(e) {
+            e.preventDefault();
+            if (cancelCallback) cancelCallback();
+            close();
+        });
+
+        // 확인 버튼 클릭 이벤트
+        $container.find('#confirmBtn').on('click', function(e) {
+            e.preventDefault();
+
+            // 업로드된 파일 가져오기
+            var uploadedFiles = getUploadedFiles();
+            console.log('[이미지 첨부 팝업] 확인 버튼 클릭 - 파일 개수:', uploadedFiles.length);
+
+            // 파일이 없으면 경고
+            if (uploadedFiles.length === 0) {
+                alert('첨부된 파일이 없습니다.');
+                return;
+            }
+
+            // 콜백 실행
+            if (confirmCallback) {
+                confirmCallback(uploadedFiles);
+            }
+
+            close();
+        });
+
+        // 파일 삭제 버튼 클릭 이벤트 (클라이언트 파일용)
+        $container.on('click', '.UploaderListImg[data-client-file="true"] .Delete', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            var $item = $(this).closest('.UploaderListImg');
+            var filename = $item.data('filename');
+
+            console.log('[이미지 첨부 팝업] 파일 삭제 클릭:', filename);
+
+            // 확인 메시지
+            if (confirm('파일을 삭제하시겠습니까?\n' + filename)) {
+                // UI에서 제거
+                $item.remove();
+
+                // uploader의 uploadedFiles에서 제거
+                if (uploader) {
+                    uploader.uploadedFiles = [];
+                }
+
+                // 드롭존 다시 표시
+                $('#imageFileListContainer').hide();
+                $('#imageDropZone').show();
+
+                console.log('[이미지 첨부 팝업] 파일 삭제 완료:', filename);
+            }
+        });
+
+        // 오버레이 클릭 시 닫기
+        $overlay.on('click', function() {
+            if (cancelCallback) cancelCallback();
+            close();
+        });
+
+        console.log('[이미지 첨부 팝업] 이벤트 자동 바인딩 완료');
+    }
+
+    // Public API
+    var api = {
+        onConfirm: onConfirm,
+        onCancel: onCancel,
+        getUploadedFiles: getUploadedFiles,
+        loadExistingFile: loadExistingFile,
+        close: close,
+        $overlay: $overlay,
+        $container: $container
+    };
+
+    // ========================================
+    // 자동 실행: 이벤트 즉시 바인딩
+    // ========================================
+    bindEvents();
+
+    // DragDropUploader 초기화 (약간의 지연)
+    setTimeout(function() {
+        initUploader();
+    }, 100);
+
+    return api;
+};
+</script>

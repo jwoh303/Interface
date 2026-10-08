@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mdct">
+	<!-- 조회 -->
+	<select id="selectMasterMdCtBuyerReContractList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.pagestart"/>	
+			<![CDATA[
+				/* selectMasterMdCtBuyerReContractList */
+				SELECT	X.CONTRACT_NO,
+						X.ORG_CODE,
+						X.ORG_NAME,
+						X.CONTRACT_STATUS,
+						X.CONTRACT_TYPE,
+						X.CONTRACT_TYPE_TEXT,
+						X.MONTH_DIFF,
+						X.CONTRACT_START,
+						X.CONTRACT_END,
+						X.CONTRACT_USER_ID,
+						(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = X.CONTRACT_USER_ID) AS CONTRACT_USER_NAME,
+						X.CONTRACT_USER_DEPT,
+						(SELECT TEXT1 FROM ICOMCOD2 WHERE COMPANY_CODE = 'KRKORE0001' AND TYPE = 'C001' AND CODE = X.CONTRACT_USER_DEPT) AS CONTRACT_USER_DEPT_NAME,
+						X.PAR_AMOUNT,
+						X.PAR_AGR_YN,
+						X.SALES_USER_ID,
+						X.SOURCING_USER_ID,
+						X.PRE_MEETING_DATE,
+						X.SOURCING_DIS_DATE,
+						X.SOURCING_ASS_DATE,
+						X.IN_REPORTING_DATE,
+						X.BUYER_PROPOSAL_DATE,
+						X.PRE_IMAGE,
+						X.SOURCING_DIS_YN,
+						X.SOURCING_SUBM_YN,
+						X.BUYER_PROPOSAL_YN,
+						X.SOURCING_IMAGE,
+						X.ORDER_RESULT,
+						(SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'CTRS' AND CODE = X.ORDER_RESULT) AS ORDER_RESULT_TEXT,
+						X.CONTRACT_IMAGE_KEY,
+						X.ORDER_IMAGE,
+						X.RE_CONTRACT_SYSTEM_YN,
+						X.CONTRACT_IMAGE,
+						X.COMPLETION_YN,
+						X.ADD_DATE,
+						X.ADD_USER_ID,
+						X.CHANGE_DATE,
+						X.CHANGE_USER_ID
+				FROM	(
+						SELECT	A.CONTRACT_NO,
+								A.ORG_CODE,
+								B.ORG_NAME,
+								A.CONTRACT_STATUS,
+								A.CONTRACT_TYPE,
+								(SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE='CTTP' AND CODE=A.CONTRACT_TYPE) AS CONTRACT_TYPE_TEXT,
+								TRUNC(MONTHS_BETWEEN(SYSDATE, TO_DATE(B.CONTRACT_FIRST_DATE, 'YYYY-MM-DD'))) AS MONTH_DIFF,
+								A.CONTRACT_START,
+								A.CONTRACT_END,
+								A.CONTRACT_USER_ID,
+								(SELECT MAX(KEP_DEPT) FROM MIS_BUYER_MNG WHERE YEAR=TO_CHAR(SYSDATE,'YYYY') AND STATUS='C' AND KEP_USER_ID=A.CONTRACT_USER_ID) AS CONTRACT_USER_DEPT,
+								A.PAR_AMOUNT,
+								A.PAR_AGR_YN,
+								A.SALES_USER_ID,
+								A.SOURCING_USER_ID,
+								A.PRE_MEETING_DATE,
+								A.SOURCING_DIS_DATE,
+								A.SOURCING_ASS_DATE,
+								A.IN_REPORTING_DATE,
+								A.BUYER_PROPOSAL_DATE,
+								DECODE(A.CONTRACT_STATUS, 'A', '0', '1') AS PRE_IMAGE,
+								A.SOURCING_DIS_YN,
+								A.SOURCING_SUBM_YN,
+								A.BUYER_PROPOSAL_YN,
+								DECODE(A.CONTRACT_STATUS, 'A', '', 'S', '0', '1') AS SOURCING_IMAGE,
+								A.ORDER_RESULT,
+								A.CONTRACT_IMAGE_KEY,
+								DECODE(A.CONTRACT_STATUS, 'A', '', 'S', '', 'R', DECODE(A.ORDER_RESULT, 'F', '1', '0'), '1') AS ORDER_IMAGE,
+								A.RE_CONTRACT_SYSTEM_YN,
+								DECODE(A.CONTRACT_STATUS, 'A', '', 'S', '', 'R', '', 'C', DECODE(A.COMPLETION_YN, 'Y', '1', '0'), '1') AS CONTRACT_IMAGE,
+								A.COMPLETION_YN,
+								A.ADD_DATE,
+								A.ADD_USER_ID,
+								A.CHANGE_DATE,
+								A.CHANGE_USER_ID
+						FROM	KEP_RE_CONTRACT A, KEP_BUYER_ORG_MNG B
+						WHERE	1=1
+						AND		A.ORG_CODE = B.ORG_CODE
+						AND		B.STATUS <> 'D'
+			]]>
+			<if test="st_org_name != null and st_org_name != ''">
+						AND		B.ORG_NAME LIKE '%' || #{st_org_name} || '%'
+			</if>
+			<choose>
+				<when test="st_ct_no != null and st_ct_no != ''">
+						AND		A.CONTRACT_NO LIKE '%' || #{st_ct_no} || '%'
+				</when>
+				<otherwise>
+						AND		A.CONTRACT_START BETWEEN #{st_from_date} AND #{st_to_date}
+				</otherwise>
+			</choose>
+			
+			<![CDATA[
+				) X
+				WHERE	1=1
+			]]>
+			<if test='st_contract_status != ""'>
+				<choose>
+					<when test='st_contract_status == "Y"'>
+						AND		X.COMPLETION_YN = 'Y'
+					</when>
+					<otherwise>
+						AND		X.CONTRACT_STATUS = #{st_contract_status}
+						AND		X.COMPLETION_YN = 'N'
+					</otherwise>
+				</choose>
+			</if>
+			<![CDATA[
+				ORDER BY X.CONTRACT_NO
+			]]>
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+</mapper>   
+   

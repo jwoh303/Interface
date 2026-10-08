@@ -1,0 +1,270 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mpso">
+	<!-- 조회 -->	
+	<select id="masterMpSoPayRegMngUploadPopList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.pagestart"/>
+			<![CDATA[
+			/* masterMpSoPayRegMngUploadPopList */
+			SELECT 	
+				 UPLOAD.ADD_USER_ID
+				,UPLOAD.SEQ
+				,UPLOAD.BUYER
+				,UPLOAD.PO_NO
+				,UPLOAD.PO_SEQ
+				,UPLOAD.BUYER_ITEM_NO
+				,'1' AS BUYER_ITEM_NO_IMG
+				,TO_CHAR(TO_DATE(UPLOAD.SCHD_CLOSE_MONTH, 'YYYYMM'), 'YYYY/MM') AS SCHD_CLOSE_MONTH
+				,'2' AS SCHD_CLOSE_MONTH_IMG
+				,UPLOAD.PAY_REG_TYPE
+				,DECODE(UPLOAD.PAY_REG_TYPE, 'A', UPLOAD.PAY_AMT, '') AS PAY_AMT1
+				,DECODE(UPLOAD.PAY_REG_TYPE, 'B', UPLOAD.PAY_AMT, '') AS PAY_AMT2
+				,DECODE(UPLOAD.PAY_REG_TYPE, 'C', UPLOAD.PAY_AMT, '') AS PAY_AMT3
+				,UPLOAD.TAX_AMT
+				,UPLOAD.REMARK
+				,(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = POHD.AGENT) AS AGENT_NAME
+				,(SELECT IRS_NO FROM ICOMCMPY WHERE COM_CODE = POHD.AGENT) AS AGENT_IRS_NO
+				,(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = POHD.BUYER) AS BUYER_NAME
+				,(SELECT IRS_NO FROM ICOMCMPY WHERE COM_CODE = POHD.BUYER) AS BUYER_IRS_NO				
+				 FROM PAY_REG_MNG_UPLOAD UPLOAD, ICOMPOHD POHD
+				 WHERE UPLOAD.BUYER = POHD.BUYER
+				 AND   UPLOAD.PO_NO = POHD.PO_NO
+				 AND   POHD.STATUS <> 'D'
+				 AND   UPLOAD.ADD_USER_ID = #{st_user_id}
+		]]>
+        <include refid="common.ibsheet.xml.pageend"/>
+	</select>
+	
+	
+	<select id="masterMpSoPayRegMngUploadPopPoSearch" parameterType="java.util.Map" resultType="java.util.Map">		
+			<![CDATA[
+			/* masterMpSoPayRegMngUploadPopPoSearch */
+			SELECT PODT.BUYER,
+				   (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = PODT.BUYER) AS BUYER_NAME,
+				   (SELECT IRS_NO FROM ICOMCMPY WHERE COM_CODE = PODT.BUYER) AS BUYER_IRS_NO,
+				   MAX(POHD.AGENT) AS AGENT,
+				   MAX((SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = POHD.AGENT)) AS AGENT_NAME,
+				   MAX((SELECT IRS_NO FROM ICOMCMPY WHERE COM_CODE = POHD.AGENT)) AS AGENT_IRS_NO,
+				   PODT.PO_NO,
+				   PODT.PO_SEQ,
+				   MAX(PODT.BUYER_ITEM_NO) AS BUYER_ITEM_NO,
+				   MAX((SELECT PR_NO FROM ICOMPRDT PR WHERE PR.BUYER = PODT.BUYER AND PR.PR_NO = PODT.PR_NO AND PR.PR_SEQ = PODT.PR_SEQ)) AS PR_NO,
+				   MAX((SELECT PR_SEQ FROM ICOMPRDT PR WHERE PR.BUYER = PODT.BUYER AND PR.PR_NO = PODT.PR_NO AND PR.PR_SEQ = PODT.PR_SEQ)) AS PR_SEQ,
+				   MAX(NVL(GRDT.GR_NO, ' ')) AS GR_NO,
+				   MAX(NVL(GRDT.GR_SEQ,' ')) AS GR_SEQ,
+				   MAX(NVL(GRDT.GR_DATE, ' ')) AS GR_DATE,
+				   MAX(PODT.DESCRIPTION) || '/' || MAX(PODT.SPECIFICATION) AS ITEM_INFO				   	
+				  FROM ICOMPODT PODT, ICOMPOHD POHD, ICOMGRDT GRDT
+				  WHERE 1=1
+				  ]]>
+		 	 <choose>
+				<when test="st_buyer == 'XX'">
+				<![CDATA[
+					AND PODT.BUYER IN ( SELECT COM_CODE FROM ICOMCMPY WHERE REPLACE(IRS_NO,'-','') = REPLACE(#{BUYER_IRS_NO},'-',''))
+				]]>
+				</when>
+			
+				<otherwise>
+				<![CDATA[
+					AND PODT.BUYER = #{st_buyer}
+					]]>
+				</otherwise>
+			</choose>
+			<![CDATA[
+				  
+				  AND PODT.PO_NO LIKE '%'|| #{st_po_no}	 ||'%'			  
+				  AND PODT.BUYER = POHD.BUYER
+				  AND PODT.PO_NO = POHD.PO_NO
+				  AND POHD.STATUS <> 'D'
+				  AND PODT.STATUS <> 'D'
+				  AND PODT.BUYER = GRDT.BUYER(+)
+				  AND PODT.PO_NO = GRDT.PO_NO(+)
+				  AND PODT.PO_SEQ = GRDT.PO_SEQ(+)
+				]]>  
+				  
+			
+				<if test="PO_SEQ != null and PO_SEQ != '' and PO_SEQ !='XX'">
+					<![CDATA[
+						AND  PODT.PO_SEQ = #{PO_SEQ}
+					]]>
+				</if>
+				
+				   <if test="st_buyer_item_no != null and st_buyer_item_no != ''">
+				        AND  PODT.BUYER_ITEM_NO LIKE '%'|| #{st_buyer_item_no} ||'%'
+		        	</if>
+		        GROUP BY PODT.BUYER, PODT.PO_NO, PODT.PO_SEQ	
+				
+	</select>
+	
+	<select id="masterMpSoPayRegMngUploadPopPoSearchExcel" parameterType="java.util.Map" resultType="java.util.Map">		
+			<![CDATA[
+			/* masterMpSoPayRegMngUploadPopPoSearchExcel */
+			SELECT PODT.BUYER,
+				   (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = PODT.BUYER) AS BUYER_NAME,
+				   (SELECT IRS_NO FROM ICOMCMPY WHERE COM_CODE = PODT.BUYER) AS BUYER_IRS_NO,
+				   MAX(POHD.AGENT) AS AGENT,
+				   MAX((SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = POHD.AGENT)) AS AGENT_NAME,
+				   MAX((SELECT IRS_NO FROM ICOMCMPY WHERE COM_CODE = POHD.AGENT)) AS AGENT_IRS_NO,
+				   PODT.PO_NO,
+				   PODT.PO_SEQ,
+				   MAX(PODT.BUYER_ITEM_NO) AS BUYER_ITEM_NO,
+				   MAX((SELECT PR_NO FROM ICOMPRDT PR WHERE PR.BUYER = PODT.BUYER AND PR.PR_NO = PODT.PR_NO AND PR.PR_SEQ = PODT.PR_SEQ)) AS PR_NO,
+				   MAX((SELECT PR_SEQ FROM ICOMPRDT PR WHERE PR.BUYER = PODT.BUYER AND PR.PR_NO = PODT.PR_NO AND PR.PR_SEQ = PODT.PR_SEQ)) AS PR_SEQ,
+				   MAX(NVL(GRDT.GR_NO, ' ')) AS GR_NO,
+				   MAX(NVL(GRDT.GR_SEQ,' ')) AS GR_SEQ,
+				   MAX(NVL(GRDT.GR_DATE, ' ')) AS GR_DATE,
+				   MAX(PODT.DESCRIPTION) || '/' ||  MAX(PODT.SPECIFICATION) AS ITEM_INFO				   	
+				  FROM ICOMPODT PODT, ICOMPOHD POHD, ICOMGRDT GRDT
+				  WHERE 1=1
+				  AND PODT.BUYER = #{BUYER}		  
+				  AND PODT.PO_NO = #{PO_NO}
+				  AND PODT.PO_SEQ = #{PO_SEQ}			  
+				  AND PODT.BUYER = POHD.BUYER
+				  AND PODT.PO_NO = POHD.PO_NO
+				  AND POHD.STATUS <> 'D'
+				  AND PODT.STATUS <> 'D'
+				  AND PODT.BUYER = GRDT.BUYER(+)
+				  AND PODT.PO_NO = GRDT.PO_NO(+)
+				  AND PODT.PO_SEQ = GRDT.PO_SEQ(+)
+				  GROUP BY PODT.BUYER, PODT.PO_NO, PODT.PO_SEQ
+				]]>  
+				
+				
+	</select>
+	
+	<update  id="deleteMasterMpSoPayRegMngUploadPopExcel" parameterType="java.util.Map" >
+		<![CDATA[
+				 /*deleteMasterMpSoPayRegMngUploadPopExcel*/  
+                DELETE PAY_REG_MNG_UPLOAD           
+                WHERE ADD_USER_ID = #{ADD_USER_ID}                 
+          		]]> 
+	</update>
+	
+	<update  id="deleteMasterMpSoPayRegMngUploadPopExcel_select" parameterType="java.util.Map" >
+		<![CDATA[
+				 /*deleteMasterMpSoPayRegMngUploadPopExcel_select*/  
+                DELETE PAY_REG_MNG_UPLOAD           
+                WHERE ADD_USER_ID = #{st_user_id}
+                AND   BUYER = #{BUYER}
+                AND   PO_NO = #{PO_NO}
+                AND   PO_SEQ = #{PO_SEQ}                 
+          		]]> 
+	</update>
+	
+	<update  id="insertMasterMpSoPayRegMngUploadPopExcel" parameterType="java.util.Map" >
+		<selectKey keyProperty="SEQ" order="BEFORE" resultType="integer"> 
+			SELECT NVL(MAX(SEQ),0)+1 AS SEQ FROM PAY_REG_MNG_UPLOAD WHERE ADD_USER_ID = #{ADD_USER_ID} 
+		</selectKey> 
+		<![CDATA[
+		/*insertMasterMpSoPayRegMngUploadPopExcel*/
+				INSERT INTO PAY_REG_MNG_UPLOAD (  
+													      ADD_USER_ID,              
+													      SEQ,                
+													      BUYER,      
+													      PO_NO,        
+													      PO_SEQ,   
+													      BUYER_ITEM_NO,
+													      SCHD_CLOSE_MONTH,         
+													      PAY_REG_TYPE,         
+													      PAY_AMT,        
+													      REMARK,             
+													      ADD_DATE,
+													      TAX_AMT
+													    )                     
+													 VALUES(                  
+													        #{ADD_USER_ID},
+													        #{SEQ},
+													        #{BUYER},
+													        #{PO_NO},
+													        #{PO_SEQ},
+													        #{BUYER_ITEM_NO},													        
+													        #{SCHD_CLOSE_MONTH},
+													        #{PAY_REG_TYPE},
+													        #{PAY_AMT},
+													        #{REMARK},
+													        SYSDATE,
+													        #{TAX_AMT}
+													    ) 								
+		]]>
+	</update>
+	
+	<update  id="insertMasterMpSoPayRegMngUploadPopList" parameterType="java.util.Map" >
+		<![CDATA[
+				 /*insertMasterMpSoPayRegMngUploadPopList*/  
+                INSERT INTO PAY_REG_MNG (
+                									PAY_REG_NO,
+                									PAY_REG_SEQ,
+                									STATUS,
+                									GW_PAY_REG_NO,
+                									PAY_REG_STATUS,
+                									BUYER,
+                									PR_NO,
+                									PR_SEQ,
+                									BUYER_ITEM_NO,
+                									PO_NO,
+                									PO_SEQ,
+                									GR_NO,
+                									GR_SEQ,
+                									AGENT,
+                									BUYER_NAME,
+                									BUYER_IRS_NO,
+                									AGENT_NAME,
+                									AGENT_IRS_NO,
+                									SCHD_CLOSE_MONTH,
+                									SCHD_CHANGE_DATE,
+                									SCHD_CHANGE_USER_ID,
+                									SCHD_CHANGE_USER_NAME,
+                									BILL_CLOSE_MONTH,
+                									PAY_REG_TYPE,
+                									PAY_AMT,
+                									REMARK,
+                									ADD_DATE,
+                									ADD_USER_ID,
+                									ADD_USER_NAME,
+                									CHANGE_DATE,
+                									CHANGE_USER_ID,
+                									CHANGE_USER_NAME,
+                									TAX_AMT
+                								)           
+               								 VALUES(                  
+												        #{PAY_REG_NO},
+												        TO_CHAR(#{PAY_REG_SEQ},'FM000000'),												        
+												        'C',
+												        '',
+												        'S',
+												        #{BUYER},													        
+												        #{PR_NO},
+												        #{PR_SEQ},
+												        #{BUYER_ITEM_NO},
+												        #{PO_NO},
+												        #{PO_SEQ},
+												        #{GR_NO},
+												        #{GR_SEQ},
+												        #{AGENT},
+												        #{BUYER_NAME},
+												        #{BUYER_IRS_NO},
+												        #{AGENT_NAME},
+												        #{AGENT_IRS_NO},
+												        #{SCHD_CLOSE_MONTH},
+												        SYSDATE,												        
+												        #{ADD_USER_ID},
+												        (SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = #{ADD_USER_ID}),
+												        '',
+												        #{PAY_REG_TYPE},
+												        #{PAY_AMT},
+												        #{REMARK},
+												        SYSDATE,
+												        #{ADD_USER_ID},
+												        (SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = #{ADD_USER_ID}),
+												        SYSDATE,
+												        #{ADD_USER_ID},
+												        (SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = #{ADD_USER_ID}),
+												        #{TAX_AMT}
+												 ) 
+          		]]> 
+	</update>
+	
+	
+		
+</mapper>   
+   

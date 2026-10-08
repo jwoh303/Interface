@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="seller.mpcl">
+	<select id="selectSellerMpClCmsCmplReqList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.jsppagestart"/>
+		<![CDATA[
+			/*selectSellerMpClCmsCmplReqList*/
+			SELECT
+					A.BUYER
+					,A.AGENT
+					,A.REQ_NO
+					,A.REQ_NO||'('||B.REVISION||')' AS REQ_NO_R
+					,A.BUYER_ITEM_NO
+					,D.IMGFILE_DIR
+					,D.IMGFILE_NAME
+					,(SELECT CMPY.COM_NAME_LOC
+						FROM ICOMCMPY CMPY
+						WHERE CMPY.COM_CODE = A.AGENT) AS AGENT_NAME_LOC
+					,(SELECT USR.USER_NAME_LOC FROM ICOMLUSR USR WHERE USR.USER_ID =B.ADD_USER_ID) AS ADD_USER_NAME
+					,(SELECT USR.PHONE_NUMBER FROM ICOMLUSR USR WHERE USR.USER_ID =B.ADD_USER_ID) AS ADD_USER_TEL
+					,B.REVISION
+					,D.DESCRIPTION_LOC
+					,D.SPECIFICATION
+					,D.MAKER_CODE
+					,D.MAKER_NAME
+					,D.ORIGIN_CODE
+					,(SELECT COD.TEXT2 FROM ICOMCOD1 COD
+						WHERE COD.TYPE = 'M001' AND COD.CODE = D.ORIGIN_CODE) AS ORIGIN_NAME
+					,D.UNIT_MEASURE
+					,B.DESCRIPTION_LOC AS S_DESCRIPTION_LOC
+					,B.SPECIFICATION AS S_SPECIFICATION
+					,B.MAKER_CODE AS S_MAKER_CODE
+					,B.MAKER_NAME  AS S_MAKER_NAME
+					,B.ORIGIN_CODE AS S_ORIGIN_CODE
+					,(SELECT COD.TEXT2 FROM ICOMCOD1 COD
+						WHERE COD.TYPE = 'M001' AND COD.CODE = B.ORIGIN_CODE) AS S_ORIGIN_NAME
+					,B.UNIT_MEASURE AS S_UNIT_MEASURE
+					,B.IMGFILE_DIR AS  S_IMGFILE_DIR
+					,B.IMGFILE_NAME  AS S_IMGFILE_NAME
+					,A.ATOS_REMARK
+					,B.STOA_REMARK
+					,A.REJECT_REMARK
+					,B.ADD_DATE AS REQ_ADD_DATE
+					,NVL(D.MSDS_YN,'N') AS MSDS_YN
+					,B.MSDS_YN S_MSDS_YN
+					,B.IMAGE_KEY
+					,D.MAKER_PART_NO
+					,DECODE((SELECT COUNT(COD.CODE) FROM ICOMCOD1 COD
+						WHERE COD.TYPE = 'M159' AND COD.CODE = D.CMS_CATEG_ID AND COD.FLAG = 'Y'),0,'N','Y') AS MAKER_PART_YN
+				FROM KEPCMSHD A, KEPCMSDT B, ICOMCMPY C, ICOMBYIT D
+				WHERE A.BUYER = B.BUYER
+				AND A.REQ_NO = B.REQ_NO
+				AND B.STATUS = 'S'
+				AND A.BUYER = C.COM_CODE
+				AND C.BYCA_COMORG_CODE = D.BUYER
+				AND A.BUYER_ITEM_NO = D.BUYER_ITEM_NO  
+				AND A.AGENT = #{st_com_code}
+				AND B.ADD_DATE BETWEEN   #{st_from_date} AND #{st_to_date}
+			]]>
+		 <!-- 품목코드 -->
+		 <if test="st_buyer_item_no != null and st_buyer_item_no != ''">
+			<![CDATA[
+	 			AND A.BUYER_ITEM_NO LIKE '%'||#{st_buyer_item_no}||'%'
+	 		]]>	 
+		 </if>
+		 <!-- 품목명 -->
+		 <if test="st_description != null and st_description != ''">
+			<![CDATA[
+	 			AND D.DESCRIPTION_LOC LIKE '%'||#{st_description}||'%'
+	 		]]>	 
+		 </if>
+		 <!-- 규격 -->
+		 <if test="st_specification != null and st_specification != ''">
+			<![CDATA[
+	 			AND D.SPECIFICATION LIKE '%'||#{st_specification}||'%'
+	 		]]>	 
+		 </if>
+		 <![CDATA[
+				ORDER BY  B.ADD_DATE
+	 	]]>	 
+		<include refid="common.ibsheet.xml.jsppageend"/>	
+	</select> 
+	<update id="updateSellerMpClCmsCmplReqItem" parameterType="java.util.Map"> 
+	<![CDATA[
+				/*"updateSellerMpClCmsCmplReqItem"*/
+				UPDATE KEPCMSDT A
+					SET IMGFILE_DIR =#{IMGFILE_DIR}
+					,IMGFILE_NAME =#{IMGFILE_NAME}
+					,STOA_REMARK =#{STOA_REMARK}
+					,STATUS = 'C'
+					,IMAGE_KEY = #{IMAGE_KEY}
+					,CHANGE_DATE = TO_CHAR(SYSDATE,'YYYYMMDD')	
+					,CHANGE_USER_ID = #{_user_id}
+					,AGENT_USER_ID  = #{_user_id}
+				WHERE BUYER	 =#{BUYER} 
+				AND REQ_NO	=#{REQ_NO}
+				AND REVISION =#{REVISION}	 		
+	]]>  
+	</update>
+	<update id="updateSellerMpClCmsCmplReqHdItem" parameterType="java.util.Map"> 
+	<![CDATA[
+				/*"updateSellerMpClCmsCmplReqHdItem"*/
+				UPDATE KEPCMSHD A
+					SET STATUS = 'A'
+					,CHANGE_DATE = TO_CHAR(SYSDATE,'YYYYMMDD')	
+					,CHANGE_USER_ID = #{_user_id}
+				WHERE BUYER	 =#{BUYER} 
+				AND REQ_NO	=#{REQ_NO}
+	]]>  
+	</update>
+</mapper>

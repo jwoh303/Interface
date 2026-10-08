@@ -1,0 +1,764 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="buyer.mpso">
+	<select id="getCartAddList" parameterType="java.util.Map" resultType="java.util.Map">
+ 
+		<![CDATA[
+			/*getCartAddList*/
+			
+		SELECT      
+		     A.BUYER_ITEM_NO,  --상품코드
+			 A.REF_PR_NO AS REF_NO,	--관리번호
+		     B.DESCRIPTION_LOC,  --품명
+		     B.SPECIFICATION,  --규격    
+		     CASE WHEN (SELECT NVL(AGENT_OPEN_FLAG,'N') FROM ICOMCMPY WHERE COM_CODE=A.BUYER) = 'Y'	then (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = C.AGENT)  
+				  WHEN (SELECT NVL(AGENT_OPEN_FLAG,'N') FROM ICOMCMPY WHERE COM_CODE=A.BUYER) = 'N'	then (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = 'KRKORE0001')  
+				  ELSE 'N/A'  
+			 END  AS  AGENT_NAME, --공급사
+		     TO_CHAR(NVL(A.CART_QTY,0), 'FM999,999,999,999,999,999') AS CART_QTY,  --수량
+		     A.ACCOUNT_TYPE,  --계정
+		     A.BUDGET_DEPT,  --예산부서		
+		     CASE WHEN NVL(A.REMARK,' ') <> ' '						then A.REMARK  
+				  WHEN NVL(A.BUYER_ITEM_NO,' ') = ' '				then 'Excel데이타 미등록'  
+				  WHEN 1 < (select count(*) from icomcart_tmp x where 1=1  
+																and x.BUYER = a.buyer
+																and x.BUYER_ITEM_NO = A.BUYER_ITEM_NO  
+																and nvl(x.USE_FLAG,' ') = 'C'  
+																and x.USER_ID = #{userid}
+						   )										then 'Excel데이타 중복품목 존재'  
+				  WHEN NVL(B.BUYER_ITEM_NO,' ') = ' '				then '카탈로그 미존재'  
+				  WHEN NVL(B.PRODUCT_CLOSE_FLAG,' ') = 'Y'			then '단종 품목'  
+				  WHEN NVL(B.PRODUCT_CLOSE_FLAG,' ') = 'T'			then 'I/F용 품목'  
+				  WHEN NVL(B.PRODUCT_CLOSE_FLAG,' ') = 'S'			then '신규소싱 단가미합의 품목'  
+				  WHEN NVL(C.BUYER_ITEM_NO,' ') = ' '				then '계약서 미존재'  
+				  WHEN 0 < (select count(*) from icomcart x where 1=1  
+																and x.BUYER = a.buyer  
+																and x.BUYER_ITEM_NO = c.BUYER_ITEM_NO  
+																and nvl(x.USE_FLAG,' ') = 'C'  
+																and x.USER_ID = #{userid}
+						   )										then '장바구니에 대상품목 기존재'  
+			 END  AS  REMARK, --비고
+		     C.CONTRACT_NO,			--계약번호
+		     C.CONTRACT_SEQ,			--계약항번
+		     A.USE_FLAG,					--사용유무
+		     A.SEQ					--SEQ
+		     FROM ICOMCART_TMP  A, ICOMBYIT B,  
+				(	
+					SELECT	
+						X1.SEQ,	
+						X2.CONTRACT_NO,
+						X2.CONTRACT_SEQ,
+						X2.BUYER,		
+						X2.BELOW_COMORG_CODE,
+						X2.AGENT,				
+						X2.BUYER_ITEM_NO,		
+						X2.STATUS				
+					FROM ICOMCART_TMP X1, ICOMCQDT X2	
+					WHERE 1=1							
+						AND X1.BUYER = #{buyer}
+						AND X1.USER_ID = #{userid}	
+						AND NVL(X1.USE_FLAG,' ') = 'C'		
+						AND X1.BYIT_COMORG_CODE = X2.BUYER	
+						AND X1.BUYER_ITEM_NO = X2.BUYER_ITEM_NO		
+						AND NVL(X2.STATUS,' ') <> 'D'														
+						AND X2.BELOW_COMORG_CODE = DECODE((SELECT COUNT(*) FROM ICOMCQDT CQDT		
+											WHERE 1=1												
+												AND   NVL(CQDT.STATUS,' ') <> 'D'	
+												AND	  CQDT.BUYER = X2.BUYER				
+												AND   CQDT.BUYER_ITEM_NO = X2.BUYER_ITEM_NO		
+												AND   CQDT.BELOW_COMORG_CODE = X1.BUYER),0,'ABOVE',X1.BUYER)   
+				)  C	
+		     WHERE 1=1  
+			   AND A.BUYER = #{buyer}  
+		       AND A.USER_ID = #{userid}  
+		       AND NVL(A.USE_FLAG,' ') = 'C'  
+		       AND A.BYIT_COMORG_CODE = B.BUYER(+) 
+		       AND A.BUYER_ITEM_NO = B.BUYER_ITEM_NO(+)  
+		       AND A.BYIT_COMORG_CODE = C.BUYER(+)  
+		       AND A.BUYER_ITEM_NO = C.BUYER_ITEM_NO(+)  
+		       AND A.SEQ = C.SEQ(+)  
+			   AND NVL(B.STATUS(+),' ') <> 'D'  
+		       AND NVL(C.STATUS(+),' ') <> 'D'  
+			   AND (											
+					SELECT										
+						COUNT(*)									
+					FROM ICOMCART_TMP X1, ICOMCQDT X2				
+					WHERE 1=1									
+						AND X1.BUYER = A.BUYER		
+						AND X1.USER_ID = A.USER_ID	
+						AND X1.BUYER_ITEM_NO = A.BUYER_ITEM_NO			
+						AND X1.SEQ = A.SEQ								
+						AND NVL(X1.USE_FLAG,' ') = 'C'		
+						AND X1.BYIT_COMORG_CODE = X2.BUYER	
+						AND X1.BUYER_ITEM_NO = X2.BUYER_ITEM_NO	
+						AND NVL(X2.STATUS,' ') <> 'D'			
+						AND X2.BELOW_COMORG_CODE = DECODE((SELECT COUNT(*) FROM ICOMCQDT CQDT
+											WHERE 1=1										
+											AND   NVL(CQDT.STATUS,' ') <> 'D'		
+											AND	  CQDT.BUYER = A.BYIT_COMORG_CODE	
+											AND   CQDT.BUYER_ITEM_NO = A.BUYER_ITEM_NO	
+											AND   CQDT.BELOW_COMORG_CODE = A.BUYER),0,'ABOVE',A.BUYER)		
+				) < 2 			
+ UNION							
+		 	SELECT				
+		 		A.BUYER_ITEM_NO,	
+		 		'' AS REF_NO,		
+		 		B.DESCRIPTION_LOC,	
+		 		B.SPECIFICATION,	
+		 		''  AGENT_NAME,			
+				TO_CHAR(NVL(A.CART_QTY,0), 'FM999,999,999,999,999,999') AS CART_QTY,  --수량
+		 		'' AS ACCOUNT_TYPE,																
+		 		'' AS BUDGET_DEPT,									
+		        '해당품목에 대한 계약단가가 2개이상 존재'  AS  REMARK,		
+		 		'' AS CONTRACT_NO,											
+		 		'' AS CONTRACT_SEQ,											
+		 		'C' AS USE_FLAG,											
+		 		A.SEQ																			         
+		 	FROM ICOMCART_TMP  A, ICOMBYIT B,  ICOMCQDT  C		
+		     WHERE 1=1  
+			    AND A.BUYER = #{buyer}  
+		        AND A.USER_ID = #{userid}  
+		 		AND NVL(A.USE_FLAG,' ') = 'C'																         
+		 		AND A.BYIT_COMORG_CODE = B.BUYER(+)															         
+		 		AND A.BUYER_ITEM_NO = B.BUYER_ITEM_NO(+)														         
+		 		AND A.BYIT_COMORG_CODE = C.BUYER(+)															         
+		 		AND A.BUYER_ITEM_NO = C.BUYER_ITEM_NO(+)														         
+		 		AND NVL(B.STATUS(+),' ') <> 'D'																         
+		 		AND NVL(C.STATUS(+),' ') <> 'D'																         
+				AND 1 < (																					
+					SELECT																					
+						COUNT(*)
+					FROM ICOMCART_TMP X1, ICOMCQDT X2	
+					WHERE 1=1							
+						AND X1.BUYER = A.BUYER				
+						AND X1.USER_ID = A.USER_ID			
+						AND X1.BUYER_ITEM_NO = A.BUYER_ITEM_NO		
+						AND X1.SEQ = A.SEQ							
+						AND NVL(X1.USE_FLAG,' ') = 'C'														
+						AND X1.BYIT_COMORG_CODE = X2.BUYER												
+						AND X1.BUYER_ITEM_NO = X2.BUYER_ITEM_NO											    
+						AND NVL(X2.STATUS,' ') <> 'D'												        
+						AND X2.BELOW_COMORG_CODE = DECODE((SELECT COUNT(*) FROM ICOMCQDT CQDT				
+											WHERE 1=1														
+											AND   NVL(CQDT.STATUS,' ') <> 'D'								
+											AND   CQDT.BUYER = A.BYIT_COMORG_CODE							
+											AND   CQDT.BUYER_ITEM_NO = A.BUYER_ITEM_NO					    
+											AND   CQDT.BELOW_COMORG_CODE = A.BUYER),0,'ABOVE',A.BUYER)		
+				) 																							
+		 	GROUP BY						
+		 		A.BUYER_ITEM_NO,			
+		 		A.BYIT_COMORG_CODE,			
+		 		B.DESCRIPTION_LOC,			
+		 		B.SPECIFICATION,			
+		 		A.BUYER,					
+		 		A.CART_QTY,					
+		 		A.SEQ						
+		 	ORDER BY SEQ				    
+				
+		
+   ]]> 
+	</select>
+	
+	<select id="getCartAddType1List" parameterType="java.util.Map" resultType="java.util.Map">
+ 
+		<![CDATA[
+			/*getCartAddType1List*/
+			
+		SELECT      
+		     A.BUYER_ITEM_NO,  --상품코드
+			 (	
+			 	SELECT	A.CODE||'^'||A.TEXT1||'^'||B.CODE1||'^'||B.TEXT1||'^'||B.CODE2||'^'||B.TEXT2
+				FROM	ICOMCOD2 A, ICOMCOD3 B
+				WHERE	1=1
+				AND		A.TYPE = 'C020'
+				AND		B.TYPE = 'SPOT'
+				AND		B.BUYER = #{buyer}
+				AND		A.COMPANY_CODE = #{buyer}
+				AND		A.CODE||'^'||TRIM(B.CODE1)||TRIM(B.CODE2) = TRIM(A.REF_PR_NO)
+			 ) AS REF_NO,	--관리번호
+		     B.DESCRIPTION_LOC,  --품명
+		     B.SPECIFICATION,  --규격    
+		     CASE WHEN (SELECT NVL(AGENT_OPEN_FLAG,'N') FROM ICOMCMPY WHERE COM_CODE=A.BUYER) = 'Y'	then (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = C.AGENT)  
+				  WHEN (SELECT NVL(AGENT_OPEN_FLAG,'N') FROM ICOMCMPY WHERE COM_CODE=A.BUYER) = 'N'	then (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = 'KRKORE0001')  
+				  ELSE 'N/A'  
+			 END  AS  AGENT_NAME, --공급사
+		     NVL(A.CART_QTY,0) AS CART_QTY,  --수량
+		     A.ACCOUNT_TYPE,  --계정
+		     A.BUDGET_DEPT,  --예산부서		
+		     CASE WHEN NVL(A.REMARK,' ') <> ' '						then A.REMARK  
+				  WHEN NVL(A.BUYER_ITEM_NO,' ') = ' '				then 'Excel데이타 미등록'  
+				  WHEN 1 < (select count(*) from icomcart_tmp x where 1=1  
+																and x.BUYER = a.buyer
+																and x.BUYER_ITEM_NO = A.BUYER_ITEM_NO  
+																and nvl(x.USE_FLAG,' ') = 'C'  
+																and x.USER_ID = #{userid}
+						   )										then 'Excel데이타 중복품목 존재'  
+				  WHEN NVL(B.BUYER_ITEM_NO,' ') = ' '				then '카탈로그 미존재'  
+				  WHEN NVL(B.PRODUCT_CLOSE_FLAG,' ') = 'Y'			then '단종 품목'  
+				  WHEN NVL(B.PRODUCT_CLOSE_FLAG,' ') = 'T'			then 'I/F용 품목'  
+				  WHEN NVL(B.PRODUCT_CLOSE_FLAG,' ') = 'S'			then '신규소싱 단가미합의 품목'  
+				  WHEN NVL(C.BUYER_ITEM_NO,' ') = ' '				then '계약서 미존재'  
+				  WHEN 0 < (select count(*) from icomcart x where 1=1  
+																and x.BUYER = a.buyer  
+																and x.BUYER_ITEM_NO = c.BUYER_ITEM_NO  
+																and nvl(x.USE_FLAG,' ') = 'C'  
+																and x.USER_ID = #{userid}
+						   )										then '장바구니에 대상품목 기존재'  
+			 END  AS  REMARK, --비고
+		     C.CONTRACT_NO,			--계약번호
+		     C.CONTRACT_SEQ,			--계약항번
+		     A.USE_FLAG,					--사용유무
+		     A.SEQ,					--SEQ
+		     NVL(A.SIZE_QTY,0) AS SIZE_QTY,	-- 수량
+		     A.SIZE_LEN AS SIZE_LEN,	-- 길이
+		     (SELECT	DECODE(COUNT(*),0,'N','Y')
+				FROM	ICOMCART_TMP A, ICOMBYIT B, ICOMBYCA C, ICOMCOD3 D
+				WHERE	1=1
+				AND		A.BYIT_COMORG_CODE = B.BUYER
+				AND		A.BUYER_ITEM_NO = B.BUYER_ITEM_NO
+				AND		B.BUYER = C.COM_CODE
+				AND		B.CATEGORY_NO = C.STD_CATEG_ID
+				AND		D.TYPE = 'URCT'
+				AND		D.FLAG = 'Y'
+				AND		A.BUYER = D.BUYER
+				AND		A.USER_ID = D.CODE1
+				AND		SUBSTR(C.CATEG_SYS_CODE, 0, 8) = D.TEXT2
+			) AS URCT_YN,
+		     (SELECT DECODE(COUNT(CODE2),0,'N','Y')
+			  FROM  ICOMCOD3 COD
+			  WHERE COD.BUYER = A.BUYER
+			  AND COD.TYPE = 'BICT'
+			  AND COD.CODE1 =  B.BUYER
+			  AND COD.CODE2 =  B.CATEGORY_NO
+			  AND COD.FLAG = 'Y'
+			) AS BICT_YN,
+			(SELECT	DECODE(COUNT(*),0,'N','Y')
+				FROM	ICOMCOD2 A, ICOMCOD3 B
+				WHERE	1=1
+				AND		A.TYPE = 'C020'
+				AND		B.TYPE = 'SPOT'
+				AND		B.BUYER = #{buyer}
+				AND		A.COMPANY_CODE = #{buyer}
+				AND		A.CODE||'^'||TRIM(B.CODE1)||TRIM(B.CODE2) = TRIM(A.REF_PR_NO)
+			) AS REF_PR_NO_CHK
+		     FROM ICOMCART_TMP  A, ICOMBYIT B,  
+				(	
+					SELECT	
+						X1.SEQ,	
+						X2.CONTRACT_NO,
+						X2.CONTRACT_SEQ,
+						X2.BUYER,		
+						X2.BELOW_COMORG_CODE,
+						X2.AGENT,				
+						X2.BUYER_ITEM_NO,		
+						X2.STATUS				
+					FROM ICOMCART_TMP X1, ICOMCQDT X2	
+					WHERE 1=1							
+						AND X1.BUYER = #{buyer}
+						AND X1.USER_ID = #{userid}	
+						AND NVL(X1.USE_FLAG,' ') = 'C'		
+						AND X1.BYIT_COMORG_CODE = X2.BUYER	
+						AND X1.BUYER_ITEM_NO = X2.BUYER_ITEM_NO		
+						AND NVL(X2.STATUS,' ') <> 'D'														
+						AND X2.BELOW_COMORG_CODE = DECODE((SELECT COUNT(*) FROM ICOMCQDT CQDT		
+											WHERE 1=1												
+												AND   NVL(CQDT.STATUS,' ') <> 'D'	
+												AND	  CQDT.BUYER = X2.BUYER				
+												AND   CQDT.BUYER_ITEM_NO = X2.BUYER_ITEM_NO		
+												AND   CQDT.BELOW_COMORG_CODE = X1.BUYER),0,'ABOVE',X1.BUYER)   
+				)  C	
+		     WHERE 1=1  
+			   AND A.BUYER = #{buyer}  
+		       AND A.USER_ID = #{userid}  
+		       AND NVL(A.USE_FLAG,' ') = 'C'  
+		       AND A.BYIT_COMORG_CODE = B.BUYER(+) 
+		       AND A.BUYER_ITEM_NO = B.BUYER_ITEM_NO(+)  
+		       AND A.BYIT_COMORG_CODE = C.BUYER(+)  
+		       AND A.BUYER_ITEM_NO = C.BUYER_ITEM_NO(+)  
+		       AND A.SEQ = C.SEQ(+)  
+			   AND NVL(B.STATUS(+),' ') <> 'D'  
+		       AND NVL(C.STATUS(+),' ') <> 'D'  
+			   AND (											
+					SELECT										
+						COUNT(*)									
+					FROM ICOMCART_TMP X1, ICOMCQDT X2				
+					WHERE 1=1									
+						AND X1.BUYER = A.BUYER		
+						AND X1.USER_ID = A.USER_ID	
+						AND X1.BUYER_ITEM_NO = A.BUYER_ITEM_NO			
+						AND X1.SEQ = A.SEQ								
+						AND NVL(X1.USE_FLAG,' ') = 'C'		
+						AND X1.BYIT_COMORG_CODE = X2.BUYER	
+						AND X1.BUYER_ITEM_NO = X2.BUYER_ITEM_NO	
+						AND NVL(X2.STATUS,' ') <> 'D'			
+						AND X2.BELOW_COMORG_CODE = DECODE((SELECT COUNT(*) FROM ICOMCQDT CQDT
+											WHERE 1=1										
+											AND   NVL(CQDT.STATUS,' ') <> 'D'		
+											AND	  CQDT.BUYER = A.BYIT_COMORG_CODE	
+											AND   CQDT.BUYER_ITEM_NO = A.BUYER_ITEM_NO	
+											AND   CQDT.BELOW_COMORG_CODE = A.BUYER),0,'ABOVE',A.BUYER)		
+				) < 2 			
+ UNION							
+		 	SELECT				
+		 		A.BUYER_ITEM_NO,	
+		 		'' AS REF_NO,		
+		 		B.DESCRIPTION_LOC,	
+		 		B.SPECIFICATION,	
+		 		''  AGENT_NAME,			
+				NVL(A.CART_QTY,0) AS CART_QTY,  --수량
+		 		'' AS ACCOUNT_TYPE,																
+		 		'' AS BUDGET_DEPT,									
+		        '해당품목에 대한 계약단가가 2개이상 존재'  AS  REMARK,		
+		 		'' AS CONTRACT_NO,											
+		 		'' AS CONTRACT_SEQ,											
+		 		'C' AS USE_FLAG,											
+		 		A.SEQ,
+		 		NVL(A.SIZE_QTY,0) AS SIZE_QTY,
+		 		A.SIZE_LEN AS SIZE_LEN,
+		 		'N' AS URCT_YN,
+		 		'N' AS BICT_YN,
+		 		'N' AS REF_PR_NO_CHK 																			         
+		 	FROM ICOMCART_TMP  A, ICOMBYIT B,  ICOMCQDT  C		
+		     WHERE 1=1  
+			    AND A.BUYER = #{buyer}  
+		        AND A.USER_ID = #{userid}  
+		 		AND NVL(A.USE_FLAG,' ') = 'C'																         
+		 		AND A.BYIT_COMORG_CODE = B.BUYER(+)															         
+		 		AND A.BUYER_ITEM_NO = B.BUYER_ITEM_NO(+)														         
+		 		AND A.BYIT_COMORG_CODE = C.BUYER(+)															         
+		 		AND A.BUYER_ITEM_NO = C.BUYER_ITEM_NO(+)														         
+		 		AND NVL(B.STATUS(+),' ') <> 'D'																         
+		 		AND NVL(C.STATUS(+),' ') <> 'D'																         
+				AND 1 < (																					
+					SELECT																					
+						COUNT(*)
+					FROM ICOMCART_TMP X1, ICOMCQDT X2	
+					WHERE 1=1							
+						AND X1.BUYER = A.BUYER				
+						AND X1.USER_ID = A.USER_ID			
+						AND X1.BUYER_ITEM_NO = A.BUYER_ITEM_NO		
+						AND X1.SEQ = A.SEQ							
+						AND NVL(X1.USE_FLAG,' ') = 'C'														
+						AND X1.BYIT_COMORG_CODE = X2.BUYER												
+						AND X1.BUYER_ITEM_NO = X2.BUYER_ITEM_NO											    
+						AND NVL(X2.STATUS,' ') <> 'D'												        
+						AND X2.BELOW_COMORG_CODE = DECODE((SELECT COUNT(*) FROM ICOMCQDT CQDT				
+											WHERE 1=1														
+											AND   NVL(CQDT.STATUS,' ') <> 'D'								
+											AND   CQDT.BUYER = A.BYIT_COMORG_CODE							
+											AND   CQDT.BUYER_ITEM_NO = A.BUYER_ITEM_NO					    
+											AND   CQDT.BELOW_COMORG_CODE = A.BUYER),0,'ABOVE',A.BUYER)		
+				) 																							
+		 	GROUP BY						
+		 		A.BUYER_ITEM_NO,			
+		 		A.BYIT_COMORG_CODE,			
+		 		B.DESCRIPTION_LOC,			
+		 		B.SPECIFICATION,			
+		 		A.BUYER,					
+		 		A.CART_QTY,					
+		 		A.SEQ,
+		 		A.SIZE_QTY,
+		 		A.SIZE_LEN,
+		 		B.BUYER,
+		 		B.CATEGORY_NO			
+		 	ORDER BY SEQ				    
+				
+		
+   ]]> 
+	</select> 
+	
+	<select id="getCartAddType2List" parameterType="java.util.Map" resultType="java.util.Map">
+ 
+		<![CDATA[
+			/*getCartAddType2List*/
+			
+		SELECT      
+		     A.BUYER_ITEM_NO,  --상품코드
+			 A.REF_PR_NO AS REF_NO,	-- 자재그룹
+			 DECODE(A.REF_PR_NO, '', '', DECODE((SELECT COUNT(*) FROM ICOMCOD2 COD2 WHERE COD2.TYPE = 'M014' AND COD2.COMPANY_CODE = A.BUYER AND COD2.CODE = A.REF_PR_NO AND COD2.FLAG = 'Y'), 0, '코드없음', 
+			 			  (SELECT TEXT1 FROM ICOMCOD2 COD2 WHERE COD2.TYPE = 'M014' AND COD2.COMPANY_CODE = A.BUYER AND COD2.CODE = A.REF_PR_NO AND COD2.FLAG = 'Y'))) AS REF_NO_NAME, -- 자재그룹명  
+		     B.DESCRIPTION_LOC,  --품명
+		     B.SPECIFICATION,  --규격    
+		     CASE WHEN (SELECT NVL(AGENT_OPEN_FLAG,'N') FROM ICOMCMPY WHERE COM_CODE=A.BUYER) = 'Y'	then (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = C.AGENT)  
+				  WHEN (SELECT NVL(AGENT_OPEN_FLAG,'N') FROM ICOMCMPY WHERE COM_CODE=A.BUYER) = 'N'	then (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = 'KRKORE0001')  
+				  ELSE 'N/A'  
+			 END  AS  AGENT_NAME, --공급사
+		     TO_CHAR(NVL(A.CART_QTY,0), 'FM999,999,999,999,999,999') AS CART_QTY,  --수량
+		     A.ACCOUNT_TYPE,  --계정
+		     DECODE(A.ACCOUNT_TYPE, '', '', DECODE((SELECT COUNT(*) FROM ICOMCOD3 COD3 WHERE COD3.TYPE = 'DTOA' AND COD3.BUYER = A.BUYER AND COD3.CODE1 = A.BUDGET_DEPT AND COD3.CODE2 = A.ACCOUNT_TYPE AND COD3.FLAG = 'Y'), 0, '코드없음', 
+			 			  (SELECT TEXT1 FROM ICOMCOD2 COD2 WHERE COD2.TYPE = 'Z014' AND COD2.COMPANY_CODE = A.BUYER AND COD2.CODE = A.ACCOUNT_TYPE AND COD2.FLAG = 'Y'))) AS ACCOUNT_TYPE_NAME, -- 계정명 
+		     A.BUDGET_DEPT,  --예산부서
+		     DECODE(A.BUDGET_DEPT, '', '', DECODE((SELECT COUNT(*) FROM ICOMCOD3 COD3 WHERE COD3.TYPE = 'DTOD' AND COD3.BUYER = A.BUYER AND COD3.CODE1 = #{dept} AND COD3.CODE2 = A.BUDGET_DEPT AND COD3.FLAG = 'Y'), 0, '코드없음', 
+			 			  (SELECT TEXT1 FROM ICOMCOD2 COD2 WHERE COD2.TYPE = 'C001' AND COD2.COMPANY_CODE = A.BUYER AND COD2.CODE = A.BUDGET_DEPT AND COD2.FLAG = 'Y'))) AS BUDGET_DEPT_NAME, -- 예산부서명		
+		     CASE WHEN NVL(A.REMARK,' ') <> ' '						then A.REMARK  
+				  WHEN NVL(A.BUYER_ITEM_NO,' ') = ' '				then 'Excel데이타 미등록'  
+				  WHEN 1 < (select count(*) from icomcart_tmp x where 1=1  
+																and x.BUYER = a.buyer
+																and x.BUYER_ITEM_NO = A.BUYER_ITEM_NO  
+																and nvl(x.USE_FLAG,' ') = 'C'  
+																and x.USER_ID = #{userid}
+						   )										then 'Excel데이타 중복품목 존재'  
+				  WHEN NVL(B.BUYER_ITEM_NO,' ') = ' '				then '카탈로그 미존재'  
+				  WHEN NVL(B.PRODUCT_CLOSE_FLAG,' ') = 'Y'			then '단종 품목'  
+				  WHEN NVL(B.PRODUCT_CLOSE_FLAG,' ') = 'T'			then 'I/F용 품목'  
+				  WHEN NVL(B.PRODUCT_CLOSE_FLAG,' ') = 'S'			then '신규소싱 단가미합의 품목'  
+				  WHEN NVL(C.BUYER_ITEM_NO,' ') = ' '				then '계약서 미존재'  
+				  WHEN 0 < (select count(*) from icomcart x where 1=1  
+																and x.BUYER = a.buyer  
+																and x.BUYER_ITEM_NO = c.BUYER_ITEM_NO  
+																and nvl(x.USE_FLAG,' ') = 'C'  
+																and x.USER_ID = #{userid}
+						   )										then '장바구니에 대상품목 기존재'
+			 END  AS  REMARK, --비고
+		     C.CONTRACT_NO,			--계약번호
+		     C.CONTRACT_SEQ,			--계약항번
+		     A.USE_FLAG,					--사용유무
+		     A.SEQ					--SEQ
+		     FROM ICOMCART_TMP  A, ICOMBYIT B,  
+				(	
+					SELECT	
+						X1.SEQ,	
+						X2.CONTRACT_NO,
+						X2.CONTRACT_SEQ,
+						X2.BUYER,		
+						X2.BELOW_COMORG_CODE,
+						X2.AGENT,				
+						X2.BUYER_ITEM_NO,		
+						X2.STATUS				
+					FROM ICOMCART_TMP X1, ICOMCQDT X2	
+					WHERE 1=1							
+						AND X1.BUYER = #{buyer}
+						AND X1.USER_ID = #{userid}	
+						AND NVL(X1.USE_FLAG,' ') = 'C'		
+						AND X1.BYIT_COMORG_CODE = X2.BUYER	
+						AND X1.BUYER_ITEM_NO = X2.BUYER_ITEM_NO		
+						AND NVL(X2.STATUS,' ') <> 'D'														
+						AND X2.BELOW_COMORG_CODE = DECODE((SELECT COUNT(*) FROM ICOMCQDT CQDT		
+											WHERE 1=1												
+												AND   NVL(CQDT.STATUS,' ') <> 'D'	
+												AND	  CQDT.BUYER = X2.BUYER				
+												AND   CQDT.BUYER_ITEM_NO = X2.BUYER_ITEM_NO		
+												AND   CQDT.BELOW_COMORG_CODE = X1.BUYER),0,'ABOVE',X1.BUYER)   
+				)  C	
+		     WHERE 1=1  
+			   AND A.BUYER = #{buyer}  
+		       AND A.USER_ID = #{userid}  
+		       AND NVL(A.USE_FLAG,' ') = 'C'  
+		       AND A.BYIT_COMORG_CODE = B.BUYER(+) 
+		       AND A.BUYER_ITEM_NO = B.BUYER_ITEM_NO(+)  
+		       AND A.BYIT_COMORG_CODE = C.BUYER(+)  
+		       AND A.BUYER_ITEM_NO = C.BUYER_ITEM_NO(+)  
+		       AND A.SEQ = C.SEQ(+)  
+			   AND NVL(B.STATUS(+),' ') <> 'D'  
+		       AND NVL(C.STATUS(+),' ') <> 'D'  
+			   AND (											
+					SELECT										
+						COUNT(*)									
+					FROM ICOMCART_TMP X1, ICOMCQDT X2				
+					WHERE 1=1									
+						AND X1.BUYER = A.BUYER		
+						AND X1.USER_ID = A.USER_ID	
+						AND X1.BUYER_ITEM_NO = A.BUYER_ITEM_NO			
+						AND X1.SEQ = A.SEQ								
+						AND NVL(X1.USE_FLAG,' ') = 'C'		
+						AND X1.BYIT_COMORG_CODE = X2.BUYER	
+						AND X1.BUYER_ITEM_NO = X2.BUYER_ITEM_NO	
+						AND NVL(X2.STATUS,' ') <> 'D'			
+						AND X2.BELOW_COMORG_CODE = DECODE((SELECT COUNT(*) FROM ICOMCQDT CQDT
+											WHERE 1=1										
+											AND   NVL(CQDT.STATUS,' ') <> 'D'		
+											AND	  CQDT.BUYER = A.BYIT_COMORG_CODE	
+											AND   CQDT.BUYER_ITEM_NO = A.BUYER_ITEM_NO	
+											AND   CQDT.BELOW_COMORG_CODE = A.BUYER),0,'ABOVE',A.BUYER)		
+				) < 2 			
+ UNION							
+		 	SELECT				
+		 		A.BUYER_ITEM_NO,	
+		 		'' AS REF_NO,
+		 		'' AS REF_NO_NAME,		
+		 		B.DESCRIPTION_LOC,	
+		 		B.SPECIFICATION,	
+		 		''  AGENT_NAME,			
+				TO_CHAR(NVL(A.CART_QTY,0), 'FM999,999,999,999,999,999') AS CART_QTY,  --수량
+		 		'' AS ACCOUNT_TYPE,
+				'' AS ACCOUNT_TYPE_NAME,
+		 		'' AS BUDGET_DEPT,
+		 		'' AS BUDGET_DEPT_NAME,
+		        '해당품목에 대한 계약단가가 2개이상 존재'  AS  REMARK,		
+		 		'' AS CONTRACT_NO,											
+		 		'' AS CONTRACT_SEQ,											
+		 		'C' AS USE_FLAG,											
+		 		A.SEQ																			         
+		 	FROM ICOMCART_TMP  A, ICOMBYIT B,  ICOMCQDT  C		
+		     WHERE 1=1  
+			    AND A.BUYER = #{buyer}  
+		        AND A.USER_ID = #{userid}  
+		 		AND NVL(A.USE_FLAG,' ') = 'C'																         
+		 		AND A.BYIT_COMORG_CODE = B.BUYER(+)															         
+		 		AND A.BUYER_ITEM_NO = B.BUYER_ITEM_NO(+)														         
+		 		AND A.BYIT_COMORG_CODE = C.BUYER(+)															         
+		 		AND A.BUYER_ITEM_NO = C.BUYER_ITEM_NO(+)														         
+		 		AND NVL(B.STATUS(+),' ') <> 'D'																         
+		 		AND NVL(C.STATUS(+),' ') <> 'D'																         
+				AND 1 < (																					
+					SELECT																					
+						COUNT(*)
+					FROM ICOMCART_TMP X1, ICOMCQDT X2	
+					WHERE 1=1							
+						AND X1.BUYER = A.BUYER				
+						AND X1.USER_ID = A.USER_ID			
+						AND X1.BUYER_ITEM_NO = A.BUYER_ITEM_NO		
+						AND X1.SEQ = A.SEQ							
+						AND NVL(X1.USE_FLAG,' ') = 'C'														
+						AND X1.BYIT_COMORG_CODE = X2.BUYER												
+						AND X1.BUYER_ITEM_NO = X2.BUYER_ITEM_NO											    
+						AND NVL(X2.STATUS,' ') <> 'D'												        
+						AND X2.BELOW_COMORG_CODE = DECODE((SELECT COUNT(*) FROM ICOMCQDT CQDT				
+											WHERE 1=1														
+											AND   NVL(CQDT.STATUS,' ') <> 'D'								
+											AND   CQDT.BUYER = A.BYIT_COMORG_CODE							
+											AND   CQDT.BUYER_ITEM_NO = A.BUYER_ITEM_NO					    
+											AND   CQDT.BELOW_COMORG_CODE = A.BUYER),0,'ABOVE',A.BUYER)		
+				) 																							
+		 	GROUP BY						
+		 		A.BUYER_ITEM_NO,			
+		 		A.BYIT_COMORG_CODE,			
+		 		B.DESCRIPTION_LOC,			
+		 		B.SPECIFICATION,			
+		 		A.BUYER,					
+		 		A.CART_QTY,					
+		 		A.SEQ						
+		 	ORDER BY SEQ
+   ]]> 
+	</select>
+	
+	<update id="setCartAddDelAll" parameterType="java.util.Map">
+	<![CDATA[
+	
+	/*setCartAddDelAll*/
+	
+		DELETE FROM ICOMCART_TMP A      
+		 WHERE A.BUYER = #{buyer}          
+		   AND A.USER_ID = #{userid}       
+		   AND A.SEQ = #{SEQ}  											
+		]]>
+	</update> 
+	
+	<update id="setCartAddReg" parameterType="java.util.Map">
+	<![CDATA[
+	
+	/*setCartAddReg*/
+	
+			INSERT INTO ICOMCART(  
+			 BUYER                              
+			,USER_ID							   
+			,CONTRACT_NO                 
+			,CONTRACT_SEQ               
+			,USE_FLAG                        
+			,BUYER_ITEM_NO               
+			,SEQ                             
+			,AGENT                             
+			,CART_QTY                        
+			,BYIT_COMORG_CODE                   
+			,REF_PR_NO
+			,BUDGET_DEPT                  
+			,ACCOUNT_TYPE                            
+			,UNIT_PRICE                            
+			,CREATE_DATE
+			,REG_DATE
+			,SIZE_QTY
+			,SIZE_LEN                        
+			)                                      
+			   SELECT      
+				  A.BUYER                              
+				 ,A.USER_ID                           
+			     ,C.CONTRACT_NO  
+			     ,C.CONTRACT_SEQ  
+			     ,A.USE_FLAG  
+			     ,A.BUYER_ITEM_NO  
+			     ,(SELECT DECODE(MAX(SEQ),NULL,'0', MAX(SEQ))+1                                                        
+                    FROM ICOMCART                                                                        
+                   WHERE BUYER         = #{buyer}                                                           
+                     AND USER_ID       = #{userid}                                                             
+                     AND USE_FLAG      = 'C' ) AS SEQ  
+			     ,CASE WHEN (SELECT NVL(AGENT_OPEN_FLAG,'N') FROM ICOMCMPY WHERE COM_CODE=A.BUYER) = 'Y'	then C.AGENT  
+					  WHEN (SELECT NVL(AGENT_OPEN_FLAG,'N') FROM ICOMCMPY WHERE COM_CODE=A.BUYER) = 'N'	then 'KRKORE0001'  
+					  ELSE 'N/A'  
+				  END  AS  AGENT --공급사
+			     ,TO_NUMBER(A.CART_QTY) AS CART_QTY  
+			     ,A.BYIT_COMORG_CODE
+				]]> 
+			 	<choose>
+				 	<when test="cart_type == 'TYPE1'">
+			 			<![CDATA[
+			 			 ,(
+							SELECT	A.CODE||'^'||A.TEXT1||'^'||B.CODE1||'^'||B.TEXT1||'^'||B.CODE2||'^'||B.TEXT2
+							FROM	ICOMCOD2 A, ICOMCOD3 B
+							WHERE	1=1
+							AND		A.TYPE = 'C020'
+							AND		B.TYPE = 'SPOT'
+							AND		B.BUYER = #{buyer}
+							AND		A.COMPANY_CODE = #{buyer}
+							AND		A.CODE||'^'||TRIM(B.CODE1)||TRIM(B.CODE2) = TRIM(A.REF_PR_NO)
+						) AS REF_PR_NO
+						,'' AS BUDGET_DEPT  --BUDGET_DEPT
+			     		,'' AS ACCOUNT_TYPE  --ACCOUNT_TYPE
+			 			]]>	 
+				 	</when>
+				 	<when test="cart_type == 'TYPE2'">
+			 			<![CDATA[
+			 			 ,A.REF_PR_NO
+						,A.BUDGET_DEPT
+			     		,A.ACCOUNT_TYPE
+			 			]]>	 
+				 	</when>
+				 	<otherwise>
+				 		<![CDATA[
+				 		,'' AS REF_PR_NO
+				 		,'' AS BUDGET_DEPT  --BUDGET_DEPT
+			     		,'' AS ACCOUNT_TYPE  --ACCOUNT_TYPE
+				 		]]>
+				 	</otherwise>
+				</choose>					
+				<![CDATA[
+			     ,C.TARGET_PRICE  
+				 ,SYSDATE
+				 ,TO_CHAR(SYSDATE, 'YYYYMMDD')
+				 ,TO_NUMBER(A.SIZE_QTY) AS SIZE_QTY
+				 ,TO_NUMBER(A.SIZE_LEN) AS SIZE_LEN     	
+			   FROM ICOMCART_TMP  A, ICOMBYIT B, ICOMCQDT C  
+			   WHERE 1=1  
+				   AND A.BUYER					=  #{buyer}  	 
+			       AND A.USER_ID				=   #{userid}  	 
+			       AND A.SEQ					=   #{SEQ}  	
+			       AND NVL(A.USE_FLAG,' ')		= 'C'  
+			       AND A.BYIT_COMORG_CODE		= B.BUYER  
+			       AND A.BUYER_ITEM_NO			= B.BUYER_ITEM_NO  
+			       AND A.BYIT_COMORG_CODE		= C.BUYER  
+			       AND A.BUYER_ITEM_NO			= C.BUYER_ITEM_NO  
+				   AND NVL(B.STATUS,' ')		<> 'D'  
+			       AND NVL(C.STATUS,' ')		<> 'D'  
+			       AND NVL(A.REMARK,' ')		= ' '  --Validation Error가 없는건
+			       AND C.BELOW_COMORG_CODE = DECODE((SELECT COUNT(*) FROM ICOMCQDT           
+			                                         WHERE BUYER = C.BUYER                   
+			                                         AND   BUYER_ITEM_NO = C.BUYER_ITEM_NO   
+			                                         AND   BELOW_COMORG_CODE =A.BUYER        
+			                                         AND   STATUS ^= 'D'),0,'ABOVE',A.BUYER) 
+						
+		]]>
+	</update> 
+
+	<update id="setCartAddDel" parameterType="java.util.Map">
+		<![CDATA[
+		
+		/*setCartAddDel*/
+		
+		DELETE FROM ICOMCART_TMP A      
+		 WHERE A.BUYER =  #{buyer}  	     
+		   AND A.USER_ID = #{userid}  	 									
+		]]>
+	</update> 
+	
+	<update id="insertIcomcartTmp" parameterType="java.util.Map">
+		<![CDATA[
+		
+		/*insertIcomcartTmp*/
+		
+		 INSERT INTO ICOMCART_TMP (  
+			BUYER                                    
+			,USER_ID                                 
+			,SEQ                                 
+			,BUYER_ITEM_NO                    
+			,CART_QTY                             		
+			,BYIT_COMORG_CODE                             
+			,USE_FLAG                             
+			,CREATE_DATE                             
+			,REMARK                             
+			)				                              
+		SELECT                                                                            
+			#{buyer}  	 																				--BUYER
+			,#{userid}  	 																					--USER_ID
+			,#{SEQ}  	 	                                                                           	--SEQ
+			,TRIM(#{BUYER_ITEM_NO}  	 	)																				--BUYER_ITEM_NO
+			,TRIM(#{QTY}  	 	)                                                                           	--QTY
+			,(SELECT BYCA_COMORG_CODE FROM ICOMCMPY WHERE COM_CODE = #{buyer}  	 	 )							--BYIT_COMORG_CODE
+			,'C'                                                                           	--USE_FLAG
+			,SYSDATE                                       	
+			,#{REMARK}  	 	                                                                          	--REMARK
+		FROM DUAL                                                			
+		]]>
+	</update>
+	
+	<update id="insertIcomcartTmpType1" parameterType="java.util.Map">
+		<![CDATA[
+		
+		/*insertIcomcartTmpType1*/
+		
+		 INSERT INTO ICOMCART_TMP (  
+			BUYER                                    
+			,USER_ID                                 
+			,SEQ                                 
+			,BUYER_ITEM_NO                    
+			,CART_QTY                             		
+			,BYIT_COMORG_CODE
+			,REF_PR_NO                             
+			,USE_FLAG                             
+			,CREATE_DATE                             
+			,REMARK
+			,SIZE_QTY
+			,SIZE_LEN                             
+			)				                              
+		SELECT                                                                            
+			#{buyer}  	 																				--BUYER
+			,#{userid}  	 																					--USER_ID
+			,#{SEQ}  	 	                                                                           	--SEQ
+			,TRIM(#{BUYER_ITEM_NO})																				--BUYER_ITEM_NO
+			,TRIM(#{QTY})*TRIM(#{TEMP_LEN})                                                                           	--QTY
+			,(SELECT BYCA_COMORG_CODE FROM ICOMCMPY WHERE COM_CODE = #{buyer})							--BYIT_COMORG_CODE
+			,#{REF_PR_NO} -- REF_PR_NO
+			,'C'                                                                           	--USE_FLAG
+			,SYSDATE                                       	
+			,#{REMARK}  	 	                                                                          	--REMARK
+			,TRIM(#{QTY}) -- SIZE_QTY
+			,TRIM(#{LEN}) -- SIZE_LEN
+		FROM DUAL                                                			
+		]]>
+	</update> 
+	
+	<update id="insertIcomcartTmpType2" parameterType="java.util.Map">
+		<![CDATA[
+		
+		/* insertIcomcartTmpType2 */
+		
+		 INSERT INTO ICOMCART_TMP (  
+			BUYER                                    
+			,USER_ID                                 
+			,SEQ                                 
+			,BUYER_ITEM_NO                    
+			,CART_QTY                             		
+			,BYIT_COMORG_CODE
+			,REF_PR_NO                             
+			,USE_FLAG                             
+			,CREATE_DATE                             
+			,REMARK
+			,BUDGET_DEPT
+			,ACCOUNT_TYPE
+			)				                              
+		SELECT                                                                            
+			#{buyer}  	 																				--BUYER
+			,#{userid}  	 																					--USER_ID
+			,#{SEQ}  	 	                                                                           	--SEQ
+			,TRIM(#{BUYER_ITEM_NO})																				--BUYER_ITEM_NO
+			,TRIM(#{QTY})                                                                           	--QTY
+			,(SELECT BYCA_COMORG_CODE FROM ICOMCMPY WHERE COM_CODE = #{buyer})							--BYIT_COMORG_CODE
+			,#{REF_PR_NO} -- REF_PR_NO
+			,'C'                                                                           	--USE_FLAG
+			,SYSDATE                                       	
+			,#{REMARK}  	 	                                                                          	--REMARK
+			,#{BUDGET_DEPT} -- BUDGET_DEPT
+			,#{ACCOUNT_TYPE} -- ACCOUNT_TYPE
+		FROM DUAL                                                			
+		]]>
+	</update>
+	
+</mapper>

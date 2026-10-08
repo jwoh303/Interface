@@ -1,0 +1,390 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mpiv">
+	<select id="selectMasterMpIvMkImScheduleRegList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			  SELECT /*selectMasterMpIvMkImScheduleRegList*/ 
+       ZZZ. * 
+  FROM 
+       (SELECT A. * 
+            , DECODE(MK_DATE||ADMIN_CHECK||AGENT_CHECK, '', '신규', MK_DATE||'checkedchecked', '완료', '진행')RECV_FLAG_NAME 
+            , DECODE(MK_DATE||ADMIN_CHECK||AGENT_CHECK, '', 'BG', MK_DATE||'checkedchecked', 'ED', 'IG')RECV_FLAG 
+            , TEXT1 MK_TYPE_NAME 
+            , MK.MK_DATE 
+            , MK.MK_SEQ 
+            , ADMIN_REMARK 
+            , AGENT_REMARK 
+            , ADMIN_IMAGE_KEY 
+            , AGENT_IMAGE_KEY 
+            , ADMIN_CHECK 
+            , AGENT_CHECK 
+            , 
+              (SELECT TEXT1 
+                FROM ICOMCOD1 
+               WHERE TYPE = 'M132' 
+                     AND CODE = A.ITEM_MAKE_TYPE 
+              ) ITEM_MAKE_TYPE_NAME 
+         FROM 
+              (SELECT DT.BUYER 
+                   , 
+                     (SELECT COM_NAME_LOC 
+                       FROM ICOMCMPY 
+                      WHERE COM_CODE = F_GET_HIDDEN_BUYER_NAME(DT.BUYER, '01')
+                     ) BUYER_NAME 
+                   , DT.PO_NO 
+                   , DT.PO_SEQ 
+                   , DT.REF_PR_NO 
+                   , DT.BUYER_ITEM_NO 
+                   , DT.ITEM_AMT 
+                   , DT.DESCRIPTION 
+                   , DT.SPECIFICATION 
+                   , DT.ITEM_MAKE_TYPE 
+                   , CD.CODE MK_TYPE 
+                   , DT.RD_DATE 
+                   , DT.DS_DATE 
+                   , HD.PO_CREATE_DATE 
+                   , CD.CODE 
+                   , CD.TEXT1 
+                   , dt.LEGACY_PO_NO
+				   , HD.AGENT
+				   , (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = HD.AGENT) AS AGENT_NAME
+                FROM ICOMPODT DT 
+                   , ICOMPOHD HD 
+                   , ICOMCOD1 CD 
+               WHERE 1 = 1 
+                     AND HD.BUYER = DT.BUYER 
+                     AND HD.PO_NO = DT.PO_NO 
+                     AND DT.ITEM_MAKE_TYPE IN ('MK', 'IM') 
+                     AND DT.DS_DATE IS NOT NULL 
+                     AND NOT EXISTS (SELECT 1 FROM ICOMIVDT WHERE buyer = dt.BUYER AND po_no = dt.po_no AND po_seq = dt.po_seq AND STATUS IN ('C', 'R') ) 
+                     AND DT.STATUS IN ('C', 'R') 
+					 AND CD.TYPE = 'M133' 
+                     AND CD.TEXT5 = DT.ITEM_MAKE_TYPE 
+                     AND HD.DOC_TYPE <> 'S' 
+					]]>
+					<if test='st_gr_flag == "GR"'>
+						<![CDATA[
+                     AND NVL(DT.ITEM_QTY, 0) <> NVL(DT.GR_QTY, 0)
+						]]>
+					</if>
+					<if test="st_buyer_code.size() > 0">
+						AND DT.BUYER IN 
+						<foreach item="item" collection="st_buyer_code" open="(" separator="," close=")">
+					 		#{item}
+						</foreach>
+					</if>
+					<!-- 발주번호 -->
+					<if test="st_po_no != null and st_po_no != ''">
+						<![CDATA[
+							AND (DT.PO_NO LIKE UPPER(#{st_po_no}||'%') OR DT.LEGACY_PO_NO LIKE UPPER(#{st_po_no}||'%'))
+						]]>
+					</if>	
+					<!-- 발주번호 -->
+					<if test="st_buyer_item_no != null and st_buyer_item_no != ''">
+						<![CDATA[
+							AND DT.BUYER_ITEM_NO LIKE #{st_buyer_item_no}||'%'
+						]]>
+					</if>
+					<!-- 협력사 -->
+					<if test="st_agent_code != null and st_agent_code != ''">
+						<![CDATA[
+							AND HD.AGENT LIKE #{st_agent_code}||'%'
+						]]>
+					</if>	
+					<if test="st_date_type != null and st_date_type == 'PO'">
+						<![CDATA[
+							AND HD.PO_CREATE_DATE >= #{st_from_date}
+						]]>
+					</if>
+					<if test="st_date_type != null and st_date_type == 'RD'">
+						<![CDATA[
+							AND DT.RD_DATE >= #{st_from_date}
+						]]>
+					</if>
+					<if test="st_date_type != null and st_date_type == 'DS'">
+						<![CDATA[
+							AND DT.DS_DATE >= #{st_from_date}
+						]]>
+					</if>
+					<if test="st_item_make_type != null and st_item_make_type != ''">
+						<![CDATA[
+							AND DT.ITEM_MAKE_TYPE = #{st_item_make_type}
+						]]>
+					</if>
+              ) A 
+            , ICOMPOMK MK 
+        WHERE A.BUYER = MK.BUYER(+) 
+              AND A.PO_NO = MK.PO_NO(+) 
+              AND A.PO_SEQ = MK.PO_SEQ(+) 
+              AND A.CODE = MK.MK_TYPE(+) 
+		<if test="st_date_type != null and st_date_type == 'MK'">
+			<![CDATA[
+				AND MK.MK_DATE >= #{st_from_date}
+			]]>
+		</if>
+					 ) ZZZ
+			   WHERE 1=1
+		<if test="st_recv_flag != null and st_recv_flag != ''">
+			<![CDATA[
+				 and RECV_FLAG = #{st_recv_flag }
+			]]>
+		</if>
+		<![CDATA[
+			ORDER BY BUYER, PO_NO, PO_SEQ, MK_SEQ
+		]]>
+	</select>
+	<select id="selectMasterMpIvMkImScheduleRegDetailPop" parameterType="java.util.Map"
+		resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.jsppagestart" />
+		<![CDATA[
+			SELECT /*selectMasterMpIvMkImScheduleRegDetailPop*/  
+				   * 
+			  FROM 
+				   (SELECT DT.BUYER 
+						, 
+						  (SELECT COM_NAME_LOC 
+							FROM ICOMCMPY 
+						   WHERE COM_CODE = DT.BUYER 
+						  ) BUYER_NAME 
+						, DT.PO_NO 
+						, DT.PO_SEQ 
+						, DT.REF_PR_NO 
+						, DT.BUYER_ITEM_NO 
+						, DT.ITEM_AMT 
+						, DT.DESCRIPTION 
+						, DT.SPECIFICATION 
+						, DT.ITEM_MAKE_TYPE 
+						, 
+						  (SELECT TEXT1 
+							FROM ICOMCOD1 
+						   WHERE TYPE = 'M132' 
+								 AND CODE = DT.ITEM_MAKE_TYPE 
+						  ) ITEM_MAKE_TYPE_NAME 
+						, CD.CODE MK_TYPE 
+						, 
+						  (SELECT TEXT1 
+							FROM ICOMCOD1 
+						   WHERE TYPE = 'M133' 
+								 AND CODE = CD.CODE 
+						  ) MK_TYPE_NAME 
+						, 
+						  (SELECT MK_DATE 
+							FROM ICOMPOMK 
+						   WHERE BUYER = DT.BUYER 
+								 AND PO_NO = DT.PO_NO 
+								 AND PO_SEQ = DT.PO_SEQ 
+								 AND MK_SEQ = CD.VALUE1
+						  ) MK_DATE 
+						, CD.VALUE1 MK_SEQ 
+						, DT.RD_DATE 
+						, DT.DS_DATE 
+						, (SELECT DECODE(MIN(MK_SEQ), NULL, '등록대기', CD.TEXT1) 
+							FROM ICOMPOMK 
+						   WHERE BUYER = DT.BUYER 
+								 AND PO_NO = DT.PO_NO 
+								 AND PO_SEQ = DT.PO_SEQ 
+								 AND MK_SEQ = CD.VALUE1
+						  ) STEP_NAME 
+						, (SELECT COUNT(MK_SEQ) 
+							FROM ICOMPOMK 
+						   WHERE BUYER = DT.BUYER 
+								 AND PO_NO = DT.PO_NO 
+								 AND PO_SEQ = DT.PO_SEQ 
+						  ) STEP 
+						, 
+						  (SELECT ADMIN_REMARK 
+							FROM ICOMPOMK 
+						   WHERE BUYER = DT.BUYER 
+								 AND PO_NO = DT.PO_NO 
+								 AND PO_SEQ = DT.PO_SEQ 
+								 AND MK_SEQ = CD.VALUE1
+						  )ADMIN_REMARK 
+						, 
+						  (SELECT AGENT_REMARK 
+							FROM ICOMPOMK 
+						   WHERE BUYER = DT.BUYER 
+								 AND PO_NO = DT.PO_NO 
+								 AND PO_SEQ = DT.PO_SEQ 
+								 AND MK_SEQ = CD.VALUE1
+						  )AGENT_REMARK 
+						, 
+						  (SELECT ADMIN_IMAGE_KEY 
+							FROM ICOMPOMK 
+						   WHERE BUYER = DT.BUYER 
+								 AND PO_NO = DT.PO_NO 
+								 AND PO_SEQ = DT.PO_SEQ 
+								 AND MK_SEQ = CD.VALUE1
+						  ) ADMIN_IMAGE_KEY 
+						, 
+						  (SELECT AGENT_IMAGE_KEY 
+							FROM ICOMPOMK 
+						   WHERE BUYER = DT.BUYER 
+								 AND PO_NO = DT.PO_NO 
+								 AND PO_SEQ = DT.PO_SEQ 
+								 AND MK_SEQ = CD.VALUE1
+						  ) AGENT_IMAGE_KEY 
+						, 
+						  (SELECT ADMIN_CHECK 
+							FROM ICOMPOMK 
+						   WHERE BUYER = DT.BUYER 
+								 AND PO_NO = DT.PO_NO 
+								 AND PO_SEQ = DT.PO_SEQ 
+								 AND MK_SEQ = CD.VALUE1
+						  ) ADMIN_CHECK 
+						, 
+						  (SELECT AGENT_CHECK 
+							FROM ICOMPOMK 
+						   WHERE BUYER = DT.BUYER 
+								 AND PO_NO = DT.PO_NO 
+								 AND PO_SEQ = DT.PO_SEQ 
+								 AND MK_SEQ = CD.VALUE1
+						  ) AGENT_CHECK 
+						, HD.PO_CREATE_DATE 
+					 FROM ICOMPODT DT 
+						, ICOMPOHD HD 
+						, ICOMCOD1 CD 
+					WHERE 1 = 1 
+						  AND HD.BUYER = DT.BUYER 
+						  AND HD.PO_NO = DT.PO_NO 
+						  AND DT.ITEM_MAKE_TYPE IS NOT NULL 
+						  AND DT.STATUS IN ('C', 'R') 
+						  AND HD.BUYER = #{st_buyer} 
+						  AND DT.PO_NO = #{st_po_no} 
+						  AND DT.PO_SEQ = #{st_po_seq} 
+						  AND CD.TYPE = 'M133' 
+						  AND CD.TEXT5 = DT.ITEM_MAKE_TYPE 
+				   ) zzz
+			 WHERE 1 = 1
+		]]>
+		<![CDATA[
+			ORDER BY MK_SEQ
+		]]>
+		<include refid="common.ibsheet.xml.jsppageend" />
+	</select>
+	
+	<!-- 납품 일정 등록 -->
+	<update id="saveMkImScheduleReg" parameterType="java.util.Map">
+		<![CDATA[
+			MERGE INTO ICOMPOMK /* saveMkImScheduleReg */
+			USING DUAL
+			ON (BUYER = #{st_buyer }
+			 AND PO_NO = #{st_po_no }
+			 AND PO_SEQ = #{st_po_seq }
+			 AND MK_SEQ = #{st_mk_seq }
+			)
+			WHEN MATCHED THEN 
+			  UPDATE 
+				 SET ADMIN_REMARK = #{st_admin_remark}
+				   , ADMIN_IMAGE_KEY = #{st_admin_image_key}
+				   , ADMIN_CHECK = LOWER(#{st_admin_check})
+				   , AGENT_REMARK = #{st_agent_remark}
+				   , AGENT_IMAGE_KEY = #{st_agent_image_key}
+				   , AGENT_CHECK = LOWER(#{st_agent_check})
+				   , CHANGE_DATE = TO_CHAR(SYSDATE, 'yyyymmdd')
+				   , CHANGE_TIME = TO_CHAR(SYSDATE, 'hh24miss')
+				   , CHANGE_USER_ID = #{st_user_id }
+				   , STATUS = 'R'
+				   , COMPLETE_MARK = CASE WHEN ADMIN_REMARK IS NOT NULL AND AGENT_REMARK IS NOT NULL THEN 'Y' ELSE 'N' END
+			WHEN NOT MATCHED THEN
+					insert
+					(
+					   BUYER
+					 , PO_NO
+					 , PO_SEQ
+					 , MK_SEQ
+					 , STATUS
+					 , CHANGE_DATE
+					 , CHANGE_TIME
+					 , AGENT
+					 , BUYER_ITEM_NO
+					 , ITEM_MAKE_TYPE
+					 , MK_TYPE
+					 , MK_DATE
+					 , CHANGE_USER_ID
+					 , ADMIN_REMARK
+					 , ADMIN_IMAGE_KEY
+					 , ADMIN_CHECK
+					 , AGENT_REMARK
+					 , AGENT_IMAGE_KEY
+					 , AGENT_CHECK
+				   ) values (
+					   #{st_buyer }
+					 , #{st_po_no }
+					 , #{st_po_seq }
+					 , #{st_mk_seq }
+					 , 'C'
+					 , TO_CHAR(SYSDATE, 'yyyymmdd')
+					 , TO_CHAR(SYSDATE, 'hh24miss')
+					 , (SELECT AGENT FROM ICOMPOHD WHERE BUYER = #{st_buyer } AND PO_NO = #{st_po_no })
+					 , #{st_buyer_item_no }
+					 , #{st_item_make_type }
+					 , #{st_mk_type }
+					 , #{st_mk_date }
+					 , #{st_user_id }
+					 , #{st_admin_remark }
+					 , #{st_admin_image_key }
+					 , #{st_admin_check }
+					 , #{st_agent_remark }
+					 , #{st_agent_image_key }
+					 , LOWER(#{st_agent_check })
+					)
+		]]>
+	</update>
+	<!-- 납품 일정 등록 -->
+	<update id="saveMkImScheduleReg111" parameterType="java.util.Map">
+		<![CDATA[
+			INSERT INTO ICOMPOMK /*saveMkImScheduleReg*/
+				   (
+					   BUYER
+					 , PO_NO
+					 , PO_SEQ
+					 , MK_SEQ
+					 , STATUS
+					 , ADD_DATE
+					 , ADD_TIME
+					 , AGENT
+					 , BUYER_ITEM_NO
+					 , ITEM_MAKE_TYPE
+					 , MK_TYPE
+					 , MK_DATE
+					 , ADD_USER_ID
+					 , AGENT_REMARK
+					 , AGENT_IMAGE_KEY
+				   ) 
+				   VALUES 
+				   (
+					   #{st_buyer }
+					 , #{st_po_no }
+					 , #{st_po_seq }
+					 , #{st_mk_seq }
+					 , 'C'
+					 , TO_CHAR(SYSDATE, 'yyyymmdd')
+					 , TO_CHAR(SYSDATE, 'hh24miss')
+					 , #{st_com_code }
+					 , #{st_buyer_item_no }
+					 , #{st_item_make_type }
+					 , #{st_mk_type }
+					 , #{st_mk_date }
+					 , #{st_user_id }
+					 , #{st_agent_remark }
+					 , #{st_agent_image_key }
+				   )
+		]]>
+	</update>
+	
+	<!-- 납품 일정 추가입력 -->
+	<update id="saveMkImScheduleUpdate" parameterType="java.util.Map">
+		<![CDATA[
+			UPDATE ICOMPOMK /*saveMkImScheduleUpdate*/
+			   SET ADMIN_REMARK = #{st_admin_remark } 
+				 , AGENT_IMAGE_KEY = #{st_agent_image_key }
+				 , CHANGE_DATE = TO_CHAR(SYSDATE, 'yyyymmdd')
+				 , CHANGE_TIME = TO_CHAR(SYSDATE, 'hh24miss')
+				 , STATUS = 'R'
+			 WHERE BUYER = #{st_buyer }
+			   AND PO_NO = #{st_po_no }
+			   AND PO_SEQ = #{st_po_seq }
+			   AND MK_SEQ = #{st_mk_seq }
+		]]>
+	</update>
+</mapper>

@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mdcm">
+	<!-- 협력사 연락서 정보 조회 -->
+	<select id="selectMasterMdCmContactMngList" parameterType="java.util.Map" resultType="java.util.Map">	
+		<![CDATA[
+		/*selectMasterMdCmContactMngList*/
+		SELECT 
+			1 AS MASTER_FLG,
+			COM_CODE AS RECV_COM_CODE,
+			SEQ AS RECV_SEQ,
+			USER_NAME AS RECV_NAME,
+			EMAIL AS RECV_MAIL,
+			MOBILE AS RECV_MOBILE_NUMBER,
+			REMARK AS RECV_REMARK,
+			RECV_YN AS RECV_OPTION, 
+			(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = ADD_USER_ID) AS ADD_USER,
+			ADD_USER_ID AS ADD_USER_ID,
+			TO_CHAR(ADD_DATE,'YYYY.MM.DD') AS ADD_DATE
+		FROM DM_CONTRACT_INFO
+		WHERE
+			COM_CODE = #{st_com_code}
+			AND STATUS <> 'D'
+	UNION
+		SELECT 
+			0 AS MASTER_FLG,
+			u.COM_CODE AS RECV_COM_CODE,
+			(SELECT NVL(max(TO_NUMBER(SEQ)),0)+1 FROM DM_CONTRACT_HIST WHERE COM_CODE=u.COM_CODE) AS RECV_SEQ,
+			u.USER_NAME_LOC AS RECV_NAME, 
+			u.EMAIL AS RECV_MAIL,
+			u.MOBILE_PHONE AS RECV_MOBILE_NUMBER, 
+			'관리자' AS RECV_REMARK, 
+			'Y' AS RECV_OPTION,
+			'' AS ADD_USER,
+			'' AS ADD_USER_ID,
+			'' AS ADD_DATE
+		FROM 
+			icomcmpy c, ICOMLUSR u
+		WHERE 
+			c.COM_CODE = #{st_com_code}
+			AND c.COM_CODE = u.COM_CODE 
+			AND u.USER_TYPE = 'A'
+	ORDER BY MASTER_FLG ASC, RECV_SEQ DESC  -- 0 대표연락처 부터 1 일반연락처 순으로 정렬;
+		]]>
+	</select>
+
+	<!-- 협력사 연락처 정보 삽입/수정 -->
+	<update id="saveMasterMdcmAgentContactMng"  parameterType="java.util.Map">
+		<![CDATA[
+		/*saveMasterMdcmAgentContactMng*/
+
+		MERGE INTO DM_CONTRACT_INFO USING dual ON (COM_CODE = #{st_com_code} AND SEQ = #{RECV_SEQ})
+		WHEN MATCHED THEN 
+			-- pk가 같다면 update 로직
+			UPDATE SET 
+				USER_NAME=#{RECV_NAME},
+				EMAIL=#{RECV_MAIL},
+				MOBILE=#{RECV_MOBILE_NUMBER},
+				REMARK=#{RECV_REMARK},
+				RECV_YN=#{RECV_OPTION},
+				CHANGE_USER_ID=#{st_user_id},
+				CHANGE_DATE=SYSDATE
+			WHERE
+				SEQ=#{RECV_SEQ} AND COM_CODE = #{st_com_code}
+		WHEN NOT MATCHED THEN
+			-- pk가 다르다면 insert 로직
+			INSERT
+				(COM_CODE, SEQ, STATUS, USER_NAME, EMAIL, MOBILE, REMARK, RECV_YN, ADD_USER_ID, ADD_DATE, CHANGE_USER_ID, CHANGE_DATE)
+			VALUES
+				(#{st_com_code}, (SELECT NVL(max(TO_NUMBER(SEQ)),0)+1 FROM DM_CONTRACT_INFO WHERE COM_CODE=#{st_com_code}),
+				 'C', #{RECV_NAME}, #{RECV_MAIL}, #{RECV_MOBILE_NUMBER}, #{RECV_REMARK}, #{RECV_OPTION},
+				 #{st_user_id}, SYSDATE, #{st_user_id}, SYSDATE)
+		]]>
+	</update>
+
+	<!-- 협력사 연락처 정보 삭제  -->
+	<update id="deleteMasterMdcmAgentContactMng"  parameterType="java.util.Map">
+		<![CDATA[
+		/*deleteMasterMdcmAgentContactMng*/
+		UPDATE DM_CONTRACT_INFO
+		SET STATUS='D',
+			CHANGE_USER_ID = #{st_user_id},
+			CHANGE_DATE = SYSDATE
+		WHERE COM_CODE=#{st_com_code}
+		AND SEQ = #{RECV_SEQ}
+		AND ADD_USER_ID = #{st_user_id}
+		]]>
+	</update>
+	
+	<!-- 협력사 연락서 단일 정보 조회 -->
+	<select id="getMasterMdCmContactMng" parameterType="java.util.Map" resultType="java.util.Map">	
+		<![CDATA[
+		/*getMasterMdCmContactMng*/
+		SELECT 
+			STATUS AS RECV_STATUS,
+			USER_NAME AS RECV_NAME,
+			EMAIL AS RECV_MAIL,
+			MOBILE AS RECV_MOBILE_NUMBER,
+			REMARK AS RECV_REMARK,
+			RECV_YN AS RECV_OPTION
+		FROM DM_CONTRACT_INFO
+		WHERE COM_CODE = #{st_com_code}
+		AND SEQ = #{RECV_SEQ}
+		]]>
+	</select>
+
+	<!-- 협력사 연락처 설정 이력 저장 -->
+	<update id="saveMasterMdcmAgentContactMngHistory"  parameterType="java.util.Map">
+		<choose>
+			<when test='history_pk == "" or history_pk == null '>
+				<![CDATA[
+				/*saveMasterMdcmAgentContactMngHistory*/
+				INSERT INTO DM_CONTRACT_HIST
+				(COM_CODE, SEQ, RE_STATUS, CH_STATUS, RE_EMAIL, CH_EMAIL, RE_MOBILE, CH_MOBILE, RE_NAME, CH_NAME, RE_REMARK, CH_REMARK, RE_RECV_YN, CH_RECV_YN, CHANGE_USER_ID, CHANGE_DATE)
+				VALUES(
+					#{st_com_code}, (SELECT NVL(max(TO_NUMBER(SEQ)),0)+1 FROM DM_CONTRACT_HIST WHERE COM_CODE=#{st_com_code}), #{ORIGIN_RECV_STATUS}, #{RECV_STATUS}, 
+					#{ORIGIN_RECV_MAIL}, #{RECV_MAIL}, #{ORIGIN_RECV_MOBILE_NUMBER}, #{RECV_MOBILE_NUMBER}, 
+					#{ORIGIN_RECV_NAME}, #{RECV_NAME}, #{ORIGIN_RECV_REMARK}, #{RECV_REMARK}, 
+					#{ORIGIN_RECV_OPTION}, #{RECV_OPTION}, #{st_user_id}, SYSDATE
+				)
+				]]>	
+			</when>
+			<otherwise>
+				<!-- 삭제 -->
+				<![CDATA[
+				/*saveMasterMdcmAgentContactMngHistory*/
+				INSERT INTO DM_CONTRACT_HIST
+				(COM_CODE, SEQ, RE_STATUS, CH_STATUS, CHANGE_USER_ID, CHANGE_DATE)
+				VALUES(
+					#{st_com_code}, (SELECT NVL(max(TO_NUMBER(SEQ)),0)+1 FROM DM_CONTRACT_HIST WHERE COM_CODE=#{st_com_code}), #{ORIGIN_RECV_STATUS}, #{RECV_STATUS}, 
+					#{st_user_id}, SYSDATE
+				)
+				]]>	
+			</otherwise>
+		</choose>
+	</update>
+</mapper>
+

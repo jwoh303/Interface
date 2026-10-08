@@ -1,0 +1,431 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="common.mpso">
+
+
+	<select id="selectMasterMpSoStockApplyPopList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*selectMasterMpSoStockApplyPopList*/
+			SELECT										        
+                    (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = A.BUYER) AS COM_NAME,    --[00]
+                    (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = A.AGENT) AS AGENT_NAME,  --[01]
+                    A.DESCRIPTION,          --[02]
+                    A.SPECIFICATION,        --[03]
+                    NVL(A.ITEM_QTY,0) AS ITEM_QTY,      --[04]
+                    NVL(A.UNIT_PRICE,0) AS UNIT_PRICE,    --[05]
+                    NVL(A.AGENT_PRICE,0) AS AGENT_PRICE,   --[06]
+                    NVL(A.ITEM_QTY,0) * NVL(A.UNIT_PRICE,0) AS PRICE_SUM,  --[07]
+                    A.GR_DATE,              --[08]
+                    A.BUYER,                --[09]
+                    A.PO_NO,                --[10]
+                    A.PO_SEQ,               --[11]
+                    A.BUYER_ITEM_NO,        --[12]
+                    A.AGENT,                --[13]
+                    A.GR_NO,                --[14]
+                    A.GR_SEQ                --[15]
+               FROM ICOMGRDT A  
+
+              WHERE A.BUYER = #{st_buyer}  
+                AND A.PO_NO = #{st_po_no}  
+                AND A.PO_SEQ = #{st_po_seq}  
+                AND A.STATUS <> 'D'  
+              ORDER BY A.BUYER,A.PO_NO,A.PO_SEQ,A.GR_NO,A.GR_SEQ  
+		]]>
+	</select>
+
+
+	<select id="selectMasterMpSoStockApplyPopListDetail" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*selectMasterMpSoStockApplyPopListDetail*/
+			SELECT										        
+                    (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = A.BUYER) AS COM_NAME,  
+                    (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = 'KR00000002') AS AGENT_NAME,  
+                    A.DESCRIPTION,  
+                    A.SPECIFICATION,  
+                    NVL(A.ITEM_QTY,0) - (NVL(A.ITEM_QTY,0)*2) AS ITEM_QTY,  
+                    NVL(A.UNIT_PRICE,0) AS UNIT_PRICE,  
+                    NVL(A.AGENT_PRICE,0) AS AGENT_PRICE,  
+                    (NVL(A.ITEM_QTY,0) - (NVL(A.ITEM_QTY,0)*2)) * NVL(A.UNIT_PRICE,0) AS PRICE_SUM,  
+                    DECODE(#{st_stock_check_flag},'1',TO_CHAR( TO_DATE(${st_stock_date},'YYYYMMDD')+15, 'YYYYMMDD'),(SELECT TO_CHAR(LAST_DAY(TO_DATE(#{st_stock_date},'YYYYMM')),'YYYYMMDD') FROM DUAL)) AS GR_DATE,  
+                    A.BUYER,  
+                    A.PO_NO,  
+                    A.PO_SEQ,  
+                    A.GR_NO,  
+                    A.GR_SEQ,
+                    A.BUYER_ITEM_NO,  
+                    'KR00000002' AS AGENT_CODE  
+               FROM ICOMGRDT A  
+             WHERE A.BUYER = #{st_buyer}  
+             AND A.PO_NO = #{st_po_no}  
+             AND A.PO_SEQ = #{st_po_seq}  
+             AND A.GR_NO = #{st_gr_no}  
+             AND A.GR_SEQ = #{st_gr_seq}  
+             AND A.STATUS <> 'D'  
+
+             UNION  
+
+             SELECT  
+                    (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = A.BUYER) AS COM_NAME,  
+                    DECODE(#{st_option_type},'TYPE_A',(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = A.AGENT),  
+                    (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = 'KR00000002')) AS AGENT_NAME,  
+                    A.DESCRIPTION,  
+                    A.SPECIFICATION,  
+                    NVL(A.ITEM_QTY,0) AS ITEM_QTY,  
+                    NVL(A.UNIT_PRICE,0) AS UNIT_PRICE,  
+                    NVL(A.AGENT_PRICE,0) AS AGENT_PRICE,  
+                    NVL(A.ITEM_QTY,0) * NVL(A.UNIT_PRICE,0) AS PRICE_SUM,  
+					DECODE(#{st_option_type},'TYPE_A',DECODE(#{st_stock_check_flag},'1',TO_CHAR(TO_DATE(${st_stock_date},'YYYYMMDD')+15,'YYYYMMDD'),(SELECT TO_CHAR(LAST_DAY(TO_DATE(#{st_stock_date},'YYYYMM')),'YYYYMMDD') FROM DUAL)),
+					DECODE(#{st_stock_check_flag},'1',TO_CHAR(TO_DATE(${st_stock_date},'YYYYMMDD')+16,'YYYYMMDD'),(SELECT TO_CHAR(ADD_MONTHS(TO_DATE(#{st_stock_date},'YYYYMM'),1),'YYYYMMDD') FROM DUAL))) AS GR_DATE,
+                    A.BUYER,  
+                    A.PO_NO,  
+                    A.PO_SEQ,  
+                    A.GR_NO,  
+                    A.GR_SEQ,
+                    A.BUYER_ITEM_NO,  
+                    DECODE(#{st_option_type},'TYPE_A',A.AGENT,'KR00000002') AS AGENT_CODE  
+               FROM ICOMGRDT A  
+             WHERE A.BUYER = #{st_buyer}  
+             AND A.PO_NO = #{st_po_no}  
+             AND A.PO_SEQ = #{st_po_seq}  
+             AND A.GR_NO = #{st_gr_no}  
+             AND A.GR_SEQ = #{st_gr_seq}  
+             AND A.STATUS <> 'D'  
+             ORDER BY 5  
+		]]>
+	</select>
+
+
+
+	<update  id="insertMasterMpSoStockApplyPop" parameterType="java.util.Map" >
+		<![CDATA[
+             INSERT INTO ICOMGRDT(  
+                                   BUYER,  
+                                   GR_NO,  
+                                   GR_SEQ,  
+                                   STATUS,  
+                                   SEND_DATE,  
+                                   SEND_TIME,  
+                                   ADD_DATE,  
+                                   ADD_TIME,  
+                                   CHANGE_DATE,  
+                                   CHANGE_TIME,  
+                                   CONFIRM_DATE,  
+                                   CONFIRM_TIME,  
+                                   SELLER,  
+                                   GR_DATE,  
+                                   PAY_TERMS,  
+                                   USANCE_DAYS,  
+                                   BLD_1,  
+                                   BUYER_ITEM_NO,  
+                                   SELLER_ITEM_NO,  
+                                   DESCRIPTION,  
+                                   SPECIFICATION,  
+                                   CUR,  
+                                   UNIT_MEASURE,  
+                                   ITEM_QTY,  
+                                   UNIT_PRICE,  
+                                   ITEM_AMT,  
+                                   UNIT_TAX,  
+                                   TAX_AMT,  
+                                   TTL_AMT,  
+                                   TAX_AMT_1,  
+                                   TAX_AMT_2,  
+                                   GR_TTL_AMT,  
+                                   INV_NO,  
+                                   INV_SEQ,  
+                                   PO_NO,  
+                                   PO_SEQ,  
+                                   DO_NO,  
+                                   DO_SEQ,  
+                                   EXCHANGE_RATE,  
+                                   GR_LOC_AMT,  
+                                   LC_NO,  
+                                   AP_NO,  
+                                   AP_SEQ,  
+                                   BILL_NO,  
+                                   BILL_DATE,  
+                                   BCERTI_NO,  
+                                   BCERTI_DATE,  
+                                   PROCESS_TYPE,  
+                                   RO_QTY,  
+                                   ADD_USER_ID,  
+                                   CHANGE_USER_ID,  
+                                   BILL_FLAG,  
+                                   NOTIFY,  
+                                   PAYER,  
+                                   PAYEE,  
+                                   GR_BAL_QTY,  
+                                   AR_NO,  
+                                   AR_DATE,  
+                                   AR_SEQ,  
+                                   LEGACY_GR_NO,  
+                                   LEGACY_PO_NO,  
+                                   LEGACY_PO_SEQ,  
+                                   LEGACY_IV_SERIAL,  
+                                   LEGACY_GR_SEQ,  
+                                   REF_PR_NO,  
+                                   AGENT,  
+                                   AGENT_PRICE,  
+                                   BYIT_COMORG_CODE,  
+                                   CLOSE_FLAG,  
+                                   CLOSE_DATE ,AGENT_ITEM_AMT )  
+                                  (  
+                                   SELECT  
+                                          A.BUYER,  
+                                          A.GR_NO GR_NO,  
+                                          '1'||SUBSTR(A.GR_SEQ,2,6) GR_SEQ,  
+                                          'C' STATUS,  
+                                          NULL SEND_DATE,  
+                                          NULL SEND_TIME,  
+                                          TO_CHAR(SYSDATE,'YYYYMMDD') ADD_DATE,  
+                                          TO_CHAR(SYSDATE,'HH24MISS') ADD_TIME,  
+                                          TO_CHAR(SYSDATE,'YYYYMMDD') CHANGE_DATE,  
+                                          TO_CHAR(SYSDATE,'HH24MISS') CHANGE_TIME,  
+                                          NULL CONFIRM_DATE,  
+                                          NULL CONFIRM_TIME,  
+                                          'KRKORE0001' SELLER,  
+                                          DECODE(#{st_stock_check_flag},'1',TO_CHAR(TO_DATE(${st_stock_date},'YYYYMMDD')+15,'YYYYMMDD'),(SELECT TO_CHAR(LAST_DAY(TO_DATE(#{st_stock_date},'YYYYMM')),'YYYYMMDD') FROM DUAL)) AS GR_DATE,  
+                                          A.PAY_TERMS,  
+                                          A.USANCE_DAYS,  
+                                          A.BLD_1,  
+                                          A.BUYER_ITEM_NO,  
+                                          A.SELLER_ITEM_NO,  
+                                          A.DESCRIPTION,  
+                                          A.SPECIFICATION,  
+                                          A.CUR,  
+                                          A.UNIT_MEASURE,  
+                                          NVL(A.ITEM_QTY,0) - (NVL(A.ITEM_QTY,0)*2) ITEM_QTY,  
+                                          A.UNIT_PRICE,  
+                                          (NVL(A.ITEM_QTY,0) - (NVL(A.ITEM_QTY,0)*2)) * NVL(A.UNIT_PRICE,0) AS ITEM_AMT,  
+                                          A.UNIT_TAX,  
+                                          A.TAX_AMT,  
+                                          A.TTL_AMT,  
+                                          A.TAX_AMT_1,  
+                                          A.TAX_AMT_2,  
+                                          A.GR_TTL_AMT,  
+                                          A.INV_NO,  
+                                          A.INV_SEQ,  
+                                          A.PO_NO,  
+                                          A.PO_SEQ,  
+                                          A.DO_NO,  
+                                          A.DO_SEQ,  
+                                          A.EXCHANGE_RATE,  
+                                          A.GR_LOC_AMT,  
+                                          A.LC_NO,  
+                                          A.AP_NO,  
+                                          A.AP_SEQ,  
+                                          A.BILL_NO,  
+                                          A.BILL_DATE,  
+                                          A.BCERTI_NO,  
+                                          A.BCERTI_DATE,  
+                                          A.PROCESS_TYPE,  
+                                          A.RO_QTY,  
+                                          A.ADD_USER_ID,  
+                                          #{USER_ID} AS CHANGE_USER_ID,  
+                                          A.BILL_FLAG,  
+                                          A.NOTIFY,  
+                                          A.PAYER,  
+                                          A.PAYEE,  
+                                          A.GR_BAL_QTY,  
+                                          A.AR_NO,  
+                                          A.AR_DATE,  
+                                          A.AR_SEQ,  
+                                          A.LEGACY_GR_NO,  
+                                          A.LEGACY_PO_NO,  
+                                          A.LEGACY_PO_SEQ,  
+                                          A.LEGACY_IV_SERIAL,  
+                                          A.LEGACY_GR_SEQ,  
+                                          A.REF_PR_NO,  
+                                          'KR00000002' AS AGENT,  
+                                          A.AGENT_PRICE,  
+                                          A.BYIT_COMORG_CODE,  
+                                          A.CLOSE_FLAG,  
+                                          A.CLOSE_DATE , 0  
+                                     FROM ICOMGRDT A  
+                                    WHERE A.BUYER = #{BUYER}  
+                                     AND A.PO_NO = #{PO_NO}  
+                                     AND A.PO_SEQ = #{PO_SEQ}  
+                                     AND A.GR_NO = #{GR_NO}  
+                                     AND A.GR_SEQ = #{GR_SEQ}  
+                                     AND A.STATUS <> 'D'  
+
+                                   UNION  
+
+                                   SELECT  
+                                          A.BUYER,  
+                                          A.GR_NO GR_NO,  
+                                          '2'||SUBSTR(A.GR_SEQ,2,6) GR_SEQ,  
+                                          'C' STATUS,  
+                                          NULL SEND_DATE,  
+                                          NULL SEND_TIME,  
+                                          TO_CHAR(SYSDATE,'YYYYMMDD') ADD_DATE,  
+                                          TO_CHAR(SYSDATE,'HH24MISS') ADD_TIME,  
+                                          TO_CHAR(SYSDATE,'YYYYMMDD') CHANGE_DATE,  
+                                          TO_CHAR(SYSDATE,'HH24MISS') CHANGE_TIME,  
+                                          NULL CONFIRM_DATE,  
+                                          NULL CONFIRM_TIME,  
+                                          'KRKORE0001' SELLER,  
+                                          DECODE(#{st_option_type},'TYPE_A',DECODE(#{st_stock_check_flag},'1',TO_CHAR(TO_DATE(${st_stock_date},'YYYYMMDD')+15,'YYYYMMDD'),(SELECT TO_CHAR(LAST_DAY(TO_DATE(#{st_stock_date},'YYYYMM')),'YYYYMMDD') FROM DUAL)),  
+                                                                   DECODE(#{st_stock_check_flag},'1',TO_CHAR(${stock_month}+16,'YYYYMMDD'),(SELECT TO_CHAR(ADD_MONTHS(TO_DATE(#{st_stock_date},'YYYYMM'),1),'YYYYMMDD') FROM DUAL))) AS GR_DATE,  
+                                          A.PAY_TERMS,  
+                                          A.USANCE_DAYS,  
+                                          A.BLD_1,  
+                                          A.BUYER_ITEM_NO,  
+                                          A.SELLER_ITEM_NO,  
+                                          A.DESCRIPTION,  
+                                          A.SPECIFICATION,  
+                                          A.CUR,  
+                                          A.UNIT_MEASURE,  
+                                          NVL(A.ITEM_QTY,0) ITEM_QTY,  
+                                          A.UNIT_PRICE,  
+                                          NVL(A.ITEM_QTY,0) * NVL(A.UNIT_PRICE,0) AS ITEM_AMT,  
+                                          A.UNIT_TAX,  
+                                          A.TAX_AMT,  
+                                          A.TTL_AMT,  
+                                          A.TAX_AMT_1,  
+                                          A.TAX_AMT_2,  
+                                          A.GR_TTL_AMT,  
+                                          A.INV_NO,  
+                                          A.INV_SEQ,  
+                                          A.PO_NO,  
+                                          A.PO_SEQ,  
+                                          A.DO_NO,  
+                                          A.DO_SEQ,  
+                                          A.EXCHANGE_RATE,  
+                                          A.GR_LOC_AMT,  
+                                          A.LC_NO,  
+                                          A.AP_NO,  
+                                          A.AP_SEQ,  
+                                          A.BILL_NO,  
+                                          A.BILL_DATE,  
+                                          A.BCERTI_NO,  
+                                          A.BCERTI_DATE,  
+                                          A.PROCESS_TYPE,  
+                                          A.RO_QTY,  
+                                          A.ADD_USER_ID,  
+                                          #{USER_ID} AS CHANGE_USER_ID,  
+                                          A.BILL_FLAG,  
+                                          A.NOTIFY,  
+                                          A.PAYER,  
+                                          A.PAYEE,  
+                                          A.GR_BAL_QTY,  
+                                          A.AR_NO,  
+                                          A.AR_DATE,  
+                                          A.AR_SEQ,  
+                                          A.LEGACY_GR_NO,  
+                                          A.LEGACY_PO_NO,  
+                                          A.LEGACY_PO_SEQ,  
+                                          A.LEGACY_IV_SERIAL,  
+                                          A.LEGACY_GR_SEQ,  
+                                          A.REF_PR_NO,  
+                                          DECODE(#{st_option_type},'TYPE_A',A.AGENT,'KR00000002') AS AGENT,  
+                                          A.AGENT_PRICE,  
+                                          A.BYIT_COMORG_CODE,  
+                                          A.CLOSE_FLAG,  
+                                          A.CLOSE_DATE , A.AGENT_ITEM_AMT 
+                                     FROM ICOMGRDT A  
+                                    WHERE A.BUYER = #{BUYER}  
+                                      AND A.PO_NO = #{PO_NO}
+                                      AND A.PO_SEQ = #{PO_SEQ}  
+                                      AND A.GR_NO = #{GR_NO}  
+                                      AND A.GR_SEQ = #{GR_SEQ}  
+                                      AND A.STATUS <> 'D'  
+                                   )  
+		]]>
+	</update>
+
+
+	<update  id="updateMasterMpSoStockApplyPop" parameterType="java.util.Map" >
+		<![CDATA[
+           UPDATE ICOMGRDT A                                                                
+               SET A.STATUS           = 'R',                                                 
+                   A.CHANGE_DATE      = TO_CHAR(SYSDATE, 'YYYYMMDD'),                        
+                   A.CHANGE_TIME      = SUBSTR(TO_CHAR(SYSDATE,'YYYYMMDD HH24MISS'),10,6),   
+                   A.CHANGE_USER_ID   = #{USER_ID},                 
+                   A.AGENT            = 'KR00000002',                                        
+                   A.AGENT_ITEM_AMT   = 0													 
+             WHERE A.BUYER = #{BUYER}  
+               AND A.PO_NO = #{PO_NO}
+               AND A.PO_SEQ = #{PO_SEQ}  
+               AND A.GR_NO = #{GR_NO}  
+               AND A.GR_SEQ = #{GR_SEQ}  
+               AND A.STATUS <> 'D'  
+		]]>
+	</update>
+	
+	<update  id="insertMasterMpSoStockApplyToPayRegMngList" parameterType="java.util.Map" >
+		<![CDATA[
+		/*insertMasterMpSoPayRegMngUploadPopList*/
+		INSERT INTO PAY_REG_MNG
+		(
+			PAY_REG_NO,
+			PAY_REG_SEQ,
+			STATUS,
+			GW_PAY_REG_NO,
+			PAY_REG_STATUS,
+			BUYER,
+			PR_NO,
+			PR_SEQ,
+			BUYER_ITEM_NO,
+			PO_NO,
+			PO_SEQ,
+			GR_NO,
+			GR_SEQ,
+			AGENT,
+			BUYER_NAME,
+			BUYER_IRS_NO,
+			AGENT_NAME,
+			AGENT_IRS_NO,
+			SCHD_CLOSE_MONTH,
+			SCHD_CHANGE_DATE,
+			SCHD_CHANGE_USER_ID,
+			SCHD_CHANGE_USER_NAME,
+			BILL_CLOSE_MONTH,
+			PAY_REG_TYPE,
+			PAY_AMT,
+			REMARK,
+			ADD_DATE,
+			ADD_USER_ID,
+			ADD_USER_NAME,
+			CHANGE_DATE,
+			CHANGE_USER_ID,
+			CHANGE_USER_NAME
+		)
+		VALUES
+		(
+			#{PAY_REG_NO},
+			TO_CHAR(#{PAY_REG_SEQ},'FM000000'),
+			'C',
+			'',
+			'C',
+			#{BUYER},
+			(SELECT PR_NO FROM ICOMPODT WHERE BUYER = #{BUYER} AND PO_NO = #{PO_NO} AND PO_SEQ = #{PO_SEQ}),
+			(SELECT PR_SEQ FROM ICOMPODT WHERE BUYER = #{BUYER} AND PO_NO = #{PO_NO} AND PO_SEQ = #{PO_SEQ}),
+			(SELECT BUYER_ITEM_NO FROM ICOMPODT WHERE BUYER = #{BUYER} AND PO_NO = #{PO_NO} AND PO_SEQ = #{PO_SEQ}),
+			#{PO_NO},
+			#{PO_SEQ},
+			#{GR_NO},
+			#{GR_SEQ},
+			(SELECT AGENT FROM ICOMGRDT WHERE BUYER = #{BUYER} AND GR_NO = #{GR_NO} AND GR_SEQ = #{GR_SEQ}),
+			(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = #{BUYER}),
+			(SELECT IRS_NO FROM ICOMCMPY WHERE COM_CODE = #{BUYER}),
+			(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = (SELECT AGENT FROM ICOMGRDT WHERE BUYER = #{BUYER} AND GR_NO = #{GR_NO} AND GR_SEQ = #{GR_SEQ})),
+			(SELECT IRS_NO FROM ICOMCMPY WHERE COM_CODE = (SELECT AGENT FROM ICOMGRDT WHERE BUYER = #{BUYER} AND GR_NO = #{GR_NO} AND GR_SEQ = #{GR_SEQ})),
+			TO_CHAR(LAST_DAY(ADD_MONTHS(TO_DATE(REPLACE(${st_stock_date}, '/', ''), 'YYYYMM'),1)), 'YYYYMM'),
+			SYSDATE,
+			#{USER_ID},
+			(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = #{USER_ID}),
+			'',
+			'D',
+			(SELECT AGENT_ITEM_AMT FROM ICOMGRDT WHERE BUYER = #{BUYER} AND GR_NO = #{GR_NO} AND GR_SEQ = #{GR_SEQ}),
+			'이월재고생성',
+			SYSDATE,
+			#{USER_ID},
+			(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = #{USER_ID}),
+			SYSDATE,
+			#{USER_ID},
+			(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = #{USER_ID})
+		)
+		]]> 
+	</update>
+</mapper>

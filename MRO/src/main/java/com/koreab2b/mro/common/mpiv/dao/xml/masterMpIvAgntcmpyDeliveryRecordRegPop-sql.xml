@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="common.mpiv">
+
+
+	<select id="selectMasterMpIvAgntcmpyDeliveryRecordRegPopList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*selectMasterMpIvAgntcmpyDeliveryRecordRegPopList*/
+			SELECT										        
+					CODE, 								 
+					TEXT1, 							 
+					TEXT2, 							 
+					(SELECT COUNT(*) FROM ICOMLUSR WHERE COM_CODE=COMPANY_CODE AND DEPARTMENT=CODE AND STATUS ='D') AS DEPT_USER_COUNT	 
+			  FROM ICOMCOD2 							 
+			 WHERE COMPANY_CODE = #{com_code}		 
+		       AND TEXT1 LIKE '%'||#{st_req_dept_name}||'%' 
+			   AND TYPE='C001' 							 
+		]]>
+		<!-- 발주부서 -->
+		<if test="po_dept != null and po_dept != ''">
+			<![CDATA[
+					AND 
+			]]>	
+		</if>
+		
+	</select>
+	
+	
+	
+	
+	
+	
+	
+		<select id="selectMasterMpIvUrgentManagementPop" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*selectMasterMpIvUrgentManagementPop*/
+
+
+SELECT	
+
+		(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE=B.BUYER) AS BUYER_NAME,	
+		B.PO_NO,	
+		B.BUYER_ITEM_NO,	
+		B.DESCRIPTION,	
+		B.MAKER_NAME,	
+		DECODE(B.PROCESS_TYPE,'0', (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE=A.AGENT),	
+							  '1', (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE=B.WAREHOUSE_CODE),	
+							  '2', (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE=A.AGENT),	
+							  '3', (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE=B.WAREHOUSE_CODE)) AS AGENT_NAME,	
+		B.RD_DATE,	
+		 
+
+		DECODE(B.PROCESS_TYPE, '0', (SELECT MAX(USER_NAME_LOC) FROM ICOMLUSR WHERE USER_ID=(SELECT MAX(USER_ID) FROM  ICOMLUSR WHERE COM_CODE=A.AGENT)),	
+					   '2', (SELECT MAX(USER_NAME_LOC) FROM ICOMLUSR WHERE USER_ID=(SELECT MAX(USER_ID) FROM  ICOMLUSR WHERE COM_CODE=A.AGENT)),	
+					   '1', (SELECT MAX(USER_NAME_LOC) FROM ICOMLUSR WHERE USER_ID=(SELECT MAX(CHANGE_USER_ID) FROM WMSIVDT WHERE BUYER=B.BUYER	
+																	  AND PO_NO=B.PO_NO	
+																	  AND PO_SEQ=B.PO_SEQ	
+																	  AND STATUS ^='D')),	
+					   '3', (SELECT MAX(USER_NAME_LOC) FROM ICOMLUSR WHERE USER_ID=(SELECT MAX(CHANGE_USER_ID) FROM WMSIVDT WHERE BUYER=B.BUYER	
+																	  AND PO_NO=B.PO_NO	
+																	  AND PO_SEQ=B.PO_SEQ	
+																	  AND STATUS ^='D'))) AS AGENT_USER,	
+
+		B.SPECIFICATION,	
+		(SELECT TEXT2 FROM ICOMCOD1 WHERE TYPE='M001' AND CODE=B.ORIGIN_CODE) AS ORIGIN_NAME,	
+		B.ITEM_QTY,	
+		B.UNIT_MEASURE,	
+		B.DS_DATE,	 
+		 
+
+		DECODE(B.PROCESS_TYPE, '0', (SELECT MAX(INVOICE_DATE) FROM ICOMIVDT WHERE BUYER=B.BUYER	
+																	  AND PO_NO=B.PO_NO	
+																	  AND PO_SEQ=B.PO_SEQ	
+																	  AND STATUS ^='D'),	
+					   '2', (SELECT MAX(INVOICE_DATE) FROM ICOMIVDT WHERE BUYER=B.BUYER	
+																	  AND PO_NO=B.PO_NO	
+																	  AND PO_SEQ=B.PO_SEQ	
+																	  AND STATUS ^='D'),	
+					   '1', (SELECT MAX(INV_DATE) FROM WMSIVDT WHERE BUYER=B.BUYER	
+																	  AND PO_NO=B.PO_NO	
+																	  AND PO_SEQ=B.PO_SEQ	
+																	  AND STATUS ^='D'),	
+					   '3',(SELECT MAX(INV_DATE) FROM WMSIVDT WHERE BUYER=B.BUYER	
+																	  AND PO_NO=B.PO_NO	
+																	  AND PO_SEQ=B.PO_SEQ	
+																	  AND STATUS ^='D')) AS INV_DATE,	
+		 
+
+		DECODE(B.PROCESS_TYPE, '0', (SELECT MAX(PHONE_NUMBER) FROM ICOMLUSR WHERE USER_ID=(SELECT MAX(USER_ID) FROM  ICOMLUSR WHERE COM_CODE=A.AGENT)),	 
+					   '2', (SELECT MAX(PHONE_NUMBER) FROM ICOMLUSR WHERE USER_ID=(SELECT MAX(USER_ID) FROM  ICOMLUSR WHERE COM_CODE=A.AGENT)),	 
+					   '1', (SELECT MAX(PHONE_NUMBER) FROM ICOMLUSR WHERE USER_ID=(SELECT MAX(CHANGE_USER_ID) FROM WMSIVDT WHERE BUYER=B.BUYER	 
+																	  AND PO_NO=B.PO_NO	 
+																	  AND PO_SEQ=B.PO_SEQ	 
+																	  AND STATUS ^='D')),	 
+					   '3', (SELECT MAX(PHONE_NUMBER) FROM ICOMLUSR WHERE USER_ID=(SELECT MAX(CHANGE_USER_ID) FROM WMSIVDT WHERE BUYER=B.BUYER	 
+																	  AND PO_NO=B.PO_NO	 
+																	  AND PO_SEQ=B.PO_SEQ	 
+																	  AND STATUS ^='D'))) AS AGENT_USER_TEL_NO,	 
+
+		(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID=(SELECT KEP_USER2_ID FROM MIS_MNGOBUYR WHERE YEAR=TO_CHAR(SYSDATE, 'YYYY') AND BUYER=A.BUYER AND FLAG='Y')) AS PA_USER_NAME	
+ 
+ 
+        ,A.BUYER
+        ,A.AGENT
+        ,B.CONTRACT_NO
+        ,B.CONTRACT_SEQ 
+        
+        
+		FROM ICOMPOHD A, ICOMPODT B	
+		WHERE A.BUYER= #{BUYER}
+		AND A.DOC_TYPE ^='X'	
+		AND A.PO_CREATE_DATE>='20090101'	
+		AND A.STATUS ^='D'	
+		AND A.DOC_TYPE= #{st_doc_type}
+		AND A.BUYER=B.BUYER	
+		AND A.PO_NO=B.PO_NO	
+		AND B.STATUS ^='D'	
+		AND B.ITEM_QTY>B.GR_QTY	
+		AND B.ITEM_QTY>B.DI_QTY	
+
+		]]> 
+		<if test="st_se_po_no != null and st_se_po_no != ''">
+			<![CDATA[
+					AND B.PO_NO LIKE '%'|| #{st_se_po_no} || '%'
+			]]>	
+		</if>  
+		<if test="st_se_item_no != null and st_se_item_no != ''">
+			<![CDATA[
+					AND B.BUYER_ITEM_NO LIKE '%'|| #{st_se_item_no} || '%'
+			]]>	
+		</if> 
+		
+	</select>
+	 
+	
+	
+	
+	
+								
+</mapper>

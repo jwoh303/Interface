@@ -1,0 +1,291 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="common.mprq">
+	<select id="selectMasterMpRqQuotationDmSendPopList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*selectMasterMpRqQuotationDmSendPopList*/
+		SELECT	DISTINCT
+				A.BTOA_USER_ID,
+				(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = A.BTOA_USER_ID) AS RECV_NAME,
+				(SELECT EMAIL FROM ICOMLUSR WHERE USER_ID = A.BTOA_USER_ID) AS EMAIL,
+				(SELECT MOBILE_PHONE FROM ICOMLUSR WHERE USER_ID = A.BTOA_USER_ID) AS MOBILE
+		FROM	KEPRQDT A
+		WHERE	1=1
+		AND		BUYER = #{st_buyer}
+		AND		QUOTATION_NO = #{st_quotation_no}
+		]]>
+	</select>
+	
+	<select id="selectMasterMpRqQuotationDmSendTemplateList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*selectMasterMpRqQuotationDmSendTemplateList*/
+		SELECT	(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = #{st_buyer}) AS BUYER_NAME,
+				(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = (SELECT MAX(BTOA_USER_ID) FROM KEPRQDT WHERE BUYER = #{st_buyer} AND QUOTATION_NO = #{st_quotation_no} AND QUOTATION_SEQ = #{st_quotation_seq})) AS BTOA_USER_NAME,
+				A.MAILFORM_ID,
+				A.MAILFORM_DESC,
+				A.MAIL_SUBJECT,
+				A.MAIL_CONTENTS,
+				A.SMS_CONTENTS,
+				(SELECT TEXT2 FROM ICOMCOD1 WHERE TYPE = 'DM04' AND CODE = #{st_req_type}) AS MAIL_REQ_TYPE_CONTENTS,
+				DECODE(#{st_req_kind},
+					'1', (SELECT MAX(ITEM_MD_REQ_NOTE) FROM KEP_ITEM_MD_REQ WHERE BUYER = #{st_buyer} AND QUOTATION_NO = #{st_quotation_no} AND QUOTATION_SEQ = #{st_quotation_seq} AND ITEM_MD_STATUS = 'C' AND ITEM_MD_USER_ID IS NULL),
+					'2', (SELECT MAX(ITEM_MD_REQ_NOTE) FROM KEP_AFTER_ITEM_MD_REQ WHERE BUYER = #{st_buyer} AND QUOTATION_NO = #{st_quotation_no} AND QUOTATION_SEQ = #{st_quotation_seq} AND ITEM_MD_STATUS = 'C' AND ITEM_MD_USER_ID IS NULL),
+					'3', (SELECT MAX(ITEM_MD_REQ_NOTE) FROM KEP_NEGO_ITEM_MD_REQ WHERE BUYER = #{st_buyer} AND QUOTATION_NO = #{st_quotation_no} AND QUOTATION_SEQ = #{st_quotation_seq} AND ITEM_MD_STATUS = 'C' AND ITEM_MD_USER_ID IS NULL),
+					''
+				) AS MAIL_REMARK
+		FROM	DM_SEND_SETM A
+		WHERE	1=1
+		AND		MAILFORM_ID = #{st_mailform_id}
+		]]>
+	</select>
+	
+	<update	id="insertMasterMpRqQuotationDmSendInfo" parameterType="java.util.Map">
+	/*insertMasterMpRqQuotationDmSendInfo*/
+		<![CDATA[
+		INSERT INTO DM_SEND_INFO
+		(
+			DM_ID,
+			SEQ,
+			SENT_BUYER,
+			SENT_BYCA_COMORG_CODE,
+			SENT_QUOTATION_NO,
+			SENT_QUOTATION_SEQ,
+			SENT_BUYER_REVISION,
+			SENT_AGENT_REVISION
+		)
+		VALUES
+		(
+			#{DM_ID},
+			(SELECT NVL(MAX(TO_NUMBER(SEQ)),0)+1 FROM DM_SEND_INFO WHERE DM_ID = #{DM_ID}),
+			#{st_buyer},
+			(SELECT BYCA_COMORG_CODE FROM ICOMCMPY WHERE COM_CODE = #{st_buyer}),
+			#{st_quotation_no},
+			#{QUOTATION_SEQ},
+			(SELECT REVISION FROM KEPRQDT WHERE BUYER = #{st_buyer} AND QUOTATION_NO = #{st_quotation_no} AND QUOTATION_SEQ = #{QUOTATION_SEQ}),
+			(SELECT MAX(AGENT_REVISION) FROM KEPQTDT WHERE BUYER = #{st_buyer} AND QUOTATION_NO = #{st_quotation_no} AND QUOTATION_SEQ = #{QUOTATION_SEQ})
+		)
+		]]>
+	</update>
+	
+	<update	id="updateMasterMpRqQuotationDmSendReqType1" parameterType="java.util.Map">
+	/*updateMasterMpRqQuotationDmSendReqType1*/
+		<![CDATA[
+		UPDATE	KEP_ITEM_MD_REQ
+		SET		ITEM_MD_REQ_TYPE = #{st_req_type}
+		WHERE	1=1
+		AND		BUYER = #{st_buyer}
+		AND		QUOTATION_NO = #{st_quotation_no}
+		AND		QUOTATION_SEQ = #{QUOTATION_SEQ}
+		AND		REVISION = (SELECT REVISION FROM KEPRQDT WHERE BUYER = #{st_buyer} AND QUOTATION_NO = #{st_quotation_no} AND QUOTATION_SEQ = #{QUOTATION_SEQ}) 
+		AND		ITEM_MD_STATUS = 'C'
+		AND		ITEM_MD_REQ_NOTE = #{st_org_mail_remark}
+		]]>
+	</update>
+	
+	<update	id="updateMasterMpRqQuotationDmSendReqType2" parameterType="java.util.Map">
+	/*updateMasterMpRqQuotationDmSendReqType2*/
+		<![CDATA[
+		UPDATE	KEP_AFTER_ITEM_MD_REQ
+		SET		ITEM_MD_REQ_TYPE = #{st_req_type}
+		WHERE	1=1
+		AND		BUYER = #{st_buyer}
+		AND		QUOTATION_NO = #{st_quotation_no}
+		AND		QUOTATION_SEQ = #{QUOTATION_SEQ}
+		AND		REVISION = (SELECT REVISION FROM KEPRQDT WHERE BUYER = #{st_buyer} AND QUOTATION_NO = #{st_quotation_no} AND QUOTATION_SEQ = #{QUOTATION_SEQ}) 
+		AND		ITEM_MD_STATUS = 'C'
+		AND		ITEM_MD_REQ_NOTE = #{st_org_mail_remark}
+		]]>
+	</update>
+	
+	<update	id="updateMasterMpRqQuotationDmSendReqType3" parameterType="java.util.Map">
+	/*updateMasterMpRqQuotationDmSendReqType3*/
+		<![CDATA[
+		UPDATE	KEP_NEGO_ITEM_MD_REQ
+		SET		ITEM_MD_REQ_TYPE = #{st_req_type}
+		WHERE	1=1
+		AND		BUYER = #{st_buyer}
+		AND		QUOTATION_NO = #{st_quotation_no}
+		AND		QUOTATION_SEQ = #{QUOTATION_SEQ}
+		AND		REVISION = (SELECT REVISION FROM KEPRQDT WHERE BUYER = #{st_buyer} AND QUOTATION_NO = #{st_quotation_no} AND QUOTATION_SEQ = #{QUOTATION_SEQ}) 
+		AND		ITEM_MD_STATUS = 'C'
+		AND		ITEM_MD_REQ_NOTE = #{st_org_mail_remark}
+		]]>
+	</update>
+	
+	<update	id="insertMasterMpRqQuotationDmRemindHist" parameterType="java.util.Map">
+	/*insertMasterMpRqQuotationDmRemindHist*/
+		<![CDATA[
+		INSERT INTO DM_MAIL_REMIND_HIST
+		(
+			BUYER,
+			QUOTATION_NO,
+			QUOTATION_SEQ,
+			REVISION,
+			SEQ,
+			DM_ID,
+			DM_SEQ,
+			MAILFORM_ID,
+			REMARK,
+			ITEM_MD_REQ_TYPE,
+			ADD_USER_ID,
+			ADD_DATE,
+			CHANGE_USER_ID,
+			CHANGE_DATE
+		)
+		VALUES
+		(
+			#{st_buyer},
+			#{st_quotation_no},
+			#{QUOTATION_SEQ},
+			(SELECT REVISION FROM KEPRQDT WHERE BUYER = #{st_buyer} AND QUOTATION_NO = #{st_quotation_no} AND QUOTATION_SEQ = #{QUOTATION_SEQ}),
+			(SELECT NVL(MAX(TO_NUMBER(SEQ)), 0) + 1 FROM DM_MAIL_REMIND_HIST WHERE BUYER = #{st_buyer} AND QUOTATION_NO = #{st_quotation_no} AND QUOTATION_SEQ = #{QUOTATION_SEQ}),
+			#{DM_ID},
+			1,
+			#{MAILFORM_ID},
+			#{st_mail_remark},
+			#{st_req_type},
+			#{st_user_id},
+			SYSDATE,
+			#{st_user_id},
+			SYSDATE
+		)
+		]]>
+	</update>
+	
+	<update	id="updateMasterMpRqQuotationDmSendDelSchdDate" parameterType="java.util.Map">
+	/*updateMasterMpRqQuotationDmSendDelSchdDate*/
+		<![CDATA[
+		UPDATE	KEPRQDT
+		SET		DELETE_SCHD_DATE = F_GET_WORKINGDAY(TO_CHAR(SYSDATE, 'YYYYMMDD'), 11)
+		WHERE	1=1
+		AND		BUYER = #{st_buyer}
+		AND		QUOTATION_NO = #{st_quotation_no}
+		AND		QUOTATION_SEQ = #{QUOTATION_SEQ}
+		AND		REVISION = (SELECT REVISION FROM KEPRQDT WHERE BUYER = #{st_buyer} AND QUOTATION_NO = #{st_quotation_no} AND QUOTATION_SEQ = #{QUOTATION_SEQ})
+		]]>
+	</update>
+	
+	<update	id="insertMasterMpRqQuotationDmSmsSend" parameterType="java.util.Map">
+	/*insertMasterMpRqQuotationDmSmsSend*/
+		<![CDATA[
+		INSERT INTO SUREDATA (
+			SEQNO,
+			USERCODE,
+			REQPHONE,
+			CALLPHONE,
+			MSG,
+			REQTIME,
+			RESULT, 
+			KIND,
+ 			KEP_ID,
+ 			KEP_WD
+		)
+		VALUES (
+			SEQ_SUREDATA.NEXTVAL, -- 
+			'koreab2b', -- 슈어엠측에서 발급한 아이디
+			'0230168989', -- 발신번호
+			REPLACE(#{MOBILE},'-',''), -- 발송번호
+			#{st_sms_contents}, -- 내용
+			'00000000000000', -- 즉시발송 코드
+			'0', -- 결과(0 : 대기, 1 : SELECT, Y : 성공, N: 실패)
+			#{st_kind}, -- 메시지종류(S : SMS, M : MMS, I : 국제SMS, L : 국제MMS, T : 알림톡)
+			'DMSMS',
+			#{st_user_id} -- 보내는 user_id(운영사 id)
+		)
+		]]>
+	</update>
+	
+	<update	id="insertMasterMpRqQuotationDmSendHistory" parameterType="java.util.Map">
+	/*insertMasterMpRqQuotationDmSendHistory*/
+		<![CDATA[
+		INSERT INTO DM_SEND_HIST
+		(
+			DM_ID,
+			RECV_COM_CODE,
+			SEND_TYPE,
+			RECV_ADDRESS,
+			SEND_USER_ID,
+			SEND_EMAIL,
+			SEND_TEL,
+			MAILFORM_ID,
+			REMARK,
+			TEMP_SAVE_YN,
+			SMS_CONTENTS,
+			RECV_NAME,
+			ADD_USER_ID,
+			ADD_DATE,
+			CHANGE_USER_ID,
+			CHANGE_DATE,
+			SEND_PROC_USER_ID,
+			SEND_PROC_DATE
+		)
+		VALUES
+		(
+			#{DM_ID},
+			#{st_buyer},
+			#{SEND_TYPE},
+			#{RECV_ADDRESS},
+			#{st_user_id},
+			#{st_send_mail},
+			#{st_send_tel},
+			#{MAILFORM_ID},
+			#{REMARK},
+			'N',
+			#{SMS_CONTENTS},
+			DECODE(#{RECV_ADDRESS}, #{st_send_mail}, (SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = #{st_user_id}), #{RECV_NAME}),
+			#{st_user_id},
+			SYSDATE,
+			#{st_user_id},
+			SYSDATE,
+			#{st_user_id},
+			SYSDATE
+		)
+		]]>
+	</update>
+	
+	<update	id="insertMasterMpRqQuotationDmMailSend" parameterType="java.util.Map">
+	/*insertMasterMpRqQuotationDmMailSend*/
+		<![CDATA[
+		INSERT INTO MAILSEND
+		(
+			MAILFORM_ID,
+			SEND_COM_TYPE,
+			RECV_COM_TYPE,
+			SEND_COM_CODE,
+			SEND_USER_ID,
+			KEY1,
+			KEY2,
+			KEY3,
+			KEY4,
+			KEY5,
+			KEY6,
+			KEY7,
+			KEY8,
+			KEY9,
+			KEY10,
+			CRE_DATE,
+			ERR_DATE
+		)
+		VALUES
+		(
+			#{MAILFORM_ID},
+			'M',
+			'B',
+			'KRKORE0001',
+			#{st_user_id},
+			#{EMAIL}, -- key1
+			#{DM_ID}, -- key2
+			#{st_req_type}, -- key3
+			' ', -- key4
+			' ', --  key5
+			' ', --  key6
+			NULL,
+			NULL,
+			NULL,
+			NULL,
+			SYSDATE, -- 생성일
+			NULL -- 오류 발생일
+		)
+		]]>
+	</update>
+</mapper>

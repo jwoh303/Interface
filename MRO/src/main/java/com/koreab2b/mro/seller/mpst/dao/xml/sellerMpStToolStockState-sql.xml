@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="seller.mpst">
+
+	<!-- 조회 -->
+	<select id="selectSellerMpStToolStockStateList" parameterType="java.util.Map" resultType="java.util.Map">
+	/*selectSellerMpStToolStockStateList*/
+		<include refid="common.ibsheet.xml.jsppagestart"/>
+		<![CDATA[
+			SELECT
+			    (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = F_GET_HIDDEN_BUYER_NAME(B.BUYER, '01')) AS BUYER_NAME
+			  , B.BUYER_ITEM_NO
+			  , B.DESCRIPTION
+			  , B.SPECIFICATION
+			  , B.UNIT_MEASURE
+			  , B.LIST_PRICE
+			  , B.MAKER_NAME
+			  , A.STOCK_QTY
+			  , TO_CHAR(TO_DATE(A.CHANGE_DATE, 'YYYYMMDD'), 'YYYY/MM/DD') AS CHANGE_DATE
+			  , B.BUYER
+			  , B.CONTRACT_NO
+			  , B.CONTRACT_SEQ
+			FROM 
+			    KEP_S_STOCK A /* 구매대행재고수불 */
+			  , ICOMCQDT B /* 구매사별 계약서 가격정보 */
+			WHERE 1=1
+			AND B.BUYER = #{st_buyer_code}
+			AND B.AGENT = #{st_com_code}
+			AND A.BUYER = B.BUYER
+			AND A.BUYER_ITEM_NO = B.BUYER_ITEM_NO
+			AND A.SELLER = B.AGENT
+			AND B.S_STOCK_FLAG = 'Y'
+			AND A.STATUS <> 'D'
+			AND B.STATUS <> 'D'
+ 		]]>
+ 		<if test="st_buyer_item_no != null and st_buyer_item_no != '' ">
+			AND B.BUYER_ITEM_NO LIKE '%' || #{st_buyer_item_no} || '%'
+ 		</if>
+ 		<if test="st_description != null and st_description != '' ">
+			AND B.DESCRIPTION LIKE '%' || #{st_description} || '%'
+ 		</if>
+ 		<if test="st_specification != null and st_specification != '' ">
+			AND B.SPECIFICATION LIKE '%' || #{st_specification} || '%'
+ 		</if>
+		<![CDATA[
+			ORDER BY 
+			    B.BUYER_ITEM_NO
+ 		]]>  
+		<include refid="common.ibsheet.xml.jsppageend"/>	
+	</select> 
+	
+	<!-- 저장 -->
+	<update id="updateSellerMpStToolStockState_KEP_S_STOCK" parameterType="java.util.Map">
+	/*updateSellerMpStToolStockState_KEP_S_STOCK*/
+		<![CDATA[
+			UPDATE 
+			    KEP_S_STOCK /* 구매대행재고수불 */
+			SET STOCK_QTY      = #{st_stock_qty}
+			  , CHANGE_USER_ID = #{st_user_id}
+			  , CHANGE_DATE    = TO_CHAR(SYSDATE, 'YYYYMMDD')
+			  , CHANGE_TIME    = TO_CHAR(SYSDATE, 'HH24MISS')
+			WHERE 1=1
+			AND BUYER         = #{st_buyer}
+			AND BUYER_ITEM_NO = #{st_buyer_item_no}
+			AND SELLER        = #{st_com_code}
+		]]>
+	</update>
+	
+	<!-- 삭제 -->
+	<update id="updateSellerMpStToolStockState_ICOMCQDT" parameterType="java.util.Map">
+	/*updateSellerMpStToolStockState_ICOMCQDT*/
+		<![CDATA[
+			UPDATE 
+			    ICOMCQDT /* 구매사별 계약서 가격정보 */
+			SET S_STOCK_FLAG = 'N'
+			WHERE 1=1
+			AND BUYER         = #{st_buyer}
+			AND BUYER_ITEM_NO = #{st_buyer_item_no}
+			AND CONTRACT_NO   = #{st_contract_no}
+			AND CONTRACT_SEQ  = #{st_contract_seq}
+		]]>
+	</update>
+	
+	<update id="deleteSellerMpStToolStockState" parameterType="java.util.Map">
+	/*deleteSellerMpStToolStockState*/
+		<![CDATA[
+			DELETE FROM 
+			    KEP_S_STOCK /* 구매대행재고수불 */
+			WHERE 1=1
+			AND BUYER         = #{st_buyer}
+			AND BUYER_ITEM_NO = #{st_buyer_item_no}
+			AND SELLER        = #{st_com_code}
+		]]>
+	</update>
+	
+</mapper>

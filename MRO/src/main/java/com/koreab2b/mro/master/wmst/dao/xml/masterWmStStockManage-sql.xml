@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.wmst">
+
+	<!-- 데이터 조회 -->
+	<select id="selectMasterWmStStockManageList" parameterType="java.util.Map" resultType="java.util.Map">
+	/*selectMasterWmStStockManageList*/
+		<include refid="common.ibsheet.xml.pagestart"/>	
+		<![CDATA[
+			SELECT
+			 B.BELOW_COMORG_CODE AS BUYER
+			 , (SELECT CM.COM_NAME_LOC FROM ICOMCMPY CM WHERE CM.COM_CODE = B.BELOW_COMORG_CODE) AS BUYER_NAME 
+			 , B.CONTRACT_NO
+			 , B.CONTRACT_SEQ
+			 , A.BUYER_ITEM_NO
+			 , A.PRODUCT_CLOSE_FLAG
+			 , DECODE(A.STATUS,'D','삭제',DECODE(C.STATUS,'D','삭제', DECODE(A.PRODUCT_CLOSE_FLAG,'N','승인','Y','단종'))) AS STATUS_TEXT
+			 , A.DESCRIPTION_LOC
+			 , A.SPECIFICATION
+			 , A.MAKER_NAME
+			 , B.UNIT_MEASURE
+			 , (SELECT TEXT2 FROM ICOMCOD1 WHERE TYPE = 'M001' AND CODE = B.ORIGIN_CODE) AS ORIGIN_NAME
+			 , B.AGENT
+			 , DECODE(C.AGENT_OPEN_FLAG, 'Y', D.COM_NAME_LOC,
+			 			(SELECT CMPY.COM_NAME_LOC FROM ICOMCMPY CMPY WHERE CMPY.COM_CODE ='KRKORE0001')) AS AGENT_NAME
+			 , E.VALUE1 AS STOCK_CNT
+			 , E.TEXT6 AS ADD_USER_ID
+			 , E.ADD_DATE
+			 , (SELECT USR.USER_NAME_LOC FROM ICOMLUSR USR WHERE USR.USER_ID = E.TEXT6) AS ADD_USER_NM
+			 , (SELECT USR.PHONE_NUMBER FROM ICOMLUSR USR WHERE USR.USER_ID = E.TEXT6) AS ADD_USER_TEL
+			FROM ICOMBYIT A, ICOMCQDT B, ICOMCMPY C, ICOMCMPY D, ICOMCOD2 E
+			WHERE A.BUYER = B.BUYER
+			AND A.BUYER = C.BYCA_COMORG_CODE
+			AND B.BELOW_COMORG_CODE = C.COM_CODE
+			AND A.BUYER_ITEM_NO = B.BUYER_ITEM_NO
+			AND B.AGENT = D.COM_CODE
+			AND E.TYPE ='WMST'
+			AND B.BUYER = E.TEXT1
+			AND B.BUYER_ITEM_NO = E.TEXT2
+			AND B.CONTRACT_NO = E.TEXT3
+			AND B.CONTRACT_SEQ = E.TEXT4
+			AND B.AGENT = E.TEXT5
+			AND E.FLAG ='Y'
+		]]>
+		<if test="st_buyer_code != null and st_buyer_code != '' ">
+		    AND E.COMPANY_CODE = #{st_buyer_code}
+		    AND A.BUYER = (SELECT F.BYCA_COMORG_CODE FROM ICOMCMPY F WHERE F.COM_CODE = #{st_buyer_code})
+		    AND B.BELOW_COMORG_CODE = #{st_buyer_code}
+		</if>
+		<if test="st_agent_code != null and st_agent_code != '' ">
+		    AND B.AGENT = #{st_agent_code}
+		</if>
+		<if test="st_buyer_item_no != null and st_buyer_item_no != '' ">
+		    AND UPPER(A.BUYER_ITEM_NO)  like UPPER('%'||#{st_buyer_item_no}||'%')
+		</if>
+		<if test="st_description != null and st_description != '' ">
+		    AND UPPER(A.DESCRIPTION_LOC) LIKE UPPER( '%' || #{st_description} || '%')
+		</if>
+		<![CDATA[
+		    ORDER BY B.BELOW_COMORG_CODE, A.BUYER_ITEM_NO
+		]]>
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+	<!-- 데이터 저장 -->
+	<update  id="insertMasterWmStStockManage" parameterType="java.util.Map" >
+	/*insertMasterWmStStockManage*/
+		<![CDATA[
+			INSERT INTO ICOMCOD2 /* 회사별 코드관리 */
+			(
+			    TYPE
+			  , CODE
+			  , COMPANY_CODE
+			  , TEXT1
+			  , TEXT2
+			  , TEXT3
+			  , TEXT4
+			  , TEXT5
+			  , TEXT6
+			  , VALUE1
+			  , FLAG
+			  , ADD_DATE
+			)
+			VALUES
+			(
+			    'WMST'
+			  , (SELECT CMPY.BYCA_COMORG_CODE FROM ICOMCMPY CMPY WHERE CMPY.COM_CODE = #{BUYER})||#{BUYER_ITEM_NO}||#{CONTRACT_NO}||#{CONTRACT_SEQ}
+			  , #{BUYER}
+			  , (SELECT CMPY.BYCA_COMORG_CODE FROM ICOMCMPY CMPY WHERE CMPY.COM_CODE = #{BUYER})
+			  , #{BUYER_ITEM_NO}
+			  , #{CONTRACT_NO}
+			  , #{CONTRACT_SEQ}
+			  , #{AGENT}
+			  , #{st_user_id}
+			  , #{STOCK_CNT}
+			  , 'Y'
+			  , TO_CHAR(SYSDATE , 'YYYYMMDD')
+			)
+		]]>
+	</update>
+	<!-- 데이터 삭제 -->
+	<update  id="deleteMasterWmStICOMCOD2StockManage" parameterType="java.util.Map" >
+	/*deleteMasterWmStStockManage*/
+		<![CDATA[
+			DELETE ICOMCOD2
+			WHERE TYPE ='WMST'
+			AND CODE = (SELECT CMPY.BYCA_COMORG_CODE FROM ICOMCMPY CMPY WHERE CMPY.COM_CODE = #{BUYER})||#{BUYER_ITEM_NO}||#{CONTRACT_NO}||#{CONTRACT_SEQ}
+			AND COMPANY_CODE =#{BUYER}
+			
+		]]>
+	</update>
+	<!-- 데이터 저장 -->
+	<update id="updateMasterWmStStockManage"  parameterType="java.util.Map">
+	/*updateMasterWmStStockManage*/
+		<![CDATA[
+			UPDATE ICOMCOD2
+			SET VALUE1 = #{STOCK_CNT}
+			, ADD_DATE =TO_CHAR(SYSDATE , 'YYYYMMDD')
+			WHERE TYPE  = 'WMST'
+			AND CODE  = #{BUYER}||#{BUYER_ITEM_NO}||#{CONTRACT_NO}||#{CONTRACT_SEQ}
+			AND COMPANY_CODE = #{BUYER}
+		]]>
+	</update>
+	<!-- 데이터 삭제 -->
+	<update id="deleteMasterWmStStockManage"  parameterType="java.util.Map">
+	/*deleteMasterWmStStockManage*/
+		<![CDATA[
+			DELETE FROM ICOMCOD2 
+			WHERE TYPE  = 'WMST'
+			AND CODE  = #{BUYER}||#{BUYER_ITEM_NO}||#{CONTRACT_NO}||#{CONTRACT_SEQ}
+			AND COMPANY_CODE = #{BUYER}
+		]]>
+	</update>
+
+</mapper>   
+   

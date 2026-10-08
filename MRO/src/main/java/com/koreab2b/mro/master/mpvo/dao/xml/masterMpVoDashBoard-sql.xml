@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mpvo">
+
+	<!-- 조회 -->
+	<select id="selectMasterMpVoDashBoardList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+	    	/*selectMasterMpVoDashBoardList*/                            
+				SELECT  (SELECT USER_NAME_LOC FROM V_VOC_ICOMLUSR WHERE COM_CODE = 'KRKORE0001' AND USER_ID = X.DS_USER_ID AND SYS_TYPE='KA') DDS_USER_NAME,
+					        X.TOT_CNT,
+					        (X.DATE_0+X.DATE_1+X.DATE_2+X.DATE_3) AS T_DATE,
+					        X.DS_USER_ID,
+					        X.DS_DEPT
+				FROM
+				    (
+				        SELECT  A.DS_USER_ID,
+					                (NVL(SUM(DECODE(ROUND(SYSDATE-A.CD_DATE,0),1,1)),0)+ NVL(SUM(DECODE(ROUND(SYSDATE-A.CD_DATE,0),2,1)),0)) AS DATE_0,
+					                (NVL(SUM(DECODE(ROUND(SYSDATE-A.CD_DATE,0),3,1)),0)+ NVL(SUM(DECODE(ROUND(SYSDATE-A.CD_DATE,0),4,1)),0)) AS DATE_1,
+					                (NVL(SUM(DECODE(ROUND(SYSDATE-A.CD_DATE,0),5,1)),0)+ NVL(SUM(DECODE(ROUND(SYSDATE-A.CD_DATE,0),6,1)),0)) AS DATE_2,
+					                (NVL(SUM(DECODE(ROUND(SYSDATE-A.CD_DATE,0),0,1)),0)+ NVL(SUM(DECODE(ROUND(SYSDATE-A.CD_DATE,0),7,1)),0)) AS DATE_3,
+					                COUNT(A.VC_NO) AS TOT_CNT,
+					                A.DS_DEPT
+				        FROM KEPAVCDT A
+				        WHERE A.RECV_FLAG IN ('DC','PS')
+				            AND A.DS_USER_ID = #{st_user_id}
+				        GROUP BY A.DS_DEPT, A.DS_USER_ID
+				    ) X
+			]]>
+	</select>
+
+	<!-- 조회 -->
+	<select id="selectCountBuyerOwn" parameterType="java.util.Map" resultType="String">
+		<![CDATA[
+    	/*selectCountBuyerOwn*/                            
+			SELECT  COUNT(*) AS COUNT
+			FROM V_VOC_BUYEROWN A
+			WHERE A.USER_ID = #{st_user_id}
+		]]>
+	</select>
+
+	<!-- VOC DashBoard 리드타임 조회 -->
+	<select id="getDashBoardList1" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+    	/*getDashBoardList1*/                            
+			SELECT  DS_DEPT_NAME,
+				        SUM(LAST_MONTH_CNT) AS LAST_MONTH_CNT,
+				        SUM(THIS_MONTH_CNT) AS THIS_MONTH_CNT,
+				        SUM(WEEK_CNT) AS WEEK_CNT,
+				        ROUND(SUM(LAST_MONTH)/DECODE(SUM(LAST_MONTH_CNT),0,1,SUM(LAST_MONTH_CNT)),0) AS LAST_MONTH,
+				        ROUND(SUM(THIS_MONTH)/DECODE(SUM(THIS_MONTH_CNT),0,1,SUM(THIS_MONTH_CNT)),0) AS THIS_MONTH,
+				        ROUND(SUM(WEEK)/DECODE(SUM(WEEK_CNT),0,1,SUM(WEEK_CNT)),0) AS WEEK
+			FROM
+			    (
+			        SELECT  (SELECT TEXT1 FROM V_VOC_ICOMCOD2
+				                 WHERE COMPANY_CODE = 'KRKORE0001' AND TYPE = 'C001' AND CODE = DS_DEPT AND SYS_TYPE='KA') AS DS_DEPT_NAME,
+				                DECODE(TO_CHAR(CD_DATE,'YYYYMM'),B.LAST_MONTH,NVL(ROUND(DF_DATE-CD_DATE,0),0),0) AS LAST_MONTH,
+				                DECODE(TO_CHAR(CD_DATE,'YYYYMM'),B.LAST_MONTH,1,0) AS LAST_MONTH_CNT,
+				                DECODE(TO_CHAR(CD_DATE,'YYYYMM'),TO_CHAR(SYSDATE,'YYYYMM'),NVL(ROUND(DF_DATE-CD_DATE,0),0),0) AS THIS_MONTH,
+				                DECODE(TO_CHAR(CD_DATE,'YYYYMM'),TO_CHAR(SYSDATE,'YYYYMM'),1,0) AS THIS_MONTH_CNT,
+				                CASE WHEN TO_CHAR(CD_DATE,'YYYYMMDD') BETWEEN B.FROM_WEEK AND B.TO_WEEK THEN NVL(ROUND(DF_DATE-CD_DATE,0),0)
+				                     ELSE 0 END AS WEEK,
+				                CASE WHEN TO_CHAR(CD_DATE,'YYYYMMDD') BETWEEN B.FROM_WEEK AND B.TO_WEEK THEN 1
+				                     ELSE 0 END AS WEEK_CNT,
+				                DS_DEPT
+			        FROM KEPAVCDT A,
+			            (
+			                SELECT  TO_CHAR(LAST_DAY(ADD_MONTHS(SYSDATE, -1)),'YYYYMM') AS LAST_MONTH ,
+				                        TO_CHAR(TRUNC(SYSDATE+2) - TO_CHAR(SYSDATE,'D'),'YYYYMMDD') AS FROM_WEEK,
+				                        TO_CHAR(TRUNC(SYSDATE+2) - TO_CHAR(SYSDATE,'D') + 6.99999421,'YYYYMMDD') AS TO_WEEK
+			                FROM DUAL) B,
+			            ( SELECT CODE FROM ICOMCOD1 WHERE TYPE = 'VC01' AND TEXT3 = 'C') C
+			        WHERE SUBSTR(TO_CHAR(CD_DATE,'YYYYMMDD'),1,6) BETWEEN B.LAST_MONTH  AND TO_CHAR(SYSDATE,'YYYYMM')
+			            AND RECV_FLAG='FB'
+			            AND A.CLAIM_TYPE = C.CODE
+			    )
+			GROUP BY DS_DEPT_NAME
+			ORDER BY DS_DEPT_NAME
+		]]>
+	</select>
+
+	<!-- VOC DashBoard 유형별건수 조회 -->
+	<select id="getDashBoardList2" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+    	/*getDashBoardList2*/                            
+			SELECT  (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'VC01' AND CODE = X.CLAIM_TYPE) AS CLAIM_TEXT,
+				        X.DEPT_1,
+				        X.DEPT_2,
+				        X.DEPT_3,
+				        (X.DEPT_1+X.DEPT_2+X.DEPT_3) AS T_DEPT,
+				        X.CLAIM_TYPE
+			FROM
+			    (
+			        SELECT  A.CLAIM_TYPE,
+				                NVL(SUM(DECODE(A.DS_DEPT, '048', 1, '042', 1, '008', 1, '009', 1)), 0) AS DEPT_1,
+				                NVL(SUM(DECODE(A.DS_DEPT, '017', 1, '114', 1, '118', 1)), 0) AS DEPT_2,
+				                NVL(SUM(DECODE(A.DS_DEPT, '112', 1, '113', 1,  '122', 1, '123',1)), 0) AS DEPT_3
+			        FROM KEPAVCDT A, (SELECT CODE FROM ICOMCOD1 WHERE TYPE = 'VC01' AND TEXT3 = 'C') B
+			        WHERE TO_CHAR(A.CD_DATE,'YYYYMMDD') BETWEEN #{st_from_date} AND #{st_to_date}
+			            AND A.CLAIM_TYPE = B.CODE
+			        GROUP BY A.CLAIM_TYPE
+			    ) X
+			ORDER BY CLAIM_TEXT
+		]]>
+	</select>
+
+	<!-- VOC DashBoard 구매사별현황 조회 -->
+	<select id="getDashBoardList3" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+    	/*getDashBoardList3*/                            
+			SELECT  (SELECT COM_NAME_LOC FROM V_VOC_ICOMCMPY
+				         WHERE COM_CODE = X.BUYER AND SYS_TYPE = X.SYS_TYPE
+				            AND BUSINESS_COND LIKE '%B%') AS BUYER_NAME,
+				        X.BUYER_ALL_CNT,
+				        X.BUYER_CPL_CNT,
+				        ROUND((X.BUYER_CPL_CNT/X.BUYER_ALL_CNT)*100) AS BUYER_CPL_PCT,
+				        X.BUYER,
+				        X.SYS_TYPE
+			FROM
+			    (
+			        SELECT  A.BUYER,
+				                NVL(COUNT(A.VC_NO),0) AS BUYER_ALL_CNT,
+				                NVL(SUM(DECODE(A.RECV_FLAG,'FB',1)),0) AS BUYER_CPL_CNT,
+				                A.SYS_TYPE
+			        FROM KEPAVCDT A, (SELECT CODE FROM ICOMCOD1 WHERE TYPE = 'VC01' AND TEXT3 = 'C') B
+			        WHERE TO_CHAR(A.CD_DATE,'YYYYMMDD') BETWEEN #{st_from_date} AND #{st_to_date}
+			            AND A.CLAIM_TYPE = B.CODE
+		]]>
+			<if test='st_buyer_type != null and st_buyer_type == "OWN" '>
+				<![CDATA[	AND (SYS_TYPE, BUYER) IN (SELECT SYS_TYPE, BUYER FROM V_VOC_BUYEROWN BOWN WHERE USER_ID=#{st_user_id})	]]>
+			</if>
+		<![CDATA[
+			        GROUP BY A.BUYER, A.SYS_TYPE
+			    ) X
+			ORDER BY BUYER_NAME
+		]]>
+	</select>
+
+	<!-- VOC DashBoard 장기미결현황 조회 -->
+	<select id="getDashBoardList4" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+    	/*getDashBoardList4*/                            
+			SELECT  (SELECT TEXT1 FROM V_VOC_ICOMCOD2 
+				         WHERE COMPANY_CODE = 'KRKORE0001' 
+				            AND TYPE = 'C001'
+				            AND CODE = X.DS_DEPT 
+				            AND SYS_TYPE='KA') DS_DEPT_NAME,
+				        X.DATE_0,
+				        X.DATE_1,
+				        X.DATE_2,
+				        X.DATE_3,
+				        (X.DATE_0+X.DATE_1+X.DATE_2+X.DATE_3) AS T_DATE,
+				        X.DS_DEPT
+			FROM
+			    (
+			        SELECT  A.DS_DEPT,
+				                (NVL(SUM(DECODE(ROUND(SYSDATE-A.CD_DATE,0),0,1)),0)+ NVL(SUM(DECODE(ROUND(SYSDATE-A.CD_DATE,0),1,1)),0)) AS DATE_0,
+				                (NVL(SUM(DECODE(ROUND(SYSDATE-A.CD_DATE,0),2,1)),0)+ NVL(SUM(DECODE(ROUND(SYSDATE-A.CD_DATE,0),3,1)),0)) AS DATE_1,
+				                (NVL(SUM(DECODE(ROUND(SYSDATE-A.CD_DATE,0),4,1)),0)+ NVL(SUM(DECODE(ROUND(SYSDATE-A.CD_DATE,0),5,1)),0)) AS DATE_2,
+				                SUM(DECODE(ROUND(SYSDATE-A.CD_DATE,0)-6-ABS(ROUND(SYSDATE-A.CD_DATE,0)-6),0,1,0)) AS DATE_3
+			        FROM KEPAVCDT A, (SELECT CODE FROM ICOMCOD1 WHERE TYPE = 'VC01' AND TEXT3 = 'C') B
+			        WHERE TO_CHAR(A.CD_DATE,'YYYYMMDD') BETWEEN #{st_from_date} AND #{st_to_date}
+			            AND A.RECV_FLAG IN ('DC','PS')
+			            AND A.CLAIM_TYPE = B.CODE
+			        GROUP BY A.DS_DEPT
+			    ) X
+			ORDER BY DS_DEPT_NAME
+		]]>
+	</select>
+
+</mapper>   
+   

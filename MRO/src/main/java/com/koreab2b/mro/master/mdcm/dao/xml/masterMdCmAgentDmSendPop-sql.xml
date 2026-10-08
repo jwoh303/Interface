@@ -1,0 +1,395 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mdcm">
+	<!-- 협력사 연락서 정보 조회 -->
+	<select id="selectMasterMdCmAgentDmSendPopList" parameterType="java.util.Map" resultType="java.util.Map">	
+		<![CDATA[
+		/*selectMasterMdCmAgentDmSendPopList*/
+		SELECT 
+				1 AS MASTER_FLG,
+				DECODE(RECV_YN, 'Y', 1, 0) AS RECV_MAIL_FLG, -- 초기 체크값 표시를 위해 
+				COM_CODE AS RECV_COM_CODE,
+				SEQ AS RECV_SEQ,
+				USER_NAME AS RECV_NAME,
+				EMAIL AS RECV_MAIL,
+				MOBILE AS RECV_MOBILE_NUMBER,
+				REMARK AS RECV_REMARK,
+				RECV_YN AS RECV_OPTION, 
+				TO_CHAR(ADD_USER_ID) AS ADD_USER,
+				TO_CHAR(ADD_DATE) AS ADD_DATE
+			FROM DM_CONTRACT_INFO
+			WHERE
+				COM_CODE = #{st_com_code}
+				AND STATUS <> 'D'
+		UNION
+			SELECT 
+				0 AS MASTER_FLG,
+				1 AS RECV_MAIL_FLG, -- 관리자는 초기 체크값 무조건 check
+				u.COM_CODE AS RECV_COM_CODE,
+				(SELECT NVL(max(TO_NUMBER(SEQ)),0)+1 FROM DM_CONTRACT_HIST WHERE COM_CODE=u.COM_CODE) AS RECV_SEQ,
+				u.USER_NAME_LOC AS RECV_NAME, 
+				u.EMAIL AS RECV_MAIL,
+				u.MOBILE_PHONE AS RECV_MOBILE_NUMBER, 
+				'관리자' AS RECV_REMARK, 
+				'Y' AS RECV_OPTION,
+				'-' AS ADD_USER,
+				'-' AS ADD_DATE
+			FROM 
+				icomcmpy c, ICOMLUSR u
+			WHERE 
+				c.COM_CODE = #{st_com_code}
+				AND c.COM_CODE = u.COM_CODE 
+				AND u.USER_TYPE = 'A'
+		ORDER BY MASTER_FLG ASC -- 0 대표연락처 부터 1 일반연락처 순으로 정렬;
+		]]>
+	</select>
+	
+	<!-- 테이블 SEQ -->
+	<select id="selectMasterMdCmAgentDmSendSeq" parameterType="java.util.Map" resultType="java.lang.String">
+	/*selectMasterMdCmAgentDmSendSeq*/
+		<![CDATA[
+			SELECT	F_GET_SEQ('KEP_CMC_MAILSEND')
+			FROM		DUAL
+		]]>
+	</select>
+	
+	<!-- 추가 -->
+	<update	id="insertMasterMdCmAgentDmSend2" parameterType="java.util.Map">
+	/*insertMasterMdCmAgentDmSend2*/
+		<![CDATA[
+			INSERT INTO KEP_CMC_MAILSEND
+			(
+				SEQ,
+				BUYER,
+				BUYER_ITEM_NO,
+				PO_NO,
+				PO_SEQ,
+				MAIL_RECV_YN,
+				SEND_DATE,
+				RECV_NAME,
+				RECV_EMAIL,
+				ADD_DATE,
+				ADD_USER_ID,
+				CHANGE_DATE,
+				CHANGE_USER_ID,
+				BYIT_COMORG_CODE,
+				REG_TYPE,
+				REMARK
+			)
+			VALUES
+			(
+				TO_NUMBER(#{SEQ}),
+				#{KEY3},
+				#{KEY2},
+				#{KEY4},
+				#{KEY5},
+				'N',
+				SYSDATE,
+				#{KEY6},
+				#{KEY7},
+				SYSDATE,
+				#{SessionUserId},
+				SYSDATE,
+				#{SessionUserId},
+				#{KEY1},
+				#{st_msds_mail_reg_type},
+				#{KEY8}
+			)
+		]]>
+	</update>
+	
+	<update	id="insertMasterMdCmAgentDmSend1" parameterType="java.util.Map">
+	/*insertMasterMdCmAgentDmSend1*/
+		<![CDATA[
+					INSERT INTO MAILSEND(
+						MAILFORM_ID								
+						,SEND_COM_TYPE			
+						,RECV_COM_TYPE			
+						,SEND_COM_CODE			
+						,SEND_USER_ID			 
+						,KEY1					 
+						,KEY2					 
+						,KEY3					 
+						,KEY4					 
+						,KEY5					 
+						,KEY6
+						,KEY7
+						,KEY8						
+						,CRE_DATE				 
+						,ERR_DATE			
+					)VALUES(					
+						'MSDS_MAIL_MB'
+						,'M'
+						,'B'
+						,'KRKORE0001'
+						,'KOREAB2B'
+						,#{SEQ}
+						,#{KEY1}
+						,#{KEY2}
+						,#{KEY3}
+						,' '
+						,' '
+						,NVL(#{KEY4}, ' ')
+						,NVL(#{KEY5}, ' ')
+						,SYSDATE
+						,''
+					)
+		]]>
+	</update>
+	
+	<update id="updateMasterMdCmAgentDmRecv"	parameterType="java.util.Map">
+		<![CDATA[
+		/*updateMasterMdCmAgentDmRecv*/
+		UPDATE	KEP_CMC_MAILSEND
+		SET		MAIL_RECV_YN = 'Y',
+				RECV_DATE = SYSDATE,
+				CHANGE_DATE = SYSDATE,
+				CHANGE_USER_ID = 'FTP'
+		WHERE	SEQ = #{SEQ}
+		AND		MAIL_RECV_YN = 'N'
+		]]>
+	</update>
+	
+	<!-- 협력사 dm 이슈 정보 취득 -->
+	<select id="getAgentDmIssueList" parameterType="java.util.Map" resultType="java.util.Map">	
+		<![CDATA[
+		/*getAgentDmIssueList*/
+		SELECT	
+			(SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'PMNGTYPE' AND CODE = A.TYPE) AS SENT_TYPE_TEXT, -- 이슈상태 
+			A.PO_NO AS SENT_PO_NO, -- 발주번호
+			A.BUYER AS SENT_BUYER, -- 고객사 코드 
+			(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = A.BUYER) AS SENT_BUYER_NAME, -- 고객사명 
+			DECODE(A.PO_SEQ, '000000'
+				, (SELECT MAX(DESCRIPTION) || ' 외 ' || DECODE(COUNT(DESCRIPTION), 1, '',COUNT(DESCRIPTION)-1 || ' 종') FROM ICOMPODT WHERE BUYER = A.BUYER AND PO_NO = A.PO_NO AND STATUS <> 'D')
+				, (SELECT DESCRIPTION FROM ICOMPODT WHERE BUYER = A.BUYER AND PO_NO = A.PO_NO AND PO_SEQ = A.PO_SEQ AND STATUS <> 'D')
+			)AS SENT_DESCRIPTION, -- 품명
+			(SELECT PO_REMARK FROM ICOMPODT WHERE BUYER = A.BUYER AND PO_NO = A.PO_NO AND PO_SEQ = A.PO_SEQ AND STATUS <> 'D') AS SENT_PO_REMARK,-- PODT 비고
+			DECODE(A.PO_SEQ, '000000'
+				, (SELECT MAX(SPECIFICATION) || ' 외 ' || DECODE(COUNT(SPECIFICATION), 1, '',COUNT(SPECIFICATION)-1 || ' 종') FROM ICOMPODT WHERE BUYER = A.BUYER AND PO_NO = A.PO_NO AND STATUS <> 'D')
+				, (SELECT SPECIFICATION FROM ICOMPODT WHERE BUYER = A.BUYER AND PO_NO = A.PO_NO AND PO_SEQ = A.PO_SEQ AND STATUS <> 'D')
+			)AS SENT_SPECIFICATION, -- 규격
+			A.PO_SEQ AS SENT_PO_SEQ,
+			A.DS_SEQ AS SENT_DS_SEQ,
+			TO_CHAR(A.SEQ) AS SENT_SEQ,
+			(SELECT BYCA_COMORG_CODE FROM ICOMCMPY WHERE COM_CODE = A.BUYER) AS SENT_BYCA_COMORG_CODE,
+			DECODE(A.PO_SEQ, '000000'
+				, (SELECT MAX(BUYER_ITEM_NO) || ' 외 ' || DECODE(COUNT(BUYER_ITEM_NO), 1, '',COUNT(BUYER_ITEM_NO)-1 || ' 종') FROM ICOMPODT WHERE BUYER = A.BUYER AND PO_NO = A.PO_NO AND STATUS <> 'D')
+				, (SELECT BUYER_ITEM_NO FROM ICOMPODT WHERE BUYER = A.BUYER AND PO_NO = A.PO_NO AND PO_SEQ = A.PO_SEQ AND STATUS <> 'D')
+			)AS SENT_BUYER_ITEM_NO, -- 품목코드
+			A.AGENT AS SENT_AGENT
+		FROM	KEP_PO_MNG A
+		WHERE	1=1
+		AND		A.AGENT =	#{st_com_code} /**P*/ -- 협력사 code
+		AND		A.STATUS = 'S'
+		AND		(A.PO_NO,A.PO_SEQ,A.DS_SEQ, A.SEQ) IN 
+		]]>
+
+		<foreach item="dm_issue" index="index" collection="st_dm_issue.split('@')" open="(" separator="," close=")" >
+			<foreach item="item" index="index" collection="dm_issue.split(',')" open="(" separator="," close=")" >
+			'${item}'
+			</foreach>
+		</foreach>
+
+		<![CDATA[
+		ORDER BY A.ADD_DATE DESC
+		]]>
+	</select>
+	
+	<!-- 협력사 dm 발송 템플릿 목록 취득 -->
+	<select id="getDmSendTemplateList" parameterType="java.util.Map" resultType="java.util.Map">	
+		<![CDATA[
+		SELECT SEQ, MAILFORM_ID, MAILFORM_DESC, MAIL_SUBJECT, MAIL_CONTENTS, SMS_CONTENTS
+		FROM DM_SEND_SETM
+		WHERE MAILFORM_TYPE = 'A'
+		]]>
+	</select>
+	
+	<!-- DM 발송 정보의 DM_ID 취득 -->
+	<select id="getDmSendInfoDmId" resultType="java.util.Map">	
+		<![CDATA[
+		SELECT 'DM'||TO_CHAR(SYSDATE, 'YY') || LPAD(NVL(MAX(TO_NUMBER(SUBSTR(DM_ID,5,6))), 0) + 1, 6, 0) AS DM_ID FROM DM_SEND_INFO
+		]]>
+	</select>
+	
+	<update	id="insertMasterMdCmAgentDmMailSendInfo" parameterType="java.util.Map">
+	/*insertMasterMdCmAgentDmMailSendInfo*/
+		<![CDATA[
+		INSERT INTO DM_SEND_INFO
+		(
+			DM_ID,
+			SEQ,
+			SENT_BUYER,
+			SENT_PO_NO,
+			SENT_PO_SEQ,
+			SENT_DS_SEQ,
+			SENT_BYCA_COMORG_CODE,
+			SENT_BUYER_ITEM_NO,
+			SENT_AGENT,
+			SENT_SEQ
+		)
+		VALUES
+		(
+			#{DM_ID},
+			(SELECT NVL(max(TO_NUMBER(SEQ)),0)+1 FROM DM_SEND_INFO WHERE DM_ID=#{DM_ID}),
+			#{SENT_BUYER},
+			#{SENT_PO_NO},
+			#{SENT_PO_SEQ},
+			#{SENT_DS_SEQ},
+			#{SENT_BYCA_COMORG_CODE},
+			#{SENT_BUYER_ITEM_NO},
+			#{SENT_AGENT},
+			#{SENT_SEQ}
+		)
+		]]>
+	</update>
+	
+	<update	id="insertMasterMdCmAgentDmMailSendHistory" parameterType="java.util.Map">
+	/*insertMasterMdCmAgentDmMailSendHistory*/
+		<![CDATA[
+		INSERT INTO DM_SEND_HIST
+		(
+			DM_ID,
+			RECV_COM_CODE,
+			SEND_TYPE,
+			SEND_USER_ID,
+			SEND_EMAIL,
+			SEND_TEL,
+			MAILFORM_ID,
+			REMARK,
+			TEMP_SAVE_YN,
+			SMS_CONTENTS,
+			RECV_ADDRESS, -- 메일/sms 둘 중 하나
+			RECV_NAME,
+			RECV_REMARK,
+			ADD_USER_ID,
+			ADD_DATE,
+			CHANGE_USER_ID,
+			CHANGE_DATE,
+			SEND_PROC_USER_ID,
+			SEND_PROC_DATE
+		)
+		VALUES
+		(
+			#{DM_ID},
+			#{st_com_code},
+			#{SEND_TYPE},
+			#{st_user_id},
+			#{SEND_EMAIL},
+			#{SEND_TEL},
+			#{MAILFORM_ID}, -- 2024.04.11 템플릿이 1개
+			#{REMARK},
+			'N',-- 2024.04.11 임시저장이 없기 떄문에 
+			#{SMS_CONTENTS},
+			#{RECV_ADDRESS}, 
+			#{RECV_NAME},
+			#{RECV_REMARK},
+			#{st_user_id},
+			SYSDATE,
+			#{st_user_id},
+			SYSDATE,
+			#{st_user_id},
+			SYSDATE -- 2024.04.11 임시 저장이 없기 때문에 
+		)
+
+		]]>
+	</update>
+
+	<update	id="insertMasterMdCmAgentDmMailSend" parameterType="java.util.Map">
+	/*insertMasterMdCmAgentDmMailSend*/
+		<![CDATA[
+		INSERT INTO MAILSEND
+		(
+			MAILFORM_ID,
+			SEND_COM_TYPE,
+			RECV_COM_TYPE,
+			SEND_COM_CODE,
+			SEND_USER_ID,
+			KEY1,
+			KEY2,
+			KEY3,
+			KEY4,
+			KEY5,
+			KEY6,
+			KEY7,
+			KEY8,
+			KEY9,
+			KEY10,
+			CRE_DATE,
+			ERR_DATE
+		)
+		VALUES
+		(
+			#{MAILFORM_ID}, -- 메일 템플릿
+			'M', -- 보내는 회사 타입
+			'S', -- 받는 회사 타입
+			(SELECT	com_code FROM ICOMLUSR WHERE user_id = #{st_user_id}),-- 보내는 회사 코드 (운영사)
+			#{st_user_id},  -- 보내는 user_id(운영사 id)
+			#{DM_ID}, -- DM_SEND_INFO.DM_ID key1
+			' ', --  key2
+			' ', --  key3
+			' ', --  key4
+			' ', --  key5
+			' ', --  key6
+			NULL,
+			NULL,
+			NULL,
+			NULL,
+			SYSDATE, -- 생성일
+			NULL -- 오류 발생일
+		)
+
+		]]>
+	</update>
+	
+	<update	id="insertMasterMdCmAgentDmSmsSend" parameterType="java.util.Map">
+	/*insertMasterMdCmAgentDmSmsSend*/
+		<![CDATA[
+		INSERT INTO SUREDATA
+		(
+			SEQNO,
+			USERCODE,
+			REQPHONE,
+			CALLPHONE,
+			MSG,
+			REQTIME,
+			RESULT, 
+			KIND,
+ 			KEP_ID,
+ 			KEP_WD
+		)
+		VALUES
+		(
+			SEQ_SUREDATA.NEXTVAL, -- 
+			'koreab2b', -- 슈어엠측에서 발급한 아이디
+			REPLACE(#{SEND_TEL},'-',''), -- 회신번호
+			REPLACE(#{RECV_MOBILE_NUMBER},'-',''), -- 발송번호
+			#{SMS_CONTENTS}, -- 내용
+			'00000000000000', -- 즉시발송 코드
+			'0', -- 결과(0 : 대기, 1 : SELECT, Y : 성공, N: 실패)
+			#{st_kind}, -- 메시지종류(S : SMS, M : MMS, I : 국제SMS, L : 국제MMS, T : 알림톡)
+			'DMSMS',
+			#{st_user_id} -- 보내는 user_id(운영사 id)
+		)
+
+		]]>
+	</update>
+	
+	<!-- DM ID 사용 가능 여부 확인 -->
+	<select id="getDmIdUsed" parameterType="java.util.Map" resultType="String">
+	/* getDmIdUsed */
+		<![CDATA[
+		SELECT	DECODE(COUNT(*), 0, 'N', 1, 'N', 'Y') AS USED_YN
+		FROM	(
+		SELECT	DISTINCT
+				DM_ID,
+				RECV_COM_CODE,
+				SEND_USER_ID,
+				MAILFORM_ID
+		FROM	DM_SEND_HIST
+		WHERE	1=1
+		AND		DM_ID = #{DM_ID}
+		)
+		]]>
+	</select>
+</mapper>
+

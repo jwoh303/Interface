@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.cmcl">
+	<!-- 조회 -->
+	<select id="selectMasterLogisRateMngUploadList" parameterType="java.util.Map" resultType="java.util.Map">		
+			<![CDATA[
+			 /*selectMasterLogisRateMngUploadList*/
+		    	SELECT  
+		    			ADD_USER_ID,         
+		    			AGENT,		    			
+		    			(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = AGENT) AS AGENT_NAME,
+		    			BUYER,		    			
+		    			(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = BUYER) AS BUYER_NAME,
+		    			LOGIS_RATE,		    			
+		    			AGENT_USER_NAME,
+		    			END_DATE,
+		    			SYSDATE AS ADD_DATE,
+		    			REMARK,
+		    			KEP_USER_NAME,
+		    			EXP_FLAG,		    			
+		    			'1' AS AGENT_NAME_IMG,
+		    			'1' AS BUYER_NAME_IMG,
+		    			'2' AS START_DATE_IMG,
+		    			'2' AS END_DATE_IMG	                 
+						FROM LOGIS_RATE_MNG_UPLOAD										
+				]]>
+		        
+	</select>
+	
+	<select id="masterCmClLogisRateMngUploadCompanyInfo" parameterType="java.util.Map" resultType="java.util.Map">		
+			<![CDATA[
+			/* masterCmClLogisRateMngUploadCompanyInfo */
+			SELECT 
+					IRS_NO			   	
+				  FROM ICOMCMPY
+				  WHERE 1=1
+				  AND COM_CODE = #{COM_CODE}
+				  AND STATUS IN ('C','R')
+				]]>  
+				
+				
+	</select>
+	
+	<update  id="deleteMasterCmClLogisRateMngUploadExcel" parameterType="java.util.Map" >
+		<![CDATA[
+				 /*deleteMasterCmClLogisRateMngUploadExcel*/  
+                DELETE LOGIS_RATE_MNG_UPLOAD           
+                WHERE ADD_USER_ID = #{ADD_USER_ID}	 
+          		]]> 
+	</update>
+	
+	<update  id="insertMasterCmClLogisRateMngUploadExcel" parameterType="java.util.Map" >
+		<selectKey keyProperty="SEQ" order="BEFORE" resultType="integer"> 
+			SELECT NVL(MAX(SEQ),0)+1 AS SEQ FROM LOGIS_RATE_MNG_UPLOAD WHERE ADD_USER_ID = #{ADD_USER_ID} 
+		</selectKey> 
+		<![CDATA[
+		/*insertMasterCmClLogisRateMngUploadExcel*/
+				INSERT INTO LOGIS_RATE_MNG_UPLOAD (  
+													      ADD_USER_ID,              
+													      SEQ,
+													      AGENT,
+													      BUYER,													      												        
+													      LOGIS_RATE,													            
+													      AGENT_USER_NAME,
+													      END_DATE,
+													      KEP_USER_NAME,             
+													      ADD_DATE,
+													      REMARK,
+													      EXP_FLAG
+													    )                     
+													 VALUES(                  
+													        #{ADD_USER_ID},
+													        #{SEQ},
+													        #{AGENT},
+													        #{BUYER},													        													        
+													        #{LOGIS_RATE},													       
+													        #{AGENT_USER_NAME},													        
+													        #{END_DATE},
+													        NVL((SELECT TEXT4 FROM ICOMCOD3  WHERE TYPE ='CMSM' AND CODE2 = '1' AND CODE1 = 
+													        		(SELECT SG_ID FROM SUPLINFO2 WHERE SUPPLIER = #{AGENT} AND SG_ID IS NOT NULL)),' '),
+													        SYSDATE,
+													        #{REMARK},
+													        #{EXP_FLAG}
+													    ) 								
+		]]>
+	</update>
+	
+	<select id="selectMasterCmClLogisRateMngCheck" parameterType="java.util.Map" resultType="String">
+		<![CDATA[
+			/*selectMasterCmClLogisRateMngCheck*/
+			SELECT COUNT(1) AS CNT
+			FROM LOGIS_RATE_MNG
+			WHERE 1=1
+			AND AGENT = #{AGENT} 
+			AND BUYER = #{BUYER}
+			AND EXP_FLAG = #{EXP_FLAG}
+			AND STATUS != 'D'
+			
+		]]>
+	</select>
+	
+	<update  id="insertMasterCmClLogisRateMngUploadPopList" parameterType="java.util.Map" >
+		<![CDATA[
+		MERGE INTO LOGIS_RATE_MNG  /*insertMasterCmClLogisRateMngUploadPopList*/
+			USING DUAL
+			ON (AGENT = #{AGENT} 
+			AND BUYER = #{BUYER}
+			AND EXP_FLAG = #{EXP_FLAG}
+			)
+			WHEN MATCHED THEN 
+			  UPDATE 
+				 SET STATUS = 'R'
+				   , LOGIS_RATE = #{LOGIS_RATE}
+				   , START_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD')
+				   , END_DATE = #{END_DATE}
+				   , CHANGE_DATE = SYSDATE
+				   , CHANGE_USER_ID = #{ADD_USER_ID}			   
+				   , CHANGE_USER_NAME = (SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = #{ADD_USER_ID})
+				   , AGENT_USER_NAME = #{AGENT_USER_NAME}
+				   , REMARK = #{REMARK}												        
+				   , KEP_USER_NAME = #{KEP_USER_NAME}				  
+			WHEN NOT MATCHED THEN
+					INSERT
+					(
+						AGENT,
+						BUYER,
+						STATUS,
+						AGENT_IRS_NO,
+						BUYER_IRS_NO,
+						LOGIS_RATE,
+						AGENT_USER_NAME,
+						START_DATE,
+						END_DATE,
+						ADD_DATE,
+						ADD_USER_ID,
+						ADD_USER_NAME,
+						CHANGE_DATE,
+						CHANGE_USER_ID,
+						CHANGE_USER_NAME,
+						REMARK,
+						KEP_USER_NAME,
+						EXP_FLAG
+					)           
+       				VALUES(                  
+				        #{AGENT},
+				        #{BUYER},												        
+				        'C',
+				        (SELECT IRS_NO FROM ICOMCMPY WHERE COM_CODE = #{AGENT}),
+				        (SELECT IRS_NO FROM ICOMCMPY WHERE COM_CODE = #{BUYER}),
+				        #{LOGIS_RATE},
+				        #{AGENT_USER_NAME},
+				        TO_CHAR(SYSDATE, 'YYYYMMDD'),
+				        #{END_DATE},
+				        SYSDATE,
+				        #{ADD_USER_ID},
+				        (SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = #{ADD_USER_ID}),
+				        SYSDATE,
+				        #{ADD_USER_ID},
+				        (SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = #{ADD_USER_ID}),
+				        #{REMARK},
+				        #{KEP_USER_NAME},
+				        #{EXP_FLAG}
+				 	) 
+		]]>
+	
+	
+	</update>
+
+
+</mapper>   
+   

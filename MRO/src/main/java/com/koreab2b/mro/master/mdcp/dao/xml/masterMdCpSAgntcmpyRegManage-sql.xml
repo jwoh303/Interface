@@ -1,0 +1,187 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mdcp">
+	<!-- 조회 -->
+	<select id="selectMasterMdCpSAgntcmpyRegManageList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.pagestart"/>	
+			<![CDATA[
+		    	SELECT
+		    		X.BUYER_NAME
+	                ,X.BUYER_CODE
+	                ,X.SELLER_NAME
+	                ,X.SELLER_CODE
+	                ,X.IRS_NO
+	                ,X.ADDRESS
+	                ,X.AVL_FLAG
+	                ,X.APPROVAL_FLAG
+	                ,DECODE(X.APPROVAL_FLAG, 'Y', '품의완료', '품의대상') AS APPROVAL_TEXT
+	                ,X.SG_CNT
+		    	FROM (
+				    SELECT
+				                MAX(B.COM_NAME_LOC) AS BUYER_NAME
+				                ,B.COM_CODE AS BUYER_CODE
+				                ,MAX(C.COM_NAME_LOC) AS SELLER_NAME
+				                ,C.COM_CODE AS SELLER_CODE
+				                ,MAX(C.IRS_NO) AS IRS_NO
+				                ,MAX(C.ADDRESS_LOC) AS ADDRESS
+				                ,MAX(C.AVL_FLAG) AS AVL_FLAG
+				                ,MIN(S.APPROVAL_FLAG) AS APPROVAL_FLAG
+				                ,COUNT(*) AS SG_CNT
+				        FROM DSS_S_BUYER_RESULT S, ICOMCMPY C, ICOMCMPY B
+				        WHERE S.BUYER = B.COM_CODE
+				        AND S.AGENT = C.COM_CODE
+				        AND B.STATUS IN ('C','R')
+				        AND C.STATUS IN ('C','R')
+				        AND S.STATUS <> 'S'
+			]]>				        
+					<if test="st_buyer_code != null and st_buyer_code != ''">
+						AND S.BUYER = #{st_buyer_code}                                         
+					</if>
+					<if test="st_seller_code != null and st_seller_code != ''">
+						AND S.AGENT = #{st_seller_code}                                         
+					</if>
+			<![CDATA[
+				        GROUP BY  B.COM_CODE, C.COM_CODE
+				) X
+			]]>
+		    <if test="st_approval_flag != null and st_approval_flag != ''">
+		    	WHERE X.APPROVAL_FLAG = #{st_approval_flag}
+			</if>
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+	
+	<select id="selectMasterMdCpSAgntcmpyRegManageSAgent" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			SELECT
+				MAX(X.B_NAME) AS B_NAME
+				,X.B_CODE
+				,MAX(X.S_NAME) AS S_NAME
+				,X.S_CODE
+				,MAX(X.IRS_NO) AS IRS_NO
+				,MAX(X.ADDRESS) AS ADDRESS
+				,MAX(X.AVL_FLAG) AS AVL_FLAG
+				,MAX(X.APPROVAL_FLAG) AS APPROVAL_FLAG
+				,MAX(X.COUNT) AS CNT
+			FROM (
+				SELECT
+					MAX(B.COM_NAME_LOC) AS B_NAME
+					,B.COM_CODE AS B_CODE
+					,MAX(C.COM_NAME_LOC) AS S_NAME
+					,C.COM_CODE AS S_CODE
+					,MAX(C.IRS_NO) AS IRS_NO
+					,MAX(C.ADDRESS_LOC) AS ADDRESS
+					,MAX(C.AVL_FLAG) AS AVL_FLAG
+					,MIN(S.APPROVAL_FLAG) AS APPROVAL_FLAG
+					,COUNT(*) AS COUNT
+				FROM DSS_S_BUYER_RESULT S, ICOMCMPY C, ICOMCMPY B
+				WHERE S.BUYER = #{st_buyer_code}
+				AND S.AGENT = #{st_agent_code}
+				AND S.BUYER = B.COM_CODE
+				AND S.AGENT = C.COM_CODE
+				AND B.STATUS IN ('C','R')
+				AND C.STATUS IN ('C','R')
+				GROUP BY  B.COM_CODE, C.COM_CODE
+				UNION ALL
+				SELECT
+					MAX(B.COM_NAME_LOC) AS B_NAME
+					,B.COM_CODE AS B_CODE
+					,MAX(C.COM_NAME_LOC) AS S_NAME
+					,C.COM_CODE AS S_CODE
+					,MAX(C.IRS_NO) AS IRS_NO
+					,MAX(C.ADDRESS_LOC) AS ADDRESS
+					,MAX(C.AVL_FLAG) AS AVL_FLAG
+					,'N' AS APPROVAL_FLAG
+					,0 AS COUNT
+				FROM ICOMCMPY C, ICOMCMPY B
+				WHERE B.COM_CODE = #{st_buyer_code}
+				AND C.COM_CODE = #{st_agent_code}
+				AND B.STATUS IN ('C','R')
+				AND C.STATUS IN ('C','R')
+				GROUP BY  B.COM_CODE, C.COM_CODE
+			)X
+			GROUP BY  X.B_CODE,X.S_CODE
+		]]>
+	</select>		
+	
+	
+
+	<update  id="insertMasterMdCpSAgntcmpyRegManage" parameterType="java.util.Map" >
+		<![CDATA[
+				INSERT INTO	KEPQTDT					
+				(									
+					BUYER,							
+					QUOTATION_NO,					
+					QUOTATION_SEQ,					
+					REVISION,						
+					AGENT,							
+					AGENT_REVISION,					
+					STATUS,							
+					BUYER_ITEM_NO,					
+					DESCRIPTION,					
+					SPECIFICATION,					
+					UNIT_MEASURE,					
+					MAKER_NAME,						
+					ORIGIN_NAME,					
+					ATOS_DATE,						
+					ATOS_END_DATE,					
+					ATOS_END_TIME,					
+					ITEM_QTY,						
+					IMAGE_KEY,						
+					DSS_FLAG,						
+					DSS_CHOICE						
+				)									
+				(									
+				SELECT								
+					#{BUYER},									/* 1 : BUYER */
+					#{QUOTATION_NO},									/* 2 : QUOTATION_NO */
+					#{QUOTATION_SEQ},									/* 3 : QUOTATION_SEQ */
+					#{REVISION},									/* 4 : REVISION */
+					#{AGENT},									/* 5 : AGENT */
+					#{AGENT_REVISION},								/* 6 : AGENT_REVISION */
+					'C',						
+					BUYER_ITEM_NO,				
+					DESCRIPTION,				
+					SPECIFICATION,				
+					UNIT_MEASURE,				
+					MAKER_NAME,					
+					ORIGIN_CODE,				
+					TO_CHAR(SYSDATE, 'YYYYMMDD')AS ATOS_DATE,
+					#{ATOS_END_DATE},								/* 7 : ATOS_END_DATE */
+					#{ATOS_END_TIME},								/* 8 : ATOS_END_TIME */
+					ITEM_QTY,					
+					IMAGE_KEY,					
+					#{DSS_FLAG},								/*  9 : DSS_FLAG   if(chk_str[1].equals("A") || chk_str[1].equals("B") || chk_str[1].equals("C")|| chk_str[1].equals("S")) : Y , 기타  : N   */
+					#{DSS_CHOICE}								/*    10 : DSS_CHOICE */
+				   FROM KEPRQDT						
+				  WHERE BUYER=#{BUYER}							/* 11 : BUYER */           
+					AND QUOTATION_NO=#{QUOTATION_NO}					/* 12 : QUOTATION_NO     */
+					AND QUOTATION_SEQ=#{QUOTATION_SEQ}					/* 13 : QUOTATION_SEQ    */
+					AND REVISION=#{REVISION}						/* 14 : REVISION  */       
+					AND RECV_FLAG <> 'GD'			
+					AND STATUS IN ('C','R')			
+				)									
+
+		]]>
+							   <!-- /* CMS_USER_ID = 'TEMPUSER', */ -->
+		
+	</update>
+
+
+<!-- 삭제 -->
+	<update id="deleteMasterMdCpSAgntcmpyRegManage"  parameterType="java.util.Map">
+		<![CDATA[
+				UPDATE KEPRQDT					
+				   SET RECV_FLAG      = 'GD' 	
+				     , CANCEL_USER_ID = #{USR_ID}    		/*CANCEL_USER_ID*/
+				     , CANCEL_DATE    = SYSDATE	
+				     , CANCEL_REMARK  = #{CANCEL_REMARK}    		/*CANCEL_REMARK*/
+				 WHERE BUYER          = #{BUYER}			/*BUYER*/
+				   AND QUOTATION_NO   = #{QUOTATION_NO}	 		/*QUOTATION_NO*/
+				   AND QUOTATION_SEQ  = #{QUOTATION_SEQ}			/*QUOTATION_SEQ*/
+				   AND REVISION       = #{REVISION}			/*REVISION*/
+				   AND STATUS IN ('C','R')
+		]]>
+	</update>
+
+</mapper>   
+   

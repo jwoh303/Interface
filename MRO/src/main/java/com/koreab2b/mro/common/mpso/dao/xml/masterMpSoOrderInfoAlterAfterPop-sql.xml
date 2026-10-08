@@ -1,0 +1,1283 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="common.mpso">
+
+
+<select id="getSysopOrderChangePoAfterHDPop" parameterType="java.util.Map" resultType="java.util.Map">
+<![CDATA[
+/*getSysopOrderChangePoAfterHDPop*/
+ 
+              SELECT 
+                    (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = H.BUYER) AS BUYER_NAME,  --[00]
+                    DECODE(H.DOC_TYPE,'S','(선입고)','F','(긴급발주)','') DOC_TEXT,                      --[01]
+                    (SELECT C2.TEXT1 FROM ICOMCOD2 C2 WHERE C2.TYPE = 'C001'           
+                           AND C2.COMPANY_CODE = H.BUYER                               
+                           AND C2.CODE = R.PURCHASER_DEPT) AS PO_DEPT_NAME,             --[02]
+                    (SELECT C2.TEXT1 FROM ICOMCOD2 C2 WHERE C2.TYPE = 'C001'           
+                           AND C2.COMPANY_CODE = H.BUYER                               
+                           AND C2.CODE = R.REQ_DEPT) AS REQ_DEPT_NAME,                  --[03]
+                    H.PO_NO AS PO_NO,                                                   --[04]
+                    H.PURCHASER_NAME AS PO_USER_NAME,                                   --[05]
+                    (SELECT L.USER_NAME_LOC FROM ICOMLUSR L WHERE L.COM_CODE = H.BUYER 
+                            AND L.USER_ID = R.REQ_USER_ID) AS REQ_USER_NAME,            --[06]
+                    H.PO_CREATE_DATE,                                                   --[07]
+                    H.AGENT_PO_TTL_AMT AS AGENT_AMT,                                    --[08]
+                    H.PO_TTL_AMT AS PO_AMT,                                             --[09]
+                    H.DELY_TO_LOCATION AS DELY,                                         --[10]
+                    H.PO_REMARK AS REMARK,                                              --[11]
+                    H.DOC_TYPE,                                                         --[12]
+                    H.BUYER,                                                            --[13]
+                    R.PURCHASER_DEPT,                                                   --[14]
+                    R.REQ_DEPT,                                                         --[15]
+                    H.PURCHASER_ID,                                                     --[16]
+                    R.REQ_USER_ID,                                                      --[17]
+                    (SELECT '( '||TEXT2||' )' FROM ICOMCOD1 WHERE TYPE = 'M034' AND CODE = H.PROCESS_TYPE) AS PROCESS_TEXT   --[18]
+
+               FROM ICOMPOHD H, ICOMPODT D, ICOMPRDT R 
+              WHERE H.BUYER = #{value}
+                AND H.PO_NO = #{value}
+                AND H.BUYER = D.BUYER 
+                AND H.PO_NO = D.PO_NO 
+                AND D.BUYER = R.BUYER 
+                AND D.PR_NO = R.PR_NO 
+                AND D.PR_SEQ = R.PR_SEQ 
+                AND H.STATUS <> 'D' 
+                AND D.STATUS <> 'D' 
+                AND R.STATUS <> 'D' 
+            
+]]>
+</select>
+
+
+<select id="getSysopOrderChangePoAfterDTPop" parameterType="java.util.Map" resultType="java.util.Map">
+<![CDATA[
+/*getSysopOrderChangePoAfterDTPop*/
+ 
+            SELECT
+       DECODE(D.PROCESS_TYPE,'0',(SELECT MIN(INV_NO) FROM ICOMIVDT
+           WHERE BUYER = D.BUYER AND PO_NO = D.PO_NO AND PO_SEQ = D.PO_SEQ AND STATUS <> 'D'),
+           (SELECT MIN(INV_NO) FROM WMSIVDT WHERE BUYER = D.BUYER AND PO_NO = D.PO_NO AND PO_SEQ = D.PO_SEQ AND STATUS <> 'D')) STATUS_TEXT,
+       (SELECT COM_NAME_LOC FROM ICOMCMPY
+           WHERE COM_CODE = H.AGENT) AS 공급회원사,--01
+       H.PO_CREATE_DATE 발주일,
+       D.RD_DATE 납기요청일,
+       (SELECT MIN(GR_DATE) FROM ICOMGRDT
+           WHERE BUYER = D.BUYER AND PO_NO = D.PO_NO AND PO_SEQ = D.PO_SEQ AND STATUS <> 'D') AS 입고일,
+       D.ITEM_QTY ,--5
+       D.GR_QTY,
+       D.UNIT_PRICE ,
+       D.PO_SEQ,
+       D.MAKER_NAME,
+       D.REF_PR_NO ,--10
+       D.BUYER_ITEM_NO,
+       (SELECT MIN(INVOICE_DATE) FROM ICOMIVDT
+           WHERE BUYER = D.BUYER AND PO_NO = D.PO_NO AND PO_SEQ = D.PO_SEQ AND STATUS <> 'D') AS 송장일,
+       D.DS_DATE,
+DECODE(D.PROCESS_TYPE,'0'                                    
+,(SELECT MIN(DELIVERY_DATE) FROM ICOMIVDT                     
+WHERE BUYER = D.BUYER AND PO_NO = D.PO_NO                     
+AND PO_SEQ = D.PO_SEQ AND STATUS <>'D')                   
+,(SELECT MIN(DELIVERY_DATE) FROM WMSIVDT   
+WHERE BUYER  = D.BUYER   AND PO_NO = D.PO_NO                 
+AND PO_SEQ = D.PO_SEQ  AND STATUS <> 'D')) AS 납품일,   
+       D.IV_QTY,--15
+       D.DI_QTY,
+       D.AGENT_PRICE, 
+       D.LEGACY_PO_NO,
+       (SELECT MAKER_PART_NO FROM ICOMCQDT
+           WHERE BUYER = D.BYIT_COMORG_CODE AND CONTRACT_NO = D.CONTRACT_NO AND CONTRACT_SEQ = D.CONTRACT_SEQ),
+       D.DESCRIPTION ,--20
+       D.SPECIFICATION ,
+       D.UNIT_MEASURE,
+       D.PO_REMARK,
+       H.BUYER ,
+       D.BYIT_COMORG_CODE,--25
+       D.CONTRACT_NO,
+       D.CONTRACT_SEQ,
+       H.AGENT,--28
+       (SELECT LAST_CLOSE_DATE FROM MIS_CLOSDATE WHERE BUYER = H.BUYER),
+       D.ITEM_AMT,       --30
+       D.AGENT_ITEM_AMT, 
+       D.PO_NO,          
+       D.PR_NO,          
+       D.PR_SEQ,         
+       D.DO_QTY,         --35
+       D.LEGACY_PO_SEQ,  
+       D.SELLER,         
+       DECODE(D.GR_QTY, 0,DECODE(D.IV_QTY,0, DECODE(D.DO_QTY,0,'발주','수주접수'),'송장생성'),
+                            DECODE(( NVL(D.ITEM_QTY,0) - NVL((D.GR_QTY),0)),0,'입고완료','부분입고')) 진행상태,
+       DECODE(NVL(D.PO_REMARK ,'icon') , 'icon' ,'icon2.gif' ,'icon.gif') 비고이미지,
+       (SELECT DECODE(COUNT(*),0,'N','Y') FROM ICOMCOD2 WHERE TYPE = 'PO01' AND COMPANY_CODE = 'KRKORE0001' AND CODE = H.BUYER) 발주수정여부,   
+       SELLER_ITEM_NO,
+       (SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = H.CHANGE_USER_ID),
+       (SELECT TEXT2 FROM ICOMCOD1 WHERE TYPE = 'M034' AND CODE = D.PROCESS_TYPE) AS PROCESS_NAME,
+       D.PROCESS_TYPE,
+       D.WAREHOUSE_CODE,
+  (SELECT DECODE(NVL(COUNT(INV_NO),0),0,'Y','N') FROM WMSIVDT WHERE BUYER = D.BUYER AND PO_NO = D.PO_NO AND PO_SEQ = D.PO_SEQ AND STATUS <> 'D'), 
+  D.MAKER_CODE, 
+  NVL(TRIM(D.CMS_CATLG_ID), ' '), -- 48
+  NVL(TRIM(D.CMS_CATEG_ID), ' '), -- 49
+  NVL((SELECT PLAN_AMT_FLAG FROM ICOMPRDT WHERE BUYER=D.BUYER AND PR_NO=D.PR_NO AND PR_SEQ=D.PR_SEQ),'N') plant_amt_flag, -- 50
+  D.ORIGIN_CODE,-- 51
+  NVL(D.IMPORT_FLAG,'N') AS IMPORT_FLAG,-- 52
+  NVL(D.KEP_PRICE,0) AS KEP_PRICE,-- 53
+  NVL(D.LOGISTICS_FEE,0) AS LOGISTICS_FEE,   -- [54]
+D.ITEM_GROUP AS ITEM_GROUP,-- [55]
+(SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'M102' AND CODE = D.ITEM_GROUP) AS ITEM_GROUP_TEXT-- [56]
+                FROM ICOMPOHD H, ICOMPODT D 
+               WHERE H.BUYER = #{value}         
+                 AND H.PO_NO = #{value}         
+                 AND H.BUYER = D.BUYER      
+                 AND H.PO_NO = D.PO_NO      
+                 AND H.STATUS <> 'D'        
+                 AND D.STATUS <> 'D'        
+            
+]]>
+</select>
+
+
+
+<update id="setSysopOrderChangeAfterSave1" parameterType="java.util.Map">
+<![CDATA[
+
+/*setSysopOrderChangeAfterSave1*/
+
+            UPDATE ICOMPRDT
+               SET STATUS         = 'R',           
+       SELLER_ITEM_NO = #{value},
+                   REF_PR_NO      = #{value},
+       CHANGE_DATE    = TO_CHAR(SYSDATE, 'YYYYMMDD'),
+                   CHANGE_TIME    = TO_CHAR(SYSDATE, 'HH24MISS'),
+   MAKER_NAME  = #{value},
+   MAKER_CODE  = #{value},
+
+   DESCRIPTION  = #{value},
+   SPECIFICATION  = #{value},
+   UNIT_MEASURE  = #{value},
+
+   CMS_CATLG_ID  = #{value},
+   CMS_CATEG_ID  = #{value}
+
+             WHERE BUYER   = #{value}
+               AND PR_NO   = #{value}
+               AND PR_SEQ  = #{value}
+               AND STATUS != 'D'                                            
+
+
+]]>
+</update> 
+
+
+<update id="setSysopOrderChangeAfterSave2" parameterType="java.util.Map">
+<![CDATA[
+
+/*setSysopOrderChangeAfterSave2*/
+
+            UPDATE ICOMPODT
+               SET STATUS= 'R',
+               SELLER_ITEM_NO= #{value},
+               REF_PR_NO= #{value},
+                   CHANGE_DATE= TO_CHAR(SYSDATE, 'YYYYMMDD'),
+                   CHANGE_TIME= TO_CHAR(SYSDATE, 'HH24MISS'),
+   MAKER_NAME    = #{value},
+   MAKER_CODE    = #{value},
+
+   DESCRIPTION  = #{value},
+   SPECIFICATION  = #{value},
+   UNIT_MEASURE  = #{value},
+
+   CMS_CATLG_ID  = #{value},
+   CMS_CATEG_ID  = #{value},
+   ORIGIN_CODE  = #{value},
+   KEP_PRICE=NVL(#{value},0),
+   IMPORT_FLAG=NVL(#{value},'N')
+
+             WHERE BUYER   = #{value}
+               AND PO_NO   = #{value}
+               AND PO_SEQ  = #{value}
+               AND STATUS != 'D'                                            
+
+]]>
+</update> 
+
+
+
+<update id="setSysopOrderChangeAfterSave3" parameterType="java.util.Map">
+<![CDATA[
+
+/*setSysopOrderChangeAfterSave3*/
+
+            UPDATE ICOMIVDT                                                 
+               SET STATUS        = 'R',                                     
+                   SELLER_ITEM_NO= #{value},
+                   REF_PR_NO     = #{value},
+                   CHANGE_DATE   = TO_CHAR(SYSDATE, 'YYYYMMDD'),
+                   CHANGE_TIME   = TO_CHAR(SYSDATE, 'HH24MISS'),
+   MAKER_NAME  = #{value},
+   MAKER_CODE  = #{value},
+
+   DESCRIPTION  = #{value},
+   SPECIFICATION  = #{value},
+   UNIT_MEASURE  = #{value},
+   ORIGIN_CODE  = #{value}
+
+             WHERE BUYER   = #{value}
+               AND PO_NO   = #{value}
+               AND PO_SEQ  = #{value}
+               AND STATUS != 'D'                                            
+
+]]>
+</update> 
+
+ 
+
+
+<update id="setSysopOrderChangeAfterSave4" parameterType="java.util.Map">
+<![CDATA[
+
+/*setSysopOrderChangeAfterSave4*/
+
+              UPDATE ICOMPORS
+                 SET STATUS= 'R',
+                     SELLER_ITEM_NO = #{value},
+                     CHANGE_DATE    = TO_CHAR(SYSDATE, 'YYYYMMDD'),
+                     CHANGE_TIME    = TO_CHAR(SYSDATE, 'HH24MISS'),
+     DESCRIPTION= #{value},
+     SPECIFICATION  = #{value},
+     UNIT_MEASURE= #{value}
+             WHERE BUYER   = #{value}
+               AND PO_NO   = #{value}
+               AND PO_SEQ  = #{value}
+               AND STATUS != 'D'                                            
+
+]]>
+</update> 
+
+<update id="setSysopOrderChangeAfterSave5" parameterType="java.util.Map">
+<![CDATA[
+
+/*setSysopOrderChangeAfterSave5*/
+
+UPDATE ICOMPOHD PH
+   SET STATUS= 'R',
+       CHANGE_USER_ID= #{value},
+       CHANGE_DATE= TO_CHAR(SYSDATE, 'YYYYMMDD'),
+       CHANGE_TIME= TO_CHAR(SYSDATE, 'HH24MISS')
+ WHERE BUYER = #{value}                                
+   AND PO_NO = #{value}
+
+
+]]>
+</update> 
+
+
+
+<update id="setSysopOrderChangeAfterProcessTypeModify1" parameterType="java.util.Map">
+<![CDATA[
+
+/*setSysopOrderChangeAfterProcessTypeModify1*/
+
+            UPDATE ICOMPRDT                                             
+               SET AGENT       = #{value} ,                                    
+                   PROCESS_TYPE = #{value},                                     
+                   CHANGE_DATE = TO_CHAR(SYSDATE,'YYYYMMDD'),           
+                   CHANGE_TIME = TO_CHAR(SYSDATE,'HH24MISS')            
+             WHERE BUYER    = #{value}                                         
+               AND PR_NO    = #{value}                                         
+               AND PR_SEQ   = #{value}                                         
+
+
+]]>
+</update> 
+
+
+
+<update id="setSysopOrderChangeAfterProcessTypeModify2" parameterType="java.util.Map">
+<![CDATA[
+
+/*setSysopOrderChangeAfterProcessTypeModify2*/
+
+             UPDATE ICOMPODT                                                                            
+                SET STATUS  = 'D',                                                                      
+                    SEND_DATE = ' ',                                                                    
+                    SEND_TIME = ' ',                                                                    
+                    LEGACY_PO_NO  = DECODE(LENGTH(LEGACY_PO_NO),19,LEGACY_PO_NO || 'D'                  
+                                                               ,20,SUBSTR(LEGACY_PO_NO,1,19) || 'D'     
+                                                               ,LEGACY_PO_NO || '_D'            ) ,     
+                    CHANGE_DATE   = TO_CHAR(SYSDATE, 'YYYYMMDD'),                                       
+                    CHANGE_TIME   = TO_CHAR(SYSDATE, 'HH24MISS')                                        
+              WHERE BUYER   = #{value}                                                                         
+                AND PO_NO   = #{value}                                                                         
+                AND PO_SEQ  = #{value}                                                                         
+
+
+
+]]>
+</update> 
+
+
+<update id="setSysopOrderChangeAfterProcessTypeModify3" parameterType="java.util.Map">
+<![CDATA[
+
+/*setSysopOrderChangeAfterProcessTypeModify3*/
+
+                INSERT INTO ICOMPODT                
+                (                                   
+                    BUYER,                          
+                    PO_NO,                          
+                    PO_SEQ,                         
+                    SELLER,                         
+                    STATUS,                         
+                    SEND_DATE,                      
+                    SEND_TIME,                      
+                    ADD_DATE,                       
+                    ADD_TIME,                       
+                    CHANGE_DATE,                    
+                    CHANGE_TIME,                    
+                    BUYER_ITEM_NO,                  
+                    SELLER_ITEM_NO,                 
+                    DESCRIPTION,                    
+                    SPECIFICATION,                  
+                    HS_NO,                          
+                    UNIT_MEASURE,                   
+                    ITEM_QTY,                       
+                    UNIT_PRICE,                     
+                    RD_DATE,                        
+                    DOM_EXP_FLAG,                   
+                    MAKER_CODE,                     
+                    MAKER_NAME,                     
+                    ORIGIN_CODE,                    
+                    COMPLETE_MARK,                  
+                    LC_OPEN_REQ_DATE,               
+                    PR_NO,                          
+                    PR_SEQ,                         
+                    CONTRACT_NO,                    
+                    CONTRACT_SEQ,                   
+                    ITEM_AMT,                       
+                    LC_IF_FLAG,                     
+                    DELY_TO_LOCATION,               
+                    REF_PR_NO,                      
+                    PROXY_BUY_FLAG,                 
+                    CHANGE_USER_DEPT,               
+                    AGENT_PRICE,                    
+                    AGENT_ITEM_AMT,                 
+                    PO_REMARK,                      
+                    BYIT_COMORG_CODE,               
+                    PROCESS_TYPE ,                  
+                    CATEG_ID ,                      
+                    LEGACY_PO_NO ,                  
+                    LEGACY_PO_SEQ ,                 
+                    REF_IF_NO,                      
+                    CHANGE_USER_ID,                 
+                    ACCOUNT_TYPE,                   
+                    WAREHOUSE_CODE,
+        			ST_DATE,
+        			CMS_CATEG_ID,
+                    CMS_CATLG_ID,
+                    UNIT_TAX,
+                    BUDGET_DEPT,
+                    ITEM_GROUP,
+        			PLANT,	--추가 20130115
+        			DELIVERY_LT
+        		)
+             	(                                      
+               	SELECT                               
+                    A.BUYER,                          
+                    #{value},                                 -- PO_NO
+                    A.PO_SEQ,                         
+                    A.SELLER,                         
+                    'C',                               -- STATUS
+                    ' ',                            
+                    ' ',                            
+                    TO_CHAR(SYSDATE, 'YYYYMMDD'),   
+                    TO_CHAR(SYSDATE, 'HH24MISS'),   
+                    TO_CHAR(SYSDATE, 'YYYYMMDD'),   
+                    TO_CHAR(SYSDATE, 'HH24MISS'),   
+                    A.BUYER_ITEM_NO,                  
+                    A.SELLER_ITEM_NO,                 
+                    A.DESCRIPTION,                    
+                    A.SPECIFICATION,                  
+                    A.HS_NO,                          
+                    A.UNIT_MEASURE,                   
+                    A.ITEM_QTY,                       
+                    A.UNIT_PRICE,                     
+                    A.RD_DATE,                        
+                    A.DOM_EXP_FLAG,                   
+                    A.MAKER_CODE,                     
+                    A.MAKER_NAME,                     
+                    A.ORIGIN_CODE,                    
+                    'N',                               -- COMPLETE_MARK
+                    A.LC_OPEN_REQ_DATE,               
+                    A.PR_NO,                          
+                    A.PR_SEQ,                         
+                    A.CONTRACT_NO,                    
+                    A.CONTRACT_SEQ,                   
+                    A.ITEM_AMT,                       
+                    A.LC_IF_FLAG,                     
+                    A.DELY_TO_LOCATION,               
+                    A.REF_PR_NO,                      
+                    A.PROXY_BUY_FLAG,                 
+                    A.CHANGE_USER_DEPT,               
+                    A.AGENT_PRICE,                    
+                    A.AGENT_ITEM_AMT,                 
+                    A.PO_REMARK,                      
+                    A.BYIT_COMORG_CODE,               
+                    #{value} ,                              --PROCESS_TYPE
+                    A.CATEG_ID ,                      
+                    A.LEGACY_PO_NO ,                  
+                    A.LEGACY_PO_SEQ ,                 
+                    A.REF_IF_NO,                      
+                    A.CHANGE_USER_ID,                 
+                    A.ACCOUNT_TYPE,                   
+                    #{value},                               --WAREHOUSE_CODE
+        			F_GET_DELIVERY_INFO(A.BUYER, A.CONTRACT_NO, A.CONTRACT_SEQ, A.RD_DATE, 'D'),
+        			A.CMS_CATEG_ID,
+                    A.CMS_CATLG_ID,
+                    A.UNIT_TAX,
+                    A.BUDGET_DEPT,
+                    A.ITEM_GROUP,
+        			A.PLANT,
+        			NVL((SELECT DELIVERY_LT FROM ICOMCQDT WHERE BELOW_COMORG_CODE = A.BUYER AND CONTRACT_NO = A.CONTRACT_NO AND CONTRACT_SEQ = A.CONTRACT_SEQ AND STATUS != 'D'), 15)
+        		FROM ICOMPODT A                        
+              	WHERE A.BUYER  = #{value}                      
+                AND A.PO_NO  = #{value}                      
+                AND A.PO_SEQ = #{value}
+				)
+]]>
+</update> 
+
+
+<update id="setSysopOrderChangeAfterProcessTypeModify4" parameterType="java.util.Map">
+<![CDATA[
+
+/*setSysopOrderChangeAfterProcessTypeModify4*/
+ 
+            UPDATE ICOMPORS                                                 
+               SET  STATUS        = 'D',                                    
+                    CHANGE_DATE   = TO_CHAR(SYSDATE, 'YYYYMMDD'),           
+                    CHANGE_TIME   = TO_CHAR(SYSDATE, 'HH24MISS')            
+              WHERE BUYER   = #{value}                                             
+                AND PO_NO   = #{value}                                             
+                AND PO_SEQ  = #{value}                                             
+
+
+]]>
+</update> 
+
+<update id="setSysopOrderChangeAfterProcessTypeModify5" parameterType="java.util.Map">
+<![CDATA[
+
+/*setSysopOrderChangeAfterProcessTypeModify5*/
+ 
+            UPDATE ICOMIVDT                                                 
+               SET STATUS        = 'D',                                     
+                   CHANGE_DATE   = TO_CHAR(SYSDATE, 'YYYYMMDD'),            
+                   CHANGE_TIME   = TO_CHAR(SYSDATE, 'HH24MISS')             
+             WHERE BUYER   = #{value}                                              
+               AND PO_NO   = #{value}                                              
+               AND PO_SEQ  = #{value}                                              
+               AND STATUS != 'D'                                            
+
+]]>
+</update> 
+
+
+<update id="setSysopOrderChangeAfterProcessTypeModify6" parameterType="java.util.Map">
+<![CDATA[
+
+/*setSysopOrderChangeAfterProcessTypeModify6*/
+ 
+              UPDATE ICOMIVHD HD                                                                   
+                 SET HD.STATUS  = DECODE((SELECT NVL(COUNT(*),0) FROM ICOMIVDT                     
+                                               WHERE BUYER   = HD.BUYER                            
+                                                 AND INV_NO  = HD.INV_NO                           
+                                                 AND STATUS != 'D'), 0, 'D','R'),                  
+                     HD.INV_AMT =                                                                  
+                                (SELECT NVL(SUM(DT.ITEM_AMT),0)                                    
+                                   FROM ICOMIVDT DT                                                
+                                  WHERE HD.BUYER   = DT.BUYER                                      
+                                    AND HD.INV_NO  = DT.INV_NO                                     
+                                    AND DT.STATUS != 'D'),                                         
+                     HD.INV_TAX_RATE_1 = 0.1,                                                      
+                     HD.INV_TAX_AMT_1 =                                                            
+                                (SELECT NVL(TRUNC(SUM(DT.ITEM_AMT) * 0.1, 0),0)                    
+                                   FROM ICOMIVDT DT                                                
+                                  WHERE HD.BUYER   = DT.BUYER                                      
+                                    AND HD.INV_NO  = DT.INV_NO                                     
+                                    AND DT.STATUS != 'D'),                                         
+                     HD.INV_TTL_AMT =                                                              
+                                (SELECT NVL(SUM(DT.ITEM_AMT) + TRUNC(SUM(DT.ITEM_AMT) * 0.1, 0),0) 
+                                   FROM ICOMIVDT DT                                                
+                                  WHERE HD.BUYER   = DT.BUYER                                      
+                                    AND HD.INV_NO  = DT.INV_NO                                     
+                                    AND DT.STATUS != 'D'),                                         
+                     HD.CHANGE_USER_ID = #{st_po_change_user_id},                                                        
+                     HD.CHANGE_DATE   = TO_CHAR(SYSDATE, 'YYYYMMDD'),                              
+                     HD.CHANGE_TIME   = TO_CHAR(SYSDATE, 'HH24MISS')                               
+               WHERE HD.BUYER = #{BUYER}                                                                  
+                 AND HD.INV_NO IN                                                                  
+                    (SELECT DISTINCT INV_NO                                                        
+                       FROM ICOMIVDT                                                               
+                      WHERE BUYER   = #{BUYER}                                                            
+                        AND PO_NO   = #{PO_NO}                                                            
+                        AND PO_SEQ  = #{PO_SEQ}        )                                                   
+
+]]>
+</update> 
+
+<update id="setSysopOrderChangeAfterProcessTypeModify7" parameterType="java.util.Map">
+<![CDATA[
+
+/*setSysopOrderChangeAfterProcessTypeModify7*/
+ 
+                 INSERT INTO ICOMPOHD   (                         
+   BUYER                                             
+               ,PO_NO                                             
+               ,STATUS                                            
+               ,SEND_DATE                                         
+               ,SEND_TIME                                         
+               ,ADD_DATE                                          
+               ,ADD_TIME                                          
+               ,CHANGE_DATE                                       
+               ,CHANGE_TIME                                       
+               ,CONFIRM_DATE                                      
+               ,CONFIRM_TIME                                      
+               ,PO_CREATE_DATE                                    
+               ,BUYER_GROUP                                       
+               ,AGENT                                             
+               ,PAYER                                             
+               ,NOTIFY                                            
+               ,SELLER                                            
+               ,PAYEE                                             
+               ,PAY_TERMS                                         
+               ,USANCE_DAYS                                       
+               ,PAY_TEXT                                          
+               ,CLOSE_PERIOD                                      
+               ,BLD_1                                             
+               ,BLD_2                                             
+               ,BLD_3                                             
+               ,DELY_TERMS                                        
+               ,DELY_PORT                                         
+               ,CUR                                               
+               ,PO_TTL_AMT                                        
+               ,PO_TAX_TTL_AMT                                    
+               ,MASTER_PO_NO                                      
+               ,SHIP_METHOD                                       
+               ,DEPART_PORT                                       
+               ,ARRIVAL_PORT                                      
+               ,OUTGOING_FWDR_CODE                                
+               ,INCOMING_FWDR_CODE                                
+               ,PURCHASER_ID                                      
+               ,PURCHASER_NAME                                    
+               ,SALES_PERSON                                      
+               ,PROCESS_TYPE                                      
+               ,ACCOUNT_TYPE                                      
+               ,SHIPPER_TYPE                                      
+               ,BUYER_BANK_CODE                                   
+               ,BUYER_BANK_NAME                                   
+               ,BUYER_BANK_ACCT                                   
+               ,SELLER_BANK_CODE                                  
+               ,SELLER_BANK_NAME                                  
+               ,SELLER_BANK_ACCT                                  
+               ,PO_REMARK                                         
+               ,ADV_PAY_AMT                                       
+               ,ADV_PAY_DATE                                      
+               ,VERSION                                           
+               ,EMAIL_FLAG                                        
+               ,COMPLETE_MARK                                     
+               ,CHG_COUNT                                         
+               ,ADD_USER_ID                                       
+               ,CHANGE_USER_ID                                    
+               ,CONFIRM_USER_ID                                   
+               ,EGUMEGB                                           
+               ,MDAPYPM                                           
+               ,EHAJABJ                                           
+               ,EPUMOBR                                           
+               ,PRICE_BLD                                         
+               ,DOC_TYPE                                          
+               ,DELY_TO_LOCATION                                  
+               ,CHANGE_USER_DEPT                                  
+               ,PR_TYPE                                           
+               ,TAX_NO                                            
+               ,TAX_DATE                                          
+               ,AGENT_PO_TTL_AMT                                  
+               ,LEGACY_AGENT_CODE                                 
+               ,PO_SUBJECT                                        
+               ,DS_FLAG                                           
+               ,APPROVAL_NO   )                                    
+                (SELECT                                         
+                    BUYER,                                      
+                    #{value}    ,                                         -- PO_NO
+                    'C' STATUS,                                 
+                    ' ',                                           -- SEND_DATE
+                    ' ',                                           -- SEND_TIME
+                    TO_CHAR(SYSDATE, 'YYYYMMDD'),               
+                    TO_CHAR(SYSDATE, 'HH24MISS'),               
+                    TO_CHAR(SYSDATE, 'YYYYMMDD'),               
+                    TO_CHAR(SYSDATE, 'HH24MISS'),               
+                    ' ' CONFIRM_DATE,                           
+                    ' ' CONFIRM_TIME,                           
+                    PO_CREATE_DATE,                             
+                    BUYER_GROUP,                                
+                    #{value}     ,                                        -- AGENT
+                    PAYER,                                      
+                    NOTIFY,                                     
+                    SELLER,                                     
+                    PAYEE,                                      
+                    PAY_TERMS,                                  
+                    USANCE_DAYS,                                
+                    PAY_TEXT,                                   
+                    CLOSE_PERIOD,                               
+                    BLD_1,                                      
+                    BLD_2,                                      
+                    BLD_3,                                      
+                    DELY_TERMS,                                 
+                    DELY_PORT,                                  
+                    CUR,                                        
+                    PO_TTL_AMT,                                 
+                    PO_TAX_TTL_AMT,                             
+                    MASTER_PO_NO,                               
+                    SHIP_METHOD,                                
+                    DEPART_PORT,                                
+                    ARRIVAL_PORT,                               
+                    OUTGOING_FWDR_CODE,                         
+                    INCOMING_FWDR_CODE,                         
+                    PURCHASER_ID,                               
+                    PURCHASER_NAME,                             
+                    SALES_PERSON,                               
+                    #{value},                                          -- PROCESS_TYPE
+                    ACCOUNT_TYPE,                               
+                    SHIPPER_TYPE,                               
+                    BUYER_BANK_CODE,                            
+                    BUYER_BANK_NAME,                            
+                    BUYER_BANK_ACCT,                            
+                    SELLER_BANK_CODE,                           
+                    SELLER_BANK_NAME,                           
+                    SELLER_BANK_ACCT,                           
+                    PO_REMARK,                                  
+                    ADV_PAY_AMT,                                
+                    ADV_PAY_DATE,                               
+                    VERSION,                                    
+                    EMAIL_FLAG,                                 
+                    'N' COMPLETE_MARK,                          
+                    CHG_COUNT,                                  
+                    ADD_USER_ID,                                
+                    CHANGE_USER_ID,                             
+                    CONFIRM_USER_ID,                            
+                    EGUMEGB,                                    
+                    MDAPYPM,                                    
+                    EHAJABJ,                                    
+                    EPUMOBR,                                    
+                    PRICE_BLD,                                  
+                    DOC_TYPE,                                   
+                    DELY_TO_LOCATION,                           
+                    CHANGE_USER_DEPT,                           
+                    PR_TYPE,                                    
+                    TAX_NO,                                     
+                    TAX_DATE,                                   
+                    AGENT_PO_TTL_AMT,                           
+                    LEGACY_AGENT_CODE,                          
+                    PO_SUBJECT  ,                               
+                    DS_FLAG     ,                                -- 해당 발주의 DS_FLAG
+                    APPROVAL_NO                                 
+                FROM ICOMPOHD                                   
+               WHERE BUYER  = #{value}                                 
+                 AND PO_NO  = #{value}             )                   
+ 
+         
+]]>
+</update> 
+
+<update id="setSysopOrderChangeAfterAgentModify1" parameterType="java.util.Map">
+<![CDATA[
+
+/*setSysopOrderChangeAfterAgentModify1*/
+ 
+            UPDATE ICOMPRDT                                             
+               SET AGENT       = #{value} ,                                    
+                   CHANGE_DATE = TO_CHAR(SYSDATE,'YYYYMMDD'),           
+                   CHANGE_TIME = TO_CHAR(SYSDATE,'HH24MISS'),           
+
+MAKER_CODE=#{value},
+MAKER_NAME=#{value},
+LIST_PRICE=#{value},
+CMS_CATLG_ID=#{value},
+CMS_CATEG_ID=#{value}
+
+             WHERE BUYER    = #{value}                                         
+               AND PR_NO    = #{value}                                         
+               AND PR_SEQ   = #{value}                                         
+
+]]>
+</update> 
+
+<update id="setSysopOrderChangeAfterAgentModify2" parameterType="java.util.Map">
+<![CDATA[
+
+/*setSysopOrderChangeAfterAgentModify2*/
+ 
+             UPDATE ICOMPODT                                                                            
+                SET STATUS  = 'D',                                                                      
+                    SEND_DATE = ' ',                                                                    
+                    SEND_TIME = ' ',                                                                    
+                    LEGACY_PO_NO  = DECODE(LENGTH(LEGACY_PO_NO),19,LEGACY_PO_NO || 'D'                  
+                                                               ,20,SUBSTR(LEGACY_PO_NO,1,19) || 'D'     
+                                                               ,LEGACY_PO_NO || '_D'            ) ,     
+                    CHANGE_DATE   = TO_CHAR(SYSDATE, 'YYYYMMDD'),                                       
+                    CHANGE_TIME   = TO_CHAR(SYSDATE, 'HH24MISS')                                        
+              WHERE BUYER   = #{value}                                                                         
+                AND PO_NO   = #{value}                                                                         
+                AND PO_SEQ  = #{value}                                                                         
+
+]]>
+</update> 
+
+<update id="setSysopOrderChangeAfterAgentModify3" parameterType="java.util.Map">
+<![CDATA[
+
+/*setSysopOrderChangeAfterAgentModify3*/
+ 
+                INSERT INTO ICOMPODT                
+                (                                   
+                    BUYER,                          
+                    PO_NO,                          
+                    PO_SEQ,                         
+                    SELLER,                         
+                    STATUS,                         
+                    SEND_DATE,                      
+                    SEND_TIME,                      
+                    ADD_DATE,                       
+                    ADD_TIME,                       
+                    CHANGE_DATE,                    
+                    CHANGE_TIME,                    
+                    BUYER_ITEM_NO,                  
+                    SELLER_ITEM_NO,                 
+                    DESCRIPTION,                    
+                    SPECIFICATION,                  
+                    HS_NO,                          
+                    UNIT_MEASURE,                   
+                    ITEM_QTY,                       
+                    UNIT_PRICE,                     
+                    RD_DATE,                        
+                    DOM_EXP_FLAG,                   
+                    MAKER_CODE,                     
+                    MAKER_NAME,                     
+                    ORIGIN_CODE,                    
+                    COMPLETE_MARK,                  
+                    LC_OPEN_REQ_DATE,               
+                    PR_NO,                          
+                    PR_SEQ,                         
+                    CONTRACT_NO,                    
+                    CONTRACT_SEQ,                   
+                    ITEM_AMT,                       
+                    LC_IF_FLAG,                     
+                    DELY_TO_LOCATION,               
+                    REF_PR_NO,                      
+                    PROXY_BUY_FLAG,                 
+                    CHANGE_USER_DEPT,               
+                    AGENT_PRICE,                    
+                    AGENT_ITEM_AMT,                 
+                    PO_REMARK,                      
+                    BYIT_COMORG_CODE,               
+                    PROCESS_TYPE ,                  
+                    CATEG_ID ,                      
+                    LEGACY_PO_NO ,                  
+                    LEGACY_PO_SEQ ,                 
+                    REF_IF_NO,                      
+        			CHANGE_USER_ID,                 
+        			ACCOUNT_TYPE,
+                    WAREHOUSE_CODE,                 
+					ST_DATE,
+        			CMS_CATEG_ID,
+                    CMS_CATLG_ID,
+                    UNIT_TAX,
+                    BUDGET_DEPT,
+                    ITEM_GROUP,
+                    KEP_PRICE,
+                    IMPORT_FLAG,    
+                    PLANT,
+                    DELIVERY_LT
+				)
+             (                                      
+               SELECT                               
+                    A.BUYER,                          
+                    #{value},                                 -- PO_NO
+                    A.PO_SEQ,                         
+                    A.SELLER,                         
+                    'C',                               -- STATUS
+                    ' ',                            
+                    ' ',                            
+                    TO_CHAR(SYSDATE, 'YYYYMMDD'),   
+                    TO_CHAR(SYSDATE, 'HH24MISS'),   
+                    TO_CHAR(SYSDATE, 'YYYYMMDD'),   
+                    TO_CHAR(SYSDATE, 'HH24MISS'),   
+                    A.BUYER_ITEM_NO,                  
+                    A.SELLER_ITEM_NO,                 
+                    A.DESCRIPTION,                    
+                    A.SPECIFICATION,                  
+                    A.HS_NO,                          
+                    A.UNIT_MEASURE,                   
+                    A.ITEM_QTY,                       
+                    A.UNIT_PRICE,                     
+                    A.RD_DATE,                        
+                    A.DOM_EXP_FLAG,                   
+                    #{value},-- MAKER_CODE
+                    #{value},-- MAKER_NAME
+                    #{value},-- ORIGIN_CODE
+                    'N',                               -- COMPLETE_MARK
+                    A.LC_OPEN_REQ_DATE,               
+                    A.PR_NO,                          
+                    A.PR_SEQ,                         
+                    A.CONTRACT_NO,                    
+                    A.CONTRACT_SEQ,                   
+                    A.ITEM_AMT,                       
+                    A.LC_IF_FLAG,                     
+                    A.DELY_TO_LOCATION,               
+                    A.REF_PR_NO,                      
+                    A.PROXY_BUY_FLAG,                 
+                    A.CHANGE_USER_DEPT,               
+                    #{value},-- AGENT_PRICE
+                    NVL(A.ITEM_QTY*#{value},A.AGENT_ITEM_AMT), -- AGENT_PRICE
+                    A.PO_REMARK,                      
+                    A.BYIT_COMORG_CODE,               
+                    A.PROCESS_TYPE ,                  
+                    A.CATEG_ID ,                      
+                    A.LEGACY_PO_NO ,                  
+                    A.LEGACY_PO_SEQ ,                 
+                    A.REF_IF_NO,                      
+        			A.CHANGE_USER_ID,                 
+        			A.ACCOUNT_TYPE,
+                    A.WAREHOUSE_CODE,
+        			F_GET_DELIVERY_INFO(A.BUYER, A.CONTRACT_NO, A.CONTRACT_SEQ, A.RD_DATE, 'D'),                 
+        			#{value},-- CMS_CATEG_ID
+                    #{value},-- CMS_CATLG_ID
+                    A.UNIT_TAX,
+                    A.BUDGET_DEPT,
+                    A.ITEM_GROUP,
+                    NVL(#{value},0),
+                    NVL(#{value},'N'),-- 수입여부 
+                    A.PLANT,
+                    NVL((SELECT DELIVERY_LT FROM ICOMCQDT WHERE BELOW_COMORG_CODE = A.BUYER AND CONTRACT_NO = A.CONTRACT_NO AND CONTRACT_SEQ = A.CONTRACT_SEQ AND STATUS != 'D'), 15) 
+               FROM ICOMPODT A                        
+              WHERE A.BUYER  = #{value}                      
+                AND A.PO_NO  = #{value}                      
+                AND A.PO_SEQ = #{value}          )           
+]]>
+</update> 
+
+<update id="setSysopOrderChangeAfterAgentModify4" parameterType="java.util.Map">
+<![CDATA[
+
+/*setSysopOrderChangeAfterAgentModify4*/
+  
+            UPDATE ICOMPORS                                                 
+               SET  STATUS        = 'D',                                    
+                    CHANGE_DATE   = TO_CHAR(SYSDATE, 'YYYYMMDD'),           
+                    CHANGE_TIME   = TO_CHAR(SYSDATE, 'HH24MISS')            
+              WHERE BUYER   = #{value}                                             
+                AND PO_NO   = #{value}                                             
+                AND PO_SEQ  = #{value}                                             
+]]>
+</update> 
+
+
+
+<update id="setSysopOrderChangeAfterAgentModify5" parameterType="java.util.Map">
+<![CDATA[
+
+/*setSysopOrderChangeAfterAgentModify5*/
+  
+            UPDATE ICOMIVDT                                                 
+               SET STATUS        = 'D',                                     
+                   CHANGE_DATE   = TO_CHAR(SYSDATE, 'YYYYMMDD'),            
+                   CHANGE_TIME   = TO_CHAR(SYSDATE, 'HH24MISS')             
+             WHERE BUYER   = #{value}                                              
+               AND PO_NO   = #{value}                                              
+               AND PO_SEQ  = #{value}                                              
+               AND STATUS != 'D'                                            
+
+]]>
+</update> 
+
+
+ 
+<update id="setSysopOrderChangeAfterDelete1" parameterType="java.util.Map">
+<![CDATA[
+
+/*setSysopOrderChangeAfterDelete1*/
+  
+            UPDATE ICOMPRDT                                                 
+               SET STATUS        = 'D',                                     
+                   CHANGE_DATE   = TO_CHAR(SYSDATE, 'YYYYMMDD'),            
+                   CHANGE_TIME   = TO_CHAR(SYSDATE, 'HH24MISS'),            
+                   CANCEL_REMARK    = #{REASON0}                                     
+             WHERE BUYER   = #{BUYER}                                              
+               AND PR_NO   = #{PR_NO}                                              
+               AND PR_SEQ  = #{PR_SEQ}                                              
+
+]]>
+</update> 
+
+
+<update id="setSysopOrderChangeAfterDelete2" parameterType="java.util.Map">
+<![CDATA[
+
+/*setSysopOrderChangeAfterDelete2*/
+  
+            UPDATE ICOMPODT                                                 
+               SET STATUS       = 'D',                                      
+                   SEND_DATE    = ' ',                                      
+                   SEND_TIME    = ' ',                                      
+                   CHANGE_DATE  = TO_CHAR(SYSDATE, 'YYYYMMDD'),             
+                   CHANGE_TIME  = TO_CHAR(SYSDATE, 'HH24MISS')              
+             WHERE BUYER   = #{BUYER}                                              
+               AND PO_NO   = #{PO_NO}                                              
+               AND PO_SEQ  = #{PO_SEQ}                                              
+
+]]>
+</update> 
+
+
+<update id="setSysopOrderChangeAfterDelete3" parameterType="java.util.Map">
+<![CDATA[
+
+/*setSysopOrderChangeAfterDelete3*/
+  
+            UPDATE ICOMPORS                                                 
+               SET  STATUS        = 'D',                                    
+                    CHANGE_DATE   = TO_CHAR(SYSDATE, 'YYYYMMDD'),           
+                    CHANGE_TIME   = TO_CHAR(SYSDATE, 'HH24MISS')            
+              WHERE BUYER   = #{BUYER}                                             
+                AND PO_NO   = #{PO_NO}                                             
+                AND PO_SEQ  = #{PO_SEQ}                                             
+
+]]>
+</update> 
+
+<update id="setSysopOrderChangeAfterDelete4" parameterType="java.util.Map">
+<![CDATA[
+
+/*setSysopOrderChangeAfterDelete4*/
+  
+            UPDATE ICOMIVDT                                                 
+               SET STATUS        = 'D',                                     
+                   CHANGE_DATE   = TO_CHAR(SYSDATE, 'YYYYMMDD'),            
+                   CHANGE_TIME   = TO_CHAR(SYSDATE, 'HH24MISS')             
+             WHERE BUYER   = #{BUYER}                                              
+               AND PO_NO   = #{PO_NO}                                              
+               AND PO_SEQ  = #{PO_SEQ}                                              
+               AND STATUS != 'D'                                            
+
+]]>
+</update> 
+
+
+<update id="setSysopOrderChangeAfterDelete5" parameterType="java.util.Map">
+<![CDATA[
+
+/*setSysopOrderChangeAfterDelete5*/
+  
+             UPDATE ICOMPRHD 
+                SET STATUS = DECODE((SELECT COUNT(*) FROM ICOMPRDT WHERE BUYER = #{BUYER}  AND PR_NO = #{PR_NO}  AND STATUS IN ('C','R')),0,'D','R'),  
+                    CHANGE_DATE   = TO_CHAR(SYSDATE, 'YYYYMMDD'),   
+                    CHANGE_TIME   = TO_CHAR(SYSDATE,'HH24MISS')     
+              WHERE BUYER = #{BUYER}                                       
+                AND PR_NO = #{PR_NO}                                       
+
+]]>
+</update> 
+
+
+ <select id="getGrApBillInfo" parameterType="java.util.Map" resultType="java.util.Map">
+<![CDATA[
+ /*getGrApBillInfo*/
+ 
+     SELECT DECODE(COUNT(PO_SEQ),0,'N','Y') AS AP_BILL_YN    
+    FROM ICOMGRDT        
+    WHERE BUYER =  #{value}       
+    AND PO_NO   =  #{value}    
+    AND PO_SEQ  = #{value}    
+    AND STATUS != 'D'   
+    AND (AP_BILL_FLAG = 'Y'  OR  AR_BILL_FLAG = 'Y'  OR CLOSE_FLAG = 'Y' OR CLOSE_DATE > GR_DATE) 
+
+]]>
+</select>
+
+<update id="setSysopOrderChangeAfterRdDate1" parameterType="java.util.Map">
+<![CDATA[
+
+/*setSysopOrderChangeAfterRdDate1*/
+  
+            UPDATE ICOMPRDT                                       
+               SET STATUS       = 'R',
+               RD_DATE= #{value},                              
+                   CHANGE_DATE  = TO_CHAR(SYSDATE, 'YYYYMMDD'),   
+                   CHANGE_TIME  = TO_CHAR(SYSDATE, 'HH24MISS')  
+             WHERE BUYER        = #{value}                               
+               AND PR_NO        = #{value}                               
+               AND PR_SEQ       = #{value}                               
+]]>
+</update> 
+
+
+<update id="setSysopOrderChangeAfterRdDate2" parameterType="java.util.Map">
+<![CDATA[
+
+/*setSysopOrderChangeAfterRdDate2*/
+
+            UPDATE ICOMPODT
+               SET STATUS       = 'R',
+       RD_DATE= #{value} ,
+       SEND_DATE= ' ',
+       SEND_TIME= ' ',
+                   CHANGE_DATE  = TO_CHAR(SYSDATE, 'YYYYMMDD'),
+                   CHANGE_TIME  = TO_CHAR(SYSDATE, 'HH24MISS')
+             WHERE BUYER   = #{value}
+               AND PO_NO   = #{value}
+               AND PO_SEQ  = #{value}
+]]>
+</update> 
+
+<update id="setSysopOrderChangeAfterRdDate3" parameterType="java.util.Map">
+<![CDATA[
+
+/*setSysopOrderChangeAfterRdDate3*/
+
+UPDATE ICOMPOIF_DOOSAN        
+   SET RD_DATE        = #{value}
+ WHERE LEGACY_PO_NO   = #{value}
+   AND LEGACY_PO_SEQ  = #{value}
+]]>
+</update> 
+
+<update id="setSysopOrderChangeAfterRdDate4" parameterType="java.util.Map">
+<![CDATA[
+
+/*setSysopOrderChangeAfterRdDate4*/
+
+INSERT INTO MAILSEND(                                       
+MAILFORM_ID,                        
+SEND_COM_TYPE,                      
+RECV_COM_TYPE,                      
+SEND_COM_CODE,                      
+SEND_USER_ID,                       
+KEY1,                               
+KEY2,                               
+KEY3,                               
+KEY4,                               
+KEY5,                               
+CRE_DATE                            
+)                                       
+VALUES(                                 
+'PO_MOD_RD_DATE_BS',    
+'B',    
+'S',    
+'KRKORE0001',    
+'KOREAB2B',    
+#{value}, -- 1 BUYER
+#{value}, -- 2 PO_NO
+#{value}, -- 3 PO_SEQ
+#{value}, -- 4 OLD_RD_DATE 
+#{value}, -- 5 NEW_RD_DATE 
+SYSDATE    
+)                                       
+]]>
+</update> 
+
+
+<update id="setSysopOrderChangeAfterPoInit1" parameterType="java.util.Map">
+<![CDATA[
+
+/*setSysopOrderChangeAfterPoInit1*/
+
+            UPDATE ICOMPRDT
+               SET STATUS        = 'R'
+             WHERE BUYER   = #{BUYER}
+               AND PR_NO   = #{PR_NO}
+               AND STATUS != 'D'
+]]>
+</update> 
+
+<update id="setSysopOrderChangeAfterPoInit2" parameterType="java.util.Map">
+<![CDATA[
+
+/*setSysopOrderChangeAfterPoInit2*/
+
+            UPDATE ICOMPODT
+               SET STATUS         = 'R',
+                   COMPLETE_MARK  = 'N',
+                   DS_FLAG        = 'N',                                    
+                   DS_DATE        = NULL ,                                  
+                   DS_DELAY_REASON= NULL ,                                  
+                   DO_QTY         = 0 ,                                     
+       DI_QTY         = 0 ,                                     
+       IV_QTY         = 0 ,                                     
+                   GR_QTY         = 0 ,                                     
+       SEND_DATE= ' ',
+       SEND_TIME= ' ',
+                   CHANGE_DATE  = TO_CHAR(SYSDATE, 'YYYYMMDD'),
+                   CHANGE_TIME  = TO_CHAR(SYSDATE, 'HH24MISS')
+             WHERE BUYER   = #{BUYER}
+               AND PO_NO   = #{PO_NO}
+               AND STATUS != 'D'
+]]>
+</update> 
+<update id="setSysopOrderChangeAfterPoInit3" parameterType="java.util.Map">
+<![CDATA[
+
+/*setSysopOrderChangeAfterPoInit3*/
+
+            UPDATE ICOMPORS
+               SET  STATUS        = 'D',
+                    CHANGE_DATE   = TO_CHAR(SYSDATE, 'YYYYMMDD'),
+                    CHANGE_TIME   = TO_CHAR(SYSDATE, 'HH24MISS')
+              WHERE BUYER   = #{BUYER}
+                AND PO_NO   = #{PO_NO}
+                AND STATUS != 'D'                                           
+ 
+]]>
+</update> 
+<update id="setSysopOrderChangeAfterPoInit4" parameterType="java.util.Map">
+<![CDATA[
+
+/*setSysopOrderChangeAfterPoInit4*/
+
+            UPDATE ICOMIVDT                                                 
+               SET STATUS        = 'D',                                     
+                     SND_CHK      = 'N',                                     
+                   CHANGE_DATE   = TO_CHAR(SYSDATE, 'YYYYMMDD'),
+                   CHANGE_TIME   = TO_CHAR(SYSDATE, 'HH24MISS'),
+       LEGACY_IV_NO   = LEGACY_IV_NO||'_D',
+       LEGACY_IV_SEQ  = LEGACY_IV_SEQ||'_D'
+             WHERE BUYER   = #{BUYER}
+               AND PO_NO   = #{PO_NO}
+               AND STATUS != 'D'                                            
+ 
+]]>
+</update> 
+
+<update id="setSysopOrderChangeAfterPoInit5" parameterType="java.util.Map">
+<![CDATA[
+
+/*setSysopOrderChangeAfterPoInit5*/
+
+             UPDATE ICOMPRHD 
+                SET STATUS = DECODE((SELECT COUNT(*) FROM ICOMPRDT WHERE BUYER = #{BUYER}  AND PR_NO = #{PR_NO}  AND STATUS IN ('C','R')),0,'D','R'),  
+                    CHANGE_DATE   = TO_CHAR(SYSDATE, 'YYYYMMDD'),
+                    CHANGE_TIME   = TO_CHAR(SYSDATE,'HH24MISS')
+              WHERE BUYER = #{BUYER}
+                AND PR_NO = #{PR_NO}
+ 
+]]>
+</update> 
+
+
+<update id="setSysopOrderChangeAfterPoInit6" parameterType="java.util.Map">
+<![CDATA[
+
+/*setSysopOrderChangeAfterPoInit6*/
+
+              UPDATE ICOMIVHD HD
+                 SET HD.STATUS  = 'D',
+                     HD.SND_CHK ='N',                            
+                     HD.CHANGE_USER_ID = #{st_po_change_user_id},                            
+                     HD.CHANGE_DATE   = TO_CHAR(SYSDATE, 'YYYYMMDD'),               
+                     HD.CHANGE_TIME   = TO_CHAR(SYSDATE, 'HH24MISS')
+               WHERE HD.BUYER = #{BUYER}                                        
+                 AND HD.INV_NO IN                                                   
+                    (SELECT DISTINCT INV_NO                                         
+                       FROM ICOMIVDT                                                
+                      WHERE BUYER   = #{BUYER}
+                        AND PO_NO   = #{PO_NO})
+ 
+]]>
+</update> 
+
+
+<update id="setSysopOrderChangeAfterPrice1" parameterType="java.util.Map">
+<![CDATA[
+
+/*setSysopOrderChangeAfterPrice1*/
+
+            UPDATE ICOMPRDT
+               SET STATUS        = 'R',           
+       TARGET_PRICE  = #{value},
+                   LIST_PRICE    = #{value},
+       CHANGE_DATE   = TO_CHAR(SYSDATE, 'YYYYMMDD'),
+                   CHANGE_TIME   = TO_CHAR(SYSDATE, 'HH24MISS')
+             WHERE BUYER   = #{value}
+               AND PR_NO   = #{value}
+               AND PR_SEQ  = #{value}
+ 
+]]>
+</update> 
+
+<update id="setSysopOrderChangeAfterPrice2" parameterType="java.util.Map">
+<![CDATA[
+
+/*setSysopOrderChangeAfterPrice2*/
+
+            UPDATE ICOMPODT
+               SET STATUS= 'R',
+               UNIT_PRICE= #{value},
+               AGENT_PRICE= #{value},
+               ITEM_AMT= TRUNC(ITEM_QTY * #{value} ,2),
+               AGENT_ITEM_AMT= TRUNC(ITEM_QTY * #{value} ,2),
+       SEND_DATE= ' ',
+       SEND_TIME= ' ',
+                   CHANGE_DATE= TO_CHAR(SYSDATE, 'YYYYMMDD'),
+                   CHANGE_TIME= TO_CHAR(SYSDATE, 'HH24MISS')
+             WHERE BUYER   = #{value}
+               AND PO_NO   = #{value}
+               AND PO_SEQ  = #{value}
+ 
+]]>
+</update> 
+
+<update id="setSysopOrderChangeAfterPrice3" parameterType="java.util.Map">
+<![CDATA[
+
+/*setSysopOrderChangeAfterPrice3*/
+
+            UPDATE ICOMIVDT                                                 
+               SET STATUS        = 'R',                                     
+                   UNIT_PRICE    = #{value},
+                   ITEM_AMT = TRUNC( #{value} * INV_QTY,2),
+                   CHANGE_DATE   = TO_CHAR(SYSDATE, 'YYYYMMDD'),
+                   CHANGE_TIME   = TO_CHAR(SYSDATE, 'HH24MISS')
+             WHERE BUYER   = #{value}
+               AND PO_NO   = #{value}
+               AND PO_SEQ  = #{value}
+               AND STATUS != 'D'                                            
+ 
+]]>
+</update> 
+
+ 
+
+<update id="setSysopOrderChangeAfterPrice4" parameterType="java.util.Map">
+<![CDATA[
+
+/*setSysopOrderChangeAfterPrice4*/
+
+            UPDATE ICOMGRDT
+               SET STATUS= 'R',
+               UNIT_PRICE= #{value},
+               AGENT_PRICE= #{value},
+               ITEM_AMT= ROUND(ITEM_QTY * #{value}),
+               AGENT_ITEM_AMT= ROUND(ITEM_QTY * #{value}),
+                   CHANGE_DATE= TO_CHAR(SYSDATE, 'YYYYMMDD'),
+                   CHANGE_TIME= TO_CHAR(SYSDATE, 'HH24MISS')
+             WHERE BUYER   = #{value}
+               AND PO_NO   = #{value}
+               AND PO_SEQ  = #{value}
+               AND AP_BILL_FLAG  = 'N'
+ 
+]]>
+</update> 
+
+ 
+
+
+
+</mapper>

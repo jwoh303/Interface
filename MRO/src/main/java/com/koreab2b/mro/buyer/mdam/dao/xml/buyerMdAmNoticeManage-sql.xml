@@ -1,0 +1,316 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="buyer.mdam">
+	<select id="selectBuyerMdAmNoticeManageList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.jsppagestart"/>
+		<![CDATA[
+		/*"selectBuyerMdAmNoticeManageList"*/
+		   SELECT *
+		    FROM (SELECT  /*+ index_asc(BUYERBOARD CUSTBOARD_pk) */
+		                A.BID,
+		                 A.COM_CODE,
+		                 A.SUBJECT,
+		                 (SELECT EMAIL
+		                    FROM ICOMLUSR
+		                   WHERE USER_ID = A.REG_USER_ID)
+		                    EMAIL,
+		                 A.REG_DATE,
+		                 (SELECT MAX (VID)
+		                    FROM BUYERBOARD
+		                   WHERE     BYCA_COMORG_CODE = A.BYCA_COMORG_CODE
+		                         AND STATUS != 'D'
+		                         AND BTYPE = 'NTC'
+	 		]]>		                         
+							<if test='!isAdmin.equals("Y")'>
+								AND TO_CHAR(SYSDATE,'YYYYMMDD') BETWEEN FROM_DATE AND TO_DATE
+							</if>	
+ 		<![CDATA[
+		                         )
+		                    MAX_VID,
+		                 (SELECT MIN (VID)
+		                    FROM BUYERBOARD
+		                   WHERE     BYCA_COMORG_CODE = A.BYCA_COMORG_CODE
+		                         AND STATUS != 'D'
+		                         AND BTYPE = 'NTC'
+			]]>		                         
+							<if test='!isAdmin.equals("Y")'>
+								AND TO_CHAR(SYSDATE,'YYYYMMDD') BETWEEN FROM_DATE AND TO_DATE
+							</if>	
+ 		<![CDATA[		                         
+		                         )
+		                    MIN_VID,
+		                 A.ACL,
+		                 A.LCOUNT,
+		                 DECODE (A.BTYPE,  'NOR', '일반',  'NTC', '공지') BTYPE_DIS,
+		                 DECODE (A.ACL,
+		                         'INC', '자사',
+		                         'BUY', '구매사',
+		                         'SEL', '판매사',
+		                         'KEP', 'KEP',
+		                         'MEB', '회원전체',
+		                         'CST', '특정회사',
+		                         'UST', '특정사용자',
+		                         'ALL', '전체')
+		                    ACL_DIS,
+		                 A.BTYPE,
+		                 A.TO_DATE,
+		                 (SELECT COM_NAME_LOC
+		                    FROM ICOMCMPY
+		                   WHERE COM_CODE = A.COM_CODE)
+		                    COM_NAME_LOC,
+		                 A.BLEVEL,
+		                 A.VID,
+		                 A.OPEN_FLAG,
+		                 (SELECT USER_NAME_LOC
+		                    FROM ICOMLUSR
+		                   WHERE USER_ID = A.REG_USER_ID AND STATUS <> 'D')
+		                    AS USER_NAME_LOC,
+		                 A.IMAGE_KEY,
+		                 A.REG_USER_ID,
+		                 A.SORT,
+		                 A.REG_TIME AS REG_TIME,
+		                 (SELECT OPEN_FLAG
+		                    FROM BUYERBOARD
+		                   WHERE     BYCA_COMORG_CODE = A.BYCA_COMORG_CODE
+		                         AND BID = A.PID
+		                         AND BLEVEL = 0)
+		                    AS PID_OPEN_FLAG,
+		                 (SELECT REG_USER_ID
+		                    FROM BUYERBOARD
+		                   WHERE     BYCA_COMORG_CODE = A.BYCA_COMORG_CODE
+		                         AND BID = A.PID
+		                         AND BLEVEL = 0)
+		                    AS PID_REG_USER_ID,
+		                 A.BYCA_COMORG_CODE AS BYCA_COMORG_CODE
+		            FROM BUYERBOARD A
+		           WHERE     A.STATUS != 'D'
+		                 AND A.BYCA_COMORG_CODE = #{st_byca_comorg_code}
+		                 AND A.BTYPE = 'NTC'
+	 		]]>
+			<if test='!isAdmin.equals("Y")'>
+						AND TO_CHAR(SYSDATE,'YYYYMMDD') BETWEEN A.FROM_DATE AND A.TO_DATE
+			</if>	
+			<if test="st_search_choice != null and st_search_choice != ''">
+			<choose>
+				<when test='st_search_choice.equals("SUBJECT")'>
+					<![CDATA[
+					AND A.SUBJECT LIKE '%'||#{st_search_word}||'%'  
+					]]>
+				</when>
+				<when test='st_search_choice.equals("CONTEXT")'>
+					<![CDATA[
+					AND DBMS_LOB.INSTR(A.CONTEXT, #{st_search_word}) > 0   
+					]]>
+				</when>
+				<when test='st_search_choice.equals("REG_USER_NAME")'>
+					<![CDATA[
+					AND A.REG_USER_ID IN (SELECT USER_ID FROM ICOMLUSR WHERE USER_NAME_LOC LIKE '%'||#{st_search_word}||'%' AND STATUS <> 'D')
+					]]>
+				</when>
+			</choose>
+		</if>
+ 		<![CDATA[
+		                 ) P
+		ORDER BY 1 DESC        
+	 		]]>	 
+		<include refid="common.ibsheet.xml.jsppageend"/>	
+	</select> 
+	
+	<resultMap  id="NoticeMap" type="java.util.HashMap">     
+		<result  javaType="java.lang.String" column="BYCA_COMORG_CODE"  property="BYCA_COMORG_CODE" />
+		<result  javaType="java.lang.String" column="BTYPE"  property="BTYPE" />
+		<result  javaType="java.lang.String" column="SUBJECT"  property="SUBJECT" />
+		<result  javaType="java.lang.String" column="BID"  property="BID" />
+		<result  javaType="java.lang.String" column="REG_USER_ID"  property="REG_USER_ID" />
+		<result  javaType="java.lang.String" column="REG_DATE"  property="REG_DATE" />
+		<result  property="CONTEXT" column="CONTEXT" javaType="java.lang.String" jdbcType="CLOB" typeHandler="org.apache.ibatis.type.ClobTypeHandler" />
+		<result   javaType="java.lang.String" column="PASSWORD"  property="PASSWORD" />     
+		<result   javaType="java.lang.String" column="IMAGE_KEY"  property="IMAGE_KEY" />
+		<result  javaType="java.lang.String" column="REG_USER_NAME"   property="REG_USER_NAME" />
+		<result  javaType="java.lang.String" column="BLEVEL"   property="BLEVEL" />
+		<result  javaType="java.lang.String" column="BTYPE_DIS"   property="BTYPE_DIS" />
+		<result   javaType="java.lang.String" column="ACL_DIS"  property="ACL_DIS" />
+		<result  javaType="java.lang.String" column="FROM_DATE"   property="FROM_DATE" />
+		<result  javaType="java.lang.String" column="TO_DATE"   property="TO_DATE" />
+		<result  javaType="java.lang.String" column="REG_DEP_NAME"   property="REG_DEP_NAME" />
+		<result  javaType="java.lang.String" column="EMAIL"   property="EMAIL" />
+		<result  javaType="java.lang.String" column="REG_TIME"   property="REG_TIME" />
+		<result  javaType="java.lang.String" column="PID"   property="PID" />
+		<result  javaType="java.lang.String" column="OPEN_FLAG"   property="OPEN_FLAG" />
+		<result  javaType="java.lang.String" column="VID"   property="VID" />
+		<result  javaType="java.lang.String" column="DEPT_NAME"   property="DEPT_NAME" />
+		<result  javaType="java.lang.String" column="COM_NAME"   property="COM_NAME" />
+		<result  javaType="java.lang.String" column="LCOUNT"   property="LCOUNT" />
+		<result  javaType="java.lang.String" column="N_BTYPE"   property="N_BTYPE" />
+		<result   javaType="java.lang.String" column="P_BTYPE"  property="P_BTYPE" />
+		<result   javaType="java.lang.String" column="N_BID"  property="N_BID" />
+		<result   javaType="java.lang.String" column="P_BID"  property="P_BID" />
+		<result   javaType="java.lang.String" column="N_BYCA_COMORG_CODE"  property="N_BYCA_COMORG_CODE" />
+		<result   javaType="java.lang.String" column="P_BYCA_COMORG_CODE"  property="P_BYCA_COMORG_CODE" />
+	</resultMap >
+	<select id="selectBuyerMdAmNoticeManageDetailList" parameterType="java.util.Map" resultMap="NoticeMap">
+		<![CDATA[
+		/*selectBuyerMdAmNoticeManageDetailList*/
+		SELECT A.BYCA_COMORG_CODE,
+			       A.BTYPE,
+			       A.SUBJECT,
+			       A.BID,
+			       A.REG_USER_ID,
+			       A.REG_DATE,
+			       A.CONTEXT,
+			       A.PASSWORD,
+			       A.IMAGE_KEY,
+			       (SELECT USER_NAME_LOC
+			          FROM ICOMLUSR
+			         WHERE USER_ID = A.REG_USER_ID AND STATUS <> 'D')
+			          AS REG_USER_NAME,
+			       A.BLEVEL,
+			       DECODE (A.BTYPE,  'NTC', '공지',  'NOR', '일반') BTYPE_DIS,
+			       DECODE (A.ACL,
+			               'INC', '자사',
+			               'BUY', '구매사',
+			               'SEL', '공급사',
+			               'KEP', 'KEP',
+			               'CST', '특정회사',
+			               'UST', '특정사용자',
+			               'MEB', '회원전용',
+			               'ALL', '전체')
+			          ACL_DIS,
+			       A.FROM_DATE,
+			       A.TO_DATE,
+			       A.REG_DEP_NAME,
+			       (SELECT EMAIL
+			          FROM ICOMLUSR
+			         WHERE USER_ID = A.REG_USER_ID AND STATUS <> 'D')
+			          EMAIL,
+			       A.REG_TIME,
+			       A.PID,
+			       A.LCOUNT,
+			       A.OPEN_FLAG,
+			       A.VID,
+			       (SELECT TEXT1
+			          FROM ICOMCOD2
+			         WHERE     CODE = (SELECT DEPARTMENT
+			                             FROM ICOMLUSR
+			                            WHERE USER_ID = A.REG_USER_ID)
+			               AND COMPANY_CODE = A.COM_CODE
+			               AND TYPE = 'C001')
+			          DEPT_NAME,
+			       (SELECT COM_NAME_LOC
+			          FROM ICOMCMPY
+			         WHERE COM_CODE = A.COM_CODE)
+			          COM_NAME,
+			       B.BTYPE AS N_BTYPE,
+			       C.BTYPE AS P_BTYPE,
+			       B.BID AS N_BID,
+			       C.BID AS P_BID,
+			       B.BYCA_COMORG_CODE AS N_BYCA_COMORG_CODE,
+			       C.BYCA_COMORG_CODE AS P_BYCA_COMORG_CODE
+			  FROM BUYERBOARD A,
+			       (SELECT *
+			          FROM BUYERBOARD
+			         WHERE BTYPE = #{BTYPE} AND STATUS != 'D' AND BYCA_COMORG_CODE = #{st_byca_comorg_code}
+			               AND BID =
+			                      NVL (
+			                         (SELECT MAX (BID)
+			                            FROM BUYERBOARD
+			                           WHERE STATUS != 'D' AND BTYPE = #{BTYPE} AND BID < #{BID} AND BYCA_COMORG_CODE = #{st_byca_comorg_code} ${WHERE}),
+			                         #{BID})) B,
+			       (SELECT *
+			          FROM BUYERBOARD
+			         WHERE BTYPE = #{BTYPE} AND STATUS != 'D' AND BYCA_COMORG_CODE = #{st_byca_comorg_code}
+			               AND BID =
+			                      NVL (
+			                         (SELECT MIN (BID)
+			                            FROM BUYERBOARD
+			                           WHERE STATUS != 'D' AND BTYPE = #{BTYPE} AND BID > #{BID} AND BYCA_COMORG_CODE = #{st_byca_comorg_code} ${WHERE}),
+			                         #{BID})) C
+			 WHERE     A.STATUS != 'D'
+			       AND A.BTYPE = #{BTYPE}
+			       AND A.BYCA_COMORG_CODE = #{st_byca_comorg_code}
+			       AND A.BID = #{BID}
+		]]>	 
+	</select>
+	
+	<update id="updateNoticeLCount"  parameterType="java.util.Map">
+		<![CDATA[
+		/*updateNoticeLCount*/
+		UPDATE BUYERBOARD
+		   SET LCOUNT = LCOUNT + 1
+		 WHERE STATUS <> 'D' AND BID = #{BID} AND BTYPE = #{BTYPE} AND BYCA_COMORG_CODE = #{st_byca_comorg_code}
+		]]>
+	</update>
+	
+	<update id="updateDetailList"  parameterType="java.util.Map">
+		<![CDATA[
+		/*updateDetailList*/
+		UPDATE BUYERBOARD
+		   SET CONTEXT = #{CONTEXT}, SUBJECT = #{SUBJECT}, IMAGE_KEY = #{IMAGE_KEY}
+		 WHERE BID = #{BID} AND BTYPE = #{BTYPE} AND BYCA_COMORG_CODE = #{st_byca_comorg_code}
+		]]>
+	</update>
+	
+	<update id="deleteDetailList"  parameterType="java.util.Map">
+		<![CDATA[
+		/*deleteDetailList*/
+		DELETE FROM BUYERBOARD
+		 WHERE BID = #{BID} AND BTYPE = #{BTYPE} AND BYCA_COMORG_CODE = #{st_byca_comorg_code}
+		]]>
+	</update>
+	
+	<update id="insertDetailList"  parameterType="java.util.Map">
+			<selectKey keyProperty="BID" order="BEFORE" resultType="integer"> 
+				SELECT NVL(MAX(BID),0)+1 AS BID FROM BUYERBOARD WHERE BYCA_COMORG_CODE = #{BYCA_COMORG_CODE}
+			</selectKey> 
+			<![CDATA[
+			INSERT INTO BUYERBOARD (BID,
+			                        BTYPE,
+			                        COM_CODE,
+			                        BYCA_COMORG_CODE,
+			                        STATUS,
+			                        VID,
+			                        PID,
+			                        BLEVEL,
+			                        ACL,
+			                        LCOUNT,
+			                        SORT,
+			                        SUBJECT,
+			                        CONTEXT,
+			                        REG_USER_ID,
+			                        REG_DATE,
+			                        REG_TIME,
+			                        REG_DEP,
+			                        REG_DEP_NAME,
+			                        IMAGE_KEY,
+			                        PASSWORD,
+			                        FROM_DATE,
+			                        TO_DATE,
+			                        OPEN_FLAG)
+			     VALUES (#{BID},
+			             #{BTYPE},
+			             #{COM_CODE},
+			             #{BYCA_COMORG_CODE},
+			             'C',
+			             #{BID}*10,
+			             #{BID},
+			             0,
+			             'ALL',
+			             0,
+			             '',
+			             #{SUBJECT},
+			             #{CONTEXT},
+			             #{REG_USER_ID},
+			             TO_CHAR(SYSDATE,'YYYYMMDD'),
+			             TO_CHAR(SYSDATE,'HHMMSS'),
+			             #{REG_DEP},
+			             #{REG_DEP_NAME},
+			             #{IMAGE_KEY},
+			             '',
+			             replace( #{FROM_DATE},'/',''),
+			             replace( #{TO_DATE},'/',''),
+			             'Y')
+		       ]]>
+		</update>
+	
+
+</mapper>

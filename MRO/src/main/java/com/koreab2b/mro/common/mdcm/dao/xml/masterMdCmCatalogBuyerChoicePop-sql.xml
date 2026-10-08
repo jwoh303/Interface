@@ -1,0 +1,165 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="common.mdcm">
+
+
+	<select id="selectMasterMdCmCatalogBuyerChoicePopList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*selectMasterMdCmCatalogBuyerChoicePopList*/
+            SELECT DISTINCT  
+                   DECODE(A.BYCA_COMORG_LEVEL,'1','그룹','2','사업장') AS BYCA_COMORG_LEVEL,    --[00]
+                   A.BYCA_COMORG_CODE AS BYCA_COMORG_CODE,    --[01]
+                   DECODE(A.BYCA_COMORG_LEVEL,  
+                         '1',(SELECT COMORG_NAME FROM BYCAORGL WHERE COMORG_LEVEL = '1' AND COMORG_CODE = A.BYCA_COMORG_CODE),  
+                         '2',COM_NAME_LOC) AS COMORG_NAME,    --[02]
+                   (SELECT COUNT(*) FROM ICOMBYIT_ADD WHERE BUYER = A.BYCA_COMORG_CODE AND STATUS IN('C','X','J') AND SO_CA_FLAG='CA') AS ICOMBYIT_ADD_CNT,    --[03]
+                   DECODE(A.BYCA_COMORG_LEVEL,'1','1','2',  
+                               DECODE((SELECT COMORG_LEVEL FROM BYCAORGL WHERE COMORG_CODE = A.BYCA_COMORG_CODE),'1','2','3')) AS TYPE,    --[04]
+                   2 AS NO,    --[05]
+                   A.COM_CODE AS COM_CODE,    --[06]
+                   A.WAREHOUSE_CODE
+              FROM ICOMCMPY A  
+             WHERE A.BUSINESS_COND IN ('B','M')  
+               AND A.STATUS IN ('C','R')  
+               AND A.COM_CODE <> 'KRCOMMG001'
+		]]>	
+		<if test="st_session_id != null and st_session_id != ''">	     
+			   <![CDATA[
+			   AND  A.COM_CODE IN (
+					SELECT COM_CODE FROM ICOMCMPY CMPY
+					WHERE  BUSINESS_COND IN( 'B','M')
+					AND STATUS IN ('R','C')
+					AND COM_CODE IN (SELECT CMPY.COM_CODE
+					                 FROM ICOMCOD3 COD3
+					                 WHERE COD3.BUYER = 'KRKORE0001'
+					                 AND   COD3.TYPE = 'CMPY'
+					                 AND   COD3.CODE1= 'ALL'
+					                 AND   COD3.CODE2 = #{st_session_id}
+					                 UNION ALL
+					                 SELECT MNG.BUYER
+					                 FROM  ICOMCOD3 COD3, MIS_BUYER_MNG MNG
+					                 WHERE COD3.BUYER = 'KRKORE0001'
+					                 AND   COD3.TYPE = 'CMPY'
+					                 AND   COD3.CODE1= MNG.KEP_DEPT
+					                 AND   COD3.CODE2 = #{st_session_id}
+					                 AND   MNG.YEAR = TO_CHAR(SYSDATE,'YYYY')
+					                 AND   MNG.STATUS = 'C'
+					                 UNION ALL
+					                 SELECT BUYER
+					                 FROM  MIS_BUYER_MNG
+					                 WHERE YEAR = TO_CHAR(SYSDATE,'YYYY')
+					                 AND   STATUS = 'C'
+					                 AND   KEP_USER_ID = #{st_session_id}
+					                 UNION ALL
+					                 SELECT COD.CODE1
+									FROM ICOMCOD3 COD , ICOMCMPY CMPY
+									WHERE  COD.BUYER = 'KRKORE0001'
+									AND COD.TYPE = 'CMPY'
+									AND COD.CODE1 = CMPY.COM_CODE
+									AND COD.CODE2 = #{st_session_id}
+									AND TO_CHAR(SYSDATE,'YYYYMMDD') BETWEEN TEXT2 AND TEXT3
+					                 )
+			   )
+			   ]]>  
+		</if>   
+		<if test="st_buyer_code != null and st_buyer_code != ''">	     
+			   <![CDATA[
+			   AND  A.COM_CODE LIKE UPPER(#{st_buyer_code}||'%')
+			   ]]>  
+		</if>
+		<if test="st_buyer_name != null and st_buyer_name != ''">	     
+			   <![CDATA[
+			   AND  A.COM_NAME_LOC LIKE '%'||#{st_buyer_name}||'%'
+			   ]]>  
+		</if>
+			 ORDER BY 6,3 							 
+	</select>
+	
+	<select id="selectDefMasterMdCmCatalogBuyerChoicePopList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*selectDefMasterMdCmCatalogBuyerChoicePopList*/
+	       SELECT  
+	              MAX(DECODE(A.BYCA_COMORG_LEVEL,  
+	                             '1','그룹',  
+	                             '2','사업장')) AS BYCA_COMORG_LEVEL,     --[00]
+	              B.BUYER AS BYCA_COMORG_CODE,     --[01]
+	              MAX(DECODE(A.BYCA_COMORG_LEVEL,  
+	                         '1',(SELECT COMORG_NAME  FROM BYCAORGL WHERE COMORG_LEVEL = '1' AND COMORG_CODE = B.BUYER),  
+	                         '2',(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = B.BUYER))) AS COMORG_NAME,     --[02]
+	              COUNT(B.SEQ) AS ICOMBYIT_ADD_CNT,     --[03]
+	              MAX(DECODE(A.BYCA_COMORG_LEVEL,'1','1','2',  
+	                          DECODE((SELECT COMORG_LEVEL FROM BYCAORGL WHERE COMORG_CODE = A.BYCA_COMORG_CODE),1,'2','3'))) AS TYPE,     --[04]
+	              2 AS NO,      --[05]
+	              MAX(A.COM_CODE) AS COM_CODE,    --[06]
+	              MAX(A.WAREHOUSE_CODE) AS WAREHOUSE_CODE 
+	         FROM (SELECT MAX(COM_CODE) AS COM_CODE, BYCA_COMORG_CODE, BYCA_COMORG_LEVEL, MAX(WAREHOUSE_CODE) AS WAREHOUSE_CODE
+	                 FROM ICOMCMPY WHERE BUSINESS_COND IN ('B','M') AND STATUS IN ('C','R')  
+	                GROUP BY BYCA_COMORG_CODE, BYCA_COMORG_LEVEL) A,  
+	              ICOMBYIT_ADD B  
+	        WHERE A.BYCA_COMORG_CODE = B.BUYER  
+	          AND B.BUYER <> 'KRCOMMG001'
+	          AND B.STATUS IN ('C','X','J')  
+	          AND B.SO_CA_FLAG='CA'
+	          --추가 시작 2019.02.14
+              AND NOT EXISTS (SELECT 'A'
+                              FROM KEPMGPHD C, KEPMGPDT D, ICOMTRGW E
+                              WHERE C.BUYER = D.BUYER
+                              AND C.PM_NO = E.KEY_1
+                              AND E.COM_CODE = 'KRKORE0001'
+                              AND C.PM_NO = D.PM_NO
+                              AND C.STATUS = 'C'
+                              AND C.GUBUN = 'NCA'
+                              AND D.RE_UNIT_PRICE = B.UNIT_PRICE
+                              AND D.RE_LIST_PRICE = B.LIST_PRICE
+                              AND D.AGENT = B.AGENT_CODE
+                              AND C.BUYER = B.BELOW_COMORG_CODE
+                              AND D.PO_NO = TO_CHAR (B.SEQ)
+                              AND D.BUYER_ITEM_NO = B.BUYER_ITEM_NO)
+               -- 추가 종료 2019.02.14    
+			   ]]>
+		<if test="st_session_id != null and st_session_id != ''">	     
+			   <![CDATA[
+			   AND  B.BUYER IN (
+					SELECT COM_CODE FROM ICOMCMPY CMPY
+					WHERE  BUSINESS_COND IN ('B','M')
+					AND STATUS IN ('R','C')
+					AND COM_CODE IN (SELECT CMPY.COM_CODE
+					                 FROM ICOMCOD3 COD3
+					                 WHERE COD3.BUYER = 'KRKORE0001'
+					                 AND   COD3.TYPE = 'CMPY'
+					                 AND   COD3.CODE1= 'ALL'
+					                 AND   COD3.CODE2 = #{st_session_id}
+					                 UNION ALL
+					                 SELECT MNG.BUYER
+					                 FROM  ICOMCOD3 COD3, MIS_BUYER_MNG MNG
+					                 WHERE COD3.BUYER = 'KRKORE0001'
+					                 AND   COD3.TYPE = 'CMPY'
+					                 AND   COD3.CODE1= MNG.KEP_DEPT
+					                 AND   COD3.CODE2 = #{st_session_id}
+					                 AND   MNG.YEAR = TO_CHAR(SYSDATE,'YYYY')
+					                 AND   MNG.STATUS = 'C'
+					                 UNION ALL
+					                 SELECT BUYER
+					                 FROM  MIS_BUYER_MNG
+					                 WHERE YEAR = TO_CHAR(SYSDATE,'YYYY')
+					                 AND   STATUS = 'C'
+					                 AND   KEP_USER_ID = #{st_session_id}
+					                 UNION ALL
+					                 SELECT COD.CODE1
+									FROM ICOMCOD3 COD , ICOMCMPY CMPY
+									WHERE  COD.BUYER = 'KRKORE0001'
+									AND COD.TYPE = 'CMPY'
+									AND COD.CODE1 = CMPY.COM_CODE
+									AND COD.CODE2 = #{st_session_id}
+									AND TO_CHAR(SYSDATE,'YYYYMMDD') BETWEEN TEXT2 AND TEXT3
+					                 )
+			   )
+			   ]]>  
+		</if>  
+<![CDATA[
+	       GROUP BY B.BUYER  
+	       ORDER BY 6,3
+       ]]>
+       </select>
+								
+</mapper>

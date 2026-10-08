@@ -1,0 +1,302 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="common.mpiv">
+
+	<select id="selectCommonMpIvInvoiceDetailIVPopInfo" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/*selectCommonMpIvInvoiceDetailIVPopInfo*/
+			SELECT
+				  MAX(POHD.PO_NO) AS PO_NO																													-- 0
+				, MAX(IVHD.INV_NO) AS INV_NO																												-- 1
+				, MAX((	SELECT COM_NAME_LOC 
+						FROM ICOMCMPY
+						WHERE COM_CODE = (	SELECT DECODE(B.PROCESS_TYPE, '2', B.WAREHOUSE_CODE,B.BUYER)
+											FROM ICOMPODT B
+											WHERE 	B.BUYER = POHD.BUYER
+												AND B.PO_NO = POHD.PO_NO 
+												AND  ROWNUM = 1 ))) AS BUYER_NAME																			-- 2
+				, MAX(DECODE(CMP.AGENT_OPEN_FLAG,'N','코리아이플랫폼(주)',(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = IVHD.AGENT))) AS AGENT_NAME	-- 3
+				, MAX((SELECT MAX(RD_DATE) FROM ICOMPODT WHERE BUYER = POHD.BUYER AND PO_NO = POHD.PO_NO)) AS RD_DATE										-- 4
+				, MAX(IVHD.INV_DATE) AS INV_DATE																											-- 5
+				, MAX((	SELECT MAX(DECODE((	SELECT COUNT(*) 
+											FROM ICOMCOD2 
+											WHERE 	COMPANY_CODE = DECODE(DT.PROCESS_TYPE,'2','KRKORE0068',POHD.BUYER)
+												AND TYPE = 'C012' 
+												AND CODE = DECODE(DT.PROCESS_TYPE,'2','001',POHD.DELY_TO_LOCATION)), 0, POHD.DELY_TO_LOCATION,
+											(	SELECT TEXT2 
+												FROM ICOMCOD2 
+												WHERE 	COMPANY_CODE = DECODE(DT.PROCESS_TYPE,'2','KRKORE0068',POHD.BUYER)
+													AND TYPE = 'C012' 
+													AND CODE = DECODE(DT.PROCESS_TYPE,'2','001',POHD.DELY_TO_LOCATION)
+										)))
+						FROM ICOMPODT DT
+						WHERE 	BUYER = POHD.BUYER
+							AND PO_NO = POHD.PO_NO)) AS DELY_TO_LOCATION																					-- 6 
+				, MAX(IVHD.REMARK_INV) AS REMARK_INV																										-- 7
+				, MAX(DECODE(CMP.AGENT_OPEN_FLAG,'N','KRKORE0001',IVHD.AGENT)) AS AGENT_CODE																-- 8
+				, MAX(PODT.LEGACY_PO_NO) AS LEGACY_PO_NO
+				, MAX(POHD.PURCHASER_ID) AS PURCHASER_ID
+				, MAX(IVHD.LEGACY_IV_SERIAL) AS LEGACY_IV_SERIAL
+				, MAX(DECODE(PODT.PROCESS_TYPE,'2',PODT.WAREHOUSE_CODE,PODT.BUYER)) AS TR_BUYER
+				, MAX(P.QRY_STR1) AS QRY_STR1
+				, MAX(P.QRY_STR2) AS QRY_STR2
+				, MAX(P.QRY_STR3) AS QRY_STR3
+				, MAX(P.QRY_STR4) AS QRY_STR4
+				, MAX((SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'C019' AND CODE = IVHD.PARCEL_COM_CODE)) AS PARCEL_COM_CODE
+				, MAX(IVHD.PARCEL_INV_NO) AS PARCEL_INV_NO
+			FROM ICOMIVHD IVHD , ICOMIVDT IVDT , ICOMPOHD POHD, ICOMCMPY CMP, ICOMPODT PODT
+					, (
+						SELECT
+							  Y.QRY_STR1
+							, Y.QRY_STR2
+							, Y.QRY_STR3
+							, Y.QRY_STR4
+							, X.SLG_ID
+							, X.DEFAULT_RPT_URL
+						FROM (	SELECT 
+									  'P06-0000002' AS SLG_ID								-- ID 하드코딩 
+									, 'RD_06_S_001_83' AS DEFAULT_RPT_URL	--디폴트 유알엘 하드코딩 , 추후 변경 /kr/epro/buy/sheet/inv_prn.jsp  
+								FROM DUAL												--한건도 조회되지 않는 것 방지 
+							) X
+							, (
+								SELECT
+									  B.COL01_DATA QRY_STR1
+									, B.COL02_DATA QRY_STR2
+									, B.COL03_DATA QRY_STR3
+									, B.COL03_DATA QRY_STR4
+									, A.SLG_ID
+								FROM BNTSLGDEF A, BNTSLGIMP B
+								WHERE 
+										1=1
+									AND A.SLG_ID = B.SLG_ID --default url을 가져오기 위해 아우터조인 
+									AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN A.OPEN_DATE AND A.CLOSE_DATE
+									AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN B.OPEN_DATE AND B.CLOSE_DATE
+									AND B.COM_CODE = #{buyer}		-- 고객사 회사코드
+									AND A.SLG_ID = 'P06-0000002' 	-- ID하드코딩 
+							) Y
+						WHERE 1=1
+							AND X.SLG_ID = Y.SLG_ID(+) 
+					) P
+			WHERE 
+					IVHD.BUYER  = #{buyer}
+				AND IVHD.SELLER = #{seller}
+				AND IVHD.INV_NO = #{inv_no}
+				AND IVHD.BUYER  = IVDT.BUYER
+				AND IVHD.INV_NO = IVDT.INV_NO
+				AND IVDT.BUYER  = POHD.BUYER
+				AND IVDT.PO_NO  = POHD.PO_NO
+				AND IVDT.BUYER = PODT.BUYER
+			    AND IVDT.PO_NO = PODT.PO_NO
+			    AND IVDT.PO_SEQ= PODT.PO_SEQ
+				AND IVHD.STATUS <>'D'
+				AND IVDT.STATUS <>'D'
+				AND POHD.STATUS <>'D'
+				AND PODT.STATUS <> 'D'
+				AND POHD.BUYER = CMP.COM_CODE
+			GROUP BY IVHD.INV_NO
+		]]>
+	</select>
+	<select id="selectCommonMpIvInvoiceDetailIVPopInfo_v2" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/*selectCommonMpIvInvoiceDetailIVPopInfo_v2*/
+			SELECT
+				  MAX(POHD.PO_NO) AS PO_NO																													-- 0
+				, MAX(IVHD.INV_NO) AS INV_NO																												-- 1
+				, MAX((	SELECT COM_NAME_LOC 
+						FROM ICOMCMPY
+						WHERE COM_CODE = (	SELECT DECODE(B.PROCESS_TYPE, '2', B.WAREHOUSE_CODE,B.BUYER)
+											FROM ICOMPODT B
+											WHERE 	B.BUYER = POHD.BUYER
+												AND B.PO_NO = POHD.PO_NO 
+												AND  ROWNUM = 1 ))) AS BUYER_NAME																			-- 2
+				, MAX(DECODE(CMP.AGENT_OPEN_FLAG,'N','코리아이플랫폼(주)',(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = IVHD.AGENT))) AS AGENT_NAME	-- 3
+				, MAX((SELECT MAX(RD_DATE) FROM ICOMPODT WHERE BUYER = POHD.BUYER AND PO_NO = POHD.PO_NO)) AS RD_DATE										-- 4
+				, MAX(IVHD.INV_DATE) AS INV_DATE																											-- 5
+				, MAX((	SELECT MAX(DECODE((	SELECT COUNT(*) 
+											FROM ICOMCOD2 
+											WHERE 	COMPANY_CODE = DECODE(DT.PROCESS_TYPE,'2','KRKORE0068',POHD.BUYER)
+												AND TYPE = 'C012' 
+												AND CODE = DECODE(DT.PROCESS_TYPE,'2','001',POHD.DELY_TO_LOCATION)), 0, POHD.DELY_TO_LOCATION,
+											(	SELECT TEXT2 
+												FROM ICOMCOD2 
+												WHERE 	COMPANY_CODE = DECODE(DT.PROCESS_TYPE,'2','KRKORE0068',POHD.BUYER)
+													AND TYPE = 'C012' 
+													AND CODE = DECODE(DT.PROCESS_TYPE,'2','001',POHD.DELY_TO_LOCATION)
+										)))
+						FROM ICOMPODT DT
+						WHERE 	BUYER = POHD.BUYER
+							AND PO_NO = POHD.PO_NO)) AS DELY_TO_LOCATION																					-- 6 
+				, MAX(IVHD.REMARK_INV) AS REMARK_INV																										-- 7
+				, MAX(DECODE(CMP.AGENT_OPEN_FLAG,'N','KRKORE0001',IVHD.AGENT)) AS AGENT_CODE																-- 8
+				, MAX(PODT.LEGACY_PO_NO) AS LEGACY_PO_NO
+				, MAX(POHD.PURCHASER_ID) AS PURCHASER_ID
+				, MAX(IVHD.LEGACY_IV_SERIAL) AS LEGACY_IV_SERIAL
+				, MAX((SELECT REPLACE(TEXT5,'param',IVHD.PARCEL_INV_NO) FROM ICOMCOD1 WHERE TYPE = 'C019' AND CODE = IVHD.PARCEL_COM_CODE)) AS PARCEL_URL
+				, MAX(DECODE(PODT.PROCESS_TYPE,'2',PODT.WAREHOUSE_CODE,PODT.BUYER)) AS TR_BUYER
+				, MAX(P.QRY_STR1) AS QRY_STR1
+				, MAX(P.QRY_STR2) AS QRY_STR2
+				, MAX(P.QRY_STR3) AS QRY_STR3
+				, MAX(P.QRY_STR4) AS QRY_STR4
+				, MAX((SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'C019' AND CODE = IVHD.PARCEL_COM_CODE)) AS PARCEL_COM_CODE
+				, MAX(IVHD.PARCEL_INV_NO) AS PARCEL_INV_NO
+				, MAX((SELECT TEXT1 FROM ICOMCOD2 WHERE TYPE = 'C012' AND COMPANY_CODE = PODT.BUYER AND CODE = (SELECT PR.DELY_TO_LOCATION FROM ICOMPRDT PR WHERE PR.BUYER = PODT.BUYER AND PR.PR_NO = PODT.PR_NO AND PR.PR_SEQ = PODT.PR_SEQ AND PR.STATUS != 'D'))) AS DELY_TO_LOCATION_TEXT
+				, MAX((SELECT PR.RECIPIENT_NAME FROM ICOMPRDT PR WHERE PR.BUYER = PODT.BUYER AND PR.PR_NO = PODT.PR_NO AND PR.PR_SEQ = PODT.PR_SEQ AND PR.STATUS != 'D')) AS RECIPIENT_NAME
+				, MAX((SELECT PR.RECIPIENT_PHONE FROM ICOMPRDT PR WHERE PR.BUYER = PODT.BUYER AND PR.PR_NO = PODT.PR_NO AND PR.PR_SEQ = PODT.PR_SEQ AND PR.STATUS != 'D')) AS RECIPIENT_PHONE
+				, MAX((SELECT COUNT(*) FROM ICOMIVDT WHERE BUYER = IVHD.BUYER AND INV_NO = IVHD.INV_NO AND STATUS != 'D')) AS INV_CNT
+				, MAX(IVHD.INV_AMT) AS INV_AMT
+			FROM ICOMIVHD IVHD , ICOMIVDT IVDT , ICOMPOHD POHD, ICOMCMPY CMP, ICOMPODT PODT
+					, (
+						SELECT
+							  Y.QRY_STR1
+							, Y.QRY_STR2
+							, Y.QRY_STR3
+							, Y.QRY_STR4
+							, X.SLG_ID
+							, X.DEFAULT_RPT_URL
+						FROM (	SELECT 
+									  'P06-0000002' AS SLG_ID								-- ID 하드코딩 
+									, 'RD_06_S_001_83' AS DEFAULT_RPT_URL	--디폴트 유알엘 하드코딩 , 추후 변경 /kr/epro/buy/sheet/inv_prn.jsp  
+								FROM DUAL												--한건도 조회되지 않는 것 방지 
+							) X
+							, (
+								SELECT
+									  B.COL01_DATA QRY_STR1
+									, B.COL02_DATA QRY_STR2
+									, B.COL03_DATA QRY_STR3
+									, B.COL03_DATA QRY_STR4
+									, A.SLG_ID
+								FROM BNTSLGDEF A, BNTSLGIMP B
+								WHERE 
+										1=1
+									AND A.SLG_ID = B.SLG_ID --default url을 가져오기 위해 아우터조인 
+									AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN A.OPEN_DATE AND A.CLOSE_DATE
+									AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN B.OPEN_DATE AND B.CLOSE_DATE
+									AND B.COM_CODE = #{buyer}		-- 고객사 회사코드
+									AND A.SLG_ID = 'P06-0000002' 	-- ID하드코딩 
+							) Y
+						WHERE 1=1
+							AND X.SLG_ID = Y.SLG_ID(+) 
+					) P
+			WHERE 
+					IVHD.BUYER  = #{buyer}
+				AND IVHD.SELLER = #{seller}
+				AND IVHD.INV_NO = #{inv_no}
+				AND IVHD.BUYER  = IVDT.BUYER
+				AND IVHD.INV_NO = IVDT.INV_NO
+				AND IVDT.BUYER  = POHD.BUYER
+				AND IVDT.PO_NO  = POHD.PO_NO
+				AND IVDT.BUYER = PODT.BUYER
+			    AND IVDT.PO_NO = PODT.PO_NO
+			    AND IVDT.PO_SEQ= PODT.PO_SEQ
+				AND IVHD.STATUS <>'D'
+				AND IVDT.STATUS <>'D'
+				AND POHD.STATUS <>'D'
+				AND PODT.STATUS <> 'D'
+				AND POHD.BUYER = CMP.COM_CODE
+			GROUP BY IVHD.INV_NO
+		]]>
+	</select>
+	
+	<select id="selectCommonMpIvInvoiceDetailIVPopList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/*selectCommonMpIvInvoiceDetailIVPopList*/
+			SELECT
+				  B.BUYER_ITEM_NO							-- 0
+				, B.DESCRIPTION								-- 1
+				, B.SPECIFICATION							-- 2
+				, NVL(B.ITEM_QTY,0) AS ITEM_QTY				-- 3
+				, NVL(A.INV_QTY,0) AS INV_QTY				-- 4
+				, A.UNIT_MEASURE							-- 5
+				, A.UNIT_PRICE								-- 6
+				, NVL(B.ITEM_QTY,0)*A.UNIT_PRICE AS PO_AMT	-- 7
+				, B.REF_PR_NO								-- 8
+				, B.BYIT_COMORG_CODE						-- 9
+				, B.CONTRACT_NO								-- 10
+				, B.CONTRACT_SEQ							-- 11
+			FROM ICOMIVDT A, ICOMPODT B
+			WHERE 
+					A.INV_NO = #{inv_no}
+				AND A.SELLER = #{seller}
+				AND A.BUYER = #{buyer}
+				AND A.STATUS != 'D'
+				AND A.INV_QTY > 0
+				AND B.STATUS != 'D'
+				AND B.SELLER = A.SELLER
+				AND B.BUYER = A.BUYER
+				AND B.PO_NO = A.PO_NO
+				AND B.PO_SEQ = A.PO_SEQ
+			ORDER BY 1, 2			 
+		]]>
+	</select>
+	<select id="selectCommonMpIvInvoiceDetailIVPopList_v2" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/*selectCommonMpIvInvoiceDetailIVPopList_v2*/
+			SELECT
+				  B.BUYER_ITEM_NO							-- 0
+				, B.DESCRIPTION								-- 1
+				, B.SPECIFICATION							-- 2
+				, NVL(B.ITEM_QTY,0) AS ITEM_QTY				-- 3
+				, NVL(A.INV_QTY,0) AS INV_QTY				-- 4
+				, A.UNIT_MEASURE							-- 5
+				, A.UNIT_PRICE								-- 6
+				, NVL(B.ITEM_QTY,0)*A.UNIT_PRICE AS PO_AMT	-- 7
+				, B.REF_PR_NO								-- 8
+				, B.BYIT_COMORG_CODE						-- 9
+				, B.CONTRACT_NO								-- 10
+				, B.CONTRACT_SEQ							-- 11
+				, (SELECT COUNT(*) FROM ICOMATCH WHERE DOC_NO = B.IMAGE_KEY) AS IMAGE_KEY_CNT
+				, B.IMAGE_KEY
+				, B.PO_REMARK
+				,(SELECT TEXT2 FROM ICOMCOD2             
+		                          WHERE COMPANY_CODE = B.BUYER    
+		                            AND TYPE = 'Z014'             
+		                            AND CODE = B.ACCOUNT_TYPE)   AS ACCOUNT_NAME  -- 계정명
+		            	  ,(select                                                                                                                 
+					              	    DECODE(COUNT(*),0 , '',                                                                                                 
+					                                  1 , DECODE(B.BUDGET_DEPT ,MAX(F.CODE1),     
+					                                          MAX((SELECT TEXT1 FROM ICOMCOD2 T                                                               
+					                                               WHERE T.COMPANY_CODE = B.BUYER AND T.TYPE = 'C001' AND T.CODE = F.CODE1)) ,''),            
+					                                  MAX((SELECT                                                                                             
+					                                          MAX((SELECT TEXT1 FROM ICOMCOD2 T                                                               
+					                                               WHERE T.COMPANY_CODE = B.BUYER AND T.TYPE = 'C001' AND T.CODE = F.CODE1))                  
+					                                       FROM ICOMCOD3 E , ICOMCOD3 F                                                                       
+					                                      WHERE E.BUYER = B.BUYER                                                                             
+					                                        AND E.CODE1 = B.BUDGET_DEPT                                             
+					                                        AND E.TYPE  = 'DTOD'                                                                              
+					                                        AND E.BUYER = F.BUYER                                                                             
+					                                        AND E.CODE2 = F.CODE1                                                                             
+					                                        AND F.TYPE  = 'DTOA'                                                                              
+					                                        AND F.CODE1 =  B.BUDGET_DEPT            
+					                                        AND DECODE(F.FLAG,'Y',DECODE(  B.BUDGET_DEPT  ,F.CODE1,'N','Y'),'N') = 'N'          
+					                                        AND F.CODE2 = B.ACCOUNT_TYPE))       )               
+					                  FROM ICOMCOD3 E , ICOMCOD3 F                                                                                            
+					                  WHERE E.BUYER = B.BUYER                                                                                                 
+					                    AND E.CODE1 = B.BUDGET_DEPT                                    
+					                    AND E.TYPE  = 'DTOD'                                                                                                  
+					                    AND E.BUYER = F.BUYER                                                                                                 
+					                    AND E.CODE2 = F.CODE1                                                                                                 
+					                    AND F.TYPE  = 'DTOA'                                                                                                  
+					                    AND F.CODE2 = B.ACCOUNT_TYPE   ) BUDGET_DEPT_NAME       -- 예산부서
+			,DECODE((SELECT AGENT_OPEN_FLAG FROM ICOMCMPY WHERE COM_CODE = B.BUYER),  
+                           'N', 'KRKORE0001',  
+                                (SELECT POHD.AGENT  
+                                   FROM ICOMPOHD POHD
+                                  WHERE POHD.BUYER = B.BUYER  
+                                    AND POHD.PO_NO = B.PO_NO)) AS AGENT_CODE 
+			FROM ICOMIVDT A, ICOMPODT B
+			WHERE 
+					A.INV_NO = #{inv_no}
+				AND A.SELLER = #{seller}
+				AND A.BUYER = #{buyer}
+				AND A.STATUS != 'D'
+				AND A.INV_QTY > 0
+				AND B.STATUS != 'D'
+				AND B.SELLER = A.SELLER
+				AND B.BUYER = A.BUYER
+				AND B.PO_NO = A.PO_NO
+				AND B.PO_SEQ = A.PO_SEQ
+			ORDER BY 1, 2			 
+		]]>
+	</select>
+								
+</mapper>

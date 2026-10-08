@@ -1,0 +1,281 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.wmst">
+
+	<!-- 조회 -->
+	<select id="selectMasterWmStStockSum" parameterType="java.util.Map" resultType="java.lang.String">
+		<![CDATA[
+			SELECT /*selectMasterWmStStockSum*/       
+			           NVL(SUM(STCK.STC_SELLER_PRICE*STCK.AVAIL_QTY),0)
+			           FROM WMSSTCK STCK, ICOMCQDT CQDT, CMSCATLG CMS	
+	        WHERE STCK.WAREHOUSE_CODE=#{st_warehouse_code}												
+		       AND STCK.WAREHOUSE_CODE = CQDT.BUYER											
+		       AND STCK.STDCATLG_ID = CQDT.BUYER_ITEM_NO										
+		       AND STCK.AGENT = DECODE(CQDT.PROCESS_TYPE,'1','KRKORE0001','3',STCK.AGENT )		
+		       AND STCK.AVAIL_QTY <> 0
+		       AND STCK.STDCATLG_ID = CMS.CMS_CATLG_ID
+		]]>
+				<if test=" st_stdcatlg_id !=null and st_stdcatlg_id !=''">
+					AND STCK.STDCATLG_ID LIKE '%'||#{st_stdcatlg_id} ||'%'		
+				</if>		
+				<if test=" st_agent_code !=null and st_agent_code !=''">
+					AND STCK.AGENT = #{st_agent_code}
+				</if>
+				<if test=" st_process_type !=null and st_process_type !=''">
+					
+			  <choose>
+			  	<when test='st_process_type =="ALL"'>
+			  		<![CDATA[	
+			  			AND STCK.PROCESS_TYPE IN ('1','3')	
+			  		]]>
+			  	</when>
+			  	<otherwise>
+			  			<![CDATA[	
+			  				AND STCK.PROCESS_TYPE = #{st_process_type}
+			  			]]>
+			  	</otherwise>
+			  </choose>							
+				</if>
+				<if test="st_dept != null and st_dept != ''">
+					AND CMS.KEP_DEPT = #{st_dept}
+				</if>
+				<if test= 'st_group_type != "ALL"'>
+					AND CMS.STOCK_GROUP_TYPE = #{st_group_type}
+				</if>																
+				<if test=" st_description !=null and st_description !=''">
+					AND CQDT.DESCRIPTION LIKE '%'||#{st_description}||'%'
+				</if>												
+				<if test=" st_specification !=null and st_specification !=''">
+					AND CQDT.SPECIFICATION LIKE'%'||#{st_specification}||'%'		
+				</if>	
+			  <choose>
+			  	<when test='st_isExist =="Y"'>
+			  		<![CDATA[	
+			  			AND STCK.AVAIL_QTY > 0		
+			  		]]>
+			  	</when>
+			  	<when test='st_isExist =="N"'>
+			  			<![CDATA[	
+			  			AND STCK.AVAIL_QTY = 0 		
+			  			]]>
+			  	</when>
+			  </choose>						
+	</select>
+
+	<!-- 조회 -->
+	<select id="selectMasterWmStStockList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.pagestart"/>	
+			<![CDATA[
+		    	SELECT /*selectMasterWmStStockList*/
+		    	Y.KEP_DEPT,
+				Y.KEP_DEPT_NAME,
+				Y.STOCK_GROUP_TYPE	AS GROUP_TYPE,
+				Y.STDCATLG_ID,		
+				Y.DESCRIPTION,		
+				Y.MAKER_NAME,		
+				Y.UNIT_MEASURE,		
+				Y.TOT_QTY,			
+				Y.ALLOC_QTY,		
+				Y.SAFE_STOCK_QTY,	
+				Y.STC_SELLER_PRICE,	
+				Y.AGENT_NAME,		
+				Y.AGENT_TEL,		
+				Y.PROCESS_TYPE_TEXT,
+				Y.SPECIFICATION,	
+				Y.LOCATION_ID,		
+				Y.AVAIL_QTY,		
+				Y.PRE_GR_QTY,		
+				Y.MAX_STOCK_QTY,	
+				Y.LAST_REC_DATE,	
+				Y.CONTRACT_NO,		
+				Y.CONTRACT_SEQ,		
+				Y.AGENT	,
+				Y.AGENT_NAME  || DECODE(Y.AGENT_TEL,'','','('||Y.AGENT_TEL||')') AGENT_VIEW
+				FROM (											
+				]]>
+		        <if test='st_process_type == "ALL" or st_process_type == "1"'>
+		       <![CDATA[
+				SELECT
+					CMS.KEP_DEPT,
+					(SELECT TEXT1 FROM ICOMCOD2 WHERE TYPE = 'C001' AND COMPANY_CODE = 'KRKORE0001' AND CODE = CMS.KEP_DEPT) AS KEP_DEPT_NAME,
+					CMS.STOCK_GROUP_TYPE,					
+					STCK.STDCATLG_ID,																
+					CQDT.DESCRIPTION,																
+					CQDT.MAKER_NAME,																
+					STCK.UNIT_MEASURE,																
+					STCK.TOT_QTY,																	
+					STCK.ALLOC_QTY,																	
+					STCK.SAFE_STOCK_QTY,															
+					STCK.STC_SELLER_PRICE,															
+					(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = STCK.AGENT) AS AGENT_NAME,	
+					(SELECT TEL_NO FROM ICOMCMPY WHERE COM_CODE = STCK.AGENT) AS AGENT_TEL,			
+					DECODE(STCK.PROCESS_TYPE,'1','재고','2','TR','3','VMI') AS PROCESS_TYPE_TEXT,	
+					CQDT.SPECIFICATION,																
+					STCK.LOCATION_ID,																
+					STCK.AVAIL_QTY,																	
+					STCK.PRE_GR_QTY,																
+					STCK.MAX_STOCK_QTY,																
+					STCK.LAST_REC_DATE,																
+					CQDT.CONTRACT_NO,																
+					CQDT.CONTRACT_SEQ,																
+					STCK.AGENT,																		
+					STCK.PROCESS_TYPE																
+				FROM WMSSTCK STCK , ICOMCQDT CQDT, CMSCATLG CMS													
+				WHERE STCK.WAREHOUSE_CODE=#{st_warehouse_code}		
+					AND STCK.ORG_WAREHOUSE_CODE = CQDT.BUYER											
+					AND STCK.STDCATLG_ID = CQDT.BUYER_ITEM_NO										
+					AND STCK.AGENT = 'KRKORE0001'													
+					AND STCK.CONTRACT_NO = CQDT.CONTRACT_NO											
+					AND STCK.CONTRACT_SEQ = CQDT.CONTRACT_SEQ										
+					AND STCK.PROCESS_TYPE = '1'
+					AND STCK.STDCATLG_ID = CMS.CMS_CATLG_ID 			
+				]]>
+				<if test=" st_stdcatlg_id !=null and st_stdcatlg_id !=''">
+					AND STCK.STDCATLG_ID LIKE '%'||#{st_stdcatlg_id} ||'%'		
+				</if>									
+				<if test=" st_agent_code !=null and st_agent_code !=''">
+					AND STCK.AGENT = #{st_agent_code}
+				</if>											
+				<if test=" st_description !=null and st_description !=''">
+					AND CQDT.DESCRIPTION LIKE '%'||#{st_description}||'%'
+				</if>												
+				<if test=" st_specification !=null and st_specification !=''">
+					AND CQDT.SPECIFICATION LIKE '%'||#{st_specification}||'%'		
+				</if>																									
+				<if test=" st_location_id !=null and st_location_id !=''">
+					AND STCK.LOCATION_ID LIKE '%'||#{st_location_id}||'%'
+				</if>
+				<if test=" st_maker_name !=null and st_maker_name !=''">
+					AND CQDT.MAKER_NAME LIKE '%'||#{st_maker_name}||'%'
+				</if>
+				<if test="st_dept != null and st_dept != ''">
+					AND CMS.KEP_DEPT = #{st_dept}
+				</if>
+				<if test = 'st_group_type != "ALL"'>
+					AND CMS.STOCK_GROUP_TYPE = #{st_group_type}
+				</if>		
+			<![CDATA[																									
+				  AND STCK.STATUS <> 'D'					  
+		      ]]>		 
+			  <choose>
+			  	<when test='st_isExist =="Y"'>
+			  		<![CDATA[	
+			  			AND STCK.AVAIL_QTY > 0		
+			  		]]>
+			  	</when>
+			  	<when test='st_isExist =="N"'>
+			  			<![CDATA[	
+			  			AND STCK.AVAIL_QTY = 0 		
+			  			]]>
+			  	</when>
+			  </choose>
+	  	
+		    </if>
+			<if test='st_process_type == "ALL"'>
+				UNION ALL 
+			</if>
+			<if test='st_process_type == "ALL" or st_process_type == "3"' >
+				<![CDATA[	
+				SELECT
+					CMS.KEP_DEPT,
+					(SELECT TEXT1 FROM ICOMCOD2 WHERE TYPE = 'C001' AND COMPANY_CODE = 'KRKORE0001' AND CODE = CMS.KEP_DEPT) AS KEP_DEPT_NAME,
+					CMS.STOCK_GROUP_TYPE,					
+					STCK.STDCATLG_ID,																
+					CQDT.DESCRIPTION,																
+					CQDT.MAKER_NAME,																
+					STCK.UNIT_MEASURE,																
+					STCK.TOT_QTY,																	
+					STCK.ALLOC_QTY,																	
+					STCK.SAFE_STOCK_QTY,															
+					STCK.STC_SELLER_PRICE,															
+					(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = STCK.AGENT) AS AGENT_NAME,	
+					(SELECT TEL_NO FROM ICOMCMPY WHERE COM_CODE = STCK.AGENT) AS AGENT_TEL,			
+					DECODE(STCK.PROCESS_TYPE,'1','재고','2','TR','3','VMI') AS PROCESS_TYPE_TEXT,	
+					CQDT.SPECIFICATION,																
+					STCK.LOCATION_ID,																
+					STCK.AVAIL_QTY,																	
+					STCK.PRE_GR_QTY,																
+					STCK.MAX_STOCK_QTY,																
+					STCK.LAST_REC_DATE,																
+					CQDT.CONTRACT_NO,																
+					CQDT.CONTRACT_SEQ,																
+					STCK.AGENT,																		
+					STCK.PROCESS_TYPE																
+				FROM WMSSTCK STCK , ICOMCQDT CQDT, CMSCATLG CMS													
+				WHERE STCK.WAREHOUSE_CODE=#{st_warehouse_code}														
+					AND STCK.ORG_WAREHOUSE_CODE = CQDT.BUYER											
+					AND STCK.STDCATLG_ID = CQDT.BUYER_ITEM_NO										
+					AND STCK.AGENT = CQDT.AGENT														
+					AND STCK.CONTRACT_NO = CQDT.CONTRACT_NO											
+					AND STCK.CONTRACT_SEQ = CQDT.CONTRACT_SEQ										
+					AND STCK.PROCESS_TYPE = '3'
+					AND STCK.STDCATLG_ID = CMS.CMS_CATLG_ID
+					]]>	
+				<if test=" st_stdcatlg_id !=null and st_stdcatlg_id !=''">
+					AND STCK.STDCATLG_ID LIKE '%'||#{st_stdcatlg_id}||'%'
+				</if>	
+				<if test=" st_agent_code !=null and st_agent_code !=''">
+					AND STCK.AGENT = #{st_agent_code}
+				</if>
+				<if test=" st_description !=null and st_description !=''">
+					AND CQDT.DESCRIPTION LIKE '%'||#{st_description}||'%'
+				</if>												
+				<if test=" st_specification !=null and st_specification !=''">
+					AND CQDT.SPECIFICATION LIKE '%'||#{st_specification}||'%'		
+				</if>																									
+				<if test=" st_location_id !=null and st_location_id !=''">
+					AND STCK.LOCATION_ID LIKE '%'||#{st_location_id}||'%'
+				</if>
+				<if test=" st_maker_name !=null and st_maker_name !=''">
+					AND CQDT.MAKER_NAME LIKE '%'||#{st_maker_name}||'%'
+				</if>
+				<if test="st_dept != null and st_dept != ''">
+					AND CMS.KEP_DEPT = #{st_dept}
+				</if>
+				<if test = 'st_group_type != "ALL"'>
+					AND CMS.STOCK_GROUP_TYPE = #{st_group_type}
+				</if>
+				<![CDATA[	
+					AND STCK.STATUS <> 'D'	
+				]]>
+			  <choose>
+			  	<when test='st_isExist =="Y"'>
+			  		<![CDATA[	
+			  			AND STCK.AVAIL_QTY > 0
+			  		]]>
+			  	</when>
+			  	<when test='st_isExist =="N"'>
+			  			<![CDATA[	
+			  			AND STCK.AVAIL_QTY = 0 					
+			  			]]>
+			  	</when>
+			  </choose>											
+			</if>
+			
+			<if test='st_orderBy =="1"'>
+				ORDER BY PROCESS_TYPE, STDCATLG_ID, AGENT, DESCRIPTION, SPECIFICATION	
+			</if>
+			<if test='st_orderBy =="2"'>
+		   	ORDER BY STDCATLG_ID, PROCESS_TYPE, AGENT, DESCRIPTION, SPECIFICATION	
+		   </if>
+			<if test='st_orderBy =="3"'>
+		   	ORDER BY AGENT, STDCATLG_ID, PROCESS_TYPE, AGENT, DESCRIPTION, SPECIFICATION		
+		   </if>
+			<if test='st_orderBy =="4"'>
+		   	ORDER BY DESCRIPTION, STDCATLG_ID, PROCESS_TYPE, AGENT, SPECIFICATION 	
+		   </if>
+			<if test='st_orderBy =="5"'>
+		   	ORDER BY SPECIFICATION, STDCATLG_ID, PROCESS_TYPE, AGENT, DESCRIPTION 	
+		   </if>
+			<if test='st_orderBy =="6"'>
+		   	ORDER BY LOCATION_ID,STDCATLG_ID, PROCESS_TYPE, AGENT, DESCRIPTION,SPECIFICATION 	
+		   </if>	   		   		   		   		   
+			<![CDATA[	
+				) Y 
+			]]>
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+
+
+</mapper>   
+   

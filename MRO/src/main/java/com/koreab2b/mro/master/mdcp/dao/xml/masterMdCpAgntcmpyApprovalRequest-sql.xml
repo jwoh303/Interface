@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mdcp">
+	<!-- 조회 -->
+	<select id="selectMasterMdCpAgntcmpyApprovalRequestList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.pagestart"/>	
+			<![CDATA[
+			/*selectMasterMdCpAgntcmpyApprovalRequestList*/
+		    SELECT     
+				C.COM_CODE,																																			/* 회원사코드 */
+				C.COM_NAME_LOC AS COM_NAME,																													/* 회원사명 */
+				C.CEO_NAME_LOC AS CEO_NAME,																													/* 대표자명 */
+				C.IRS_NO AS IRS_NO,																																	/* 사업자등록번호 */
+				S.BIZ_TYPE,																																				/* 유통레벨 */
+				(SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'M110' AND CODE = S.BIZ_TYPE) AS BIZ_TEXT,										/* 유통레벨 명 */
+				(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE COM_CODE = C.COM_CODE AND ROWNUM = 1) AS USER_NAME,			/* 사용자명 */
+				S.KEP_DAMDANG_NM AS KEP_DAMDANG_ID,																																	/* KEP 담당자 아이디 */
+				 S.KEP_DAMDANG_NM AS KEP_USER_NAME,							/* KEP 담당자명 */
+				C.ADD_DATE,																																				/* 입력일 */
+				NVL(DECODE(SUBSTR(C.IRS_NO,5,2),'85',C.CORP_REG_NO,C.IRS_NO),C.IRS_NO) AS WIDUS,
+				C.CREDIT_EXPIRE_DATE,																																/* 만기일 */
+				DECODE(C.MDM_CONFIRM_TYPE,'F','제재이력업체','D','중복업체','T','등록가능','E','기타','미확인') AS MDM_CONFIRM_TEXT,				/* MDM 담당자확인 */
+				C.CREDIT_RATING,																																		/* 신용평가등급 */
+				NVL(C.MDM_CONFIRM_TYPE,'A') AS MDM_CONFIRM_TYPE,																						/* MDM 담당자확인 */
+				C.STATUS,																																					/* 진행상태코드 */
+				(SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'M069' AND CODE = C.STATUS)	AS STATUS_TEXT,						/* 진행상태 */
+				DECODE(C.STATUS, 'S', '1', 'T', '2', 'B', '3', 'E', '4', '5') AS STATUS_ORDER,
+				(SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'ECST' AND CODE = S.E_CONTRACT_TYPE) AS ECONT_STATUS
+	   		FROM ICOMCMPY C, SUPLINFO2 S
+			WHERE C.COM_CODE = S.SUPPLIER     
+			AND C.STATUS IN ('S', 'T', 'B', 'E', 'G')
+			]]>
+			<if test="st_com_name_loc != null and st_com_name_loc != ''">
+			<![CDATA[
+			AND C.COM_NAME_LOC LIKE '%'|| #{st_com_name_loc} ||'%'
+			]]>
+			</if>
+			<if test="st_irs_no != null and st_irs_no != ''">
+			<![CDATA[
+			AND C.IRS_NO LIKE '%'|| #{st_irs_no} ||'%'
+			]]>
+			</if>
+			<if test="st_kep_damdang_id != null and st_kep_damdang_id != ''">
+			<![CDATA[
+			AND S.KEP_DAMDANG_NM LIKE #{st_kep_damdang_id}||'%'
+			]]>
+			</if>
+			<![CDATA[
+			ORDER BY C.ADD_DATE DESC, STATUS_ORDER
+			]]> 	
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+
+
+	<update  id="insertMasterMdCpAgntcmpyApprovalRequest" parameterType="java.util.Map" >
+		<![CDATA[
+				INSERT INTO	KEPQTDT					
+				(									
+					BUYER,							
+					QUOTATION_NO,					
+					QUOTATION_SEQ,					
+					REVISION,						
+					AGENT,							
+					AGENT_REVISION,					
+					STATUS,							
+					BUYER_ITEM_NO,					
+					DESCRIPTION,					
+					SPECIFICATION,					
+					UNIT_MEASURE,					
+					MAKER_NAME,						
+					ORIGIN_NAME,					
+					ATOS_DATE,						
+					ATOS_END_DATE,					
+					ATOS_END_TIME,					
+					ITEM_QTY,						
+					IMAGE_KEY,						
+					DSS_FLAG,						
+					DSS_CHOICE						
+				)									
+				(									
+				SELECT								
+					#{BUYER},									/* 1 : BUYER */
+					#{QUOTATION_NO},									/* 2 : QUOTATION_NO */
+					#{QUOTATION_SEQ},									/* 3 : QUOTATION_SEQ */
+					#{REVISION},									/* 4 : REVISION */
+					#{AGENT},									/* 5 : AGENT */
+					#{AGENT_REVISION},								/* 6 : AGENT_REVISION */
+					'C',						
+					BUYER_ITEM_NO,				
+					DESCRIPTION,				
+					SPECIFICATION,				
+					UNIT_MEASURE,				
+					MAKER_NAME,					
+					ORIGIN_CODE,				
+					TO_CHAR(SYSDATE, 'YYYYMMDD')AS ATOS_DATE,
+					#{ATOS_END_DATE},								/* 7 : ATOS_END_DATE */
+					#{ATOS_END_TIME},								/* 8 : ATOS_END_TIME */
+					ITEM_QTY,					
+					IMAGE_KEY,					
+					#{DSS_FLAG},								/*  9 : DSS_FLAG   if(chk_str[1].equals("A") || chk_str[1].equals("B") || chk_str[1].equals("C")|| chk_str[1].equals("S")) : Y , 기타  : N   */
+					#{DSS_CHOICE}								/*    10 : DSS_CHOICE */
+				   FROM KEPRQDT						
+				  WHERE BUYER=#{BUYER}							/* 11 : BUYER */           
+					AND QUOTATION_NO=#{QUOTATION_NO}					/* 12 : QUOTATION_NO     */
+					AND QUOTATION_SEQ=#{QUOTATION_SEQ}					/* 13 : QUOTATION_SEQ    */
+					AND REVISION=#{REVISION}						/* 14 : REVISION  */       
+					AND RECV_FLAG <> 'GD'			
+					AND STATUS IN ('C','R')			
+				)									
+
+		]]>
+							   <!-- /* CMS_USER_ID = 'TEMPUSER', */ -->
+		
+	</update>
+
+
+<!-- 삭제 -->
+	<update id="deleteMasterMdCpAgntcmpyApprovalRequest"  parameterType="java.util.Map">
+		<![CDATA[
+				UPDATE KEPRQDT					
+				   SET RECV_FLAG      = 'GD' 	
+				     , CANCEL_USER_ID = #{USR_ID}    		/*CANCEL_USER_ID*/
+				     , CANCEL_DATE    = SYSDATE	
+				     , CANCEL_REMARK  = #{CANCEL_REMARK}    		/*CANCEL_REMARK*/
+				 WHERE BUYER          = #{BUYER}			/*BUYER*/
+				   AND QUOTATION_NO   = #{QUOTATION_NO}	 		/*QUOTATION_NO*/
+				   AND QUOTATION_SEQ  = #{QUOTATION_SEQ}			/*QUOTATION_SEQ*/
+				   AND REVISION       = #{REVISION}			/*REVISION*/
+				   AND STATUS IN ('C','R')
+		]]>
+	</update>
+
+</mapper>   
+   

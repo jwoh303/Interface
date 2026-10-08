@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="common.coco">
+
+	<select id="getSpecialStdCategLevel1" parameterType="java.util.Map" resultType="java.util.Map">
+		/*common.coco.getSpecialStdCategLevel1*/
+		<![CDATA[
+	       SELECT A.STD_CATEG_ID, A.CATEG_NAME
+		    FROM ICOMBYCA A
+		   WHERE A.COM_CODE = (SELECT DISTINCT BYCA_COMORG_CODE
+		                         FROM ICOMCMPY
+		                        WHERE COM_CODE = #{st_buyer})
+		         AND A.DEPTH = '1'
+		ORDER BY 2 
+		]]>
+	</select>
+	
+	<select id="getBuyerSpecialCategorySearch" parameterType="java.util.Map" resultType="java.util.Map">
+		/*common.coco.getBuyerSpecialCategorySearch*/
+		<![CDATA[
+	        SELECT  
+                A.STD_CATEG_ID,    --[0]
+                A.CATEG_NAME,      --[1]
+                A.CATEG_TYPE,      --[2]
+                DECODE((SELECT COUNT(*) FROM ITEMATTR T  
+                        WHERE T.STDCATEG_ID = A.STD_CATEG_ID),  
+                          0,'N','Y') AS MASTER_CHECK,    --[3]
+                DECODE(A.CATEG_TYPE, 'REG','0',(SELECT COUNT(*) FROM ICOMBYIT B  
+                                                 WHERE B.CATEGORY_NO = A.STD_CATEG_ID  AND B.STATUS <> 'D' AND B.PRODUCT_CLOSE_FLAG = 'N'  
+                                                   AND B.BUYER = A.COM_CODE)) AS CNT,    --[4]
+                A.CATEG_PATH,    --[5]
+                A.DEPTH,    --[6]
+                A.PID,    --[7]
+                A.CATEG_SYS_CODE    --[8]
+                ]]>
+        <if test="st_depth != null and st_depth == 2">
+			<![CDATA[	
+				,SUBSTR(A.STD_CATEG_ID,3,1) AS SUB_STD_CATEG_ID
+			]]>
+		</if>
+		<if test="st_depth != null and st_depth == 3">
+			<![CDATA[	
+				,SUBSTR(A.STD_CATEG_ID,5,2) AS SUB_STD_CATEG_ID
+			]]>
+		</if>
+		<if test="st_depth != null and st_depth == 4">
+			<![CDATA[	
+				,SUBSTR(A.STD_CATEG_ID,8,2) AS SUB_STD_CATEG_ID
+			]]>
+		</if>
+		<if test="st_depth != null and st_depth == 5">
+			<![CDATA[	
+				,SUBSTR(A.STD_CATEG_ID,11,4) AS SUB_STD_CATEG_ID
+			]]>
+		</if>
+		<![CDATA[		
+           FROM ICOMBYCA A  
+          WHERE A.COM_CODE = (SELECT DISTINCT BYCA_COMORG_CODE FROM ICOMCMPY WHERE COM_CODE = #{st_buyer})  
+            AND A.DEPTH = #{st_depth} 
+		]]>
+			<if test="st_categ_code != null and st_categ_code != ''">
+				<![CDATA[	AND A.PID IN (#{st_categ_code}, (SELECT PID FROM ICOMBYCA WHERE COM_CODE = A.COM_CODE AND STD_CATEG_ID =#{st_categ_code}))	]]>
+			</if>
+			<if test="st_depth != null and st_depth == 2">
+				<![CDATA[	AND A.PID IN (#{st_stdcateg_id}, (SELECT PID FROM ICOMBYCA WHERE COM_CODE = A.COM_CODE AND STD_CATEG_ID =#{st_stdcateg_id}))	]]>
+			</if>
+		<![CDATA[
+			ORDER BY A.STD_CATEG_ID
+		]]>
+	</select>
+	
+	<select id="getBuyerSpecialCategorySearchReqValue" parameterType="java.util.Map" resultType="java.util.Map">
+		/*common.coco.getBuyerSpecialCategorySearchReqValue*/
+		<![CDATA[
+	        SELECT
+			    B.STD_CATEG_ID,
+			    B.CATEG_NAME,
+			    B.CATEG_TYPE,
+			    DECODE((SELECT COUNT(*) FROM ITEMATTR T WHERE T.STDCATEG_ID = A.STD_CATEG_ID), 0,'N','Y') AS MASTER_CHECK,
+			    DECODE(B.CATEG_TYPE,'REG','0', ( SELECT COUNT(DISTINCT X.BUYER_ITEM_NO)
+			                                     FROM ICOMBYIT X 
+			                                     WHERE X.BUYER = A.COM_CODE
+			                                        AND X.CATEGORY_NO = A.STD_CATEG_ID
+			                                        AND X.STATUS <> 'D'
+			                                        AND X.PRODUCT_CLOSE_FLAG = 'N') ) AS CNT,
+			    B.CATEG_PATH,
+			    B.DEPTH,
+			    B.PID,
+			    B.CATEG_SYS_CODE
+		]]>
+		<if test="st_depth != null and st_depth == 2">
+			<![CDATA[	
+				,SUBSTR(B.STD_CATEG_ID,3,1) AS SUB_STD_CATEG_ID
+			]]>
+		</if>
+		<if test="st_depth != null and st_depth == 3">
+			<![CDATA[	
+				,SUBSTR(B.STD_CATEG_ID,5,2) AS SUB_STD_CATEG_ID
+			]]>
+		</if>
+		<if test="st_depth != null and st_depth == 4">
+			<![CDATA[	
+				,SUBSTR(B.STD_CATEG_ID,8,2) AS SUB_STD_CATEG_ID
+			]]>
+		</if>
+		<if test="st_depth != null and st_depth == 5">
+			<![CDATA[	
+				,SUBSTR(B.STD_CATEG_ID,11,4) AS SUB_STD_CATEG_ID
+			]]>
+		</if>
+		<![CDATA[
+			FROM ICOMBYCA A, ICOMBYCA B
+			WHERE A.COM_CODE = ( SELECT DISTINCT BYCA_COMORG_CODE 
+			                     FROM ICOMCMPY 
+			                     WHERE COM_CODE = #{st_buyer} )
+			  AND A.COM_CODE = B.COM_CODE
+			  AND B.DEPTH = #{st_depth}
+		]]>
+			<if test="st_depth != null and st_depth == 2">
+				<![CDATA[	
+					AND SUBSTR(A.CATEG_SYS_CODE,0,12) = B.CATEG_SYS_CODE
+				]]>
+			</if>
+			<if test="st_depth != null and st_depth == 3">
+				<![CDATA[	
+					AND SUBSTR(A.CATEG_SYS_CODE,0,16) = B.CATEG_SYS_CODE
+				]]>
+			</if>
+			<if test="st_depth != null and st_depth == 4">
+				<![CDATA[	
+					AND SUBSTR(A.CATEG_SYS_CODE,0,20) = B.CATEG_SYS_CODE
+				]]>
+			</if>
+			<if test="st_depth != null and st_depth == 5">
+				<![CDATA[	
+					AND A.STD_CATEG_ID = B.STD_CATEG_ID
+				]]>
+			</if>
+			<if test="st_searh_name != null and st_searh_name != ''">
+				<![CDATA[	AND A.CATEG_NAME LIKE '%' || #{st_searh_name} || '%'	]]>
+			</if>
+			<if test="st_catalog != null and st_catalog != ''">
+				<![CDATA[
+					AND A.STD_CATEG_ID IN ( SELECT DISTINCT Y.CATEGORY_NO 
+					                        FROM ICOMBYIT Y 
+					                        WHERE Y.BUYER =  ( SELECT DISTINCT BYCA_COMORG_CODE 
+					                                           FROM ICOMCMPY 
+					                                           WHERE COM_CODE = #{st_buyer} ) 
+					                         AND Y.STATUS <> 'D' 
+					                         AND Y.PRODUCT_CLOSE_FLAG = 'N' 
+					                         AND (Y.DESCRIPTION_LOC LIKE '%' || #{st_catalog} || '%' OR Y.SPECIFICATION LIKE '%' || #{st_catalog} || '%'))
+				]]>
+			</if>
+		<![CDATA[
+			ORDER BY B.CATEG_SYS_CODE
+		]]>
+	</select>
+	
+</mapper>

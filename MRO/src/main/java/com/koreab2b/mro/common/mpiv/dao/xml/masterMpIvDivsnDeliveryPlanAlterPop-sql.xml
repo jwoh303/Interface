@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="common.mpiv">
+
+
+	<select id="selectMasterMpIvDivsnDeliveryPlanAlterPopList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/*selectMasterMpIvDivsnDeliveryPlanAlterPopList*/
+			SELECT
+				  A.PO_NO
+				, A.PO_SEQ
+				, B.DS_SEQ
+				, B.DS_DATE
+				, B.CD_QTY
+				, NVL(C.INV_QTY,0) AS INV_QTY
+				, B.ADD_USER_ID									--수주접수자
+				, TRIM(A.DS_DELAY_REASON) AS DS_DELAY_REASON	--지연사유
+				, B.DS_REMARK									-- 예정일변경사유
+			FROM ICOMPODT A , ICOMPORS B , ICOMIVDT C
+			WHERE 
+					A.BUYER   = #{st_buyer}
+				AND A.PO_NO   = #{st_po_no}
+				AND A.PO_SEQ  = #{st_po_seq}
+				AND A.BUYER   = B.BUYER
+				AND A.PO_NO   = B.PO_NO
+				AND A.PO_SEQ  = B.PO_SEQ
+				AND B.BUYER   = C.BUYER(+)
+				AND B.PO_NO   = C.PO_NO(+)
+				AND B.PO_SEQ  = C.PO_SEQ(+)
+				AND B.DS_DATE = C.DS_DATE(+)
+				AND A.DS_FLAG = 'Y'
+				AND A.STATUS <> 'D'
+				AND B.STATUS <> 'D'
+				AND C.STATUS(+) <> 'D'
+		]]>
+	</select>
+	
+	<!-- 분할납품 계획변경 저장 ICOMPORS UPDATE -->
+	<update id="updateDivsnDeliveryPlanAlterPors" parameterType="java.util.Map">
+		<![CDATA[
+			/*updateDivsnDeliveryPlanAlterPors*/
+			UPDATE ICOMPORS
+			SET
+				STATUS = 'D'
+			WHERE
+					BUYER  = #{buyer}
+				AND PO_NO  = #{po_no}
+				AND PO_SEQ = #{po_seq}
+				AND STATUS != 'D'
+		]]>
+	</update>
+	
+	<!-- 분할납품 계획변경 저장 ICOMPORS INSERT -->
+	<update id="insertDivsnDeliveryPlanAlterPors" parameterType="java.util.Map">
+		<![CDATA[
+			/*insertDivsnDeliveryPlanAlterPors*/
+			INSERT INTO ICOMPORS (
+				  BUYER
+				, PO_NO
+				, PO_SEQ
+				, DS_SEQ
+				, STATUS
+				, SEND_DATE
+				, SEND_TIME
+				, ADD_DATE
+				, ADD_TIME
+				, CHANGE_DATE
+				, CHANGE_TIME
+				, CONFIRM_DATE
+				, CONFIRM_TIME
+				, SELLER
+				, BUYER_ITEM_NO
+				, SELLER_ITEM_NO
+				, DESCRIPTION
+				, SPECIFICATION
+				, UNIT_MEASURE
+				, CD_DATE
+				, CD_QTY
+				, DS_DATE
+				, ADD_USER_ID
+				, ADMIN_FLAG1
+				, BUYER_DS_DATE
+				, AGENCY_USER_ID
+			) (
+				SELECT
+					  BUYER
+					, PO_NO
+					, PO_SEQ
+					, (SELECT TO_CHAR(NVL(MAX(DS_SEQ)+1,1),'FM000000') FROM ICOMPORS WHERE BUYER=#{buyer} AND  PO_NO=#{po_no} AND  PO_SEQ=#{po_seq})
+					, 'C'
+					, ' '
+					, ' '
+					, TO_CHAR(SYSDATE,'YYYYMMDD')
+					, TO_CHAR(SYSDATE,'HH24MISS')
+					, TO_CHAR(SYSDATE,'YYYYMMDD')
+					, TO_CHAR(SYSDATE,'HH24MISS')
+					, ' '
+					, ' '
+					, SELLER
+					, BUYER_ITEM_NO
+					, SELLER_ITEM_NO
+					, DESCRIPTION
+					, SPECIFICATION
+					, UNIT_MEASURE
+					, #{cd_date}
+					, #{cd_qty}
+					, #{cd_date}
+					, #{user_id}
+					, #{admin_flag1}
+					, DECODE(PROCESS_TYPE,'0',#{cd_date},'2',F_GET_WORKINGDAY(#{cd_date},2))				
+					, #{user_id}
+				FROM ICOMPODT
+				WHERE 
+						BUYER  = #{buyer}
+					AND PO_NO  = #{po_no}
+					AND PO_SEQ = #{po_seq}
+					AND STATUS != 'D'
+			)
+		]]>
+	</update>
+	
+	<!-- 분할납품 계획변경 저장 ICOMPODT UPDATE -->
+	<update id="updateDivsnDeliveryPlanAlterPodt" parameterType="java.util.Map">
+		<![CDATA[
+			/*updateDivsnDeliveryPlanAlterPodt*/
+			UPDATE ICOMPODT
+			SET
+				  DS_DATE = #{max_cd_date}
+			WHERE
+					BUYER  = #{buyer}
+				AND PO_NO  = #{po_no}
+				AND PO_SEQ = #{po_seq}
+		]]>
+	</update> 
+</mapper>

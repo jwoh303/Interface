@@ -1,0 +1,385 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="buyer.mpst">
+
+	<!-- 조회 -->
+	<select id="selectBuyerMpStGiReleaseDirectionsList" parameterType="java.util.Map" resultType="java.util.Map">
+		/*selectBuyerMpStGiReleaseDirectionsList*/
+		<include refid="common.ibsheet.xml.jsppagestart"/>
+		<![CDATA[
+		SELECT CASE WHEN X.STATUS = 1 THEN '출고예정'
+					WHEN X.STATUS = 2 THEN '출고'
+					WHEN X.STATUS = 3 THEN '배송완료'
+				END AS STATUS_TEXT
+			 , X.STATUS
+			 , X.BUYER  
+		     , X.RS_NO
+		     , X.RS_SEQ
+		     , X.RS_REVISION
+		     , X.LEGACY_PO_NO
+		     , X.GI_NO
+		     , X.GI_SEQ
+		     , X.DELY_TO_LOCATION
+		     , X.DELY_TO_LOCATION_NAME
+		     , X.BUYER_ITEM_NO
+		     , X.DESCRIPTION
+		     , X.SPECIFICATION
+		     , X.UNIT_MEASURE
+		     , X.ADD_USER_ID
+		     , X.REQ_USER_NAME
+		     , X.RS_QTY
+		     , X.GI_QTY
+		     , X.ST_QTY
+		     , X.OLD_WBS_NO
+		     , X.NEW_WBS_NO
+		     , X.RS_DATE
+		     , X.GI_DATE
+		     , X.DI_DATE
+		     FROM (
+			SELECT CASE WHEN RSDT.COMPLETE_MARK = 'N' THEN 1
+			            WHEN RSDT.COMPLETE_MARK = 'Y' AND GIDT.DI_DATE IS NULL THEN 2
+			            WHEN RSDT.COMPLETE_MARK = 'Y' AND GIDT.DI_DATE IS NOT NULL THEN 3
+			      END AS STATUS
+			     , RSDT.BUYER
+			     , RSDT.RS_NO
+			     , RSDT.RS_SEQ
+			     , RSDT.RS_REVISION
+			     , RSDT.LEGACY_PO_NO
+			     , GIDT.GI_NO
+			     , GIDT.GI_SEQ
+			     , (SELECT CD2.TEXT1 FROM ICOMCOD2 CD2 WHERE RSDT.DELY_TO_LOCATION = CD2.CODE AND CD2.TYPE = 'C030' AND CD2.COMPANY_CODE = RSDT.BUYER) AS DELY_TO_LOCATION_NAME
+			     , RSDT.DELY_TO_LOCATION  
+			     , RSDT.BUYER_ITEM_NO
+			     , (SELECT DESCRIPTION_LOC FROM ICOMBYIT WHERE BUYER = (SELECT BYCA_COMORG_CODE FROM ICOMCMPY WHERE COM_CODE = RSDT.BUYER) AND BUYER_ITEM_NO = RSDT.BUYER_ITEM_NO) AS DESCRIPTION
+			     , (SELECT SPECIFICATION FROM ICOMBYIT WHERE BUYER = (SELECT BYCA_COMORG_CODE FROM ICOMCMPY WHERE COM_CODE = RSDT.BUYER) AND BUYER_ITEM_NO = RSDT.BUYER_ITEM_NO) AS SPECIFICATION
+			     , (SELECT UNIT_MEASURE FROM ICOMBYIT WHERE BUYER = (SELECT BYCA_COMORG_CODE FROM ICOMCMPY WHERE COM_CODE = RSDT.BUYER) AND BUYER_ITEM_NO = RSDT.BUYER_ITEM_NO) AS UNIT_MEASURE
+			     , RSDT.ADD_USER_ID
+			     , (SELECT L.USER_NAME_LOC FROM ICOMLUSR L WHERE L.COM_CODE = RSDT.BUYER AND LEGACY_USER_ID = RSDT.ADD_USER_ID) AS REQ_USER_NAME
+			     , NVL((SELECT ST.AVAIL_QTY FROM BUYER_STOCK ST WHERE ST.BUYER = RSDT.BUYER AND ST.ITEM_NO = RSDT.BUYER_ITEM_NO),0) AS ST_QTY
+			     , NVL(RSDT.RS_QTY,0) AS RS_QTY
+			     , NVL(GIDT.GI_QTY,0) AS GI_QTY
+			     , RSDT.OLD_WBS_NO
+			     , RSDT.NEW_WBS_NO
+			     , RSDT.RS_DATE
+			     , GIDT.GI_DATE -- 출고일
+			     , GIDT.DI_DATE -- 확정일
+			FROM BUYER_STOCK_RSDT RSDT
+			   , BUYER_STOCK_GIDT GIDT
+			WHERE RSDT.RS_NO = GIDT.RS_NO(+)
+			  AND RSDT.RS_SEQ = GIDT.RS_SEQ(+)
+			  AND RSDT.RS_REVISION = GIDT.RS_REVISION(+)
+			  AND 'D' != GIDT.STATUS(+)
+			  AND RSDT.STATUS != 'D'
+			  AND RSDT.BUYER = #{st_com_code}
+		]]>
+		<if test="st_rs_no != null and st_rs_no != '' ">
+			  AND RSDT.RS_NO = #{st_rs_no}
+		</if>
+
+		<if test="st_from_date != null and st_from_date != '' ">
+		<![CDATA[
+			  AND TO_CHAR(RSDT.ADD_DATE,'YYYYMMDD') >= #{st_from_date}
+		]]>
+		</if>
+		<if test="st_to_date != null and st_to_date != '' ">
+		<![CDATA[
+			  AND TO_CHAR(RSDT.ADD_DATE,'YYYYMMDD') <= #{st_to_date}
+		]]>
+		</if>
+		<if test="st_dely_location != null and st_dely_location != '' ">
+		<![CDATA[
+			  AND RSDT.DELY_TO_LOCATION = #{st_dely_location}
+		]]>
+		</if>
+		<if test="st_req_user != null and st_req_user != '' ">
+		<![CDATA[
+			  AND RSDT.ADD_USER_ID = #{st_req_user}
+		]]>
+		</if>
+		<![CDATA[
+		) X
+					WHERE X.STATUS = #{st_status}
+			  ORDER BY X.RS_NO, X.RS_SEQ, X.STATUS
+ 		]]>
+		<include refid="common.ibsheet.xml.jsppageend"/>	
+	</select> 
+	
+	<select id="selectBuyerMpStGidtList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			SELECT RSDT.BUYER
+			     , RSDT.RS_NO
+			     , RSDT.RS_SEQ
+			     , RSDT.RS_REVISION
+			     , RSDT.LEGACY_PO_NO
+			     , GIDT.GI_NO
+			     , GIDT.GI_SEQ
+			     , RSDT.DELY_TO_LOCATION
+			     , RSDT.BUYER_ITEM_NO
+			     , NVL(RSDT.RS_QTY,0) AS RS_QTY
+			     , NVL(GIDT.GI_QTY,0) AS GI_QTY
+			FROM BUYER_STOCK_RSDT RSDT
+			   , BUYER_STOCK_GIDT GIDT
+			WHERE RSDT.RS_NO = GIDT.RS_NO
+			  AND RSDT.RS_SEQ = GIDT.RS_SEQ
+			  AND RSDT.RS_REVISION = GIDT.RS_REVISION
+			  AND GIDT.STATUS != 'D'
+			  AND GIDT.GI_NO = #{GI_NO}
+			  AND GIDT.BUYER = #{BUYER}
+		]]>
+	</select> 
+	
+	<select id="seletCntForDuplicatedGiRelease" parameterType="java.util.Map" resultType="java.lang.Integer">
+		/*seletCntForDuplicatedGiRelease*/
+		<![CDATA[
+		SELECT COUNT(*)
+		  FROM BUYER_STOCK_RSDT
+		 WHERE BUYER = #{BUYER}
+		   AND RS_NO = #{RS_NO}
+           AND RS_SEQ = #{RS_SEQ}
+           AND RS_REVISION =#{RS_REVISION}
+           AND COMPLETE_MARK = 'Y'
+        ]]>
+	</select>
+
+	
+	<select id="seletCheckStockQty" parameterType="java.util.Map" resultType="java.lang.Integer">
+		/*seletCheckStockQty*/
+		<![CDATA[
+		SELECT AVAIL_QTY - #{RS_QTY}
+		  FROM BUYER_STOCK
+		 WHERE BUYER = #{BUYER}
+           AND ITEM_NO = #{BUYER_ITEM_NO}
+           AND STATUS = 'C'
+        ]]>
+	</select>
+	
+	<select id="seletCheckStockListExists" parameterType="java.util.Map" resultType="java.lang.Integer">
+		/*seletCheckStockListExists*/
+		<![CDATA[
+		SELECT COUNT(*)
+		  FROM BUYER_STOCK_LIST
+		 WHERE BUYER = #{BUYER}
+           AND GR_NO = #{GI_NO}
+           AND GR_SEQ = #{GI_SEQ}
+           AND STATUS != 'D'
+        ]]>
+	</select>
+	
+	<select id="seletCheckStockListDeleteExists" parameterType="java.util.Map" resultType="java.lang.Integer">
+		/*seletCheckStockListDeleteExists*/
+		<![CDATA[
+		SELECT COUNT(*)
+		  FROM BUYER_STOCK_LIST
+		 WHERE BUYER = #{BUYER}
+           AND GR_NO = #{GI_NO}
+           AND GR_SEQ = #{GI_SEQ}
+           AND STATUS = 'D'
+        ]]>
+	</select>
+	
+	<select id="seletCheckStockListQty" parameterType="java.util.Map" resultType="java.lang.Integer">
+		/*seletCheckStockListDeleteExists*/
+		<![CDATA[
+		SELECT ITEM_QTY + #{RS_QTY}
+		  FROM BUYER_STOCK_LIST
+		 WHERE BUYER = #{BUYER}
+           AND GR_NO = #{GI_NO}
+           AND GR_SEQ = #{GI_SEQ}
+           AND STATUS != 'D'
+        ]]>
+	</select>
+	
+	<select id="seletCntForDecidedGiRelease" parameterType="java.util.Map" resultType="java.lang.Integer">
+		/*seletCntForDecidedGiRelease*/
+		<![CDATA[
+		SELECT COUNT(*)
+		  FROM BUYER_STOCK_GIDT
+		 WHERE GI_NO = #{GI_NO}
+		   AND BUYER = #{BUYER}
+           AND DI_DATE IS NOT NULL
+        ]]>
+	</select>
+	
+	<update id="insertBuyerStockList" parameterType="java.util.Map">
+		/*insertBuyerStockList*/
+		<![CDATA[
+			INSERT INTO BUYER_STOCK_LIST(
+								BUYER
+							  , WAREHOUSE_CODE
+							  , JOB_TYPE
+							  , JOB_NO
+							  , ITEM_NO
+							  , ITEM_QTY
+							  , JOB_DATE
+							  , JOB_TIME
+							  ,	JOB_NOTE
+							  , CREATE_USER_ID
+							  , CREATE_DEPT_CD
+							  , JOB_USER_ID
+							  , JOB_DEPT_CD
+							  , GR_NO
+							  , GR_SEQ
+							  , STATUS
+								) VALUES (
+								 #{BUYER}
+								, 'W'
+								, 'CHUL'
+								, TO_CHAR(SYSDATE,'YYYYMMDD')||TO_CHAR(F_BUYER_SQMT(#{BUYER},'CHUL'),'FM0000')
+								, #{BUYER_ITEM_NO}
+								, TO_NUMBER(#{RS_QTY}) * DECODE(#{STATUS_FLAG},'D',1,-1)
+								, TO_CHAR(SYSDATE,'YYYYMMDD')
+								, TO_CHAR(SYSDATE,'HH24MISS')
+								, NULL
+								, #{USER_ID}
+								, (SELECT MAX(DEPARTMENT) FROM ICOMLUSR WHERE USER_ID = #{USER_ID})
+								, #{USER_ID}
+    							, (SELECT MAX(DEPARTMENT) FROM ICOMLUSR WHERE USER_ID = #{USER_ID})
+    							, #{GI_NO}
+    							, TO_CHAR(#{GI_SEQ}, 'FM000000')
+    							, DECODE(#{STATUS_FLAG},'D','D','C')
+								)
+        ]]> 
+	</update>
+	
+	<update id="insertBuyerStock" parameterType="java.util.Map">
+		/*insertBuyerStock*/
+		<![CDATA[
+				MERGE INTO BUYER_STOCK
+				USING  DUAL
+				ON (BUYER = #{BUYER} AND
+				   WAREHOUSE_CODE = 'W' AND
+				   ITEM_NO = #{BUYER_ITEM_NO})
+				WHEN MATCHED THEN
+				    UPDATE SET TOT_QTY = TOT_QTY + #{RS_QTY} * DECODE(#{STATUS_FLAG},'D',1,-1)
+				             , AVAIL_QTY= AVAIL_QTY + #{RS_QTY} * DECODE(#{STATUS_FLAG},'D',1,-1)
+				             , CHANGE_DATE = SYSDATE
+				WHEN NOT MATCHED THEN
+				    INSERT ( BUYER
+				    	   , WAREHOUSE_CODE
+				    	   , ITEM_NO
+				    	   , STATUS
+				    	   , TOT_QTY
+				    	   , ALLOC_QTY
+				    	   , AVAIL_QTY
+				    	   , PRE_GR_QTY
+				    	   , CREATE_DATE
+				    	   , CHANGE_DATE)
+				    VALUES (#{BUYER}
+				    		,'W'
+				    		,#{BUYER_ITEM_NO}
+				    		,'C'
+				    		,TO_NUMBER(#{RS_QTY}) * DECODE(#{STATUS_FLAG},'D',1,-1)
+				            ,0
+				            ,TO_NUMBER(#{RS_QTY}) * DECODE(#{STATUS_FLAG},'D',1,-1)
+				            ,0
+				            ,SYSDATE
+				            ,SYSDATE)
+        ]]> 
+	</update>
+	
+	<update id="insertBuyerStockGidt" parameterType="java.util.Map">
+		/*insertBuyerStockGidt*/
+		<![CDATA[
+			INSERT INTO BUYER_STOCK_GIDT(
+								BUYER
+								,GI_NO
+								,GI_SEQ
+								,STATUS
+								,RS_NO
+								,RS_SEQ
+								,RS_REVISION
+								,GI_QTY
+								,GI_DATE
+								,ADD_DATE
+								,ADD_USER_ID
+								,SND_CHK
+								,SND_DATM
+								) VALUES (
+								#{BUYER}
+								,#{GI_NO}
+								,TO_CHAR(#{GI_SEQ}, 'FM000000')
+								,'C'
+								,#{RS_NO}
+								,#{RS_SEQ}
+								,#{RS_REVISION}
+								,#{RS_QTY}
+								,TO_CHAR(SYSDATE,'YYYYMMDD')
+								,SYSDATE
+								,#{ADD_USER_ID}
+								,'N'
+								,NULL
+								)
+        ]]> 
+	</update>
+	
+	<update id="updateBuyerMpStGidtCancel" parameterType="java.util.Map">
+		/*updateBuyerMpStGidtCancel*/
+		<![CDATA[
+			UPDATE BUYER_STOCK_GIDT
+			  SET STATUS = 'D'
+			WHERE BUYER = #{BUYER}
+			  AND GI_NO = #{GI_NO}
+			  AND GI_SEQ = #{GI_SEQ}
+			  AND STATUS != 'D'
+        ]]> 
+	</update>
+	
+	<update id="updateBuyerMpStGiReleaseDirections" parameterType="java.util.Map">
+		/*updateBuyerMpStGiReleaseDirections*/
+		<![CDATA[
+			UPDATE BUYER_STOCK_RSDT
+			  SET COMPLETE_MARK = 'Y'
+			WHERE BUYER = #{BUYER}
+			  AND RS_NO = #{RS_NO}
+			  AND RS_SEQ = #{RS_SEQ}
+			  AND RS_REVISION = #{RS_REVISION}
+			  AND COMPLETE_MARK != 'Y'
+			  AND STATUS != 'D'
+        ]]> 
+	</update>
+	
+	<update id="updateBuyerMpStGiCancelReleaseDirections" parameterType="java.util.Map">
+		/*updateBuyerMpStGiCancelReleaseDirections*/
+		<![CDATA[
+		 UPDATE BUYER_STOCK_RSDT
+			  SET COMPLETE_MARK = 'N'
+			WHERE (BUYER, RS_NO, RS_SEQ, RS_REVISION) IN ( SELECT BUYER, RS_NO, RS_SEQ, RS_REVISION FROM BUYER_STOCK_GIDT WHERE BUYER = #{BUYER} AND GI_NO = #{GI_NO} AND GI_SEQ = #{GI_SEQ} )
+			  AND COMPLETE_MARK = 'Y'
+			  AND STATUS != 'D'
+        ]]> 
+	</update>
+	
+	<update id="updateBuyerMpStGiDecideReleaseDirections" parameterType="java.util.Map">
+		/*updateBuyerMpStGiDecideReleaseDirections*/
+		<![CDATA[
+			UPDATE BUYER_STOCK_GIDT
+			  SET DI_DATE = TO_CHAR(SYSDATE,'YYYYMMDD')
+			    , SND_CHK = 'N'
+			    , SND_DATM = NULL
+			WHERE BUYER = #{BUYER}
+			  AND GI_NO = #{GI_NO}
+			  AND STATUS != 'D'
+        ]]> 
+	</update>
+	
+	<update id="updateBuyerMpStGiDecideIfData" parameterType="java.util.Map">
+		/*updateBuyerMpStGiDecideIfData*/
+		<![CDATA[
+			UPDATE IF_SEMES_GI GI
+			  SET (GI.GI_COMP_YN, GI.GI_COMP_QTY) = (SELECT 'Y', X.GI_QTY 
+                                                 FROM BUYER_STOCK_GIDT X
+                                                WHERE X.GI_NO = #{GI_NO}
+                                                  AND X.BUYER = #{BUYER}
+                                                  AND X.RS_NO = GI.SHIP_COST_ID)
+			  WHERE (GI.SHIP_COST_ID, GI.ITEM_CD) IN (SELECT GIDT.RS_NO, RSDT.BUYER_ITEM_NO 
+                                                  FROM BUYER_STOCK_GIDT GIDT, BUYER_STOCK_RSDT RSDT
+                                                 WHERE GIDT.GI_NO = #{GI_NO}
+                                                   AND GIDT.BUYER = #{BUYER}
+                                                   AND GIDT.BUYER = RSDT.BUYER
+                                                   AND GIDT.RS_NO = RSDT.RS_NO
+                                                   AND GIDT.RS_SEQ = RSDT.RS_SEQ
+                                                   AND GIDT.RS_REVISION = RSDT.RS_REVISION)
+		]]> 
+	</update>
+	
+</mapper>

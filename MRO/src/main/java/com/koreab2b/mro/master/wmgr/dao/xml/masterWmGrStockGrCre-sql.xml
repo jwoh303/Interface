@@ -1,0 +1,422 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.wmgr">
+	<!-- 조회 -->
+	<select id="selectMasterWmGrStockGrCreList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.pagestart"/>				
+			<if test="st_status_check in {'전체','발주' }">
+  				SELECT  /** selectMasterWmGrStockGrCreList */                                                                                    
+      					'발주' AS STATUS,                                                                       
+      					PO.PO_NO ,                                                                              
+      					MAX(TO_CHAR(TO_DATE(HD.PO_CREATE_DATE,'YYYYMMDD'),'YYYY/MM/DD')) AS PO_CREATE_DATE,		
+      					'' AS DS_DATE,                                                                          			
+      					COUNT(PO.PO_SEQ) AS COUNT,                                                              
+      					MAX((SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = PR.AGENT)) AS AGENT_NAME,       				
+      					MAX(PO.LEGACY_PO_NO) AS LEGACY_PO_NO,													
+      					'' AS IV_NO ,                                                                           			
+      					MAX(TO_CHAR(TO_DATE(PO.RD_DATE,'YYYYMMDD'),'YYYY/MM/DD')) AS RD_DATE,					
+      					MAX(PR.ADD_USER_NAME) AS PR_ADD_USER_NAME,     											
+      					SUM(PO.ITEM_AMT) AS ITEM_AMT ,                                                          
+      					MAX(PR.AGENT) AS AGENT_CODE,                                                            			
+      					MAX(PO.BUYER) AS BUYER,                                                                 
+      					MAX((SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = PO.BUYER)) AS BUYER_NAME,		
+      					MAX(PR.ADD_USER_TEL) AS PR_USER_NAME,													
+      					MAX(HD.PO_REMARK) AS POHD_REMARK,														
+      					MAX((SELECT TEL_NO FROM ICOMCMPY WHERE COM_CODE = PR.AGENT)) AS AGENT_TEL				
+      				FROM ICOMPODT PO , ICOMPRDT PR , ICOMPOHD HD                                                		
+      				<where>
+      				 PO.BUYER=#{st_warehouse_code}
+      				  AND PO.IV_QTY ^= PO.ITEM_QTY                                                              
+      				  AND HD.STATUS ^='D'                                                                       
+      				  AND PO.STATUS ^='D'                                                                       
+      				  AND PR.STATUS ^='D'                                                                       
+      				  AND PO.PR_NO = PR.PR_NO                                                                   
+      				  AND PO.PR_SEQ = PR.PR_SEQ                                                                 
+      				  AND PO.BUYER = PR.BUYER                                                                   
+      				  AND PO.BUYER = HD.BUYER                                                                   
+      				  AND PO.PO_NO = HD.PO_NO   
+				            <if test='st_all_po == "N"' >     
+      				  			AND PO.RD_DATE BETWEEN #{st_from_date} AND #{st_to_date}
+				             </if>            
+      				  		<if test="st_po_no !=null and st_po_no !=''">      				  			      
+      				  			AND (PO.PO_NO LIKE #{st_po_no}||'%' OR PO.LEGACY_PO_NO LIKE  #{st_po_no}||'%')      		
+      				  		</if>
+       				  		<if test="st_iv_no !=null and st_iv_no !=''">
+       				  			AND PO.PO_NO = #{st_iv_no}
+      				  		</if>  
+      				  		<if test="st_agent_code !=null and st_agent_code !=''">
+      				  			AND PR.AGENT = #{st_agent_code}
+      				  		</if>      				  		   				  		
+      				  </where> 
+      				 GROUP BY PO.BUYER,PO.PO_NO
+			</if>
+			
+			<if test="st_status_check == '전체'">
+				UNION ALL 
+			</if>
+			
+			<if test="st_status_check in {'전체','입고예정' ,'분할입고예정'}">
+				SELECT																					
+      					DECODE(MAX(PO.ITEM_QTY),MAX(IV.INV_QTY),'입고예정','분할입고예정') AS STATUS,			
+      					IV.PO_NO AS PO_NO,																	
+      					MAX(TO_CHAR(TO_DATE(POHD.PO_CREATE_DATE,'YYYYMMDD'),'YYYY/MM/DD')) AS PO_CREATE_DATE,		
+      					MAX(TO_CHAR(TO_DATE(IV.DS_DATE,'YYYYMMDD'),'YYYY/MM/DD')) AS DS_DATE,							
+      					COUNT(IV.INV_SEQ) AS COUNT,														
+      					MAX((SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = IVHD.AGENT)) AS AGENT_NAME,		
+      					MAX(PO.LEGACY_PO_NO) AS LEGACY_PO_NO,												
+      					MAX(IV.INV_NO) AS IV_NO,															
+      					MAX(TO_CHAR(TO_DATE(PO.RD_DATE,'YYYYMMDD'),'YYYY/MM/DD')) AS RD_DATE,			
+      					MAX(PR.ADD_USER_NAME) AS PR_ADD_USER_NAME,																
+      					SUM(IV.ITEM_AMT) AS ITEM_AMT,															
+      				    MAX(IVHD.AGENT) AS AGENT_CODE,														
+      					IV.BUYER,																			
+      					MAX((SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = PO.BUYER)) AS BUYER_NAME,	
+      					MAX(PR.ADD_USER_TEL) AS PR_USER_NAME,												
+      					MAX(POHD.PO_REMARK) AS POHD_REMARK,													
+      					MAX((SELECT TEL_NO FROM ICOMCMPY WHERE COM_CODE = IVHD.AGENT)) AS AGENT_TEL		
+      				FROM ICOMIVDT IV , ICOMPODT PO , ICOMIVHD IVHD , ICOMPRDT PR  ,ICOMPOHD POHD	
+      		<where>		
+      				         PO.BUYER = IV.BUYER																
+      				  AND PO.PO_NO = IV.PO_NO																
+      				  AND PO.PO_SEQ = IV.PO_SEQ																
+      				  AND IV.INV_NO = IVHD.INV_NO															
+      				  AND IV.SELLER = IVHD.SELLER															
+      				  AND IV.BUYER = IVHD.BUYER																
+      				  AND PO.BUYER = PR.BUYER																
+      				  AND PO.PR_NO = PR.PR_NO																
+      				  AND PO.PR_SEQ = PR.PR_SEQ																
+      				  AND PO.PO_NO  = POHD.PO_NO															
+      				  AND PO.BUYER  = POHD.BUYER																
+      				  AND IV.WMS_GR_QTY = 0																	
+      				  AND IV.STATUS ^='D'																	
+      				  AND PO.STATUS ^='D'																	
+      				  AND IVHD.STATUS ^='D'																	
+      				  AND PR.STATUS ^='D'																	
+      				  AND POHD.STATUS ^='D'																	
+      				  AND IV.BUYER =#{st_warehouse_code}															
+			            <if test='st_all_po == "N"' >     
+     				  		AND IV.DS_DATE BETWEEN #{st_from_date} AND #{st_to_date}
+			             </if>       
+      					<if test="st_status_check =='입고예정'">
+      						AND IV.INV_QTY > 0	
+      				 	</if>	
+      					<if test="st_status_check =='분할입고예정'">
+      	 					AND PO.ITEM_QTY ^= IV.INV_QTY	
+      	 				</if>
+      	 				<if test="st_po_no !=null and st_po_no !=''">
+      	 					AND (PO.PO_NO LIKE #{st_po_no}||'%' OR PO.LEGACY_PO_NO LIKE  #{st_po_no}||'%')
+      	 				</if>
+      	 				<if test="st_iv_no !=null and st_iv_no !=''">
+      	 					 AND IV.INV_NO LIKE #{st_iv_no}||'%'
+      	 				</if>
+      	 				<if test="st_agent_code !=null and st_agent_code !=''">
+      	 					AND PR.AGENT = #{st_agent_code}
+      	 				</if>
+      				</where>
+      				GROUP BY IV.BUYER,IV.PO_NO,IV.INV_NO		
+			</if>
+		   <if test="st_order_by=='BGR'">
+	        	<![CDATA[
+	        		ORDER BY 9, 7, 2, 8
+	        	]]>
+	         </if>
+	        <if test="st_order_by=='BUY'">
+	        	<![CDATA[
+	        		ORDER BY 12, 7, 2, 8
+	        	]]>
+	         </if>
+	         <if test="st_order_by=='AGE'">
+	        	<![CDATA[
+	        		ORDER BY 6, 7, 2, 8
+	        	]]>
+	         </if>	         
+	         <if test="st_order_by=='BPO'">
+	        	<![CDATA[
+	        		ORDER BY 7, 2, 8
+	        	]]>
+	         </if>	   	
+			
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+
+
+	<!-- 입고등록 전 조회-->
+	<select id="selectMasterWmGrStockGrCreForUpdateList" parameterType="java.util.Map" resultType="java.util.Map">
+			<![CDATA[
+       	SELECT	 /** selectMasterWmGrStockGrCreForUpdateList */      									
+       		PO.BUYER BUYER,								
+       		PO.SELLER SELLER ,								
+       		PO.PO_NO PO_NO,								
+       		PO.PO_SEQ PO_SEQ,								
+       		IV.INV_NO INV_NO,								
+       		IV.INV_SEQ INV_SEQ,								
+       		#{st_user_id},							
+       		PR.AGENT AGENT,								
+       		PO.AGENT_PRICE AGENT_PRICE,							
+       		TO_CHAR(SYSDATE,'YYYYMMDD') GR_DATE,			
+       		IV.INV_QTY	 INV_QTY							
+       	FROM ICOMPODT PO, ICOMIVDT IV , ICOMPRDT PR	
+       	WHERE PO.BUYER = IV.BUYER					
+       	  AND PO.PO_NO = IV.PO_NO					
+       	  AND PO.PO_SEQ	= IV.PO_SEQ					
+       	  AND PO.PR_NO = PR.PR_NO					
+       	  AND PO.PR_SEQ = PR.PR_SEQ					
+       	  AND PO.BUYER = PR.BUYER					
+       	  AND IV.BUYER = #{st_warehouse_code}					
+       	  AND PO.STATUS <> 'D'						
+       	  AND IV.STATUS <> 'D'						
+       	  AND PR.STATUS <> 'D'
+    	  AND IV.INV_NO IN
+	  		]]>
+	  <foreach collection="listForUpdate" item="IV_NO" index="i" open="(" separator=","  close=")" >	
+	    #{IV_NO}
+	  </foreach>  
+
+	</select>
+		<!-- 입고등록 전 조회-->
+	<select id="selectMasterWmGrStockGrCreForUpdatePop" parameterType="java.util.Map" resultType="java.util.Map">
+			<![CDATA[
+       	SELECT	 /** selectMasterWmGrStockGrCreForUpdateList */      									
+       		PO.BUYER BUYER,								
+       		PO.SELLER SELLER ,								
+       		PO.PO_NO PO_NO,								
+       		PO.PO_SEQ PO_SEQ,								
+       		IV.INV_NO INV_NO,								
+       		IV.INV_SEQ INV_SEQ,								
+       		#{st_user_id},							
+       		PR.AGENT AGENT,								
+       		PO.AGENT_PRICE AGENT_PRICE,							
+       		TO_CHAR(SYSDATE,'YYYYMMDD') GR_DATE,			
+       		IV.INV_QTY	 INV_QTY							
+       	FROM ICOMPODT PO, ICOMIVDT IV , ICOMPRDT PR	
+       	WHERE PO.BUYER = IV.BUYER					
+       	  AND PO.PO_NO = IV.PO_NO					
+       	  AND PO.PO_SEQ	= IV.PO_SEQ					
+       	  AND PO.PR_NO = PR.PR_NO					
+       	  AND PO.PR_SEQ = PR.PR_SEQ					
+       	  AND PO.BUYER = PR.BUYER					
+       	  AND IV.BUYER = #{st_warehouse_code}					
+       	  AND PO.STATUS <> 'D'						
+       	  AND IV.STATUS <> 'D'						
+       	  AND PR.STATUS <> 'D'
+    	  AND IV.INV_NO =  #{IV_NO}
+	  		]]>
+	</select>
+	
+	<select id="selectOrderNo" parameterType="java.util.Map" resultType="java.util.Map">
+			<![CDATA[
+  						Select  /** selectOrderNo */  
+  						         doc_type||SUBSTR(year,3,2)||LPAD(cur_no,6,0)  GRNO
+                         FROM ICOMSQMT 
+                        WHERE company=#{st_warehouse_code} 
+                           and doc_type='GR'	
+			]]>
+	</select>
+		
+	 <update  id="insertIcomsqmt" parameterType="java.util.Map" >
+		<![CDATA[
+				 Insert INTO /** insertIcomsqmt */
+				                 icomsqmt (company,doc_type,year,cur_no)
+      					Values (#{st_warehouse_code},'GR',to_char(sysdate,'yyyy'),2)
+		]]>
+	</update>
+	
+	 <update  id="updateIcomsqmt" parameterType="java.util.Map" >
+		<![CDATA[
+ 			UPDATE /** insertIcomsqmt */
+ 			            icomsqmt SET year = decode(year,to_char(sysdate,'yyyy'), year,to_char(sysdate,'yyyy')) ,
+                                        cur_no = decode(year,to_char(sysdate,'yyyy'),cur_no+1,1) 
+             WHERE company =#{st_warehouse_code} and doc_type='GR'		
+		]]>
+	</update>	
+	
+	
+	<update  id="insertICOMGRDT" parameterType="java.util.Map" >
+		<![CDATA[
+	    		INSERT   /*insertICOMGRDT */
+	    		          INTO ICOMGRDT(BUYER, GR_NO, GR_SEQ, STATUS, SEND_DATE, SEND_TIME,                      
+                         		  	ADD_DATE, ADD_TIME, CHANGE_DATE, CHANGE_TIME,                            
+                         			CONFIRM_DATE, CONFIRM_TIME, SELLER, GR_DATE,                             
+                         			PAY_TERMS, USANCE_DAYS, BUYER_ITEM_NO, SELLER_ITEM_NO,                   
+                         			DESCRIPTION, SPECIFICATION, CUR, UNIT_MEASURE,                           
+                         			ITEM_QTY, UNIT_PRICE, ITEM_AMT,                                          
+                         			INV_NO, INV_SEQ, PO_NO, PO_SEQ, DO_NO, DO_SEQ,                           
+                         			EXCHANGE_RATE, GR_LOC_AMT, LC_NO, AP_NO,                                 
+                         			PROCESS_TYPE, RO_QTY, ADD_USER_ID,                                       
+                         			NOTIFY, PAYER, PAYEE, GR_BAL_QTY, AGENT, AGENT_PRICE , CHANGE_USER_ID, AGENT_ITEM_AMT)  
+               						(SELECT  D.BUYER, #{GRNO}, TO_CHAR(#{GR_SEQ},'FM000000'), 'C', ' ', ' ',                        
+                         			TO_CHAR(SYSDATE,'YYYYMMDD'), TO_CHAR(SYSDATE,'HH24MISS'),                
+                         			TO_CHAR(SYSDATE,'YYYYMMDD'), TO_CHAR(SYSDATE,'HH24MISS'),                
+                         			' ', ' ', D.SELLER, #{GR_DATE},                                                   
+                         			H.PAY_TERMS, H.USANCE_DAYS, D.BUYER_ITEM_NO, D.SELLER_ITEM_NO,           
+                         			D.DESCRIPTION, D.SPECIFICATION, H.CUR, D.UNIT_MEASURE,                   
+                         			${INV_QTY}, T.UNIT_PRICE, TRUNC(${INV_QTY} * T.UNIT_PRICE),                                
+                         			D.INV_NO, D.INV_SEQ, D.PO_NO, D.PO_SEQ, D.DO_NO, D.DO_SEQ,               
+                         			'12', '1', D.LC_NO, '', H.INV_TYPE, 0, #{st_user_id},                                     
+                         			D.NOTIFY, D.PAYER, D.PAYEE, ${INV_QTY}, #{AGENT}, T.AGENT_PRICE ,#{st_user_id}  ,TRUNC(${INV_QTY} * T.AGENT_PRICE)        
+      					FROM   ICOMIVDT D, ICOMIVHD H  ,ICOMPODT T                                                  
+     				  WHERE   D.BUYER    = #{BUYER}                                                                       
+       					  AND   D.SELLER   = #{SELLER}                                                                       
+       					  AND   D.INV_NO   = #{INV_NO}                                                                      
+       					  AND   D.INV_SEQ  = #{INV_SEQ}                                                                       
+       					  AND   D.STATUS  != 'D'                                                                     
+       					  AND   D.BUYER    = H.BUYER                                                                 
+       					  AND   D.SELLER   = H.SELLER                                                                
+      			 		  AND   D.INV_NO   = H.INV_NO                                                                
+       					  AND   D.BUYER    = T.BUYER                                                                 
+                          AND   D.PO_NO    = T.PO_NO                                                                 
+       					  AND   D.PO_SEQ   = T.PO_SEQ                                                                
+       					  AND   H.STATUS  != 'D')		
+		]]>
+	</update>		
+	
+	
+	<update  id="updataeICOMPODT" parameterType="java.util.Map" >
+		<![CDATA[	
+				UPDATE  /** insertICOMPODT */
+				            ICOMPODT SET                  
+ 			  GR_QTY = NVL(GR_QTY,0) + ${INV_QTY},          
+ 			   DI_QTY = NVL(DI_QTY,0) + ${INV_QTY}           
+                 WHERE  BUYER   = #{BUYER}                   
+   					 AND  SELLER  = #{SELLER}                   
+                     AND  PO_NO   =#{ PO_NO }                    
+   				     AND  PO_SEQ  = #{PO_SEQ}                    
+                     AND  STATUS != 'D'                 
+   				     AND  ITEM_QTY >= NVL(GR_QTY,0) + #{INV_QTY}
+		]]>
+	</update>			
+
+		<select  id="selectMasterWmGrStockGrCre_GR_QTY" parameterType="java.util.Map" resultType="java.util.Map">
+				<![CDATA[
+					 /** selectMasterWmGrStockGrCre_GR_QTY */
+					 SELECT  INV_NO
+                      			,WMS_GR_QTY
+                      			,BUYER
+                     			 ,PO_NO
+                       FROM ICOMIVDT
+					 WHERE BUYER = #{BUYER}
+					    AND  SELLER =#{SELLER}    
+					    AND  PO_NO = #{ PO_NO } 
+                        AND  INV_NO = #{IV_NO} 
+                        AND  STATUS != 'D'
+                        AND   WMS_GR_QTY <> 0			 
+				]]>
+		</select>
+	
+	
+		<update  id="updataeICOMIVDT" parameterType="java.util.Map" >
+		<![CDATA[	
+				UPDATE  /** insertICOMPODT */
+				            ICOMIVDT A 
+				      SET                                                               
+							A.GR_QTY = DECODE( (SELECT B.PROCESS_TYPE 
+														      FROM ICOMPODT B                            
+                    							             WHERE B.BUYER = A.BUYER                                   
+                                                                 AND B.PO_NO = A.PO_NO  
+                                                                 AND B.PO_SEQ = A.PO_SEQ                            
+                                                                 AND B.STATUS <> 'D'),'2',NVL(A.GR_QTY,0), NVL(A.GR_QTY,0) + ${INV_QTY})                                                                                     
+				WHERE  A.BUYER  = #{BUYER}                                                                  
+                    AND  A.SELLER =#{SELLER}                                                         
+                    AND  A.INV_NO = #{INV_NO}                                                                  
+                    AND  A.INV_SEQ = #{INV_SEQ}                                                                  
+                    AND  A.STATUS  != 'D'                                                                
+		]]>
+	</update>		
+
+
+	<update  id="updataeICOMIVHD" parameterType="java.util.Map" >
+		<![CDATA[	
+ 					UPDATE  /** updataeICOMIVHD */
+ 								ICOMIVHD 
+ 					     SET                  
+ 				                GR_DATE = TO_CHAR(SYSDATE,'YYYYMMDD') 
+                     WHERE  BUYER  = #{BUYER}                     
+                         AND  SELLER   =  #{SELLER}                     
+                         AND  INV_NO   = #{INV_NO}                     
+                        AND  STATUS  != 'D'                   
+		]]>
+	</update>		
+	
+	<update  id="updataeICOMIVDTList" parameterType="java.util.Map" >
+		<![CDATA[	
+          UPDATE  /** updataeICOMIVDTList */
+                       ICOMIVDT IVDT 
+                  SET                                 
+                 IVDT.WMS_GR_QTY = NVL(IVDT.INV_QTY,0),            
+                 IVDT.WMS_GR_DATE = TO_CHAR(SYSDATE,'YYYYMMDD'),   
+                 IVDT.WMS_GR_USER_ID = #{st_user_id}                         
+           WHERE IVDT.INV_NO = #{IV_NO}                                   
+             AND IVDT.BUYER = #{BUYER}                                    
+             AND IVDT.PO_NO = #{PO_NO}                                   
+             AND IVDT.STATUS <> 'D'                  
+		]]>
+	</update>		
+	
+	<select id="selectICOMIVDT" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			SELECT  /**  selectICOMIVDT */           
+						BUYER,          
+						INV_NO,         
+						INV_SEQ,        
+						BUYER_ITEM_NO,  
+						INV_QTY,        
+						UNIT_PRICE,     
+						(SELECT AGENT FROM ICOMPOHD WHERE PO_NO = IV.PO_NO AND BUYER = IV.BUYER) AGENT, 
+						(SELECT CONTRACT_NO FROM ICOMPODT WHERE PO_NO = IV.PO_NO AND BUYER = IV.BUYER AND PO_SEQ = IV.PO_SEQ) CONTRACT_NO, 
+						(SELECT CONTRACT_SEQ FROM ICOMPODT WHERE PO_NO = IV.PO_NO AND BUYER = IV.BUYER AND PO_SEQ = IV.PO_SEQ) CONTRACT_SEQ 
+				FROM ICOMIVDT IV    
+				WHERE BUYER = #{st_warehouse_code}	
+	  				AND INV_NO = #{IV_NO} 	
+	  				AND IV.STATUS <> 'D'	
+		]]>
+	</select>	
+	
+		<update  id="updataeIICOMIVDT_WMS_GR_QTY" parameterType="java.util.Map" >
+		<![CDATA[	
+		/**updataeIICOMIVDT_WMS_GR_QTY */
+				  UPDATE ICOMIVDT IVDT SET  
+		         IVDT.WMS_GR_QTY = NVL(IVDT.INV_QTY,0),  
+		         IVDT.WMS_GR_DATE = TO_CHAR(SYSDATE,'YYYYMMDD'),  
+		         IVDT.WMS_GR_USER_ID = #{st_user_id}    
+		   WHERE IVDT.INV_NO = #{IV_NO} 	   
+		     AND IVDT.BUYER = #{BUYER}          
+		     AND IVDT.PO_NO = #{PO_NO}   
+		     AND IVDT.STATUS <> 'D'   
+		     AND NVL(IVDT.WMS_GR_QTY, 0) = 0 
+		]]>
+		</update>
+	
+	<update  id="updataeICOMIVDTList2" parameterType="java.util.Map" >
+		<![CDATA[	
+				UPDATE /**updataeICOMIVDTList2 */
+				           WMSSTCK					
+				     SET TOT_QTY = TOT_QTY+${INV_QTY},		
+	                       AVAIL_QTY = AVAIL_QTY+${INV_QTY},	
+	                       PRE_GR_QTY = PRE_GR_QTY-(${INV_QTY}),	
+		                   LAST_REC_DATE = TO_CHAR(SYSDATE,'YYYYMMDD'), 
+		                   STC_SELLER_PRICE = ROUND(DECODE(NVL(AVAIL_QTY,0)+${INV_QTY},0,0,((NVL(STC_SELLER_PRICE,0)*NVL(AVAIL_QTY,0))+(${INV_QTY}*${UNIT_PRICE}))/(NVL(AVAIL_QTY,0)+${INV_QTY})),0) ,
+		                   LAST_AGENT = #{AGENT}				
+	             WHERE WAREHOUSE_CODE = #{BUYER}	
+	                 AND STDCATLG_ID = #{BUYER_ITEM_NO}			
+	                 AND AGENT = 'KRKORE0001'					
+		]]>
+	</update>				
+	
+		<update  id="updataeICOMIVDTList2Pop" parameterType="java.util.Map" >
+		<![CDATA[	
+				UPDATE /**updataeICOMIVDTList2Pop */
+				           WMSSTCK					
+				     SET TOT_QTY = TOT_QTY+${INV_QTY},		
+	                       AVAIL_QTY = AVAIL_QTY+${INV_QTY},	
+	                       PRE_GR_QTY = PRE_GR_QTY-(${INV_QTY}),	
+		                   LAST_REC_DATE = TO_CHAR(SYSDATE,'YYYYMMDD'), 
+		                   STC_SELLER_PRICE = ROUND(DECODE(NVL(AVAIL_QTY,0)+${INV_QTY},0,0,((NVL(STC_SELLER_PRICE,0)*NVL(AVAIL_QTY,0))+(${INV_QTY}*${UNIT_PRICE}))/(NVL(AVAIL_QTY,0)+${INV_QTY})),0) ,
+		                   LAST_AGENT = #{AGENT}				
+	             WHERE WAREHOUSE_CODE = #{BUYER}	
+	                 AND STDCATLG_ID = #{BUYER_ITEM_NO}			
+	                 AND AGENT = 'KRKORE0001'					
+		]]>
+	</update>	
+	
+</mapper>   
+   

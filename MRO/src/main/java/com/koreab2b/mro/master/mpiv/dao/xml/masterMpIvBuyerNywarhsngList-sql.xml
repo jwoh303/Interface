@@ -1,0 +1,259 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mpiv">
+	<!-- 조회 -->
+	<select id="selectMasterMpIvBuyerNywarhsngListList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.pagestart"/>	
+			<![CDATA[
+			
+			/*selectMasterMpIvBuyerNywarhsngListList*/
+			
+				SELECT                 /*+ LEADING(C PODT  POHD ) */
+                       F_GET_PO_STTS( PODT.BUYER, PODT.PO_NO, PODT.PO_SEQ, 1 ) STTS,                    
+				       PODT.LEGACY_PO_NO,    -- I/F발주번호                               
+				       PODT.LEGACY_PO_SEQ,    -- I/F발주항번                              
+				       PODT.REF_PR_NO AS REF_PR_NO, --관리번호						     
+				       PODT.PO_NO AS PO_NO,             --발주번호                        
+				       PODT.PO_SEQ AS PO_SEQ,             --발주항번                      
+				       PODT.BUYER_ITEM_NO AS BUYER_ITEM_NO, --제품코드                    
+				       PODT.DESCRIPTION AS DESCRIPTION,     --품명                 
+				       DECODE(PODT.SCM_REMARK,NULL,'','SCM') AS SCM_REMARK,							-- SCM비고       
+				       PODT.SPECIFICATION AS SPECIFICATION, --규격                        
+				       PODT.PO_REMARK AS PO_REMARK,         --비고                        
+				       PODT.UNIT_MEASURE AS UNIT_MEASURE,   --단위                        
+				       POHD.PO_CREATE_DATE AS PO_CREATE_DATE, --발주일                    
+				       PODT.RD_DATE AS RD_DATE,               --납기요청일                
+				
+				       (SELECT APPROVAL_RD_DATE from KEP_PO_DELY_MNG X                    
+				       WHERE BUYER = PODT.BUYER							                 
+				        AND   PO_NO = PODT.PO_NO											 
+				        AND   PO_SEQ = PODT.PO_SEQ							             
+				        AND   SEQ = (SELECT MAX(SEQ) FROM KEP_PO_DELY_MNG				 
+				        WHERE BUYER = X.BUYER											 
+				        AND   PO_NO = X.PO_NO											 
+				        AND   PO_SEQ= X.PO_SEQ)) AS HA_DATE, --합의일					 
+				
+				       PODT.ITEM_QTY AS PO_QTY,               --발주수량                  
+				       PODT.GR_QTY AS GI_GR_QTY,              --기입고수량                
+				       PODT.UNIT_PRICE AS UNIT_PRICE,         --매출단가                  
+				       PODT.AGENT_PRICE AS AGENT_PRICE,       --매입단가                  
+				       (SELECT COM_NAME_LOC FROM ICOMCMPY                             
+				         WHERE COM_CODE = POHD.AGENT) AS AGENT_NAME, --공급사             
+				       PODT.IV_QTY AS INV_QTY,                       --납품수량           
+				            
+							DECODE(PODT.PROCESS_TYPE,'0'                                   		
+							,(SELECT MIN(INVOICE_DATE) FROM ICOMIVDT                       		    
+							WHERE BUYER = PODT.BUYER AND PO_NO = PODT.PO_NO                       		
+				  			AND PO_SEQ = PODT.PO_SEQ AND STATUS <>'D')                     		
+							,(SELECT MIN(INV_DATE) FROM WMSIVDT		   						    	
+							WHERE BUYER  = PODT.BUYER   AND PO_NO = PODT.PO_NO                    		
+				  			AND PO_SEQ = PODT.PO_SEQ  AND STATUS <> 'D')) AS INVOICE_DATE, --납품예정일		
+				            
+							DECODE(PODT.PROCESS_TYPE,'0'                                   		
+							,(SELECT MIN(DELIVERY_QTY) FROM ICOMIVDT                       		    
+							WHERE BUYER = PODT.BUYER AND PO_NO = PODT.PO_NO                       		
+				  			AND PO_SEQ = PODT.PO_SEQ AND STATUS <>'D')                     		
+							,(SELECT MIN(DELIVERY_QTY) FROM WMSIVDT		   						    	
+							WHERE BUYER  = PODT.BUYER   AND PO_NO = PODT.PO_NO                    		
+				  			AND PO_SEQ = PODT.PO_SEQ  AND STATUS <> 'D')) AS DELIVERY_QTY, --배송확정수량		
+				            
+							DECODE(PODT.PROCESS_TYPE,'0'                                   		
+							,(SELECT MIN(DELIVERY_DATE) FROM ICOMIVDT                       		    
+							WHERE BUYER = PODT.BUYER AND PO_NO = PODT.PO_NO                       		
+				  			AND PO_SEQ = PODT.PO_SEQ AND STATUS <>'D')                     		
+							,(SELECT MIN(DELIVERY_DATE) FROM WMSIVDT		   						    	
+							WHERE BUYER  = PODT.BUYER   AND PO_NO = PODT.PO_NO                    		
+				  			AND PO_SEQ = PODT.PO_SEQ  AND STATUS <> 'D')) AS DELIVERY_DATE, --배송확정일		
+				       (SELECT TEXT1 FROM ICOMCOD2                                        
+				         WHERE COMPANY_CODE = POHD.BUYER                                  
+				           AND TYPE = 'C001'                                              
+				           AND CODE = PRDT.ADD_USER_DEPT) AS ADD_USER_DEPT_TEXT,--요청부서
+				       (SELECT USER_NAME_LOC FROM ICOMLUSR                                
+				         WHERE USER_ID = PRDT.ADD_USER_ID) AS ADD_USER_NAME,     --요청자 
+				       (SELECT USER_NAME_LOC FROM ICOMLUSR                                
+				         WHERE USER_ID = POHD.PURCHASER_ID) AS PO_USER_NAME,     --발주자 
+				
+				       (SELECT MAX(USER_NAME_LOC) FROM ICOMLUSR X, MIS_BUYER_MNG Y        
+				       WHERE PODT.BUYER = Y.BUYER                                         
+				       AND   Y.YEAR = TO_CHAR(SYSDATE,'YYYY')                             
+				       AND   Y.KEP_USER_ID = X.USER_ID                                    
+				       AND   Y.STATUS = 'C'                                               
+				       AND   Y.POSITION_GROUP = 'PA')   AS PA_KEP_USER_ID,  --KEP담당자   
+				
+				       --HIDDEN                                                           
+				       PRDT.ADD_USER_DEPT AS ADD_USER_DEPT,                               
+				       PRDT.ADD_USER_ID AS ADD_USER_ID,                                   
+				       POHD.PURCHASER_ID AS PURCHASER_ID,                                 
+				       PODT.BUYER AS BUYER,
+				       (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = PODT.BUYER) AS BUYER_NAME,
+				       POHD.AGENT AS AGENT,                                               
+				       PODT.BYIT_COMORG_CODE AS BYIT_COMORG_CODE,                         
+				       PODT.CONTRACT_NO AS CONTRACT_NO,                                   
+				       PODT.CONTRACT_SEQ AS CONTRACT_SEQ,                                 
+				
+				   PODT.DS_DELAY_REASON AS DS_DELAY_REASON,                             
+				   (SELECT MAX(PR_USER_NM||'('||PR_USER_TEL_NO||')') FROM POIFLOAD_DOOS 
+				       WHERE PODT.BUYER = COM_CODE                                          
+				       AND  PODT.LEGACY_PO_NO = LEGACY_PO_NO                                
+				       AND  PODT.LEGACY_PO_SEQ= LEGACY_PO_SEQ) AS PR_USER_INFO              
+				
+				                                                                          
+				  FROM ICOMPOHD POHD, ICOMPODT PODT, ICOMPRDT PRDT                   
+                     , KEP_PM_PA_LIST C                               
+                     , (                    
+                        SELECT                        
+                               BUYER                        
+                             , PO_NO                        
+                             , PO_SEQ                        
+                             , (SELECT TEXT2 
+                                  FROM ICOMCOD1 
+                                 WHERE TYPE='M065' 
+                                   AND CODE=S.REASON_CODE) AS REASON_CODE_REMARK                        
+                             , REASON_REMARK                        
+                          FROM KEP_PO_DELY_MNG S                        
+				]]>
+					WHERE S.BUYER IN
+					<foreach item="item" collection="st_buyerArr" open="(" separator="," close=")">
+				 	#{item}
+					</foreach>
+					<![CDATA[
+                           AND S.SEQ=(
+                           
+                           					SELECT  /*+  index_desc(X SYS_C009931  ) */ SEQ                        
+                                              FROM KEP_PO_DELY_MNG   X                     
+                                            WHERE BUYER=S.BUYER                        
+                                               AND PO_NO=S.PO_NO                        
+                                              AND PO_SEQ=S.PO_SEQ
+                                              AND ROWNUM = 1  
+                                              )                        
+                       )R                        				       
+				 ]]>
+					WHERE PODT.BUYER IN
+					<foreach item="item" collection="st_buyerArr" open="(" separator="," close=")">
+				 	#{item}
+					</foreach>
+					<![CDATA[                     
+				   AND POHD.BUYER = PODT.BUYER                                            
+				   AND POHD.PO_NO = PODT.PO_NO                                            
+				   AND PODT.BUYER = PRDT.BUYER                                            
+				   AND PODT.PR_NO = PRDT.PR_NO                                            
+				   AND PODT.PR_SEQ = PRDT.PR_SEQ           
+
+                   AND PODT.BUYER     =C.BUYER                    
+                   AND PODT.PO_NO     =C.KEY1                    
+                   AND PODT.PO_SEQ    =C.KEY2                    
+--                   AND PODT.ITEM_GROUP=C.KEY4    
+
+                   AND PODT.BUYER  = R.BUYER(+)    
+                   AND PODT.PO_NO  = R.PO_NO(+)    
+                   AND PODT.PO_SEQ = R.PO_SEQ(+)    
+				                                  
+				   AND POHD.STATUS <> 'D'                                                 
+				   AND PODT.STATUS <> 'D'                                                 
+				   AND PRDT.STATUS <> 'D'                                                 
+--				   AND PODT.ITEM_QTY <> PODT.GR_QTY                  
+					]]>
+			        <if test='st_nodate != "Y" '>                     
+					   AND PODT.RD_DATE BETWEEN #{st_from_date} AND #{st_to_date}
+					 </if>
+					AND C.BUYER IN
+					<foreach item="item" collection="st_buyerArr" open="(" separator="," close=")">
+				 	#{item}
+					</foreach>
+					<![CDATA[
+				   AND C.GUBUN='GR_NOT' 
+				]]>
+		        <if test="st_po_no != null and st_po_no != ''">
+					  AND (PODT.PO_NO LIKE #{st_po_no} || '%' OR PODT.LEGACY_PO_NO LIKE #{st_po_no} || '%'   )          
+		        </if>
+		        <if test="st_ref_no != null and st_ref_no != ''">
+					  AND PODT.REF_PR_NO LIKE #{st_ref_no} || '%'                                         
+		        </if>
+		        <if test="st_agent_code != null and st_agent_code != ''">
+					  AND POHD.AGENT = #{st_agent_code}                                   
+		        </if>
+				                                      
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+
+
+	<update  id="insertMasterMpIvBuyerNywarhsngList" parameterType="java.util.Map" >
+		<![CDATA[
+				INSERT INTO	KEPQTDT					
+				(									
+					BUYER,							
+					QUOTATION_NO,					
+					QUOTATION_SEQ,					
+					REVISION,						
+					AGENT,							
+					AGENT_REVISION,					
+					STATUS,							
+					BUYER_ITEM_NO,					
+					DESCRIPTION,					
+					SPECIFICATION,					
+					UNIT_MEASURE,					
+					MAKER_NAME,						
+					ORIGIN_NAME,					
+					ATOS_DATE,						
+					ATOS_END_DATE,					
+					ATOS_END_TIME,					
+					ITEM_QTY,						
+					IMAGE_KEY,						
+					DSS_FLAG,						
+					DSS_CHOICE						
+				)									
+				(									
+				SELECT								
+					#{BUYER},									/* 1 : BUYER */
+					#{QUOTATION_NO},									/* 2 : QUOTATION_NO */
+					#{QUOTATION_SEQ},									/* 3 : QUOTATION_SEQ */
+					#{REVISION},									/* 4 : REVISION */
+					#{AGENT},									/* 5 : AGENT */
+					#{AGENT_REVISION},								/* 6 : AGENT_REVISION */
+					'C',						
+					BUYER_ITEM_NO,				
+					DESCRIPTION,				
+					SPECIFICATION,				
+					UNIT_MEASURE,				
+					MAKER_NAME,					
+					ORIGIN_CODE,				
+					TO_CHAR(SYSDATE, 'YYYYMMDD')AS ATOS_DATE,
+					#{ATOS_END_DATE},								/* 7 : ATOS_END_DATE */
+					#{ATOS_END_TIME},								/* 8 : ATOS_END_TIME */
+					ITEM_QTY,					
+					IMAGE_KEY,					
+					#{DSS_FLAG},								/*  9 : DSS_FLAG   if(chk_str[1].equals("A") || chk_str[1].equals("B") || chk_str[1].equals("C")|| chk_str[1].equals("S")) : Y , 기타  : N   */
+					#{DSS_CHOICE}								/*    10 : DSS_CHOICE */
+				   FROM KEPRQDT						
+				  WHERE BUYER=#{BUYER}							/* 11 : BUYER */           
+					AND QUOTATION_NO=#{QUOTATION_NO}					/* 12 : QUOTATION_NO     */
+					AND QUOTATION_SEQ=#{QUOTATION_SEQ}					/* 13 : QUOTATION_SEQ    */
+					AND REVISION=#{REVISION}						/* 14 : REVISION  */       
+					AND RECV_FLAG <> 'GD'			
+					AND STATUS IN ('C','R')			
+				)									
+
+		]]>
+							   <!-- /* CMS_USER_ID = 'TEMPUSER', */ -->
+		
+	</update>
+
+
+<!-- 삭제 -->
+	<update id="deleteMasterMpIvBuyerNywarhsngList"  parameterType="java.util.Map">
+		<![CDATA[
+				UPDATE KEPRQDT					
+				   SET RECV_FLAG      = 'GD' 	
+				     , CANCEL_USER_ID = #{USR_ID}    		/*CANCEL_USER_ID*/
+				     , CANCEL_DATE    = SYSDATE	
+				     , CANCEL_REMARK  = #{CANCEL_REMARK}    		/*CANCEL_REMARK*/
+				 WHERE BUYER          = #{BUYER}			/*BUYER*/
+				   AND QUOTATION_NO   = #{QUOTATION_NO}	 		/*QUOTATION_NO*/
+				   AND QUOTATION_SEQ  = #{QUOTATION_SEQ}			/*QUOTATION_SEQ*/
+				   AND REVISION       = #{REVISION}			/*REVISION*/
+				   AND STATUS IN ('C','R')
+		]]>
+	</update>
+
+</mapper>   
+   

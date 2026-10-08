@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="common.mpiv">
+
+
+	<select id="selectCommonMpIvAgrmntDetailPopList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/*selectCommonMpIvAgrmntDetailPopList*/
+			SELECT
+				  A.KEP_USER_ID
+				, (SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = A.KEP_USER_ID) AS KEP_USER_NAME
+				, A.SUPPLIER_USER_NAME
+				, F_GET_CMCD_NAME('M065', A.REASON_CODE) AS REASON_CODE
+				, A.REASON_REMARK
+				, A.APPROVAL_RD_DATE								-- 납품합의일
+				, TO_CHAR(A.CREATE_DATE,'YYYYMMDD') AS CREATE_DATE	-- 납품조정일
+			FROM KEP_PO_DELY_MNG A
+			WHERE
+					A.BUYER  = #{st_buyer}
+				AND A.PO_NO  = #{st_po_no}
+				AND A.PO_SEQ = #{st_po_seq}
+				/*
+				AND A.SEQ = (	SELECT MAX(SEQ)
+								FROM KEP_PO_DELY_MNG
+								WHERE	BUYER=A.BUYER
+									AND PO_NO=A.PO_NO
+									AND PO_SEQ=A.PO_SEQ
+					)
+				*/
+			ORDER BY A.CREATE_DATE
+		]]>
+	</select>
+	
+	<select id="selectCommonMpIvAgrmntDetailPopMailYn" parameterType="java.util.Map" resultType="java.lang.String">
+		<![CDATA[
+			/*selectCommonMpIvAgrmntDetailPopMailYn*/
+			-- SLOGIC-BEGIN(P07-0000019)
+			SELECT DECODE(COUNT(*), 0, 'Y', 'N') AS MAIL_YN  --Y: 체크버튼 visible true, N: visible false
+			FROM BNTSLGDEF A, BNTSLGIMP B
+			WHERE
+					A.SLG_ID = B.SLG_ID
+				AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN A.OPEN_DATE AND A.CLOSE_DATE
+				AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN B.OPEN_DATE AND B.CLOSE_DATE
+				AND A.SLG_ID = 'P07-0000019'
+				AND B.COM_CODE = #{st_buyer}
+			-- SLOGIC-END
+		]]>
+	</select>
+	
+	<!-- 납품합의 저장 KEP_PO_DELY_MNG INSERT -->
+	<update id="insertCommonMpIvAgrmntDetailPop" parameterType="java.util.Map">
+		<![CDATA[
+			/*insertCommonMpIvAgrmntDetailPop*/
+			INSERT INTO KEP_PO_DELY_MNG (
+				  BUYER
+				, PO_NO
+				, PO_SEQ
+				, SEQ
+				, KEP_USER_ID
+				, SUPPLIER_USER_NAME
+				, CREATE_DATE
+				, APPROVAL_RD_DATE
+				, REASON_CODE
+				, REASON_REMARK
+			) VALUES ( 
+				  #{st_buyer}						-- 1 : BUYER
+				, #{st_po_no}						-- 2 : PO_NO
+				, #{st_po_seq}						-- 3 : PO_SEQ
+				, (	SELECT NVL(MAX(SEQ),0)+1 
+					FROM KEP_PO_DELY_MNG
+					WHERE 
+							BUYER  = #{st_buyer}
+						AND PO_NO  = #{st_po_no}
+						AND PO_SEQ = #{st_po_seq}
+				  )
+				, #{st_user_id}					-- 4 : KEP_USER_ID
+				, #{st_supplier_user_name}		-- 5 : SUPPLIER_USER_NAME
+				, SYSDATE
+				, #{st_approval_rd_date}		-- 6 : APPROVAL_RD_DATE
+				, #{st_reason_code}				-- 7 : REASON_CODE
+				, #{st_reason_remark}			-- 8 : REASON_REMARK
+			)
+		]]>
+	</update>
+	
+	<!-- ICOMPORS 담당자확인 UPDATE -->
+	<update id="updateCommonMpIvAgrmntPors" parameterType="java.util.Map">
+		<![CDATA[
+			/*updateCommonMpIvAgrmntPors*/
+			UPDATE ICOMPORS
+			SET
+				ADMIN_FLAG1 = 'Y'
+			WHERE
+					BUYER = #{st_buyer}
+				AND PO_NO = #{st_po_no}
+				AND PO_SEQ = #{st_po_seq}
+		]]>
+	</update>
+	
+	<!-- 납품합의 저장시 메일발송 MAILSEND INSERT -->
+	<update id="insertCommonMpIvAgrmntMailSend" parameterType="java.util.Map">
+		<![CDATA[
+			/*insertCommonMpIvAgrmntMailSend*/
+			INSERT INTO MAILSEND
+			SELECT
+				  'PMPA_DELIVERY_MB' AS MAILFORM_ID
+				, 'M' AS SEND_COM_TYPE
+				, 'B' AS RECV_COM_TYPE
+				, 'KRKORE0001' AS SEND_COM_CODE
+				, 'KOREAB2B' AS SEND_USER_ID
+				, A.BUYER AS KEY1
+				, A.PO_NO AS KEY2
+				, A.PO_SEQ AS KEY3
+				, (SELECT NVL(MAX(SEQ),0)+1 FROM KEP_PO_DELY_MNG WHERE BUYER = A.BUYER AND PO_NO = A.PO_NO AND PO_SEQ = A.PO_SEQ) AS KEY4
+				, A.RECV_USER_ID AS KEY5
+				, ' ' AS KEY6
+				, ' ' AS KEY7
+				, ' ' AS KEY8
+				, ' ' AS KEY9
+				, ' ' AS KEY10
+				, SYSDATE AS CRE_DATE
+				, '' AS ERR_DATE
+			FROM (
+				SELECT
+					  D.BUYER
+					, D.PO_NO
+					, D.PO_SEQ
+					, (SELECT PURCHASER_ID FROM ICOMPOHD WHERE BUYER = D.BUYER AND PO_NO = D.PO_NO) AS RECV_USER_ID
+				FROM ICOMPODT D
+				WHERE 
+						D.BUYER = #{st_buyer}
+					AND D.PO_NO = #{st_po_no}
+					AND D.PO_SEQ = #{st_po_seq}
+				
+				UNION ALL
+				
+				SELECT
+					  D.BUYER
+					, D.PO_NO
+					, D.PO_SEQ
+					, (SELECT REQ_USER_ID FROM ICOMPRDT WHERE BUYER = D.BUYER AND PR_NO = D.PR_NO AND PR_SEQ = D.PR_SEQ) AS RECV_USER_ID
+				FROM ICOMPODT D
+				WHERE
+					D.BUYER = #{st_buyer}
+				AND D.PO_NO = #{st_po_no}
+				AND D.PO_SEQ = #{st_po_seq}
+			) A
+			GROUP BY A.BUYER, A.PO_NO, A.PO_SEQ, A.RECV_USER_ID
+		]]>
+	</update>
+	
+</mapper>

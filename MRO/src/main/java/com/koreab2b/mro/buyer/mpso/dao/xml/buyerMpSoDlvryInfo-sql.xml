@@ -1,0 +1,1591 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="buyer.mpso">
+	 
+	 
+	 	<select id="getListICOMLUSR" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		
+		/*getListICOMLUSR*/
+				
+		SELECT	         
+						USER_NAME_LOC , 
+				  	    PURCHASE_DEPT	 ,    
+						PHONE_NUMBER	,
+						FAX_NUMBER	    ,             
+						MOBILE_PHONE	,		   
+						EMAIL	             ,
+						F_GET_WEEKDAY(TO_CHAR(SYSDATE+7,'YYYYMMDD')) REQ_DATE
+		FROM ICOMLUSR
+			  WHERE  COM_CODE         =  #{st_buyer}      
+			    AND  USER_ID          =  #{st_user_id}
+
+        ]]> 
+	</select> 
+	
+	
+	
+	<!-- 우편번호검증 -->
+	<select id="checkZipCode" parameterType="java.util.Map" resultType="String">
+		<![CDATA[
+		
+		/*checkZipCode*/
+				
+		 	SELECT COUNT(*) CNT FROM ICOMZIPC	 
+		 	 WHERE zipcode = substr(#{st_location_name},1,7)	 
+        ]]> 
+	</select> 
+	
+	
+	
+		<!--기본 배송정보 입력  -->
+	<update id="setUserInfoUpdate" parameterType="java.util.Map">
+		<![CDATA[
+		
+		/*setUserInfoUpdate*/
+		
+				 UPDATE ICOMLUSR SET 						       
+				 		USER_NAME_LOC	 = #{st_user_name},				       
+				  	    PURCHASE_DEPT	 = #{st_purchase_dept_code},				          
+						PHONE_NUMBER	 = #{st_tel_no},				      
+						FAX_NUMBER	     = #{st_fax_no},	                     
+						MOBILE_PHONE	 = #{st_mobile_no}, 				   
+						EMAIL	         = #{st_email}                       
+
+			  WHERE  COM_CODE         = #{st_buyer}  				      
+			    AND  USER_ID          = #{st_user_id}			         
+        ]]> 
+	</update> 
+	
+	
+	
+	
+	
+	
+	
+		 	<select id="getBuyerMpSoRecvDateRegisterPop" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		
+		/*getBuyerMpSoRecvDateRegisterPop*/
+						
+		SELECT B.DELIVERY_LT
+		     , C.BUYER_ITEM_NO BUYER_ITEM_NO
+		     , C.DESCRIPTION DESCRIPTION_LOC
+		     , C.SPECIFICATION
+		     , CASE NVL((SELECT STD_DATE_FLAG                              --(N:요구납기일사용 Y:표준납기일사용)
+		                   FROM KEP_BUYER_FLAG
+		                  WHERE COM_CODE = A.BUYER  ), 'N') 
+		            WHEN 'N' THEN F_GET_RD_DATE( A.BUYER )                     --'요구납기일'
+		                     ELSE TO_CHAR(SYSDATE + B.DELIVERY_LT, 'YYYYMMDD') --'표준납기일'
+		         END RD_DATE --납기요청일            
+		         
+		         ,C.BUYER_ITEM_NO||C.CONTRACT_NO||C.CONTRACT_SEQ  QUERY
+		                          
+		  FROM ICOMCART A
+		     , ICOMBYIT B
+		     , ICOMCQDT C
+		     , CMSCATLG D  
+		 WHERE B.BUYER         = C.BUYER  
+		   AND A.BUYER_ITEM_NO = B.BUYER_ITEM_NO  
+		   AND A.BUYER_ITEM_NO = C.BUYER_ITEM_NO  
+		   AND A.CONTRACT_NO = C.CONTRACT_NO  
+		   AND A.CONTRACT_SEQ = C.CONTRACT_SEQ  
+		   AND A.BUYER         = #{st_buyer}  		                                               
+		   AND A.BYIT_COMORG_CODE = B.BUYER  
+		   AND A.USER_ID       =  #{st_user_id}			   
+	 
+]]>  
+<if test="st_query_cart_array != null and st_query_cart_array != ''">     
+        
+               	AND C.BUYER_ITEM_NO||C.CONTRACT_NO||C.CONTRACT_SEQ IN
+          
+<foreach collection="st_query_cart_array" item="item" index="i" open="(" separator=","  close=")" >	
+		 	#{item}
+</foreach>   
+
+
+</if>     
+<![CDATA[                                   
+		
+		   AND B.CMS_CATLG_ID = D.CMS_CATLG_ID(+)    
+		   AND D.STD_FLAG(+)='Y'                     
+		
+		   AND A.USE_FLAG      = 'C'  
+		   AND B.STATUS       <> 'D'  
+		   AND C.STATUS       <> 'D'  
+		   AND B.PRODUCT_CLOSE_FLAG    IN ('N','Y')                                                           
+ 
+
+        ]]> 
+	</select> 
+	
+	
+	
+	
+		 	<select id="getBuyerMpSoDlvryInfoStatusList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		
+		/*getBuyerMpSoDlvryInfoStatusList*/
+		
+	SELECT   TYPE,
+	    STTS_CD,
+	    STTS_NM,
+	    STTS,
+	    PR_STTS,
+	    PX_STTS,
+	    IV_STTS,
+	    GR_STTS,
+	    ROW_CNT,
+	    PARCEL_COM_CODE,
+	    PARCEL_INV_NO,
+	    INV_NO_URL,
+	    REPLACE(INV_NO_URL,'param',PARCEL_INV_NO) REAL_INV_NO_URL, -- 택배사_매핑 경로
+        PROCESS_TYPE,
+        DELIVERY_COMPANY,
+        DELIVERY_NO 
+	    FROM
+(					
+	SELECT  
+	    TYPE,
+	    STTS_CD,
+	    STTS_NM,
+	    STTS,
+	    PR_STTS,
+	    PX_STTS,
+	    IV_STTS,
+	    GR_STTS,
+	    ROW_CNT,
+	    PARCEL_COM_CODE,
+	    DECODE(DT.PROCESS_TYPE , '0' , PARCEL_INV_NO, DECODE(PARCEL_COM_CODE,WDT.DELIVERY_COMPANY , WDT.DELIVERY_NO)) PARCEL_INV_NO, -- TR인경우WMSIVDT        
+	    INV_NO_URL,
+        
+        DT.PROCESS_TYPE, -- 0:직납 1:물류창고 2:TR 3:VMI 4:고객위탁재고
+        WDT.DELIVERY_COMPANY, 
+        WDT.DELIVERY_NO  
+    FROM       
+    (
+		SELECT   Y.*
+		          , CASE WHEN Y.STTS = 'PR' THEN Y.STTS_NM ELSE '요청완료' END PR_STTS    -- ''이 아니면 활성화 :요청상태                            
+		          , CASE WHEN Y.STTS = 'PX' THEN Y.STTS_NM 
+		                                    ELSE CASE WHEN Y.STTS IN ('IV', 'GR') 
+		                                                   THEN '주문완료'
+		                                                   ELSE '' 
+		                                          END 
+		             END PX_STTS    -- ''이 아니면 활성화 : 주문상태                                 
+		          , CASE WHEN Y.STTS = 'IV' THEN Y.STTS_NM 
+		                                    ELSE CASE WHEN Y.STTS IN ('GR') 
+		                                                   THEN '발송완료' 
+		                                                   ELSE '' 
+		                                          END 
+		             END IV_STTS    -- ''이 아니면 활성화: 배송상태                                 
+		          , CASE WHEN Y.STTS = 'GR' THEN Y.STTS_NM ELSE '' END GR_STTS    -- ''이 아니면 활성화    
+		          , CASE Y.STTS WHEN 'PR' THEN 1
+		                      WHEN 'PX' THEN 2
+		WHEN 'IV' THEN (
+						CASE WHEN X.PROCESS_TYPE = 2 THEN
+							CASE X.STTS_CD WHEN 'PX10' THEN 2
+       						WHEN 'PX20' THEN 3
+       						WHEN 'PX40' THEN 4
+       						WHEN 'PX50' THEN 5
+       						WHEN 'PX60' THEN 6
+       						WHEN 'PX70' THEN 7
+       						ELSE 8
+                            END
+                         ELSE
+							CASE X.STTS_CD WHEN 'PX10' THEN 2
+       						WHEN 'PX20' THEN 3
+       						WHEN 'PX30' THEN 4
+       						WHEN 'PX70' THEN 5
+       						ELSE 6
+                            END
+             			 END)
+		 WHEN 'GR' THEN 
+		 		CASE WHEN X.PROCESS_TYPE = 2 THEN 8
+		 		ELSE 6
+		 		END
+		ELSE NULL END  ROW_CNT      -- 배송상태상세 쿼리시 사용되는 값 
+		
+        ,Z.PARCEL_COM_CODE -- 택배사_코드
+        ,Z.PARCEL_INV_NO -- 택배사_송장_번호   
+        ,X.BUYER
+        ,X.PR_NO
+        ,X.PR_SEQ        
+        ,
+        (SELECT A.TEXT5
+                      FROM ICOMCOD1 A
+                     WHERE TYPE = 'C019' and CODE =  Z.PARCEL_COM_CODE  ) INV_NO_URL -- 택배사_경로
+        
+		       FROM (
+		             SELECT F_GET_PR_STTS(A.BUYER, A.PR_NO, A.PR_SEQ , 0) STTS_CD
+		             ,A.BUYER, A.PR_NO, A.PR_SEQ, B.PROCESS_TYPE
+		               FROM ICOMPRDT A, ICOMPODT B
+		              WHERE A.STATUS        != 'D'  
+		                AND A.BUYER          =   #{st_buyer}
+		                AND A.PR_NO  = #{PR_NO}
+		                AND A.PR_SEQ  = #{PR_SEQ}
+		                AND A.BUYER = B.BUYER(+)
+		                AND A.PR_NO = B.PR_NO(+)
+		                AND A.PR_SEQ  = B.PR_SEQ(+)
+		                AND B.STATUS(+) != 'D'
+		            ) X 
+		          , (SELECT TYPE
+		                  , CODE  STTS_CD
+		                  , TEXT1 STTS_NM
+		                  , TEXT2 STTS
+		               FROM ICOMCOD1
+		              WHERE TYPE = 'C016'
+		              ORDER BY TO_NUMBER(TEXT4)
+		            ) Y
+                , (  
+                   SELECT DECODE(Z.PROCESS_TYPE, '0', Y.PARCEL_COM_CODE , W.DELIVERY_COMPANY)  PARCEL_COM_CODE
+                        , DECODE(Z.PROCESS_TYPE, '0', Y.PARCEL_INV_NO, W.DELIVERY_NO)  PARCEL_INV_NO
+                        , X.BUYER
+                        , X.PO_NO
+                        , X.PO_SEQ
+                        ,(    SELECT F_GET_PR_STTS(A.BUYER, A.PR_NO, A.PR_SEQ , 0)  
+                       FROM ICOMPRDT A
+                      WHERE A.STATUS        != 'D'  
+                        AND A.BUYER          =   #{st_buyer} 
+                        AND A.PR_NO  =   #{PR_NO}
+                        AND A.PR_SEQ  =  #{PR_SEQ} ) STTS_CD                       
+                     FROM ICOMIVDT X
+                        , ICOMIVHD Y
+                        , ICOMPOHD Z
+                        , WMSIVDT  W
+                    WHERE 1=1
+                      AND X.BUYER = Y.BUYER
+                      AND X.INV_NO= Y.INV_NO
+                      AND X.BUYER = Z.BUYER
+                      AND X.PO_NO = Z.PO_NO
+                      AND X.BUYER = W.BUYER(+)  
+                      AND X.INV_NO= W.S_INV_NO(+)  
+                      AND X.INV_SEQ= W.S_INV_SEQ(+)
+                      AND X.BUYER =  #{st_buyer} 
+                      AND X.PR_NO =  #{PR_NO}
+                      AND X.PR_SEQ= #{PR_SEQ}
+                      AND X.STATUS <> 'D'
+                      AND Y.STATUS <> 'D'
+                      AND NVL(W.STATUS, '-') <> 'D'  
+                      AND ROWNUM = 1
+                    ) Z             		            
+		      WHERE X.STTS_CD = Y.STTS_CD(+)
+		        AND X.STTS_CD = Z.STTS_CD(+)
+          ) XX
+          , ICOMPODT DT , WMSIVDT WDT
+          WHERE DT.BUYER(+)   =   XX.BUYER                                             
+          AND DT.PR_NO(+)   =    XX.PR_NO                                   
+          AND DT.PR_SEQ(+)  =    XX.PR_SEQ 
+          AND DT.BUYER   =   WDT.BUYER(+)                                                               
+          AND DT.PR_NO   =   WDT.PR_NO(+)                                         
+          AND DT.PR_SEQ  =   WDT.PR_SEQ(+) 
+           ) 
+        ]]> 
+	</select> 
+	
+	
+	
+	<select id="getBuyerMpSoDlvryInfoDtlList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		
+		/*getBuyerMpSoDlvryInfoDtlList*/
+						
+				SELECT 
+							STTS_NM,
+							ID,
+							(SELECT A.USER_NAME_LOC||' ('||B.TEXT1||')'  FROM ICOMLUSR A,ICOMCOD2 B WHERE  A.USER_ID = ID AND A.POSITION = B.CODE AND B.COMPANY_CODE = #{st_buyer} AND  B.TYPE='C003' ) NAME,
+							DECODE(JOBDATE,'','',SUBSTR(JOBDATE,1,4)||'/'||SUBSTR(JOBDATE,5,2)||'/'||SUBSTR(JOBDATE,7,2)||' '||SUBSTR(JOBDATE,9,2)||':'||SUBSTR(JOBDATE,11,2)||':'||SUBSTR(JOBDATE,13,2)) JOBDATE,
+							DAYS,
+							MEMO
+				    FROM
+				    (
+				    SELECT 
+						   DECODE(SUBSTR(A.KEY_1,1,2),'PR','요청결재','PX','주문결재','') STTS_NM,
+						    C.USER_ID ID,
+						    C.USER_NM NAME,
+						   TO_CHAR(C.PASS_DATE,'YYYYMMDDHH24MISS') JOBDATE, 
+						    TO_CHAR(C.PASS_DATE, 'YYYYMMDD')  - TO_CHAR(B.START_DATE, 'YYYYMMDD') DAYS ,
+						    A.KEY_1 ||' '||DECODE(PASS_TP,'1','결재문서',   '2','참조문서' , '요청자') || ' '||    DECODE(C.PASS_TP,'2','참조',  
+                                                 DECODE(C.PASS_KN ,NULL,'미결재'  
+                                                                  ,'1' ,'결재'  
+                                                                  ,'3' ,'반려'  
+                                                                  ,'4' ,'상신취소')|| ' '|| C.PASS_ADD)   MEMO 
+							  , '0'||SUBSTR(A.KEY_1,1,2)||C.ORDER_NO SCND_SRT                                                                    
+				    FROM ICOMTRGW A,ICOGDOCU B,ICOGPASSLN C 
+				    WHERE  A.COM_CODE = B.COMPANY
+				    AND A.TARGET = B.DOCU_NO
+				    AND A.COM_CODE  = C.COMPANY
+				    AND B.DOCU_NO  = C.DOCU_NO
+				    AND (A.KEY_1  = #{PR_NO}  OR A.KEY_1  = #{PO_NO}  OR A.KEY_1  =  #{REF_NO}  )
+				    AND A.COM_CODE          = #{st_buyer}
+				    UNION ALL        
+				    SELECT * FROM 
+				    (
+				          
+				         SELECT CASE WHEN B.PROCESS_TYPE = 2 THEN --TR일 경우
+				         			 CASE WHEN LVL = 1 THEN #{PR_STTS}    --배송상태 쿼리의 결과 값
+				                     WHEN LVL = 2 THEN #{PX_STTS}     --배송상태 쿼리의 결과 값
+				                     WHEN LVL = 3 THEN '주문접수(물품준비중)'     --배송상태 쿼리의 결과 값: 
+				                     WHEN LVL = 4 THEN '거래명세서생성(협력사→KeP물류센터)'
+                					 WHEN LVL = 5 THEN 'KeP물류센터 입고완료(출고대기)'
+                					 WHEN LVL = 6 THEN 'KeP물류센터 출고(배송중)'
+                					 WHEN LVL = 7 THEN '배송완료'
+                					 WHEN LVL = 8 THEN #{GR_STTS}      --배송상태 쿼리의 결과 값
+                					 END
+								 ELSE
+								 	 CASE WHEN LVL = 1 THEN #{PR_STTS}    --배송상태 쿼리의 결과 값
+				                     WHEN LVL = 2 THEN #{PX_STTS}     --배송상태 쿼리의 결과 값
+				                     WHEN LVL = 3 THEN '주문접수(물품준비중)'     --배송상태 쿼리의 결과 값:
+                					 WHEN LVL = 4 THEN
+                					 	CASE WHEN B.PROCESS_TYPE = 0 THEN '거래명세서생성(발송준비중)'
+                					 	ELSE 'KeP물류센터 출고(배송중)' --재고/VMI
+                					 	END
+                					 WHEN LVL = 5 THEN '배송완료'
+                					 WHEN LVL = 6 THEN #{GR_STTS}      --배송상태 쿼리의 결과 값
+                					 END
+				                 END STTS_NM         
+				              ,  CASE WHEN B.PROCESS_TYPE = 2 THEN --TR일 경우
+				              		 CASE WHEN LVL = 1 THEN A.CHANGE_USER_ID 
+				                     WHEN LVL = 2 THEN NVL(C.ADD_USER_ID , A.ADD_USER_ID)
+                                     WHEN LVL = 3 THEN (SELECT C.ADD_USER_ID
+                                              FROM ICOMPORS C  -- 협력사 수주 접수 -- 주문확인
+                                             WHERE 1=1  
+                                               AND C.BUYER  = B.BUYER  
+                                               AND C.PO_NO  = B.PO_NO  
+                                               AND C.PO_SEQ = B.PO_SEQ
+                                               AND C.STATUS!= 'D' 
+                                               AND ROWNUM   = 1
+                                               )
+                                     WHEN LVL = 4 THEN
+                               				(SELECT ID FROM 
+	                           					(SELECT C.ADD_USER_ID AS ID
+		                                          FROM ICOMIVDT D, ICOMIVHD C  
+		                                         WHERE 1=1  
+		                                           AND C.BUYER = D.BUYER
+		                                           AND C.INV_NO = D.INV_NO
+		                                           AND D.BUYER  = B.BUYER  
+		                                           AND D.PO_NO  = B.PO_NO  
+		                                           AND D.PO_SEQ = B.PO_SEQ
+		                                           AND D.STATUS!= 'D'
+		                                           ORDER BY D.INV_NO
+		                                          )
+		                                     WHERE ROWNUM = 1
+		                             		 )
+                                     WHEN LVL = 5 THEN
+                                     		(SELECT ID FROM 
+                                    			(SELECT E.WMS_GR_USER_ID AS ID
+				                                   FROM ICOMIVDT E
+				                                   WHERE 1=1  
+				                                   AND E.BUYER  = B.BUYER  
+				                                   AND E.PO_NO  = B.PO_NO  
+				                                   AND E.PO_SEQ = B.PO_SEQ
+				                                   AND E.STATUS!= 'D'
+				                                   ORDER BY E.INV_NO
+				                                )
+				                             WHERE ROWNUM = 1
+				                             )
+				                     WHEN LVL = 6 THEN
+				                     		(SELECT ID FROM
+				                             	(SELECT F.ADD_USER_ID AS ID
+				                                   FROM WMSIVDT F 
+				                                   WHERE 1=1  
+				                                   AND F.BUYER  = B.BUYER  
+				                                   AND F.PO_NO  = B.PO_NO  
+				                                   AND F.PO_SEQ = B.PO_SEQ
+				                                   AND F.STATUS!= 'D'
+				                                   ORDER BY F.INV_NO
+				                             	)
+				                             WHERE ROWNUM = 1
+				                             )
+				                     WHEN LVL = 7 THEN
+				                     		(SELECT ID FROM
+				                             	(SELECT F.ADD_USER_ID AS ID
+				                                   FROM WMSIVDT F 
+				                                   WHERE 1=1  
+				                                   AND F.BUYER  = B.BUYER  
+				                                   AND F.PO_NO  = B.PO_NO  
+				                                   AND F.PO_SEQ = B.PO_SEQ
+				                                   AND F.STATUS!= 'D'
+				                                   ORDER BY F.INV_NO
+				                             	)
+				                             WHERE ROWNUM = 1
+				                             )
+				                     WHEN LVL = 8 THEN
+				                     		(SELECT ID FROM 
+				                             	(SELECT G.ADD_USER_ID AS ID
+				                                   FROM ICOMGRDT G 
+				                                   WHERE 1=1  
+				                                   AND G.BUYER  = B.BUYER  
+				                                   AND G.PO_NO  = B.PO_NO  
+				                                   AND G.PO_SEQ = B.PO_SEQ
+				                                   AND G.STATUS!= 'D' 
+				                                   ORDER BY G.GR_NO
+				                                 )
+				                              WHERE ROWNUM = 1
+				                             )
+				                     ELSE NULL
+				                     END
+				                  ELSE
+				                  	 CASE WHEN LVL = 1 THEN A.CHANGE_USER_ID 
+				                     WHEN LVL = 2 THEN NVL(C.ADD_USER_ID , A.ADD_USER_ID)
+                                     WHEN LVL = 3 THEN (SELECT C.ADD_USER_ID
+                                              FROM ICOMPORS C  -- 협력사 수주 접수 -- 주문확인
+                                             WHERE 1=1  
+                                               AND C.BUYER  = B.BUYER  
+                                               AND C.PO_NO  = B.PO_NO  
+                                               AND C.PO_SEQ = B.PO_SEQ
+                                               AND C.STATUS!= 'D' 
+                                               AND ROWNUM   = 1
+                                               )	
+                                     WHEN LVL = 4 THEN 
+                                     				(SELECT ID FROM 
+                                     					(SELECT C.ADD_USER_ID AS ID
+				                                          FROM ICOMIVDT D, ICOMIVHD C  
+				                                         WHERE 1=1  
+				                                           AND C.BUYER = D.BUYER
+				                                           AND C.INV_NO = D.INV_NO
+				                                           AND D.BUYER  = B.BUYER  
+				                                           AND D.PO_NO  = B.PO_NO  
+				                                           AND D.PO_SEQ = B.PO_SEQ
+				                                           AND D.STATUS!= 'D'
+				                                           ORDER BY D.INV_NO
+				                                          )
+				                                     WHERE ROWNUM = 1
+				                             		 )
+                                     WHEN LVL = 5 THEN 
+                                     				(SELECT ID FROM 
+                                     					(SELECT D.DELIVERY_ADD_USER_ID AS ID
+				                                          FROM ICOMIVDT D  -- 배송 -- 송장생성 거래명세서 -- 납품실적
+				                                         WHERE 1=1  
+				                                           AND D.BUYER  = B.BUYER  
+				                                           AND D.PO_NO  = B.PO_NO  
+				                                           AND D.PO_SEQ = B.PO_SEQ
+				                                           AND D.STATUS!= 'D'
+				                                           ORDER BY D.INV_NO
+				                                          )
+				                                     WHERE ROWNUM = 1
+				                             		 )
+				                     WHEN LVL = 6 THEN 
+				                     				(SELECT ID FROM
+				                     					(SELECT E.ADD_USER_ID AS ID
+				                                          FROM ICOMGRDT E -- 고객사 입고등록 - 고객사확인
+				                                         WHERE 1=1  
+				                                           AND E.BUYER  = B.BUYER  
+				                                           AND E.PO_NO  = B.PO_NO  
+				                                           AND E.PO_SEQ = B.PO_SEQ
+				                                           AND E.STATUS!= 'D' 
+				                                           ORDER BY E.GR_NO
+				                                           )
+				                                    WHERE ROWNUM = 1
+				                             		)
+				                     ELSE NULL
+				                     END       				                     
+				                 END ID          
+				              , CASE WHEN LVL = 1 THEN A.CHANGE_USER_NAME 
+				                     WHEN LVL = 2 THEN NVL(D.USER_NAME_LOC  , A.CHANGE_USER_NAME) 
+				                     ELSE NULL
+				                 END NAME          
+				              , CASE WHEN B.PROCESS_TYPE = 2 THEN --TR일 경우
+				              		 CASE WHEN LVL = 1 THEN A.ADD_DATE||A.ADD_TIME
+				                     WHEN LVL = 2 THEN NVL(C.ADD_DATE||C.ADD_TIME,A.ADD_DATE||A.ADD_TIME)
+				                     WHEN LVL = 3 THEN (SELECT C.ADD_DATE||C.ADD_TIME 
+				                                          FROM ICOMPORS C  -- 협력사 수주 접수
+				                                         WHERE 1=1  
+				                                           AND C.BUYER  = B.BUYER  
+				                                           AND C.PO_NO  = B.PO_NO  
+				                                           AND C.PO_SEQ = B.PO_SEQ
+				                                           AND C.STATUS!= 'D' 
+				                                           AND ROWNUM   = 1
+				                                           )
+                                     WHEN LVL = 4 THEN
+                                     		(SELECT JOBDATE FROM
+                                    			(SELECT D.ADD_DATE||D.ADD_TIME AS JOBDATE
+				                                   FROM ICOMIVDT D
+				                                   WHERE 1=1  
+				                                   AND D.BUYER  = B.BUYER  
+				                                   AND D.PO_NO  = B.PO_NO  
+				                                   AND D.PO_SEQ = B.PO_SEQ
+				                                   AND D.STATUS!= 'D' 
+				                                   ORDER BY D.INV_NO
+				                                )
+				                             WHERE ROWNUM = 1
+				                             )
+                                     WHEN LVL = 5 THEN
+                                     		(SELECT JOBDATE FROM 
+                                    			(SELECT E.WMS_GR_DATE||'000000' AS JOBDATE
+				                                   FROM ICOMIVDT E
+				                                   WHERE 1=1  
+				                                   AND E.BUYER  = B.BUYER  
+				                                   AND E.PO_NO  = B.PO_NO  
+				                                   AND E.PO_SEQ = B.PO_SEQ
+				                                   AND E.STATUS!= 'D' 
+				                                   ORDER BY E.INV_NO
+				                                )
+				                             WHERE ROWNUM = 1
+				                             )
+				                     WHEN LVL = 6 THEN
+				                     		(SELECT JOBDATE FROM 
+				                             	(SELECT F.ADD_DATE||F.ADD_TIME AS JOBDATE
+				                                   FROM WMSIVDT F 
+				                                   WHERE 1=1  
+				                                   AND F.BUYER  = B.BUYER  
+				                                   AND F.PO_NO  = B.PO_NO  
+				                                   AND F.PO_SEQ = B.PO_SEQ
+				                                   AND F.STATUS!= 'D' 
+				                                   ORDER BY F.INV_NO
+				                             	)
+				                             WHERE ROWNUM = 1
+				                             )
+				                     WHEN LVL = 7 THEN
+				                     		(SELECT JOBDATE FROM 
+				                             	(SELECT DELIVERY_DATE||'000000' AS JOBDATE
+				                                   FROM WMSIVDT F 
+				                                   WHERE 1=1  
+				                                   AND F.BUYER  = B.BUYER  
+				                                   AND F.PO_NO  = B.PO_NO  
+				                                   AND F.PO_SEQ = B.PO_SEQ
+				                                   AND F.STATUS!= 'D' 
+				                                   ORDER BY F.INV_NO
+				                             	)
+				                             WHERE ROWNUM = 1
+				                             )
+				                     WHEN LVL = 8 THEN
+				                     		(SELECT JOBDATE FROM  
+				                            	(SELECT G.ADD_DATE||G.ADD_TIME AS JOBDATE
+				                                   FROM ICOMGRDT G 
+				                                   WHERE 1=1  
+				                                   AND G.BUYER  = B.BUYER  
+				                                   AND G.PO_NO  = B.PO_NO  
+				                                   AND G.PO_SEQ = B.PO_SEQ
+				                                   AND G.STATUS!= 'D' 
+				                                   ORDER BY G.GR_NO
+				                                 )
+				                             WHERE ROWNUM = 1
+				                             )
+				                      END
+				                 ELSE
+				                      CASE WHEN LVL = 1 THEN A.ADD_DATE||A.ADD_TIME
+				                      WHEN LVL = 2 THEN NVL(C.ADD_DATE||C.ADD_TIME,A.ADD_DATE||A.ADD_TIME)
+				                      WHEN LVL = 3 THEN (SELECT C.ADD_DATE||C.ADD_TIME 
+				                                          FROM ICOMPORS C  -- 협력사 수주 접수
+				                                         WHERE 1=1  
+				                                           AND C.BUYER  = B.BUYER  
+				                                           AND C.PO_NO  = B.PO_NO  
+				                                           AND C.PO_SEQ = B.PO_SEQ
+				                                           AND C.STATUS!= 'D' 
+				                                           AND ROWNUM   = 1
+				                                           )
+				                      WHEN LVL = 4 THEN 
+				                      				(SELECT JOBDATE FROM
+				                      					(SELECT D.ADD_DATE||D.ADD_TIME AS JOBDATE
+				                                          FROM ICOMIVDT D  -- 배송
+				                                         WHERE 1=1  
+				                                           AND D.BUYER  = B.BUYER  
+				                                           AND D.PO_NO  = B.PO_NO  
+				                                           AND D.PO_SEQ = B.PO_SEQ
+				                                           AND D.STATUS!= 'D' 
+				                                           ORDER BY D.INV_NO
+				                                           )
+				                                     WHERE ROWNUM = 1
+				                             		 )
+				                      WHEN LVL = 5 THEN 
+				                      				(SELECT JOBDATE FROM
+				                      					(SELECT DELIVERY_DATE||'000000' AS JOBDATE
+				                                          FROM ICOMIVDT D  -- 배송
+				                                         WHERE 1=1  
+				                                           AND D.BUYER  = B.BUYER  
+				                                           AND D.PO_NO  = B.PO_NO  
+				                                           AND D.PO_SEQ = B.PO_SEQ
+				                                           AND D.STATUS!= 'D' 
+				                                           ORDER BY D.INV_NO
+				                                           )
+				                                     WHERE ROWNUM = 1
+				                             		 )
+				                      WHEN LVL = 6 THEN 
+				                      				(SELECT JOBDATE FROM 
+				                      					(SELECT E.ADD_DATE||E.ADD_TIME AS JOBDATE
+				                                          FROM ICOMGRDT E  -- 고객사 입고등록
+				                                         WHERE 1=1  
+				                                           AND E.BUYER  = B.BUYER  
+				                                           AND E.PO_NO  = B.PO_NO  
+				                                           AND E.PO_SEQ = B.PO_SEQ
+				                                           AND E.STATUS!= 'D' 
+				                                           ORDER BY E.GR_NO
+				                                           )
+				                                     WHERE ROWNUM = 1
+				                             		 )
+				                      END
+				                 END JOBDATE           
+				              , CASE WHEN B.PROCESS_TYPE = 2 THEN --TR일 경우
+				              		 CASE WHEN LVL = 1 THEN TO_DATE(A.ADD_DATE, 'YYYYMMDD') 
+				                                     - TO_DATE(A.ADD_DATE, 'YYYYMMDD')  
+				                     WHEN LVL = 2 THEN NVL(TO_DATE(C.ADD_DATE, 'YYYYMMDD') 
+				                                     - TO_DATE(C.ADD_DATE, 'YYYYMMDD')  ,TO_DATE(A.ADD_DATE, 'YYYYMMDD') 
+				                                     - TO_DATE(A.ADD_DATE, 'YYYYMMDD')  )
+				                     WHEN LVL = 3 THEN (SELECT TO_DATE(C.ADD_DATE, 'YYYYMMDD')  
+				                                          FROM ICOMPORS C 
+				                                         WHERE 1=1  
+				                                           AND C.BUYER  = B.BUYER  
+				                                           AND C.PO_NO  = B.PO_NO  
+				                                           AND C.PO_SEQ = B.PO_SEQ
+				                                           AND C.STATUS!= 'D' 
+				                                           AND ROWNUM   = 1
+				                                           )  - TO_DATE(A.ADD_DATE, 'YYYYMMDD')
+                                     WHEN LVL = 4 THEN
+                                     		(SELECT DAYS FROM
+                                    			(SELECT TO_DATE(D.ADD_DATE, 'YYYYMMDD') AS DAYS
+				                                   FROM ICOMIVDT D
+				                                   WHERE 1=1  
+				                                   AND D.BUYER  = B.BUYER  
+				                                   AND D.PO_NO  = B.PO_NO  
+				                                   AND D.PO_SEQ = B.PO_SEQ
+				                                   AND D.STATUS!= 'D' 
+				                                   ORDER BY D.INV_NO
+				                                )
+				                             WHERE ROWNUM = 1
+				                             ) - TO_DATE(A.ADD_DATE, 'YYYYMMDD')
+                                     WHEN LVL = 5 THEN
+                                     		(SELECT DAYS FROM
+                                    			(SELECT TO_DATE(E.WMS_GR_DATE,'YYYYMMDD') AS DAYS
+				                                   FROM ICOMIVDT E
+				                                   WHERE 1=1  
+				                                   AND E.BUYER  = B.BUYER  
+				                                   AND E.PO_NO  = B.PO_NO  
+				                                   AND E.PO_SEQ = B.PO_SEQ
+				                                   AND E.STATUS!= 'D' 
+				                                   ORDER BY E.INV_NO
+				                                )
+				                             WHERE ROWNUM = 1
+				                             ) - TO_DATE(A.ADD_DATE, 'YYYYMMDD')
+				                     WHEN LVL = 6 THEN
+				                     		(SELECT DAYS FROM 
+				                             	(SELECT TO_DATE(F.ADD_DATE,'YYYYMMDD') AS DAYS
+				                                   FROM WMSIVDT F 
+				                                   WHERE 1=1  
+				                                   AND F.BUYER  = B.BUYER  
+				                                   AND F.PO_NO  = B.PO_NO  
+				                                   AND F.PO_SEQ = B.PO_SEQ
+				                                   AND F.STATUS!= 'D' 
+				                                   ORDER BY F.INV_NO
+				                             	)
+				                             WHERE ROWNUM = 1
+				                             ) - TO_DATE(A.ADD_DATE, 'YYYYMMDD')
+				                     WHEN LVL = 7 THEN
+				                     		(SELECT DAYS FROM 
+				                             	(SELECT TO_DATE(F.DELIVERY_DATE,'YYYYMMDD') AS DAYS
+				                                   FROM WMSIVDT F 
+				                                   WHERE 1=1  
+				                                   AND F.BUYER  = B.BUYER  
+				                                   AND F.PO_NO  = B.PO_NO  
+				                                   AND F.PO_SEQ = B.PO_SEQ
+				                                   AND F.STATUS!= 'D' 
+				                                   ORDER BY F.INV_NO
+				                             	)
+				                             WHERE ROWNUM = 1
+				                             ) - TO_DATE(A.ADD_DATE, 'YYYYMMDD')
+				                             
+				                     WHEN LVL = 8 THEN
+				                     		(SELECT DAYS FROM  
+				                            	(SELECT TO_DATE(G.ADD_DATE,'YYYYMMDD') AS DAYS
+				                                   FROM ICOMGRDT G 
+				                                   WHERE 1=1  
+				                                   AND G.BUYER  = B.BUYER  
+				                                   AND G.PO_NO  = B.PO_NO  
+				                                   AND G.PO_SEQ = B.PO_SEQ
+				                                   AND G.STATUS!= 'D' 
+				                                   ORDER BY G.GR_NO
+				                                 )
+				                             WHERE ROWNUM = 1
+				                             ) - TO_DATE(A.ADD_DATE, 'YYYYMMDD')
+				                      END
+				                 ELSE
+				                 	  CASE WHEN LVL = 1 THEN TO_DATE(A.ADD_DATE, 'YYYYMMDD') 
+				                                     - TO_DATE(A.ADD_DATE, 'YYYYMMDD')  
+				                      WHEN LVL = 2 THEN NVL(TO_DATE(C.ADD_DATE, 'YYYYMMDD') 
+				                                     - TO_DATE(C.ADD_DATE, 'YYYYMMDD')  ,TO_DATE(A.ADD_DATE, 'YYYYMMDD') 
+				                                     - TO_DATE(A.ADD_DATE, 'YYYYMMDD')  )
+				                      WHEN LVL = 3 THEN (SELECT TO_DATE(C.ADD_DATE, 'YYYYMMDD')  
+				                                          FROM ICOMPORS C 
+				                                         WHERE 1=1  
+				                                           AND C.BUYER  = B.BUYER  
+				                                           AND C.PO_NO  = B.PO_NO  
+				                                           AND C.PO_SEQ = B.PO_SEQ
+				                                           AND C.STATUS!= 'D' 
+				                                           AND ROWNUM   = 1
+				                                           )  - TO_DATE(A.ADD_DATE, 'YYYYMMDD')
+				                      WHEN LVL = 4 THEN 
+				                      				(SELECT DAYS FROM
+				                      					(SELECT TO_DATE(D.ADD_DATE, 'YYYYMMDD') AS DAYS 
+				                                          FROM ICOMIVDT D 
+				                                         WHERE 1=1  
+				                                           AND D.BUYER  = B.BUYER  
+				                                           AND D.PO_NO  = B.PO_NO  
+				                                           AND D.PO_SEQ = B.PO_SEQ
+				                                           AND D.STATUS!= 'D' 
+				                                           ORDER BY D.INV_NO
+				                                           )
+				                                      WHERE ROWNUM = 1
+				                             		  )  - TO_DATE(A.ADD_DATE, 'YYYYMMDD')
+				                      WHEN LVL = 5 THEN 
+				                      				(SELECT DAYS FROM
+				                      					(SELECT TO_DATE(D.DELIVERY_DATE, 'YYYYMMDD') AS DAYS 
+				                                          FROM ICOMIVDT D 
+				                                         WHERE 1=1  
+				                                           AND D.BUYER  = B.BUYER  
+				                                           AND D.PO_NO  = B.PO_NO  
+				                                           AND D.PO_SEQ = B.PO_SEQ
+				                                           AND D.STATUS!= 'D' 
+				                                           ORDER BY D.INV_NO
+				                                           )
+				                                      WHERE ROWNUM = 1
+				                             		  )  - TO_DATE(A.ADD_DATE, 'YYYYMMDD')
+				                      WHEN LVL = 6 THEN 
+				                      				(SELECT DAYS FROM
+				                      					(SELECT TO_DATE(E.ADD_DATE, 'YYYYMMDD') AS DAYS
+				                                          FROM ICOMGRDT E 
+				                                         WHERE 1=1  
+				                                           AND E.BUYER  = B.BUYER  
+				                                           AND E.PO_NO  = B.PO_NO  
+				                                           AND E.PO_SEQ = B.PO_SEQ
+				                                           AND E.STATUS!= 'D' 
+				                                           ORDER BY E.GR_NO
+				                                           )
+				                                     WHERE ROWNUM = 1
+				                             		 )  - TO_DATE(A.ADD_DATE, 'YYYYMMDD')
+				                      END
+				                 END DAYS
+				              , CASE WHEN B.PROCESS_TYPE = 2 THEN --TR일 경우
+				              		 CASE WHEN LVL = 1 THEN A.PR_NO||' '||A.RETURN_REASON  
+				                     WHEN LVL = 2 THEN NVL(A.REF_NO  ,A.PR_NO  )
+				                     WHEN LVL = 3 THEN B.PO_NO
+                                     WHEN LVL = 4 THEN
+                                     		(SELECT MEMO FROM
+                                    			(SELECT D.INV_NO AS MEMO
+				                                   FROM ICOMIVDT D
+				                                   WHERE 1=1  
+				                                   AND D.BUYER  = B.BUYER  
+				                                   AND D.PO_NO  = B.PO_NO  
+				                                   AND D.PO_SEQ = B.PO_SEQ
+				                                   AND D.STATUS!= 'D' 
+				                                   ORDER BY D.INV_NO
+				                                )
+				                             WHERE ROWNUM = 1
+				                             )
+                                     WHEN LVL = 5 THEN
+                                     		(SELECT MEMO FROM
+                                    			(SELECT E.INV_NO AS MEMO
+				                                   FROM ICOMIVDT E
+				                                   WHERE 1=1  
+				                                   AND E.BUYER  = B.BUYER  
+				                                   AND E.PO_NO  = B.PO_NO  
+				                                   AND E.PO_SEQ = B.PO_SEQ
+				                                   AND E.STATUS!= 'D' 
+				                                   ORDER BY E.INV_NO
+				                                )
+				                             WHERE ROWNUM = 1
+				                             )
+				                     WHEN LVL = 6 THEN
+				                     		(SELECT MEMO FROM
+				                             	(SELECT F.INV_NO ||' '||F.CAR_PERSON_NAME||' '||F.CAR_PERSON_NAME AS MEMO
+				                                   FROM WMSIVDT F 
+				                                   WHERE 1=1  
+				                                   AND F.BUYER  = B.BUYER  
+				                                   AND F.PO_NO  = B.PO_NO  
+				                                   AND F.PO_SEQ = B.PO_SEQ
+				                                   AND F.STATUS!= 'D' 
+				                                   ORDER BY F.INV_NO
+				                             	)
+				                             WHERE ROWNUM = 1
+				                             )
+				                     WHEN LVL = 7 THEN
+				                     		(SELECT MEMO FROM
+				                             	(SELECT F.INV_NO ||' '||F.CAR_PERSON_NAME||' '||F.CAR_PERSON_NAME AS MEMO
+				                                   FROM WMSIVDT F 
+				                                   WHERE 1=1  
+				                                   AND F.BUYER  = B.BUYER  
+				                                   AND F.PO_NO  = B.PO_NO  
+				                                   AND F.PO_SEQ = B.PO_SEQ
+				                                   AND F.STATUS!= 'D' 
+				                                   ORDER BY F.INV_NO
+				                             	)
+				                             WHERE ROWNUM = 1
+				                             )
+				                     WHEN LVL = 8 THEN
+				                     		(SELECT MEMO FROM
+				                            	(SELECT G.GR_NO||' '||G.GR_DATE AS MEMO
+				                                   FROM ICOMGRDT G 
+				                                   WHERE 1=1  
+				                                   AND G.BUYER  = B.BUYER  
+				                                   AND G.PO_NO  = B.PO_NO  
+				                                   AND G.PO_SEQ = B.PO_SEQ
+				                                   AND G.STATUS!= 'D' 
+				                                   ORDER BY G.GR_NO
+				                                 )
+				                              WHERE ROWNUM = 1
+				                             )
+				                     END
+				                 ELSE
+				                 	 CASE WHEN LVL = 1 THEN A.PR_NO||' '||A.RETURN_REASON  
+				                     WHEN LVL = 2 THEN NVL(A.REF_NO  ,A.PR_NO  )
+				                     WHEN LVL = 3 THEN B.PO_NO
+				                     WHEN LVL = 4 THEN 
+				                     	CASE WHEN B.PROCESS_TYPE = 0 THEN
+				                     		(SELECT MEMO FROM 
+				                     				(SELECT D.INV_NO ||' '||D.CAR_PERSON_NAME||' '||D.CAR_PERSON_NAME AS MEMO
+				                                          FROM ICOMIVDT D 
+				                                         WHERE 1=1  
+				                                           AND D.BUYER  = B.BUYER  
+				                                           AND D.PO_NO  = B.PO_NO  
+				                                           AND D.PO_SEQ = B.PO_SEQ
+				                                           AND D.STATUS!= 'D' 
+				                                           ORDER BY D.INV_NO
+				                                     )
+				                             WHERE ROWNUM = 1
+				                             )
+				                                         
+				                         ELSE
+				                         	(SELECT MEMO FROM
+				                         		(SELECT F.INV_NO ||' '||F.CAR_PERSON_NAME||' '||F.CAR_PERSON_NAME AS MEMO
+				                                   FROM WMSIVDT F 
+				                                   WHERE 1=1  
+				                                   AND F.BUYER  = B.BUYER  
+				                                   AND F.PO_NO  = B.PO_NO  
+				                                   AND F.PO_SEQ = B.PO_SEQ
+				                                   AND F.STATUS!= 'D' 
+				                                   ORDER BY F.INV_NO
+				                                 )
+				                             WHERE ROWNUM = 1
+				                             )
+				                         END
+				                     WHEN LVL = 5 THEN 
+				                     	CASE WHEN B.PROCESS_TYPE = 0 THEN
+				                     		(SELECT MEMO FROM 
+				                     				(SELECT D.INV_NO ||' '||D.CAR_PERSON_NAME||' '||D.CAR_PERSON_NAME AS MEMO
+				                                          FROM ICOMIVDT D 
+				                                         WHERE 1=1  
+				                                           AND D.BUYER  = B.BUYER  
+				                                           AND D.PO_NO  = B.PO_NO  
+				                                           AND D.PO_SEQ = B.PO_SEQ
+				                                           AND D.STATUS!= 'D' 
+				                                           ORDER BY D.INV_NO
+				                                     )
+				                             WHERE ROWNUM = 1
+				                             )
+				                                         
+				                         ELSE
+				                         	(SELECT MEMO FROM
+				                         		(SELECT F.INV_NO ||' '||F.CAR_PERSON_NAME||' '||F.CAR_PERSON_NAME AS MEMO
+				                                   FROM WMSIVDT F 
+				                                   WHERE 1=1  
+				                                   AND F.BUYER  = B.BUYER  
+				                                   AND F.PO_NO  = B.PO_NO  
+				                                   AND F.PO_SEQ = B.PO_SEQ
+				                                   AND F.STATUS!= 'D' 
+				                                   ORDER BY F.INV_NO
+				                                 )
+				                             WHERE ROWNUM = 1
+				                             )
+				                         END
+				                     WHEN LVL = 6 THEN 
+				                     				(SELECT MEMO FROM
+				                     					(SELECT E.GR_NO  ||' '||GR_DATE AS MEMO
+				                                          FROM ICOMGRDT E 
+				                                         WHERE 1=1  
+				                                           AND E.BUYER  = B.BUYER  
+				                                           AND E.PO_NO  = B.PO_NO  
+				                                           AND E.PO_SEQ = B.PO_SEQ
+				                                           AND E.STATUS!= 'D' 
+				                                           ORDER BY E.GR_NO
+				                                           )
+				                                     WHERE ROWNUM = 1
+				                            		 )
+				                     END 
+				                 END MEMO
+				                , TO_CHAR(LVL) SCND_SRT  
+				           FROM ICOMPRDT A
+				              , ICOMPODT B
+				              , ICOMPOHD C
+				              , ICOMLUSR D
+				              , (SELECT LEVEL LVL
+				                   FROM DUAL
+				                CONNECT BY LEVEL <=  #{ROW_CNT}   --배송상태  ROW_CNT 결과 값   
+				                )
+				          WHERE A.BUYER  = B.BUYER(+)
+				            AND A.PR_NO  = B.PR_NO(+)
+				            AND A.PR_SEQ = B.PR_SEQ(+)
+				            AND B.BUYER  = C.BUYER(+)
+				            AND B.PO_NO  = C.PO_NO(+)
+				            AND C.ADD_USER_ID = D.USER_ID(+)
+				            AND A.STATUS        != 'D'  
+				            AND B.STATUS(+)        != 'D'  
+				            AND C.STATUS(+)        != 'D'
+				            AND A.BUYER          = #{st_buyer}
+				            AND A.PR_NO   =  #{PR_NO}
+				            AND A.PR_SEQ  =  #{PR_SEQ}
+				    )   X 
+				) ORDER BY SCND_SRT,JOBDATE 
+				
+
+        ]]> 
+	</select> 
+	<select id="getBuyerMpSoDlvryInfoDtlList_v2" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		
+		/*getBuyerMpSoDlvryInfoDtlList_v2*/
+						
+				SELECT 
+							NVL(STTS_NM,'-') AS STTS_NM,
+							NVL(ID,'-') AS ID,
+							NVL((SELECT A.USER_NAME_LOC FROM ICOMLUSR A,ICOMCOD2 B WHERE  A.USER_ID = ID AND A.POSITION = B.CODE AND B.COMPANY_CODE = #{st_buyer} AND  B.TYPE='C003' ),'-') AS NAME,
+							NVL((SELECT B.TEXT1  FROM ICOMLUSR A,ICOMCOD2 B WHERE  A.USER_ID = ID AND A.POSITION = B.CODE AND B.COMPANY_CODE = #{st_buyer} AND  B.TYPE='C003' ),'-') AS POSITION,
+							NVL(DECODE(JOBDATE,'','',SUBSTR(JOBDATE,1,4)||'/'||SUBSTR(JOBDATE,5,2)||'/'||SUBSTR(JOBDATE,7,2)||' '||SUBSTR(JOBDATE,9,2)||':'||SUBSTR(JOBDATE,11,2)||':'||SUBSTR(JOBDATE,13,2)),'-') AS JOBDATE,
+							DAYS,
+							NVL(MEMO,'-') AS MEMO
+				    FROM
+				    (
+				    SELECT 
+						   DECODE(SUBSTR(A.KEY_1,1,2),'PR','요청결재','PX','주문결재','') STTS_NM,
+						    C.USER_ID ID,
+						    C.USER_NM NAME,
+						   TO_CHAR(C.PASS_DATE,'YYYYMMDDHH24MISS') JOBDATE, 
+						    TO_CHAR(C.PASS_DATE, 'YYYYMMDD')  - TO_CHAR(B.START_DATE, 'YYYYMMDD') DAYS ,
+						    A.KEY_1 ||' '||DECODE(PASS_TP,'1','결재문서',   '2','참조문서' , '요청자') || ' '||    DECODE(C.PASS_TP,'2','참조',  
+                                                 DECODE(C.PASS_KN ,NULL,'미결재'  
+                                                                  ,'1' ,'결재'  
+                                                                  ,'3' ,'반려'  
+                                                                  ,'4' ,'상신취소')|| ' '|| C.PASS_ADD)   MEMO 
+							  , '0'||SUBSTR(A.KEY_1,1,2)||C.ORDER_NO SCND_SRT                                                                    
+				    FROM ICOMTRGW A,ICOGDOCU B,ICOGPASSLN C 
+				    WHERE  A.COM_CODE = B.COMPANY
+				    AND A.TARGET = B.DOCU_NO
+				    AND A.COM_CODE  = C.COMPANY
+				    AND B.DOCU_NO  = C.DOCU_NO
+				    AND (A.KEY_1  = #{PR_NO}  OR A.KEY_1  = #{PO_NO}  OR A.KEY_1  =  #{REF_NO}  )
+				    AND A.COM_CODE          = #{st_buyer}
+				    UNION ALL        
+				    SELECT * FROM 
+				    (
+				          
+				         SELECT CASE WHEN B.PROCESS_TYPE = 2 THEN --TR일 경우
+				         			 CASE WHEN LVL = 1 THEN #{PR_STTS}    --배송상태 쿼리의 결과 값
+				                     WHEN LVL = 2 THEN #{PX_STTS}     --배송상태 쿼리의 결과 값
+				                     WHEN LVL = 3 THEN '주문접수(물품준비중)'     --배송상태 쿼리의 결과 값: 
+				                     WHEN LVL = 4 THEN '거래명세서생성(협력사→KeP물류센터)'
+                					 WHEN LVL = 5 THEN 'KeP물류센터 입고완료(출고대기)'
+                					 WHEN LVL = 6 THEN 'KeP물류센터 출고(배송중)'
+                					 WHEN LVL = 7 THEN '배송완료'
+                					 WHEN LVL = 8 THEN #{GR_STTS}      --배송상태 쿼리의 결과 값
+                					 END
+								 ELSE
+								 	 CASE WHEN LVL = 1 THEN #{PR_STTS}    --배송상태 쿼리의 결과 값
+				                     WHEN LVL = 2 THEN #{PX_STTS}     --배송상태 쿼리의 결과 값
+				                     WHEN LVL = 3 THEN '주문접수(물품준비중)'     --배송상태 쿼리의 결과 값:
+                					 WHEN LVL = 4 THEN
+                					 	CASE WHEN B.PROCESS_TYPE = 0 THEN '거래명세서생성(발송준비중)'
+                					 	ELSE 'KeP물류센터 출고(배송중)' --재고/VMI
+                					 	END
+                					 WHEN LVL = 5 THEN '배송완료'
+                					 WHEN LVL = 6 THEN #{GR_STTS}      --배송상태 쿼리의 결과 값
+                					 END
+				                 END STTS_NM         
+				              ,  CASE WHEN B.PROCESS_TYPE = 2 THEN --TR일 경우
+				              		 CASE WHEN LVL = 1 THEN A.CHANGE_USER_ID 
+				                     WHEN LVL = 2 THEN NVL(C.ADD_USER_ID , A.ADD_USER_ID)
+                                     WHEN LVL = 3 THEN (SELECT C.ADD_USER_ID
+                                              FROM ICOMPORS C  -- 협력사 수주 접수 -- 주문확인
+                                             WHERE 1=1  
+                                               AND C.BUYER  = B.BUYER  
+                                               AND C.PO_NO  = B.PO_NO  
+                                               AND C.PO_SEQ = B.PO_SEQ
+                                               AND C.STATUS!= 'D' 
+                                               AND ROWNUM   = 1
+                                               )
+                                     WHEN LVL = 4 THEN
+                               				(SELECT ID FROM 
+	                           					(SELECT C.ADD_USER_ID AS ID
+		                                          FROM ICOMIVDT D, ICOMIVHD C  
+		                                         WHERE 1=1  
+		                                           AND C.BUYER = D.BUYER
+		                                           AND C.INV_NO = D.INV_NO
+		                                           AND D.BUYER  = B.BUYER  
+		                                           AND D.PO_NO  = B.PO_NO  
+		                                           AND D.PO_SEQ = B.PO_SEQ
+		                                           AND D.STATUS!= 'D'
+		                                           ORDER BY D.INV_NO
+		                                          )
+		                                     WHERE ROWNUM = 1
+		                             		 )
+                                     WHEN LVL = 5 THEN
+                                     		(SELECT ID FROM 
+                                    			(SELECT E.WMS_GR_USER_ID AS ID
+				                                   FROM ICOMIVDT E
+				                                   WHERE 1=1  
+				                                   AND E.BUYER  = B.BUYER  
+				                                   AND E.PO_NO  = B.PO_NO  
+				                                   AND E.PO_SEQ = B.PO_SEQ
+				                                   AND E.STATUS!= 'D'
+				                                   ORDER BY E.INV_NO
+				                                )
+				                             WHERE ROWNUM = 1
+				                             )
+				                     WHEN LVL = 6 THEN
+				                     		(SELECT ID FROM
+				                             	(SELECT F.ADD_USER_ID AS ID
+				                                   FROM WMSIVDT F 
+				                                   WHERE 1=1  
+				                                   AND F.BUYER  = B.BUYER  
+				                                   AND F.PO_NO  = B.PO_NO  
+				                                   AND F.PO_SEQ = B.PO_SEQ
+				                                   AND F.STATUS!= 'D'
+				                                   ORDER BY F.INV_NO
+				                             	)
+				                             WHERE ROWNUM = 1
+				                             )
+				                     WHEN LVL = 7 THEN
+				                     		(SELECT ID FROM
+				                             	(SELECT F.ADD_USER_ID AS ID
+				                                   FROM WMSIVDT F 
+				                                   WHERE 1=1  
+				                                   AND F.BUYER  = B.BUYER  
+				                                   AND F.PO_NO  = B.PO_NO  
+				                                   AND F.PO_SEQ = B.PO_SEQ
+				                                   AND F.STATUS!= 'D'
+				                                   ORDER BY F.INV_NO
+				                             	)
+				                             WHERE ROWNUM = 1
+				                             )
+				                     WHEN LVL = 8 THEN
+				                     		(SELECT ID FROM 
+				                             	(SELECT G.ADD_USER_ID AS ID
+				                                   FROM ICOMGRDT G 
+				                                   WHERE 1=1  
+				                                   AND G.BUYER  = B.BUYER  
+				                                   AND G.PO_NO  = B.PO_NO  
+				                                   AND G.PO_SEQ = B.PO_SEQ
+				                                   AND G.STATUS!= 'D' 
+				                                   ORDER BY G.GR_NO
+				                                 )
+				                              WHERE ROWNUM = 1
+				                             )
+				                     ELSE NULL
+				                     END
+				                  ELSE
+				                  	 CASE WHEN LVL = 1 THEN A.CHANGE_USER_ID 
+				                     WHEN LVL = 2 THEN NVL(C.ADD_USER_ID , A.ADD_USER_ID)
+                                     WHEN LVL = 3 THEN (SELECT C.ADD_USER_ID
+                                              FROM ICOMPORS C  -- 협력사 수주 접수 -- 주문확인
+                                             WHERE 1=1  
+                                               AND C.BUYER  = B.BUYER  
+                                               AND C.PO_NO  = B.PO_NO  
+                                               AND C.PO_SEQ = B.PO_SEQ
+                                               AND C.STATUS!= 'D' 
+                                               AND ROWNUM   = 1
+                                               )	
+                                     WHEN LVL = 4 THEN 
+                                     				(SELECT ID FROM 
+                                     					(SELECT C.ADD_USER_ID AS ID
+				                                          FROM ICOMIVDT D, ICOMIVHD C  
+				                                         WHERE 1=1  
+				                                           AND C.BUYER = D.BUYER
+				                                           AND C.INV_NO = D.INV_NO
+				                                           AND D.BUYER  = B.BUYER  
+				                                           AND D.PO_NO  = B.PO_NO  
+				                                           AND D.PO_SEQ = B.PO_SEQ
+				                                           AND D.STATUS!= 'D'
+				                                           ORDER BY D.INV_NO
+				                                          )
+				                                     WHERE ROWNUM = 1
+				                             		 )
+                                     WHEN LVL = 5 THEN 
+                                     				(SELECT ID FROM 
+                                     					(SELECT D.DELIVERY_ADD_USER_ID AS ID
+				                                          FROM ICOMIVDT D  -- 배송 -- 송장생성 거래명세서 -- 납품실적
+				                                         WHERE 1=1  
+				                                           AND D.BUYER  = B.BUYER  
+				                                           AND D.PO_NO  = B.PO_NO  
+				                                           AND D.PO_SEQ = B.PO_SEQ
+				                                           AND D.STATUS!= 'D'
+				                                           ORDER BY D.INV_NO
+				                                          )
+				                                     WHERE ROWNUM = 1
+				                             		 )
+				                     WHEN LVL = 6 THEN 
+				                     				(SELECT ID FROM
+				                     					(SELECT E.ADD_USER_ID AS ID
+				                                          FROM ICOMGRDT E -- 고객사 입고등록 - 고객사확인
+				                                         WHERE 1=1  
+				                                           AND E.BUYER  = B.BUYER  
+				                                           AND E.PO_NO  = B.PO_NO  
+				                                           AND E.PO_SEQ = B.PO_SEQ
+				                                           AND E.STATUS!= 'D' 
+				                                           ORDER BY E.GR_NO
+				                                           )
+				                                    WHERE ROWNUM = 1
+				                             		)
+				                     ELSE NULL
+				                     END       				                     
+				                 END ID          
+				              , CASE WHEN LVL = 1 THEN A.CHANGE_USER_NAME 
+				                     WHEN LVL = 2 THEN NVL(D.USER_NAME_LOC  , A.CHANGE_USER_NAME) 
+				                     ELSE NULL
+				                 END NAME          
+				              , CASE WHEN B.PROCESS_TYPE = 2 THEN --TR일 경우
+				              		 CASE WHEN LVL = 1 THEN A.ADD_DATE||A.ADD_TIME
+				                     WHEN LVL = 2 THEN NVL(C.ADD_DATE||C.ADD_TIME,A.ADD_DATE||A.ADD_TIME)
+				                     WHEN LVL = 3 THEN (SELECT C.ADD_DATE||C.ADD_TIME 
+				                                          FROM ICOMPORS C  -- 협력사 수주 접수
+				                                         WHERE 1=1  
+				                                           AND C.BUYER  = B.BUYER  
+				                                           AND C.PO_NO  = B.PO_NO  
+				                                           AND C.PO_SEQ = B.PO_SEQ
+				                                           AND C.STATUS!= 'D' 
+				                                           AND ROWNUM   = 1
+				                                           )
+                                     WHEN LVL = 4 THEN
+                                     		(SELECT JOBDATE FROM
+                                    			(SELECT D.ADD_DATE||D.ADD_TIME AS JOBDATE
+				                                   FROM ICOMIVDT D
+				                                   WHERE 1=1  
+				                                   AND D.BUYER  = B.BUYER  
+				                                   AND D.PO_NO  = B.PO_NO  
+				                                   AND D.PO_SEQ = B.PO_SEQ
+				                                   AND D.STATUS!= 'D' 
+				                                   ORDER BY D.INV_NO
+				                                )
+				                             WHERE ROWNUM = 1
+				                             )
+                                     WHEN LVL = 5 THEN
+                                     		(SELECT JOBDATE FROM 
+                                    			(SELECT E.WMS_GR_DATE||'000000' AS JOBDATE
+				                                   FROM ICOMIVDT E
+				                                   WHERE 1=1  
+				                                   AND E.BUYER  = B.BUYER  
+				                                   AND E.PO_NO  = B.PO_NO  
+				                                   AND E.PO_SEQ = B.PO_SEQ
+				                                   AND E.STATUS!= 'D' 
+				                                   ORDER BY E.INV_NO
+				                                )
+				                             WHERE ROWNUM = 1
+				                             )
+				                     WHEN LVL = 6 THEN
+				                     		(SELECT JOBDATE FROM 
+				                             	(SELECT F.ADD_DATE||F.ADD_TIME AS JOBDATE
+				                                   FROM WMSIVDT F 
+				                                   WHERE 1=1  
+				                                   AND F.BUYER  = B.BUYER  
+				                                   AND F.PO_NO  = B.PO_NO  
+				                                   AND F.PO_SEQ = B.PO_SEQ
+				                                   AND F.STATUS!= 'D' 
+				                                   ORDER BY F.INV_NO
+				                             	)
+				                             WHERE ROWNUM = 1
+				                             )
+				                     WHEN LVL = 7 THEN
+				                     		(SELECT JOBDATE FROM 
+				                             	(SELECT DELIVERY_DATE||'000000' AS JOBDATE
+				                                   FROM WMSIVDT F 
+				                                   WHERE 1=1  
+				                                   AND F.BUYER  = B.BUYER  
+				                                   AND F.PO_NO  = B.PO_NO  
+				                                   AND F.PO_SEQ = B.PO_SEQ
+				                                   AND F.STATUS!= 'D' 
+				                                   ORDER BY F.INV_NO
+				                             	)
+				                             WHERE ROWNUM = 1
+				                             )
+				                     WHEN LVL = 8 THEN
+				                     		(SELECT JOBDATE FROM  
+				                            	(SELECT G.ADD_DATE||G.ADD_TIME AS JOBDATE
+				                                   FROM ICOMGRDT G 
+				                                   WHERE 1=1  
+				                                   AND G.BUYER  = B.BUYER  
+				                                   AND G.PO_NO  = B.PO_NO  
+				                                   AND G.PO_SEQ = B.PO_SEQ
+				                                   AND G.STATUS!= 'D' 
+				                                   ORDER BY G.GR_NO
+				                                 )
+				                             WHERE ROWNUM = 1
+				                             )
+				                      END
+				                 ELSE
+				                      CASE WHEN LVL = 1 THEN A.ADD_DATE||A.ADD_TIME
+				                      WHEN LVL = 2 THEN NVL(C.ADD_DATE||C.ADD_TIME,A.ADD_DATE||A.ADD_TIME)
+				                      WHEN LVL = 3 THEN (SELECT C.ADD_DATE||C.ADD_TIME 
+				                                          FROM ICOMPORS C  -- 협력사 수주 접수
+				                                         WHERE 1=1  
+				                                           AND C.BUYER  = B.BUYER  
+				                                           AND C.PO_NO  = B.PO_NO  
+				                                           AND C.PO_SEQ = B.PO_SEQ
+				                                           AND C.STATUS!= 'D' 
+				                                           AND ROWNUM   = 1
+				                                           )
+				                      WHEN LVL = 4 THEN 
+				                      				(SELECT JOBDATE FROM
+				                      					(SELECT D.ADD_DATE||D.ADD_TIME AS JOBDATE
+				                                          FROM ICOMIVDT D  -- 배송
+				                                         WHERE 1=1  
+				                                           AND D.BUYER  = B.BUYER  
+				                                           AND D.PO_NO  = B.PO_NO  
+				                                           AND D.PO_SEQ = B.PO_SEQ
+				                                           AND D.STATUS!= 'D' 
+				                                           ORDER BY D.INV_NO
+				                                           )
+				                                     WHERE ROWNUM = 1
+				                             		 )
+				                      WHEN LVL = 5 THEN 
+				                      				(SELECT JOBDATE FROM
+				                      					(SELECT DELIVERY_DATE||'000000' AS JOBDATE
+				                                          FROM ICOMIVDT D  -- 배송
+				                                         WHERE 1=1  
+				                                           AND D.BUYER  = B.BUYER  
+				                                           AND D.PO_NO  = B.PO_NO  
+				                                           AND D.PO_SEQ = B.PO_SEQ
+				                                           AND D.STATUS!= 'D' 
+				                                           ORDER BY D.INV_NO
+				                                           )
+				                                     WHERE ROWNUM = 1
+				                             		 )
+				                      WHEN LVL = 6 THEN 
+				                      				(SELECT JOBDATE FROM 
+				                      					(SELECT E.ADD_DATE||E.ADD_TIME AS JOBDATE
+				                                          FROM ICOMGRDT E  -- 고객사 입고등록
+				                                         WHERE 1=1  
+				                                           AND E.BUYER  = B.BUYER  
+				                                           AND E.PO_NO  = B.PO_NO  
+				                                           AND E.PO_SEQ = B.PO_SEQ
+				                                           AND E.STATUS!= 'D' 
+				                                           ORDER BY E.GR_NO
+				                                           )
+				                                     WHERE ROWNUM = 1
+				                             		 )
+				                      END
+				                 END JOBDATE           
+				              , CASE WHEN B.PROCESS_TYPE = 2 THEN --TR일 경우
+				              		 CASE WHEN LVL = 1 THEN TO_DATE(A.ADD_DATE, 'YYYYMMDD') 
+				                                     - TO_DATE(A.ADD_DATE, 'YYYYMMDD')  
+				                     WHEN LVL = 2 THEN NVL(TO_DATE(C.ADD_DATE, 'YYYYMMDD') 
+				                                     - TO_DATE(C.ADD_DATE, 'YYYYMMDD')  ,TO_DATE(A.ADD_DATE, 'YYYYMMDD') 
+				                                     - TO_DATE(A.ADD_DATE, 'YYYYMMDD')  )
+				                     WHEN LVL = 3 THEN (SELECT TO_DATE(C.ADD_DATE, 'YYYYMMDD')  
+				                                          FROM ICOMPORS C 
+				                                         WHERE 1=1  
+				                                           AND C.BUYER  = B.BUYER  
+				                                           AND C.PO_NO  = B.PO_NO  
+				                                           AND C.PO_SEQ = B.PO_SEQ
+				                                           AND C.STATUS!= 'D' 
+				                                           AND ROWNUM   = 1
+				                                           )  - TO_DATE(A.ADD_DATE, 'YYYYMMDD')
+                                     WHEN LVL = 4 THEN
+                                     		(SELECT DAYS FROM
+                                    			(SELECT TO_DATE(D.ADD_DATE, 'YYYYMMDD') AS DAYS
+				                                   FROM ICOMIVDT D
+				                                   WHERE 1=1  
+				                                   AND D.BUYER  = B.BUYER  
+				                                   AND D.PO_NO  = B.PO_NO  
+				                                   AND D.PO_SEQ = B.PO_SEQ
+				                                   AND D.STATUS!= 'D' 
+				                                   ORDER BY D.INV_NO
+				                                )
+				                             WHERE ROWNUM = 1
+				                             ) - TO_DATE(A.ADD_DATE, 'YYYYMMDD')
+                                     WHEN LVL = 5 THEN
+                                     		(SELECT DAYS FROM
+                                    			(SELECT TO_DATE(E.WMS_GR_DATE,'YYYYMMDD') AS DAYS
+				                                   FROM ICOMIVDT E
+				                                   WHERE 1=1  
+				                                   AND E.BUYER  = B.BUYER  
+				                                   AND E.PO_NO  = B.PO_NO  
+				                                   AND E.PO_SEQ = B.PO_SEQ
+				                                   AND E.STATUS!= 'D' 
+				                                   ORDER BY E.INV_NO
+				                                )
+				                             WHERE ROWNUM = 1
+				                             ) - TO_DATE(A.ADD_DATE, 'YYYYMMDD')
+				                     WHEN LVL = 6 THEN
+				                     		(SELECT DAYS FROM 
+				                             	(SELECT TO_DATE(F.ADD_DATE,'YYYYMMDD') AS DAYS
+				                                   FROM WMSIVDT F 
+				                                   WHERE 1=1  
+				                                   AND F.BUYER  = B.BUYER  
+				                                   AND F.PO_NO  = B.PO_NO  
+				                                   AND F.PO_SEQ = B.PO_SEQ
+				                                   AND F.STATUS!= 'D' 
+				                                   ORDER BY F.INV_NO
+				                             	)
+				                             WHERE ROWNUM = 1
+				                             ) - TO_DATE(A.ADD_DATE, 'YYYYMMDD')
+				                     WHEN LVL = 7 THEN
+				                     		(SELECT DAYS FROM 
+				                             	(SELECT TO_DATE(F.DELIVERY_DATE,'YYYYMMDD') AS DAYS
+				                                   FROM WMSIVDT F 
+				                                   WHERE 1=1  
+				                                   AND F.BUYER  = B.BUYER  
+				                                   AND F.PO_NO  = B.PO_NO  
+				                                   AND F.PO_SEQ = B.PO_SEQ
+				                                   AND F.STATUS!= 'D' 
+				                                   ORDER BY F.INV_NO
+				                             	)
+				                             WHERE ROWNUM = 1
+				                             ) - TO_DATE(A.ADD_DATE, 'YYYYMMDD')
+				                             
+				                     WHEN LVL = 8 THEN
+				                     		(SELECT DAYS FROM  
+				                            	(SELECT TO_DATE(G.ADD_DATE,'YYYYMMDD') AS DAYS
+				                                   FROM ICOMGRDT G 
+				                                   WHERE 1=1  
+				                                   AND G.BUYER  = B.BUYER  
+				                                   AND G.PO_NO  = B.PO_NO  
+				                                   AND G.PO_SEQ = B.PO_SEQ
+				                                   AND G.STATUS!= 'D' 
+				                                   ORDER BY G.GR_NO
+				                                 )
+				                             WHERE ROWNUM = 1
+				                             ) - TO_DATE(A.ADD_DATE, 'YYYYMMDD')
+				                      END
+				                 ELSE
+				                 	  CASE WHEN LVL = 1 THEN TO_DATE(A.ADD_DATE, 'YYYYMMDD') 
+				                                     - TO_DATE(A.ADD_DATE, 'YYYYMMDD')  
+				                      WHEN LVL = 2 THEN NVL(TO_DATE(C.ADD_DATE, 'YYYYMMDD') 
+				                                     - TO_DATE(C.ADD_DATE, 'YYYYMMDD')  ,TO_DATE(A.ADD_DATE, 'YYYYMMDD') 
+				                                     - TO_DATE(A.ADD_DATE, 'YYYYMMDD')  )
+				                      WHEN LVL = 3 THEN (SELECT TO_DATE(C.ADD_DATE, 'YYYYMMDD')  
+				                                          FROM ICOMPORS C 
+				                                         WHERE 1=1  
+				                                           AND C.BUYER  = B.BUYER  
+				                                           AND C.PO_NO  = B.PO_NO  
+				                                           AND C.PO_SEQ = B.PO_SEQ
+				                                           AND C.STATUS!= 'D' 
+				                                           AND ROWNUM   = 1
+				                                           )  - TO_DATE(A.ADD_DATE, 'YYYYMMDD')
+				                      WHEN LVL = 4 THEN 
+				                      				(SELECT DAYS FROM
+				                      					(SELECT TO_DATE(D.ADD_DATE, 'YYYYMMDD') AS DAYS 
+				                                          FROM ICOMIVDT D 
+				                                         WHERE 1=1  
+				                                           AND D.BUYER  = B.BUYER  
+				                                           AND D.PO_NO  = B.PO_NO  
+				                                           AND D.PO_SEQ = B.PO_SEQ
+				                                           AND D.STATUS!= 'D' 
+				                                           ORDER BY D.INV_NO
+				                                           )
+				                                      WHERE ROWNUM = 1
+				                             		  )  - TO_DATE(A.ADD_DATE, 'YYYYMMDD')
+				                      WHEN LVL = 5 THEN 
+				                      				(SELECT DAYS FROM
+				                      					(SELECT TO_DATE(D.DELIVERY_DATE, 'YYYYMMDD') AS DAYS 
+				                                          FROM ICOMIVDT D 
+				                                         WHERE 1=1  
+				                                           AND D.BUYER  = B.BUYER  
+				                                           AND D.PO_NO  = B.PO_NO  
+				                                           AND D.PO_SEQ = B.PO_SEQ
+				                                           AND D.STATUS!= 'D' 
+				                                           ORDER BY D.INV_NO
+				                                           )
+				                                      WHERE ROWNUM = 1
+				                             		  )  - TO_DATE(A.ADD_DATE, 'YYYYMMDD')
+				                      WHEN LVL = 6 THEN 
+				                      				(SELECT DAYS FROM
+				                      					(SELECT TO_DATE(E.ADD_DATE, 'YYYYMMDD') AS DAYS
+				                                          FROM ICOMGRDT E 
+				                                         WHERE 1=1  
+				                                           AND E.BUYER  = B.BUYER  
+				                                           AND E.PO_NO  = B.PO_NO  
+				                                           AND E.PO_SEQ = B.PO_SEQ
+				                                           AND E.STATUS!= 'D' 
+				                                           ORDER BY E.GR_NO
+				                                           )
+				                                     WHERE ROWNUM = 1
+				                             		 )  - TO_DATE(A.ADD_DATE, 'YYYYMMDD')
+				                      END
+				                 END DAYS
+				              , CASE WHEN B.PROCESS_TYPE = 2 THEN --TR일 경우
+				              		 CASE WHEN LVL = 1 THEN A.PR_NO||' '||A.RETURN_REASON  
+				                     WHEN LVL = 2 THEN NVL(A.REF_NO  ,A.PR_NO  )
+				                     WHEN LVL = 3 THEN B.PO_NO
+                                     WHEN LVL = 4 THEN
+                                     		(SELECT MEMO FROM
+                                    			(SELECT D.INV_NO AS MEMO
+				                                   FROM ICOMIVDT D
+				                                   WHERE 1=1  
+				                                   AND D.BUYER  = B.BUYER  
+				                                   AND D.PO_NO  = B.PO_NO  
+				                                   AND D.PO_SEQ = B.PO_SEQ
+				                                   AND D.STATUS!= 'D' 
+				                                   ORDER BY D.INV_NO
+				                                )
+				                             WHERE ROWNUM = 1
+				                             )
+                                     WHEN LVL = 5 THEN
+                                     		(SELECT MEMO FROM
+                                    			(SELECT E.INV_NO AS MEMO
+				                                   FROM ICOMIVDT E
+				                                   WHERE 1=1  
+				                                   AND E.BUYER  = B.BUYER  
+				                                   AND E.PO_NO  = B.PO_NO  
+				                                   AND E.PO_SEQ = B.PO_SEQ
+				                                   AND E.STATUS!= 'D' 
+				                                   ORDER BY E.INV_NO
+				                                )
+				                             WHERE ROWNUM = 1
+				                             )
+				                     WHEN LVL = 6 THEN
+				                     		(SELECT MEMO FROM
+				                             	(SELECT F.INV_NO ||' '||F.CAR_PERSON_NAME||' '||F.CAR_PERSON_NAME AS MEMO
+				                                   FROM WMSIVDT F 
+				                                   WHERE 1=1  
+				                                   AND F.BUYER  = B.BUYER  
+				                                   AND F.PO_NO  = B.PO_NO  
+				                                   AND F.PO_SEQ = B.PO_SEQ
+				                                   AND F.STATUS!= 'D' 
+				                                   ORDER BY F.INV_NO
+				                             	)
+				                             WHERE ROWNUM = 1
+				                             )
+				                     WHEN LVL = 7 THEN
+				                     		(SELECT MEMO FROM
+				                             	(SELECT F.INV_NO ||' '||F.CAR_PERSON_NAME||' '||F.CAR_PERSON_NAME AS MEMO
+				                                   FROM WMSIVDT F 
+				                                   WHERE 1=1  
+				                                   AND F.BUYER  = B.BUYER  
+				                                   AND F.PO_NO  = B.PO_NO  
+				                                   AND F.PO_SEQ = B.PO_SEQ
+				                                   AND F.STATUS!= 'D' 
+				                                   ORDER BY F.INV_NO
+				                             	)
+				                             WHERE ROWNUM = 1
+				                             )
+				                     WHEN LVL = 8 THEN
+				                     		(SELECT MEMO FROM
+				                            	(SELECT G.GR_NO||' '||G.GR_DATE AS MEMO
+				                                   FROM ICOMGRDT G 
+				                                   WHERE 1=1  
+				                                   AND G.BUYER  = B.BUYER  
+				                                   AND G.PO_NO  = B.PO_NO  
+				                                   AND G.PO_SEQ = B.PO_SEQ
+				                                   AND G.STATUS!= 'D' 
+				                                   ORDER BY G.GR_NO
+				                                 )
+				                              WHERE ROWNUM = 1
+				                             )
+				                     END
+				                 ELSE
+				                 	 CASE WHEN LVL = 1 THEN A.PR_NO||' '||A.RETURN_REASON  
+				                     WHEN LVL = 2 THEN NVL(A.REF_NO  ,A.PR_NO  )
+				                     WHEN LVL = 3 THEN B.PO_NO
+				                     WHEN LVL = 4 THEN 
+				                     	CASE WHEN B.PROCESS_TYPE = 0 THEN
+				                     		(SELECT MEMO FROM 
+				                     				(SELECT D.INV_NO ||' '||D.CAR_PERSON_NAME||' '||D.CAR_PERSON_NAME AS MEMO
+				                                          FROM ICOMIVDT D 
+				                                         WHERE 1=1  
+				                                           AND D.BUYER  = B.BUYER  
+				                                           AND D.PO_NO  = B.PO_NO  
+				                                           AND D.PO_SEQ = B.PO_SEQ
+				                                           AND D.STATUS!= 'D' 
+				                                           ORDER BY D.INV_NO
+				                                     )
+				                             WHERE ROWNUM = 1
+				                             )
+				                                         
+				                         ELSE
+				                         	(SELECT MEMO FROM
+				                         		(SELECT F.INV_NO ||' '||F.CAR_PERSON_NAME||' '||F.CAR_PERSON_NAME AS MEMO
+				                                   FROM WMSIVDT F 
+				                                   WHERE 1=1  
+				                                   AND F.BUYER  = B.BUYER  
+				                                   AND F.PO_NO  = B.PO_NO  
+				                                   AND F.PO_SEQ = B.PO_SEQ
+				                                   AND F.STATUS!= 'D' 
+				                                   ORDER BY F.INV_NO
+				                                 )
+				                             WHERE ROWNUM = 1
+				                             )
+				                         END
+				                     WHEN LVL = 5 THEN 
+				                     	CASE WHEN B.PROCESS_TYPE = 0 THEN
+				                     		(SELECT MEMO FROM 
+				                     				(SELECT D.INV_NO ||' '||D.CAR_PERSON_NAME||' '||D.CAR_PERSON_NAME AS MEMO
+				                                          FROM ICOMIVDT D 
+				                                         WHERE 1=1  
+				                                           AND D.BUYER  = B.BUYER  
+				                                           AND D.PO_NO  = B.PO_NO  
+				                                           AND D.PO_SEQ = B.PO_SEQ
+				                                           AND D.STATUS!= 'D' 
+				                                           ORDER BY D.INV_NO
+				                                     )
+				                             WHERE ROWNUM = 1
+				                             )
+				                                         
+				                         ELSE
+				                         	(SELECT MEMO FROM
+				                         		(SELECT F.INV_NO ||' '||F.CAR_PERSON_NAME||' '||F.CAR_PERSON_NAME AS MEMO
+				                                   FROM WMSIVDT F 
+				                                   WHERE 1=1  
+				                                   AND F.BUYER  = B.BUYER  
+				                                   AND F.PO_NO  = B.PO_NO  
+				                                   AND F.PO_SEQ = B.PO_SEQ
+				                                   AND F.STATUS!= 'D' 
+				                                   ORDER BY F.INV_NO
+				                                 )
+				                             WHERE ROWNUM = 1
+				                             )
+				                         END
+				                     WHEN LVL = 6 THEN 
+				                     				(SELECT MEMO FROM
+				                     					(SELECT E.GR_NO  ||' '||GR_DATE AS MEMO
+				                                          FROM ICOMGRDT E 
+				                                         WHERE 1=1  
+				                                           AND E.BUYER  = B.BUYER  
+				                                           AND E.PO_NO  = B.PO_NO  
+				                                           AND E.PO_SEQ = B.PO_SEQ
+				                                           AND E.STATUS!= 'D' 
+				                                           ORDER BY E.GR_NO
+				                                           )
+				                                     WHERE ROWNUM = 1
+				                            		 )
+				                     END 
+				                 END MEMO
+				                , TO_CHAR(LVL) SCND_SRT  
+				           FROM ICOMPRDT A
+				              , ICOMPODT B
+				              , ICOMPOHD C
+				              , ICOMLUSR D
+				              , (SELECT LEVEL LVL
+				                   FROM DUAL
+				                CONNECT BY LEVEL <=  #{ROW_CNT}   --배송상태  ROW_CNT 결과 값   
+				                )
+				          WHERE A.BUYER  = B.BUYER(+)
+				            AND A.PR_NO  = B.PR_NO(+)
+				            AND A.PR_SEQ = B.PR_SEQ(+)
+				            AND B.BUYER  = C.BUYER(+)
+				            AND B.PO_NO  = C.PO_NO(+)
+				            AND C.ADD_USER_ID = D.USER_ID(+)
+				            AND A.STATUS        != 'D'  
+				            AND B.STATUS(+)        != 'D'  
+				            AND C.STATUS(+)        != 'D'
+				            AND A.BUYER          = #{st_buyer}
+				            AND A.PR_NO   =  #{PR_NO}
+				            AND A.PR_SEQ  =  #{PR_SEQ}
+				    )   X 
+				) ORDER BY SCND_SRT,JOBDATE 
+				
+
+        ]]> 
+	</select> 
+	<select id="getdeptYn" parameterType="java.util.Map" resultType="Integer">
+		<![CDATA[		
+		/*getdeptYn*/
+		SELECT   
+                COUNT(*)
+               FROM ICOMLUSR I , ICOMCOD2 C   
+              WHERE I.USER_ID = #{st_user_id}      
+                 AND I.COM_CODE = C.COMPANY_CODE   
+                 AND I.DEPARTMENT = C.CODE   
+                 AND C.TYPE ='C001'
+	
+	       ]]> 
+	</select>
+	
+	
+	
+	 
+</mapper>

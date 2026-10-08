@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mpvo">
+	<!-- 조회 -->
+	<select id="selectMasterMpVoChargeReceiptStateList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+	    	SELECT  (SELECT TEXT1 FROM V_VOC_ICOMCOD2 WHERE COMPANY_CODE='KRKORE0001' AND TYPE='C001' AND CODE=X.DS_DEPT AND SYS_TYPE='KA') DS_DEPT_NAME,
+				        (SELECT USER_NAME_LOC FROM V_VOC_ICOMLUSR WHERE USER_ID = X.DS_USER_ID AND SYS_TYPE='KA') AS DS_USER_NAME,
+				        X.TOT_CNT,
+				        X.CLAIM_CNT,
+				        X.SIMPLE_CNT,
+				        X.CLT_CNT,
+				        X.NOT_CNT,
+				        X.DS_DEPT,
+				        X.DS_USER_ID
+			FROM
+			    (
+			        SELECT  A.DS_DEPT AS DS_DEPT,
+				                A.DS_USER_ID AS DS_USER_ID,
+				                COUNT(VC_NO) AS TOT_CNT,
+				                COUNT((SELECT CODE FROM ICOMCOD1 WHERE CODE = A.CLAIM_TYPE AND TEXT3 = 'C')) AS CLAIM_CNT,
+				                COUNT((SELECT CODE FROM ICOMCOD1 WHERE CODE = A.CLAIM_TYPE AND TEXT3 = 'S')) AS SIMPLE_CNT,
+				                NVL(SUM(DECODE(A.RECV_FLAG,'PA',1,'FB',1,0)),0) AS CLT_CNT,
+				                NVL(SUM(DECODE(A.RECV_FLAG,'DC',1,'PS',1,0)),0) AS NOT_CNT
+			        FROM KEPAVCDT A
+		]]>
+			<choose>
+				<when test='st_dashboard_flag == "Y" and st_date_type == "MONTH"'>
+					<![CDATA[	WHERE 1=1	]]>
+				</when>
+				<otherwise>
+					<![CDATA[	WHERE TO_CHAR(A.CD_DATE,'YYYYMMDD') BETWEEN #{st_fromDate} AND #{st_toDate}	]]>
+				</otherwise>
+			</choose>
+			
+			<if test="st_ds_dept_code != null and st_ds_dept_code != ''">
+	    		<![CDATA[	AND A.DS_DEPT IN (#{st_ds_dept_code})	]]>
+	        </if>
+			
+			<if test="st_ds_user_id != null and st_ds_user_id != ''">
+	    		<![CDATA[	AND A.DS_USER_ID IN (#{st_ds_user_id})	]]>
+	        </if>
+			        
+		<![CDATA[
+			        GROUP BY A.DS_DEPT, A.DS_USER_ID
+			    ) X
+			ORDER BY 1, 2
+		]]>
+	</select>
+
+</mapper>   
+   

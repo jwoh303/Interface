@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mpso">
+	<!-- 조회 -->
+	<select id="selectMasterMpSoClosingMoveList" parameterType="java.util.Map" resultType="java.util.Map">
+			<![CDATA[
+			/* selectMasterMpSoClosingMoveList */
+			SELECT	X.BUYER
+						, (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = X.BUYER) AS BUYER_NAME
+						, X.PO_NO
+						, X.PO_SEQ
+						, X.BUYER_ITEM_NO
+						, X.DESCRIPTION
+						, X.SPECIFICATION
+						, X.UNIT_MEASURE
+						, X.ITEM_QTY
+						, X.ITEM_AMT
+						, X.AGENT_ITEM_AMT
+						, X.AGENT
+						, (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = X.AGENT) AS AGENT_NAME
+						, X.PROCESS_TYPE
+						, X.ADD_DATE
+						, X.ADD_TIME
+						, X.GR_DATE
+						, X.KEP_DEPT
+						, (SELECT TEXT1 FROM ICOMCOD2 WHERE COMPANY_CODE = 'KRKORE0001' AND TYPE = 'C001' AND CODE = X.KEP_DEPT) AS KEP_DEPT_NAME
+						, X.KEP_USER
+			FROM	(
+						SELECT	GRDT.BUYER
+					     			, GRDT.PO_NO
+					     			, GRDT.PO_SEQ
+					     			, GRDT.BUYER_ITEM_NO
+					     			, GRDT.DESCRIPTION
+					     			, GRDT.SPECIFICATION
+					     			, GRDT.UNIT_MEASURE
+					     			, GRDT.ITEM_QTY
+					     			, GRDT.ITEM_AMT
+					     			, GRDT.AGENT_ITEM_AMT
+					     			, GRDT.AGENT
+									, CASE	GRDT.PROCESS_TYPE
+											WHEN '0' THEN '직납'
+					       					WHEN '1' THEN '재고'
+					       					WHEN '2' THEN 'TR'
+					       					WHEN '3' THEN 'VMI'
+											ELSE	GRDT.PROCESS_TYPE
+					       			END AS PROCESS_TYPE
+					     			, GRDT.ADD_DATE
+					     			, GRDT.ADD_TIME
+					     			, GRDT.GR_DATE
+					     			, (
+					     				SELECT	COD2.CODE
+					     				FROM	MIS_BUYER_MNG MNG, ICOMCOD2 COD2
+					     				WHERE	MNG.YEAR = TO_CHAR(SYSDATE, 'YYYY')
+					     				AND		MNG.BUYER = GRDT.BUYER
+					     				AND		MNG.STATUS = 'C'
+					     				AND		MNG.PRIORITY = 'Y'
+					     				AND		COD2.COMPANY_CODE = 'KRKORE0001'
+					     				AND		COD2.TYPE = 'C001'
+					     				AND		COD2.CODE = MNG.KEP_DEPT
+					     			) AS KEP_DEPT
+									, (
+										SELECT	LUSR.USER_NAME_LOC 
+										FROM	MIS_BUYER_MNG MNG, ICOMLUSR LUSR
+										WHERE	MNG.YEAR = TO_CHAR(SYSDATE, 'YYYY')
+										AND		MNG.BUYER = GRDT.BUYER
+										AND		MNG.STATUS = 'C'
+										AND		MNG.PRIORITY = 'Y'
+										AND		MNG.KEP_USER_ID = LUSR.USER_ID
+									) AS KEP_USER
+						FROM	ICOMGRDT GRDT
+									, ICOMPODT PODT
+						WHERE	GRDT.BUYER NOT IN (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'HUB')
+						AND		GRDT.STATUS <> 'D'
+						AND		GRDT.AR_BILL_FLAG = 'N'
+						AND		GRDT.BUYER = PODT.BUYER
+						AND		GRDT.PO_NO = PODT.PO_NO
+						AND		GRDT.PO_SEQ = PODT.PO_SEQ
+						AND		GRDT.ADD_DATE < TO_CHAR(ADD_MONTHS(SYSDATE, -1), 'YYYYMM')||#{st_from_date}
+						AND		GRDT.GR_DATE >= TO_CHAR(SYSDATE, 'YYYYMM')||'01'
+			) X
+			WHERE	1=1
+			]]>
+			
+			<if test="st_buyer_code != null and st_buyer_code != ''">
+    		<![CDATA[
+				AND  X.BUYER IN
+    		]]>
+			<foreach item="status" collection="st_buyer_codeList"
+				open="(" separator="," close=")">
+			 	#{status}
+			</foreach>
+	    	</if>
+			
+			<if test="st_dept != null and st_dept != ''">
+    		<![CDATA[
+    			AND	X.KEP_DEPT = #{st_dept}
+    		]]>
+	    	</if>
+	    	ORDER BY X.BUYER, X.PO_NO, X.PO_SEQ
+	</select>
+</mapper>   
+   

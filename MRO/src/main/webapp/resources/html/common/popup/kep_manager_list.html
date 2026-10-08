@@ -1,0 +1,196 @@
+
+
+<div class="DIVpopup-overlay" id="DIVpopupOverlay"></div>
+<div class="DIVpopup" id="DIVpopup" style="width:870px;">
+  <div class="wrapPopup" style="padding:40px 20px;">
+    <div class="PopupTit">KeP 담당자 찾기<span><a href="#" id="DIVclosePopup"><img src="/resources/imgs/Icon_close.png" /></a></span></div>
+    <div class="h10"></div>
+    <div class="Popup_GrayBox mt10" style="display:flex; align-items:center; gap:6px;">
+      <div class="tit" style="white-space:nowrap; margin-right:12px;">담당자명</div>
+      <input type="text" id="h_user_name" class="input42" style="flex:1; min-width:0;" placeholder="담당자명을 입력하세요" />
+      <button type="button" id="btnSearch" class="ButDarkGray_Medium" style="width:80px; flex-shrink:0;">조회</button>
+    </div>
+    <div class="PopupTxt mt15 mb02" id="totalCountArea">총 <span id="totalCount">0</span>건</div>
+
+    <!-- 결과 테이블 -->
+    <div id="tableArea" style="min-height:260px; max-height:300px; overflow-y:auto;">
+      <table class="ComPopupTableT01" id="kepTable" style="width:100%;">
+        <colgroup>
+          <col style="width:25%;" />
+          <col style="width:25%;" />
+          <col style="width:25%;" />
+          <col style="width:25%;" />
+        </colgroup>
+        <thead>
+          <tr>
+            <th>사용자명</th>
+            <th>부서</th>
+            <th>연락처</th>
+            <th>이메일</th>
+          </tr>
+        </thead>
+        <tbody id="kepTableBody">
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<style>
+.wrapPopup .PopupTit { position:relative; height:35px; font-size:20px; font-weight:700; letter-spacing:-0.5px; color:#090A10; vertical-align:top; }
+.wrapPopup .PopupTit span { position:absolute; right:0; }
+.wrapPopup .PopupTit span img { width:24px; height:24px; }
+.wrapPopup .PopupTxt { font-size:15px; font-weight:400; letter-spacing:-0.2px; }
+.Popup_GrayBox { position:relative; padding:15px 20px; background-color:#F6F8F9; border-radius:10px; line-height:25px; font-size:14px; letter-spacing:-0.2px; font-weight:400; color:#404046; }
+.Popup_GrayBox .tit { display:inline-block; line-height:30px; font-size:16px; letter-spacing:-0.2px; font-weight:700; color:#404046; margin:1px 0px; }
+.ButDarkGray_Medium { height:40px; line-height:40px; padding:0 10px; font-size:16px; font-weight:500; letter-spacing:-0.2px; color:#fff; background-color:#595D7E; border:1px solid #595D7E; border-radius:6px; cursor:pointer; vertical-align:middle; }
+.ButDarkGray_Medium:hover { color:#fff; border:1px solid #474a65; background:#474a65; }
+.input42 { height:38px; line-height:38px; padding:0 10px; color:#24252B; font-size:16px; letter-spacing:-0.2px; font-weight:400; border:1px solid #DEDEDE; border-radius:6px; box-sizing:border-box; outline:none; }
+.input42:focus { border-color:#2172EC; }
+.ComPopupTableT01 { width:100%; border-collapse:collapse; table-layout:fixed; }
+.ComPopupTableT01 thead { position:sticky; top:0; z-index:10; }
+.ComPopupTableT01 th { height:38px; line-height:38px; text-align:center; font-size:15px; font-weight:400; letter-spacing:-0.8px; color:#5B5C61; vertical-align:top; border-top:1px solid #c5d1e2; border-bottom:1px solid #dedede; border-left:1px solid #dedede; background-color:#f2f7ff; }
+.ComPopupTableT01 th:first-child { border-left:0px; }
+.ComPopupTableT01 td { height:30px; line-height:30px; padding:0 10px; font-size:15px; font-weight:400; letter-spacing:-0.5px; color:#404046; text-align:center; border-bottom:1px solid #dedede; border-left:1px solid #dedede; background-color:#fff; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ComPopupTableT01 td:first-child { border-left:0px; }
+.ComPopupTableT01 tr:hover td { cursor:pointer; background-color:#F7FAE6; }
+.NoData { font-size:16px; font-weight:700; letter-spacing:-0.2px; color:#5B5C61; text-align:center; }
+</style>
+
+<script type="text/javascript">
+window.createPopupAPI = function(overlayId, containerId) {
+    var $overlay = $('#' + overlayId);
+    var $container = $('#' + containerId);
+    var selectCallback = null;
+    var animationType = $container.data('animationType') || 'default';
+
+    var allData = [];
+    var $tbody = $container.find('#kepTableBody');
+    var $totalCount = $container.find('#totalCount');
+
+    var api = {};
+
+    function close() {
+        var $popup = $container.find('.DIVpopup');
+        if ($popup.hasClass('popup-button-exit') || $popup.hasClass('popup-exit')) return;
+        var exitClass = animationType === 'fromButton' ? 'popup-button-exit' : 'popup-exit';
+        var dur = animationType === 'fromButton' ? 1000 : 200;
+        $popup.removeClass('popup-enter popup-button-enter').addClass(exitClass);
+        $overlay.removeClass('popup-enter').addClass('popup-exit');
+        setTimeout(function() {
+            $overlay.remove();
+            $container.remove();
+            if ($('[id^="popup-overlay-"]').length === 0) {
+                var scrollY = $('body').data('scrollY') || 0;
+                $('body').css({ 'position':'', 'top':'', 'left':'', 'right':'', 'overflow-y':'' });
+                window.scrollTo(0, scrollY);
+            }
+        }, dur);
+    }
+
+    function onSelect(callback) {
+        selectCallback = callback;
+        return api;
+    }
+
+    function showNoData(msg) {
+        $tbody.html('<tr><td colspan="4"><div class="NoData mt50 mb50">' + (msg || '조회된 데이터가 없습니다.') + '</div></td></tr>');
+    }
+
+    function maskPhone(phone) {
+        if (!phone) return '';
+        var parts = phone.split('-');
+        if (parts.length === 3) {
+            return parts[0] + '-****-' + parts[2];
+        }
+        if (phone.length >= 7) {
+            return phone.substring(0, 3) + '****' + phone.substring(phone.length - 4);
+        }
+        return phone;
+    }
+
+    function maskEmail(email) {
+        if (!email) return '';
+        var atIdx = email.indexOf('@');
+        if (atIdx <= 0) return email;
+        var id = email.substring(0, atIdx);
+        var domain = email.substring(atIdx);
+        var showLen = Math.ceil(id.length / 2);
+        return id.substring(0, showLen) + '***' + domain;
+    }
+
+    function renderTable(list) {
+        $tbody.empty();
+        if (!list || list.length === 0) {
+            showNoData('조회된 데이터가 없습니다.');
+            return;
+        }
+        for (var i = 0; i < list.length; i++) {
+            var row = list[i];
+            var tr = '<tr data-index="' + i + '">' +
+                     '<td>' + (row.USER_NAME_LOC || '') + '</td>' +
+                     '<td>' + (row.DEPT_NAME || '') + '</td>' +
+                     '<td>' + maskPhone(row.PHONE_NUMBER) + '</td>' +
+                     '<td style="text-align:left">' + maskEmail(row.EMAIL) + '</td>' +
+                     '</tr>';
+            $tbody.append(tr);
+        }
+    }
+
+    function doSearch() {
+        var keyword = $.trim($container.find('#h_user_name').val());
+        if (keyword === '') {
+            alert('담당자명을 입력하세요.');
+            $container.find('#h_user_name').focus();
+            return;
+        }
+        var params = { st_buyer: 'KRKORE0001', st_user_name: keyword, st_exact_match: 'Y' };
+
+        $tbody.html('<tr><td colspan="4" style="height:200px; text-align:center; color:#999;">조회중...</td></tr>');
+
+        $.ajax({
+            url: '/mdcp/getMasterMdCpUserChoiceList.do',
+            type: 'POST',
+            data: params,
+            dataType: 'json',
+            success: function(response) {
+                allData = response.list || [];
+                $totalCount.text(allData.length);
+                renderTable(allData);
+            },
+            error: function() {
+                showNoData('조회 중 오류가 발생했습니다.');
+            }
+        });
+    }
+
+    function bindEvents() {
+        $container.find('#btnSearch').on('click', doSearch);
+        $container.find('#h_user_name').on('keydown', function(e) {
+            if (e.keyCode === 13) { e.preventDefault(); doSearch(); }
+        });
+        $container.find('#DIVclosePopup').on('click', function(e) { e.preventDefault(); close(); });
+        $overlay.on('click', close);
+
+        $tbody.on('click', 'tr', function() {
+            var idx = parseInt($(this).data('index'));
+            if (isNaN(idx) || !allData[idx]) return;
+            var row = allData[idx];
+            if (selectCallback) selectCallback(row);
+            close();
+        });
+    }
+
+    api.close = close;
+    api.onSelect = onSelect;
+    api.$overlay = $overlay;
+    api.$container = $container;
+
+    bindEvents();
+    showNoData('담당자명을 입력 후 조회해 주세요.');
+
+    setTimeout(function() { $container.find('#h_user_name').focus(); }, 300);
+
+    return api;
+};
+</script>

@@ -1,0 +1,1925 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="common.mpiv">
+
+
+	<select id="selectSellerMpIvTranStatementWritePopInfo" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/*selectSellerMpIvTranStatementWritePopInfo*/
+			SELECT
+				  MAX(O.PO_NO)																						AS PO_NO			-- 발주번호
+				, MAX(O.PO_REMARK) 																					AS PO_REMARK		-- 비고
+				, SUM(O.PRICE * (O.CD_QTY-NVL(O.INV_QTY, 0))) 														AS SELLER_AMT		-- 공급가액
+				, MAX(O.SELLER_BUYER) 																				AS SELLER_BUYER		-- 공급받는자
+				, MAX(O.SELLER_BUYER_CODE) 																				AS SELLER_BUYER_CODE		-- 공급받는자
+				, MAX(O.DS_DATE) 																					AS DS_DATE   		-- 납품예정일
+				, SUM(FLOOR(O.PRICE * (O.CD_QTY-NVL(O.INV_QTY, 0))/10)) 											AS SURTAX 			-- 부가세
+				, MAX(O.SELLER_COM_NAME) 																			AS SELLER_COM_NAME  -- 공급원
+				, SUM(O.PRICE * (O.CD_QTY-NVL(O.INV_QTY, 0)) + FLOOR(O.PRICE * (O.CD_QTY-NVL(O.INV_QTY, 0))/10)) 	AS TTL_AMT			-- 총금액
+				, MAX(O.DELY_TO_LOCATION) 																			AS DELY_TO_LOCATION	-- 납품장소
+				, MAX(O.DOC_TYPE) 																					AS DOC_TYPE			-- 긴급여부
+				, MAX(O.KEPMRO_DOC_TYPE) 																			AS KEPMRO_DOC_TYPE	-- KEPMRO선입고유무
+				
+				, SUM(O.SELLER_AMT2) AS SELLER_AMT2
+                , SUM(O.SURTAX2) AS SURTAX2
+                , SUM(O.TTL_AMT2) AS TTL_AMT2
+                
+				, MAX(O.PROCESS_TYPE) 																				AS PROCESS_TYPE
+				, MAX(DECODE(O.PROCESS_TYPE,0,'직납',2,'TR'))															AS PROCESS_NAME
+				, MAX(P.QRY_STR1) 																					AS QRY_STR1
+				, MAX(P.QRY_STR2) 																					AS QRY_STR2
+				, MAX(P.QRY_STR3) 																					AS QRY_STR3
+				, MAX(P.QRY_STR4) 																					AS QRY_STR4
+				, MAX(P.DEFAULT_RPT_URL) 																			AS DEFAULT_RPT_URL
+				, MAX(O.PX_NO) 																						AS PX_NO			--주문번호
+				, MAX(O.PARCEL_YN)																					AS PARCEL_YN
+				, MAX(O.CENTER_TEL_NO)																				AS CENTER_TEL_NO	
+				/* SLOGIC-BEGIN (P06-0000005) */
+				, MAX(		--Y : 직납이면, 리포트 파일 오픈하지 않는다. 30분뒤에 하라고 메시지 출력
+						(	SELECT DECODE(COUNT(*), 0, 'N', 'Y')
+							FROM BNTSLGDEF A1, BNTSLGIMP B1
+							WHERE
+									A1.SLG_ID = B1.SLG_ID
+								AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN A1.OPEN_DATE AND A1.CLOSE_DATE
+								AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN B1.OPEN_DATE AND B1.CLOSE_DATE
+								AND B1.COM_CODE = #{st_buyer}		-- BUYER
+								AND A1.SLG_ID = 'P06-0000005'		-- ID하드코딩
+					)) AS STX_RPT 
+				/* SLOGIC-END */
+				/* SLOGIC-BEGIN (P06-0000006) */
+				, MAX(		--Y : 두산인프라코어 데이터 전송
+						(	SELECT DECODE(COUNT(*), 0, 'N', 'Y') DSN_RPT
+							FROM BNTSLGDEF A, BNTSLGIMP B
+							WHERE 
+									A.SLG_ID = B.SLG_ID
+								AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN A.OPEN_DATE AND A.CLOSE_DATE
+								AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN B.OPEN_DATE AND B.CLOSE_DATE
+								AND B.COM_CODE = #{st_buyer}		-- BUYER
+								AND A.SLG_ID = 'P06-0000006'		-- ID하드코딩
+					)) AS DSN_RPT
+				, MAX(
+						(	SELECT DECODE(COUNT(*),0,'N','Y')
+							FROM BNTSLGDEF A, BNTSLGIMP B
+							WHERE
+								A.SLG_ID = B.SLG_ID
+							AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN A.OPEN_DATE AND A.CLOSE_DATE
+							AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN B.OPEN_DATE AND B.CLOSE_DATE
+							AND B.COM_cODE = #{st_buyer}		-- BUYER
+							AND A.SLG_ID = 'P06-0000054'   --K TAG 사용 관리: 특수로직
+					)) AS KTAG_RPT
+				/* SLOGIC-END */
+				,MAX(O.PO_CREATE_DATE) AS PO_CREATE_DATE
+				,MAX(O.KEP_USER_INFO) AS KEP_USER_INFO
+				,MAX(O.DELIVERY_REMARK) AS DELIVERY_REMARK
+				,MAX(O.PURCHASER_NAME) AS PURCHASER_NAME
+				,MAX(O.DELY_TO_LOCATION_CODE) AS DELY_TO_LOCATION_CODE
+				,MAX(O.CQDT_ITEM_NO) AS CQDT_ITEM_NO
+			FROM (			
+				SELECT /*+USE_NL(C A)*/
+					  MAX(A.PO_NO) AS PO_NO -- 발주번호
+					, MAX(A.PO_REMARK) AS PO_REMARK    -- 비고
+					, MAX((
+						SELECT COM_NAME_LOC
+						FROM ICOMCMPY
+						WHERE COM_CODE = F_GET_HIDDEN_BUYER_NAME(A.BUYER, '01'))) AS SELLER_BUYER    --공급받는자
+					, MAX((
+						SELECT COM_CODE
+						FROM ICOMCMPY
+						WHERE COM_CODE = DECODE(A.PROCESS_TYPE, '2', F_GET_HUB_INFO(A.BUYER,A.PO_NO,'2'), F_GET_HIDDEN_BUYER_NAME(A.BUYER, '01')))) AS SELLER_BUYER_CODE    --공급받는자
+					, MAX(C.DS_DATE) AS DS_DATE -- 납품예정일
+					, MAX((SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = A.AGENT)) AS SELLER_COM_NAME  -- 공급원
+					, MAX(DECODE(
+									  (	SELECT COUNT(*) FROM ICOMCOD2 
+										WHERE 
+												COMPANY_CODE = DECODE(A.PROCESS_TYPE,'2',F_GET_HUB_INFO(A.BUYER,A.PO_NO,'2'),A.BUYER) 
+											AND TYPE = 'C012' 
+											AND CODE = DECODE(A.PROCESS_TYPE,'2','001',A.DELY_TO_LOCATION))
+									, 0, A.DELY_TO_LOCATION
+									, (	SELECT TEXT2 FROM ICOMCOD2 
+										WHERE 
+												COMPANY_CODE = DECODE(A.PROCESS_TYPE,'2',F_GET_HUB_INFO(A.BUYER,A.PO_NO,'2'),A.BUYER) 
+											AND TYPE = 'C012' 
+											AND CODE = DECODE(A.PROCESS_TYPE,'2','001',A.DELY_TO_LOCATION))
+								)) AS DELY_TO_LOCATION    -- 납품장소
+					--, MAX(DECODE(B.PROCESS_TYPE, '2', B.AGENT_PRICE, B.UNIT_PRICE)) AS PRICE
+					, MAX(B.AGENT_PRICE) AS PRICE
+					, SUM(D.INV_QTY) AS INV_QTY
+					, MAX(C.CD_QTY) AS CD_QTY
+					, MAX(A.DOC_TYPE) AS DOC_TYPE   -- 긴급여부
+					, MAX(A.PROCESS_TYPE) AS PROCESS_TYPE
+					, MAX((SELECT PRE_GR_FLAG FROM ICOMPRHD WHERE BUYER = B.BUYER AND PR_NO = B.PR_NO AND STATUS <> 'D')) AS PRE_GR_FLAG
+					, MAX((SELECT PRE_GR_FLAG FROM ICOMPRHD WHERE BUYER = B.BUYER AND PR_NO = B.PR_NO AND STATUS <> 'D')) AS KEPMRO_DOC_TYPE -- KEPMRO선입고유무
+					
+                    --분할납품서 생성시 두번째 잔여량 작성시에 발생하는 오류 수정: C.CD_QTY ==> (C.CD_QTY-NVL(D.INV_QTY,0)) 2014.12.15 김지현 
+                    --, SUM(DECODE(A.PROCESS_TYPE,'2',B.AGENT_PRICE,B.UNIT_PRICE) * (C.CD_QTY-NVL(D.INV_QTY,0)) ) AS SELLER_AMT2
+                    --, FLOOR(SUM(DECODE(A.PROCESS_TYPE,'2',B.AGENT_PRICE,B.UNIT_PRICE) * (C.CD_QTY-NVL(D.INV_QTY,0)) )/10) AS SURTAX2
+                    --, SUM(DECODE(A.PROCESS_TYPE,'2',B.AGENT_PRICE,B.UNIT_PRICE) * (C.CD_QTY-NVL(D.INV_QTY,0)) )
+                    -- + FLOOR(SUM(DECODE(A.PROCESS_TYPE,'2',B.AGENT_PRICE,B.UNIT_PRICE) * (C.CD_QTY-NVL(D.INV_QTY,0)) )/10) AS TTL_AMT2
+                    
+                    , MAX(DECODE(A.PROCESS_TYPE,'2',B.AGENT_PRICE,B.UNIT_PRICE)) * (MAX(C.CD_QTY) - SUM( NVL(D.INV_QTY,0) ) ) AS SELLER_AMT2
+                    , FLOOR(MAX(DECODE(A.PROCESS_TYPE,'2',B.AGENT_PRICE,B.UNIT_PRICE)) * (MAX(C.CD_QTY) - SUM(NVL(D.INV_QTY,0)) ) / 10 )  AS SURTAX2 
+                    , MAX(DECODE(A.PROCESS_TYPE,'2',B.AGENT_PRICE,B.UNIT_PRICE)) * (MAX(C.CD_QTY) - SUM(NVL(D.INV_QTY,0)) )
+                      + FLOOR(MAX(DECODE(A.PROCESS_TYPE,'2',B.AGENT_PRICE,B.UNIT_PRICE)) * (MAX(C.CD_QTY) - SUM(NVL(D.INV_QTY,0)) ) / 10 )  AS TTL_AMT2 
+                    --분할납품서 생성시 두번째 잔여량 작성시에 발생하는 오류 수정: C.CD_QTY ==> (C.CD_QTY-NVL(NVL(D.INV_QTY,0),0)) 2014.12.15 김지현 
+                    					
+					, MAX((SELECT X.REF_NO FROM ICOMPRDT X WHERE X.BUYER = B.BUYER AND X.PR_NO = B.PR_NO AND ROWNUM = 1 )) AS PX_NO --주문번호 
+					, MAX(A.PARCEL_YN) AS PARCEL_YN -- 배송유형
+					, MAX((SELECT TEL_NO FROM ICOMCMPY WHERE COM_CODE = F_GET_HUB_INFO(A.BUYER,A.PO_NO,'2'))) AS CENTER_TEL_NO
+					, MAX(A.PO_CREATE_DATE) AS PO_CREATE_DATE
+					, MAX(F_GET_MIS_BUYER_MNG(B.BUYER, B.PO_NO, B.PO_SEQ)) AS KEP_USER_INFO
+					, MAX(E.REMARK) AS DELIVERY_REMARK
+					, MAX(DECODE(A.DOC_TYPE,'X', DECODE(B.PROCESS_TYPE, 2, '', A.PURCHASER_NAME), A.PURCHASER_NAME)) AS PURCHASER_NAME
+					, MAX(B.DELY_TO_LOCATION) AS DELY_TO_LOCATION_CODE
+					, MAX((SELECT ITEM_NO FROM ICOMCQDT WHERE BUYER = B.BYIT_COMORG_CODE AND BELOW_COMORG_CODE = B.BUYER AND CONTRACT_NO = B.CONTRACT_NO AND CONTRACT_SEQ = B.CONTRACT_SEQ AND BUYER_ITEM_NO = B.BUYER_ITEM_NO)) AS CQDT_ITEM_NO
+				FROM ICOMPOHD A, ICOMPODT B, ICOMPORS C, ICOMIVDT D, ICOMPRHD E
+				WHERE
+						C.BUYER   =  #{st_buyer}
+					AND C.PO_NO   =  #{st_po_no}
+					AND C.DS_DATE =  #{st_ds_date}
+					AND C.COMPLETE_MARK ='N'
+					AND C.BUYER = A.BUYER
+					AND C.PO_NO = A.PO_NO
+					AND C.BUYER = B.BUYER
+					AND C.PO_NO = B.PO_NO
+					AND C.PO_SEQ= B.PO_SEQ
+					AND C.BUYER = D.BUYER(+)
+					AND C.PO_NO = D.PO_NO(+)
+					AND C.PO_SEQ = D.PO_SEQ(+)
+					AND C.DS_DATE= D.DS_DATE(+)
+					AND B.BUYER = E.BUYER
+					AND B.PR_NO = E.PR_NO
+					AND A.STATUS <> 'D'
+					AND B.STATUS <> 'D'
+					AND C.STATUS <> 'D'
+					AND D.STATUS(+)<>'D'
+					AND E.STATUS <> 'D'
+				GROUP BY C.BUYER , C.PO_NO , C.PO_SEQ , C.DS_DATE
+			) O
+			, (
+				SELECT /*+USE_NL(X Y)*/
+					  Y.QRY_STR1
+					, Y.QRY_STR2
+					, Y.QRY_STR3
+					, Y.QRY_STR4
+					, X.SLG_ID
+					, X.DEFAULT_RPT_URL
+				FROM 
+					/* SLOGIC-BEGIN (P06-0000002) */
+					  (
+					  	
+						SELECT 'P06-0000002' SLG_ID							-- ID 하드코딩 
+						, 'RD_06_S_001_83' DEFAULT_RPT_URL	--디폴트 유알엘 하드코딩 , 추후 변경 /kr/epro/buy/sheet/inv_prn.jsp  
+						FROM DUAL											--한건도 조회되지 않는 것 방지
+						
+					) X
+					, (
+						SELECT /*+USE_NL(A B)*/
+							  B.COL01_DATA QRY_STR1
+							, B.COL02_DATA QRY_STR2
+							, B.COL03_DATA QRY_STR3
+							, B.COL03_DATA QRY_STR4
+							, A.SLG_ID
+						FROM BNTSLGDEF A, BNTSLGIMP B
+						WHERE 
+								1=1
+							AND A.SLG_ID = B.SLG_ID --default url을 가져오기 위해 아우터조인 
+							AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN A.OPEN_DATE AND A.CLOSE_DATE
+							AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN B.OPEN_DATE AND B.CLOSE_DATE
+							AND B.COM_CODE = #{st_buyer} --고객사 회사코드
+							AND A.SLG_ID = 'P06-0000002' -- ID하드코딩 
+					) Y
+					/* SLOGIC-END */
+				WHERE 1=1
+					AND X.SLG_ID = Y.SLG_ID(+) 
+			) P
+		]]>
+	</select>
+
+	<select id="selectSellerMpIvTranStatementWritePopList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/*selectSellerMpIvTranStatementWritePopList*/
+			SELECT
+				  B.REF_PR_NO  -- 관리번호[00]
+				, B.BUYER_ITEM_NO -- 품목코드[01]
+				, B.DESCRIPTION||DECODE(TRIM(B.MAKER_NAME),NULL,'',' / '||B.MAKER_NAME) AS MAKER_NAME -- 품명[02]
+				, B.SPECIFICATION  -- 규격[03]
+				, B.ITEM_QTY  -- 발주수량[04]
+				, B.UNIT_MEASURE  -- 단위[05]
+				, C.CD_QTY AS INV_LEGACY_QTY  -- 납품수량[06]
+				--, DECODE(B.PROCESS_TYPE,'2',AGENT_PRICE, UNIT_PRICE) AS UNIT_PRICE  -- 단가[07]
+				, B.AGENT_PRICE AS UNIT_PRICE	-- 단가[07]
+				--, DECODE(B.PROCESS_TYPE,'2',AGENT_PRICE, UNIT_PRICE)*C.CD_QTY AS SELLER_AMT  -- 공급가액[08]
+				--, B.AGENT_PRICE*(DECODE(B.PROCESS_TYPE,'2',
+				--	B.DO_QTY-NVL((SELECT SUM(INV_QTY) FROM ICOMIVDT WHERE BUYER = C.BUYER AND PO_NO = C.PO_NO AND PO_SEQ = C.PO_SEQ AND STATUS <> 'D'),0),
+				--	B.DO_QTY-NVL(B.IV_QTY,0))) AS SELLER_AMT	-- 공급가액[08]
+				, B.AGENT_PRICE*C.CD_QTY AS SELLER_AMT
+				, C.DS_DATE AS INV_LEGACY_DATE -- 납품예정일[09]
+--				, DECODE(B.PROCESS_TYPE, '0',B.RD_DATE, F_GET_DATE_TR(B.RD_DATE)) AS RD_DATE
+				, B.RD_DATE AS RD_DATE
+				, B.PO_NO  -- 발주번호[11]
+				, B.PO_SEQ  -- 발주항번[12]
+				, NVL(B.IV_QTY,0) AS IV_QTY  -- 송장수량[13]
+				, A.PROCESS_TYPE  -- 제품조달방법[14]
+				, B.BYIT_COMORG_CODE  -- [15]
+				, B.CONTRACT_NO  -- [16]
+				, B.CONTRACT_SEQ  -- [17]
+				, B.PO_REMARK||DECODE(TRIM(B.REF_IF_NO),NULL,NULL,'('||B.REF_IF_NO||')') AS PO_REMARK  -- [18]
+				, A.DOC_TYPE    -- [19]
+				, DECODE(A.DOC_TYPE,'X',SUBSTR(B.BUYER_ITEM_NO,1,7),  
+				        (   SELECT STDCATLG_ID 
+				            FROM ICOMCQDT  
+				            WHERE
+				                    BUYER = B.BYIT_COMORG_CODE  
+				                AND BUYER_ITEM_NO = B.BUYER_ITEM_NO  
+				                AND CONTRACT_NO = B.CONTRACT_NO  
+				                AND CONTRACT_SEQ = B.CONTRACT_SEQ)) AS STDCATLG_ID  -- [20]
+				, DECODE(A.DOC_TYPE,'X',
+				        (
+				            SELECT NVL(TRIM(IMG_NO),'0') 
+				            FROM ITEMMAST
+				            WHERE STDCATLG_ID = SUBSTR(B.BUYER_ITEM_NO,1,7)),'') AS IMG_NO -- [21]
+				, B.LEGACY_PO_NO AS INV_LEGACY_PO_NO  -- [22]
+				, DECODE(B.BUYER,'KRDOOS0035',SUBSTRB(B.LEGACY_PO_SEQ,INSTRB(B.LEGACY_PO_SEQ,'-',1,1)+1,10),B.LEGACY_PO_SEQ) AS LEGACY_PO_SEQ  -- [23]
+				, DECODE(B.BUYER,'KRDOOS0006',trunc(to_char(sysdate+mod(7- to_char(sysdate,'d')+1,7),'YYYYMMDD')/B.RD_DATE,0),1) AS DS_LIMIT  -- 납품제한[24]
+				, A.PURCHASER_ID    -- [25]
+				, B.LEGACY_PO_SEQ AS INV_LEGACY_PO_SEQ  -- [26]
+				
+				, DECODE(B.PROCESS_TYPE,'2',B.AGENT_PRICE, B.UNIT_PRICE)*(DECODE(B.PROCESS_TYPE,'2', B.DO_QTY-NVL((SELECT SUM(INV_QTY) FROM ICOMIVDT WHERE BUYER = C.BUYER AND PO_NO = C.PO_NO AND PO_SEQ = C.PO_SEQ AND STATUS <> 'D'),0),
+					B.DO_QTY-NVL(B.IV_QTY,0))) AS SELLER_AMT2,
+				(SELECT BYIT.REFINE_NOTE FROM ICOMBYIT BYIT, ICOMCMPY CMPY 
+					WHERE BYIT.BUYER = CMPY.BYCA_COMORG_CODE 
+					AND CMPY.COM_CODE = B.BUYER 
+					AND BYIT.BUYER_ITEM_NO = B.BUYER_ITEM_NO) AS REFINE_NOTE
+				, F_GET_MSDS_INFO(B.BUYER, B.BUYER_ITEM_NO ,1) AS MSDS_NO
+				, D.SIZE_QTY
+				, D.SIZE_LEN
+				, (SELECT DECODE(COUNT(COD.CODE2),0,'N','Y')
+					FROM  ICOMCOD3 COD
+					WHERE 1=1
+					AND	COD.BUYER = B.BUYER
+					AND COD.TYPE = 'BICT'
+					AND COD.CODE2 =  B.CATEG_ID
+					AND COD.FLAG = 'Y'
+					) AS SIZE_YN
+				, (SELECT DECODE(COUNT(CMC.BUYER_ITEM_NO),0,'N','Y')
+					FROM KEP_CMC_REQ CMC
+					WHERE CMC.BYIT_COMORG_CODE = B.BYIT_COMORG_CODE
+					AND CMC.BUYER_ITEM_NO = B.BUYER_ITEM_NO
+					AND CMC.REQ_STATUS = 'C') AS CMC_INFO_YN
+				, (SELECT MAX(REQ_NO)
+					FROM KEP_CMC_REQ CMC
+					WHERE CMC.BYIT_COMORG_CODE = B.BYIT_COMORG_CODE
+					AND CMC.BUYER_ITEM_NO = B.BUYER_ITEM_NO
+					AND CMC.REQ_STATUS = 'C') AS CMC_REQ_NO
+				, (SELECT DECODE(MATERIAL_TYPE, 'H', 'Y', 'N')
+					FROM ICOMBYIT
+					WHERE BUYER = B.BYIT_COMORG_CODE
+					AND BUYER_ITEM_NO = B.BUYER_ITEM_NO) AS CMC_HARMFUL_YN
+				, (SELECT DECODE(COUNT(COD.CODE),0,'N','Y')
+					FROM  ICOMCOD1 COD
+					WHERE 1=1
+					AND	COD.CODE = B.CMS_CATEG_ID
+					AND COD.TYPE = 'CM11'
+					AND COD.FLAG = 'Y') AS COD_CHECK --ICOMCOD1 CHECK
+			    , (SELECT DECODE(TRIM(E.MSDS_NO),'','Y','MS88888888','Y','N')
+			    	FROM ICOMBYIT E
+			    	WHERE E.BUYER = B.BYIT_COMORG_CODE
+			    	AND E.BUYER_ITEM_NO = B.BUYER_ITEM_NO) AS MSDS_CHECK --BYIT.MSDS_NO CHECK  
+			    , (SELECT DECODE(COUNT(REQ.BUYER_ITEM_NO),0,'N','Y')
+					FROM  KEP_CMC_REQ REQ
+					WHERE 1=1
+					AND	REQ.BUYER = B.BUYER
+					AND REQ.BYIT_COMORG_CODE = B.BYIT_COMORG_CODE
+					AND REQ.BUYER_ITEM_NO = B.BUYER_ITEM_NO
+					AND REQ.AGENT = A.AGENT
+					AND REQ.REQ_STATUS NOT IN ('B','C','D','N','T')) AS REQ_CHECK --REQ CHECK
+				, F_GET_BUY_CLOSE_DATE_CHK(B.BUYER, B.PO_NO, B.PO_SEQ, A.AGENT) AS BUY_CLOSE_DATE_CHK
+				, (SELECT DECODE(TRIM(TEMP_COND), '', 'Y', NULL, 'Y', 'N')
+					FROM ICOMBYIT
+					WHERE BUYER = B.BYIT_COMORG_CODE
+					AND BUYER_ITEM_NO = B.BUYER_ITEM_NO) AS TEMP_CHECK
+				, (SELECT DECODE(COUNT(COD.CODE),0,'N','Y')
+					FROM  ICOMCOD1 COD
+					WHERE 1=1
+					AND	COD.CODE = (SELECT CMS_CATEG_ID FROM ICOMBYIT WHERE BUYER = B.BYIT_COMORG_CODE AND BUYER_ITEM_NO = B.BUYER_ITEM_NO)
+					AND COD.TYPE = 'CM11'
+					AND COD.TEXT1 = 'Y'
+					AND COD.FLAG = 'Y') AS SG118_CHECK	
+				, (SELECT TEMP_COND FROM ICOMBYIT WHERE BUYER = B.BYIT_COMORG_CODE AND BUYER_ITEM_NO = B.BUYER_ITEM_NO) AS TEMP_COND
+				, '/ ' || (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'M203' AND CODE = (SELECT TEMP_COND FROM ICOMBYIT WHERE BUYER = B.BYIT_COMORG_CODE AND BUYER_ITEM_NO = B.BUYER_ITEM_NO) AND FLAG = 'Y') AS TEMP_COND_TEXT
+				, '/ ' || (SELECT TEMP_RANGE FROM ICOMBYIT WHERE BUYER = B.BYIT_COMORG_CODE AND BUYER_ITEM_NO = B.BUYER_ITEM_NO) AS TEMP_RANGE
+				, DECODE((SELECT MATERIAL_TYPE FROM ICOMBYIT WHERE BUYER = B.BYIT_COMORG_CODE AND BUYER_ITEM_NO = B.BUYER_ITEM_NO), 'H', '/ 유해화학물질','') AS HARMFUL_TEXT
+			FROM ICOMPOHD A , ICOMPODT B , ICOMPORS C , ICOMPRDT D  
+			WHERE 
+					C.BUYER   = #{st_buyer}
+				AND C.PO_NO   = #{st_po_no}
+				AND C.DS_DATE = #{st_ds_date}
+				AND C.COMPLETE_MARK ='N'  
+				AND C.BUYER = A.BUYER  
+				AND C.PO_NO = A.PO_NO  
+				AND C.BUYER = B.BUYER  
+				AND C.PO_NO = B.PO_NO  
+				AND C.PO_SEQ= B.PO_SEQ  
+				AND B.BUYER = D.BUYER
+				AND B.PR_NO = D.PR_NO
+				AND B.PR_SEQ = D.PR_SEQ
+				AND A.STATUS <> 'D'  
+				AND B.STATUS <> 'D'  
+				AND C.STATUS <> 'D'
+				AND D.STATUS <> 'D'
+		]]>		
+	</select>	
+	
+	<select id="getSellerMpIvTranStatementWritePop_v2" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/*getSellerMpIvTranStatementWritePop_v2*/
+			SELECT
+				  B.REF_PR_NO  -- 관리번호[00]
+				, B.BUYER_ITEM_NO -- 품목코드[01]
+				, B.DESCRIPTION AS DESCRIPTION
+				, B.DESCRIPTION||DECODE(TRIM(B.MAKER_NAME),NULL,'',' / '||B.MAKER_NAME) AS MAKER_NAME -- 품명[02]
+				, B.SPECIFICATION  -- 규격[03]
+				, B.ITEM_QTY  -- 발주수량[04]
+				, B.UNIT_MEASURE  -- 단위[05]
+				, C.CD_QTY AS INV_LEGACY_QTY  -- 납품수량[06]
+				--, DECODE(B.PROCESS_TYPE,'2',AGENT_PRICE, UNIT_PRICE) AS UNIT_PRICE  -- 단가[07]
+				, B.AGENT_PRICE AS UNIT_PRICE	-- 단가[07]
+				--, DECODE(B.PROCESS_TYPE,'2',AGENT_PRICE, UNIT_PRICE)*C.CD_QTY AS SELLER_AMT  -- 공급가액[08]
+				--, B.AGENT_PRICE*(DECODE(B.PROCESS_TYPE,'2',
+				--	B.DO_QTY-NVL((SELECT SUM(INV_QTY) FROM ICOMIVDT WHERE BUYER = C.BUYER AND PO_NO = C.PO_NO AND PO_SEQ = C.PO_SEQ AND STATUS <> 'D'),0),
+				--	B.DO_QTY-NVL(B.IV_QTY,0))) AS SELLER_AMT	-- 공급가액[08]
+				, B.AGENT_PRICE*C.CD_QTY AS SELLER_AMT
+				, C.DS_DATE AS INV_LEGACY_DATE -- 납품예정일[09]
+--				, DECODE(B.PROCESS_TYPE, '0',B.RD_DATE, F_GET_DATE_TR(B.RD_DATE)) AS RD_DATE
+				, B.RD_DATE AS RD_DATE
+				, B.PO_NO  -- 발주번호[11]
+				, B.PO_SEQ  -- 발주항번[12]
+				, NVL(B.IV_QTY,0) AS IV_QTY  -- 송장수량[13]
+				, A.PROCESS_TYPE  -- 제품조달방법[14]
+				, B.BYIT_COMORG_CODE  -- [15]
+				, B.CONTRACT_NO  -- [16]
+				, B.CONTRACT_SEQ  -- [17]
+				, B.PO_REMARK||DECODE(TRIM(B.REF_IF_NO),NULL,NULL,'('||B.REF_IF_NO||')') AS PO_REMARK  -- [18]
+				, A.DOC_TYPE    -- [19]
+				, DECODE(A.DOC_TYPE,'X',SUBSTR(B.BUYER_ITEM_NO,1,7),  
+				        (   SELECT STDCATLG_ID 
+				            FROM ICOMCQDT  
+				            WHERE
+				                    BUYER = B.BYIT_COMORG_CODE  
+				                AND BUYER_ITEM_NO = B.BUYER_ITEM_NO  
+				                AND CONTRACT_NO = B.CONTRACT_NO  
+				                AND CONTRACT_SEQ = B.CONTRACT_SEQ)) AS STDCATLG_ID  -- [20]
+				, DECODE(A.DOC_TYPE,'X',
+				        (
+				            SELECT NVL(TRIM(IMG_NO),'0') 
+				            FROM ITEMMAST
+				            WHERE STDCATLG_ID = SUBSTR(B.BUYER_ITEM_NO,1,7)),'') AS IMG_NO -- [21]
+				, B.LEGACY_PO_NO AS INV_LEGACY_PO_NO  -- [22]
+				, DECODE(B.BUYER,'KRDOOS0035',SUBSTRB(B.LEGACY_PO_SEQ,INSTRB(B.LEGACY_PO_SEQ,'-',1,1)+1,10),B.LEGACY_PO_SEQ) AS LEGACY_PO_SEQ  -- [23]
+				, DECODE(B.BUYER,'KRDOOS0006',trunc(to_char(sysdate+mod(7- to_char(sysdate,'d')+1,7),'YYYYMMDD')/B.RD_DATE,0),1) AS DS_LIMIT  -- 납품제한[24]
+				, A.PURCHASER_ID    -- [25]
+				, B.LEGACY_PO_SEQ AS INV_LEGACY_PO_SEQ  -- [26]
+				
+				, DECODE(B.PROCESS_TYPE,'2',B.AGENT_PRICE, B.UNIT_PRICE)*(DECODE(B.PROCESS_TYPE,'2', B.DO_QTY-NVL((SELECT SUM(INV_QTY) FROM ICOMIVDT WHERE BUYER = C.BUYER AND PO_NO = C.PO_NO AND PO_SEQ = C.PO_SEQ AND STATUS <> 'D'),0),
+					B.DO_QTY-NVL(B.IV_QTY,0))) AS SELLER_AMT2,
+				(SELECT BYIT.REFINE_NOTE FROM ICOMBYIT BYIT, ICOMCMPY CMPY 
+					WHERE BYIT.BUYER = CMPY.BYCA_COMORG_CODE 
+					AND CMPY.COM_CODE = B.BUYER 
+					AND BYIT.BUYER_ITEM_NO = B.BUYER_ITEM_NO) AS REFINE_NOTE
+				, F_GET_MSDS_INFO(B.BUYER, B.BUYER_ITEM_NO ,1) AS MSDS_NO
+				, DECODE(F_GET_MSDS_INFO(B.BUYER, B.BUYER_ITEM_NO ,1),NULL,'N','Y') AS MSDS_YN
+				, D.SIZE_QTY
+				, D.SIZE_LEN
+				, (SELECT DECODE(COUNT(COD.CODE2),0,'N','Y')
+					FROM  ICOMCOD3 COD
+					WHERE 1=1
+					AND	COD.BUYER = B.BUYER
+					AND COD.TYPE = 'BICT'
+					AND COD.CODE2 =  B.CATEG_ID
+					AND COD.FLAG = 'Y'
+					) AS SIZE_YN
+				, (SELECT DECODE(COUNT(CMC.BUYER_ITEM_NO),0,'N','Y')
+					FROM KEP_CMC_REQ CMC
+					WHERE CMC.BYIT_COMORG_CODE = B.BYIT_COMORG_CODE
+					AND CMC.BUYER_ITEM_NO = B.BUYER_ITEM_NO
+					AND CMC.REQ_STATUS = 'C') AS CMC_INFO_YN
+				, (SELECT MAX(REQ_NO)
+					FROM KEP_CMC_REQ CMC
+					WHERE CMC.BYIT_COMORG_CODE = B.BYIT_COMORG_CODE
+					AND CMC.BUYER_ITEM_NO = B.BUYER_ITEM_NO
+					AND CMC.REQ_STATUS = 'C') AS CMC_REQ_NO
+				, (SELECT DECODE(MATERIAL_TYPE, 'H', 'Y', 'N')
+					FROM ICOMBYIT
+					WHERE BUYER = B.BYIT_COMORG_CODE
+					AND BUYER_ITEM_NO = B.BUYER_ITEM_NO) AS CMC_HARMFUL_YN
+				, (SELECT DECODE(COUNT(COD.CODE),0,'N','Y')
+					FROM  ICOMCOD1 COD
+					WHERE 1=1
+					AND	COD.CODE = B.CMS_CATEG_ID
+					AND COD.TYPE = 'CM11'
+					AND COD.FLAG = 'Y') AS COD_CHECK --ICOMCOD1 CHECK
+			    , (SELECT DECODE(TRIM(E.MSDS_NO),'','Y','MS88888888','Y','N')
+			    	FROM ICOMBYIT E
+			    	WHERE E.BUYER = B.BYIT_COMORG_CODE
+			    	AND E.BUYER_ITEM_NO = B.BUYER_ITEM_NO) AS MSDS_CHECK --BYIT.MSDS_NO CHECK  
+			    , (SELECT DECODE(COUNT(REQ.BUYER_ITEM_NO),0,'N','Y')
+					FROM  KEP_CMC_REQ REQ
+					WHERE 1=1
+					AND	REQ.BUYER = B.BUYER
+					AND REQ.BYIT_COMORG_CODE = B.BYIT_COMORG_CODE
+					AND REQ.BUYER_ITEM_NO = B.BUYER_ITEM_NO
+					AND REQ.AGENT = A.AGENT
+					AND REQ.REQ_STATUS NOT IN ('B','C','D','N','T')) AS REQ_CHECK --REQ CHECK
+				, (SELECT DECODE(COUNT(REQ.BUYER_ITEM_NO),0,'N','Y')
+					FROM  KEP_CMC_REQ REQ
+					WHERE 1=1
+					AND	REQ.BUYER = B.BUYER
+					AND REQ.BYIT_COMORG_CODE = B.BYIT_COMORG_CODE
+					AND REQ.BUYER_ITEM_NO = B.BUYER_ITEM_NO
+					AND REQ.AGENT = A.AGENT
+					AND REQ.REQ_STATUS IN ('P','S')
+					AND REQ.TEMP_COND IS NOT NULL
+					AND REQ.REQ_NO = (SELECT MAX(REQ_NO)
+										FROM  KEP_CMC_REQ
+										WHERE 1=1
+										AND	BUYER = B.BUYER
+										AND BYIT_COMORG_CODE = B.BYIT_COMORG_CODE
+										AND BUYER_ITEM_NO = B.BUYER_ITEM_NO
+										AND AGENT = A.AGENT)
+				) AS TEMP_REQ_CHECK --TEMP_REQ_CHECK
+				, F_GET_BUY_CLOSE_DATE_CHK(B.BUYER, B.PO_NO, B.PO_SEQ, A.AGENT) AS BUY_CLOSE_DATE_CHK
+				, (SELECT DECODE(TRIM(TEMP_COND), '', 'Y', NULL, 'Y', 'N')
+					FROM ICOMBYIT
+					WHERE BUYER = B.BYIT_COMORG_CODE
+					AND BUYER_ITEM_NO = B.BUYER_ITEM_NO) AS TEMP_CHECK
+				, (SELECT DECODE(COUNT(COD.CODE),0,'N','Y')
+					FROM  ICOMCOD1 COD
+					WHERE 1=1
+					AND	COD.CODE = (SELECT CMS_CATEG_ID FROM ICOMBYIT WHERE BUYER = B.BYIT_COMORG_CODE AND BUYER_ITEM_NO = B.BUYER_ITEM_NO)
+					AND COD.TYPE = 'CM11'
+					AND COD.TEXT1 = 'Y'
+					AND COD.FLAG = 'Y') AS SG118_CHECK	
+				, (SELECT TEMP_COND FROM ICOMBYIT WHERE BUYER = B.BYIT_COMORG_CODE AND BUYER_ITEM_NO = B.BUYER_ITEM_NO) AS TEMP_COND
+				, '/ ' || (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'M203' AND CODE = (SELECT TEMP_COND FROM ICOMBYIT WHERE BUYER = B.BYIT_COMORG_CODE AND BUYER_ITEM_NO = B.BUYER_ITEM_NO) AND FLAG = 'Y') AS TEMP_COND_TEXT
+				, '/ ' || (SELECT TEMP_RANGE FROM ICOMBYIT WHERE BUYER = B.BYIT_COMORG_CODE AND BUYER_ITEM_NO = B.BUYER_ITEM_NO) AS TEMP_RANGE
+				, DECODE((SELECT MATERIAL_TYPE FROM ICOMBYIT WHERE BUYER = B.BYIT_COMORG_CODE AND BUYER_ITEM_NO = B.BUYER_ITEM_NO), 'H', '/ 유해화학물질','') AS HARMFUL_TEXT
+				, D.IMAGE_KEY AS  IMAGE_KEY
+				, DECODE(D.IMAGE_KEY,NULL,'','Y') AS IMAGE_KEY_YN
+				, B.ITEM_MAKE_TYPE
+				, (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'M132' AND FLAG = 'Y' AND CODE = B.ITEM_MAKE_TYPE) AS ITEM_MAKE_TYPE_NM
+				, B.ST_DATE
+				,(SELECT MAKER_PART_NO
+					FROM ICOMBYIT
+					WHERE BUYER = B.BYIT_COMORG_CODE
+					AND BUYER_ITEM_NO = B.BUYER_ITEM_NO) AS MAKER_PART_NO
+				, B.WAREHOUSE_CODE AS WAREHOUSE_CODE
+				, DECODE(B.PROCESS_TYPE, '2', DECODE((SELECT COUNT(*) FROM ICOMCOD1 WHERE TYPE = 'W001' AND TEXT4 = 'B' AND FLAG = 'Y' AND TEXT1 = B.WAREHOUSE_CODE), 0, 'N', 'Y'),'N')  AS TR_WAREHOUSE_YN
+			FROM ICOMPOHD A , ICOMPODT B , ICOMPORS C , ICOMPRDT D  
+			WHERE 
+					C.BUYER   = #{st_buyer}
+				AND C.PO_NO   = #{st_po_no}
+				AND C.DS_DATE = #{st_ds_date}
+				AND C.COMPLETE_MARK ='N'  
+				AND C.BUYER = A.BUYER  
+				AND C.PO_NO = A.PO_NO  
+				AND C.BUYER = B.BUYER  
+				AND C.PO_NO = B.PO_NO  
+				AND C.PO_SEQ= B.PO_SEQ  
+				AND B.BUYER = D.BUYER
+				AND B.PR_NO = D.PR_NO
+				AND B.PR_SEQ = D.PR_SEQ
+				AND A.STATUS <> 'D'  
+				AND B.STATUS <> 'D'  
+				AND C.STATUS <> 'D'
+				AND D.STATUS <> 'D'
+		]]>		
+	</select>
+	
+	<select id="selectSellerMpIvBuyerCarInfoList" parameterType="java.util.Map" resultType="java.lang.String">
+		<![CDATA[
+			/*selectSellerMpIvBuyerCarInfoList*/
+			SELECT
+				  NVL(CAR_FLAG,'N') AS CAR_FLAG 
+			FROM ICOMCMPY  
+			WHERE 
+				COM_CODE = #{st_buyer}
+		]]>		
+	</select>
+	
+	<select id="selectOrderNo" parameterType="java.util.Map" resultType="java.lang.String">
+		<![CDATA[
+			/*selectOrderNo*/
+			SELECT 
+				DOC_TYPE||SUBSTR(YEAR,3,2)||LPAD(CUR_NO,6,0) AS ORDER_NO
+			FROM ICOMSQMT
+			WHERE
+					COMPANY		= #{st_seller} 
+				AND DOC_TYPE	= #{doc_type} 
+		]]>		
+	</select> 
+	
+	<update id="insertOrderNo" parameterType="java.util.Map">
+		<![CDATA[
+			INSERT INTO ICOMSQMT (COMPANY,DOC_TYPE,YEAR,CUR_NO)
+			VALUES (#{st_seller}, #{doc_type}, TO_CHAR(SYSDATE,'YYYY'), 2)
+		]]>
+	</update>
+	
+	<update id="updateOrderNo" parameterType="java.util.Map">
+		<![CDATA[
+			UPDATE ICOMSQMT 
+			SET 
+				  YEAR = DECODE(YEAR,TO_CHAR(SYSDATE,'YYYY'), YEAR, TO_CHAR(SYSDATE,'YYYY'))
+				, CUR_NO = DECODE(YEAR,TO_CHAR(SYSDATE,'YYYY'),CUR_NO+1,1)
+			WHERE 
+					COMPANY		= #{st_seller} 
+				AND DOC_TYPE	= #{doc_type}
+		]]>
+	</update>
+	
+	<select id="selectCheckInvoice" parameterType="java.util.Map" resultType="java.lang.Integer">
+		<![CDATA[
+			/*selectCheckInvoice*/
+			SELECT COUNT(*) 
+			FROM ICOMPODT
+			WHERE 
+					BUYER		= #{buyer}
+				AND PO_NO		= #{po_no}
+				AND PO_SEQ		= #{po_seq}
+				AND STATUS 		^='D'			
+				AND NVL(IV_QTY+${cd_qty} ,0) > ITEM_QTY
+		]]>		
+	</select>
+	
+	<select id="selectCheckPM" parameterType="java.util.Map" resultType="java.lang.Integer">
+		<![CDATA[
+			/*selectCheckPM*/
+			SELECT
+			 COUNT(XX.HIST_RSN_CD) HIST_RSN_CD
+			FROM (
+			SELECT HIST_RSN_CD
+			,  F_SPLIT(HIST_RSN_CD,'/',2) GBN1
+			,  F_SPLIT(HIST_RSN_CD,'/',3) GBN2
+			FROM  ICOMPODT_DOCU A, ICOMTRGW B, ICOGDOCU C
+			WHERE B.COM_CODE  = A.COMPANY
+			AND B.COM_CODE = C.COMPANY
+			AND C.EXTIF_TP = 'OE'
+			AND B.KEY_1  =A.DOCU_NO
+			AND B.TARGET = C.DOCU_NO
+			AND A.BUYER =#{buyer}
+			AND A.PO_NO = #{po_no}
+			AND A.PO_SEQ =#{po_seq}
+			AND C.PASS_STATUS IN ('0')
+			) XX
+			WHERE XX.GBN1 = 'Y' OR XX.GBN2 = 'Y'
+		]]>		
+	</select>
+	<select id="selectBuyerMngInfo" parameterType="java.util.Map" resultType="java.lang.String">
+		<![CDATA[
+			/*selectBuyerMngInfo*/
+			SELECT  MAX(USER_NAME_LOC||' '||PHONE_NUMBER)
+			FROM MIS_BUYER_MNG A, ICOMLUSR B
+			WHERE A.KEP_USER_ID = B.USER_ID
+			AND A.PRIORITY ='Y'
+			AND A.YEAR = TO_CHAR(SYSDATE,'YYYY')
+			AND BUYER = #{buyer}
+		]]>		
+	</select>
+	
+	<select id="selectLegacyIvNo" resultType="java.lang.String">
+		<![CDATA[
+			/*selectLegacyIvNo*/
+			SELECT 'IV'||TO_CHAR(SYSDATE,'YYMM')||TO_CHAR(NVL(MAX(SUBSTR(LEGACY_IV_NO,8,3)),0)+1,'FM0000')
+			FROM  ICOMIVDT
+			WHERE 
+					BUYER = 'KRDOOS0003'
+				AND SUBSTR(LEGACY_IV_NO,1,6) = 'IV'||TO_CHAR(SYSDATE,'YYMM')
+		]]>		
+	</select>
+
+	<update id="insertSellerMpivTranStatementWriteIvdt" parameterType="java.util.Map">
+		<![CDATA[			
+			INSERT INTO ICOMIVDT (
+				  INV_NO
+				, INV_SEQ
+				, BUYER
+				, PO_NO
+				, PO_SEQ
+				, SELLER
+				, STATUS
+				, SEND_DATE
+				, SEND_TIME
+				, ADD_DATE
+				, ADD_TIME
+				, CHANGE_DATE
+				, CHANGE_TIME
+				, NOTIFY
+				, PAYER
+				, PAYEE
+				, SHIPPER
+				, BUYER_ITEM_NO
+				, SELLER_ITEM_NO
+				, DESCRIPTION
+				, SPECIFICATION
+				, HS_NO
+				, UNIT_MEASURE
+				, UNIT_PRICE
+				
+				, INV_QTY
+				, ITEM_AMT
+				
+				, PKG_QTY
+				, ORIGIN_CODE
+				, DOM_EXP_FLAG
+				, LC_NO
+				, MAKER_CODE
+				, MAKER_NAME
+				, GROSS_WEIGHT
+				, MEASUREMENT
+				, NET_WEIGHT
+				, INVOICE_DATE
+				, PR_NO
+				, PR_SEQ
+				, PURCHASER_ID
+				, PURCHASER_DEPT
+				, DELY_TO_LOCATION
+				, REF_PR_NO
+				, LEGACY_IV_NO
+				, DS_DATE
+				, BOX_QTY
+				, HUB_FLAG
+				, TAG_NO
+			]]>
+			<if test='size_yn == "Y"'>
+				,SIZE_LEN
+				,SIZE_QTY
+			</if>
+			<![CDATA[
+			) (
+				SELECT
+					  #{inv_no}					-- 1 INV_NO
+					, TO_CHAR(#{inv_seq}, 'FM000000')	-- 2 INV_SEQ
+					, H.BUYER
+					, D.PO_NO
+					, D.PO_SEQ
+					, H.SELLER
+					, 'C'
+					, ' '
+					, ' '
+					, TO_CHAR(SYSDATE,'YYYYMMDD')
+					, TO_CHAR(SYSDATE,'HH24MISS')
+					, TO_CHAR(SYSDATE,'YYYYMMDD')
+					, TO_CHAR(SYSDATE,'HH24MISS')
+					, H.NOTIFY
+					, H.PAYER
+					, H.PAYER
+					, H.SHIPPER_TYPE
+					, D.BUYER_ITEM_NO
+					, D.SELLER_ITEM_NO
+					, D.DESCRIPTION
+					, D.SPECIFICATION
+					, D.HS_NO
+					, D.UNIT_MEASURE
+					, DECODE(D.PROCESS_TYPE,'2',D.AGENT_PRICE, D.UNIT_PRICE) UNIT_PRICE
+					
+		]]>
+				<if test="po_qty == null">
+					, S.CD_QTY
+					, ROUND((DECODE(D.PROCESS_TYPE,'2',D.AGENT_PRICE, D.UNIT_PRICE) * S.CD_QTY ))
+				</if>
+				
+				<if test="po_qty != null">
+					, ${cd_qty}
+					, ROUND((DECODE(D.PROCESS_TYPE,'2',D.AGENT_PRICE, D.UNIT_PRICE) * ${cd_qty} ))
+				</if>
+		<![CDATA[		
+					, 0
+					, D.ORIGIN_CODE
+					, D.DOM_EXP_FLAG
+					, D.LC_NO
+					, D.MAKER_CODE
+					, D.MAKER_NAME
+					, 0
+					, 0
+					, 0
+					, #{invoice_date}				-- 3 INV_DATE
+					, D.PR_NO
+					, D.PR_SEQ
+					, D.CHANGE_USER_ID
+					, D.CHANGE_USER_DEPT
+					, DECODE(D.PROCESS_TYPE,'2', (SELECT MAX(CODE) FROM ICOMCOD2 WHERE COMPANY_CODE = D.WAREHOUSE_CODE AND TYPE = 'C012'),D.DELY_TO_LOCATION) DELY_TO_LOCATION
+					, D.REF_PR_NO
+					, #{legacy_iv_no}				-- 4 LEGACY_IV_NO
+					, S.DS_DATE
+					, #{ktag_box_qty}
+					, F_GET_HUB_INFO(H.BUYER, D.PO_NO, '0')
+		]]>
+				<if test="po_qty == null">
+					, F_GET_BUYER_TAG(#{buyer}, #{po_no}, #{po_seq}, S.CD_QTY)					 
+				</if>
+				
+				<if test="po_qty != null">
+					, F_GET_BUYER_TAG(#{buyer}, #{po_no}, #{po_seq}, ${cd_qty})
+				</if>		
+		
+			<if test='size_yn == "Y"'>
+				,#{size_len}
+				,#{size_qty}
+			</if>
+		<![CDATA[
+				FROM ICOMPODT D, ICOMPOHD H , ICOMPORS S
+				WHERE 
+						D.BUYER  = #{buyer}		-- 5 BUYER
+					AND D.PO_NO  = #{po_no}		-- 6 PO_NO
+					AND D.PO_SEQ = #{po_seq}	-- 7 PO_SEQ
+					AND D.BUYER  = H.BUYER
+					AND D.PO_NO  = H.PO_NO
+					AND D.BUYER  = S.BUYER
+					AND D.PO_NO  = S.PO_NO
+					AND D.PO_SEQ = S.PO_SEQ
+					AND S.DS_DATE= #{ds_date}	-- 8 DS_DATE
+					AND D.STATUS <> 'D'
+					AND H.STATUS <> 'D'
+					AND S.STATUS <> 'D'
+			)
+		]]>
+	</update>
+	
+	<update id="insertSellerMpivTranStatementWriteIvdt_v3" parameterType="java.util.Map">
+		<![CDATA[			
+			INSERT INTO ICOMIVDT (
+				  INV_NO
+				, INV_SEQ
+				, BUYER
+				, PO_NO
+				, PO_SEQ
+				, SELLER
+				, STATUS
+				, SEND_DATE
+				, SEND_TIME
+				, ADD_DATE
+				, ADD_TIME
+				, CHANGE_DATE
+				, CHANGE_TIME
+				, NOTIFY
+				, PAYER
+				, PAYEE
+				, SHIPPER
+				, BUYER_ITEM_NO
+				, SELLER_ITEM_NO
+				, DESCRIPTION
+				, SPECIFICATION
+				, HS_NO
+				, UNIT_MEASURE
+				, UNIT_PRICE
+				
+				, INV_QTY
+				, ITEM_AMT
+				
+				, PKG_QTY
+				, ORIGIN_CODE
+				, DOM_EXP_FLAG
+				, LC_NO
+				, MAKER_CODE
+				, MAKER_NAME
+				, GROSS_WEIGHT
+				, MEASUREMENT
+				, NET_WEIGHT
+				, INVOICE_DATE
+				, PR_NO
+				, PR_SEQ
+				, PURCHASER_ID
+				, PURCHASER_DEPT
+				, DELY_TO_LOCATION
+				, REF_PR_NO
+				, LEGACY_IV_NO
+				, DS_DATE
+				, BOX_QTY
+				, HUB_FLAG
+				, TAG_NO
+			]]>
+			<if test='size_yn == "Y"'>
+				,SIZE_LEN
+				,SIZE_QTY
+			</if>
+			<![CDATA[
+				, PROCESS_TYPE
+				, AGENT
+				, AGENT_PRICE
+				, AGENT_ITEM_AMT
+			) (
+				SELECT
+					  #{inv_no}					-- 1 INV_NO
+					, TO_CHAR(#{inv_seq}, 'FM000000')	-- 2 INV_SEQ
+					, H.BUYER
+					, D.PO_NO
+					, D.PO_SEQ
+					, H.SELLER
+					, 'C'
+					, ' '
+					, ' '
+					, TO_CHAR(SYSDATE,'YYYYMMDD')
+					, TO_CHAR(SYSDATE,'HH24MISS')
+					, TO_CHAR(SYSDATE,'YYYYMMDD')
+					, TO_CHAR(SYSDATE,'HH24MISS')
+					, H.NOTIFY
+					, H.PAYER
+					, H.PAYER
+					, H.SHIPPER_TYPE
+					, D.BUYER_ITEM_NO
+					, D.SELLER_ITEM_NO
+					, D.DESCRIPTION
+					, D.SPECIFICATION
+					, D.HS_NO
+					, D.UNIT_MEASURE
+					, DECODE(D.PROCESS_TYPE,'2',D.AGENT_PRICE, D.UNIT_PRICE) UNIT_PRICE
+					
+		]]>
+				<if test="po_qty == null">
+					, S.CD_QTY
+					, ROUND((DECODE(D.PROCESS_TYPE,'2',D.AGENT_PRICE, D.UNIT_PRICE) * S.CD_QTY ))
+				</if>
+				
+				<if test="po_qty != null">
+					, ${cd_qty}
+					, ROUND((DECODE(D.PROCESS_TYPE,'2',D.AGENT_PRICE, D.UNIT_PRICE) * ${cd_qty} ))
+				</if>
+		<![CDATA[		
+					, 0
+					, D.ORIGIN_CODE
+					, D.DOM_EXP_FLAG
+					, D.LC_NO
+					, D.MAKER_CODE
+					, D.MAKER_NAME
+					, 0
+					, 0
+					, 0
+					, #{invoice_date}				-- 3 INV_DATE
+					, D.PR_NO
+					, D.PR_SEQ
+					, D.CHANGE_USER_ID
+					, D.CHANGE_USER_DEPT
+					, DECODE(D.PROCESS_TYPE,'2', (SELECT MAX(CODE) FROM ICOMCOD2 WHERE COMPANY_CODE = D.WAREHOUSE_CODE AND TYPE = 'C012'),D.DELY_TO_LOCATION) DELY_TO_LOCATION
+					, D.REF_PR_NO
+					, #{legacy_iv_no}				-- 4 LEGACY_IV_NO
+					, S.DS_DATE
+					, #{ktag_box_qty}
+					, F_GET_HUB_INFO(H.BUYER, D.PO_NO, '0')
+		]]>
+				<if test="po_qty == null">
+					, F_GET_BUYER_TAG(#{buyer}, #{po_no}, #{po_seq}, S.CD_QTY)					 
+				</if>
+				
+				<if test="po_qty != null">
+					, F_GET_BUYER_TAG(#{buyer}, #{po_no}, #{po_seq}, ${cd_qty})
+				</if>		
+		
+			<if test='size_yn == "Y"'>
+				,#{size_len}
+				,#{size_qty}
+			</if>
+		<![CDATA[
+				,D.PROCESS_TYPE
+				,H.AGENT
+				,D.AGENT_PRICE
+		]]>
+				<if test="po_qty == null">
+					, ROUND(D.AGENT_PRICE * S.CD_QTY )
+				</if>
+				
+				<if test="po_qty != null">
+					, ROUND(D.AGENT_PRICE * ${cd_qty} )
+				</if>
+		<![CDATA[
+				FROM ICOMPODT D, ICOMPOHD H , ICOMPORS S
+				WHERE 
+						D.BUYER  = #{buyer}		-- 5 BUYER
+					AND D.PO_NO  = #{po_no}		-- 6 PO_NO
+					AND D.PO_SEQ = #{po_seq}	-- 7 PO_SEQ
+					AND D.BUYER  = H.BUYER
+					AND D.PO_NO  = H.PO_NO
+					AND D.BUYER  = S.BUYER
+					AND D.PO_NO  = S.PO_NO
+					AND D.PO_SEQ = S.PO_SEQ
+					AND S.DS_DATE= #{ds_date}	-- 8 DS_DATE
+					AND D.STATUS <> 'D'
+					AND H.STATUS <> 'D'
+					AND S.STATUS <> 'D'
+			)
+		]]>
+	</update>
+	
+	<update id="updateSellerMpivTranStatementWritePodt" parameterType="java.util.Map">
+		<![CDATA[
+			UPDATE
+				ICOMPODT A
+			SET 
+				  A.IV_QTY	= DECODE(A.PROCESS_TYPE,'2',NVL(A.IV_QTY,0),NVL(A.IV_QTY,0) + ${cd_qty})	-- 1 INV_QTY
+				, A.COMPLETE_MARK  = DECODE(A.ITEM_QTY,NVL((SELECT SUM(B.INV_QTY) FROM ICOMIVDT B WHERE A.BUYER = B.BUYER AND A.PO_NO = B.PO_NO AND A.PO_SEQ = B.PO_SEQ AND B.STATUS <> 'D'),0),'Y','N')
+			WHERE
+					A.BUYER   = #{buyer}		-- 2 BUYER
+				AND A.PO_NO   = #{po_no}		-- 3 PO_NO
+				AND A.PO_SEQ  = #{po_seq}		-- 4 PO_SEQ
+				AND A.STATUS != 'D'
+		]]>
+	</update>
+	
+	<update id="updateSellerMpivTranStatementWritePors" parameterType="java.util.Map">
+		<![CDATA[
+			UPDATE ICOMPORS A
+		]]>
+		
+			<if test="po_qty == null">
+				SET A.COMPLETE_MARK = 'Y'
+			</if>
+		
+			<if test="po_qty != null">
+				<![CDATA[
+					SET A.COMPLETE_MARK = DECODE(A.CD_QTY,NVL((SELECT SUM(B.INV_QTY) FROM ICOMIVDT B WHERE A.BUYER = B.BUYER AND A.PO_NO = B.PO_NO AND A.PO_SEQ = B.PO_SEQ AND A.DS_DATE = B.DS_DATE AND B.STATUS <> 'D'),0),'Y','N')
+				]]>
+			</if>
+			
+		<![CDATA[
+			WHERE 
+					A.BUYER   = #{buyer}		-- 1 BUYER
+				AND A.PO_NO   = #{po_no}		-- 2 PO_NO
+				AND A.PO_SEQ  = #{po_seq}		-- 3 PO_SEQ
+				AND A.DS_DATE = #{ds_date}	-- 4 DS_DATE
+				AND A.STATUS != 'D'
+				AND A.COMPLETE_MARK = 'N'
+		]]>
+	</update>
+
+
+	<select id="selectCompleteMarkDis" parameterType="java.util.Map" resultType="java.lang.String">
+		<![CDATA[
+			/*selectCompleteMarkDis*/
+			SELECT
+				COMPLETE_MARK_DIS
+			FROM
+				(	SELECT DECODE(COUNT(DISTINCT COMPLETE_MARK),1,MIN(COMPLETE_MARK),'NO') AS COMPLETE_MARK_DIS
+					FROM   ICOMPODT
+					WHERE
+							BUYER = #{buyer}
+						AND PO_NO = #{po_no}
+						AND STATUS != 'D' 
+				)
+			WHERE COMPLETE_MARK_DIS = 'Y' 
+		]]>		
+	</select>
+	
+	<update id="updateSellerMpivTranStatementWritePohd" parameterType="java.util.Map">
+		<![CDATA[
+			UPDATE ICOMPOHD
+			SET
+				COMPLETE_MARK = 'Y'
+			WHERE
+					BUYER = #{buyer}
+				AND PO_NO = #{po_no}
+		]]>
+	</update>
+	
+	<select id="selectLegacyIvSerialDoos0006" resultType="java.lang.String">
+		<![CDATA[
+			/*selectLegacyIvSerialDoos0006*/
+			SELECT 'TK'||TO_CHAR(SYSDATE,'YYMM')||TO_CHAR(MAX(LEGACY_IV_SERIAL)+1,'FM0000')
+			FROM ( 
+				SELECT NVL(MAX(SUBSTR(LEGACY_IV_SERIAL,7,4)),0) AS LEGACY_IV_SERIAL
+				FROM ICOMIVHD
+				WHERE
+						BUYER = 'KRDOOS0006'
+					AND LEGACY_IV_SERIAL  LIKE 'TK'||TO_CHAR(SYSDATE,'YYMM')||'%'
+				UNION ALL
+				SELECT NVL(MAX(SUBSTR(LEGACY_IV_SERIAL,7,4)),0) AS LEGACY_IV_SERIAL
+				FROM WMSIVDT
+				WHERE
+						BUYER = 'KRDOOS0006'
+					AND LEGACY_IV_SERIAL  LIKE 'TK'||TO_CHAR(SYSDATE,'YYMM')||'%'
+				)
+		]]>		
+	</select>
+
+	<select id="selectLegacyIvSerialBuyer" parameterType="java.lang.String" resultType="java.lang.String">
+		<![CDATA[
+			/*selectLegacyIvSerialBuyer*/
+			SELECT
+				${value} AS LEGACY_IV_SERIAL
+			FROM DUAL
+		]]>		
+	</select>
+	
+	<select id="selectLegacyIvSerialBuyer2" parameterType="java.util.Map" resultType="java.lang.String">
+		<![CDATA[
+			/*selectLegacyIvSerialBuyer2*/
+			SELECT GET_CSTMR_DEAL_STTMN_NO( A.BUYER, A.PLANT ) AS LEGACY_IV_SERIAL
+			FROM (
+				SELECT 
+					  BUYER
+					, PO_NO
+					, PLANT
+				FROM ICOMPODT
+				WHERE 
+						BUYER = #{buyer}
+					AND PO_NO = #{po_no}
+					AND ROWNUM = 1
+				GROUP BY BUYER, PO_NO, PLANT
+			) A
+		]]>		
+	</select>
+	
+	<update id="insertSellerMpivTranStatementWriteIvhd" parameterType="java.util.Map">
+		<![CDATA[
+			/*insertSellerMpivTranStatementWriteIvhd*/
+			INSERT INTO ICOMIVHD (
+				  SELLER
+				, INV_NO
+				, BUYER
+				, STATUS
+				, SEND_DATE
+				, SEND_TIME
+				, ADD_DATE
+				, ADD_TIME
+				, CHANGE_DATE
+				, CHANGE_TIME
+				, CONFIRM_DATE
+				, CONFIRM_TIME
+				, VENDOR_GI_DATE
+				, VENDOR_GI_TIME
+				, NOTIFY
+				, PAYER
+				, PAYEE
+				, INV_TYPE
+				, INV_DATE
+				, CUR
+				, INV_TTL_AMT
+				, INV_AMT
+				, INV_TAX_AMT_1
+				, INV_TAX_RATE_1
+				, INTEREST_AMT
+				, COMMERCIAL_FLAG
+				, PAY_TERMS
+				, USANCE_DAYS
+				, PAY_TEXT
+				, DELY_TERMS
+				, DANGER_GOOD_FLAG
+				, PKG_TYPE
+				, PKG_QTY
+				, WEIGHT_UNIT
+				, GROSS_WEIGHT
+				, MEASUREMENT
+				, SHIP_METHOD
+				, SHIP_COUNTRY
+				, DEPART_PORT
+				, ARRIVAL_PORT
+				, REMARK_INV
+				, OUTGOING_FWDR_CODE
+				, INCOMING_FWDR_CODE
+				, VERSION
+				, ADD_USER_ID
+				, SHIPPER_TYPE
+				, LC_NO
+				, PURCHASER_ID
+				, PURCHASER_DEPT
+				, AGENT
+				, LEGACY_IV_SERIAL
+				, PARCEL_YN
+		]]>
+			<if test='st_proxy_yn == "Y"'>
+				, AGENCY_USER_ID
+			</if>
+			<if test='st_process_type == "0" and st_car_flag == "Y"'>
+				, CAR_NO
+				, CAR_PERSON_NAME
+				, CAR_PERSON_TEL
+			</if>
+				
+		<![CDATA[
+			) (
+				SELECT
+					  SELLER
+					, #{inv_no}					-- 1 INV_NO
+					, A.BUYER
+					, 'C'
+					, ' '
+					, ' '
+					, TO_CHAR(SYSDATE,'YYYYMMDD')
+					, TO_CHAR(SYSDATE,'HH24MISS')
+					, TO_CHAR(SYSDATE,'YYYYMMDD')
+					, TO_CHAR(SYSDATE,'HH24MISS')
+					, ' '
+					, ' '
+					, ' '
+					, ' '
+					, NOTIFY
+					, PAYER
+					, PAYEE
+					, #{st_process_type}		-- 2 PROCESS_TYPE
+					, #{st_invoice_date_text}	-- 3 INV_DATE
+					, CUR
+					--화면에서 계산해서 넘어온 값을 최종 DT테이블에서 읽어오기로 하여 원천 봉쇄 2014.12.17 김지현.
+					, B.INV_AMT + FLOOR(B.INV_AMT/10)    -- ${sheet_inv_tot_amt}			-- 4 INV_TTL_AMT
+					, B.INV_AMT                                       -- ${sheet_inv_amt}				-- 5 INV_AMT
+					, FLOOR(B.INV_AMT/10)                       -- ${sheet_inv_tax_amt}			-- 6 INV_TAX_AMT_1
+					--화면에서 계산해서 넘어온 값을 최종 DT테이블에서 읽어오기로 하여 원천 봉쇄 2014.12.17 김지현.
+					, ${st_inv_tax_rate}		-- 7 INV_TAX_RATE_1
+					, 0
+					, 'Y'
+					, PAY_TERMS
+					, USANCE_DAYS
+					, (	SELECT CODE FROM ICOMCOD1 WHERE TYPE ='M010' AND CODE = PAY_TERMS) || ' ' || DECODE(NVL(USANCE_DAYS,'0'),0,'',USANCE_DAYS || 'DAYS ' ) || 
+						(SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE ='M011' AND CODE = NVL(BLD_1,''))
+					, DELY_TERMS
+					, #{danger_good_flag}		-- 8  DANGER_GOOD_FLAG
+					, #{pkg_type}				-- 9  PKG_TYPE
+					, #{pkg_qty}				-- 10  PKG_QTY
+					, #{weight_unit}			-- 11 WEIGHT_UNIT
+					, #{gross_weight}			-- 12 GROSS_WEIGHT
+					, #{measurement}			-- 13 MEASUREMENT
+					, #{ship_method}			-- 14 SHIP_METHOD
+					, SUBSTR(DEPART_PORT,1,2)
+					, #{depart_port}			-- 15 DEPART_PORT
+					, #{arrival_port}			-- 16 ARRIVAL_PORT
+					, #{st_remark}				-- 17 REMARK_INV
+					, OUTGOING_FWDR_CODE
+					, INCOMING_FWDR_CODE
+					, '1'
+					, #{st_user_id}				-- 18 ADD_USER_ID
+					, SHIPPER_TYPE
+					, #{lc_no}					-- 19 LC_NO,
+					, PURCHASER_ID
+					, CHANGE_USER_DEPT
+					, AGENT
+					, #{legacy_iv_serial}		-- 20 LEGACY_IV_SERIAL
+					, #{st_parcel_yn}			-- 21 PARCEL_YN
+		]]>	
+				<if test='st_proxy_yn == "Y"'>
+					, #{st_kep_id}
+				</if>
+				<if test='st_process_type == "0" and st_car_flag == "Y"'>
+					, #{car_no}
+					, #{car_person_name}
+					, #{car_person_tel}
+				</if>
+		<![CDATA[
+				FROM ICOMPOHD A
+                      , (SELECT SUM(ITEM_AMT) INV_AMT
+                                 , MAX(BUYER) BUYER
+                          FROM ICOMIVDT
+                        WHERE BUYER = #{buyer}
+                           AND INV_NO = #{inv_no}
+                           AND STATUS != 'D' 
+                        ) B
+                WHERE 1=1
+                    AND A.BUYER = B.BUYER(+)
+					AND A.BUYER = #{buyer}	-- 24 BUYER
+					AND A.PO_NO = #{po_no}	-- 25 PO_NO
+					AND A.STATUS != 'D'
+			)			
+		]]>
+	</update>
+	
+	<select id="selectLegacyIvSerial" parameterType="java.util.Map" resultType="java.lang.String">
+		<![CDATA[
+			/*selectLegacyIvSerial*/
+			SELECT
+				NVL(TO_CHAR(DECODE(TRIM(X.LEGACY_IV_SERIAL),NULL,Y.SERIAL,X.LEGACY_IV_SERIAL),'FM000'),'X')
+			FROM  
+				  ICOMIVHD X
+				, (	SELECT NVL(MAX(B.LEGACY_IV_SERIAL),0) + 1 AS SERIAL 
+					FROM ICOMIVDT A, ICOMIVHD B
+					WHERE 
+							A.BUYER		= #{buyer}
+						AND A.REF_PR_NO = #{st_legacy_po_no}
+						AND A.BUYER     = B.BUYER
+						AND A.INV_NO    = B.INV_NO
+				) Y
+			WHERE
+					X.BUYER   = #{buyer}
+				AND X.STATUS ^= 'D'
+				AND X.INV_NO  = #{inv_no}
+		]]>		
+	</select>
+	
+	
+	<update id="updateSellerMpivTranStatementWriteIvhd" parameterType="java.util.Map">
+		<![CDATA[
+			/*updateSellerMpivTranStatementWriteIvhd*/
+			UPDATE ICOMIVHD
+			SET 
+				LEGACY_IV_SERIAL = #{legacy_iv_serial}	-- 1 legacy_iv_serial
+			WHERE 
+					BUYER  = #{buyer}					-- 2 buyer
+				AND INV_NO = #{inv_no}					-- 3 inv_no
+		]]>
+	</update>
+	
+	<select id="selectSellerMpIvTranStatementWriteDoosanmecaPopList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/*selectSellerMpIvTranStatementWriteDoosanmecaPopList*/
+			SELECT /*+USE_NL(C A)*/
+				  B.REF_PR_NO  -- 관리번호[00]
+				, B.BUYER_ITEM_NO -- 품목코드[01]
+				, B.DESCRIPTION||DECODE(TRIM(B.MAKER_NAME),NULL,'',' / '||B.MAKER_NAME) AS MAKER_NAME -- 품명[02]
+				, B.SPECIFICATION  -- 규격[03]
+				, B.ITEM_QTY  -- 발주수량[04]
+                , DECODE(B.PROCESS_TYPE,'2', B.DO_QTY-NVL((SELECT SUM(INV_QTY) 
+                                                            FROM ICOMIVDT
+                                                            WHERE BUYER = C.BUYER 
+                                                              AND PO_NO = C.PO_NO 
+                                                              AND PO_SEQ = C.PO_SEQ 
+                                                              AND STATUS <> 'D'),0)
+                                           , B.DO_QTY-NVL(B.IV_QTY,0)) AS INV_POSS_QTY -- 납품가능수량[05]
+        		, B.UNIT_MEASURE  -- 단위[06]
+                , DECODE(B.PROCESS_TYPE,'2', NVL((SELECT SUM(INV_QTY) 
+                                                    FROM ICOMIVDT 
+                                                    WHERE BUYER = C.BUYER 
+                                                      AND PO_NO = C.PO_NO 
+                                                      AND PO_SEQ = C.PO_SEQ 
+                                                      AND STATUS <> 'D'),0)
+                                           , NVL(B.IV_QTY,0)) AS INV_COMP_QTY -- 기납품수량[07]
+                --, DECODE(B.PROCESS_TYPE,'2', B.AGENT_PRICE, B.UNIT_PRICE) AS UNIT_PRICE  -- 단가[08]
+				, B.AGENT_PRICE AS UNIT_PRICE	-- 단가[08]
+					
+				--, DECODE(B.PROCESS_TYPE, '2', B.AGENT_PRICE, B.UNIT_PRICE) * (DECODE(B.PROCESS_TYPE, '2', B.DO_QTY-NVL(( SELECT SUM(INV_QTY) FROM ICOMIVDT WHERE BUYER = C.BUYER AND PO_NO = C.PO_NO AND PO_SEQ = C.PO_SEQ AND STATUS <> 'D'), 0) , B.DO_QTY-NVL(B.IV_QTY, 0))) AS SELLER_AMT -- 공급가액[09]
+				--, B.AGENT_PRICE*(DECODE(B.PROCESS_TYPE,'2',
+					--B.DO_QTY-NVL((SELECT SUM(INV_QTY) FROM ICOMIVDT WHERE BUYER = C.BUYER AND PO_NO = C.PO_NO AND PO_SEQ = C.PO_SEQ AND STATUS <> 'D'),0),
+					--B.DO_QTY-NVL(B.IV_QTY,0))) AS SELLER_AMT	-- 공급가액[09]
+					
+				, DECODE(B.PROCESS_TYPE,'2',B.AGENT_PRICE, B.UNIT_PRICE)*(DECODE(B.PROCESS_TYPE,'2', 
+					B.DO_QTY-NVL((SELECT SUM(INV_QTY) FROM ICOMIVDT WHERE BUYER = C.BUYER AND PO_NO = C.PO_NO AND PO_SEQ = C.PO_SEQ AND STATUS <> 'D'),0), 
+					B.DO_QTY-NVL(B.IV_QTY,0))) AS SELLER_AMT	-- 공급가액 [09]
+
+				, C.DS_DATE AS INV_LEGACY_DATE -- 납품예정일[10]
+--				, DECODE(B.PROCESS_TYPE, '0',B.RD_DATE, F_GET_DATE_TR(B.RD_DATE)) AS RD_DATE
+				, B.RD_DATE AS RD_DATE
+                , B.PO_NO  -- 발주번호[12]
+                , B.PO_SEQ  -- 발주항번[13]
+                , DECODE(B.PROCESS_TYPE,'2', NVL((SELECT SUM(INV_QTY) 
+                                                    FROM ICOMIVDT 
+                                                    WHERE BUYER = C.BUYER 
+                                                      AND PO_NO = C.PO_NO 
+                                                      AND PO_SEQ = C.PO_SEQ 
+                                                      AND STATUS <> 'D'),0), NVL(B.IV_QTY,0)) AS IV_QTY  -- 송장수량[14]
+                , A.PROCESS_TYPE  -- 제품조달방법[15]
+                , C.CD_QTY AS INV_LEGACY_QTY  -- 납품수량[16]
+                , B.PO_REMARK||DECODE(TRIM(B.REF_IF_NO),NULL,NULL,'('||B.REF_IF_NO||')') AS PO_REMARK  -- [17]
+                , B.AGENT_PRICE -- 단가2[18]
+                , B.AGENT_PRICE*C.CD_QTY AS SELLER_AMT2 -- 공급가액2[19]
+                , B.LEGACY_PO_NO AS INV_LEGACY_PO_NO  -- [20]
+                , DECODE(B.BUYER,'KRDOOS0035',SUBSTRB(B.LEGACY_PO_SEQ,INSTRB(B.LEGACY_PO_SEQ,'-',1,1)+1,10),B.LEGACY_PO_SEQ) AS LEGACY_PO_SEQ  -- [21]
+                , A.PURCHASER_ID AS PURCHASER_ID    -- [22]
+                , B.LEGACY_PO_SEQ AS INV_LEGACY_PO_SEQ  -- [23]
+				, (SELECT BYIT.REFINE_NOTE FROM ICOMBYIT BYIT, ICOMCMPY CMPY 
+					WHERE BYIT.BUYER = CMPY.BYCA_COMORG_CODE 
+					AND CMPY.COM_CODE = B.BUYER 
+					AND BYIT.BUYER_ITEM_NO = B.BUYER_ITEM_NO) AS REFINE_NOTE
+				, D.SIZE_LEN
+				, D.SIZE_QTY
+				, D.SIZE_QTY-NVL((	SELECT	SUM(SIZE_QTY) 
+                                          	FROM	ICOMIVDT
+											WHERE	BUYER = C.BUYER 
+											AND		PO_NO = C.PO_NO 
+											AND		PO_SEQ = C.PO_SEQ 
+											AND		STATUS <> 'D'),0) AS INV_POSS_SIZE_QTY -- 납품가능수량(보강재)
+				, (SELECT DECODE(COUNT(COD.CODE2),0,'N','Y')
+					FROM  ICOMCOD3 COD
+					WHERE 1=1
+					AND	COD.BUYER = B.BUYER
+					AND COD.TYPE = 'BICT'
+					AND COD.CODE2 =  B.CATEG_ID
+					AND COD.FLAG = 'Y'
+					) AS SIZE_YN 
+				, (SELECT DECODE(COUNT(CMC.BUYER_ITEM_NO),0,'N','Y')
+					FROM KEP_CMC_REQ CMC
+					WHERE CMC.BYIT_COMORG_CODE = B.BYIT_COMORG_CODE
+					AND CMC.BUYER_ITEM_NO = B.BUYER_ITEM_NO
+					AND CMC.REQ_STATUS = 'C') AS CMC_INFO_YN
+				, (SELECT MAX(REQ_NO)
+					FROM KEP_CMC_REQ CMC
+					WHERE CMC.BYIT_COMORG_CODE = B.BYIT_COMORG_CODE
+					AND CMC.BUYER_ITEM_NO = B.BUYER_ITEM_NO
+					AND CMC.REQ_STATUS = 'C') AS CMC_REQ_NO 
+				, (SELECT DECODE(MATERIAL_TYPE, 'H', 'Y', 'N')
+					FROM ICOMBYIT
+					WHERE BUYER = B.BYIT_COMORG_CODE
+					AND BUYER_ITEM_NO = B.BUYER_ITEM_NO) AS CMC_HARMFUL_YN
+				, B.BYIT_COMORG_CODE
+				, (SELECT DECODE(COUNT(COD.CODE),0,'N','Y')
+					FROM  ICOMCOD1 COD
+					WHERE 1=1
+					AND	COD.CODE = B.CMS_CATEG_ID
+					AND COD.TYPE = 'CM11'
+					AND COD.FLAG = 'Y') AS COD_CHECK --ICOMCOD1 CHECK
+			    , (SELECT DECODE(TRIM(F.MSDS_NO),'','Y','MS88888888','Y','N')
+			    	FROM ICOMBYIT F
+			    	WHERE F.BUYER = B.BYIT_COMORG_CODE
+			    	AND F.BUYER_ITEM_NO = B.BUYER_ITEM_NO) AS MSDS_CHECK --BYIT.MSDS_NO CHECK  
+			    , (SELECT DECODE(COUNT(REQ.BUYER_ITEM_NO),0,'N','Y')
+					FROM  KEP_CMC_REQ REQ
+					WHERE 1=1
+					AND	REQ.BUYER = B.BUYER
+					AND REQ.BYIT_COMORG_CODE = B.BYIT_COMORG_CODE
+					AND REQ.BUYER_ITEM_NO = B.BUYER_ITEM_NO
+					AND REQ.AGENT = A.AGENT
+					AND REQ.REQ_STATUS NOT IN ('B','C','D','N','T')) AS REQ_CHECK --REQ CHECK
+				, F_GET_BUY_CLOSE_DATE_CHK(B.BUYER, B.PO_NO, B.PO_SEQ, A.AGENT) AS BUY_CLOSE_DATE_CHK
+				, B.DS_YN
+				, A.PARCEL_YN AS PARCEL_YN
+				, (SELECT DECODE(TRIM(TEMP_COND), '', 'Y', NULL, 'Y', 'N')
+					FROM ICOMBYIT
+					WHERE BUYER = B.BYIT_COMORG_CODE
+					AND BUYER_ITEM_NO = B.BUYER_ITEM_NO) AS TEMP_CHECK
+				, (SELECT DECODE(COUNT(COD.CODE),0,'N','Y')
+					FROM  ICOMCOD1 COD
+					WHERE 1=1
+					AND	COD.CODE = (SELECT CMS_CATEG_ID FROM ICOMBYIT WHERE BUYER = B.BYIT_COMORG_CODE AND BUYER_ITEM_NO = B.BUYER_ITEM_NO)
+					AND COD.TYPE = 'CM11'
+					AND COD.TEXT1 = 'Y'
+					AND COD.FLAG = 'Y') AS SG118_CHECK	
+				, (SELECT TEMP_COND FROM ICOMBYIT WHERE BUYER = B.BYIT_COMORG_CODE AND BUYER_ITEM_NO = B.BUYER_ITEM_NO) AS TEMP_COND
+				, '/ ' || (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'M203' AND CODE = (SELECT TEMP_COND FROM ICOMBYIT WHERE BUYER = B.BYIT_COMORG_CODE AND BUYER_ITEM_NO = B.BUYER_ITEM_NO) AND FLAG = 'Y') AS TEMP_COND_TEXT
+				, '/ ' || (SELECT TEMP_RANGE FROM ICOMBYIT WHERE BUYER = B.BYIT_COMORG_CODE AND BUYER_ITEM_NO = B.BUYER_ITEM_NO) AS TEMP_RANGE
+				, DECODE((SELECT MATERIAL_TYPE FROM ICOMBYIT WHERE BUYER = B.BYIT_COMORG_CODE AND BUYER_ITEM_NO = B.BUYER_ITEM_NO), 'H', '/ 유해화학물질','') AS HARMFUL_TEXT
+			FROM ICOMPOHD A , ICOMPODT B , ICOMPORS C, ICOMPRDT D, ICOMPRHD E  
+			WHERE 
+					C.BUYER   = #{st_buyer}
+				AND C.PO_NO   = #{st_po_no}
+				AND C.DS_DATE = #{st_ds_date}
+				AND C.COMPLETE_MARK ='N'  
+				AND C.BUYER = A.BUYER  
+				AND C.PO_NO = A.PO_NO  
+				AND C.BUYER = B.BUYER  
+				AND C.PO_NO = B.PO_NO  
+				AND C.PO_SEQ= B.PO_SEQ
+				AND B.BUYER = D.BUYER
+				AND B.PR_NO = D.PR_NO
+				AND B.PR_SEQ = D.PR_SEQ
+				AND D.BUYER = E.BUYER
+				AND D.PR_NO = E.PR_NO  
+				AND A.STATUS <> 'D'  
+				AND B.STATUS <> 'D'  
+				AND C.STATUS <> 'D'
+				AND D.STATUS <> 'D'
+				AND E.STATUS <> 'D'
+		]]>		
+	</select>
+	<select id="getSellerMpIvTranStatementWriteDoosanmecaPop_v2" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/*getSellerMpIvTranStatementWriteDoosanmecaPop_v2*/
+			SELECT /*+USE_NL(C A)*/
+				  B.REF_PR_NO  -- 관리번호[00]
+				, B.BUYER_ITEM_NO -- 품목코드[01]
+				, B.DESCRIPTION AS DESCRIPTION
+				, B.DESCRIPTION||DECODE(TRIM(B.MAKER_NAME),NULL,'',' / '||B.MAKER_NAME) AS MAKER_NAME -- 품명[02]
+				, B.SPECIFICATION  -- 규격[03]
+				, B.ITEM_QTY  -- 발주수량[04]
+                , DECODE(B.PROCESS_TYPE,'2', B.DO_QTY-NVL((SELECT SUM(INV_QTY) 
+                                                            FROM ICOMIVDT
+                                                            WHERE BUYER = C.BUYER 
+                                                              AND PO_NO = C.PO_NO 
+                                                              AND PO_SEQ = C.PO_SEQ 
+                                                              AND STATUS <> 'D'),0)
+                                           , B.DO_QTY-NVL(B.IV_QTY,0)) AS INV_POSS_QTY -- 납품가능수량[05]
+                , DECODE(B.PROCESS_TYPE,'2', B.DO_QTY-NVL((SELECT SUM(INV_QTY) 
+                                                            FROM ICOMIVDT
+                                                            WHERE BUYER = C.BUYER 
+                                                              AND PO_NO = C.PO_NO 
+                                                              AND PO_SEQ = C.PO_SEQ 
+                                                              AND STATUS <> 'D'),0)
+                                           , B.DO_QTY-NVL(B.IV_QTY,0)) AS ORG_INV_POSS_QTY -- 납품가능수량[05]
+        		, B.UNIT_MEASURE  -- 단위[06]
+                , DECODE(B.PROCESS_TYPE,'2', NVL((SELECT SUM(INV_QTY) 
+                                                    FROM ICOMIVDT 
+                                                    WHERE BUYER = C.BUYER 
+                                                      AND PO_NO = C.PO_NO 
+                                                      AND PO_SEQ = C.PO_SEQ 
+                                                      AND STATUS <> 'D'),0)
+                                           , NVL(B.IV_QTY,0)) AS INV_COMP_QTY -- 기납품수량[07]
+                --, DECODE(B.PROCESS_TYPE,'2', B.AGENT_PRICE, B.UNIT_PRICE) AS UNIT_PRICE  -- 단가[08]
+				, B.AGENT_PRICE AS UNIT_PRICE	-- 단가[08]
+					
+				--, DECODE(B.PROCESS_TYPE, '2', B.AGENT_PRICE, B.UNIT_PRICE) * (DECODE(B.PROCESS_TYPE, '2', B.DO_QTY-NVL(( SELECT SUM(INV_QTY) FROM ICOMIVDT WHERE BUYER = C.BUYER AND PO_NO = C.PO_NO AND PO_SEQ = C.PO_SEQ AND STATUS <> 'D'), 0) , B.DO_QTY-NVL(B.IV_QTY, 0))) AS SELLER_AMT -- 공급가액[09]
+				--, B.AGENT_PRICE*(DECODE(B.PROCESS_TYPE,'2',
+					--B.DO_QTY-NVL((SELECT SUM(INV_QTY) FROM ICOMIVDT WHERE BUYER = C.BUYER AND PO_NO = C.PO_NO AND PO_SEQ = C.PO_SEQ AND STATUS <> 'D'),0),
+					--B.DO_QTY-NVL(B.IV_QTY,0))) AS SELLER_AMT	-- 공급가액[09]
+					
+				, DECODE(B.PROCESS_TYPE,'2',B.AGENT_PRICE, B.UNIT_PRICE)*(DECODE(B.PROCESS_TYPE,'2', 
+					B.DO_QTY-NVL((SELECT SUM(INV_QTY) FROM ICOMIVDT WHERE BUYER = C.BUYER AND PO_NO = C.PO_NO AND PO_SEQ = C.PO_SEQ AND STATUS <> 'D'),0), 
+					B.DO_QTY-NVL(B.IV_QTY,0))) AS SELLER_AMT	-- 공급가액 [09]
+
+				, C.DS_DATE AS INV_LEGACY_DATE -- 납품예정일[10]
+--				, DECODE(B.PROCESS_TYPE, '0',B.RD_DATE, F_GET_DATE_TR(B.RD_DATE)) AS RD_DATE
+				, B.RD_DATE AS RD_DATE
+                , B.PO_NO  -- 발주번호[12]
+                , B.PO_SEQ  -- 발주항번[13]
+                , DECODE(B.PROCESS_TYPE,'2', NVL((SELECT SUM(INV_QTY) 
+                                                    FROM ICOMIVDT 
+                                                    WHERE BUYER = C.BUYER 
+                                                      AND PO_NO = C.PO_NO 
+                                                      AND PO_SEQ = C.PO_SEQ 
+                                                      AND STATUS <> 'D'),0), NVL(B.IV_QTY,0)) AS IV_QTY  -- 송장수량[14]
+                , A.PROCESS_TYPE  -- 제품조달방법[15]
+                , C.CD_QTY AS INV_LEGACY_QTY  -- 납품수량[16]
+                , B.PO_REMARK||DECODE(TRIM(B.REF_IF_NO),NULL,NULL,'('||B.REF_IF_NO||')') AS PO_REMARK  -- [17]
+                , B.AGENT_PRICE -- 단가2[18]
+                , B.AGENT_PRICE*C.CD_QTY AS SELLER_AMT2 -- 공급가액2[19]
+                , B.LEGACY_PO_NO AS INV_LEGACY_PO_NO  -- [20]
+                , DECODE(B.BUYER,'KRDOOS0035',SUBSTRB(B.LEGACY_PO_SEQ,INSTRB(B.LEGACY_PO_SEQ,'-',1,1)+1,10),B.LEGACY_PO_SEQ) AS LEGACY_PO_SEQ  -- [21]
+                , A.PURCHASER_ID AS PURCHASER_ID    -- [22]
+                , B.LEGACY_PO_SEQ AS INV_LEGACY_PO_SEQ  -- [23]
+				, (SELECT BYIT.REFINE_NOTE FROM ICOMBYIT BYIT, ICOMCMPY CMPY 
+					WHERE BYIT.BUYER = CMPY.BYCA_COMORG_CODE 
+					AND CMPY.COM_CODE = B.BUYER 
+					AND BYIT.BUYER_ITEM_NO = B.BUYER_ITEM_NO) AS REFINE_NOTE
+				, DECODE(F_GET_MSDS_INFO(B.BUYER, B.BUYER_ITEM_NO ,1),NULL,'N','Y') AS MSDS_YN
+				, D.SIZE_LEN
+				, D.SIZE_QTY
+				, D.SIZE_QTY-NVL((	SELECT	SUM(SIZE_QTY) 
+                                          	FROM	ICOMIVDT
+											WHERE	BUYER = C.BUYER 
+											AND		PO_NO = C.PO_NO 
+											AND		PO_SEQ = C.PO_SEQ 
+											AND		STATUS <> 'D'),0) AS INV_POSS_SIZE_QTY -- 납품가능수량(보강재)
+				, D.SIZE_QTY-NVL((	SELECT	SUM(SIZE_QTY) 
+                                          	FROM	ICOMIVDT
+											WHERE	BUYER = C.BUYER 
+											AND		PO_NO = C.PO_NO 
+											AND		PO_SEQ = C.PO_SEQ 
+											AND		STATUS <> 'D'),0) AS ORG_INV_POSS_SIZE_QTY -- 납품가능수량(보강재)
+				, (SELECT DECODE(COUNT(COD.CODE2),0,'N','Y')
+					FROM  ICOMCOD3 COD
+					WHERE 1=1
+					AND	COD.BUYER = B.BUYER
+					AND COD.TYPE = 'BICT'
+					AND COD.CODE2 =  B.CATEG_ID
+					AND COD.FLAG = 'Y'
+					) AS SIZE_YN 
+				, (SELECT DECODE(COUNT(CMC.BUYER_ITEM_NO),0,'N','Y')
+					FROM KEP_CMC_REQ CMC
+					WHERE CMC.BYIT_COMORG_CODE = B.BYIT_COMORG_CODE
+					AND CMC.BUYER_ITEM_NO = B.BUYER_ITEM_NO
+					AND CMC.REQ_STATUS = 'C') AS CMC_INFO_YN
+				, (SELECT MAX(REQ_NO)
+					FROM KEP_CMC_REQ CMC
+					WHERE CMC.BYIT_COMORG_CODE = B.BYIT_COMORG_CODE
+					AND CMC.BUYER_ITEM_NO = B.BUYER_ITEM_NO
+					AND CMC.REQ_STATUS = 'C') AS CMC_REQ_NO 
+				, (SELECT DECODE(MATERIAL_TYPE, 'H', 'Y', 'N')
+					FROM ICOMBYIT
+					WHERE BUYER = B.BYIT_COMORG_CODE
+					AND BUYER_ITEM_NO = B.BUYER_ITEM_NO) AS CMC_HARMFUL_YN
+				, B.BYIT_COMORG_CODE
+				, (SELECT DECODE(COUNT(COD.CODE),0,'N','Y')
+					FROM  ICOMCOD1 COD
+					WHERE 1=1
+					AND	COD.CODE = B.CMS_CATEG_ID
+					AND COD.TYPE = 'CM11'
+					AND COD.FLAG = 'Y') AS COD_CHECK --ICOMCOD1 CHECK
+			    , (SELECT DECODE(TRIM(F.MSDS_NO),'','Y','MS88888888','Y','N')
+			    	FROM ICOMBYIT F
+			    	WHERE F.BUYER = B.BYIT_COMORG_CODE
+			    	AND F.BUYER_ITEM_NO = B.BUYER_ITEM_NO) AS MSDS_CHECK --BYIT.MSDS_NO CHECK  
+			    , (SELECT DECODE(COUNT(REQ.BUYER_ITEM_NO),0,'N','Y')
+					FROM  KEP_CMC_REQ REQ
+					WHERE 1=1
+					AND	REQ.BUYER = B.BUYER
+					AND REQ.BYIT_COMORG_CODE = B.BYIT_COMORG_CODE
+					AND REQ.BUYER_ITEM_NO = B.BUYER_ITEM_NO
+					AND REQ.AGENT = A.AGENT
+					AND REQ.REQ_STATUS NOT IN ('B','C','D','N','T')) AS REQ_CHECK --REQ CHECK
+				, (SELECT DECODE(COUNT(REQ.BUYER_ITEM_NO),0,'N','Y')
+					FROM  KEP_CMC_REQ REQ
+					WHERE 1=1
+					AND	REQ.BUYER = B.BUYER
+					AND REQ.BYIT_COMORG_CODE = B.BYIT_COMORG_CODE
+					AND REQ.BUYER_ITEM_NO = B.BUYER_ITEM_NO
+					AND REQ.AGENT = A.AGENT
+					AND REQ.REQ_STATUS IN ('P','S')
+					AND REQ.TEMP_COND IS NOT NULL
+					AND REQ.REQ_NO = (SELECT MAX(REQ_NO)
+										FROM  KEP_CMC_REQ
+										WHERE 1=1
+										AND	BUYER = B.BUYER
+										AND BYIT_COMORG_CODE = B.BYIT_COMORG_CODE
+										AND BUYER_ITEM_NO = B.BUYER_ITEM_NO
+										AND AGENT = A.AGENT)
+				) AS TEMP_REQ_CHECK --TEMP_REQ_CHECK
+				, F_GET_BUY_CLOSE_DATE_CHK(B.BUYER, B.PO_NO, B.PO_SEQ, A.AGENT) AS BUY_CLOSE_DATE_CHK
+				, B.DS_YN
+				, A.PARCEL_YN AS PARCEL_YN
+				, (SELECT DECODE(TRIM(TEMP_COND), '', 'Y', NULL, 'Y', 'N')
+					FROM ICOMBYIT
+					WHERE BUYER = B.BYIT_COMORG_CODE
+					AND BUYER_ITEM_NO = B.BUYER_ITEM_NO) AS TEMP_CHECK
+				, (SELECT DECODE(COUNT(COD.CODE),0,'N','Y')
+					FROM  ICOMCOD1 COD
+					WHERE 1=1
+					AND	COD.CODE = (SELECT CMS_CATEG_ID FROM ICOMBYIT WHERE BUYER = B.BYIT_COMORG_CODE AND BUYER_ITEM_NO = B.BUYER_ITEM_NO)
+					AND COD.TYPE = 'CM11'
+					AND COD.TEXT1 = 'Y'
+					AND COD.FLAG = 'Y') AS SG118_CHECK	
+				, (SELECT TEMP_COND FROM ICOMBYIT WHERE BUYER = B.BYIT_COMORG_CODE AND BUYER_ITEM_NO = B.BUYER_ITEM_NO) AS TEMP_COND
+				, '/ ' || (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'M203' AND CODE = (SELECT TEMP_COND FROM ICOMBYIT WHERE BUYER = B.BYIT_COMORG_CODE AND BUYER_ITEM_NO = B.BUYER_ITEM_NO) AND FLAG = 'Y') AS TEMP_COND_TEXT
+				, '/ ' || (SELECT TEMP_RANGE FROM ICOMBYIT WHERE BUYER = B.BYIT_COMORG_CODE AND BUYER_ITEM_NO = B.BUYER_ITEM_NO) AS TEMP_RANGE
+				, DECODE((SELECT MATERIAL_TYPE FROM ICOMBYIT WHERE BUYER = B.BYIT_COMORG_CODE AND BUYER_ITEM_NO = B.BUYER_ITEM_NO), 'H', '/ 유해화학물질','') AS HARMFUL_TEXT
+				, D.IMAGE_KEY AS  IMAGE_KEY
+				, DECODE(D.IMAGE_KEY,NULL,'','Y') AS IMAGE_KEY_YN
+				, B.ITEM_MAKE_TYPE
+				, (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'M132' AND FLAG = 'Y' AND CODE = B.ITEM_MAKE_TYPE) AS ITEM_MAKE_TYPE_NM
+				, B.ST_DATE
+				,(SELECT MAKER_PART_NO
+					FROM ICOMBYIT
+					WHERE BUYER = B.BYIT_COMORG_CODE
+					AND BUYER_ITEM_NO = B.BUYER_ITEM_NO) AS MAKER_PART_NO
+			FROM ICOMPOHD A , ICOMPODT B , ICOMPORS C, ICOMPRDT D, ICOMPRHD E  
+			WHERE 
+					C.BUYER   = #{st_buyer}
+				AND C.PO_NO   = #{st_po_no}
+				AND C.DS_DATE = #{st_ds_date}
+				AND C.COMPLETE_MARK ='N'  
+				AND C.BUYER = A.BUYER  
+				AND C.PO_NO = A.PO_NO  
+				AND C.BUYER = B.BUYER  
+				AND C.PO_NO = B.PO_NO  
+				AND C.PO_SEQ= B.PO_SEQ
+				AND B.BUYER = D.BUYER
+				AND B.PR_NO = D.PR_NO
+				AND B.PR_SEQ = D.PR_SEQ
+				AND D.BUYER = E.BUYER
+				AND D.PR_NO = E.PR_NO  
+				AND A.STATUS <> 'D'  
+				AND B.STATUS <> 'D'  
+				AND C.STATUS <> 'D'
+				AND D.STATUS <> 'D'
+				AND E.STATUS <> 'D'
+		]]>		
+	</select>	
+
+	
+	<select id="selectSellerMpIvTranStatementWriteDiPopList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/*selectSellerMpIvTranStatementWriteDiPopList*/
+			SELECT
+				  MAX(A.PO_CREATE_DATE) AS PO_CREATE_DATE						-- 발주일[0]
+				, MAX(B.PO_NO) AS PO_NO											-- 발주번호[1]
+				, C.DS_DATE														-- 납품예정일[2]
+				, SUM(B.AGENT_PRICE*(C.CD_QTY-NVL(D.INV_QTY,0))) AS CD_TTL_AMT	-- 납품총금액[3]
+				, MAX((	SELECT COUNT(*) 
+						FROM ICOMPORS 
+						WHERE 
+								BUYER = C.BUYER 
+							AND PO_NO = C.PO_NO 
+							AND DS_DATE= C.DS_DATE 
+							AND COMPLETE_MARK = 'N' 
+							AND STATUS <> 'D')) AS CD_ITEM_QTY					-- 납품품목수[4]
+				, MIN(B.RD_DATE) AS RD_DATE										-- 납기요청일[5]
+				, C.BUYER
+				, MAX(A.PROCESS_TYPE) AS PROCESS_TYPE
+				, MAX(DECODE(TRIM(LEGACY_PO_NO), NULL,'N',LEGACY_PO_NO)) AS LEGACY_PO_NO
+				, MAX(DECODE(B.PROCESS_TYPE,'2',B.WAREHOUSE_CODE,B.BUYER)) AS TR_BUYER 
+				, MAX(A.AGENT) AS AGENT
+				, MAX(B.PLANT) AS PLANT
+				, COUNT(B.LEGACY_PO_SEQ) AS CNT_SEQ								-- [12]
+			FROM ICOMPOHD A, ICOMPODT B, ICOMPORS C, ICOMIVDT D 
+			WHERE 
+					A.AGENT = #{st_com_code}
+				AND B.BUYER = #{st_buyer}
+				AND B.PROCESS_TYPE = #{st_process_type}
+				AND B.BUYER = A.BUYER  
+				AND B.PO_NO = A.PO_NO  
+				AND B.BUYER = C.BUYER  
+				AND B.PO_NO = C.PO_NO  
+				AND B.PO_SEQ= C.PO_SEQ  
+				AND NVL(B.ITEM_QTY,0) > NVL(B.IV_QTY,0)	
+				AND C.BUYER  = D.BUYER(+)  
+				AND C.PO_NO  = D.PO_NO(+)  
+				AND C.PO_SEQ = D.PO_SEQ(+)  
+				AND C.DS_DATE= D.DS_DATE(+)  
+				AND B.DS_FLAG = 'Y'  
+				AND A.COMPLETE_MARK = 'N'  
+				AND B.COMPLETE_MARK = 'N'  
+				AND C.COMPLETE_MARK = 'N'  
+				AND A.STATUS <> 'D'  
+				AND B.STATUS <> 'D'  
+				AND C.STATUS <> 'D'  
+				AND D.STATUS(+) <> 'D'  
+		]]>
+			<!-- 입고완료제외여부 -->
+			<if test='st_gr_flag == "GR"'>
+				<![CDATA[
+					AND B.ITEM_QTY ^= B.GR_QTY
+		 		]]>
+			</if>
+		<![CDATA[
+			GROUP BY C.BUYER, C.PO_NO, C.DS_DATE
+			ORDER BY C.BUYER, C.DS_DATE
+		]]>
+	</select>
+		<select id="getSellerMpIvTranStatementWriteDiPop_v2" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/*getSellerMpIvTranStatementWriteDiPop_v2*/
+			SELECT
+				  MAX(A.PO_CREATE_DATE) AS PO_CREATE_DATE						-- 발주일[0]
+				, MAX(B.PO_NO) AS PO_NO											-- 발주번호[1]
+				, C.DS_DATE														-- 납품예정일[2]
+				, SUM(B.AGENT_PRICE*(C.CD_QTY-NVL(D.INV_QTY,0))) AS CD_TTL_AMT	-- 납품총금액[3]
+				, MAX((	SELECT COUNT(*) 
+						FROM ICOMPORS 
+						WHERE 
+								BUYER = C.BUYER 
+							AND PO_NO = C.PO_NO 
+							AND DS_DATE= C.DS_DATE 
+							AND COMPLETE_MARK = 'N' 
+							AND STATUS <> 'D')) AS CD_ITEM_QTY					-- 납품품목수[4]
+				, MIN(B.RD_DATE) AS RD_DATE										-- 납기요청일[5]
+				, C.BUYER
+				, MAX(A.PROCESS_TYPE) AS PROCESS_TYPE
+				, MAX(DECODE(TRIM(LEGACY_PO_NO), NULL,'N',LEGACY_PO_NO)) AS LEGACY_PO_NO
+				, MAX(DECODE(B.PROCESS_TYPE,'2',B.WAREHOUSE_CODE,B.BUYER)) AS TR_BUYER 
+				, MAX(A.AGENT) AS AGENT
+				, MAX(B.PLANT) AS PLANT
+				, COUNT(B.LEGACY_PO_SEQ) AS CNT_SEQ								-- [12]
+			FROM ICOMPOHD A, ICOMPODT B, ICOMPORS C, ICOMIVDT D 
+			WHERE 
+					A.AGENT = #{st_com_code}
+				AND B.BUYER = #{st_buyer}
+				AND B.PROCESS_TYPE = #{st_process_type}
+				AND B.BUYER = A.BUYER  
+				AND B.PO_NO = A.PO_NO  
+				AND B.BUYER = C.BUYER  
+				AND B.PO_NO = C.PO_NO  
+				AND B.PO_SEQ= C.PO_SEQ  
+				AND NVL(B.ITEM_QTY,0) > NVL(B.IV_QTY,0)	
+				AND C.BUYER  = D.BUYER(+)  
+				AND C.PO_NO  = D.PO_NO(+)  
+				AND C.PO_SEQ = D.PO_SEQ(+)  
+				AND C.DS_DATE= D.DS_DATE(+)  
+				AND B.DS_FLAG = 'Y'  
+				AND A.COMPLETE_MARK = 'N'  
+				AND B.COMPLETE_MARK = 'N'  
+				AND C.COMPLETE_MARK = 'N'  
+				AND A.STATUS <> 'D'  
+				AND B.STATUS <> 'D'  
+				AND C.STATUS <> 'D'  
+				AND D.STATUS(+) <> 'D'  
+		]]>
+			<!-- 입고완료제외여부 -->
+			<if test='st_gr_flag == "GR"'>
+				<![CDATA[
+					AND B.ITEM_QTY ^= B.GR_QTY
+		 		]]>
+			</if>
+		<![CDATA[
+			GROUP BY C.BUYER, C.PO_NO, C.DS_DATE
+			ORDER BY C.BUYER, C.DS_DATE
+		]]>
+	</select>
+	
+	<select id="selectSellerMpIvTranStatementWritePoList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/*selectSellerMpIvTranStatementWritePoList*/
+			SELECT
+				DISTINCT B.LEGACY_PO_NO||B.LEGACY_PO_SEQ AS LEGACY_PO
+			FROM ICOMPOHD A, ICOMPODT B, ICOMPORS C, ICOMIVDT D
+			WHERE 
+					A.AGENT = #{st_agent}
+				AND B.BUYER = #{st_buyer}
+				AND B.PO_NO IN ( ${st_query} )
+				AND B.PROCESS_TYPE = '0'
+				AND B.BUYER = A.BUYER
+				AND B.PO_NO = A.PO_NO
+				AND B.BUYER = C.BUYER
+				AND B.PO_NO = C.PO_NO
+				AND B.PO_SEQ= C.PO_SEQ
+				AND NVL(B.ITEM_QTY,0) > NVL(B.IV_QTY,0)
+				AND C.BUYER  = D.BUYER(+)
+				AND C.PO_NO  = D.PO_NO(+)
+				AND C.PO_SEQ = D.PO_SEQ(+)
+				AND C.DS_DATE= D.DS_DATE(+)
+				AND B.DS_FLAG = 'Y'
+				AND A.COMPLETE_MARK = 'N'
+				AND B.COMPLETE_MARK = 'N'
+				AND C.COMPLETE_MARK = 'N'
+				AND A.STATUS <> 'D'
+				AND B.STATUS <> 'D'
+				AND C.STATUS <> 'D'
+				AND D.STATUS(+) <> 'D'
+		]]>
+			<!-- 입고완료제외여부 -->
+			<if test='st_gr_flag == "GR"'>
+				<![CDATA[
+					AND B.ITEM_QTY ^= B.GR_QTY
+		 		]]>
+			</if>
+		<![CDATA[
+			ORDER BY LEGACY_PO
+		]]>
+	</select>
+	
+	
+	<select id="selectSellerMpIvInvHdList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/*selectSellerMpIvInvHdList*/
+			SELECT
+				  MAX('KEP' )AS SYS_GUBUN
+				, MAX( 'KEP' || DECODE( IVHD.AGENT, 'KRIFFI0001', NVL(SUBSTR(IVDT.LEGACY_IV_NO, 5), IVHD.INV_NO), IVHD.INV_NO ) ) AS BARCD_NO
+				, MAX('MAN_EMPNO' )AS MAN_EMPNO
+				, MAX('MAN_EMPNM' )AS MAN_EMPNM
+				, MAX(IVDT.PURCHASER_DEPT )AS REQ_DPTCD
+				, MAX( (SELECT CASE WHEN LENGTHB( TEXT1 ) > 20 THEN SUBSTRB(TEXT1, -20) ELSE TEXT1 END FROM ICOMCOD2 WHERE COMPANY_CODE = IVHD.BUYER AND TYPE ='C001' AND CODE = IVDT.PURCHASER_DEPT) ) AS REQ_DPTNM
+				, MAX(TO_CHAR(TO_DATE(POHD.PO_CREATE_DATE||POHD.ADD_TIME,'YYYYMMDDHH24MISS'),'YYYY-MM-DD HH24:MI:SS') ) AS REQ_DATE
+				, MAX((SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = IVDT.SELLER))AS INCOMP_NM
+				, MAX((SELECT IRS_NO FROM ICOMCMPY WHERE COM_CODE = IVDT.SELLER))AS INCOMP_NO
+				, '' AS STATUS
+				, MAX(IVHD.INV_NO )AS CARRYIN_NO
+				, MAX('CHECK_GB' )AS CHECK_GB
+			FROM ICOMIVDT IVDT, ICOMIVHD IVHD, ICOMPOHD POHD, ICOMPODT PODT
+			WHERE 
+					IVHD.BUYER = #{st_buyer}
+				AND IVDT.BUYER = IVHD.BUYER
+				AND IVDT.BUYER = PODT.BUYER
+				AND POHD.BUYER = PODT.BUYER
+				AND IVHD.INV_NO = #{st_inv_no}
+				AND IVDT.INV_NO = IVHD.INV_NO
+				AND IVDT.PO_NO  = PODT.PO_NO
+				AND IVDT.PO_SEQ = PODT.PO_SEQ
+				AND POHD.PO_NO  = PODT.PO_NO
+				AND PODT.STATUS ^='D'
+				AND POHD.STATUS ^='D'
+		]]>
+	</select>
+	
+	<select id="selectSellerMpIvInvDtList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/*selectSellerMpIvInvDtList*/
+			SELECT /*+USE_NL(IVHD IVDT)
+                USE_NL(IVDT PODT)
+                USE_NL(POHD PODT)
+                INDEX(IVDT ICOMIVDT_03)
+                INDEX(IVHD ICOMIVHD_01)
+                INDEX(POHD ICOMPOHD_PK)
+                INDEX(PODT ICOMPODT_PK)
+             */
+				'KEP' || DECODE( IVHD.AGENT, 'KRIFFI0001', NVL(SUBSTR(IVDT.LEGACY_IV_NO, 5), IVHD.INV_NO), IVHD.INV_NO ) AS BARCD_NO_D
+				, IVDT.BUYER_ITEM_NO AS ITEM
+				, IVDT.UNIT_MEASURE || ';' || IVDT.DESCRIPTION AS ITEM_NM
+				, IVDT.INV_QTY AS QTY
+				, SUBSTRB(IVDT.UNIT_MEASURE, 0, 2) AS UNIT
+				, POHD.PO_REMARK AS BIGO
+				, TO_CHAR(TO_DATE(PODT.RD_DATE,'YYYYMMDD'),'YYYY-MM-DD') || ' 23:59:59' AS PERIOD_DATE
+				, 'INAREA' AS INAREA
+				, 'INCOMP_NMS' AS INCOMP_NMS
+			FROM ICOMIVDT IVDT, ICOMIVHD IVHD, ICOMPOHD POHD, ICOMPODT PODT
+			WHERE 
+					IVHD.BUYER = #{st_buyer}
+				AND IVDT.BUYER = IVHD.BUYER
+				AND IVDT.BUYER = PODT.BUYER
+				AND POHD.BUYER = PODT.BUYER
+				AND IVHD.INV_NO = #{st_inv_no}
+				AND IVDT.INV_NO = IVHD.INV_NO
+				AND IVDT.PO_NO  = PODT.PO_NO
+				AND IVDT.PO_SEQ = PODT.PO_SEQ
+				AND POHD.PO_NO  = PODT.PO_NO
+				AND PODT.STATUS ^='D'
+				AND POHD.STATUS ^='D'
+		]]>
+	</select>
+	
+	<update id="updateSellerMpivTranStatementIvdt" parameterType="java.util.Map">
+		<![CDATA[
+			UPDATE ICOMIVHD SET
+				  SEND_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD')
+				, SEND_TIME = TO_CHAR(SYSDATE, 'HH24MISS')
+			WHERE 
+					BUYER = #{st_buyer}
+				AND INV_NO = #{st_inv_no}
+		]]>
+	</update>
+	
+	<select id="getW001Flag" parameterType="java.util.Map" resultType="java.lang.Integer">
+		<![CDATA[
+			/*getW001Flag*/
+			SELECT COUNT(*) 
+			FROM ICOMCOD1
+			WHERE 
+					TYPE		= 'W001'
+				AND TEXT4		= 'B'
+				AND FLAG		= 'Y'
+				AND TEXT1		=#{st_buyer}
+		]]>		
+	</select>
+	
+	<select id="getSellerMpIvTranStatementWriteListItemAll_v2" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*getSellerMpIvTranStatementWriteListItemAll_v2*/
+		SELECT		
+				XX.BUYER,
+				XX.PO_NO,
+				XX.AGENT_PRICE * (XX.SUM_CD_QTY-NVL(XX.SUM_INV_QTY,0)) AS AGENT_TOT_AMT,
+				XX.AGENT_PRICE * (XX.SUM_CD_QTY-NVL(XX.SUM_INV_QTY,0)) AS SELLER_AMT,
+				FLOOR(XX.AGENT_PRICE * (XX.SUM_CD_QTY-NVL(XX.SUM_INV_QTY,0))/10) AS TAX_AMT,
+				XX.LEGACY_PO_NO,
+				XX.PURCHASER_ID,
+				XX.TR_BUYER,
+				XX.AGENT_PRICE,
+				XX.PROCESS_TYPE,
+				XX.QRY_STR1,
+				XX.QRY_STR2,
+				XX.QRY_STR3,
+				XX.QRY_STR4
+		FROM	(
+			SELECT
+				SUM(C.CD_QTY)  OVER(PARTITION BY C.BUYER, C.PO_NO, C.DS_DATE) AS SUM_CD_QTY
+				, (SELECT SUM(INV_QTY) AS INV_QTY
+					FROM ICOMIVDT IVDT
+					WHERE IVDT.BUYER =  B.BUYER
+					AND IVDT.PO_NO = B.PO_NO
+					AND IVDT.PO_SEQ = B.PO_SEQ
+					AND IVDT.DS_DATE = C.DS_DATE
+					AND IVDT.STATUS <> 'D') SUM_INV_QTY
+				, B.AGENT_PRICE
+				, A.PROCESS_TYPE
+				, Z.QRY_STR1
+				, Z.QRY_STR2
+				, Z.QRY_STR3
+				, Z.QRY_STR4
+                , DECODE(TRIM(B.LEGACY_PO_NO), NULL,'N',B.LEGACY_PO_NO) AS LEGACY_PO_NO
+                , A.PURCHASER_ID 
+                , DECODE(B.PROCESS_TYPE,'2',B.WAREHOUSE_CODE,B.BUYER) AS TR_BUYER
+                , A.BUYER
+                , B.PO_NO
+			FROM ICOMPOHD A, ICOMPODT B, ICOMPORS C, ICOMPRDT P, (
+                    SELECT
+                          Y.QRY_STR1
+                        , Y.QRY_STR2
+                        , Y.QRY_STR3
+                        , Y.QRY_STR4
+                        , X.SLG_ID
+                        , X.DEFAULT_RPT_URL
+                    FROM 
+                        /* SLOGIC-BEGIN (P06-0000002) */
+                          (
+                            
+                            SELECT 'P06-0000002' SLG_ID							-- ID 하드코딩 
+                            , 'RD_06_S_001_83' DEFAULT_RPT_URL	--디폴트 유알엘 하드코딩 , 추후 변경 /kr/epro/buy/sheet/inv_prn.jsp  
+                            FROM DUAL											--한건도 조회되지 않는 것 방지
+                            
+                        ) X
+                        , (
+                            SELECT
+                                  B.COL01_DATA QRY_STR1
+                                , B.COL02_DATA QRY_STR2
+                                , B.COL03_DATA QRY_STR3
+                                , B.COL03_DATA QRY_STR4
+                                , A.SLG_ID
+                            FROM BNTSLGDEF A, BNTSLGIMP B
+                            WHERE 
+                                    1=1
+                                AND A.SLG_ID = B.SLG_ID --default url을 가져오기 위해 아우터조인 
+                                AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN A.OPEN_DATE AND A.CLOSE_DATE
+                                AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN B.OPEN_DATE AND B.CLOSE_DATE
+                                AND B.COM_CODE =  #{st_buyer_code} --고객사 회사코드
+                                AND A.SLG_ID = 'P06-0000002' -- ID하드코딩 
+                        ) Y
+                        /* SLOGIC-END */
+                    WHERE 1=1
+                        AND X.SLG_ID = Y.SLG_ID(+) 
+                ) Z
+			WHERE
+					1=1
+				AND A.BUYER = B.BUYER
+				AND A.PO_NO = B.PO_NO
+				AND B.BUYER = C.BUYER
+				AND B.PO_NO = C.PO_NO
+				AND B.PO_SEQ= C.PO_SEQ
+				AND B.BUYER = P.BUYER
+				AND B.PR_NO = P.PR_NO
+				AND B.PR_SEQ = P.PR_SEQ
+				AND A.AGENT = #{st_com_code}              --param:   session com_code 
+				AND C.AGENT = #{st_com_code}
+				AND A.COMPLETE_MARK = 'N'  
+				AND A.STATUS <> 'D'  
+				AND B.DS_FLAG = 'Y'  
+				AND B.COMPLETE_MARK = 'N'  
+				AND B.STATUS <> 'D'  
+				AND C.COMPLETE_MARK = 'N'  
+				AND C.STATUS <> 'D'  
+				AND P.STATUS <> 'D'
+				AND NVL(B.CLSD_FLAG,'N') <> 'Y'
+				AND A.BUYER = #{st_buyer_code}
+				AND C.PO_NO = #{st_po_no_all}						
+				AND NOT EXISTS (SELECT 'X' FROM KEP_PO_MNG
+                  WHERE STATUS = 'S'
+                  AND  TYPE IN ('D','E','G','I')
+                  AND BUYER= A.BUYER
+                  AND PO_NO = A.PO_NO )
+				AND NOT EXISTS (SELECT 'X' FROM ICOMTRXL
+                  WHERE DOC_NAME = 'MHUB_CHG'
+                  AND TARGET = A.BUYER
+                  AND KEY_1 = A.PO_NO
+                  AND KEY_9 = 'N')
+                AND B.ITEM_QTY != B.GR_QTY
+		) XX
+		]]>
+	</select>
+</mapper>

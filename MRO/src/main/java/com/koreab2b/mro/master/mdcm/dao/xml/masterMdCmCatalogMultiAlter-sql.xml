@@ -1,0 +1,969 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mdcm">
+	  
+	  	<select id="getSysopBuyerCatalogOldList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+	/*getSysopBuyerCatalogOldList*/
+   SELECT  
+                    B.BUYER_ITEM_NO,   --[00]
+                    B.UNIT_PRICE,     --[01]
+                    B.LIST_PRICE,   --[02]
+                    DECODE(B.UNIT_PRICE,0,0,ROUND(((B.UNIT_PRICE - B.LIST_PRICE)/B.UNIT_PRICE) *100,1)) AS RATE,   --[03]
+                    B.MAKER_NAME,   --[04]
+                    (SELECT TEXT2 FROM ICOMCOD1 WHERE TYPE = 'M001' AND CODE = B.ORIGIN_CODE) AS ORIGIN_TEXT,   --[05]
+                    (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = B.AGENT) AS AGENT_TEXT,   --[06]
+                    B.DESCRIPTION,   --[07]
+                    B.SPECIFICATION,   --[08]
+                    B.ORIGIN_CODE,   --[09]
+                    B.AGENT,   --[10]
+                    B.CONTRACT_NO,   --[11]
+                    B.CONTRACT_SEQ,   --[12]
+                    B.BELOW_COMORG_CODE AS BUYER,   --[13]
+                    DECODE(A.STATUS,'D','D',DECODE(B.STATUS,'D','D',  
+                           DECODE(A.PRODUCT_CLOSE_FLAG,'N','N','Y','Y','T','Y',A.PRODUCT_CLOSE_FLAG))) AS STATUS_TEXT,   --[14]
+					B.MIN_ORDER_QTY,
+					B.PUR_UNIT_QTY,
+					B.SELLER_AREA,
+					B.PROCESS_TYPE,
+					B.ORIGIN_AGENT,
+					B.BUY_CLOSE_DATE,
+					B.SELL_CLOSE_DATE
+               FROM ICOMBYIT A, ICOMCQDT B  
+
+              WHERE A.BUYER IN (SELECT BYCA_COMORG_CODE FROM ICOMCMPY WHERE COM_CODE = #{st_buyer}  AND STATUS IN ('C','R')) 
+                AND A.BUYER = B.BUYER  
+                AND A.BUYER_ITEM_NO = B.BUYER_ITEM_NO  
+                AND A.PRODUCT_CLOSE_FLAG NOT IN ('S','G')  
+                AND B.BELOW_COMORG_CODE = #{st_buyer}
+                AND A.STATUS <> 'D'        
+                AND B.STATUS <> 'D'        
+                
+ 		]]> 
+  			<if test="st_buyer_item_no != null and st_buyer_item_no !='' ">
+				<![CDATA[
+				AND B.BUYER_ITEM_NO LIKE #{st_buyer_item_no}||'%'
+				]]>
+			</if>
+  			<if test="st_description_loc != null and st_description_loc !='' ">
+				<![CDATA[
+				AND B.DESCRIPTION LIKE '%'||#{st_description_loc}||'%'
+				]]>
+			</if>
+  			<if test="st_specification != null and st_specification !='' ">
+				<![CDATA[
+				AND B.SPECIFICATION LIKE '%'||#{st_specification}||'%'
+				]]>
+			</if>			
+  			<if test='order_by =="1" '>
+				<![CDATA[
+				ORDER BY 1                   -- 제품코드순
+				]]>
+			</if>							
+  			<if test='order_by =="2" '>
+				<![CDATA[
+				ORDER BY 8                   -- 품명순
+				]]>
+			</if>			
+  			<if test='order_by =="3" '>
+				<![CDATA[
+				ORDER BY 9                   -- 규격순
+				]]>
+			</if>			
+  			<if test='order_by =="4" '>
+				<![CDATA[
+				 ORDER BY 5                   -- 제조사순
+				]]>
+			</if>			
+  			<if test='order_by =="5" '>
+				<![CDATA[
+				 ORDER BY 7                   -- 협력사순
+				]]>
+			</if>		
+  			<if test='order_by =="6" '>
+				<![CDATA[
+				ORDER BY 15                  -- 등록일순
+				]]>
+			</if>																						
+			<![CDATA[ 
+
+
+		]]>
+	</select>
+	
+	<update  id="setSysopIcomTrxlUploadReg1" parameterType="java.util.Map" >
+		<![CDATA[
+		
+			/*setSysopIcomTrxlUploadReg1*/
+			
+      INSERT INTO BNTTRXL  (  
+                                DOC_NAME,    
+                                TARGET,      
+                                KEY_1,       
+                                KEY_2,       
+                                KEY_3,       
+                                KEY_4,       
+                                KEY_5,       
+                                KEY_6,       
+                                KEY_7,       
+                                KEY_8,       
+                                KEY_9,       
+                                KEY_10       
+                                
+                                , KEY_11
+                                , KEY_12
+                                , KEY_13
+                                , KEY_14
+                                , KEY_15
+                                , KEY_16
+                                , KEY_17
+                                , KEY_18
+                                , KEY_19
+                                , KEY_20
+                                , KEY_21
+                                , KEY_22
+                                , KEY_23
+                                , KEY_24
+                                , KEY_25
+                                , KEY_26
+                               ) VALUES(     
+                                         #{DOC_NAME},   --DOC_NAME
+                                         (SELECT BYCA_COMORG_CODE FROM ICOMCMPY WHERE COM_CODE = #{BUYER}  AND STATUS IN ('C','R')),           --[01] TARGET    BYCA_COMORG_CODE
+                                         #{BUYER_ITEM_NO},           --[02] KEY_1     BUYER_ITEM_NO
+                                         NVL((SELECT AGENT FROM ICOMCQDT WHERE BUYER=(SELECT BYCA_COMORG_CODE FROM ICOMCMPY WHERE COM_CODE = #{BUYER}  AND STATUS IN ('C','R'))
+                                          AND CONTRACT_NO=#{CONTRACT_NO} AND CONTRACT_SEQ=#{CONTRACT_SEQ}),' '),           --[03] KEY_2     AGENT_CODE
+                                         #{CONTRACT_NO},           --[04] KEY_3     CONTRACT_NO
+                                         #{CONTRACT_SEQ},           --[05] KEY_4     CONTRACT_SEQ
+                                         #{STATUS_TEXT},           --[06] KEY_5     STATUS_TEXT
+                                         #{BUYER},           --[07] KEY_6     ST_BUYER
+                                         #{ST_USER_ID},           --[08] KEY_7     reg_user_id
+                                         #{TRXL_GUBUN},           --[09] KEY_8     trxl_gubun 
+                                         (SELECT                             
+                                                 TO_NUMBER(NVL(MAX(TO_NUMBER(KEY_9)),0))+1
+                                            FROM BNTTRXL                    
+                                           WHERE DOC_NAME = #{DOC_NAME}
+                                           ),     
+                                         #{LIST_PRICE},       --    LIST_PRICE  KEY_10 변경전 매입단가
+                                         
+                                         #{UNIT_PRICE},   --UNIT_PRICE KEY_11 변경전 매출단가
+                                         DECODE(#{AFTER_AGENT},'',NVL((SELECT AGENT FROM ICOMCQDT WHERE BUYER=(SELECT BYCA_COMORG_CODE FROM ICOMCMPY WHERE COM_CODE = #{BUYER}  AND STATUS IN ('C','R'))
+                                          AND CONTRACT_NO=#{CONTRACT_NO} AND CONTRACT_SEQ=#{CONTRACT_SEQ}),' '),#{AFTER_AGENT}),   --AFTER_AGENT KEY_12 변경후 협력사
+                                         #{AFTER_LIST_PRICE},   --AFTER_LIST_PRICE KEY_13 변경후 매입단가
+                                         #{AFTER_UNIT_PRICE},   --KEY_14 AFTER_UNIT_PRICE 변경후 매출단가
+                                         #{CH_PROCESS_TYPE},   --KEY_15	--KEY_15 CH_PROCESS_TYPE 변경 후 거래유형
+                                         #{CH_WAREHOUSE_CODE},     --KEY_16 CH_WAREHOUSE_CODE 변경 후 물류센터코드
+                                         #{AFTER_ITEM_MAKE_TYPE},   
+                                         #{DELIVERY_LT},
+                                         #{AFTER_DELIVERY_LT},
+                                         #{CH_SELL_CLOSE_DATE},
+                                         #{CH_MIN_ORDER_QTY},
+                                         #{CH_PUR_UNIT_QTY},
+                                         #{CH_SELLER_AREA},
+                                         #{CH_BUY_CLOSE_DATE},
+                                         #{UNIT_PRICE_CHANGE_REASON},
+                                         #{LIST_PRICE_CHANGE_REASON}    
+                                       )              
+		]]> 
+	</update>
+	
+	<update  id="setSysopIcomTrxlUploadReg0Delete" parameterType="java.util.Map" >
+		<![CDATA[
+		
+					/*setSysopIcomTrxlUploadReg0Delete*/
+					
+           DELETE FROM BNTTRXL   
+           WHERE DOC_NAME = #{DOC_NAME}   --[01] DOC_NAME
+             AND TARGET = (SELECT BYCA_COMORG_CODE FROM ICOMCMPY WHERE COM_CODE = #{BUYER} AND STATUS <> 'D')     --[02] BYCA_COMORG_CODE
+             AND KEY_1 = #{BUYER_ITEM_NO}      --[03] BUYER_ITEM_NO
+             AND KEY_2 = (SELECT AGENT FROM ICOMCQDT WHERE BUYER=(SELECT BYCA_COMORG_CODE FROM ICOMCMPY WHERE COM_CODE = #{BUYER}  AND STATUS IN ('C','R'))
+                                          AND CONTRACT_NO=#{CONTRACT_NO} AND CONTRACT_SEQ=#{CONTRACT_SEQ} AND STATUS !='D')     --[04] AGENT
+             AND KEY_3 = #{CONTRACT_NO}      --[05] CONTRACT_NO
+             AND KEY_4 = #{CONTRACT_SEQ}      --[06] CONTRACT_SEQ
+             AND KEY_6 = #{BUYER}      --[06] BUYER
+		]]> 
+	</update>
+	
+
+		<update  id="setSysopIcomTrxlUploadReg1Delete" parameterType="java.util.Map" >
+		<![CDATA[
+		
+							/*setSysopIcomTrxlUploadReg1Delete*/
+							
+           DELETE FROM BNTTRXL   
+           WHERE DOC_NAME = #{DOC_NAME}   --[01] DOC_NAME
+             AND TARGET = #{TARGET}     --[02] BYCA_COMORG_CODE
+              		]]> 
+  			<if test="BUYER_ITEM_NO != null and BUYER_ITEM_NO !='' ">
+				<![CDATA[
+				             AND KEY_1 = #{BUYER_ITEM_NO}      -- BUYER_ITEM_NO
+				]]>
+			</if>
+					<![CDATA[
+
+             AND KEY_6 = #{KEY_6}      --[03] BUYER
+             AND KEY_7 = #{KEY_7}      --[04] ST_USER_ID
+             AND KEY_8 = #{KEY_8}      --[05] TRXL_GUBUN
+             AND KEY_9 = #{KEY_9}      --[06] KEY_9
+		]]> 
+	</update>
+		
+	  	<select id="getSysopIcomtrxlCaList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+ 							/*getSysopIcomtrxlCaList*/
+    SELECT																																									
+             	X.BUYER_ITEM_NO,   																																					--[00]
+             	X.UNIT_PRICE,     																																						--[01]
+             	X.LIST_PRICE,      																																						--[02]
+             	DECODE(X.UNIT_PRICE,0,0,ROUND(((X.UNIT_PRICE - X.LIST_PRICE)/X.UNIT_PRICE) *100,1)) AS RATE,					--[03]
+             	X.DESCRIPTION,     																																						--[04]
+             	X.UNIT_MEASURE,     																																					--[05]
+             	X.PO_NO,      																																								--[06]
+             	X.AGENT_TEXT,  																																							--[07]
+             	X.SPECIFICATION, 																																						--[08]
+             	X.QTY,        																																									--[09]
+             	X.BUYER,       																																								--[10]
+             	X.AGENT AS AGENT,   																																					--[11]
+             	X.CONTRACT_NO,      																																					--[12]
+             	X.CONTRACT_SEQ,    																																					--[13]
+             	X.STATUS, 																																									--[14]
+             	X.DOC_NAME,  																																								--[15]
+             	X.TARGET,
+             	(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = X.KEY_6 AND STATUS != 'D') AS BUYER_NAME,       																																								--[16]
+             	X.KEY_6,         																																								--[17]
+             	X.KEY_7,         																																								--[18]
+             	X.KEY_8,         																																								--[19]
+             	X.KEY_9,   																																									--[20]
+             	X.KEY_5,       																																								--[21]
+             	X.KEY_10,       																																								--[22]
+             	X.BELOW_COMORG_CODE ,	 																																		--[23]
+             	X.PROCESS_TYPE ,	 																																					--[24]
+             	X.ORIGIN_AGENT,																																							--[25]
+             	X.IMPORT_FLAG,																																							--[26]
+             	X.LOGISTICS_FEE,																																						--[27]
+             	X.KEP_PRICE,																																								--[28]
+             	X.CMS_CATLG_ID																																							--[29]
+             	 
+             	,X.MARGIN_RE
+                ,X.MARGIN_RE_TEXT
+             	,X.AFTER_KEP_PRICE
+             	,X.AFTER_UNIT_PRICE
+             	,X.AFTER_LIST_PRICE
+             	,DECODE(X.AFTER_UNIT_PRICE,0,0,ROUND(((X.AFTER_UNIT_PRICE - X.AFTER_LIST_PRICE)/X.AFTER_UNIT_PRICE) *100,1)) AS AFTER_RATE 
+             	,X.AFTER_AGENT 
+             	,X.AFTER_AGENT_TEXT              	
+	            ,CASE  
+		            WHEN X.CONTRACT_NO IS NULL                    THEN '계약정보 없음'     		
+		            WHEN X.CONTRACT_SEQ IS NULL                    THEN '계약정보 없음'     		
+		            WHEN X.BUYER_ITEM_NO IS NULL                    THEN '품목정보 없음'              
+		            WHEN X.AGENT_TEXT IS NULL                    THEN '협력사정보 없음'                 
+		            WHEN X.AFTER_AGENT_TEXT IS NULL                    THEN '협력사정보 없음'            
+		            
+	  				WHEN X.UNIT_PRICE = X.AFTER_UNIT_PRICE OR X.AFTER_UNIT_PRICE = 0                THEN '매출가변경없음'            	      
+	  				WHEN X.LIST_PRICE = X.AFTER_LIST_PRICE   OR X.AFTER_LIST_PRICE = 0                 THEN '매입가변경없음'            	      
+	  				WHEN X.ITEM_MAKE_TYPE = X.AFTER_ITEM_MAKE_TYPE                  					  THEN '품목구분변경없음'            	      
+	            	WHEN X.DELIVERY_LT = X.AFTER_DELIVERY_LT                    								  THEN '표준납기일변경없음'
+	             ELSE '정상' 
+	             END CHECK_STATUS_TEXT ,
+	             X.ITEM_MAKE_TYPE ,
+	             X.DELIVERY_LT ,
+	             X.AFTER_ITEM_MAKE_TYPE ,
+	             X.AFTER_DELIVERY_LT,
+	             X.RE_MIN_ORDER_QTY,
+	             X.CH_MIN_ORDER_QTY,
+	             X.RE_PUR_UNIT_QTY,
+	             X.CH_PUR_UNIT_QTY,
+	             X.RE_SELLER_AREA,
+	             X.CH_SELLER_AREA,
+	             X.RE_PROCESS_TYPE,
+	             X.CH_PROCESS_TYPE,
+	             (SELECT TEXT2 FROM ICOMCOD1 WHERE TYPE = 'M034' AND FLAG = 'Y' AND CODE = X.RE_PROCESS_TYPE) AS RE_PROCESS_TYPE_TEXT,
+	             (SELECT TEXT2 FROM ICOMCOD1 WHERE TYPE = 'M034' AND FLAG = 'Y' AND CODE = X.CH_PROCESS_TYPE) AS CH_PROCESS_TYPE_TEXT,
+	             X.RE_ORIGIN_AGENT AS RE_WAREHOUSE_CODE,
+	             X.CH_ORIGIN_AGENT AS CH_WAREHOUSE_CODE,
+	             (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = X.RE_ORIGIN_AGENT) AS RE_WAREHOUSE_CODE_TEXT,
+	             (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = X.CH_ORIGIN_AGENT) AS CH_WAREHOUSE_CODE_TEXT,
+	             DECODE(X.CH_SELLER_AREA,'','4','5') AS SELLER_AREA_IMG,
+	             /*SLOGIC-BEGIN(P04-4041-01)*/
+		        DECODE((SELECT COUNT(*) FROM BNTSLGIMP WHERE SLG_ID = 'P04-4041-01' AND COM_CODE = X.BELOW_COMORG_CODE AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN OPEN_DATE AND CLOSE_DATE), 0, 'N', 'Y') AS MOQ_USE_FLAG,
+		        /*SLOGIC-END*/
+		        /*SLOGIC-BEGIN(P04-4041-02)*/
+		        DECODE((SELECT COUNT(*) FROM BNTSLGIMP WHERE SLG_ID = 'P04-4041-02' AND COM_CODE = X.BELOW_COMORG_CODE AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN OPEN_DATE AND CLOSE_DATE), 0, 'N', 'Y') AS AREA_USE_FLAG,
+		        /*SLOGIC-END*/
+	             X.CH_SELL_CLOSE_DATE,
+	             X.RE_SELL_CLOSE_DATE,
+	             X.CH_BUY_CLOSE_DATE,
+	             X.RE_BUY_CLOSE_DATE,
+	             X.UNIT_PRICE_CHANGE_REASON,
+	             X.LIST_PRICE_CHANGE_REASON
+             FROM ( 																																									
+             	SELECT																																									
+             		B.BUYER_ITEM_NO,																																			
+             		B.UNIT_PRICE,																																					
+             		B.LIST_PRICE AS LIST_PRICE, 										
+             		B.DESCRIPTION,    																																			
+             		B.UNIT_MEASURE,  																																			
+             		' ' AS PO_NO, 																																					
+             		(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = B.AGENT) AS AGENT_TEXT,    					
+             		B.SPECIFICATION,   																																			
+             		0 AS QTY,         																																				
+             		B.BUYER,           																																				
+             		B.AGENT AS AGENT,             																																
+             		B.CONTRACT_NO,      																																		
+             		B.CONTRACT_SEQ,      																																		
+             		DECODE(C.STATUS,'D','D',DECODE(B.STATUS,'D','D',DECODE(C.PRODUCT_CLOSE_FLAG,'N','N','Y','Y','T','Y'))) AS STATUS,	 
+             		A.DOC_NAME,        																																			
+             		A.TARGET,          																																				
+             		A.KEY_6,           																																				
+             		A.KEY_7,           																																				
+             		A.KEY_8,           																																				
+             		A.KEY_9,    																																						
+             		A.KEY_5,              																																				
+             		A.KEY_10,         																																				
+             		B.BELOW_COMORG_CODE ,	 																															
+             		B.PROCESS_TYPE ,	 																																		
+             		B.ORIGIN_AGENT,																																				
+             		B.IMPORT_FLAG,																																				
+             		B.LOGISTICS_FEE,																																			
+             		B.KEP_PRICE,																																					
+             		C.CMS_CATLG_ID	 		
+	            	,'' MARGIN_RE
+	            	,'' MARGIN_RE_TEXT
+	             	,NVL(B.KEP_PRICE,0) AFTER_KEP_PRICE
+	             	,DECODE(A.KEY_14,' ',B.UNIT_PRICE, A.KEY_14)  AFTER_UNIT_PRICE
+	             	,DECODE(A.KEY_13,' ',B.LIST_PRICE, A.KEY_13)  AFTER_LIST_PRICE
+	             	,0 AFTER_RATE 
+	             	,NVL(A.KEY_12,'') AFTER_AGENT 
+	             	, (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = A.KEY_12 AND BUSINESS_COND = 'S' AND STATUS IN ('C','R')) AS AFTER_AGENT_TEXT 
+	             	, B.ITEM_MAKE_TYPE
+	             	, B.DELIVERY_LT
+	             	, NVL(A.KEY_17, B.ITEM_MAKE_TYPE) AS AFTER_ITEM_MAKE_TYPE
+	             	, NVL(A.KEY_19, B.DELIVERY_LT) AS AFTER_DELIVERY_LT
+	             	, NVL(A.KEY_20, B.SELL_CLOSE_DATE) AS CH_SELL_CLOSE_DATE
+	             	, B.SELL_CLOSE_DATE AS RE_SELL_CLOSE_DATE
+	             	, B.MIN_ORDER_QTY AS RE_MIN_ORDER_QTY
+	             	, NVL(A.KEY_21, B.MIN_ORDER_QTY) AS CH_MIN_ORDER_QTY
+	             	, B.PUR_UNIT_QTY AS RE_PUR_UNIT_QTY
+	             	, NVL(A.KEY_22, B.PUR_UNIT_QTY) AS CH_PUR_UNIT_QTY
+	             	, B.SELLER_AREA AS RE_SELLER_AREA
+	             	, NVL(A.KEY_23, B.SELLER_AREA) AS CH_SELLER_AREA
+	             	, B.PROCESS_TYPE AS RE_PROCESS_TYPE
+	             	, DECODE(A.KEY_15,' ',B.PROCESS_TYPE,A.KEY_15) AS CH_PROCESS_TYPE
+	             	, B.ORIGIN_AGENT AS RE_ORIGIN_AGENT
+	             	, DECODE(A.KEY_16,' ', DECODE(A.KEY_15, '0', '', B.ORIGIN_AGENT) ,A.KEY_16) AS CH_ORIGIN_AGENT
+	             	, NVL(A.KEY_24, B.BUY_CLOSE_DATE) AS CH_BUY_CLOSE_DATE
+	             	, B.BUY_CLOSE_DATE AS RE_BUY_CLOSE_DATE
+	             	, NVL(A.KEY_25, '') AS UNIT_PRICE_CHANGE_REASON
+	             	, NVL(A.KEY_26, '') AS LIST_PRICE_CHANGE_REASON
+             	FROM BNTTRXL A, ICOMCQDT B, ICOMBYIT C																										
+               WHERE A.DOC_NAME = 'KEPMGPDT'
+               	]]> 
+  			<if test="st_buyer_code != null and st_buyer_code !='' ">
+				<![CDATA[
+				             AND A.KEY_6 = #{st_buyer_code}
+				]]>
+			</if>
+					<![CDATA[																														
+             		AND A.KEY_7 =  #{st_user_id} 																																			
+             		AND A.KEY_8 =  #{trxl_gubun} 																																			
+             		AND A.TARGET = B.BUYER(+)																																	
+             		AND A.KEY_1 = B.BUYER_ITEM_NO(+)																													
+             		AND A.KEY_2 = B.AGENT(+)																																	
+             		AND A.KEY_3 = B.CONTRACT_NO(+)																														
+             		AND A.KEY_4 = B.CONTRACT_SEQ(+)																													
+             		AND B.BUYER = C.BUYER(+)																																	
+             		AND B.BUYER_ITEM_NO = C.BUYER_ITEM_NO(+)																									
+             )X																																											
+             ORDER BY X.BUYER,X.BUYER_ITEM_NO																																	
+		]]>
+	</select>
+	<select id="getWarehouseCodeList" parameterType="java.util.Map" resultType="java.util.Map">
+ 		/*getWarehouseCodeList*/
+ 		SELECT
+ 			SUBSTR(XMLAGG(XMLELEMENT(TEXT1,'@',TEXT1)).EXTRACT('//text()'),2) as TEXT1
+		FROM 
+		(
+			SELECT TEXT1 FROM ICOMCOD1
+			WHERE TYPE = 'W001'
+			AND TEXT4 = 'B'
+			AND FLAG = 'Y'
+			
+		)		
+ 	</select>
+	
+	<update  id="setSysopKepmgpCaReg1" parameterType="java.util.Map" >
+		<![CDATA[
+/*setSysopKepmgpCaReg1*/
+     INSERT INTO KEPMGPDT (  
+                                 BUYER,             
+                                 PM_NO,             
+                                 PM_SEQ,            
+                                 STATUS,            
+                                 REG_DATE,          
+                                 CHANGE_DATE,       
+                                 CONFIRM_DATE,      
+                                 REG_USER_ID,       
+                                 CONFIRM_USER_ID,   
+                                 BUYER_ITEM_NO,     
+                                 AGENT,             
+                                 RE_UNIT_PRICE,     
+                                 CH_UNIT_PRICE,     
+                                 RE_LIST_PRICE,     
+                                 CH_LIST_PRICE,     
+                                 RE_PRICE_RATE,     
+                                 CH_PRICE_RATE,     
+                                 PO_NO,             
+                                 PO_SEQ,            
+		                         MARGIN_RE,         
+		                         PA_FLAG,            
+		                         KEP_PRICE ,           
+		                         CMS_CATLG_ID,            
+		                         CONTRACT_NO,            
+		                         CONTRACT_SEQ ,           
+		                         RE_ITEM_QTY ,				
+		                         CH_ITEM_QTY,
+		                         RE_AGENT	,
+		                         RE_DESCRIPTION ,			
+		                         RE_SPECIFICATION ,			
+		                         RE_UNIT_MEASURE,
+		                         RE_ITEM_MAKE_TYPE,
+		                         CH_ITEM_MAKE_TYPE,
+		                         RE_DELIVERY_LT,
+		                         CH_DELIVERY_LT,
+		                         RE_TO_DATE,
+		                         CH_TO_DATE,
+		                         RE_MIN_ORDER_QTY,
+		                         CH_MIN_ORDER_QTY,
+		                         RE_PUR_UNIT_QTY,
+		                         CH_PUR_UNIT_QTY,
+		                         RE_SELLER_AREA,
+		                         CH_SELLER_AREA,
+		                         RE_PROCESS_TYPE,
+		                         CH_PROCESS_TYPE,
+		                         RE_WAREHOUSE_CODE,
+		                         CH_WAREHOUSE_CODE,
+		                         RE_BUY_CLOSE_DATE,
+		                         CH_BUY_CLOSE_DATE,
+		                         RE_SELL_CLOSE_DATE,
+		                         CH_SELL_CLOSE_DATE,
+		                         UNIT_PRICE_CHANGE_REASON,
+		                         LIST_PRICE_CHANGE_REASON 			
+                               ) VALUES (  
+                                          #{BUYER},                           --[01] BUYER				
+                                          #{PM_NO},                           --[02] PM_NO				
+                                          TO_CHAR(#{PM_SEQ},'FM000000'),       --[03] PM_SEQ				
+                                          'C',                         -- STATUS					  
+                                          SYSDATE,                     -- REG_DATE				
+                                          SYSDATE,                     -- CHANGE_DATE				
+                                          '',                          --     CONFIRM_DATE		
+                                          #{REG_USER_ID},                           --[04] REG_USER_ID			
+                                          '',                          --     CONFIRM_USER_ID		
+                                          #{BUYER_ITEM_NO},                           --[05] BUYER_ITEM_NO		
+                                          #{AGENT},                           --[06] AGENT			기존협력사	
+                                          #{UNIT_PRICE},                           --[07] RE_UNIT_PRICE		
+                                          #{AFTER_UNIT_PRICE},                           --[08] CH_UNIT_PRICE		
+                                          #{LIST_PRICE},                           --[09] RE_LIST_PRICE		
+                                          #{AFTER_LIST_PRICE},                           --[10] CH_LIST_PRICE		
+                                          #{KEP_PRICE},                           --[11] RE_PRICE_RATE		
+                                          #{AFTER_KEP_PRICE},                           --[12] CH_PRICE_RATE		
+                                          #{PO_NO},                           --[13] PO_NO				
+                                          #{PO_SEQ},                           --[14] PO_SEQ				
+                                          #{MARGIN_RE},                           --[15] MARGIN_RE		
+										   DECODE('Y', 'N','N','Y',DECODE(#{UNIT_PRICE},NVL(#{AFTER_UNIT_PRICE},#{UNIT_PRICE}),'N','Y')),	        --[16] PA_FLAG, [17] RE_UNIT_PRICE, [18] CH_UNIT_PRICE pa_flag : Y 경우, 매출단가 변경시 구매사 결재 필요
+                                          #{KEP_PRICE},                           --[19] KEP_PRICE		 
+                                          NVL(TRIM(#{CMS_CATLG_ID}), 'CMS') ,   --[20] CMS_CATLG_ID---(M_CODE)		
+                                          #{CONTRACT_NO},                           --[21] CONTRACT_NO		
+                                          #{CONTRACT_SEQ},                            --[22] CONTRACT_SEQ		
+                                          0 ,                            
+                                          0 ,
+                                           #{AFTER_AGENT},   -- RE_AGENT                         
+                                           
+                                           #{DESCRIPTION} , -- DESCRIPTION
+                                           #{SPECIFICATION} , -- SPECIFICATION
+                                           #{UNIT_MEASURE},
+                                           #{ITEM_MAKE_TYPE},
+                                           #{AFTER_ITEM_MAKE_TYPE},
+                                           #{DELIVERY_LT},
+                                           #{AFTER_DELIVERY_LT},
+                                           #{RE_SELL_CLOSE_DATE},
+                                           #{CH_SELL_CLOSE_DATE},
+                                           #{RE_MIN_ORDER_QTY},
+                                           #{CH_MIN_ORDER_QTY},
+                                           #{RE_PUR_UNIT_QTY},
+                                           #{CH_PUR_UNIT_QTY},
+                                           #{RE_SELLER_AREA},
+                                           #{CH_SELLER_AREA},
+                                           #{RE_PROCESS_TYPE},
+                                           #{CH_PROCESS_TYPE},
+                                           #{RE_WAREHOUSE_CODE},
+                                           #{CH_WAREHOUSE_CODE},
+                                           #{RE_BUY_CLOSE_DATE},
+                                           #{CH_BUY_CLOSE_DATE},
+                                           #{RE_SELL_CLOSE_DATE},
+                                           #{CH_SELL_CLOSE_DATE},
+                                           #{UNIT_PRICE_CHANGE_REASON},
+                                           #{LIST_PRICE_CHANGE_REASON}
+                                        )  
+  		]]>
+	</update>
+  	
+	<update  id="setSysopKepmgpCaReg2" parameterType="java.util.Map" >
+		<![CDATA[
+		/*setSysopKepmgpCaReg2*/		
+          INSERT INTO KEPMGPHD (  
+                                 BUYER,              
+                                 PM_NO,              
+                                 STATUS,             
+                                 REG_DATE,           
+                                 CHANGE_DATE,        
+                                 REFER_DATE,         
+                                 CONFIRM_DATE,       
+                                 REG_USER_ID,        
+                                 REG_USER_DEPT,      
+                                 CONFIRM_USER_ID,    
+                                 CONFIRM_USER_DEPT,  
+                                 GUBUN,              
+                                 CA_FLAG,            
+                                 SUBJECT,            
+                                 REMARK,             
+                                 CON_REMARK,         
+                                 CONFIRM_CODE,       
+                                 BUYER_SUBJECT,      
+                                 BUYER_REMARK        
+                               ) VALUES (  
+                                          #{BUYER},         --[01] BUYER
+                                          #{PM_NO},         --[02] PM_NO
+                                          'C',       --     STATUS
+                                          SYSDATE,   --     REG_DATE
+                                          SYSDATE,   --     CHANGE_DATE
+                                          '',        --     REFER_DATE
+                                          '',        --     CONFIRM_DATE
+                                          #{REG_USER_ID},         --[03] REG_USER_ID
+                                          #{REG_USER_DEPT},         --[04] REG_USER_DEPT
+                                          '',        --     CONFIRM_USER_ID
+                                          '',        --     CONFIRM_USER_DEPT
+                                          'CAM',         --[05] GUBUN
+                                          'N',         --[06] CA_FLAG 카탈로그 변경
+                                          '카탈로그일괄수정결재임시저장',         --[07] SUBJEC 고객사결재테이블로 통합으로 인하여 사용안함
+                                           '카탈로그일괄수정결재임시저장',            --[08] REMARK 고객사결재테이블로 통합으로 인하여 사용안함
+                                          '',        --     CON_REMARK
+                                          '',        --     CONFIRM_CODE
+		                                   '카탈로그일괄수정결재임시저장',            --[09] BUYER_SUBJECT 고객사결재테이블로 통합으로 인하여 사용안함
+		                                   '카탈로그일괄수정결재임시저장'      --[10] BUYER_REMARK 고객사결재테이블로 통합으로 인하여 사용안함
+                                        )   
+		]]>
+	</update>
+	
+	<update  id="setSysopKepmgpCaReg3" parameterType="java.util.Map" >
+		<![CDATA[
+				/*setSysopKepmgpCaReg3*/			
+           DELETE FROM BNTTRXL
+           WHERE DOC_NAME = #{DOC_NAME}   --[01]
+             AND TARGET = #{TARGET}     --[02]
+             AND KEY_6 = #{KEY_6}      --[03]
+             AND KEY_7 = #{KEY_7}      --[04]
+             AND KEY_8 = #{KEY_8}      --[05]
+             AND KEY_9 = #{KEY_9}      --[06]
+		]]>
+	</update>
+	
+		<update  id="setSyopProxbuyCatalogChangeKepmgpCa1" parameterType="java.util.Map" >
+		<![CDATA[
+ 				/*setSyopProxbuyCatalogChangeKepmgpCa1*/
+     UPDATE ICOMCQDT X SET                       
+                     X.CHANGE_DATE = TO_CHAR(SYSDATE,'YYYYMMDD'),  
+                     X.CHANGE_TIME = TO_CHAR(SYSDATE,'HH24MISS'),  
+                     X.TARGET_PRICE = NVL(#{CH_UNIT_PRICE}, X.UNIT_PRICE),
+                     X.LIST_PRICE = NVL(#{CH_LIST_PRICE}, X.LIST_PRICE),
+                     X.UNIT_PRICE = NVL(#{CH_UNIT_PRICE}, X.UNIT_PRICE),
+			         X.AGENT = #{RE_AGENT},
+			         X.KEP_PRICE = #{KEP_PRICE},
+			         X.ITEM_MAKE_TYPE = NVL(#{CH_ITEM_MAKE_TYPE}, X.ITEM_MAKE_TYPE),
+			         X.DELIVERY_LT = NVL(#{CH_DELIVERY_LT}, X.DELIVERY_LT),
+			         X.TO_DATE = NVL(TRIM(#{CH_TO_DATE}), X.TO_DATE),
+			         X.MIN_ORDER_QTY = NVL(#{CH_MIN_ORDER_QTY}, X.MIN_ORDER_QTY),
+			         X.PUR_UNIT_QTY = NVL(#{CH_PUR_UNIT_QTY}, X.PUR_UNIT_QTY),
+			         X.SELLER_AREA = NVL(#{CH_SELLER_AREA}, X.SELLER_AREA),
+			         X.PROCESS_TYPE = NVL(#{CH_PROCESS_TYPE}, X.PROCESS_TYPE),
+			         X.ORIGIN_AGENT = #{CH_WAREHOUSE_CODE},
+			         X.SELL_CLOSE_DATE = #{CH_SELL_CLOSE_DATE},
+			         X.BUY_CLOSE_DATE = #{CH_BUY_CLOSE_DATE}
+               WHERE X.BUYER = #{PO_NO}
+				 AND X.BELOW_COMORG_CODE = #{BELOW_COMORG_CODE} -- COM_CODE (ABOVE관련)
+                 AND (X.BUYER_ITEM_NO,X.CONTRACT_NO,X.CONTRACT_SEQ) IN (SELECT #{BUYER_ITEM_NO},#{CONTRACT_NO},#{CONTRACT_SEQ} FROM DUAL) 
+                 								
+		]]>
+	</update>
+	
+		<update  id="setSyopProxbuyCatalogChangeKepmgpCa1IF" parameterType="java.util.Map" >
+		<![CDATA[
+ 				/*setSyopProxbuyCatalogChangeKepmgpCa1IF*/
+			     UPDATE ICOMCQDT X SET
+			                     X.CHANGE_DATE = TO_CHAR(SYSDATE,'YYYYMMDD'),  
+			                     X.CHANGE_TIME = TO_CHAR(SYSDATE,'HH24MISS'),  
+			                     X.LIST_PRICE = #{CH_LIST_PRICE},
+						         X.AGENT = #{RE_AGENT},
+						         X.KEP_PRICE = #{KEP_PRICE},
+						         X.ITEM_MAKE_TYPE = #{CH_ITEM_MAKE_TYPE},
+						         X.DELIVERY_LT = #{CH_DELIVERY_LT},
+						         X.TO_DATE = NVL(TRIM(#{CH_TO_DATE}), X.TO_DATE),
+						         X.MIN_ORDER_QTY = DECODE(#{CH_MIN_ORDER_QTY}, '', X.MIN_ORDER_QTY, #{CH_MIN_ORDER_QTY}),
+						         X.PUR_UNIT_QTY = DECODE(#{CH_PUR_UNIT_QTY}, '', X.PUR_UNIT_QTY, #{CH_PUR_UNIT_QTY}),
+						         X.SELLER_AREA = #{CH_SELLER_AREA},
+						         X.ORIGIN_AGENT = #{CH_WAREHOUSE_CODE},
+						         X.SELL_CLOSE_DATE = #{CH_SELL_CLOSE_DATE},
+						         X.BUY_CLOSE_DATE = #{CH_BUY_CLOSE_DATE}
+			               WHERE X.BUYER = #{PO_NO}
+							 AND X.BELOW_COMORG_CODE = #{BELOW_COMORG_CODE} -- COM_CODE (ABOVE관련)
+			                 AND (X.BUYER_ITEM_NO,X.CONTRACT_NO,X.CONTRACT_SEQ) IN (SELECT #{BUYER_ITEM_NO},#{CONTRACT_NO},#{CONTRACT_SEQ} FROM DUAL)  
+			                 							
+		]]>
+	</update>
+	
+			<update  id="setSyopProxbuyCatalogChangeKepmgpCa2" parameterType="java.util.Map" >
+		<![CDATA[
+ 				/*setSyopProxbuyCatalogChangeKepmgpCa2*/
+      UPDATE ICOMCQEP SET  
+                                  CHANGE_DATE = TO_CHAR(SYSDATE,'YYYYMMDD'),  
+                                  CHANGE_TIME = TO_CHAR(SYSDATE,'HH24MISS'),  
+                                  TO_DATE     = TO_CHAR(SYSDATE,'YYYYMMDD')  
+
+               WHERE BUYER = #{PO_NO}   --[01]  BUYER 
+                 AND (BUYER_ITEM_NO,CONTRACT_NO,CONTRACT_SEQ) IN (SELECT #{BUYER_ITEM_NO},#{CONTRACT_NO},#{CONTRACT_SEQ} FROM DUAL)  
+                 AND TO_CHAR(SYSDATE,'YYYYMMDD') BETWEEN FROM_DATE AND TO_DATE 
+			                                    							
+		]]>
+	</update>
+	
+	
+	  
+			<update  id="setSyopProxbuyCatalogChangeKepmgpCa3" parameterType="java.util.Map" >
+		<![CDATA[
+   				/*setSyopProxbuyCatalogChangeKepmgpCa3*/
+   INSERT INTO ICOMCQEP (  
+                                    BUYER,  
+                                    CONTRACT_NO,  
+                                    CONTRACT_SEQ,  
+                                    PRICE_SEQ,  
+                                    STATUS,  
+                                    ADD_DATE,  
+                                    ADD_TIME,  
+                                    CHANGE_DATE,  
+                                    CHANGE_TIME,  
+                                    ADD_USER_ID,  
+                                    BUYER_ITEM_NO,  
+                                    FROM_DATE,  
+                                    TO_DATE,  
+                                    FROM_QTY,  
+                                    TO_QTY,  
+                                    UNIT_PRICE,  
+                                    DETAIL_TERM,  
+                                    DETAIL_TERM_QTY,  
+                                    TAX_PRICE,  
+                                    LIST_PRICE,  
+                                    AGENT,  
+                                    REMARK, 
+                                    MARGIN_RE,
+                                    SELL_CLOSE_DATE,
+                                    BUY_CLOSE_DATE,
+                                    UNIT_PRICE_CHANGE_REASON,
+                                    LIST_PRICE_CHANGE_REASON
+                                     ) (  
+                                             SELECT  
+                                                    D.BUYER,  
+                                                    D.CONTRACT_NO,  
+                                                    D.CONTRACT_SEQ,  
+                                                    (SELECT TO_NUMBER(NVL(MAX(PRICE_SEQ),0)+1) FROM ICOMCQEP  
+                                                      WHERE BUYER = D.BUYER  
+                                                        AND CONTRACT_NO = D.CONTRACT_NO  
+                                                        AND CONTRACT_SEQ = D.CONTRACT_SEQ  
+                                                        AND BUYER_ITEM_NO = D.BUYER_ITEM_NO) AS PRICE_SEQ,  
+                                                    'C' AS STATUS,  
+                                                    TO_CHAR(SYSDATE,'YYYYMMDD') AS ADD_DATE,  
+                                                    TO_CHAR(SYSDATE,'HH24MISS') AS ADD_TIME,  
+                                                    TO_CHAR(SYSDATE,'YYYYMMDD') AS CHANGE_DATE,  
+                                                    TO_CHAR(SYSDATE,'HH24MISS') AS CHANGE_TIME,  
+                                                    (SELECT A.REG_USER_ID FROM KEPMGPHD A  
+                                                      WHERE A.BUYER = #{BUYER}    --[01]  BUYER
+                                                        AND A.PM_NO = #{PM_NO}    --[02]  PM_NO
+                                                        AND A.STATUS <> 'D') AS ADD_USER_ID,  
+                                                    D.BUYER_ITEM_NO,  
+                                                    TO_CHAR(SYSDATE,'YYYYMMDD') AS FROM_DATE,  
+                                                    NVL(TRIM(#{CH_TO_DATE}), D.TO_DATE) AS TO_DATE,  
+                                                    1 AS FROM_QTY,  
+                                                    99999999 AS TO_QTY,  
+                                                   NVL(#{CH_UNIT_PRICE},D.UNIT_PRICE) AS UNIT_PRICE,  
+                                                    NULL AS DETAIL_TERM,  
+                                                    NULL AS DETAIL_TERM_QTY,  
+                                                    NULL AS TAX_PRICE,  
+                                                    NVL(#{CH_LIST_PRICE},D.LIST_PRICE) AS LIST_PRICE,  
+                                                   #{RE_AGENT}  AS AGENT,  
+                                                    (SELECT A.REMARK FROM KEPMGPHD A  
+                                                      WHERE A.BUYER = #{BUYER}    --[09]  BUYER
+                                                        AND A.PM_NO = #{PM_NO}    --[10]  PM_NO
+                                                        AND A.STATUS <> 'D') AS REMARK,  
+			                                       #{MARGIN_RE} AS MARGIN_RE,
+			                                       D.SELL_CLOSE_DATE,
+			                                       D.BUY_CLOSE_DATE,
+			                                       #{UNIT_PRICE_CHANGE_REASON} AS UNIT_PRICE_CHANGE_REASON,
+			                                       #{LIST_PRICE_CHANGE_REASON} AS LIST_PRICE_CHANGE_REASON  
+                                               FROM ICOMCQDT D, ICOMBYIT E  
+                                              WHERE D.BUYER = (SELECT BYCA_COMORG_CODE FROM ICOMCMPY  
+                                                                WHERE COM_CODE = #{BELOW_COMORG_CODE})    --[13]  BUYER 
+                                                AND (D.BUYER_ITEM_NO,D.CONTRACT_NO,D.CONTRACT_SEQ) IN  (SELECT #{BUYER_ITEM_NO},#{CONTRACT_NO},#{CONTRACT_SEQ} FROM DUAL)  
+			                                    AND D.BUYER=E.BUYER							
+			                                    AND D.BUYER_ITEM_NO=E.BUYER_ITEM_NO			
+			                                    AND E.PRODUCT_CLOSE_FLAG<>'S'	
+                                            )  
+		]]>
+	</update>
+			<update  id="setSyopProxbuyCatalogChangeKepmgpCa3IF" parameterType="java.util.Map" >
+		<![CDATA[
+   				/*setSyopProxbuyCatalogChangeKepmgpCa3IF*/
+   				INSERT INTO ICOMCQEP (  
+                                    BUYER,  
+                                    CONTRACT_NO,  
+                                    CONTRACT_SEQ,  
+                                    PRICE_SEQ,  
+                                    STATUS,  
+                                    ADD_DATE,  
+                                    ADD_TIME,  
+                                    CHANGE_DATE,  
+                                    CHANGE_TIME,  
+                                    ADD_USER_ID,  
+                                    BUYER_ITEM_NO,  
+                                    FROM_DATE,  
+                                    TO_DATE,  
+                                    FROM_QTY,  
+                                    TO_QTY,  
+                                    UNIT_PRICE,  
+                                    DETAIL_TERM,  
+                                    DETAIL_TERM_QTY,  
+                                    TAX_PRICE,  
+                                    LIST_PRICE,  
+                                    AGENT,  
+                                    REMARK, 
+                                    MARGIN_RE,
+                                    SELL_CLOSE_DATE,
+                                    BUY_CLOSE_DATE,
+                                    UNIT_PRICE_CHANGE_REASON,
+                                    LIST_PRICE_CHANGE_REASON ) (  
+                                             SELECT  
+                                                    D.BUYER,  
+                                                    D.CONTRACT_NO,  
+                                                    D.CONTRACT_SEQ,  
+                                                    (SELECT TO_NUMBER(NVL(MAX(PRICE_SEQ),0)+1) FROM ICOMCQEP  
+                                                      WHERE BUYER = D.BUYER  
+                                                        AND CONTRACT_NO = D.CONTRACT_NO  
+                                                        AND CONTRACT_SEQ = D.CONTRACT_SEQ  
+                                                        AND BUYER_ITEM_NO = D.BUYER_ITEM_NO) AS PRICE_SEQ,  
+                                                    'C' AS STATUS,  
+                                                    TO_CHAR(SYSDATE,'YYYYMMDD') AS ADD_DATE,  
+                                                    TO_CHAR(SYSDATE,'HH24MISS') AS ADD_TIME,  
+                                                    TO_CHAR(SYSDATE,'YYYYMMDD') AS CHANGE_DATE,  
+                                                    TO_CHAR(SYSDATE,'HH24MISS') AS CHANGE_TIME,  
+                                                    (SELECT A.REG_USER_ID FROM KEPMGPHD A  
+                                                      WHERE A.BUYER = #{BUYER}    --[01]  BUYER
+                                                        AND A.PM_NO = #{PM_NO}    --[02]  PM_NO
+                                                        AND A.STATUS <> 'D') AS ADD_USER_ID,  
+                                                    D.BUYER_ITEM_NO,  
+                                                    TO_CHAR(SYSDATE,'YYYYMMDD') AS FROM_DATE,  
+                                                    NVL(TRIM(#{CH_TO_DATE}), D.TO_DATE) AS TO_DATE,  
+                                                    1 AS FROM_QTY,  
+                                                    99999999 AS TO_QTY,  
+                                                    D.UNIT_PRICE,  
+                                                    NULL AS DETAIL_TERM,  
+                                                    NULL AS DETAIL_TERM_QTY,  
+                                                    NULL AS TAX_PRICE,  
+                                                    #{CH_LIST_PRICE} AS LIST_PRICE,  
+                                                   #{RE_AGENT}  AS AGENT,  
+                                                    (SELECT A.REMARK FROM KEPMGPHD A  
+                                                      WHERE A.BUYER = #{BUYER}    --[09]  BUYER
+                                                        AND A.PM_NO = #{PM_NO}    --[10]  PM_NO
+                                                        AND A.STATUS <> 'D') AS REMARK,  
+			                                       #{MARGIN_RE} AS MARGIN_RE,
+			                                       D.SELL_CLOSE_DATE,
+			                                       D.BUY_CLOSE_DATE,
+			                                       #{UNIT_PRICE_CHANGE_REASON} AS UNIT_PRICE_CHANGE_REASON,
+			                                       #{LIST_PRICE_CHANGE_REASON} AS LIST_PRICE_CHANGE_REASON   
+                                               FROM ICOMCQDT D, ICOMBYIT E  
+                                              WHERE D.BUYER = (SELECT BYCA_COMORG_CODE FROM ICOMCMPY  
+                                                                WHERE COM_CODE = #{BELOW_COMORG_CODE})    --[13]  BUYER 
+                                                AND (D.BUYER_ITEM_NO,D.CONTRACT_NO,D.CONTRACT_SEQ) IN  (SELECT #{BUYER_ITEM_NO},#{CONTRACT_NO},#{CONTRACT_SEQ} FROM DUAL)  
+			                                    AND D.BUYER=E.BUYER							
+			                                    AND D.BUYER_ITEM_NO=E.BUYER_ITEM_NO			
+			                                    AND E.PRODUCT_CLOSE_FLAG<>'S'				
+			                                    								
+                                            )  
+		]]>
+	</update>
+	
+	  
+			<update  id="setSyopProxbuyCatalogChangeKepmgpCa4" parameterType="java.util.Map" >
+		<![CDATA[
+		   				/*setSyopProxbuyCatalogChangeKepmgpCa4*/
+          UPDATE ICOMBYIT I SET
+                     I.CHANGE_DATE = TO_CHAR(SYSDATE,'YYYYMMDD'),  
+                     I.CHANGE_USER_ID = #{KEPMGPHD_REG_ID},  
+                     I.CHANGE_USER_TEL = (SELECT PHONE_NUMBER FROM ICOMLUSR WHERE USER_ID = #{KEPMGPHD_REG_ID}),
+                     I.CHANGE_USER_NAME = (SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = #{KEPMGPHD_REG_ID}),
+                     I.CHANGE_USER_DEPT = (SELECT DEPARTMENT FROM ICOMLUSR WHERE USER_ID = #{KEPMGPHD_REG_ID})
+               WHERE I.BUYER = #{PO_NO}   --[15]  BUYER
+                 AND I.BUYER_ITEM_NO IN (#{BUYER_ITEM_NO})
+		]]>
+	</update>
+	
+	
+			<update  id="setSyopProxbuyCatalogChangeKepmgpCa5" parameterType="java.util.Map" >
+		<![CDATA[
+		
+				   				/*setSyopProxbuyCatalogChangeKepmgpCa5*/
+				   				
+                    UPDATE KEPMGPHD SET  
+                     STATUS = #{STATUS},
+                     CONFIRM_DATE = SYSDATE,  
+                     CONFIRM_USER_ID = #{USER_ID},      --[02]
+                     CONFIRM_USER_DEPT = #{USER_DEPT}     --[03]
+
+               WHERE BUYER = #{BUYER}                 --[04]
+                 AND PM_NO = #{PM_NO}                 --[05]
+		]]>
+	</update>
+	  
+	  			<update  id="setSyopProxbuyCatalogChangeKepmgpCa6" parameterType="java.util.Map" >
+		<![CDATA[
+		
+						   				/*setSyopProxbuyCatalogChangeKepmgpCa6*/
+						   				
+	              UPDATE KEPMGPDT SET  
+	                     STATUS =  #{STATUS},
+	                     CONFIRM_DATE = SYSDATE,  
+	                     CONFIRM_USER_ID = #{USER_ID}       --[01]
+	
+	               WHERE BUYER = #{BUYER}                 --[02]
+	                 AND PM_NO = #{PM_NO}                 --[03]
+	                 AND PM_SEQ = #{PM_SEQ}                 --[03]
+		]]>
+	</update>
+	<update id="insertCaApprovalKepMgpDtEaiItemInfo"  parameterType="java.util.Map">
+		<![CDATA[
+				/*insertCaApprovalKepMgpDtEaiItemInfo*/
+				INSERT INTO ICOMTRXL 
+				(DOC_NAME
+				,TARGET
+				,KEY_1
+				,KEY_2
+				,KEY_3
+				,KEY_4
+				,KEY_5
+				,KEY_6
+				,KEY_7
+				,KEY_8
+				,KEY_9
+				,KEY_10)
+		            SELECT
+		                  'SEC_ITEM',
+		                  A.PO_NO,
+		                  A.BUYER_ITEM_NO,
+		                  'CHANGE_PRICE',
+		                  A.PM_NO,
+		                  A.PM_SEQ,
+			           	  ' ',
+						  ' ',
+						  ' ',
+						  ' ',
+						  ' ',
+						  ' '
+	              FROM KEPMGPDT A
+	             WHERE A.BUYER = #{BUYER}
+	               AND A.PM_NO =#{PM_NO}
+	               AND A.PM_SEQ = #{PM_SEQ}
+	               AND A.RE_UNIT_PRICE != A.CH_UNIT_PRICE    
+	       ]]>
+	</update>
+
+	<update id="setSyopProxbuyCatalogChangeKEPCURRENCYDT" parameterType="java.util.Map">
+		<![CDATA[
+			/*setSyopProxbuyCatalogChangeKEPCURRENCYDT*/
+			 MERGE INTO KEP_CURRENCY_DT A 
+			     USING (SELECT (SELECT A.BYCA_COMORG_CODE FROM ICOMCMPY A WHERE A.COM_CODE=#{BELOW_COMORG_CODE}) AS BUYER,
+			     			   BUYER_ITEM_NO,
+			                   CONTRACT_NO,
+			                   CONTRACT_SEQ,
+			                   REG_USER_ID,
+			                   CH_UNIT_PRICE
+			              FROM KEPMGPDT
+			             WHERE BUYER = #{BUYER} AND PM_NO = #{PM_NO}  AND PM_SEQ = #{PM_SEQ}
+			             AND STATUS != 'D') B
+			        ON (    A.BUYER = B.BUYER
+			            AND A.CONTRACT_NO = B.CONTRACT_NO
+			            AND A.CONTRACT_SEQ = B.CONTRACT_SEQ
+			            AND A.BUYER_ITEM_NO = B.BUYER_ITEM_NO
+			            )
+			WHEN MATCHED
+			THEN
+			   UPDATE SET A.EXP_FOR_UNIT_PRICE = F_GET_EXCHANGE_RATE(#{BELOW_COMORG_CODE}, B.CH_UNIT_PRICE, A.EXP_CODE, '01') ,
+			              A.EXP_KR_UNIT_PRICE = F_GET_EXCHANGE_RATE(#{BELOW_COMORG_CODE}, B.CH_UNIT_PRICE, A.EXP_CODE, '03') ,
+			              A.EXP_INC_EXPENSE = F_GET_EXCHANGE_RATE(#{BELOW_COMORG_CODE}, B.CH_UNIT_PRICE, A.EXP_CODE, '02') ,
+			              A.CHANGE_USER_ID = B.REG_USER_ID ,
+			              A.CHANGE_DATE = TO_CHAR(SYSDATE,'YYYYMMDD') ,                                            
+			              A.CHANGE_TIME = TO_CHAR(SYSDATE,'HH24MISS')
+		]]>
+	</update>
+	<update id="setSyopProxbuyCatalogChangeKEPCURRENCYDT_HIST" parameterType="java.util.Map">
+		<![CDATA[
+			/*setSyopProxbuyCatalogChangeKEPCURRENCYDT_HIST*/
+				INSERT INTO KEP_CURRENCY_HIST
+				(
+					EXP_CODE
+					,BUYER
+					,BUYER_ITEM_NO
+					,CONTRACT_NO
+					,CONTRACT_SEQ
+					,EXP_SEQ
+					,STATUS
+					,EXP_FOR_UNIT_PRICE
+					,EXP_KR_UNIT_PRICE
+					,EXP_INC_EXPENSE
+					,ADD_USER_ID
+					,ADD_DATE
+					,ADD_TIME
+					,CHANGE_USER_ID
+					,CHANGE_DATE
+					,CHANGE_TIME
+				)
+				SELECT
+		          B.EXP_CODE
+		          , (SELECT A.BYCA_COMORG_CODE FROM ICOMCMPY A WHERE A.COM_CODE=#{BELOW_COMORG_CODE}) 
+		          , A.BUYER_ITEM_NO
+		          , A.CONTRACT_NO
+		          , A.CONTRACT_SEQ
+							,NVL((SELECT TO_NUMBER(MAX(E.EXP_SEQ))
+								FROM KEP_CURRENCY_HIST E
+								 WHERE E.EXP_CODE = B.EXP_CODE
+								 AND E.BUYER = A.PO_NO
+								 AND E.CONTRACT_NO = A.CONTRACT_NO
+								 AND E.CONTRACT_SEQ = A.CONTRACT_SEQ),0)  +1
+		          , 'C'
+		          , F_GET_EXCHANGE_RATE(#{BELOW_COMORG_CODE},A.CH_UNIT_PRICE,B.EXP_CODE,'01')
+		          , F_GET_EXCHANGE_RATE(#{BELOW_COMORG_CODE},A.CH_UNIT_PRICE,B.EXP_CODE,'03')
+		          , F_GET_EXCHANGE_RATE(#{BELOW_COMORG_CODE},A.CH_UNIT_PRICE,B.EXP_CODE,'02')
+		          , A.REG_USER_ID
+		          , TO_CHAR(SYSDATE, 'YYYYMMDD')
+		          , TO_CHAR(SYSDATE, 'HH24MISS')
+		          , A.REG_USER_ID
+		          , TO_CHAR(SYSDATE, 'YYYYMMDD')
+		          , TO_CHAR(SYSDATE, 'HH24MISS')
+		         FROM KEPMGPDT A, KEP_CURRENCY_DT B
+		        WHERE A.PO_NO = B.BUYER
+		        AND A.CONTRACT_NO = B.CONTRACT_NO
+		        AND A.CONTRACT_SEQ = B.CONTRACT_SEQ
+		        AND A.BUYER_ITEM_NO = B.BUYER_ITEM_NO  
+		        AND A.BUYER = #{BUYER}
+		        AND A.PM_NO = #{PM_NO}
+		        AND A.PM_SEQ = #{PM_SEQ}
+		        AND A.STATUS != 'D'
+		        AND B.STATUS != 'D'
+		]]>
+	</update>
+</mapper>   
+   

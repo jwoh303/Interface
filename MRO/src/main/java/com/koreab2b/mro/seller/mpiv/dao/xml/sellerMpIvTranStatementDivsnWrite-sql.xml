@@ -1,0 +1,325 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="seller.mpiv">
+	<select id="selectSellerMpIvTranStatementDivsnWriteList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.jsppagestart"/>
+		<![CDATA[
+		SELECT	XX.BUYER,
+				XX.BUYER_NAME,
+				XX.SELLER_COM_NAME,
+				XX.SELLER,
+				XX.PO_CREATE_DATE,
+				XX.PX_NO,
+				XX.PO_NO,
+				XX.PO_NO_CNT,
+				XX.PROCESS_TYPE,
+				XX.PO_SEQ,
+				XX.IV_QTY,
+				XX.DS_DATE,
+				XX.TOT_QTY,
+				XX.AGENT_PRICE * (XX.SUM_CD_QTY-NVL(XX.SUM_INV_QTY,0)) AS AGENT_TOT_AMT,
+				XX.AGENT_PRICE * (XX.SUM_CD_QTY-NVL(XX.SUM_INV_QTY,0)) AS SELLER_AMT,
+				FLOOR(XX.AGENT_PRICE * (XX.SUM_CD_QTY-NVL(XX.SUM_INV_QTY,0))/10) AS TAX_AMT,
+				XX.PURCHASER_NAME,
+				XX.DELY_TO_LOCATION,
+				XX.DOC_TYPE,
+				XX.PO_REMARK,
+				XX.DS_FLAG,
+				XX.DS_YN,
+				XX.REF_ADD_USER_NAME,
+				XX.REF_ADD_USER_CNT,
+				XX.PURCHASER_CNT,
+				XX.LOCATION_CNT,
+				XX.REF_PR_NO,
+				XX.BUYER_ITEM_NO,
+				XX.BYIT_COMORG_CODE,
+				XX.CONTRACT_NO,
+				XX.CONTRACT_SEQ,
+				XX.DESCRIPTION,
+				XX.MAKER_NAME,
+				XX.SPECIFICATION,
+				XX.ITEM_QTY,
+				XX.CD_QTY,
+				XX.INV_POSS_QTY,
+				XX.INV_COMP_QTY,
+				XX.UNIT_MEASURE,
+				XX.AGENT_PRICE,
+				XX.SUPP_PRICE,
+				XX.RD_DATE,
+				XX.ITEM_PO_REMARK,
+				XX.POP_KEY,
+				XX.BFRE_STCK_YN,
+				XX.MSDS_NO,
+				XX.SUM_INV_QTY,
+				XX.SUM_CD_QTY,
+				XX.COD_CHECK,
+				XX.MSDS_CHECK,
+				XX.REQ_CHECK,
+				XX.BUY_CLOSE_DATE_CHK
+				]]>
+			<if test="pop_key != null and pop_key != ''">
+			<![CDATA[
+				,XX.QRY_STR1,
+				XX.QRY_STR2,
+				XX.QRY_STR3,
+				XX.QRY_STR4,
+				XX.LEGACY_PO_NO,
+				XX.PURCHASER_ID,
+				XX.TR_BUYER,
+				XX.STX_RPT,
+				XX.DSN_RPT
+			]]>
+			</if>
+			<![CDATA[
+		FROM	(
+			SELECT	/*selectSellerMpIvTranStatementDivsnWriteList*/
+				  A.BUYER
+				, F_GET_EXPORT_BUYER_NAME(B.BUYER, B.PO_NO, B.DELY_TO_LOCATION) AS BUYER_NAME -- 공급받는자
+				, (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = A.AGENT) AS SELLER_COM_NAME   -- 공급원
+				, B.SELLER
+				, A.PO_CREATE_DATE																--발주일
+				, P.REF_NO AS PX_NO																--주문번호
+				, B.PO_NO																		--발주번호
+				, COUNT(DISTINCT B.PO_NO) OVER() AS PO_NO_CNT									--발주번호 수
+				, A.PROCESS_TYPE
+				, B.PO_SEQ
+				, NVL(B.IV_QTY,0) AS IV_QTY
+				, C.DS_DATE																		--납품예정일
+				, COUNT(*) OVER(PARTITION BY C.BUYER, C.PO_NO, C.DS_DATE) AS TOT_QTY			--품목수
+				, SUM(C.CD_QTY)  OVER(PARTITION BY C.BUYER, C.PO_NO, C.DS_DATE) AS SUM_CD_QTY
+				 , DECODE(A.DOC_TYPE,'X'
+				 			, DECODE(B.PROCESS_TYPE, 2, '', A.PURCHASER_NAME)
+				 			, A.PURCHASER_NAME) AS PURCHASER_NAME								--발주자
+				 , NVL((SELECT TEXT2 
+				 		FROM ICOMCOD2 
+						WHERE	COMPANY_CODE = DECODE(A.PROCESS_TYPE,'2', B.WAREHOUSE_CODE, A.BUYER)
+							AND TYPE = 'C012'								--고객사 별 배송지정보   
+							AND CODE = DECODE(A.PROCESS_TYPE,'2','001', A.DELY_TO_LOCATION)
+						), A.DELY_TO_LOCATION) AS DELY_TO_LOCATION								--납품장소
+				, A.DOC_TYPE
+				, A.PO_REMARK																	--비고   
+				, A.DS_FLAG
+				, B.DS_YN
+                , (SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = P.REF_ADD_USER_ID) AS REF_ADD_USER_NAME
+                , COUNT(DISTINCT DECODE(A.DOC_TYPE,'X', DECODE(B.PROCESS_TYPE, 2, '', P.REF_ADD_USER_ID)  
+                                        , P.REF_ADD_USER_ID)) OVER() AS REF_ADD_USER_CNT        --요청자 수
+				, COUNT(DISTINCT DECODE(A.DOC_TYPE,'X', DECODE(B.PROCESS_TYPE, 2, '', A.PURCHASER_NAME)  
+										, A.PURCHASER_NAME)) OVER() AS PURCHASER_CNT			--발주자 수
+				, COUNT(DISTINCT
+					NVL((	SELECT TEXT2
+							FROM ICOMCOD2
+							WHERE	COMPANY_CODE = DECODE(A.PROCESS_TYPE,'2', B.WAREHOUSE_CODE, A.BUYER)
+								AND TYPE = 'C012'   --고객사 별 배송지정보
+								AND CODE = DECODE(A.PROCESS_TYPE,'2','001', A.DELY_TO_LOCATION)
+						), A.DELY_TO_LOCATION)
+					) OVER() AS LOCATION_CNT													--납품장소 수
+				
+				--------------- 이상 발주 헤더정보 ------------------------------
+				--------------- 이하 발주 상세정보 ------------------------------
+				, B.REF_PR_NO																	--관리번호
+				, B.BUYER_ITEM_NO																--품목코드
+				, B.BYIT_COMORG_CODE
+				, B.CONTRACT_NO
+				, B.CONTRACT_SEQ
+				, B.DESCRIPTION																	--품목명
+				, B.DESCRIPTION||DECODE(TRIM(B.MAKER_NAME),NULL,'',' / '||B.MAKER_NAME) AS MAKER_NAME -- 품명/제조사
+				, B.SPECIFICATION																--규격
+				, B.ITEM_QTY																	--발주수량 
+				, C.CD_QTY																		--납품(예정)수량
+				, DECODE(B.PROCESS_TYPE,'2', B.DO_QTY-NVL((	SELECT SUM(INV_QTY) 
+															FROM ICOMIVDT
+															WHERE 	BUYER = C.BUYER 
+																AND PO_NO = C.PO_NO 
+																AND PO_SEQ = C.PO_SEQ 
+																AND STATUS <> 'D'),0)
+											, B.DO_QTY-NVL(B.IV_QTY,0)) AS INV_POSS_QTY 		-- 납품가능수량
+				, DECODE(B.PROCESS_TYPE,'2', NVL((	SELECT SUM(INV_QTY) 
+													FROM ICOMIVDT 
+													WHERE	BUYER = C.BUYER 
+														AND PO_NO = C.PO_NO 
+														AND PO_SEQ = C.PO_SEQ 
+														AND STATUS <> 'D'),0)
+											, NVL(B.IV_QTY,0)) AS INV_COMP_QTY 					-- 기납품수량
+				, B.UNIT_MEASURE																-- 단위
+				--, DECODE(B.PROCESS_TYPE,'2', B.AGENT_PRICE, B.UNIT_PRICE) AS UNIT_PRICE
+				, B.AGENT_PRICE																	-- 단가
+				--, DECODE(B.PROCESS_TYPE,'2', B.AGENT_PRICE, B.UNIT_PRICE) * C.CD_QTY AS SUPP_PRICE
+				, B.AGENT_PRICE * C.CD_QTY AS SUPP_PRICE										-- 공급가액
+				, DECODE(B.PROCESS_TYPE,'2', TO_CHAR(TO_DATE(B.RD_DATE,'YYYY/MM/DD')
+				                              - DECODE(TO_CHAR(TO_DATE(B.RD_DATE,'YYYYMMDD'),'D'),3,1,2) ,'YYYYMMDD')
+				                           , B.RD_DATE) AS RD_DATE								-- 납기요청일
+				, B.PO_REMARK||DECODE(TRIM(B.REF_IF_NO),NULL,NULL,'('||B.REF_IF_NO||')') AS ITEM_PO_REMARK  -- 품목별비고
+				, A.BUYER||A.PO_NO||B.PO_SEQ||C.DS_DATE AS POP_KEY
+				, DECODE(A.DOC_TYPE,'S','선입고','') AS BFRE_STCK_YN
+				, F_GET_MSDS_INFO(B.BUYER, B.BUYER_ITEM_NO ,1) AS MSDS_NO
+				, (SELECT SUM(INV_QTY) AS INV_QTY
+					FROM ICOMIVDT IVDT
+					WHERE IVDT.BUYER =  B.BUYER
+					AND IVDT.PO_NO = B.PO_NO
+					AND IVDT.PO_SEQ = B.PO_SEQ
+					AND IVDT.DS_DATE = C.DS_DATE
+					AND IVDT.STATUS <> 'D') SUM_INV_QTY
+				, (SELECT DECODE(COUNT(COD.CODE),0,'N','Y')
+					FROM  ICOMCOD1 COD
+					WHERE 1=1
+					AND	COD.CODE = B.CMS_CATEG_ID
+					AND COD.TYPE = 'CM11'
+					AND COD.FLAG = 'Y') AS COD_CHECK --ICOMCOD1 CHECK
+			    , (SELECT DECODE(TRIM(F.MSDS_NO),'','Y','MS88888888','Y','N')
+			    	FROM ICOMBYIT F
+			    	WHERE F.BUYER = B.BYIT_COMORG_CODE
+			    	AND F.BUYER_ITEM_NO = B.BUYER_ITEM_NO) AS MSDS_CHECK --BYIT.MSDS_NO CHECK
+			    , (SELECT DECODE(COUNT(REQ.BUYER_ITEM_NO),0,'N','Y')
+					FROM  KEP_CMC_REQ REQ
+					WHERE 1=1
+					AND	REQ.BUYER = B.BUYER
+					AND REQ.BYIT_COMORG_CODE = B.BYIT_COMORG_CODE
+					AND REQ.BUYER_ITEM_NO = B.BUYER_ITEM_NO
+					AND REQ.AGENT = A.AGENT
+					AND REQ.REQ_STATUS NOT IN ('B','C','D','N','T')) AS REQ_CHECK --REQ CHECK
+				, F_GET_BUY_CLOSE_DATE_CHK(B.BUYER, B.PO_NO, B.PO_SEQ, A.AGENT) AS BUY_CLOSE_DATE_CHK
+		]]>
+		
+			<if test="pop_key != null and pop_key != ''">
+				<![CDATA[
+				, Z.QRY_STR1
+				, Z.QRY_STR2
+				, Z.QRY_STR3
+				, Z.QRY_STR4
+                , DECODE(TRIM(B.LEGACY_PO_NO), NULL,'N',B.LEGACY_PO_NO) AS LEGACY_PO_NO
+                , A.PURCHASER_ID 
+                , DECODE(B.PROCESS_TYPE,'2',B.WAREHOUSE_CODE,B.BUYER) AS TR_BUYER
+                /* SLOGIC-BEGIN (P06-0000005) */
+				, --Y : 직납이면, 리포트 파일 오픈하지 않는다. 30분뒤에 하라고 메시지 출력
+                    (	SELECT DECODE(COUNT(*), 0, 'N', 'Y')
+                        FROM BNTSLGDEF A1, BNTSLGIMP B1
+                        WHERE
+                                A1.SLG_ID = B1.SLG_ID
+                            AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN A1.OPEN_DATE AND A1.CLOSE_DATE
+                            AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN B1.OPEN_DATE AND B1.CLOSE_DATE
+                            AND B1.COM_CODE =  #{st_buyer_code}		-- BUYER
+                            AND A1.SLG_ID = 'P06-0000005'		-- ID하드코딩
+					) AS STX_RPT 
+				/* SLOGIC-END */
+				/* SLOGIC-BEGIN (P06-0000006) */
+				, --Y : 두산인프라코어 데이터 전송
+                    (	SELECT DECODE(COUNT(*), 0, 'N', 'Y') DSN_RPT
+                        FROM BNTSLGDEF A, BNTSLGIMP B
+                        WHERE 
+                                A.SLG_ID = B.SLG_ID
+                            AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN A.OPEN_DATE AND A.CLOSE_DATE
+                            AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN B.OPEN_DATE AND B.CLOSE_DATE
+                            AND B.COM_CODE =  #{st_buyer_code}		-- BUYER
+                            AND A.SLG_ID = 'P06-0000006'		-- ID하드코딩
+					) AS DSN_RPT
+				/* SLOGIC-END */
+		 		]]>	 
+			</if>
+		<![CDATA[
+			FROM ICOMPOHD A, ICOMPODT B, ICOMPORS C, ICOMPRDT P
+		]]>
+		<if test="pop_key != null and pop_key != ''">
+			<![CDATA[
+				, (
+                    SELECT
+                          Y.QRY_STR1
+                        , Y.QRY_STR2
+                        , Y.QRY_STR3
+                        , Y.QRY_STR4
+                        , X.SLG_ID
+                        , X.DEFAULT_RPT_URL
+                    FROM 
+                        /* SLOGIC-BEGIN (P06-0000002) */
+                          (
+                            
+                            SELECT 'P06-0000002' SLG_ID							-- ID 하드코딩 
+                            , 'RD_06_S_001_83' DEFAULT_RPT_URL	--디폴트 유알엘 하드코딩 , 추후 변경 /kr/epro/buy/sheet/inv_prn.jsp  
+                            FROM DUAL											--한건도 조회되지 않는 것 방지
+                            
+                        ) X
+                        , (
+                            SELECT
+                                  B.COL01_DATA QRY_STR1
+                                , B.COL02_DATA QRY_STR2
+                                , B.COL03_DATA QRY_STR3
+                                , B.COL03_DATA QRY_STR4
+                                , A.SLG_ID
+                            FROM BNTSLGDEF A, BNTSLGIMP B
+                            WHERE 
+                                    1=1
+                                AND A.SLG_ID = B.SLG_ID --default url을 가져오기 위해 아우터조인 
+                                AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN A.OPEN_DATE AND A.CLOSE_DATE
+                                AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN B.OPEN_DATE AND B.CLOSE_DATE
+                                AND B.COM_CODE =  #{st_buyer_code} --고객사 회사코드
+                                AND A.SLG_ID = 'P06-0000002' -- ID하드코딩 
+                        ) Y
+                        /* SLOGIC-END */
+                    WHERE 1=1
+                        AND X.SLG_ID = Y.SLG_ID(+) 
+                ) Z
+			]]>
+		</if>
+		<![CDATA[
+			WHERE
+					1=1
+				AND A.BUYER = B.BUYER
+				AND A.PO_NO = B.PO_NO
+				AND B.BUYER = C.BUYER
+				AND B.PO_NO = C.PO_NO
+				AND B.PO_SEQ= C.PO_SEQ
+				AND B.BUYER = P.BUYER
+				AND B.PR_NO = P.PR_NO
+				AND B.PR_SEQ = P.PR_SEQ
+				AND A.AGENT = #{st_com_code}              --param:   session com_code 
+				AND A.COMPLETE_MARK = 'N'  
+				AND A.STATUS <> 'D'  
+				AND B.DS_FLAG = 'Y'  
+				AND B.COMPLETE_MARK = 'N'  
+				AND B.STATUS <> 'D'  
+				AND C.COMPLETE_MARK = 'N'  
+				AND C.STATUS <> 'D'  
+				AND P.STATUS <> 'D'
+				AND NVL(B.CLSD_FLAG,'N') <> 'Y'
+				AND A.BUYER = #{st_buyer_code}
+				AND (SELECT COUNT(*)
+                   	FROM KEP_PO_MNG
+                   	WHERE BUYER = A.BUYER
+                   	AND PO_NO = A.PO_NO
+                   	AND STATUS = 'S'
+                   	AND TYPE IN (SELECT CODE FROM ICOMCOD1 WHERE TYPE = 'PMNGTYPE' AND FLAG = 'Y' AND TEXT4 = 'Y')
+                ) = 0
+                AND (SELECT COUNT(*)
+                   	FROM ICOMTRXL
+                   	WHERE DOC_NAME = 'MHUB_CHG'
+                   	AND TARGET = A.BUYER
+                   	AND KEY_1 = A.PO_NO
+                   	AND KEY_9 = 'N'
+                ) = 0
+		]]>
+			<!-- 요청정보 -->
+			<if test="st_req_user_info != null and st_req_user_info != ''">
+				<![CDATA[
+					AND P.REQ_USER_INFO LIKE '%'||#{st_req_user_info}||'%'
+		 		]]>
+			</if>
+			<!-- 입고완료제외여부 -->
+			<if test='st_gr_flag == "GR"'>
+				<![CDATA[
+					AND B.ITEM_QTY ^= B.GR_QTY
+		 		]]>
+			</if>
+			
+			<if test="pop_key != null and pop_key != ''">
+				<![CDATA[
+					AND A.BUYER||A.PO_NO||B.PO_SEQ||C.DS_DATE IN (${pop_key})
+		 		]]>	 
+			</if>
+		<![CDATA[
+		) XX
+				
+			ORDER BY XX.PO_CREATE_DATE, XX.PO_NO, XX.DS_DATE, XX.PO_SEQ
+ 		]]>  
+		<include refid="common.ibsheet.xml.jsppageend"/>	
+	</select> 
+	
+</mapper>

@@ -1,0 +1,286 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="common.wmgi">
+	<select id="selectMasterWmGiMultiReleaseTransPopList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*selectMasterWmGiMultiReleaseTransPopList*/
+			SELECT	PODT.BUYER,
+					PODT.PO_NO,
+					PODT.PO_SEQ,
+					PODT.BUYER_ITEM_NO,
+					POHD.PO_CREATE_DATE,
+					PODT.RD_DATE,
+					IVDT.INV_NO,
+					IVDT.INV_SEQ,
+					PODT.DESCRIPTION,
+					PODT.SPECIFICATION,
+					NVL(IVDT.WMS_GR_QTY, 0) - NVL(IVDT.WMS_IVK_QTY, 0) AS WMS_GW_QTY,
+					NVL(IVDT.BOX_QTY, 1) AS BOX_QTY,
+					DECODE(IVDT.CAR_ID, NULL, 0, '', 0, 1) AS CAR_NO_IMG,
+					IVDT.CAR_ID,
+					IVDT.CAR_NO,
+					IVDT.CAR_PERSON_NAME,
+					IVDT.CAR_PERSON_TEL,
+					PODT.BYIT_COMORG_CODE,
+					PODT.CONTRACT_NO,
+					PODT.CONTRACT_SEQ
+			FROM	ICOMPODT PODT, ICOMPOHD POHD, ICOMIVDT IVDT, KEP_BUYER_FLAG FLAG
+			WHERE	1=1
+			AND		PODT.BUYER = POHD.BUYER
+			AND		PODT.PO_NO = POHD.PO_NO
+			AND		PODT.BUYER = IVDT.BUYER
+			AND		PODT.PO_NO = IVDT.PO_NO
+			AND		PODT.PO_SEQ = IVDT.PO_SEQ
+			AND		PODT.BUYER = FLAG.COM_CODE(+)
+			AND		PODT.STATUS <> 'D'
+			AND		POHD.STATUS <> 'D'
+			AND		IVDT.STATUS <> 'D'
+			AND		IVDT.WMS_GR_QTY != 0
+			AND		IVDT.WMS_GR_QTY <> IVDT.WMS_IVK_QTY
+			AND		PODT.ITEM_QTY > PODT.IV_QTY
+			AND		F_GET_CREDIT_LIMIT_STTS(PODT.BUYER,'','','2') = 'N'
+			AND		PODT.PROCESS_TYPE = '2'
+			AND		FLAG.INVOICE_PRINT_FLAG(+) != 'Y'
+			
+			AND		PODT.BUYER = #{st_buyer}
+			AND		PODT.WAREHOUSE_CODE = #{st_warehouse_code}
+		]]>
+		
+	<if test='st_date_type == "rd_date"'>
+		<![CDATA[
+			AND		PODT.RD_DATE BETWEEN #{st_from_date} AND #{st_to_date}
+ 		]]>	 
+	</if>
+	<if test='st_date_type == "po_create_date"'>
+		<![CDATA[
+			AND		POHD.PO_CREATE_DATE BETWEEN #{st_from_date} AND #{st_to_date}
+ 		]]>	 
+	</if>
+	<if test='st_date_type == "sc_date"'>
+		<![CDATA[
+			AND		IVDT.SCHEDULED_DATE BETWEEN #{st_from_date} AND #{st_to_date}
+ 		]]>	 
+	</if>
+		<![CDATA[
+			ORDER BY IVDT.INV_NO, IVDT.INV_SEQ, PODT.PO_NO, PODT.PO_SEQ
+ 		]]>	
+	</select>
+	
+	<select id="selectMasterWmGiMultiReleaseTransPopCheck" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/*selectMasterWmGiMultiReleaseTransPopCheck*/
+			SELECT	DECODE(#{WMS_GW_QTY}, NVL(WMS_GR_QTY, 0) - NVL(WMS_IVK_QTY, 0), 'Y', 'N') AS POSB_CHECK
+			FROM	ICOMIVDT
+			WHERE	BUYER = #{BUYER}
+			AND		INV_NO = #{INV_NO}
+			AND		INV_SEQ = #{INV_SEQ}  
+		]]>
+	</select>
+		
+	<update id="insertMasterWmGiMultiReleaseTransPopList" parameterType="java.util.Map">
+		<![CDATA[
+			/*insertMasterWmGiMultiReleaseTransPopList*/
+			INSERT INTO WMSIVDT
+			(
+				WAREHOUSE_CODE,
+				SELLER,
+				INV_NO,
+				INV_SEQ,
+				BUYER,
+				STATUS,
+				SEND_DATE,
+				SEND_TIME,
+				ADD_DATE,
+				ADD_TIME,
+				CHANGE_DATE,
+				CHANGE_TIME,
+				CONFIRM_DATE,
+				CONFIRM_TIME,
+				BUYER_ITEM_NO,
+				SELLER_ITEM_NO,
+				STDCATLG_ID,
+				DESCRIPTION,
+				SPECIFICATION,
+				UNIT_MEASURE,
+				PROCESS_TYPE,
+				PO_QTY,
+				GR_QTY,
+				INV_QTY,
+				UNIT_PRICE,
+				LIST_PRICE,
+				UNIT_AMT,
+				LIST_AMT,
+				ORIGIN_CODE,
+				MAKER_NAME,
+				AGENT,
+				PO_NO,
+				PO_SEQ,
+				S_INV_NO,
+				S_INV_SEQ,
+				REF_PR_NO,
+				PR_NO,
+				PR_SEQ,
+				LEGACY_PO_NO,
+				LEGACY_PO_SEQ,
+				DELY_TO_LOCATION,
+				PO_DATE,
+				GR_DATE,
+				INV_DATE,
+				DELIVERY_QTY,
+				DELIVERY_DATE,
+				ADD_USER_ID,
+				CHANGE_USER_ID,
+				DELIVERY_USER_ID,
+				LEGACY_IV_SERIAL,
+				DELIVERY_COMPANY,
+				DELIVERY_NO,
+				CMS_CATLG_ID,
+				SCHEDULED_DATE,
+				CAR_ID,
+				CAR_NO,
+				CAR_PERSON_NAME,
+				CAR_PERSON_TEL,
+				BOX_QTY,
+				DELIVERY_PERSON,
+				TAG_NO
+			)
+			(
+			SELECT	#{st_warehouse_code} AS WAREHOUSE_CODE,
+					IVDT.SELLER AS SELLER,
+					#{INVK_NO} AS INV_NO,
+					(
+						SELECT	TO_CHAR(NVL(TO_NUMBER(MAX(WD.INV_SEQ)),0)+1,'FM000000')
+						FROM	WMSIVDT WD
+						WHERE   WD.WAREHOUSE_CODE = #{st_warehouse_code}
+						AND		WD.INV_NO = #{INVK_NO}
+					) AS INV_SEQ,
+					IVDT.BUYER AS BUYER,
+					'C' AS STATUS,
+					'' AS SEND_DATE,
+					'' AS SEND_TIME,
+					TO_CHAR(SYSDATE,'YYYYMMDD') AS ADD_DATE,
+					TO_CHAR(SYSDATE,'HH24MISS') AS ADD_TIME,
+					TO_CHAR(SYSDATE,'YYYYMMDD') AS CHANGE_DATE,
+					TO_CHAR(SYSDATE,'HH24MISS') AS CHANGE_TIME,
+					TO_CHAR(SYSDATE,'YYYYMMDD') AS CONFIRM_DATE,
+					TO_CHAR(SYSDATE,'HH24MISS') AS CONFIRM_TIME,
+					IVDT.BUYER_ITEM_NO AS BUYER_ITEM_NO,
+					IVDT.SELLER_ITEM_NO AS SELLER_ITEM_NO,
+					PODT.CMS_CATLG_ID AS STDCATLG_ID,
+					PODT.DESCRIPTION AS DESCRIPTION,
+					PODT.SPECIFICATION AS SPECIFICATION,
+					PODT.UNIT_MEASURE AS UNIT_MEASURE,
+					PODT.PROCESS_TYPE AS PROCESS_TYPE,
+					PODT.ITEM_QTY AS PO_QTY,
+					IVDT.WMS_GR_QTY AS GR_QTY,
+					#{WMS_GW_QTY} AS INV_QTY,
+					PODT.UNIT_PRICE AS UNIT_PRICE,
+					NVL(PODT.AGENT_PRICE, 0) AS LIST_PRICE,
+					ROUND(#{WMS_GW_QTY} * NVL(PODT.UNIT_PRICE,0)) AS UNIT_AMT,
+					ROUND(#{WMS_GW_QTY} * NVL(PODT.AGENT_PRICE,0)) AS LIST_AMT,
+					PODT.ORIGIN_CODE AS ORIGIN_CODE,
+					PODT.MAKER_NAME AS MAKER_NAME,
+					POHD.AGENT AS AGENT,
+					PODT.PO_NO AS PO_NO,
+					PODT.PO_SEQ AS PO_SEQ,
+					IVDT.INV_NO AS S_INV_NO,
+					IVDT.INV_SEQ AS S_INV_SEQ,
+					PODT.REF_PR_NO AS REF_PR_NO,
+					PODT.PR_NO AS PR_NO,
+					PODT.PR_SEQ AS PR_SEQ,
+					PODT.LEGACY_PO_NO AS LEGACY_PO_NO,
+					PODT.LEGACY_PO_SEQ AS LEGACY_PO_SEQ,
+					PODT.DELY_TO_LOCATION AS DELY_TO_LOCATION,
+					POHD.PO_CREATE_DATE AS PO_DATE,
+					IVDT.WMS_GR_DATE AS GR_DATE,
+					REPLACE(#{st_inv_date}, '/', '') AS INV_DATE,
+					0 AS DELIVERY_QTY,
+					'' AS DELIVERY_DATE,
+					#{st_user_id} AS ADD_USER_ID,
+					#{st_user_id} AS CHANGE_USER_ID,
+					'' AS DELIVERY_USER_ID,
+					#{LEGACY_IV_SERIAL},
+					'' AS DELIVERY_COMPANY,
+					'' AS DELIVERY_NO,
+					PODT.CMS_CATLG_ID AS CMS_CATELG_ID,
+					NVL(REPLACE(#{st_scheduled_date}, '/', ''), F_GET_WORKINGDAY(TO_CHAR(SYSDATE,'YYYYMMDD'), 1)) AS SCHEDULED_DATE,
+					#{CAR_ID},
+					#{CAR_NO},
+					#{CAR_PERSON_NAME},
+					#{CAR_PERSON_TEL},
+					#{BOX_QTY},
+					'' DELIVERY_PERSON,
+					IVDT.TAG_NO AS TAG_NO
+			FROM	ICOMPODT PODT, ICOMPOHD POHD, ICOMIVDT IVDT, ICOMIVHD IVHD
+			WHERE	PODT.BUYER = #{BUYER}
+			AND		PODT.PO_NO = #{PO_NO}
+			AND		PODT.PO_SEQ = #{PO_SEQ}
+			AND		IVDT.INV_NO = #{INV_NO}
+			AND		IVDT.INV_SEQ = #{INV_SEQ}
+			AND		PODT.BUYER = POHD.BUYER
+			AND		PODT.PO_NO = POHD.PO_NO
+			AND		PODT.BUYER = IVDT.BUYER
+			AND		PODT.PO_NO = IVDT.PO_NO
+			AND		PODT.PO_SEQ = IVDT.PO_SEQ
+			AND		IVDT.SELLER = IVHD.SELLER
+			AND		IVDT.BUYER = IVHD.BUYER
+			AND		IVDT.INV_NO = IVHD.INV_NO
+			AND		PODT.STATUS <> 'D'
+			AND		POHD.STATUS <> 'D'
+			AND		IVDT.STATUS <> 'D'
+			AND		IVHD.STATUS <> 'D'
+			)
+		]]>
+	</update>
+	
+	<update id="updateMasterWmGiMultiReleaseTransPopICOMPODT" parameterType="java.util.Map">
+		<![CDATA[
+			/*updateMasterWmGiMultiReleaseTransPopICOMPODT*/
+			UPDATE	ICOMPODT
+			SET		IV_QTY = NVL(IV_QTY,0) + #{WMS_GW_QTY}
+			WHERE	BUYER = #{BUYER}
+			AND		PO_NO = #{PO_NO}
+			AND		PO_SEQ = #{PO_SEQ}
+			AND		STATUS != 'D'
+		]]>
+	</update>
+	
+	<update id="updateMasterWmGiMultiReleaseTransPopICOMIVDT" parameterType="java.util.Map">
+		<![CDATA[
+			/*updateMasterWmGiMultiReleaseTransPopICOMIVDT*/
+			UPDATE	ICOMIVDT
+			SET		WMS_IVK_QTY = NVL(WMS_IVK_QTY,0) + #{WMS_GW_QTY}
+			WHERE	BUYER = #{BUYER}
+			AND		INV_NO = #{INV_NO}
+			AND		INV_SEQ = #{INV_SEQ}
+			AND		STATUS != 'D'
+		]]>
+	</update>
+	
+	<select id="checkMasterWmGiMultiReleaseTransPopDuplicate" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/*checkMasterWmGiMultiReleaseTransPopDuplicate*/
+			SELECT	INV_QTY,
+					WMS_IVK_QTY
+			FROM	ICOMIVDT
+			WHERE	BUYER = #{BUYER}
+			AND		INV_NO = #{INV_NO}
+			AND		INV_SEQ = #{INV_SEQ}  
+		]]>
+	</select>
+	
+	<update id="updateMasterWmGiMultiReleaseTransPopICOMPORS" parameterType="java.util.Map">
+		<![CDATA[
+			/*updateMasterWmGiMultiReleaseTransPopICOMPORS*/
+			UPDATE ICOMPORS
+     			  SET BUYER_DS_DATE = NVL(REPLACE(#{st_scheduled_date}, '/', ''), F_GET_WORKINGDAY(TO_CHAR(SYSDATE,'YYYYMMDD'), 1))
+     			     ,CHANGE_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD')
+					 ,CHANGE_TIME = TO_CHAR(SYSDATE, 'HH24MISS')
+              	WHERE BUYER   = #{BUYER}                              
+                  AND PO_NO   = #{PO_NO}
+                  AND PO_SEQ  = #{PO_SEQ}
+                  AND STATUS != 'D'
+		]]>
+	</update>
+	
+</mapper>

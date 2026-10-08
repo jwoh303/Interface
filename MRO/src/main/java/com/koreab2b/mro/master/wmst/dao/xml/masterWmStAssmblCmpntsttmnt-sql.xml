@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.wmst">
+	<!-- 조회 -->
+	<select id="selectMasterWmStAssmblCmpntsttmntList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.pagestart"/>	
+			<![CDATA[
+		    	SELECT /*selectMasterWmStAssmblCmpntsttmntList*/                            
+    				BOM.BOM_ID,                                                       
+    				MAX(IT.DESCRIPTION_LOC) DESCRIPTION_LOC,    
+    				MAX(IT.SPECIFICATION) SPECIFICATION,              
+    				COUNT(*) SUB_CNT,                                             
+    				MAX(ST.TOT_QTY) TOT_QTY,                               
+    				MAX(ST.ALLOC_QTY) ALLOC_QTY,                           
+    				MAX(ST.AVAIL_QTY) AVAIL_QTY,                        
+    				MAX(ST.STC_SELLER_PRICE) STC_SELLER_PRICE,
+    				MAX(BOM.LAST_WORK_DATE) LAST_WORK_DATE  
+    				, MAX(IT.MAKER_NAME) MAKER_NAME
+    			FROM KEPBOFM BOM, WMSSTCK ST , ICOMBYIT IT       
+    			WHERE ST.WAREHOUSE_CODE = IT.BUYER                     
+    			  AND ST.STDCATLG_ID =  IT.BUYER_ITEM_NO               
+    			  AND ST.STDCATLG_ID = BOM.BOM_ID                          
+    			  AND ST.STATUS <> 'D'                                               
+    			  AND IT.STATUS <> 'D'                                                
+    			  AND BOM.STATUS <> 'D'                                            
+    			  AND ST.WAREHOUSE_CODE = #{st_warehouse_code}										
+				]]>
+		        <if test="st_desc != null and st_desc != ''">
+		    				AND IT.DESCRIPTION_LOC LIKE  '%'||#{st_desc}||'%'	
+		        </if>
+		        <if test="st_quotation_no != null and st_quotation_no != ''">
+		    				 AND IT.SPECIFICATION LIKE '%' || #{st_spec} || '%'
+		        </if>
+		        <if test="st_item_no != null and st_item_no != ''">
+		    				AND IT.BUYER_ITEM_NO LIKE '%' || #{st_item_no} || '%'
+		        </if>
+		        <if test="st_maker_name != null and st_maker_name != ''">
+		    				AND IT.MAKER_NAME LIKE'%' || #{st_maker_name} || '%'
+		        </if>
+		        <if test='st_qty_flag =="Y"'>
+		        	<![CDATA[
+		        			and st.avail_qty > 0 
+		        	]]>
+		        </if>
+		        <if test='st_qty_flag =="N"'>
+		        	<![CDATA[
+		        			and st.avail_qty = 0 
+		        	]]>
+		        </if>
+		        <![CDATA[
+		        GROUP BY BOM.BOM_ID  
+		        ORDER BY BOM.BOM_ID	
+		        ]]>		        
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+
+
+	<update  id="insertMasterWmStAssmblCmpntsttmnt" parameterType="java.util.Map" >
+		<![CDATA[
+				INSERT INTO	KEPQTDT					
+				(									
+					BUYER,							
+					QUOTATION_NO,					
+					QUOTATION_SEQ,					
+					REVISION,						
+					AGENT,							
+					AGENT_REVISION,					
+					STATUS,							
+					BUYER_ITEM_NO,					
+					DESCRIPTION,					
+					SPECIFICATION,					
+					UNIT_MEASURE,					
+					MAKER_NAME,						
+					ORIGIN_NAME,					
+					ATOS_DATE,						
+					ATOS_END_DATE,					
+					ATOS_END_TIME,					
+					ITEM_QTY,						
+					IMAGE_KEY,						
+					DSS_FLAG,						
+					DSS_CHOICE						
+				)									
+				(									
+				SELECT								
+					#{BUYER},									/* 1 : BUYER */
+					#{QUOTATION_NO},									/* 2 : QUOTATION_NO */
+					#{QUOTATION_SEQ},									/* 3 : QUOTATION_SEQ */
+					#{REVISION},									/* 4 : REVISION */
+					#{AGENT},									/* 5 : AGENT */
+					#{AGENT_REVISION},								/* 6 : AGENT_REVISION */
+					'C',						
+					BUYER_ITEM_NO,				
+					DESCRIPTION,				
+					SPECIFICATION,				
+					UNIT_MEASURE,				
+					MAKER_NAME,					
+					ORIGIN_CODE,				
+					TO_CHAR(SYSDATE, 'YYYYMMDD')AS ATOS_DATE,
+					#{ATOS_END_DATE},								/* 7 : ATOS_END_DATE */
+					#{ATOS_END_TIME},								/* 8 : ATOS_END_TIME */
+					ITEM_QTY,					
+					IMAGE_KEY,					
+					#{DSS_FLAG},								/*  9 : DSS_FLAG   if(chk_str[1].equals("A") || chk_str[1].equals("B") || chk_str[1].equals("C")|| chk_str[1].equals("S")) : Y , 기타  : N   */
+					#{DSS_CHOICE}								/*    10 : DSS_CHOICE */
+				   FROM KEPRQDT						
+				  WHERE BUYER=#{BUYER}							/* 11 : BUYER */           
+					AND QUOTATION_NO=#{QUOTATION_NO}					/* 12 : QUOTATION_NO     */
+					AND QUOTATION_SEQ=#{QUOTATION_SEQ}					/* 13 : QUOTATION_SEQ    */
+					AND REVISION=#{REVISION}						/* 14 : REVISION  */       
+					AND RECV_FLAG <> 'GD'			
+					AND STATUS IN ('C','R')			
+				)									
+
+		]]>
+							   <!-- /* CMS_USER_ID = 'TEMPUSER', */ -->
+		
+	</update>
+
+
+<!-- 삭제 -->
+	<update id="deleteMasterWmStAssmblCmpntsttmnt"  parameterType="java.util.Map">
+		<![CDATA[
+				UPDATE KEPRQDT					
+				   SET RECV_FLAG      = 'GD' 	
+				     , CANCEL_USER_ID = #{USR_ID}    		/*CANCEL_USER_ID*/
+				     , CANCEL_DATE    = SYSDATE	
+				     , CANCEL_REMARK  = #{CANCEL_REMARK}    		/*CANCEL_REMARK*/
+				 WHERE BUYER          = #{BUYER}			/*BUYER*/
+				   AND QUOTATION_NO   = #{QUOTATION_NO}	 		/*QUOTATION_NO*/
+				   AND QUOTATION_SEQ  = #{QUOTATION_SEQ}			/*QUOTATION_SEQ*/
+				   AND REVISION       = #{REVISION}			/*REVISION*/
+				   AND STATUS IN ('C','R')
+		]]>
+	</update>
+
+</mapper>   
+   

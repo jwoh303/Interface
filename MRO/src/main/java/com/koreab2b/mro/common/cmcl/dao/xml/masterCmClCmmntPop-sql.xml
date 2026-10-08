@@ -1,0 +1,313 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="common.cmcl">
+
+	<!-- 조회 -->
+	<select id="selectMasterCmClCmmntPopList" parameterType="java.util.Map" resultType="java.util.Map">
+	/*selectMasterCmClCmmntPopList*/
+		<![CDATA[
+			SELECT
+			    ITEM_SEQ
+			  , REMARK_DESCRIPTION
+			  , REMARK_SPECIFICATION
+			  , REMARK_QTY
+			  , REMARK_PRICE
+			  , SUPP_PRICE
+			  , TAX_PRICE
+			  , REMARK
+			FROM 
+			    KEPTITEM /* 세금계산서 품목정보 */
+			WHERE 
+			    TAX_BILL_NO = #{st_tax_bill_no}			 
+		]]>
+	</select>
+	
+	<!-- 저장 -->
+	<update id="updateMasterCmClCmmntPopList" parameterType="java.util.Map" >
+		<![CDATA[
+			UPDATE 
+			    KEPTITEM /* 세금계산서 품목정보 */
+			SET 
+			    REMARK_DESCRIPTION      = #{REMARK_DESCRIPTION}
+			  , REMARK_SPECIFICATION    = #{REMARK_SPECIFICATION}
+			  , REMARK_QTY              = #{REMARK_QTY}
+			  , REMARK_PRICE            = #{REMARK_PRICE}
+			  , SUPP_PRICE              = #{SUPP_PRICE}
+			  , TAX_PRICE               = #{TAX_PRICE}
+			  , REMARK_DATE             = TO_CHAR(SYSDATE, 'YYYYMMDD')
+			  , REMARK   					= #{REMARK}
+			WHERE
+			    TAX_BILL_NO             = #{st_tax_bill_no}
+			AND ITEM_SEQ                = LPAD(#{ITEM_SEQ}, 6, 0)
+		]]>
+	</update>
+	
+	<update id="insertMasterCmClCmmntPopList" parameterType="java.util.Map" >
+		<![CDATA[
+			INSERT INTO KEPTITEM 
+			( 
+			    TAX_BILL_NO 
+			  , ITEM_SEQ 
+			  , REMARK_DESCRIPTION 
+			  , REMARK_SPECIFICATION 
+			  , REMARK_QTY 
+			  , REMARK_PRICE 
+			  , SUPP_PRICE 
+			  , TAX_PRICE 
+			  , REMARK_DATE
+			  , REMARK
+			)
+			VALUES 
+			( 
+			    #{st_tax_bill_no}
+			  , (SELECT LPAD(NVL(MAX(ITEM_SEQ), 0)+1, 6, 0)  FROM KEPTITEM WHERE TAX_BILL_NO = #{st_tax_bill_no})
+			  , #{REMARK_DESCRIPTION} 
+			  , #{REMARK_SPECIFICATION}
+			  , #{REMARK_QTY}
+			  , TRUNC(#{REMARK_PRICE})
+			  , TRUNC(#{SUPP_PRICE})
+			  , TRUNC(#{TAX_PRICE})
+			  , TO_CHAR(SYSDATE, 'YYYYMMDD')
+			  , #{REMARK}
+			)
+		]]>
+	</update>
+	<select id="selectMasterCmClStndSettingPop" parameterType="java.util.Map" resultType="java.util.Map">
+	/*selectMasterCmClStndSettingPop*/
+		<![CDATA[
+				SELECT
+				BILL.ACCOUNTING_CODE 
+				,  BILL.USER_NAME_LOC
+				 , BILL.PHONE_NUMBER
+				 , BILL.FAX_NUMBER
+				 , DECODE(BILL.PRIORITY,'N','0','1') AS PRIORITY
+				 , BILL.EMAIL
+				FROM BILL_ACCOUNTING BILL
+				WHERE COM_CODE = #{st_buyer_code}
+				AND IRS_NO = #{st_buyer_irs_no}
+				AND SITE = 'KA'
+				ORDER BY BILL.USER_NAME_LOC 
+		]]>
+	</select>
+	<!-- 담당자추가 -->
+	<update  id="insertMasterCmClStndSettingPop" parameterType="java.util.Map" >
+	/*insertMasterCmClStndSettingPop*/
+		<![CDATA[
+			INSERT INTO BILL_ACCOUNTING
+			(
+			    ACCOUNTING_CODE
+			  , SITE
+			  , COM_CODE
+			  , IRS_NO
+			  , USER_NAME_LOC
+			  , PHONE_NUMBER
+			  , FAX_NUMBER
+			  , EMAIL
+			  , CREATE_USER_ID
+			  , CREATE_DATE
+			  , PRIORITY
+			)
+			VALUES
+			(
+			    (SELECT MAX(ACCOUNTING_CODE)+1 FROM BILL_ACCOUNTING)
+			  , #{st_sys_type}
+			  , #{st_buyer_code}
+			  , #{st_buyer_irs_no}
+			  , #{USER_NAME_LOC} 
+			  , #{PHONE_NUMBER} 
+			  , #{FAX_NUMBER} 
+			  , #{EMAIL}  
+			  , #{st_user_id}
+			  , SYSDATE
+			  , DECODE(#{PRIORITY},'0','N','Y') 
+			)				
+		]]>
+	</update>
+
+
+
+	<!-- 담당자수정 -->
+	<update  id="updateMasterCmClStndSettingPop" parameterType="java.util.Map" >
+	/*updateMasterCmClStndSettingPop*/
+		<![CDATA[
+			UPDATE BILL_ACCOUNTING
+			SET USER_NAME_LOC =#{USER_NAME_LOC}
+			  , PHONE_NUMBER = #{PHONE_NUMBER}
+			  , FAX_NUMBER = #{FAX_NUMBER}
+			  , EMAIL = #{EMAIL}
+			  , PRIORITY = DECODE(#{PRIORITY},'0','N','Y')
+			WHERE ACCOUNTING_CODE  = #{ACCOUNTING_CODE}
+		]]>
+	</update>
+
+
+
+	<!-- 담당자 삭제 -->
+	<update id="delMasterCmClStndSettingPop"  parameterType="java.util.Map">
+	/*delMasterCmClStndSettingPop*/
+		<![CDATA[
+			DELETE FROM BILL_ACCOUNTING
+			WHERE ACCOUNTING_CODE  = #{ACCOUNTING_CODE}
+		]]>
+	</update>
+	<select id="selectMasterCmClStndSettingModifyPop" parameterType="java.util.Map" resultType="java.util.Map">
+	/*selectMasterCmClStndSettingModifyPop*/
+		<![CDATA[
+		SELECT
+		 TO_CHAR(B.CREATION_DATE,'YYYY/MM/DD') AS CREATION_DATE
+		, B.ORI_ISSUE_ID ISSUE_ID
+		, A.IRS_NAME
+		, B.DTI_TYPE
+		, A.IRS_NO
+		, C.DTI_STATUS
+		, B.SEQ_ID
+		FROM KEPTARDT A, XXSB_DTI_MAIN B, XXSB_DTI_STATUS C
+		WHERE A.TAX_BILL_NO = B.SEQ_ID
+		AND B.CONVERSATION_ID = C.CONVERSATION_ID
+		AND A.CONFIRM_USER_ID IS NULL
+    	AND B.ORI_ISSUE_ID IS NOT NULL
+    	AND B.AMEND_CODE='01'
+    	AND B.STATUS IN ('C','R')
+		AND A.IRS_NO=#{st_kep_irs}
+		AND B.SUP_EMAIL =#{st_sup_email}
+		AND A.ISSUE_DATE LIKE SUBSTR(#{st_issueDate},0,6)||'%'
+		]]>
+	</select>
+	<select id="selectMasterCmClStndSettingApModifyPop" parameterType="java.util.Map" resultType="java.util.Map">
+	/*selectMasterCmClStndSettingApModifyPop*/
+		<![CDATA[
+		SELECT
+		 TO_CHAR(B.CREATION_DATE,'YYYY/MM/DD') AS CREATION_DATE
+		, B.ORI_ISSUE_ID ISSUE_ID
+		, A.IRS_NAME
+		, B.DTI_TYPE
+		, A.IRS_NO
+		, C.DTI_STATUS
+		, B.SEQ_ID
+		FROM KEPTAPDT A, XXSB_DTI_MAIN B, XXSB_DTI_STATUS C
+		WHERE A.TAX_BILL_NO = B.SEQ_ID
+		AND B.CONVERSATION_ID = C.CONVERSATION_ID
+    	AND B.ORI_ISSUE_ID IS NOT NULL
+    	AND B.AMEND_CODE='01'
+    	AND B.STATUS IN ('C','R')
+		AND A.IRS_NO=#{st_kep_irs}
+		AND B.SUP_EMAIL =#{st_sup_email}
+		AND A.ISSUE_DATE LIKE SUBSTR(#{st_issueDate},0,6)||'%'
+		]]>
+	</select>
+	<select id="selectMasterCmClIssueIdInfoPop" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+				/*selectMasterCmClIssueIdInfoPop*/
+				SELECT DISTINCT 									
+				       A.ISSUE_DATE									
+				       ,DECODE(A.ARAP,'AR','매출','AP','매입') ARAP
+				       ,A.ISSUE_ID
+				       , DECODE(A.TYPE_CODE,'0101','일반 세금계산서'									
+				               ,'0102','영세율 세금계산서'									
+				               ,'0201','수정 일반 세금계산서'									
+				               ,'0202','수정 영세율 세금계산서'									
+				               ,'0301','일반 계산서') TYPE_CODE
+				       , A.CHARGETOTAL
+				       , A.TAXTOTAL
+				       , A.GRANDTOTAL
+				       , A.ASP_CODE
+				       , A.SU_EMAIL
+				       , A.SU_PERSNAME
+				       , A.IP_EMAIL1
+				       , A.IP_PERSNAME1
+				       , DECODE(A.ARAP,'AP',A.SU_NAME,'AR',IP_NAME) IP_NAME
+				       , DECODE(A.ARAP,'AP',A.SU_ID,'AR',IP_ID) IP_ID
+				       , A.DESC_TEXT1
+				       , A.AMEND_CODE
+				FROM KEPTAX.ZDTV3T_NTS A, TACCOUNT_TAX_MAPPING B									
+				WHERE A.ISSUE_ID = B.ISSUE_ID(+)									
+				AND A.ISSUE_DATE  BETWEEN #{st_from_date} AND #{st_to_date}
+				AND A.ARAP= #{st_ar_ap}
+				AND A.GROUP_KEY IS NULL
+		]]>
+		<choose>
+		<when test='st_ar_ap == "AR" '>
+			<if test="st_irs_no != null and st_irs_no != ''">
+			    AND A.IP_ID=  #{st_irs_no}
+			</if>
+		</when>
+		<when test='st_ar_ap == "AP" '>
+			<if test="st_irs_no != null and st_irs_no != ''"> 
+			    AND A.SU_ID =  #{st_irs_no}
+			</if>
+		</when>
+		</choose>
+		
+		<choose>
+			<when test='st_issueId_yn == "Y" '>
+				<if test="st_group_key != null and st_group_key != '' ">
+				AND B.GROUP_KEY = #{st_group_key}
+				</if>
+		    	AND B.MAPPING_STATUS IS NOT NULL
+			</when>
+			<when test='st_issueId_yn == "N" '>
+				AND B.MAPPING_STATUS IS NULL
+			</when>
+		</choose>
+		
+		<if test="st_ip_email != null and st_ip_email != '' ">
+		    AND A.IP_EMAIL1 LIKE #{st_ip_email}||'%'
+		</if>
+		<if test="st_su_email != null and st_su_email != '' ">
+		    AND A.SU_EMAIL LIKE #{st_su_email}||'%'
+		</if>
+	</select>
+	
+	<select id="selectMasterCmClIssueIdInfoPopY" parameterType="java.util.Map" resultType="java.util.Map" fetchSize="100">
+		<![CDATA[
+			/* selectMasterCmClIssueIdInfoPopY */
+			SELECT	DISTINCT 
+						A.A01_REGNO AS IRS_NO
+						, A.A01_CUSTOMERNM AS IRS_NAME
+						, DECODE(A.ACODE, '1114805', '매입', '2112605', '매출') AS ACODE
+						, A.ACCNO
+						, A.ACCSEQ
+						, A.PRIN_AMOUNT
+						, DECODE(A.ACODE, '2112605', A.CREDIT, '1114805', A.DEBIT) AS TAX
+						, A.REFNO2 AS KEP_TAX_BILL_NO
+			FROM	TACCOUNT_TAX_IF A, TACCOUNT_TAX_MAPPING B 
+			WHERE	1=1
+			AND		A.ACCNO = B.ACCNO
+			AND		A.ACCSEQ = B.ACCSEQ
+			AND		A.STATUS IN ('C', 'R')
+			AND		B.STATUS IN ('C', 'R')
+		]]>
+		<if test="st_group_key != null and st_group_key.size() > 0">
+			AND		B.GROUP_KEY IN
+			<foreach item="item" collection="st_group_key"
+				open="(" separator="," close=")">
+			 #{item}
+			</foreach>
+		</if>
+	</select>
+	
+	<select id="selectMasterCmClIssueIdInfoPopN" parameterType="java.util.Map" resultType="java.util.Map" fetchSize="100">
+		<![CDATA[
+			/* selectMasterCmClIssueIdInfoPopN */
+			SELECT	DISTINCT
+						A01_REGNO AS IRS_NO
+						, A01_CUSTOMERNM AS IRS_NAME
+						, DECODE(ACODE, '1114805', '매입', '2112605', '매출') AS ACODE
+						, ACCNO
+						, ACCSEQ
+						, PRIN_AMOUNT
+						, DECODE(ACODE, '2112605', CREDIT, '1114805', DEBIT) AS TAX
+						, REFNO2 AS KEP_TAX_BILL_NO
+			FROM	TACCOUNT_TAX_IF
+			WHERE	1=1
+			AND		STATUS IN ('C', 'R')
+			]]>
+		<if test="st_group_key != null and st_group_key.size() > 0">
+			AND		ACCNO||ACCSEQ IN
+			<foreach item="item" collection="st_group_key"
+				open="(" separator="," close=")">
+			 #{item}
+			</foreach>
+		</if>
+	</select>
+</mapper>

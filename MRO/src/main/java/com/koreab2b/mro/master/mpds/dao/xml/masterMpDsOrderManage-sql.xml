@@ -1,0 +1,268 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mpds">
+	<!-- 조회 -->
+	<select id="selectMasterMpDsOrderManageList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.pagestart"/>	
+			<![CDATA[
+		    	SELECT /*selectMasterMpDsOrderManageList*/                            
+			        Y.BUYER_ITEM_NO,			-- 1
+			        Y.DESCRIPTION,				-- 2
+			        Y.ADD_NAME,					-- 3
+			        Y.ADD_DATE,					-- 4
+			        Y.DS_QTY,					-- 5
+			        Y.PO_DATE,					-- 6
+			        Y.GR_DATE,					-- 7
+			        Y.REMARK,					-- 8
+			        DECODE(Y.REMARK,'','0','1') AS REMARK_IMG,
+			        Y.STATUS,					-- 9
+			        Y.DS_DATE,					-- 10
+			        Y.DELY_TO_LOCATION_TEXT,	-- 11
+			        DECODE(Y.DELY_TO_LOCATION_TEXT,'','0','1') AS DELY_TO_LOCATION_TEXT_IMG,
+			        Y.UNIT_MEASURE,				-- 12
+			        Y.RD_DATE,					-- 13
+			        Y.GR_QTY,					-- 14
+			        Y.REF_NO,					-- 15
+			        DECODE(Y.REF_NO,'','0','1') AS REF_NO_IMG,
+			        Y.BUYER,					-- 16
+			        Y.SEQ,						-- 17
+			        Y.DS_SEQ,					-- 18
+			        DECODE(TRIM(Y.PACKAGE_STATUS), '', 'Mapping' ,Y.PACKAGE_STATUS) AS PACKAGE_STATUS,			-- 19
+			        Y.BUYER_NAME,				-- 20
+			        Y.AGENT_NAME,
+			        Y.HIS_COUNT,				    -- 21
+			        DECODE(Y.HIS_COUNT,'0','0','1') AS HIS_COUNT_IMG,
+			        Y.IV_QTY,				    -- 22
+	        ]]>
+ 				<if test="pageflag==1">
+			       CASE WHEN Y.STATUS IN ('PR','PO','DS','IV','GR') THEN '3' ELSE '2' END STATUS_PR,
+			       CASE WHEN Y.STATUS IN (     'PO','DS','IV','GR') THEN '3' ELSE '2' END STATUS_PO, 
+			       CASE WHEN Y.STATUS IN (          'DS','IV','GR') THEN '3' ELSE '2' END STATUS_DS,
+			       CASE WHEN Y.STATUS IN (               'IV','GR') THEN '3' ELSE '2' END STATUS_IV,  
+			       CASE WHEN Y.STATUS IN (                  'GR') THEN (CASE WHEN Y.DS_QTY > Y.GR_QTY THEN '4' ELSE '3' END ) ELSE '2' END STATUS_GR
+ 				</if>				
+ 				<if test="pageflag==0">
+			       CASE WHEN Y.STATUS IN ('PR','PO','DS','IV','GR') THEN '완료' ELSE '미완료' END STATUS_PR,
+			       CASE WHEN Y.STATUS IN (     'PO','DS','IV','GR') THEN '완료' ELSE '미완료' END STATUS_PO, 
+			       CASE WHEN Y.STATUS IN (          'DS','IV','GR') THEN '완료' ELSE '미완료' END STATUS_DS,
+			       CASE WHEN Y.STATUS IN (               'IV','GR') THEN '완료' ELSE '미완료' END STATUS_IV,  
+			       CASE WHEN Y.STATUS IN (                  'GR') THEN (CASE WHEN Y.DS_QTY > Y.GR_QTY THEN '부분완료' ELSE '완료' END ) ELSE '미완료' END STATUS_GR
+ 				</if>				       
+	       <![CDATA[
+			        FROM (						
+			        SELECT						
+			        ROWNUM NUM ,				
+			        X.BUYER_ITEM_NO,			
+			        X.DESCRIPTION,				
+			        X.ADD_NAME,					
+			        X.ADD_DATE,					
+			        X.DS_QTY,					
+			        X.PO_DATE,					
+			        X.GR_DATE,					
+			        X.REMARK,					
+			        X.DS_DATE,					
+			        X.DELY_TO_LOCATION_TEXT,	
+			        X.UNIT_MEASURE,				
+			        X.RD_DATE,					
+			        X.GR_QTY,					
+			        X.REF_NO,					
+			        X.BUYER,					
+			        X.SEQ,						
+			        X.DS_SEQ,					
+			        X.PACKAGE_STATUS,			
+			        X.BUYER_NAME,				
+			        X.HIS_COUNT,	    			
+			        X.IV_QTY,	    			
+					X.STATUS,
+					X.AGENT_NAME
+			        FROM (						
+			        SELECT						
+			        A.BUYER_ITEM_NO AS BUYER_ITEM_NO,	
+			        (SELECT DESCRIPTION_LOC FROM ICOMBYIT WHERE BUYER=A.BYIT_COMORG_CODE AND BUYER_ITEM_NO=A.BUYER_ITEM_NO) AS DESCRIPTION,	
+			        (SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID=A.ADD_USER_ID) AS ADD_NAME,	
+			        A.ADD_DATE AS ADD_DATE,	
+			        B.DS_QTY AS DS_QTY,	
+			        A.PO_DATE AS PO_DATE,	
+			        B.GR_DATE AS GR_DATE,	
+			        B.BTOA_REMARK AS REMARK,	
+					CASE WHEN A.PR_QTY ^=0 AND NVL(B.PO_QTY,0)=0 THEN 'PR'	
+					ELSE CASE WHEN A.PR_QTY ^=0 AND NVL(B.PO_QTY,0) ^=0 AND B.DS_QTY^=0 AND B.DS_DATE IS NULL THEN 'PO'	
+					ELSE CASE WHEN A.PR_QTY ^=0 AND NVL(B.PO_QTY,0) ^=0 AND B.DS_QTY^=0 AND B.DS_DATE IS NOT NULL AND B.INV_DATE IS NULL AND B.INV_USEr_ID IS NULL THEN 'DS'	
+					ELSE CASE WHEN A.PR_QTY ^=0 AND NVL(B.PO_QTY,0) ^=0 AND B.DS_QTY^=0 AND B.DS_DATE IS NOT NULL AND B.INV_DATE IS NOT NULL AND B.INV_USEr_ID IS NOT NULL AND B.GR_USER_ID IS NULL THEN 'IV'	
+					ELSE CASE WHEN A.PR_QTY ^=0 AND NVL(B.PO_QTY,0) ^=0 AND B.DS_QTY^=0 AND B.DS_DATE IS NOT NULL AND B.INV_DATE IS NOT NULL AND B.INV_USEr_ID IS NOT NULL AND B.GR_USER_ID IS NOT NULL THEN 'GR'	
+					END END END END END AS STATUS,	
+			        TO_CHAR(B.DS_DATE,'YYYYMMDD') AS DS_DATE,	
+			        A.DELY_TO_LOCATION_TEXT,	
+			        (SELECT UNIT_MEASURE FROM ICOMBYIT WHERE BUYER=A.BYIT_COMORG_CODE AND BUYER_ITEM_NO=A.BUYER_ITEM_NO) AS UNIT_MEASURE,	
+			        B.RD_DATE AS RD_DATE,	
+			        B.GR_QTY AS GR_QTY,	
+			        A.REF_NO AS REF_NO,	
+			        A.BUYER AS BUYER,		
+			        A.SEQ AS SEQ,			
+			        B.DS_SEQ AS DS_SEQ,			
+			        CASE WHEN C.RECV_FLAG='GB' THEN '반려'	
+			        ELSE CASE WHEN C.RECV_FLAG='FY' THEN '취소'	
+			        ELSE CASE WHEN C.RECV_FLAG='NW' THEN '등록중'	
+			        ELSE CASE WHEN C.RECV_FLAG='ED' THEN '완료'	
+			        ELSE CASE WHEN C.RECV_FLAG='IG' AND C.MM_STATUS='ED' AND C.DD_STATUS ^='ED' THEN '마케팅'	
+			        ELSE CASE WHEN C.RECV_FLAG='IG' AND C.MM_STATUS='ED' AND C.DD_STATUS='ED' AND C.EE_STATUS ^='ED' THEN '문안'	
+			        ELSE CASE WHEN C.RECV_FLAG='IG' AND C.MM_STATUS='ED' AND C.DD_STATUS='ED' AND C.EE_STATUS='ED'  AND (C.ES_MK1_STATUS='N' OR C.ES_PD1_STATUS='N' AND C.ES_QA1_STATUS ='N')THEN '디자인'	
+			        ELSE CASE WHEN C.RECV_FLAG='IG' AND C.MM_STATUS='ED' AND C.DD_STATUS='ED' AND C.EE_STATUS='ED' AND C.ES_MK1_STATUS='Y' AND C.ES_PD1_STATUS='Y' AND C.ES_QA1_STATUS='Y' THEN '최종확인'	
+			        END END END END END END END END AS PACKAGE_STATUS,	
+
+			        (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE=A.BUYER) AS BUYER_NAME,	  
+			        (SELECT COUNT(HIS_SEQ) FROM DB_OFF_PO_HISTORY WHERE BUYER = A.BUYER AND SEQ = A.SEQ)AS HIS_COUNT,	 
+
+			        NVL(A.IV_QTY,0) AS IV_QTY,		
+					(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE=A.AGENT) AS AGENT_NAME
+			        FROM DB_OFF_PO A, DB_OFF_IV B, DONGOPKG C	
+
+			]]>
+			<!-- 요청공장 -->
+		        <if test="st_buyer_code != null and st_buyer_code != 'ALL'">
+	                    WHERE A.BUYER = #{st_buyer_code}	
+		        </if>
+<!-- 	                    WHERE A.BUYER IN ('KRDONG0110','KRDONG0107','KRDONG0128','KRDONG0732')	 -->
+		        <if test="st_buyer_code != null and st_buyer_code == 'ALL'">
+	                    WHERE A.BUYER IN ('KRDONG0110','KRDONG0107','KRDONG0128','KRDONG0732')	
+		        </if>
+			<!-- 조회기준일자 -->
+		        <if test="st_date_type != null and st_date_type == 'ADD_DATE'">
+	                    AND A.ADD_DATE BETWEEN #{st_from_date} AND #{st_to_date}	
+		        </if>
+		        <if test="st_date_type != null and st_date_type == 'PO_DATE'">
+	                    AND A.PO_DATE BETWEEN #{st_from_date} AND #{st_to_date}	
+		        </if>
+		        <if test="st_date_type != null and st_date_type == 'RD_DATE'">
+	                    AND B.RD_DATE BETWEEN #{st_from_date} AND #{st_to_date}	
+		        </if>
+				 <!-- 품목코드 -->       	
+		        <if test="st_buyer_item_no != null and st_buyer_item_no != ''">
+	                    AND A.BUYER_ITEM_NO LIKE #{st_buyer_item_no} || '%'
+		        </if>
+		        <!-- 품명 -->
+		        <if test="st_description != null and st_description != ''">
+                        AND (SELECT DESCRIPTION_LOC FROM ICOMBYIT WHERE BUYER=A.BYIT_COMORG_CODE AND BUYER_ITEM_NO=A.BUYER_ITEM_NO) LIKE  '%' || #{st_description} || '%'      
+		        </if>
+				<!-- 발주자 -->
+		        <if test="st_purchaser_name != null and st_purchaser_name != ''">
+                        AND (SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID=A.PURCHASER_ID) LIKE  '%' || #{st_purchaser_name} || '%'      
+		        </if>
+		        <!-- 진행상태 -->
+		        <if test="st_po_status != null and st_po_status != 'ALL'">
+			        AND CASE WHEN A.PR_QTY ^=0 AND NVL(B.PO_QTY,0)=0 THEN 'PR'	
+			        ELSE CASE WHEN A.PR_QTY ^=0 AND NVL(B.PO_QTY,0) ^=0 AND B.DS_QTY^=0 AND B.DS_DATE IS NULL THEN 'PO'	
+			        ELSE CASE WHEN A.PR_QTY ^=0 AND NVL(B.PO_QTY,0) ^=0 AND B.DS_QTY^=0 AND B.DS_DATE IS NOT NULL AND B.INV_DATE IS NULL AND B.INV_USEr_ID IS NULL THEN 'DS'	
+			        ELSE CASE WHEN A.PR_QTY ^=0 AND NVL(B.PO_QTY,0) ^=0 AND B.DS_QTY^=0 AND B.DS_DATE IS NOT NULL AND B.INV_DATE IS NOT NULL AND B.INV_USEr_ID IS NOT NULL AND B.GR_USER_ID IS NULL THEN 'IV'	
+			        ELSE CASE WHEN A.PR_QTY ^=0 AND NVL(B.PO_QTY,0) ^=0 AND B.DS_QTY^=0 AND B.DS_DATE IS NOT NULL AND B.INV_DATE IS NOT NULL AND B.INV_USEr_ID IS NOT NULL AND B.GR_USER_ID IS NOT NULL THEN 'GR'	
+			        END END END END END = #{st_po_status}
+		        </if>
+
+		        <if test="st_gr_exception != null and st_gr_exception == 'on'">
+				        AND CASE WHEN A.PR_QTY ^=0 AND NVL(B.PO_QTY,0)=0 THEN 'PR'	
+				        ELSE CASE WHEN A.PR_QTY ^=0 AND NVL(B.PO_QTY,0) ^=0 AND B.DS_QTY^=0 AND B.DS_DATE IS NULL THEN 'PO'	
+				        ELSE CASE WHEN A.PR_QTY ^=0 AND NVL(B.PO_QTY,0) ^=0 AND B.DS_QTY^=0 AND B.DS_DATE IS NOT NULL AND B.INV_DATE IS NULL AND B.INV_USEr_ID IS NULL THEN 'DS'	
+				        ELSE CASE WHEN A.PR_QTY ^=0 AND NVL(B.PO_QTY,0) ^=0 AND B.DS_QTY^=0 AND B.DS_DATE IS NOT NULL AND B.INV_DATE IS NOT NULL AND B.INV_USEr_ID IS NOT NULL AND B.GR_USER_ID IS NULL THEN 'IV'	
+				        ELSE CASE WHEN A.PR_QTY ^=0 AND NVL(B.PO_QTY,0) ^=0 AND B.DS_QTY^=0 AND B.DS_DATE IS NOT NULL AND B.INV_DATE IS NOT NULL AND B.INV_USEr_ID IS NOT NULL AND B.GR_USER_ID IS NOT NULL THEN 'GR'	
+				        END END END END END IN ('PR','PO','DS','IV')	
+		        </if>
+			<![CDATA[
+			        AND A.STATUS ^='D'	
+			        AND A.BUYER=B.BUYER	
+			        AND A.ADD_DATE=B.ADD_DATE	
+			        AND A.SEQ=B.SEQ	
+			        AND B.STATUS ^='D'	
+			        AND B.CLOSE_FLAG||NVL(B.GR_QTY,0) ^='Y0'	
+			        AND C.BYCA_COMORG_CODE(+)=A.BYIT_COMORG_CODE	
+			        AND C.RD_DATE(+)=A.OPKG_RD_DATE	
+			        AND C.OPKG_SEQ(+)=A.OPKG_SEQ	
+			        AND C.BUYER_ITEM_NO(+)=A.BUYER_ITEM_NO ) X ) Y 
+			]]>
+
+		<include refid="common.ibsheet.xml.pageend"/>
+			<![CDATA[
+					        ORDER BY RD_DATE, PO_DATE DESC       
+			]]>
+		
+	</select>
+
+
+	<update  id="updateMasterMpDscropProtect_IV_DS" parameterType="java.util.Map" >
+		<![CDATA[
+		UPDATE DB_OFF_IV A	
+		   SET A.DS_QTY=#{DS_QTY}	
+		WHERE A.BUYER=#{BUYER}	
+		AND A.ADD_DATE=#{ADD_DATE}	
+		AND A.SEQ=#{SEQ}	
+		AND A.DS_SEQ=#{DS_SEQ}	
+		AND A.STATUS  ^='D'			
+		]]>
+	</update>
+
+	<update  id="updateMasterMpDscropProtect_PO_PR" parameterType="java.util.Map" >
+		<![CDATA[
+		UPDATE DB_OFF_PO A	
+			  SET A.PR_QTY=(SELECT SUM(DS_QTY) FROM DB_OFF_IV WHERE BUYER=A.BUYER AND ADD_DATE=A.ADD_DATE AND SEQ=A.SEQ AND STATUS ^='D'),	
+					 A.ITEM_AMT=A.UNIT_PRICE*(SELECT SUM(DS_QTY) FROM DB_OFF_IV WHERE BUYER=A.BUYER AND ADD_DATE=A.ADD_DATE AND SEQ=A.SEQ AND STATUS ^='D'),	
+					 A.AGENT_ITEM_AMT=A.AGENT_PRICE*(SELECT SUM(DS_QTY) FROM DB_OFF_IV WHERE BUYER=A.BUYER AND ADD_DATE=A.ADD_DATE AND SEQ=A.SEQ AND STATUS ^='D')              	
+		 WHERE A.BUYER=#{BUYER}	
+			 AND A.ADD_DATE=#{ADD_DATE}	
+			 AND A.SEQ=#{SEQ}	
+
+		]]>
+	</update>
+
+	<update  id="updateMasterMpDscropProtect_IV_DS_PO" parameterType="java.util.Map" >
+		<![CDATA[
+		UPDATE DB_OFF_IV A	
+		   SET A.DS_QTY=#{DS_QTY},	
+			   A.PO_QTY=#{DS_QTY}	
+		WHERE A.BUYER=#{BUYER}	
+		AND A.ADD_DATE=#{ADD_DATE}	
+		AND A.SEQ=#{SEQ}	
+		AND A.DS_SEQ=#{DS_SEQ}	
+		AND A.STATUS  ^='D'			
+		]]>
+	</update>
+
+	<update  id="updateMasterMpDscropProtect_PO_PR_PO" parameterType="java.util.Map" >
+		<![CDATA[
+		UPDATE DB_OFF_PO A	
+			  SET A.PR_QTY=(SELECT SUM(DS_QTY) FROM DB_OFF_IV WHERE BUYER=A.BUYER AND ADD_DATE=A.ADD_DATE AND SEQ=A.SEQ AND STATUS ^='D'),	
+					 A.PO_QTY=(SELECT SUM(NVL(PO_QTY,0)) FROM DB_OFF_IV WHERE BUYER=A.BUYER AND ADD_DATE=A.ADD_DATE AND SEQ=A.SEQ AND STATUS ^='D'),	
+					 A.ITEM_AMT=A.UNIT_PRICE*(SELECT SUM(DS_QTY) FROM DB_OFF_IV WHERE BUYER=A.BUYER AND ADD_DATE=A.ADD_DATE AND SEQ=A.SEQ AND STATUS ^='D'),	
+					 A.AGENT_ITEM_AMT=A.AGENT_PRICE*(SELECT SUM(DS_QTY) FROM DB_OFF_IV WHERE BUYER=A.BUYER AND ADD_DATE=A.ADD_DATE AND SEQ=A.SEQ AND STATUS ^='D')              	
+		 WHERE A.BUYER=#{BUYER}	
+			 AND A.ADD_DATE=#{ADD_DATE}	
+			 AND A.SEQ=#{SEQ}
+		]]>
+	</update>
+	
+	<update  id="updateMasterMpDscropProtect_PO_PR_PO_DO" parameterType="java.util.Map" >
+		<![CDATA[
+		UPDATE DB_OFF_PO A	
+			  SET A.PR_QTY=(SELECT SUM(DS_QTY) FROM DB_OFF_IV WHERE BUYER=A.BUYER AND ADD_DATE=A.ADD_DATE AND SEQ=A.SEQ AND STATUS ^='D'),	
+					 A.PO_QTY=(SELECT SUM(NVL(PO_QTY,0)) FROM DB_OFF_IV WHERE BUYER=A.BUYER AND ADD_DATE=A.ADD_DATE AND SEQ=A.SEQ AND STATUS ^='D'),	
+					 A.DO_QTY=(SELECT SUM(NVL(PO_QTY,0)) FROM DB_OFF_IV WHERE BUYER=A.BUYER AND ADD_DATE=A.ADD_DATE AND SEQ=A.SEQ AND STATUS ^='D' AND DS_DATE IS NOT NULL),	
+					 A.ITEM_AMT=A.UNIT_PRICE*(SELECT SUM(DS_QTY) FROM DB_OFF_IV WHERE BUYER=A.BUYER AND ADD_DATE=A.ADD_DATE AND SEQ=A.SEQ AND STATUS ^='D'),	
+					 A.AGENT_ITEM_AMT=A.AGENT_PRICE*(SELECT SUM(DS_QTY) FROM DB_OFF_IV WHERE BUYER=A.BUYER AND ADD_DATE=A.ADD_DATE AND SEQ=A.SEQ AND STATUS ^='D')              	
+		 WHERE A.BUYER=#{BUYER}	
+			 AND A.ADD_DATE=#{ADD_DATE}	
+			 AND A.SEQ=#{SEQ}	
+		]]>
+	</update>
+
+	<update  id="mappingMasterMpDsOrderManage" parameterType="java.util.Map" >
+		<![CDATA[
+			UPDATE DB_OFF_PO A	
+			   SET A.PLANT=#{PLANT},	
+				   A.OPKG_SEQ=#{OPKG_SEQ},	
+				   A.OPKG_RD_DATE=#{RD_DATE}	
+			 WHERE A.BUYER=#{st_off_buyer}	
+			   AND A.ADD_DATE=#{st_off_add_date}	
+			   AND A.SEQ=#{st_off_seq}		
+		
+		]]>
+	</update>
+</mapper>   
+   

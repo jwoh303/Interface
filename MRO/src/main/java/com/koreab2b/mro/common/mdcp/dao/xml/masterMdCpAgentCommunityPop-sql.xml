@@ -1,0 +1,258 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="common.mdcp">
+	<resultMap id="AgentCommunityMap" type="java.util.Map">
+		<result property="CONTENTS" column="CONTENTS" jdbcType="CLOB" javaType="java.lang.String" />
+	</resultMap>
+
+	<!-- 협력사 커뮤니티 검색조건 조회 -->
+	<select id="selectMasterMdCpAgentCommunityInfoList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/* selectMasterMdCpAgentCommunityInfoList */
+		SELECT
+			MAX(B.COM_NAME_LOC) AS COM_NAME
+			, MAX(B.COM_CODE) AS COM_CODE
+			, MAX(B.IRS_NO) AS IRS_NO
+			, MAX(B.CEO_NAME_LOC) AS CEO_NAME
+			, MAX(B.ADDRESS_LOC) AS ADDRESS
+		FROM	ICOMCMPY B
+		WHERE	1=1
+		]]>
+		<choose>
+			<when test=" com_code != null and com_code != ''">
+				AND B.COM_CODE = #{com_code}
+			</when>
+			<otherwise>
+				AND B.COM_CODE = ''
+			</otherwise>
+		</choose>
+	</select>
+	
+	<!-- 협력사 커뮤니티 리스트 조회 -->
+	<select id="selectMasterMdCpAgentCommunityPopList" parameterType="java.util.Map" resultType="java.util.Map" resultMap="AgentCommunityMap">
+		<include refid="common.ibsheet.xml.pagestart"/>	
+		<![CDATA[
+		/* selectMasterMdCpAgentCommunityPopList */
+		SELECT
+			A.AGENT
+			, (SELECT COM_NAME_LOC FROM ICOMCMPY B WHERE B.COM_CODE = A.AGENT) AS AGENT_NAME
+			, (SELECT C.TEXT1 FROM ICOMCOD1 C WHERE A.TYPE = C.CODE AND C.TYPE = 'M201') AS TYPE_NAME
+			, A.TYPE
+			, (SELECT D.USER_NAME_LOC FROM ICOMLUSR D WHERE A.USER_ID = D.USER_ID) AS USER_NAME
+			, A.USER_ID
+			, A.REVISION
+			, DECODE(A.REVISION, 0, '본문', '댓글') AS REVISION_TYPE
+			, A.ADD_DATM
+			, A.CHANGE_DATM
+			, '댓글('||(SELECT COUNT(*)-1 FROM KEP_AGENT_COMMUNITY E WHERE A.AGENT = E.AGENT AND A.SEQ = E.SEQ AND E.STATUS <> 'D')||') '||SUBSTR(A.CONTEXT,1,200)||DECODE(SIGN(LENGTH(A.CONTEXT)-200),-1,'','...') AS CONTENTS
+			, (SELECT COUNT(*)-1 AS REVISION FROM KEP_AGENT_COMMUNITY E WHERE A.AGENT = E.AGENT AND A.SEQ = E.SEQ AND E.STATUS <> 'D') AS COMMENT_COUNT
+			, A.SEQ
+		FROM	KEP_AGENT_COMMUNITY A
+		WHERE	1=1
+		AND		STATUS <> 'D'
+		]]>
+		<choose>
+			<when test=" com_code != null and com_code != ''">
+				AND A.AGENT = #{com_code}
+				<if test='st_date_flag == null or st_date_flag == ""'>
+					<![CDATA[
+					AND TO_CHAR(A.ADD_DATM,'YYYYMMDD') BETWEEN #{st_from_date} AND #{st_to_date}
+					]]>	
+				</if>
+			</when>
+			<otherwise>
+				<![CDATA[
+					AND TO_CHAR(A.ADD_DATM,'YYYYMMDD') BETWEEN #{st_from_date} AND #{st_to_date}
+				]]>	
+			</otherwise>
+		</choose>
+		<if test='st_comment_flag != "Y"'>
+			<![CDATA[
+					AND A.REVISION = 0
+			]]>
+		</if>
+		<if test='st_gubun_code != null and st_gubun_code != "ALL"'>
+		AND		A.TYPE = #{st_gubun_code}
+		</if>
+		<if test="st_kep_user_id != null and st_kep_user_id != ''">
+		AND 	A.USER_ID = #{st_kep_user_id}
+		</if>
+		ORDER BY A.SEQ DESC, A.REVISION ASC, A.ADD_DATM DESC
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+	
+	
+	
+	<!-- 관리유형 조회 -->
+	 <select id="getAgentTypeList"  parameterType="String"  resultType="java.util.Map">
+	/*common.mdcp.getAgentTypeList*/
+			<![CDATA[           
+				SELECT DISTINCT
+					CODE
+					,TEXT1
+					,VALUE1
+				FROM ICOMCOD1
+				WHERE TYPE = 'M201'
+				ORDER BY VALUE1
+			]]>
+	</select>
+	
+	<!-- 협력사 커뮤니티 상세팝업 내용 등록 -->
+	<update id="insertMasterMdCpAgentCommunityPopContext" parameterType="java.util.Map">
+			<selectKey keyProperty="SEQ" order="BEFORE" resultType="integer"> 
+				<![CDATA[
+					SELECT NVL(MAX(SEQ),0)+1 AS SEQ FROM KEP_AGENT_COMMUNITY WHERE AGENT = #{com_code}
+				]]>
+			</selectKey>
+			<![CDATA[
+	 		 	/*insertMasterMdCpAgentCommunityPopContext*/
+	 		 	INSERT INTO KEP_AGENT_COMMUNITY(	      		
+		 		 	AGENT
+		 		 	,SEQ
+		 		 	,REVISION
+		 		 	,STATUS
+		 		 	,TYPE
+		 		 	,USER_ID
+		 		 	,DEPARTMENT
+		 		 	,CONTEXT
+		 		 	,ADD_DATM
+		 		 	,CHANGE_DATM   
+				)
+				VALUES
+				(
+		 		 	#{com_code}
+					,#{SEQ}
+					,0
+					,'C'
+					,#{st_agent_type_flag}
+					,#{st_user_id}
+					,#{st_user_dept}
+					,#{CONTEXT}
+					,SYSDATE
+					,SYSDATE
+				)
+			]]>
+	</update>
+	
+	<!-- 협력사 커뮤니티 상세팝업 내용 삭제 -->
+	<update id="deleteMasterMdCpAgentCommunityPopContext"  parameterType="java.util.Map">
+		<![CDATA[
+		/*deleteMasterMdCpAgentCommunityPopContext*/
+		UPDATE	KEP_AGENT_COMMUNITY
+		SET		STATUS = 'D'
+				, CHANGE_DATM = SYSDATE
+		WHERE	AGENT = #{com_code} 
+		AND 	SEQ = #{SEQ}
+		]]>
+		<if test="st_comment_revision != null and st_comment_revision != ''">
+		AND 	REVISION = #{st_comment_revision}
+		</if>
+	</update>
+	
+	<!-- 협력사 커뮤니티 상세팝업 내용 수정 -->
+	<update id="updateMasterMdCpAgentCommunityPopContext"  parameterType="java.util.Map">
+		<![CDATA[
+		/*updateMasterMdCpAgentCommunityPopContext*/
+		UPDATE	KEP_AGENT_COMMUNITY
+		SET		STATUS = 'R'
+				, TYPE = #{st_agent_type_flag}
+				, CONTEXT = #{CONTEXT}
+				, CHANGE_DATM = SYSDATE
+		WHERE	AGENT = #{com_code} 
+		AND 	SEQ = #{SEQ}
+		AND		REVISION = 0
+		]]>
+	</update>
+	
+	<!-- 협력사 커뮤니티 상세팝업 내용 조회 -->
+	<select id="selectMasterMdCpAgentCommunityPopContext" parameterType="java.util.Map" resultType="java.util.Map" resultMap="AgentCommunityMap">
+		<![CDATA[
+		/* selectMasterMdCpAgentCommunityPopContext */
+			SELECT
+				A.TYPE
+				, A.USER_ID
+				, A.REVISION
+				, A.CONTEXT AS CONTENTS
+				, A.ADD_DATM
+				, A.CHANGE_DATM
+				, (SELECT COUNT(*)-1 AS REVISION FROM KEP_AGENT_COMMUNITY E WHERE A.AGENT = E.AGENT AND A.SEQ = E.SEQ AND E.STATUS <> 'D') AS COMMENT_COUNT
+			FROM	KEP_AGENT_COMMUNITY A
+			WHERE	1=1
+			AND		A.STATUS <> 'D'
+			AND		A.REVISION = 0
+			AND		A.AGENT = #{com_code}
+			AND 	A.SEQ = #{SEQ}
+			]]>
+	</select>
+	
+	<!-- 협력사 커뮤니티 상세팝업 댓글 조회 -->
+	<select id="selectMasterMdCpAgentCommunityPopComment" parameterType="java.util.Map" resultType="java.util.Map" resultMap="AgentCommunityMap">
+		<![CDATA[
+		/* selectMasterMdCpAgentCommunityPopComment */
+			SELECT
+				A.USER_ID AS COMMENT_USER_ID
+				, (SELECT D.USER_NAME_LOC FROM ICOMLUSR D WHERE A.USER_ID = D.USER_ID) AS COMMENT_USER_NAME
+				, A.REVISION AS COMMENT_REVISION
+				, A.CONTEXT AS CONTENTS
+				, A.ADD_DATM AS COMMENT_ADD_DATM
+				, (SELECT COUNT(*)-1 AS REVISION FROM KEP_AGENT_COMMUNITY E WHERE A.AGENT = E.AGENT AND A.SEQ = E.SEQ AND E.STATUS <> 'D') AS COMMENT_COUNT
+			FROM	KEP_AGENT_COMMUNITY A
+			WHERE	1=1
+			AND		STATUS <> 'D'
+			AND		AGENT = #{com_code}
+			AND 	SEQ = #{SEQ}
+			]]>
+			<choose>
+				<when test="st_comment_revision != null and st_comment_revision != ''">
+					<![CDATA[
+						AND 	A.REVISION = #{st_comment_revision}
+					]]>	
+				</when>
+				<otherwise>
+					<![CDATA[
+						AND		A.REVISION > 0
+					]]>	
+				</otherwise>
+			</choose>
+			<![CDATA[
+			ORDER BY REVISION
+			]]>
+	</select>
+	
+	<!-- 협력사 커뮤니티 상세팝업 댓글 등록 -->
+	<update id="insertMasterMdCpAgentCommunityPopComment" parameterType="java.util.Map">
+			<selectKey keyProperty="REVISION" order="BEFORE" resultType="integer"> 
+				<![CDATA[
+					SELECT NVL(MAX(REVISION),0)+1 AS REVISION FROM KEP_AGENT_COMMUNITY WHERE AGENT = #{com_code} AND SEQ = #{SEQ}
+				]]>
+			</selectKey>
+			<![CDATA[
+	 		 	/*insertMasterMdCpAgentCommunityPopComment*/
+	 		 	INSERT INTO KEP_AGENT_COMMUNITY(	      		
+		 		 	AGENT
+		 		 	,SEQ
+		 		 	,REVISION
+		 		 	,STATUS
+		 		 	,TYPE
+		 		 	,USER_ID
+		 		 	,DEPARTMENT
+		 		 	,CONTEXT
+		 		 	,ADD_DATM
+		 		 	,CHANGE_DATM   
+				)
+				VALUES
+				(
+		 		 	#{com_code}
+		 		 	,#{SEQ}
+					,#{REVISION}
+					,'C'
+					,#{agent_type_flag}
+					,#{st_user_id}
+					,#{st_user_dept}
+					,#{COMMENT}
+					,SYSDATE
+					,SYSDATE
+				)
+			]]>
+	</update>
+</mapper>

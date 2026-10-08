@@ -1,0 +1,256 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mdcm">
+	<!-- 조회 -->
+	<select id="selectMasterMdCmChemicalMatInfoList" parameterType="java.util.Map" resultType="java.util.Map">
+			<![CDATA[
+				/*selectMasterMdCmChemicalMatInfoList*/
+				SELECT
+				 MAK.STATUS
+				 ,MAK.OPEN_FLAG
+				 ,MAK.CAS_NO
+				 ,MAK.COMPONENT_TYPE_CODE
+				 ,MAK.MIN_MAKE_RATE
+				 ,MAK.MAX_MAKE_RATE
+				 ,MAK.AVG_MAKE_RATE
+				 ,DECODE(NVL(MAK.CML_HARMFUL_YN,'N'),'Y','1','0') AS CML_HARMFUL_YN
+				 ,DECODE(NVL(MAK.CML_PRE_TROUBLE_YN,'N'),'Y','1','0') AS CML_PRE_TROUBLE_YN
+				 ,DECODE(NVL(MAK.CML_BAN_OBJECT_YN,'N'),'Y','1','0') AS CML_BAN_OBJECT_YN
+				 ,DECODE(NVL(MAK.CML_LIMIT_OBJECT_YN,'N'),'Y','1','0') AS CML_LIMIT_OBJECT_YN
+				 ,'1' AS SELECTED
+				FROM KEP_CMC_BYIT_MAKE MAK
+				WHERE MAK.BYIT_COMORG_CODE  = #{st_buyer}
+				AND MAK.BUYER_ITEM_NO = #{st_buyer_item_no}
+				AND MAK.STATUS != 'D'
+			]]>
+	</select>
+	<select id="selectMasterMdCmChemicalMatInfoHdList" parameterType="java.util.Map" resultType="java.util.Map">
+			<![CDATA[
+				/*selectMasterMdCmChemicalMatInfoHdList*/
+				SELECT
+				 A.BYIT_COMORG_CODE
+				 ,A.BUYER_ITEM_NO
+				 ,B.DESCRIPTION_LOC
+				 ,B.SPECIFICATION
+				 ,B.MAKER_NAME
+				 ,(SELECT TEXT2 FROM ICOMCOD1 WHERE TYPE = 'M001' AND CODE = B.ORIGIN_CODE) ORIGIN_NM
+				 ,B.MSDS_NO
+				 ,A.CMC_HARMFUL_YN
+				 ,A.HARMFUL_CMC_DESCRIPTION
+				 ,A.CMC_USE_CODE
+				 ,A.CMC_USE_NOTE
+				 ,A.DANGER_CLASS_CODE
+				 ,A.CMC_INFO_CODE
+				 ,A.CMC_INFO_LEVEL
+				 ,A.CMC_INFO_UNIT
+				 ,A.CMC_INFO_KEEP_CODE
+				 ,A.CMC_INFO_IMAGE_KEY
+				 ,A.CMC_INFO_NOT_IMAGE_CODE
+				 ,A.CMC_INFO_REMARK
+				 ,(SELECT DECODE(COUNT(CATEG.CMS_CATEG_ID),0,'N','Y')
+				    FROM CMSCATEG CATEG
+					WHERE CATEG.SG_ID IN ('SG118','SG153','SG163')
+					AND  CATEG.CMS_CATEG_ID = B.CMS_CATEG_ID
+					AND CATEG.STATUS != 'D') AS SG118_YN
+				,(SELECT DECODE(COUNT(CODE),0,'N','Y')
+					FROM ICOMCOD1 COD
+					WHERE COD.TYPE = 'CM10'
+					AND COD.CODE = #{st_session_id}
+					AND COD.FLAG = 'Y') AS CMC_USR_YN
+				,(SELECT DECODE(COUNT(RESULT.BUYER_ITEM_NO),0,'N','Y') FROM KEP_CMC_RESULT RESULT
+					WHERE  RESULT.BYIT_COMORG_CODE = A.BYIT_COMORG_CODE
+					AND RESULT.BUYER_ITEM_NO =  A.BUYER_ITEM_NO ) AS CMC_RESULT_YN
+				FROM KEP_CMC_BYIT A, ICOMBYIT B
+				WHERE  A.BYIT_COMORG_CODE = B.BUYER
+				AND   A.BUYER_ITEM_NO = B.BUYER_ITEM_NO
+				AND A.BYIT_COMORG_CODE = #{st_buyer}
+			 	AND A.BUYER_ITEM_NO = #{st_buyer_item_no}     
+			 	AND A.STATUS != 'D'
+				AND B.STATUS != 'D'
+			]]>
+	</select>
+	<select id="checkMasterMdCmChemicalMatInfo" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+				/*checkMasterMdCmChemicalMatInfo*/
+				SELECT DECODE(COUNT(A.BUYER_ITEM_NO),0,'N','Y') AS RESULT_YN
+				FROM KEP_CMC_RESULT A
+				WHERE A.BYIT_COMORG_CODE =#{st_buyer}
+				AND A.BUYER_ITEM_NO= #{st_buyer_item_no}
+        ]]> 
+	</select>
+	<update  id="cancleMasterMdCmChemicalMatByit" parameterType="java.util.Map" >
+		<![CDATA[
+		     /*cancleMasterMdCmChemicalMatByit*/
+                   UPDATE KEP_CMC_BYIT A
+                   SET STATUS = 'D'  
+                     , CHANGE_DATE = SYSDATE
+                     , CHANGE_USER_ID =#{USER_ID}
+                 WHERE A.BYIT_COMORG_CODE =#{st_buyer}
+                 AND A.BUYER_ITEM_NO =#{st_buyer_item_no}
+                 AND A.STATUS != 'D'
+		  ]]>
+	</update>
+	<update  id="cancleMasterMdCmChemicalMatMake" parameterType="java.util.Map" >
+		<![CDATA[
+		     /*cancleMasterMdCmChemicalMatMake*/
+                   UPDATE KEP_CMC_BYIT_MAKE A
+                   SET STATUS = 'D'  
+                     , CHANGE_DATE = SYSDATE
+                     , CHANGE_USER_ID =#{USER_ID}
+                 WHERE A.BYIT_COMORG_CODE =#{st_buyer}
+                 AND A.BUYER_ITEM_NO =#{st_buyer_item_no}
+                 AND A.STATUS != 'D'
+		  ]]>
+	</update>
+	<update  id="cancleMasterMdCmChemicalMatIcombyit" parameterType="java.util.Map" >
+		<![CDATA[
+		     /*cancleMasterMdCmChemicalMatIcombyit*/
+                   UPDATE ICOMBYIT A
+                   SET CHANGE_DATE = TO_CHAR(SYSDATE,'YYYYMMDD')
+                     , MATERIAL_TYPE = ''
+                 WHERE A.BUYER =#{st_buyer}
+                 AND A.BUYER_ITEM_NO =#{st_buyer_item_no}
+                 AND A.STATUS != 'D'
+		  ]]>
+	</update>
+	<select id="selectMasterMdCmKepCmcByitSeq" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+				/*selectMasterMdCmKepCmcByitSeq*/
+				SELECT NVL(COUNT(A.SEQ),0)+1  AS CMC_SEQ
+				FROM KEP_CMC_BYIT A 
+				WHERE A.BYIT_COMORG_CODE =#{st_buyer}
+				AND A.BUYER_ITEM_NO = #{st_buyer_item_no}
+        ]]> 
+	</select>
+	<update id="saveMasterMdCmChemicalMatByit"  parameterType="java.util.Map">
+		<![CDATA[
+			/* "saveMasterMdCmChemicalMatByit" */
+			INSERT INTO KEP_CMC_BYIT
+			(
+				BYIT_COMORG_CODE
+				, BUYER_ITEM_NO
+				, SEQ
+				, CMC_HARMFUL_YN
+				, STATUS
+				, HARMFUL_CMC_DESCRIPTION
+				, CMC_USE_CODE
+				, CMC_USE_NOTE
+				, DANGER_CLASS_CODE
+				, CMC_INFO_CODE
+				, CMC_INFO_LEVEL
+				, CMC_INFO_UNIT
+				, CMC_INFO_KEEP_CODE
+				, CMC_INFO_IMAGE_KEY
+				, CMC_INFO_NOT_IMAGE_CODE
+				, CMC_INFO_REMARK
+				, LOC_IMAGE_KEY
+				, ADD_DATE
+				, ADD_USER_ID
+				, CHANGE_DATE
+				, CHANGE_USER_ID
+			) VALUES
+			(
+				#{st_buyer}
+				, #{st_buyer_item_no}
+				, #{CMC_SEQ} 
+				, #{st_harmful_yn}
+				, 'C'
+				, DECODE(#{st_harmful_yn},'Y',#{st_harmful_desc},NULL)
+				, DECODE(#{st_harmful_yn},'Y',#{st_use_cd},NULL)
+				, DECODE(#{st_harmful_yn},'Y',#{st_use_note},NULL)
+				, DECODE(#{st_harmful_yn},'Y',#{st_danger_class_cd},NULL)
+				, DECODE(#{st_harmful_yn},'Y',#{st_info_cd},NULL)
+				, DECODE(#{st_harmful_yn},'Y',#{st_info_level},NULL)
+				, DECODE(#{st_harmful_yn},'Y',#{st_info_unit},NULL)
+				, DECODE(#{st_harmful_yn},'Y',#{st_info_keep},NULL)
+				, #{st_cmc_image_key}
+				, #{st_cmc_class_cd}
+				, #{st_cmc_remark}
+				, DECODE(#{st_harmful_yn},'Y',#{st_loc_image_key},NULL)
+				, SYSDATE
+				, #{USER_ID}
+				, SYSDATE
+				, #{USER_ID}
+			)				
+		]]>
+	</update>
+	<update id="saveMasterMdCmChemicalMatMake"  parameterType="java.util.Map">
+		<![CDATA[
+			/* saveMasterMdCmChemicalMatMake */
+			INSERT INTO KEP_CMC_BYIT_MAKE
+			(
+				BYIT_COMORG_CODE
+				, BUYER_ITEM_NO
+				, SEQ
+				, CMC_HARMFUL_YN
+				, STATUS
+				, OPEN_FLAG
+				, CAS_NO
+				, COMPONENT_TYPE_CODE
+				, MIN_MAKE_RATE
+				, MAX_MAKE_RATE
+				, AVG_MAKE_RATE
+				, CML_HARMFUL_YN
+				, CML_PRE_TROUBLE_YN
+				, CML_BAN_OBJECT_YN
+				, CML_LIMIT_OBJECT_YN
+				, ADD_DATE
+				, ADD_USER_ID
+				, CHANGE_DATE
+				, CHANGE_USER_ID
+			) VALUES
+			(
+				#{st_buyer}
+				,#{st_buyer_item_no}
+				, #{CMC_SEQ}
+				, #{st_harmful_yn}
+				, 'C'
+				, #{OPEN_FLAG}
+				, #{CAS_NO}
+				, #{COMPONENT_TYPE_CODE}
+				, #{MIN_MAKE_RATE}
+				, #{MAX_MAKE_RATE}
+				, #{AVG_MAKE_RATE}
+				, DECODE(#{CML_HARMFUL_YN},'0','N','Y')
+				, DECODE(#{CML_PRE_TROUBLE_YN},'0','N','Y')
+				, DECODE(#{CML_BAN_OBJECT_YN},'0','N','Y')
+				, DECODE(#{CML_LIMIT_OBJECT_YN},'0','N','Y')
+				, SYSDATE
+				, #{USER_ID}
+				, SYSDATE
+				, #{USER_ID}
+			)				
+		]]>
+	</update>
+	<update id="saveMasterMdCmChemicalMatMake2"  parameterType="java.util.Map">
+		<![CDATA[
+			/* saveMasterMdCmChemicalMatMake2 */
+			INSERT INTO KEP_CMC_BYIT_MAKE
+			(
+				BYIT_COMORG_CODE
+				, BUYER_ITEM_NO
+				, SEQ
+				, CMC_HARMFUL_YN
+				, CAS_NO
+				, STATUS
+				, ADD_DATE
+				, ADD_USER_ID
+				, CHANGE_DATE
+				, CHANGE_USER_ID
+			) VALUES
+			(
+				#{st_buyer}
+				,#{st_buyer_item_no}
+				, #{CMC_SEQ}
+				, #{st_harmful_yn}
+				,'NO_DATA'
+				, 'C'
+				, SYSDATE
+				, #{USER_ID}
+				, SYSDATE
+				, #{USER_ID}
+			)				
+		]]>
+	</update>
+</mapper>   
+   

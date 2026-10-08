@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="seller.mpst">
+	
+	<!-- 조회 -->
+	<select id="selectSellerMpStRecmndOrderReceiptList" parameterType="java.util.Map" resultType="java.util.Map">
+		/*selectSellerMpStRecmndOrderReceiptList*/
+		<include refid="common.ibsheet.xml.jsppagestart"/>
+		<![CDATA[
+			SELECT                            
+			     ROWNUM NUM
+			   , X.WMS_NAME             /* 물류센타명 */
+			   , X.VPO_NO               /* 권고발주번호 */
+			   , X.ITEM_AMT             /* 금액 */
+			   , X.ITEM_CNT             /* 품목수 */
+			   , X.RD_DATE              /* 입고요청일 */
+			   , X.VPO_DATE             /* 발주일 */
+			   , X.VPO_REMARK           /* 비고 */
+			   , X.BUYER                /* 고객사 */
+			   , X.DELY_TO_LOCATION     /* 도착지 */
+			   , X.AGENT
+			FROM (                                
+			      SELECT                            
+			             MAX((SELECT COM_NAME_LOC 
+			                    FROM ICOMCMPY 
+			                   WHERE COM_CODE = A.BUYER)) AS WMS_NAME
+			           , VPO_NO AS VPO_NO
+			           , SUM(A.ITEM_AMT) AS ITEM_AMT
+			           , COUNT(A.VPO_SEQ) AS ITEM_CNT
+			           , MAX(A.RD_DATE) AS RD_DATE
+			           , MAX(A.VPO_DATE) AS VPO_DATE
+			           , MAX(A.VPO_REMARK) AS VPO_REMARK
+			           , A.BUYER AS BUYER
+			           , MAX((SELECT TEXT2 FROM ICOMCOD2
+			                       WHERE COMPANY_CODE = A.BUYER
+			                         AND TYPE = 'C012'
+			                         AND CODE = A.DELY_TO_LOCATION)) AS DELY_TO_LOCATION
+			           , MAX(A.DELY_TO_LOCATION) AS DELY_TO_LOCATION_CODE
+			           , MAX(A.AGENT) AS AGENT
+			        FROM EDIVPODT A
+			       WHERE A.RECV_FLAG = 'A'
+			         AND A.AGENT = #{st_com_code}
+			         AND A.STATUS <> 'D'
+			       GROUP BY A.BUYER, A.VPO_NO
+			       ORDER BY 1,2
+			  ) X
+		]]>
+		<include refid="common.ibsheet.xml.jsppageend"/>	
+	</select> 
+	<!-- VMI 권고발주접수 리스트 조회 (날짜 파라미터 포함) -->
+	<select id="selectSellerMpStRecmndOrderReceiptListWithDate" parameterType="java.util.Map" resultType="java.util.Map">
+		/*selectSellerMpStRecmndOrderReceiptListWithDate*/
+		<include refid="common.ibsheet.xml.jsppagestart"/>
+		<![CDATA[
+			SELECT                            
+			     ROWNUM NUM
+			   , X.WMS_NAME             /* 물류센타명 */
+			   , X.VPO_NO               /* 권고발주번호 */
+			   , X.ITEM_AMT             /* 금액 */
+			   , X.ITEM_CNT             /* 품목수 */
+			   , X.RD_DATE              /* 입고요청일 */
+			   , X.VPO_DATE             /* 발주일 */
+			   , X.VPO_REMARK           /* 비고 */
+			   , X.BUYER                /* 고객사 */
+			   , X.DELY_TO_LOCATION     /* 도착지 */
+			   , X.AGENT
+			FROM (                                
+			      SELECT                            
+			             MAX((SELECT COM_NAME_LOC 
+			                    FROM ICOMCMPY 
+			                   WHERE COM_CODE = A.BUYER)) AS WMS_NAME
+			           , VPO_NO AS VPO_NO
+			           , SUM(A.ITEM_AMT) AS ITEM_AMT
+			           , COUNT(A.VPO_SEQ) AS ITEM_CNT
+			           , MAX(A.RD_DATE) AS RD_DATE
+			           , MAX(A.VPO_DATE) AS VPO_DATE
+			           , MAX(A.VPO_REMARK) AS VPO_REMARK
+			           , A.BUYER AS BUYER
+			           , MAX((SELECT TEXT2 FROM ICOMCOD2
+			                       WHERE COMPANY_CODE = A.BUYER
+			                         AND TYPE = 'C012'
+			                         AND CODE = A.DELY_TO_LOCATION)) AS DELY_TO_LOCATION
+			           , MAX(A.DELY_TO_LOCATION) AS DELY_TO_LOCATION_CODE
+			           , MAX(A.AGENT) AS AGENT
+			        FROM EDIVPODT A
+			       WHERE A.RECV_FLAG = 'A'
+			         AND A.AGENT = #{st_com_code}
+			         AND A.STATUS <> 'D'
+		]]>
+		         <!-- 날짜 파라미터 조건 추가 - 권고발주일(VPO_DATE)로 필터링 -->
+		         <if test="st_from_date != null and st_from_date != ''">
+		         	<![CDATA[
+		         		AND A.VPO_DATE >= #{st_from_date}
+		         	]]>
+		         </if>
+		         <if test="st_to_date != null and st_to_date != ''">
+		         	<![CDATA[
+		         		AND A.VPO_DATE <= #{st_to_date}
+		         	]]>
+		         </if>
+		<![CDATA[
+		       GROUP BY A.BUYER, A.VPO_NO
+		       ORDER BY 1,2
+		  ) X
+		]]>
+		<include refid="common.ibsheet.xml.jsppageend"/>	
+	</select>
+	
+</mapper>

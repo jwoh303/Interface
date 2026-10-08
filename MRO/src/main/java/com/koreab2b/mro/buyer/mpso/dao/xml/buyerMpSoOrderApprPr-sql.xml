@@ -1,0 +1,234 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="buyer.mpso">
+	<select id="selectBuyerMpSoPrApprList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/* buyer.mpso.selectBuyerMpSoPrApprList */
+			SELECT
+			 X.BUYER
+			 ,X.PR_NO
+			 ,X.PURCHASER_DEPT
+			 ,X.APPR_0
+			 ,X.APPR_0_NM
+			 ,X.APPR_0_TEL
+			 ,X.APPR_0_DEPT
+			 ,X.APPR_1
+			 ,X.APPR_2
+			 ,X.DOCU_TITLE
+			 ,NVL(X.DOCU_CONT,' ') AS DOCU_CNT
+			 ,X.REF_NO
+			FROM
+			(
+				SELECT
+					A.BUYER
+					, A.PR_NO
+					, A.PURCHASER_DEPT
+					, A.ADD_USER_ID AS APPR_0
+					, A.ADD_USER_NAME AS APPR_0_NM
+					, A.ADD_USER_TEL AS APPR_0_TEL
+					, A.ADD_USER_DEPT AS APPR_0_DEPT
+					,(SELECT COD.TEXT1 FROM  ICOMCOD2 COD
+						WHERE COD.TYPE ='C004'
+						AND COD.COMPANY_CODE = A.BUYER
+						AND COD.CODE = A.PURCHASER_DEPT) AS APPR_1
+					,(SELECT COD.TEXT2 FROM  ICOMCOD2 COD
+						WHERE COD.TYPE ='C004'
+						AND COD.COMPANY_CODE = A.BUYER
+						AND COD.CODE = A.PURCHASER_DEPT) AS APPR_2
+					,(SELECT '[구매발주]'||C.DOCU_TITLE FROM ICOMTRGW B, ICOGDOCU C
+						WHERE B.COM_CODE = C.COMPANY
+						AND B.TARGET = C.DOCU_NO
+						AND B.COM_CODE = A.BUYER
+						AND B.KEY_1 = A.PR_NO)  AS DOCU_TITLE
+					,(SELECT C.DOCU_CONT FROM ICOMTRGW B, ICOGDOCU C
+						WHERE B.COM_CODE = C.COMPANY
+						AND B.TARGET = C.DOCU_NO
+						AND B.COM_CODE = A.BUYER
+						AND B.KEY_1 = A.PR_NO) AS DOCU_CONT
+					,(SELECT MAX(DT.REF_NO) FROM ICOMPRDT DT
+						WHERE DT.BUYER = A.BUYER
+						AND DT.PR_NO = A.PR_NO) REF_NO 
+				FROM ICOMPRHD A
+				WHERE A.BUYER = #{COMPANY}
+				AND A.PR_NO = #{KEY_1}
+			) X
+			WHERE (X.APPR_1 IS NOT NULL OR  X.APPR_2 IS NOT NULL)
+			AND  NOT EXISTS (
+				SELECT 1 FROM ICOMTRGW TRGW
+				WHERE TRGW.COM_CODE = X.BUYER
+				AND TRGW.DOC_NAME ='PX'
+				AND TRGW.KEY_1 = X.REF_NO
+			) 
+		]]> 
+	</select>	
+	<update id="updateBuyerMpSoPrApprDtList" parameterType="java.util.Map">
+		<![CDATA[
+			
+			/*updateBuyerMpSoPrApprDtList*/
+            UPDATE ICOMPRDT A                                                                                               
+              SET  A.STATUS = 'R'
+               , A.REF_ADD_USER_ID = #{APPR_0}
+               , A.PURCHASER_ID = #{APPR_1}
+               , A.RECV_QTY = A.TARGET_QTY
+               , A.RECV_FLAG = 'PS'
+               , A.SAVE_FLAG = 'PX'
+               , A.REF_NO = #{PX_NO}
+               , A.REF_SEQ = A.PR_SEQ
+               WHERE A.BUYER = #{BUYER}                                                                         
+                 AND A.PR_NO = #{PR_NO}   
+                 AND A.RECV_FLAG NOT IN ('GR','PR')
+		]]>
+	</update> 
+	<update id="updateBuyerMpSoPrApprHdList" parameterType="java.util.Map">
+		<![CDATA[
+			
+			/*updateBuyerMpSoPrApprHdList*/
+            UPDATE ICOMPRHD A                                                                                               
+             SET A.RECV_FLAG = 'PS'
+               , A.SAVE_FLAG = 'PX'
+               WHERE A.BUYER = #{BUYER}                                                                         
+                 AND A.PR_NO = #{PR_NO}   
+		]]>
+	</update> 
+	<update id="insertBuyerMpSoIcogapassln1" parameterType="java.util.Map">
+		<![CDATA[
+		   /*insertBuyerMpSoIcogapassln1*/
+           INSERT INTO ICOGPASSLN
+           (
+           COMPANY, 
+           DOCU_NO, 
+           ORDER_NO, 
+           USER_ID, 
+           PASS_TP, 
+           PASS_DATE, 
+           REFER_DATE, 
+           PASS_KN
+           )
+           VALUES
+           (
+            #{BUYER}, 
+            #{DOCU_NO}, 
+            '1',
+            #{APPR_0}, 
+            '0', 
+           SYSDATE, 
+           SYSDATE, 
+            '0'
+           ) 
+		]]>
+	</update>
+	<update id="insertBuyerMpSoIcogapassln2" parameterType="java.util.Map">
+		<![CDATA[
+		   /*insertBuyerMpSoIcogapassln2*/
+           INSERT INTO ICOGPASSLN
+           (
+           COMPANY, 
+            DOCU_NO, 
+            ORDER_NO, 
+            USER_ID, 
+            PASS_TP
+           )
+           VALUES
+           (
+            #{BUYER}, 
+            #{DOCU_NO}, 
+            2, 
+            #{APPR_1},
+            '1' 
+           ) 
+		]]>
+	</update> 
+	<update id="insertBuyerMpSoIcogapassln3" parameterType="java.util.Map">
+		<![CDATA[
+		   /*insertBuyerMpSoIcogapassln3*/
+           INSERT INTO ICOGPASSLN
+           (
+           COMPANY, 
+            DOCU_NO, 
+            ORDER_NO, 
+            USER_ID, 
+            PASS_TP
+           )
+           VALUES
+           (
+            #{BUYER}, 
+            #{DOCU_NO}, 
+            3, 
+            #{APPR_2},
+            '1' 
+           ) 
+		]]>
+	</update>
+	<update id="insertBuyerMpSoIcogdocu" parameterType="java.util.Map">
+		<![CDATA[
+		   /*insertBuyerMpSoIcogdocu*/
+           INSERT INTO ICOGDOCU
+           (
+            COMPANY, 
+		    DOCU_NO, 
+		    USER_ID,
+		    DOCU_KN,
+            DOCU_TITLE, 
+            DOCU_CONT,  
+            USER_NM,
+            PASS_STATUS, 
+            START_DATE, 
+            CUR_ORDER_NO,
+            EXTIF_TP , 
+            IMAGE_KEY
+           )
+           VALUES
+           (
+            #{BUYER}, 
+            #{DOCU_NO}, 
+            #{APPR_0}, 
+            '1',
+            #{DOCU_TITLE},
+            #{DOCU_CNT},
+            #{APPR_0_NM},
+            '0',
+            SYSDATE,
+            2,
+            'PX'
+            ,'' 
+           ) 
+		]]>
+	</update>
+	<update id="insertBuyerMpSoIcomtrgw" parameterType="java.util.Map">
+		<![CDATA[
+		   /*insertBuyerMpSoIcomtrgw*/
+           INSERT INTO ICOMTRGW
+           (
+            COM_CODE
+            ,DOC_NAME
+            ,TARGET
+            ,KEY_1
+            ,KEY_2
+            ,KEY_3
+            ,KEY_4
+            ,KEY_5
+            ,KEY_6
+            ,KEY_7
+            ,KEY_8
+            ,KEY_9
+            ,KEY_10
+           )
+           VALUES
+           (
+            #{BUYER}, 
+            'PX',
+            #{DOCU_NO}, 
+            #{PX_NO},
+            #{BUYER},
+            #{APPR_0},  
+            #{APPR_0_DEPT},
+            #{APPR_0_NM},
+            #{APPR_0_TEL},
+            #{PX_NO},
+            ' ',
+            ' ',
+            ' '             
+           ) 
+		]]>
+	</update>
+</mapper>

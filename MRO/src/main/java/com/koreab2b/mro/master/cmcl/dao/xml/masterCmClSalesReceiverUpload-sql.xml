@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.cmcl">
+	<!-- 조회 -->
+	<select id="selectMasterCmClSalesReceiverUploadList" parameterType="java.util.Map" resultType="java.util.Map">
+	<![CDATA[
+		SELECT	/* selectMasterCmClSalesReceiverUploadList */
+				X.DOC_NAME,
+				X.TARGET,
+				X.KEY_1,
+				X.KEY_2,
+				X.KEY_3,
+				X.KEY_4,
+				X.KEY_5,
+				X.KEY_6,
+				X.KEY_7,
+				X.KEY_8,
+				X.BILL_SEND_ERR_CHK,
+				X.CONFIRM_ERR_CHK,
+				X.USER_ERR_CHK,
+				CASE	WHEN X.USER_ERR_CHK = 'Y' THEN '매출세금계산서 발행자 미일치'
+					    WHEN X.BILL_SEND_ERR_CHK = 'Y' THEN '매출세금계산서 발행'
+					    WHEN X.CONFIRM_ERR_CHK = 'Y' THEN '매출세금계산서 확정'
+					    ELSE '정상'
+				END AS STATUS
+		FROM	(
+				SELECT	A.DOC_NAME,
+						A.TARGET,
+						A.KEY_1,
+						A.KEY_2,
+						A.KEY_3,
+						A.KEY_4,
+						A.KEY_5,
+						A.KEY_6,
+						A.KEY_7,
+						A.KEY_8,
+						DECODE((SELECT COUNT(*) FROM XXSB_DTI_MAIN WHERE SEQ_ID = A.TARGET), 0, 'N', 'Y') AS BILL_SEND_ERR_CHK,
+						DECODE((SELECT COUNT(*) FROM KEPTARDT WHERE TAX_BILL_NO = A.TARGET AND CONFIRM_FLAG = 'Y'), 0, 'N', 'Y') AS CONFIRM_ERR_CHK,
+						DECODE((SELECT COUNT(*) FROM KEPTARDT WHERE TAX_BILL_NO = A.TARGET AND ADD_USER_ID = A.KEY_5), 0, 'Y', 'N') AS USER_ERR_CHK
+				FROM	BNTTRXL A
+				WHERE	1=1
+				AND		A.DOC_NAME = 'AR_EMAIL'
+				AND		KEY_5 = #{st_user_id}
+		) X
+		ORDER BY TO_NUMBER(KEY_8)
+	]]>
+	</select>
+	
+	<update id="setBnttrxlUploadDel1" parameterType="java.util.Map" >
+		<![CDATA[
+		/*setBnttrxlUploadDel1*/
+		DELETE FROM	BNTTRXL
+		WHERE		1=1
+		AND			DOC_NAME = #{DOC_NAME}
+		AND			KEY_5 = #{ST_USER_ID}
+		]]> 
+	</update>
+	
+	<update id="setBnttrxlUploadReg1" parameterType="java.util.Map" >
+		<![CDATA[
+		/*setBnttrxlUploadReg1*/
+		INSERT INTO BNTTRXL	(
+			DOC_NAME,
+			TARGET,
+			KEY_1,
+			KEY_2,
+			KEY_3,
+			KEY_4,
+			KEY_5,
+			KEY_6,
+			KEY_7,
+			KEY_8,
+			KEY_9,
+			KEY_10,
+			KEY_11,
+			KEY_12,
+			KEY_13,
+			KEY_14,
+			KEY_15
+		) VALUES(
+			#{DOC_NAME},
+			#{TARGET},
+			NVL((
+			    SELECT NVL(NVL(AR.GR_CREATOR_NAME,MAIN.BYR_EMP_NAME),BILL.USER_NAME_LOC)
+				FROM KEPTARDT AR, XXSB_DTI_MAIN MAIN, BILL_ACCOUNTING BILL
+				WHERE AR.SITE IN ('KA', 'KK')
+				AND AR.STATUS != 'D'
+				AND NVL(AR.AR_TYPE,'01') = '01'
+				AND AR.ADD_USER_ID = #{ST_USER_ID}
+				AND AR.TAX_BILL_NO = #{TARGET}
+				AND AR.TAX_BILL_NO = MAIN.SEQ_ID (+)
+				AND AR.BUYER_CODE = BILL.COM_CODE (+)
+				AND BILL.PRIORITY (+)= 'Y'
+				AND MAIN.STATUS (+)!= 'D'
+				AND AR.IRS_NO = BILL.IRS_NO (+)
+			),' '),
+			DECODE(TRIM(#{KEY_2}), '', ' ', #{KEY_2}),
+			NVL((
+			    SELECT NVL(NVL(AR.GR_CREATOR_EMAIL,MAIN.BYR_EMAIL),BILL.EMAIL)
+				FROM KEPTARDT AR, XXSB_DTI_MAIN MAIN, BILL_ACCOUNTING BILL
+				WHERE AR.SITE IN ('KA', 'KK')
+				AND AR.STATUS != 'D'
+				AND NVL(AR.AR_TYPE,'01') = '01'
+				AND AR.ADD_USER_ID = #{ST_USER_ID}
+				AND AR.TAX_BILL_NO = #{TARGET}
+				AND AR.TAX_BILL_NO = MAIN.SEQ_ID (+)
+				AND AR.BUYER_CODE = BILL.COM_CODE (+)
+				AND BILL.PRIORITY (+)= 'Y'
+				AND MAIN.STATUS (+)!= 'D'
+				AND AR.IRS_NO = BILL.IRS_NO (+)
+			),' '),
+			DECODE(TRIM(#{KEY_4}), '', ' ', #{KEY_4}),
+			#{ST_USER_ID},
+			TO_CHAR(SYSDATE, 'YYYYMMDD'),
+			TO_CHAR(SYSDATE, 'HH24MISS'),
+			(SELECT TO_NUMBER(NVL(MAX(KEY_8), 0))+1 FROM BNTTRXL WHERE DOC_NAME = #{DOC_NAME} AND KEY_5 = #{ST_USER_ID}),
+			' ',
+			' ',
+			' ',
+			' ',
+			' ',
+			' ',
+			' '
+		)          
+		]]> 
+	</update>
+	
+	<update id="setKeptardtUploadReg" parameterType="java.util.Map" >
+		<![CDATA[
+		/*setKeptardtUploadReg*/
+		UPDATE KEPTARDT
+		SET GR_CREATOR_NAME = #{KEY_2}, GR_CREATOR_EMAIL = #{KEY_4}
+		WHERE TAX_BILL_NO = #{TARGET} AND ADD_USER_ID = #{ST_USER_ID}       
+		]]> 
+	</update>
+</mapper>   
+   

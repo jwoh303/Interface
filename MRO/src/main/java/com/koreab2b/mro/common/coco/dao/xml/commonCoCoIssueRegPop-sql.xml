@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="common.coco">
+ 
+	<update id="insertCommonCoCoIssueReg" parameterType="java.util.Map">
+		<![CDATA[
+		/* common.coco.insertCommonCoCoIssueReg*/
+			INSERT INTO KEP_PO_MNG (
+				BUYER,
+				PO_NO,
+				PO_SEQ,
+				DS_SEQ,
+				SEQ,
+				PR_NO,
+				PR_SEQ,
+				AGENT,
+				STATUS,
+				TYPE,
+				NOTICE_DATE,
+				AGENT_REMARK,
+				ADD_USER_ID,
+				ADD_DATE,
+				CHANGE_USER_ID,
+				CHANGE_DATE
+			) (
+				SELECT 
+					BUYER,
+					PO_NO,
+					PO_SEQ,
+					DS_SEQ,
+					NEW_SEQ,
+					PR_NO,
+					PR_SEQ,
+					AGENT,
+					STATUS,
+					TYPE,
+					NOTICE_DATE,
+					AGENT_REMARK,
+					ADD_USER_ID,
+					ADD_DATE,
+					CHANGE_USER_ID,
+					CHANGE_DATE
+				FROM (
+					SELECT 
+						PO.BUYER, 
+						PO.PO_NO, 
+						PO.PO_SEQ, 
+						'000000' AS DS_SEQ,
+						(
+							SELECT NVL(MAX(SEQ),0)+1
+							FROM KEP_PO_MNG MN
+							WHERE MN.BUYER = PO.BUYER
+							AND MN.PO_NO = PO.PO_NO
+							AND MN.PO_SEQ = PO.PO_SEQ
+							AND MN.DS_SEQ = '000000'
+						) AS NEW_SEQ,
+						PO.PR_NO,
+						PO.PR_SEQ,
+						PH.AGENT,
+						'S' AS STATUS,
+						'C' AS TYPE,
+						TO_CHAR(SYSDATE,'YYYYMMDD') AS NOTICE_DATE, 
+						#{st_remark} AS AGENT_REMARK,
+						#{st_user_id} AS ADD_USER_ID,
+						SYSDATE AS ADD_DATE,
+						#{st_user_id} AS CHANGE_USER_ID,
+						SYSDATE AS CHANGE_DATE
+					FROM ICOMPODT PO, ICOMPOHD PH
+					WHERE PO.BUYER = #{st_buyer}
+					AND PO.PO_NO = #{st_po_no}
+			]]>
+				<if test='st_po_multiYN != "Y"'>
+				<![CDATA[
+					AND PO.PO_SEQ = #{st_po_seq}
+				]]>
+				</if>
+			<![CDATA[
+					AND PH.BUYER = PO.BUYER
+					AND PH.PO_NO = PO.PO_NO
+				)
+			)
+		]]>
+	</update>
+	
+	<!-- 조회 -->
+	<select id="selectCommonCoCoIssueHistList" parameterType="java.util.Map" resultType="java.util.Map">
+			<![CDATA[
+			/* selectCommonCoCoIssueHistList */
+			SELECT	TO_CHAR(MN.ADD_DATE, 'YYYY/MM/DD') AS ADD_DATE,
+				    (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'PMNGTYPE' AND CODE = MN.TYPE) AS TYPE_NAME,
+				    (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'PMNGSTTS' AND CODE = MN.STATUS) AS STATUS_TEXT,
+				    MN.AGENT_REMARK,
+		       		MN.KEP_REMARK,
+		       		MN.ATOA_REMARK,
+		          	(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = MN.ADD_USER_ID) AS ADD_USER,
+		            (SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = MN.CONFIRM_USER_ID) AS CONFIRM_USER,
+					TO_CHAR(MN.CONFIRM_DATE, 'YYYY/MM/DD') AS CONFIRM_DATE,
+					MN.NOTICE_DATE
+			FROM	KEP_PO_MNG MN
+			WHERE	MN.BUYER = #{st_buyer}
+			AND		MN.PO_NO = #{st_po_no}
+			AND 	MN.PO_SEQ IN (#{st_po_seq}, '000000')
+			ORDER BY MN.ADD_DATE DESC
+			]]>
+	</select>
+</mapper>

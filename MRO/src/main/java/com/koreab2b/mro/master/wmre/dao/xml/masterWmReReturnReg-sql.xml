@@ -1,0 +1,454 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.wmre">
+	<!-- 조회 -->
+	<select id="selectMasterWmReReturnRegList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.pagestart"/>	
+			<![CDATA[
+		    	SELECT /*selectMasterWmReReturnRegList*/                            
+	 -- 품목 및 주문정보 
+	 A.WMRE_NO                                                                          -- 접수번호
+    ,A.BUYER                                                                           -- 고객사
+	,(SELECT B.COM_NAME_LOC FROM ICOMCMPY B WHERE B.COM_CODE = A.BUYER) AS BUYER_NAME     -- 고객사(명)        
+	,A.PO_NO                                                                            -- 발주번호
+	,A.PO_SEQ                                                                           -- 발주순번
+	,A.LEGACY_PO_NO                                                                     -- LEGACY_NO  
+	,A.LEGACY_PO_SEQ                                                                    -- LEGACY_NO 순번 
+	,A.BUYER_ITEM_NO                                                                    -- 품목코드
+	,A.DESCRIPTION                                                                      -- 품목명
+	,A.SPECIFICATION                                                                    -- 규격
+	,A.ITEM_QTY                                                                         -- 발주수량
+	,A.UNIT_MEASURE                                                                     -- 단위
+    ,A.SELLER                                                                           -- 협력사
+	,(SELECT C.COM_NAME_LOC FROM ICOMCMPY C WHERE C.COM_CODE = A.SELLER) AS SELLER_NAME -- 협력사명
+    ,A.PROCESS_TYPE    
+	,(DECODE(A.PROCESS_TYPE,'0','직납','1','재고','2','TR','3','VMI')) PROCESS_TYPE_NM     -- 출고구분	
+	-- 고객사 요청정보
+	--,A.BUYER_DEPT_CODE   
+	,(SELECT TEXT1 
+	    FROM ICOMCOD2 
+	   WHERE TYPE = 'C001' 
+	     AND COMPANY_CODE = A.BUYER AND CODE = A.BUYER_DEPT_CODE ) AS BUYER_DEPT_NAME                      -- 고객사요청부서
+	,A.BUYER_PERSON_NAME                                                                -- 고객요청자  
+	,A.BUYER_PERSON_TEL                                                                 -- 고객연락처  	
+
+	 -- 운영사 접수정보
+	,A.WAREHOUSE_CODE    -- 접속물류센터   
+	,(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = A.WAREHOUSE_CODE ) AS WAREHOUSE_NAME -- 물류센터명
+	,A.M_REC_USER_ID         -- 접수자
+	,(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = A.M_REC_USER_ID ) AS M_REC_USER_NAME             -- 접수자명
+	,A.PROCESS_USER_NAME                                                                      -- 진행관리자
+	-- 반품/교환 사유 정보
+	,A.WMRE_QTY                                                                                 -- 반품접수수량
+	,A.WMRE_TYPE            
+	,(SELECT TEXT1 FROM ICOMCOD1
+           WHERE TYPE = 'WM01'
+             AND CODE = A.WMRE_TYPE ) AS WMRE_TYPE_NAME                                             -- 01반품/02교환  
+	--,WMRE_TYPE2           -- WMRE_TYPE의 상세  (WM02/WM03)
+	, CASE WHEN A.WMRE_TYPE = '01' THEN (SELECT TEXT1 FROM ICOMCOD1
+                                             WHERE TYPE = 'WM02'
+                                               AND CODE = A.WMRE_TYPE2 )
+           WHEN A.WMRE_TYPE = '02' THEN (SELECT TEXT1 FROM ICOMCOD1
+                                             WHERE TYPE = 'WM03'
+                                               AND CODE = A.WMRE_TYPE2 )
+          END WMRE_TYPE2_NAME
+	--,A.WMRE_TYPE3           -- WMRE_TYPE2의 상세 (WM04/WM05)
+    , CASE WHEN A.WMRE_TYPE = '01' THEN (SELECT TEXT1 FROM ICOMCOD1
+                                             WHERE TYPE = 'WM04'
+                                               AND CODE = A.WMRE_TYPE3 )
+           WHEN A.WMRE_TYPE = '02' THEN (SELECT TEXT1 FROM ICOMCOD1
+                                             WHERE TYPE = 'WM05'
+                                               AND CODE = A.WMRE_TYPE3 )
+          END WMRE_TYPE3_NAME
+	,A.WMRE_TYPE_DETAIL    
+	,A.WMRE_FILE            -- 타입 확인필요 	
+    ,A.FLAG
+    ,(SELECT TEXT1 FROM ICOMCOD1
+           WHERE TYPE = 'WM07'
+             AND CODE = A.FLAG ) AS FLAG_NAME
+	-- 반품/교환 진행 정보
+	,A.B_REQ_DATE            -- 고객사 요청처리 (01미처리/02처리/03종결)    	
+    ,A.B_REQ_FLAG            -- 고객사 요청처리 (01미처리/02처리/03종결)    	
+	,A.M_REC_DATE            -- 운영사 접수처리 (01미처리/02처리/03종결)  	
+    ,A.M_REC_FLAG            -- 운영사 접수처리 (01미처리/02처리/03종결)  
+	,A.S_REC_DATE            -- 협력사 접수처리 (01미처리/02처리/03종결)    	
+    ,A.S_REC_FLAG            -- 협력사 접수처리 (01미처리/02처리/03종결)    
+	,A.S_PRT_DATE            -- 협력사 명세서출력처리 (01미처리/02처리/03종결)
+    ,A.S_PRT_FLAG            -- 협력사 명세서출력처리 (01미처리/02처리/03종결)
+	,A.S_PRT_YN              -- 협력사 명세서 출력여부 (Y/N)	 	    
+	,A.W_GR_DATE             -- 물류센터 입고처리 (01미처리/02처리/03종결) 
+    ,A.W_GR_FLAG             -- 물류센터 입고처리 (01미처리/02처리/03종결) 
+ , A.W_GR_QTY             -- 물류센터 회수수량 
+,A.W_RIV_DATE             -- 물류센터 반출처리 (01미처리/02처리/03종결) 
+    ,A.W_RIV_FLAG             -- 물류센터 반출처리 (01미처리/02처리/03종결) 
+    
+	,A.W_IVK_DATE            -- 물류센터 출고처리 (01미처리/02처리/03종결)
+    ,A.W_IVK_FLAG            -- 물류센터 출고처리 (01미처리/02처리/03종결)
+	--,A.W_IVK_TYPE            -- 물류센터 출고방법 (WM06) 
+	,(SELECT TEXT1 FROM ICOMCOD1
+           WHERE TYPE = 'WM06'
+             AND CODE = A.W_IVK_TYPE ) AS W_IVK_TYPE_NAME
+	,A.S_GR_DATE             -- 협력사 입고처리 (01미처리/02처리/03종결)
+    ,A.S_GR_FLAG             -- 협력사 입고처리 (01미처리/02처리/03종결)
+	,A.W_CHGR_DATE           -- 물류센터 교환입고처리 (01미처리/02처리/03종결)
+    ,A.W_CHGR_FLAG           -- 물류센터 교환입고처리 (01미처리/02처리/03종결)
+	,A.W_CHDELI_DATE         -- 물류센터 교환납품처리 (01미처리/02처리/03종결)
+    ,A.W_CHDELI_FLAG         -- 물류센터 교환납품처리 (01미처리/02처리/03종결)
+	,A.S_CHDELI_DATE         -- 협력사 교환납품처리 (01미처리/02처리/03종결)	 
+    ,A.S_CHDELI_FLAG         -- 협력사 교환납품처리 (01미처리/02처리/03종결)	 
+	,A.M_CLOSE_DATE          -- 운영사 마감처리 (01미처리/02처리/03종결)   	 
+    ,A.M_CLOSE_FLAG          -- 운영사 마감처리 (01미처리/02처리/03종결)   
+    ,A.CANCEL_DATE
+    ,A.CANCEL_FLAG
+	,A.WMRE_REMARK
+	, A.END_DATE   
+	,F_GET_WMRE_STT(A.BUYER,A.WMRE_NO,A.PO_NO,A.PO_SEQ,0) AS APPR_STATUS
+	,F_GET_WMRE_STT(A.BUYER,A.WMRE_NO,A.PO_NO,A.PO_SEQ,1) AS APPR_STATUS_NM
+	,F_GET_WMRE_STT(A.BUYER,A.WMRE_NO,A.PO_NO,A.PO_SEQ,2) AS APPR_GW_NO
+	,(SELECT MAX(KEP_DEPT) FROM MIS_BUYER_MNG WHERE YEAR = TO_CHAR(SYSDATE, 'YYYY') AND STATUS = 'C' AND BUYER = A.BUYER) AS KEP_DEPT
+	,(SELECT TEXT1 FROM ICOMCOD2 WHERE TYPE = 'C001' AND COMPANY_CODE = 'KRKORE0001' AND CODE = (SELECT MAX(KEP_DEPT) FROM MIS_BUYER_MNG WHERE YEAR = TO_CHAR(SYSDATE, 'YYYY') AND STATUS = 'C' AND BUYER = A.BUYER)) AS KEP_DEPT_NAME
+	,A.ADD_USER_ID
+	,(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = A.ADD_USER_ID ) AS ADD_USER_NAME
+	,(SELECT MAX(KEP_USER_ID) FROM MIS_BUYER_MNG WHERE YEAR = TO_CHAR(SYSDATE, 'YYYY') AND STATUS = 'C' AND BUYER = A.BUYER AND POSITION_GROUP = 'PM') AS KEP_USER_ID
+	,(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = (SELECT MAX(KEP_USER_ID) FROM MIS_BUYER_MNG WHERE YEAR = TO_CHAR(SYSDATE, 'YYYY') AND STATUS = 'C' AND BUYER = A.BUYER AND POSITION_GROUP = 'PM')) AS KEP_USER_NAME
+	,A.DELIVERY_FLAG
+	,PODT.UNIT_PRICE AS UNIT_PRICE
+	,PODT.UNIT_PRICE * A.WMRE_QTY AS WMRE_AMT
+	,PODT.MAKER_NAME AS MAKER_NAME
+	,PODT.IV_QTY
+ FROM	BNTWMRE A, ICOMPODT PODT
+				]]>
+				<where>
+				AND	A.BUYER = PODT.BUYER(+)
+				AND	A.PO_NO = PODT.PO_NO(+)
+				AND	A.PO_SEQ = PODT.PO_SEQ(+)
+		        <if test="st_warehouse_code != null and st_warehouse_code != ''">
+		    				AND A.WAREHOUSE_CODE =#{st_warehouse_code}
+		        </if>
+		        <if test="st_WMRE_TYPE != null and st_WMRE_TYPE != ''">
+		    				AND A.WMRE_TYPE = #{st_WMRE_TYPE}
+		        </if>
+
+		        <if test="st_buyer_code != null and st_buyer_code != ''">
+		    			AND A.BUYER = #{st_buyer_code}
+		        </if>
+		        <if test="st_flag != null and st_flag != ''">
+		    				AND A.FLAG = #{st_flag}
+		        </if>
+		        <if test="st_add_usr_id != null and st_add_usr_id != ''">
+		        			AND A.ADD_USER_ID = #{st_add_usr_id}
+		        </if>	
+		        <if test="st_agnet_code != null and st_agnet_code != ''">
+		        	   AND A.SELLER = #{st_agnet_code}
+		        </if>
+		        <if test="st_po_no != null and st_po_no != ''">
+		        	AND A.PO_NO = #{st_po_no}
+		        </if>	
+		        <if test="st_wmre_no != null and st_wmre_no != ''">
+		        	AND A.WMRE_NO = #{st_wmre_no}
+		        </if>	
+		         <if test="st_wmre_type != null and st_wmre_type != ''">		
+		         	AND A.PROCESS_TYPE = #{st_wmre_type}   
+		          </if>     		
+		         <if test='st_date_type =="REC_DATE"'>
+		         	AND A.M_REC_DATE BETWEEN #{st_from_date} AND #{st_to_date}
+				 </if>
+		         <if test='st_date_type =="ADD_DATE"'>
+		         	AND A.B_REQ_DATE BETWEEN #{st_from_date} AND #{st_to_date}
+				 </if>
+				 <if test="st_dept_code != null and st_dept_code != '' ">
+					AND (SELECT MAX(KEP_DEPT) FROM MIS_BUYER_MNG WHERE YEAR = TO_CHAR(SYSDATE, 'YYYY') AND STATUS = 'C' AND BUYER = A.BUYER) = #{st_dept_code}
+				</if>				 			        	        								 			        	        									 
+				</where>
+
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+
+
+	<update  id="insertMasterWmReReturnReg" parameterType="java.util.Map" >
+		<![CDATA[
+				INSERT INTO	KEPQTDT					
+				(									
+					BUYER,							
+					QUOTATION_NO,					
+					QUOTATION_SEQ,					
+					REVISION,						
+					AGENT,							
+					AGENT_REVISION,					
+					STATUS,							
+					BUYER_ITEM_NO,					
+					DESCRIPTION,					
+					SPECIFICATION,					
+					UNIT_MEASURE,					
+					MAKER_NAME,						
+					ORIGIN_NAME,					
+					ATOS_DATE,						
+					ATOS_END_DATE,					
+					ATOS_END_TIME,					
+					ITEM_QTY,						
+					IMAGE_KEY,						
+					DSS_FLAG,						
+					DSS_CHOICE						
+				)									
+				(									
+				SELECT								
+					#{BUYER},									/* 1 : BUYER */
+					#{QUOTATION_NO},									/* 2 : QUOTATION_NO */
+					#{QUOTATION_SEQ},									/* 3 : QUOTATION_SEQ */
+					#{REVISION},									/* 4 : REVISION */
+					#{AGENT},									/* 5 : AGENT */
+					#{AGENT_REVISION},								/* 6 : AGENT_REVISION */
+					'C',						
+					BUYER_ITEM_NO,				
+					DESCRIPTION,				
+					SPECIFICATION,				
+					UNIT_MEASURE,				
+					MAKER_NAME,					
+					ORIGIN_CODE,				
+					TO_CHAR(SYSDATE, 'YYYYMMDD')AS ATOS_DATE,
+					#{ATOS_END_DATE},								/* 7 : ATOS_END_DATE */
+					#{ATOS_END_TIME},								/* 8 : ATOS_END_TIME */
+					ITEM_QTY,					
+					IMAGE_KEY,					
+					#{DSS_FLAG},								/*  9 : DSS_FLAG   if(chk_str[1].equals("A") || chk_str[1].equals("B") || chk_str[1].equals("C")|| chk_str[1].equals("S")) : Y , 기타  : N   */
+					#{DSS_CHOICE}								/*    10 : DSS_CHOICE */
+				   FROM KEPRQDT						
+				  WHERE BUYER=#{BUYER}							/* 11 : BUYER */           
+					AND QUOTATION_NO=#{QUOTATION_NO}					/* 12 : QUOTATION_NO     */
+					AND QUOTATION_SEQ=#{QUOTATION_SEQ}					/* 13 : QUOTATION_SEQ    */
+					AND REVISION=#{REVISION}						/* 14 : REVISION  */       
+					AND RECV_FLAG <> 'GD'			
+					AND STATUS IN ('C','R')			
+				)									
+
+		]]>
+							   <!-- /* CMS_USER_ID = 'TEMPUSER', */ -->
+		
+	</update>
+
+
+<!-- 삭제 -->
+	<update id="deleteMasterWmReReturnReg"  parameterType="java.util.Map">
+		<![CDATA[
+				UPDATE KEPRQDT					
+				   SET RECV_FLAG      = 'GD' 	
+				     , CANCEL_USER_ID = #{USR_ID}    		/*CANCEL_USER_ID*/
+				     , CANCEL_DATE    = SYSDATE	
+				     , CANCEL_REMARK  = #{CANCEL_REMARK}    		/*CANCEL_REMARK*/
+				 WHERE BUYER          = #{BUYER}			/*BUYER*/
+				   AND QUOTATION_NO   = #{QUOTATION_NO}	 		/*QUOTATION_NO*/
+				   AND QUOTATION_SEQ  = #{QUOTATION_SEQ}			/*QUOTATION_SEQ*/
+				   AND REVISION       = #{REVISION}			/*REVISION*/
+				   AND STATUS IN ('C','R')
+		]]>
+	</update>
+	<select id="selectMasterWmRePorsYn" parameterType="java.util.Map" resultType="java.util.Map">
+			<![CDATA[
+				/*selectMasterWmRePorsYn*/
+				SELECT DECODE(COUNT(PO_SEQ), 0,'N','Y') DATA_YN
+				FROM ICOMPORS
+				WHERE BUYER = #{param1}
+				AND PO_NO = #{param2}
+				AND PO_SEQ = #{param3}
+			]]>
+	</select>
+	<select id="selectMasterWmReArApYn" parameterType="java.util.Map" resultType="java.util.Map">
+			<![CDATA[
+				/*selectMasterWmReArApYn*/
+				SELECT DECODE(COUNT(PO_SEQ), 0,'N','Y') DATA_YN
+				FROM ICOMGRDT
+				WHERE BUYER = #{param1}
+				AND PO_NO = #{param2}
+				AND PO_SEQ = #{param3}
+				AND STATUS != 'D'
+				AND (AR_BILL_FLAG = 'Y' OR AP_BILL_FLAG = 'Y')
+			]]>
+	</select>
+	<select id="selectMasterWmReArApYn_v2" parameterType="java.util.Map" resultType="java.util.Map">
+			<![CDATA[
+				/*selectMasterWmReArApYn_v2*/
+				SELECT DECODE((SELECT COUNT(GR.PO_SEQ) 
+								FROM ICOMGRDT GR
+								WHERE GR.BUYER = #{param1}
+								AND GR.PO_NO = #{param2}
+								AND GR.PO_SEQ = #{param3}
+								AND GR.STATUS != 'D'
+								AND GR.AR_BILL_FLAG = 'Y'),0,'N','Y') AS AR_YN
+						,DECODE((SELECT COUNT(IV.PO_SEQ) 
+								FROM ICOMIVDT IV
+								WHERE IV.BUYER = #{param1}
+								AND IV.PO_NO = #{param2}
+								AND IV.PO_SEQ = #{param3}
+								AND IV.STATUS != 'D'
+								AND IV.AP_BILL_FLAG = 'Y'),0,'N','Y') AS AP_YN
+						,DECODE((SELECT PO.ITEM_QTY-PO.GR_QTY
+								FROM ICOMPODT PO
+								WHERE PO.BUYER = #{param1}
+								AND PO.PO_NO = #{param2}
+								AND PO.PO_SEQ = #{param3}
+								AND PO.STATUS != 'D'),0,'Y','N') AS GR_YN
+				FROM DUAL
+			]]>
+	</select>
+	<select id="selectMasterWmReIvGrYn" parameterType="java.util.Map" resultType="java.util.Map">
+			<![CDATA[
+				/*selectMasterWmReIvGrYn*/
+				SELECT
+				 CASE WHEN MAX(INV_QTY)  <= MAX(GR_QTY)
+				 THEN 'Y' ELSE 'N'  END AS DATA_YN
+				FROM (
+					SELECT
+					SUM(INV_QTY) AS  INV_QTY
+					, 0 AS GR_QTY
+					FROM   ICOMIVDT
+					WHERE BUYER = #{param1}
+					AND PO_NO = #{param2}
+					AND PO_SEQ = #{param3}
+					AND STATUS != 'D'
+					UNION ALL
+					SELECT
+					0 AS INV_QTY
+					,SUM(ITEM_QTY) AS GR_QTY
+					FROM   ICOMGRDT
+					WHERE BUYER = #{param1}
+					AND PO_NO =#{param2}
+					AND PO_SEQ = #{param3}
+					AND STATUS != 'D'
+				) XX
+			]]>
+	</select>
+	<update id="insertMasterWmReKEPMGPDT" parameterType="java.util.Map" >
+		<![CDATA[
+				INSERT INTO KEPMGPDT (  /*insertMasterWmReKEPMGPDT*/
+                                 BUYER,             
+                                 PM_NO,             
+                                 PM_SEQ,            
+                                 STATUS,            
+                                 REG_DATE,          
+                                 CHANGE_DATE,       
+                                 CONFIRM_DATE,      
+                                 REG_USER_ID,       
+                                 CONFIRM_USER_ID,   
+                                 BUYER_ITEM_NO,     
+                                 AGENT,             
+                                 RE_UNIT_PRICE,     
+                                 CH_UNIT_PRICE,     
+                                 RE_LIST_PRICE,     
+                                 CH_LIST_PRICE,     
+                                 RE_PRICE_RATE,     
+                                 CH_PRICE_RATE,     
+                                 PO_NO,             
+                                 PO_SEQ,            
+                                 QUOTATION_NO,      
+                                 QUOTATION_SEQ,     
+                                 REVISION,          
+                                 MARGIN_RE          
+                               ) VALUES (  
+                                          #{BUYER},                          
+                                          #{PM_NO},                         
+                                          TO_CHAR(#{PM_SEQ},'FM000000'),
+                                          'C', 
+                                          SYSDATE,                   
+                                          SYSDATE,                   
+                                          '',                         
+                                          #{st_user_id},                         
+                                          '',                     
+                                          #{BUYER_ITEM_NO},
+                                          '',
+                                          '',
+                                          '',
+                                          '',
+                                          '',
+                                          '',
+                                          '',
+                                          #{PO_NO},      
+                                          #{PO_SEQ},      
+                                          #{WMRE_NO},     
+                                          '',   
+                                          '',  
+                                          ''
+                                        )
+		]]>
+	</update>
+	<update id="insertMasterWmReKEPMGPHD" parameterType="java.util.Map" >
+		<![CDATA[
+				INSERT INTO KEPMGPHD (  /*insertMasterWmReKEPMGPHD*/ 
+                                 BUYER,              
+                                 PM_NO,              
+                                 STATUS,             
+                                 REG_DATE,           
+                                 CHANGE_DATE,        
+                                 REFER_DATE,         
+                                 CONFIRM_DATE,       
+                                 REG_USER_ID,        
+                                 REG_USER_DEPT,      
+                                 CONFIRM_USER_ID,    
+                                 CONFIRM_USER_DEPT,  
+                                 GUBUN,              
+                                 CA_FLAG,            
+                                 SUBJECT,            
+                                 REMARK,             
+                                 CON_REMARK,         
+                                 CONFIRM_CODE        
+                               ) VALUES (  
+                                          #{BUYER},
+                                          #{PM_NO},
+                                          'C',
+                                          SYSDATE,
+                                          SYSDATE,
+                                          '',
+                                          '',
+                                          #{st_user_id},
+                                          #{st_user_dept},
+                                          '',
+                                          '',
+                                          #{DOC_TYPE},
+                                          'N',
+                                          '',
+                                          '',
+                                          '',
+                                          '' 
+                                        ) 
+		]]>
+	</update>
+	
+	<update  id="updateMasterWmReReturnEndAll" parameterType="java.util.Map" >
+		<![CDATA[
+		/* updateMasterWmReReturnEndAll */
+		
+		UPDATE	BNTWMRE
+		SET		FLAG = '13',
+					M_REC_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD'),
+					M_REC_USER_ID = #{st_user_id},
+					M_REC_FLAG = '02',
+					S_REC_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD'),
+					S_REC_USER_ID = #{st_user_id},
+					S_REC_FLAG = '02',
+		]]>
+		<if test='PROCESS_TYPE != "0"'>
+			W_GR_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD'),
+			W_GR_USER_ID = #{st_user_id},
+			W_GR_FLAG = '02',
+			W_GR_QTY = #{WMRE_QTY},
+			<if test='PROCESS_TYPE == "2"'>
+				W_RIV_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD'),
+				W_RIV_USER_ID = #{st_user_id},
+				W_RIV_FLAG = '02',
+				W_IVK_TYPE = #{st_all_w_ivk_type},
+			</if>
+		</if>
+		<![CDATA[
+					S_GR_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD'),
+					S_GR_USER_ID	= #{st_user_id},
+					S_GR_FLAG = '02',
+					M_CLOSE_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD'),
+					M_CLOSE_USER_ID = #{st_user_id},
+					M_CLOSE_FLAG = '02',
+					END_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD'),
+					END_USER_ID	= #{st_user_id},
+					END_FLAG = '03'
+		WHERE	WMRE_NO = #{WMRE_NO}
+		]]>
+	</update>
+</mapper>   
+   

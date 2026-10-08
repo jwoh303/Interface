@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="buyer.mdcm">
+	<select id="selectBuyerMdCmCartPunchoutSearch" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.jsppagestart"/>
+		<![CDATA[
+		/*selectBuyerMdCmCartPunchoutSearch*/
+                         SELECT          
+                         		A.BYIT_COMORG_CODE ,            
+                                TRIM(B.IMGFILE_NAME) IMGFILE_NAME,     
+                                TRIM(B.IMGFILE_DIR) IMGFILE_DIR,       
+                                C.BUYER_ITEM_NO BUYER_ITEM_NO,         
+                                B.DESCRIPTION_LOC DESCRIPTION_LOC,         
+                                B.SPECIFICATION,                       
+                                (SELECT TEXT2 FROM ICOMCOD1 WHERE TYPE = 'M001' AND CODE = C.ORIGIN_CODE) ORIGIN_NAME,  
+                                C.MAKER_NAME,                          
+                                C.UNIT_MEASURE,                        
+                                C.UNIT_PRICE,                          
+                                B.CATEGORY_NO,                         
+                                (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE C.AGENT = COM_CODE) AS AGENT,           
+                                DECODE(A.CART_QTY,0,NULL,A.CART_QTY)  CART_QTY,                           
+                                (DECODE(A.CART_QTY,'0','1',NVL(A.CART_QTY,1)) * NVL(A.UNIT_PRICE,1)) TOT_SUM,    
+                                B.STDCATEG_ID,                         
+                                C.CONTRACT_NO,                         
+                                C.CONTRACT_SEQ,                                   
+                                A.REF_PR_NO,                           
+                                C.AGENT AS AGENT_CODE,                 
+                                (SELECT Z.FLAG FROM ICOMCOD2 Z         
+                                  WHERE Z.TYPE = 'Z014'                
+                                    AND Z.COMPANY_CODE = A.BUYER       
+                                    AND Z.CODE = B.ACCOUNT_TYPE) BDGT_FLAG,  
+                                B.ACCOUNT_TYPE ACCOUNT_TYPE,           
+			                          C.ITEM_NO,                             
+                                C.CUR,                                 
+                                DECODE(C.ITEM_NO,NULL,'비재고','재고가능') AS GUBUN, 
+                                DECODE(C.ITEM_NO,NULL, C.BUYER_ITEM_NO,C.ITEM_NO) AS TEMP_BUYER_ITEM_NO, 
+                                A.ITEM_SEQ,                             
+                                C.LIST_PRICE,                           
+                                B.DELIVERY_LT,                          
+                                C.MIN_ORDER_QTY,                        
+                                NVL(B.GREEN_FLAG,'N') AS GREEN_FLAG,    
+                                (SELECT COUNT(C.BUYER_ITEM_NO)                          
+							     FROM ICOMPODT C, ICOMPRDT D                            
+							    WHERE C.BUYER = A.BUYER                                 
+							      AND C.BUYER = D.BUYER                                 
+							      AND C.PR_NO = D.PR_NO                                 
+							      AND C.PR_SEQ = D.PR_SEQ                               
+							      AND C.BUYER_ITEM_NO = D.BUYER_ITEM_NO                 
+							      AND C.STATUS <> 'D'                                   
+							      AND D.STATUS <> 'D'                                   
+							      AND NVL(C.ITEM_QTY,0) <> NVL(C.GR_QTY,0)              
+							      AND D.CHANGE_USER_ID IN (SELECT CODE FROM ICOMCOD1 WHERE TYPE = 'M141'  AND FLAG = 'Y')          
+							      AND C.BUYER_ITEM_NO = A.BUYER_ITEM_NO) AS DEPT_CNT,    
+								DECODE(C.S_STOCK_FLAG,'Y',(SELECT NVL(STOCK_QTY,0) FROM KEP_S_STOCK WHERE BUYER = C.BUYER AND BUYER_ITEM_NO = C.BUYER_ITEM_NO AND SELLER = C.AGENT),'') STOCK_FLAG,             
+								D.RETURN_URL
+                           FROM DOOSCART A, ICOMBYIT B, ICOMCQDT C, ICOMLUSR D     
+                          WHERE B.BUYER         = C.BUYER              
+                            AND A.BUYER_ITEM_NO = B.BUYER_ITEM_NO      
+                            AND A.BUYER_ITEM_NO = C.BUYER_ITEM_NO      
+                            AND A.CONTRACT_NO   = C.CONTRACT_NO        
+                            AND A.CONTRACT_SEQ  = C.CONTRACT_SEQ
+                            AND A.BUYER =    D.COM_CODE    
+                            AND A.USER_ID = D.USER_ID
+                            AND A.BUYER         =#{st_buyer}                
+                            AND A.BYIT_COMORG_CODE = B.BUYER           
+                            AND A.USER_ID      = #{st_user_id}        
+                            AND A.USE_FLAG      = 'C'                  
+                            AND B.STATUS       <> 'D'                  
+                            AND C.STATUS       <> 'D'                  
+                            AND B.PRODUCT_CLOSE_FLAG IN ('N','A')  
+      ]]> 
+       <choose>
+	   <when test='st_sort_column != "ALL" '>
+	    	ORDER BY  ${st_sort_column} ${st_sort_flag}
+	    </when> 
+	    <otherwise>
+	    	ORDER BY A.REG_DATE DESC, A.REG_TIME DESC, A.BUYER_ITEM_NO, A.DESCRIPTION
+	    </otherwise>
+	    </choose>
+		<include refid="common.ibsheet.xml.jsppageend"/>	
+	</select>
+	<update id="saveBuyerMdCmCartQtyPunchOut"  parameterType="java.util.Map">
+	<![CDATA[
+	
+		/*saveBuyerMdCmCartQtyPunchOut*/
+	
+		UPDATE DOOSCART  SET CART_QTY = #{CART_QTY}                 
+		WHERE BUYER     = #{BUYER}                              
+			AND USER_ID      = #{USER_ID}                              
+			AND USE_FLAG  = #{USE_FLAG}                            
+			AND BUYER_ITEM_NO  = #{BUYER_ITEM_NO}                    
+			AND CONTRACT_NO  = #{CONTRACT_NO}                        
+			AND CONTRACT_SEQ  = #{CONTRACT_SEQ}
+			AND AGENT  = #{AGENT}                    
+			AND BYIT_COMORG_CODE  = #{BYIT_COMORG_CODE}
+			AND ITEM_SEQ  = #{ITEM_SEQ}
+	]]>
+	</update>
+	<update id="deleteBuyerMdCmCartListPunchOut"  parameterType="java.util.Map">
+	<![CDATA[
+	
+		/*deleteBuyerMdCmCartListPunchOut*/
+             UPDATE DOOSCART SET                  
+                USE_FLAG = 'T',                   
+                REG_DATE = TO_CHAR(SYSDATE,'YYYYMMDD'), 
+                REG_TIME = SUBSTR(TO_CHAR(SYSDATE,'YYYYMMDD HH24MISS'),10,6), 
+                SEQ = (SELECT DECODE(MAX(SEQ),NULL,'0', MAX(SEQ))+1   
+	         FROM DOOSCART                  
+	        WHERE BUYER         =#{BUYER}            
+	          AND USER_ID       =#{USER_ID}   
+	          AND BUYER_ITEM_NO = #{BUYER_ITEM_NO}
+	          AND CONTRACT_NO   = #{CONTRACT_NO}
+	          AND CONTRACT_SEQ  = #{CONTRACT_SEQ}   
+	          AND USE_FLAG      = 'T' ),     
+	      ITEM_SEQ = (SELECT TO_CHAR(DECODE(MAX(ITEM_SEQ),NULL,'0', MAX(ITEM_SEQ))+1,'FM000000')   
+	         FROM DOOSCART                  
+	        WHERE BUYER         = #{BUYER}       
+	          AND USER_ID       = #{USER_ID}      
+	          AND BUYER_ITEM_NO = #{BUYER_ITEM_NO}        
+	          AND CONTRACT_NO   =  #{CONTRACT_NO}        
+	          AND CONTRACT_SEQ  = #{CONTRACT_SEQ}       
+	          AND USE_FLAG      = 'T' )      
+              WHERE BUYER             = #{BUYER}       
+                AND USER_ID           = #{USER_ID}        
+                AND USE_FLAG          = #{USE_FLAG}      
+                AND BUYER_ITEM_NO     = #{BUYER_ITEM_NO}        
+                AND CONTRACT_NO       = #{CONTRACT_NO}        
+                AND CONTRACT_SEQ      = #{CONTRACT_SEQ}       
+                AND AGENT             = #{AGENT}      
+                AND BYIT_COMORG_CODE  = #{BYIT_COMORG_CODE}           
+                AND ITEM_SEQ          =  #{ITEM_SEQ}           
+                
+	]]>
+	</update>
+</mapper>

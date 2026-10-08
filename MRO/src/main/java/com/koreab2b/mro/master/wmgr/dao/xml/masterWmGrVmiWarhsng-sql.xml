@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.wmgr">
+	<!-- 조회 -->
+	<select id="selectMasterWmGrVmiWarhsngList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.pagestart"/>	
+			<![CDATA[
+		    	SELECT /*selectMasterWmGrVmiWarhsngList*/                                                                                                             
+				MAX(DECODE(RECV_FLAG,'A','권고발주','B','입고예정','C','센터입고')) AS STATUS ,                                                                                             
+				MAX(RD_DATE) RD_DATE,                                                                                               
+				COUNT(VPO_SEQ) VPO_SEQ,                                                                                             
+				MAX((SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = EDI.BUYER)) ||' ' ||MAX((SELECT USER_NAME_LOC||'  ('||PHONE_NUMBER||')' FROM ICOMLUSR WHERE USER_ID = EDI.POK_USER_ID)) AS USER_NAME_LOC,
+				MAX((SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = EDI.AGENT))   ||'  (' ||MAX((SELECT TEL_NO FROM ICOMCMPY WHERE COM_CODE = EDI.AGENT)) ||')'  AS COM_NAME_LOC,								
+				MAX(VPO_DATE) AS VPO_DATE,																					
+				VPO_NO AS VPO_NO,                                                                                         
+				MAX(VIV_DATE) AS VIV_DATE ,																				
+				SUM(ITEM_AMT) AS ITEM_AMT,                                                                                      
+			    MAX(AGENT) AS AGENT,																						
+			    BUYER,																										
+				MAX(RECV_FLAG) AS RECV_FLAG,																				
+				MAX((SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = EDI.BUYER)) AS BUYER_NAME,							
+				MAX((SELECT TEL_NO FROM ICOMCMPY WHERE COM_CODE = EDI.AGENT)) AS AGENT_TEL									
+			FROM EDIVPODT EDI          
+			]]>			                                                                                     
+			<where>
+			  BUYER = #{st_warehouse_code}		            
+			  AND RECV_FLAG ^= 'C'		                                                                                    
+			  AND STATUS ^= 'D'			                                                                                    
+			  AND TO_CHAR(TO_DATE(VPO_DATE,'YYYYMMDD')+2,'YYYYMMDD') BETWEEN #{st_from_date} AND #{st_to_date}		
+			  <if test="st_po_no != null and st_po_no != ''">
+			  	AND		VPO_NO LIKE '%'|| #{st_po_no} ||'%'
+			  </if>		
+			  <if test="st_iv_no != null and st_iv_no != ''">
+			  	AND		VPO_NO LIKE '%'|| #{st_iv_no}||'%'	
+			  </if>	
+			   <if test="st_agent_code != null and st_agent_code != ''">
+			   	AND		 AGENT = #{st_agent_code}	
+			  </if>	
+			   <if test="st_status_check != null and st_status_check != ''">
+			   	AND		RECV_FLAG = #{st_status_check}
+			  </if>			
+			</where>		
+			<![CDATA[	  																					
+				GROUP BY BUYER,VPO_NO  									
+			]]>
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+
+	<select  id="selectMasterWmGrVmiEDIVPODT" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/* selectMasterWmGrVmiEDIVPODT */
+			SELECT GR_QTY
+			 FROM EDIVPODT
+                WHERE  BUYER = #{st_warehouse_code}	                                    
+		          AND VPO_NO = #{VPO_NO}    
+		          AND STATUS != 'D'			     
+		          AND RECV_FLAG != 'C'	
+		          AND GR_QTY <> 0	 
+		]]>
+	</select>
+
+	<update  id="updateEDIVPODT" parameterType="java.util.Map" >
+		<![CDATA[
+          		UPDATE  
+          		           EDIVPODT SET 
+                 		   RECV_FLAG = 'C', 
+                 		   GR_QTY = IV_QTY, 
+		         		   RECV_USER_ID = #{st_user_id},
+		                   VGR_DATE = TO_CHAR(SYSDATE,'YYYYMMDD') 
+                WHERE  BUYER = #{st_warehouse_code}	                                    
+		                   AND VPO_NO = #{VPO_NO}                           										
+		]]>	
+	</update>
+
+	<select  id="selectMasterWmGrVmiWarhsngFor" parameterType="java.util.Map" resultType="java.util.Map">
+				<![CDATA[
+							  SELECT               
+										BUYER,          
+										VPO_NO,         
+										VPO_SEQ,        
+										BUYER_ITEM_NO,  
+										ITEM_QTY,       
+										UNIT_PRICE,     
+										AGENT,			
+										CONTRACT_NO,	
+										CONTRACT_SEQ	
+								FROM EDIVPODT       
+							  WHERE BUYER =#{st_warehouse_code}			
+	                              AND VPO_NO =#{VPO_NO}
+				
+				]]>	
+	</select>
+	
+	<update  id="updateMasterWmGrVmiWarhsngForWMSSTCK" parameterType="java.util.Map" >
+		<![CDATA[
+		           UPDATE  WMSSTCK					
+                          SET TOT_QTY = TOT_QTY+${ITEM_QTY},		
+                                 AVAIL_QTY = AVAIL_QTY+${ITEM_QTY},	 
+                                 PRE_GR_QTY = PRE_GR_QTY-(${ITEM_QTY}),	
+                               	LAST_REC_DATE = TO_CHAR(SYSDATE,'YYYYMMDD'), 
+                               	STC_SELLER_PRICE = ${UNIT_PRICE},		 
+                               	LAST_AGENT = #{AGENT}			
+                            WHERE WAREHOUSE_CODE = #{BUYER}	
+                                 AND STDCATLG_ID =#{BUYER_ITEM_NO}			
+                                 AND AGENT = #{AGENT}						
+			]]>	
+	</update>
+	
+</mapper>   
+   

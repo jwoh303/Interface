@@ -1,0 +1,479 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mdcm">
+	  
+	<update  id="setBntTrxlUploadReg" parameterType="java.util.Map" >
+		<![CDATA[
+		
+		/*setBntTrxlUploadReg*/
+		INSERT INTO BNTTRXL  (  
+                                DOC_NAME
+                                , TARGET
+                                , KEY_1
+                                , KEY_2
+								, KEY_3
+								, KEY_4
+								, KEY_5
+								, KEY_6
+								, KEY_7
+								, KEY_8
+								, KEY_9
+								, KEY_10
+                                , KEY_11
+                                , KEY_12
+                                , KEY_13
+                                , KEY_14
+                                , KEY_15
+                                , KEY_16
+                                , KEY_17
+                                , KEY_18
+                                , KEY_19
+                                , KEY_20
+                                , KEY_21
+                                , KEY_22
+                                , KEY_23
+                                , KEY_24
+                               ) VALUES(
+                                         'CTLG_MD',			--DOC_NAME
+                                         #{st_user_id},		-- TARGET	USER_ID    
+                                         #{BUYER},			-- KEY_1    BYCA_COMORG_CODE
+                                         #{BUYER_ITEM_NO},	-- KEY_2    BUYER_ITEM_NO
+                                         #{SEQ},			-- KEY_3	SEQ
+                                         ' ',-- KEY_4
+                                         ' ',-- KEY_5
+                                         ' ',-- KEY_6
+                                         ' ',-- KEY_7
+                                         ' ',-- KEY_8
+                                         ' ',-- KEY_9
+                                         ' ',-- KEY_10
+                                         NVL(#{MAKER_CODE},'★'),   --	KEY_11 MAKER_CODE
+                                         NVL((SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'M104' AND CODE = #{MAKER_CODE} AND FLAG = 'Y'),'★'),   --	KEY_12 MAKER_NAME
+                                         NVL(#{ORIGIN_CODE},'★'),   -- KEY_13 ORIGIN_CODE
+                                         NVL(#{MAKER_PART_NO},'★'),   --KEY_14 MAKER_PART_NO
+                                         ' ',-- KEY_15
+                                         ' ',-- KEY_16
+                                         ' ',-- KEY_17
+                                         ' ',-- KEY_18
+                                         ' ',-- KEY_19
+                                         ' ',-- KEY_20
+                                         ' ',-- KEY_21
+                                         NVL(#{DESCRIPTION},'★'),     -- KEY_22 DESCRIPTION
+                                         NVL(#{SPECIFICATION},'★'),       --    KEY_23 SPECIFICATION
+                                         NVL(#{CH_CMS_CATEG_ID},'★')       --    KEY_24 CH_CMS_CATEG_ID
+                                       )
+		]]> 
+	</update>
+	
+	<!-- 초기화 -->
+	<update  id="initBntTrxlCaInfoUplolad" parameterType="java.util.Map" >
+		<![CDATA[
+				/*initBntTrxlCatalogInfoUplolad*/			
+           DELETE FROM BNTTRXL
+           WHERE DOC_NAME = 'CTLG_MD'
+             AND TARGET = #{st_user_id}
+		]]>
+	</update>
+	
+	<update  id="deleteBntTrxlCaInfo" parameterType="java.util.Map" >
+		<![CDATA[
+				/*deleteBntTrxlCaInfo*/			
+           DELETE FROM BNTTRXL
+           WHERE DOC_NAME = 'CTLG_MD'
+             AND TARGET = #{st_user_id}
+             AND KEY_1 = #{BUYER}
+             AND KEY_2 = #{BUYER_ITEM_NO}
+             AND KEY_3 = #{SEQ}
+		]]>
+	</update>
+	
+	<select id="getBnttrxlCaInfoList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+					/*getBnttrxlCaInfoList*/
+ 					SELECT
+					A.DOC_NAME
+					, A.USER_ID
+					, A.BUYER
+					, A.BUYER_ITEM_NO
+					, A.STATUS_CODE
+					, (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'M161' AND CODE = A.STATUS_CODE) AS STATUS_CODE_TEXT
+					, A.CHECK_TEXT
+					, A.BELOW_COMORG_TEXT
+					, A.AGENT_TEXT
+					, A.CONTRACT_NO
+					, A.CONTRACT_SEQ
+					, A.MAKER_CODE
+					, A.MAKER_NAME
+					, A.ORIGIN_CODE
+					, A.MAKER_PART_NO
+					, A.BELOW_COMORG_CODE
+					, A.AGENT
+					, A.DESCRIPTION
+					, A.SPECIFICATION
+					, A.CH_CMS_CATEG_ID
+					, A.CH_CMS_CATEG_NAME
+					, A.CMS_CATLG_ID
+					, A.GBN
+					, A.SEQ
+					FROM (SELECT
+            				 	DOC_NAME
+                                , TARGET AS USER_ID
+                                , KEY_1	AS BUYER
+                                , KEY_2	AS BUYER_ITEM_NO
+                                , DECODE((SELECT DECODE(COUNT(*),0,'D1','C') FLAG FROM ICOMBYIT WHERE BUYER = TRXL.KEY_1 AND BUYER_ITEM_NO = TRXL.KEY_2 AND STATUS <> 'D'), 'C',
+										DECODE(
+												(
+													SELECT	DECODE(COUNT(*),0,'D2','C') AS FLAG
+													FROM	(
+															SELECT BUYER FLAG
+															FROM MIS_BUYER_MNG
+															WHERE YEAR = TO_CHAR(SYSDATE, 'YYYY')
+															AND BUYER IN (SELECT BELOW_COMORG_CODE FROM ICOMCQDT WHERE BUYER = TRXL.KEY_1 AND BUYER_ITEM_NO = TRXL.KEY_2)
+															AND KEP_USER_ID = TRXL.TARGET
+															AND STATUS <> 'O'
+															
+															UNION ALL
+															
+															SELECT  COM_CODE
+															FROM	ICOMLUSR
+															WHERE	1=1
+															AND		USER_ID = TRXL.TARGET
+															AND		DEPARTMENT IN (SELECT CODE FROM ICOMCOD1 WHERE TYPE = 'SOURDEPT')
+															AND NOT EXISTS (
+																	SELECT 'x'
+																	FROM ICOMCOD1
+																	WHERE	TYPE = 'EXCCMPY'
+																	AND		FLAG = 'Y'
+																	AND		CODE IN (SELECT COM_CODE FROM ICOMCMPY WHERE BYCA_COMORG_CODE = TRXL.KEY_1)
+															)
+										       		)
+										       )
+										       , 'C',
+					                      	   (SELECT DECODE(COUNT(*), 1, 'C', 'D3') FROM BNTTRXL TRXL2 WHERE TRXL2.DOC_NAME = TRXL.DOC_NAME
+					                      	   AND TRXL2.TARGET = TRXL.TARGET
+					                      	   AND TRXL2.KEY_1 = TRXL.KEY_1
+					                      	   AND TRXL2.KEY_2 = TRXL.KEY_2), 'D2'
+					                      		), 'D1') AS STATUS_CODE
+                                , '변경후'	AS CHECK_TEXT
+                                , KEY_5	AS BELOW_COMORG_TEXT
+                                , KEY_6	AS AGENT_TEXT
+                                , KEY_7	AS CONTRACT_NO
+                                , KEY_8	AS CONTRACT_SEQ
+                                , DECODE(KEY_11,'★','',KEY_11)	AS MAKER_CODE
+                                , DECODE(KEY_12,'★','',KEY_12)	AS MAKER_NAME
+                                , DECODE(KEY_13,'★','',KEY_13)	AS ORIGIN_CODE
+                                , DECODE(KEY_14,'★','',KEY_14)	AS MAKER_PART_NO
+                                , KEY_15	AS BELOW_COMORG_CODE
+                                , KEY_16	AS AGENT
+                                , DECODE(KEY_22,'★','',KEY_22)	AS DESCRIPTION
+                                , DECODE(KEY_23,'★','',KEY_23)	AS SPECIFICATION
+                                , DECODE(KEY_24,'★','',KEY_24)	AS CH_CMS_CATEG_ID
+                                , (SELECT CATEG_NAME FROM CMSCATEG CMS WHERE CMS.CMS_CATEG_ID = KEY_24) AS CH_CMS_CATEG_NAME                                
+                                , '' 		AS CMS_CATLG_ID
+                                , '0' 		AS GBN
+                                , KEY_3 	AS SEQ
+			             	FROM BNTTRXL TRXL
+			               WHERE TRXL.DOC_NAME = 'CTLG_MD'																														
+			             	AND TRXL.TARGET =  #{st_user_id}
+			) A
+			WHERE	1=1
+			]]>
+	        <if test="st_status_text != 'ALL' ">
+				<![CDATA[
+					AND	A.STATUS_CODE = #{st_status_text}
+				]]>
+			</if>
+			ORDER BY A.BUYER, A.BUYER_ITEM_NO
+	</select>
+	
+	<select id="getMasterMdCmCaInfoBeforeAfter" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+ 			/*getMasterMdCmCaInfoBeforeAfter*/
+    		SELECT
+					A.DOC_NAME
+					, A.USER_ID
+					, A.BUYER
+					, A.BUYER_ITEM_NO
+					, A.STATUS_CODE
+					, (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'M161' AND CODE = A.STATUS_CODE) AS STATUS_CODE_TEXT
+					, A.CHECK_TEXT
+					, A.BELOW_COMORG_TEXT
+					, A.AGENT_TEXT
+					, A.CONTRACT_NO
+					, A.CONTRACT_SEQ
+					, A.MAKER_CODE
+					, A.MAKER_NAME
+					, A.ORIGIN_CODE
+					, A.MAKER_PART_NO
+					, A.BELOW_COMORG_CODE
+					, A.AGENT
+					, A.DESCRIPTION
+					, A.SPECIFICATION
+					, A.CH_CMS_CATEG_ID
+					, A.CH_CMS_CATEG_NAME
+					, A.CMS_CATLG_ID
+					, A.GBN
+					, A.SEQ
+					FROM (
+					SELECT
+					             	DOC_NAME
+	                                ,TARGET AS USER_ID
+	                                , KEY_1	AS BUYER
+	                                , KEY_2	AS BUYER_ITEM_NO
+	                                , DECODE((SELECT DECODE(COUNT(*),0,'D1','C') FLAG FROM ICOMBYIT WHERE BUYER = TRXL.KEY_1 AND BUYER_ITEM_NO = TRXL.KEY_2 AND STATUS <> 'D'), 'C',
+										DECODE(
+												(
+													SELECT	DECODE(COUNT(*),0,'D2','C') AS FLAG
+													FROM	(
+															SELECT BUYER FLAG
+															FROM MIS_BUYER_MNG
+															WHERE YEAR = TO_CHAR(SYSDATE, 'YYYY')
+															AND BUYER IN (SELECT BELOW_COMORG_CODE FROM ICOMCQDT WHERE BUYER = TRXL.KEY_1 AND BUYER_ITEM_NO = TRXL.KEY_2)
+															AND KEP_USER_ID = TRXL.TARGET
+															AND STATUS <> 'O'
+															
+															UNION ALL
+															
+															SELECT  COM_CODE
+															FROM	ICOMLUSR
+															WHERE	1=1
+															AND		USER_ID = TRXL.TARGET
+															AND		DEPARTMENT IN (SELECT CODE FROM ICOMCOD1 WHERE TYPE = 'SOURDEPT')
+															AND NOT EXISTS (
+																	SELECT 'x'
+																	FROM ICOMCOD1
+																	WHERE	TYPE = 'EXCCMPY'
+																	AND		FLAG = 'Y'
+																	AND		CODE IN (SELECT COM_CODE FROM ICOMCMPY WHERE BYCA_COMORG_CODE = TRXL.KEY_1)
+															)
+										       		)
+										       )
+										       , 'C',
+					                      	   (SELECT DECODE(COUNT(*), 1, 'C', 'D3') FROM BNTTRXL TRXL2 WHERE TRXL2.DOC_NAME = TRXL.DOC_NAME
+					                      	   AND TRXL2.TARGET = TRXL.TARGET
+					                      	   AND TRXL2.KEY_1 = TRXL.KEY_1
+					                      	   AND TRXL2.KEY_2 = TRXL.KEY_2), 'D2'
+					                      		), 'D1') AS STATUS_CODE
+	                                , '변경후'	AS CHECK_TEXT
+	                                , KEY_5	AS BELOW_COMORG_TEXT
+	                                , KEY_6	AS AGENT_TEXT
+	                                , KEY_7	AS CONTRACT_NO
+	                                , KEY_8	AS CONTRACT_SEQ
+	                                , DECODE(KEY_11,'★','',KEY_11)	AS MAKER_CODE
+	                                , DECODE(KEY_12,'★','',KEY_12)	AS MAKER_NAME
+	                                , DECODE(KEY_13,'★','',KEY_13)	AS ORIGIN_CODE
+	                                , DECODE(KEY_14,'★','',KEY_14)	AS MAKER_PART_NO
+	                                , KEY_15	AS BELOW_COMORG_CODE
+	                                , KEY_16	AS AGENT
+	                                , DECODE(KEY_22,'★','',KEY_22)	AS DESCRIPTION
+	                                , DECODE(KEY_23,'★','',KEY_23)	AS SPECIFICATION
+	                                , DECODE(KEY_24,'★','',KEY_24)	AS CH_CMS_CATEG_ID
+                                	, (SELECT CATEG_NAME FROM CMSCATEG CMS WHERE CMS.CMS_CATEG_ID = KEY_24) AS CH_CMS_CATEG_NAME
+	                                , '' 		AS CMS_CATLG_ID
+					                , '0' AS GBN
+					                , KEY_3 	AS SEQ
+	             	FROM BNTTRXL TRXL
+	               WHERE TRXL.DOC_NAME = 'CTLG_MD'
+	             		AND TRXL.TARGET = #{st_user_id}
+					UNION ALL
+					SELECT	
+									'' AS DOC_NAME
+									,'' AS USER_ID
+									, CQDT.BUYER	AS BUYER
+					                , CQDT.BUYER_ITEM_NO	AS BUYER_ITEM_NO
+					                , DECODE((SELECT DECODE(COUNT(*),0,'D1','C') FLAG FROM ICOMBYIT WHERE BUYER = TRXL.KEY_1 AND BUYER_ITEM_NO = TRXL.KEY_2 AND STATUS <> 'D'), 'C',
+										DECODE(
+												(
+													SELECT	DECODE(COUNT(*),0,'D2','C') AS FLAG
+													FROM	(
+															SELECT BUYER FLAG
+															FROM MIS_BUYER_MNG
+															WHERE YEAR = TO_CHAR(SYSDATE, 'YYYY')
+															AND BUYER IN (SELECT BELOW_COMORG_CODE FROM ICOMCQDT WHERE BUYER = TRXL.KEY_1 AND BUYER_ITEM_NO = TRXL.KEY_2)
+															AND KEP_USER_ID = TRXL.TARGET
+															AND STATUS <> 'O'
+															
+															UNION ALL
+															
+															SELECT  COM_CODE
+															FROM	ICOMLUSR
+															WHERE	1=1
+															AND		USER_ID = TRXL.TARGET
+															AND		DEPARTMENT IN (SELECT CODE FROM ICOMCOD1 WHERE TYPE = 'SOURDEPT')
+															AND NOT EXISTS (
+																	SELECT 'x'
+																	FROM ICOMCOD1
+																	WHERE	TYPE = 'EXCCMPY'
+																	AND		FLAG = 'Y'
+																	AND		CODE IN (SELECT COM_CODE FROM ICOMCMPY WHERE BYCA_COMORG_CODE = TRXL.KEY_1)
+															)
+										       		)
+										       )
+										       , 'C',
+					                      	   (SELECT DECODE(COUNT(*), 1, 'C', 'D3') FROM BNTTRXL TRXL2 WHERE TRXL2.DOC_NAME = TRXL.DOC_NAME
+					                      	   AND TRXL2.TARGET = TRXL.TARGET
+					                      	   AND TRXL2.KEY_1 = TRXL.KEY_1
+					                      	   AND TRXL2.KEY_2 = TRXL.KEY_2), 'D2'
+					                      		), 'D1') AS STATUS_CODE
+					                , '변경전'	AS CHECK_TEXT
+					                , (SELECT	COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = CQDT.BELOW_COMORG_CODE)	AS BELOW_COMORG_TEXT
+					                , (SELECT	COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = CQDT.AGENT)	AS AGENT_TEXT
+					                , CQDT.CONTRACT_NO	AS CONTRACT_NO
+					                , CQDT.CONTRACT_SEQ	AS CONTRACT_SEQ
+					                , CQDT.MAKER_CODE	AS MAKER_CODE
+					                , CQDT.MAKER_NAME	AS MAKER_NAME
+					                , CQDT.ORIGIN_CODE	AS ORIGIN_CODE
+					                , BYIT.MAKER_PART_NO AS MAKER_PART_NO
+					                , CQDT.BELOW_COMORG_CODE	AS BELOW_COMORG_CODE
+					                , CQDT.AGENT	AS AGENT
+					                , BYIT.DESCRIPTION_LOC AS DESCRIPTION
+					                , BYIT.SPECIFICATION AS SPECIFICATION
+					                , BYIT.CMS_CATEG_ID	AS CH_CMS_CATEG_ID
+	                                , (SELECT CATEG_NAME FROM CMSCATEG CMS WHERE CMS.CMS_CATEG_ID = BYIT.CMS_CATEG_ID ) AS CH_CMS_CATEG_NAME
+					                , BYIT.CMS_CATLG_ID AS CMS_CATLG_ID
+					                , '1' AS GBN
+					                , TO_CHAR(ROWNUM) AS SEQ
+					FROM		ICOMCQDT CQDT, ICOMBYIT BYIT, BNTTRXL TRXL
+					WHERE		CQDT.BUYER = TRXL.KEY_1
+					AND			CQDT.BUYER_ITEM_NO = TRXL.KEY_2
+					AND			CQDT.BUYER = BYIT.BUYER
+					AND			CQDT.BUYER_ITEM_NO = BYIT.BUYER_ITEM_NO
+					AND			TRXL.DOC_NAME = 'CTLG_MD'
+					AND 		TRXL.TARGET = #{st_user_id}
+					AND			CQDT.STATUS <> 'D'
+					AND			BYIT.STATUS <> 'D'
+			) A
+			WHERE	1=1
+			]]>
+	        <if test="st_status_text != 'ALL' ">
+				<![CDATA[
+					AND A.STATUS_CODE = #{st_status_text}
+				]]>
+			</if>
+			ORDER BY A.BUYER, A.BUYER_ITEM_NO, A.GBN, A.BELOW_COMORG_CODE, A.AGENT
+	</select>
+	
+	<update  id="setKepmgpdtCaReg" parameterType="java.util.Map" >
+		<![CDATA[
+		/*setKepmgpdtCaReg*/
+     INSERT INTO KEPMGPDT (  
+                                 BUYER				-- KRKORE0001
+                                 , PM_NO
+                                 , PM_SEQ
+                                 , STATUS
+                                 , REG_DATE          
+                                 , CHANGE_DATE       
+                                 , CONFIRM_DATE      
+                                 , REG_USER_ID       
+                                 , CONFIRM_USER_ID
+                                 , PO_NO			-- 카탈로그관리코드
+                                 , BUYER_ITEM_NO
+                                 , RE_MAKER_CODE     
+							     , CH_MAKER_CODE
+							     , RE_MAKER_NAME
+							     , CH_MAKER_NAME
+							     , RE_ORIGIN_CODE
+							     , CH_ORIGIN_CODE
+							     , RE_MAKER_PART_NO							     
+							     , CH_MAKER_PART_NO
+							     , RE_DESCRIPTION
+							     , CH_DESCRIPTION
+							     , RE_SPECIFICATION
+							     , CH_SPECIFICATION
+							     , QUOTATION_NO		-- 고객사코드
+							     , CONTRACT_NO
+							     , CONTRACT_SEQ
+							     , RE_CMS_CATEG_ID
+							     , CH_CMS_CATEG_ID
+                               	) 
+                               	(
+                               	SELECT
+										  'KRKORE0001'									-- BUYER
+                                          , #{PM_NO}									-- PM_NO
+                                          , TO_CHAR(ROWNUM,'FM000000')					-- PM_SEQ
+                                          , 'C'											-- STATUS
+                                          , SYSDATE										-- REG_DATE
+                                          , SYSDATE										-- CHANGE_DATE
+                                          , ''											-- CONFIRM_DATE
+                                          , #{st_user_id}								-- REG_USER_ID
+                                          , ''                          				-- CONFIRM_USER_ID
+                                          , KEY_1										-- BYCA_COMORG_CODE
+                                          , KEY_2										-- BUYER_ITEM_NO
+                                          , CQDT.MAKER_CODE AS RE_MAKER_CODE
+                                          , KEY_11 										-- CH_MAKER_CODE
+                                          , CQDT.MAKER_NAME AS RE_MAKER_NAME
+                                          , KEY_12 										-- CH_MAKER_NAME
+                                          , CQDT.ORIGIN_CODE AS RE_ORIGIN_CODE
+                                          , KEY_13 										-- CH_ORIGIN_CODE
+                                          , BYIT.MAKER_PART_NO AS RE_MAKER_PART_NO
+                                          , KEY_14 										-- CH_MAKER_PART_NO
+                                          , BYIT.DESCRIPTION_LOC AS RE_DESCRIPTION
+                                          , KEY_22 										-- CH_DESCRIPTION
+                                          , BYIT.SPECIFICATION AS RE_SPECIFICATION
+                                          , KEY_23			 							-- CH_SPECIFICATION
+                                          , CQDT.BELOW_COMORG_CODE AS BELOW_COMORG_CODE	-- BELOW_COMORG_CODE
+                                          , CQDT.CONTRACT_NO	AS CONTRACT_NO 			-- CONTRACT_NO
+                                          , CQDT.CONTRACT_SEQ	AS CONTRACT_SEQ 		-- CONTRACT_SEQ
+                                          , BYIT.CMS_CATEG_ID AS RE_CMS_CATEG_ID		-- RE_CMS_CATEG_ID
+                                          , KEY_24										-- CH_CMS_CATEG_ID
+								FROM		ICOMCQDT CQDT, ICOMBYIT BYIT, BNTTRXL TRXL
+								WHERE		CQDT.BUYER = TRXL.KEY_1
+								AND			CQDT.BUYER_ITEM_NO = TRXL.KEY_2
+								AND			CQDT.BUYER = BYIT.BUYER
+								AND			CQDT.BUYER_ITEM_NO = BYIT.BUYER_ITEM_NO
+								AND			TRXL.DOC_NAME = 'CTLG_MD'
+								AND 		TRXL.TARGET = #{st_user_id}
+								AND			CQDT.STATUS <> 'D'
+								AND			BYIT.STATUS <> 'D'
+								)
+  		]]>
+	</update>
+	
+	<update  id="setKepmgphdCaReg" parameterType="java.util.Map" >
+		<![CDATA[
+		/*setKepmgphdCaReg*/		
+          INSERT INTO KEPMGPHD (  
+                                 BUYER,              
+                                 PM_NO,              
+                                 STATUS,             
+                                 REG_DATE,           
+                                 CHANGE_DATE,        
+                                 REFER_DATE,         
+                                 CONFIRM_DATE,       
+                                 REG_USER_ID,        
+                                 REG_USER_DEPT,      
+                                 CONFIRM_USER_ID,    
+                                 CONFIRM_USER_DEPT,  
+                                 GUBUN,              
+                                 CA_FLAG,            
+                                 SUBJECT,            
+                                 REMARK,             
+                                 CON_REMARK,         
+                                 CONFIRM_CODE,       
+                                 BUYER_SUBJECT,      
+                                 BUYER_REMARK        
+                               ) VALUES (  
+                                          'KRKORE0001',			-- BUYER
+                                          #{PM_NO},				-- PM_NO
+                                          'C',					-- STATUS
+                                          SYSDATE,				-- REG_DATE
+                                          SYSDATE,				-- CHANGE_DATE
+                                          '',					-- REFER_DATE
+                                          '',					-- CONFIRM_DATE
+                                          #{st_user_id},		-- REG_USER_ID
+                                          #{st_user_dept},		-- REG_USER_DEPT
+                                          '',					-- CONFIRM_USER_ID
+                                          '',					-- CONFIRM_USER_DEPT
+                                          'IM',					-- GUBUN
+                                          'N',					-- CA_FLAG 카탈로그 변경
+                                          '카탈로그일괄수정결재임시저장',	-- SUBJECT 고객사결재테이블로 통합으로 인하여 사용안함
+                                          '카탈로그일괄수정결재임시저장',	-- REMARK 고객사결재테이블로 통합으로 인하여 사용안함
+                                          '',					-- CON_REMARK
+                                          '',					-- CONFIRM_CODE
+		                                  '카탈로그일괄수정결재임시저장',	-- BUYER_SUBJECT 고객사결재테이블로 통합으로 인하여 사용안함
+		                                  '카탈로그일괄수정결재임시저장'	-- BUYER_REMARK 고객사결재테이블로 통합으로 인하여 사용안함
+                                        )   
+		]]>
+	</update>
+	
+</mapper>   
+   

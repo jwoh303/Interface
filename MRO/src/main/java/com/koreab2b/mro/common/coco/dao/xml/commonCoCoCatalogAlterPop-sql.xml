@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="common.coco">
+
+<!-- 조회 -->
+	<select id="selectCommonCoCoCatalogAlterList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.pagestart"/>	
+			<![CDATA[
+			/*selectCommonCoCoCatalogAlterList*/
+		    	SELECT  
+	                A.BUYER_ITEM_NO AS BUYER_ITEM_NO,  
+	                (SELECT COM_NAME_LOC FROM ICOMCMPY  
+	                  WHERE COM_CODE = C.AGENT) AS AGENT_NAME,  
+	                C.MAKER_NAME AS MAKER_NAME,  
+	                C.UNIT_PRICE AS UNIT_PRICE,  
+	                C.LIST_PRICE AS LIST_PRICE,    
+	                C.UNIT_MEASURE AS UNIT_MEASURE,  
+	                DECODE(C.BELOW_COMORG_CODE,'ABOVE','공통/나머지',  
+	                        (SELECT COM_NAME_LOC FROM ICOMCMPY  
+	                          WHERE COM_CODE = C.BELOW_COMORG_CODE)) AS BELOW_TEXT,										
+			]]>
+			<!-- SLOGIC-BEGIN(P03-3020-03) -->
+			<choose>
+				<when test='st_buyer_code.equals("KRDUPO0001") or st_buyer_code.equals("KRDUPO0002") or st_buyer_code.equals("KRDUPO0003")'>
+					<![CDATA[
+					DECODE(A.STATUS,'D','삭제',DECODE(C.STATUS,'D','삭제',  
+                	DECODE(A.PRODUCT_CLOSE_FLAG,'N','승인','Y','단종','A','일회용_미발주','C','일회용_기발주','B','BLOCKED' ))) AS STATUS_TEXT,
+                	]]>
+				</when>
+				<when test='st_buyer_code.equals("KRDOOD0001")'>
+					<![CDATA[
+					DECODE(A.STATUS,'D','삭제',DECODE(C.STATUS,'D','삭제',  
+					DECODE(A.PRODUCT_CLOSE_FLAG,'N','승인','Y','단종','A','일회용_미발주','C','신규요청품목'))) AS STATUS_TEXT,
+					]]>
+				</when>
+				<otherwise>
+					<![CDATA[
+					DECODE(A.STATUS,'D','삭제',DECODE(C.STATUS,'D','삭제',  
+					DECODE(A.PRODUCT_CLOSE_FLAG,'N','승인','Y','단종'))) AS STATUS_TEXT,
+					]]>
+				</otherwise>
+			</choose>
+			<!-- SLOGIC-END -->
+			<![CDATA[
+					DECODE(NVL(DECODE(SUBSTR(A.STDCATLG_ID,0,1),'M',A.STDCATLG_ID,''),'00'),'00','NO','YES') AS MAPP_TEXT,  
+                    C.DESCRIPTION AS DESCRIPTION,  
+                    A.SPECIFICATION AS SPECIFICATION,  
+                    A.BUYER AS BUYER,  
+                    A.STATUS AS BYIT_STATUS,  
+                    A.CMS_CATLG_ID AS STDCATLG_ID,  
+                    A.CMS_CATEG_ID AS STDCATEG_ID,  
+                    A.PRODUCT_CLOSE_FLAG AS PRODUCT_CLOSE_FLAG,  
+                    C.BELOW_COMORG_CODE AS BELOW_COMORG_CODE,  
+                    C.STATUS AS CQDT_STATUS,  
+                    C.CONTRACT_NO AS CONTRACT_NO,  
+                    C.CONTRACT_SEQ AS CONTRACT_SEQ,  
+                    C.AGENT AS AGENT,  
+                    (SELECT COUNT(*) FROM ICOMCQEP P  
+                      WHERE P.BUYER = C.BUYER  
+                        AND P.BUYER_ITEM_NO = C.BUYER_ITEM_NO  
+                        AND P.CONTRACT_NO = C.CONTRACT_NO  
+                        AND P.CONTRACT_SEQ = C.CONTRACT_SEQ) AS CQEP_CNT,  
+                    C.CHANGE_DATE AS CHANGE_DATE  
+               FROM ICOMBYIT A, ICOMBYCA B, ICOMCQDT C, ICOMBYCA D  
+              WHERE A.BUYER = #{st_buyer_code}
+                AND A.PURCHASING_AGENT_FLAG = 'Y'  
+                AND A.PRODUCT_CLOSE_FLAG NOT IN ('S','G')  
+                AND A.BUYER = B.COM_CODE  
+                AND A.CATEGORY_NO = B.STD_CATEG_ID  
+                AND B.COM_CODE = D.COM_CODE
+                AND A.BUYER = C.BUYER  
+				AND A.BUYER_ITEM_NO = C.BUYER_ITEM_NO
+			]]>
+			<choose>
+				<when test="st_categ_id != null and st_categ_id != ''">
+					<![CDATA[
+					AND D.STD_CATEG_ID =#{st_categ_id}
+					AND B.CATEG_SYS_CODE LIKE D.CATEG_SYS_CODE||'%'
+                	]]>
+				</when>
+				<otherwise>
+					<![CDATA[
+					AND B.STD_CATEG_ID = D.STD_CATEG_ID
+					]]>
+				</otherwise>
+			</choose>
+			<if test="st_buyer_item_no != null and st_buyer_item_no != ''">
+				AND A.BUYER_ITEM_NO LIKE #{st_buyer_item_no}||'%'
+			</if>
+			<if test="st_agent_code != null and st_agent_code != ''">
+				AND (C.AGENT = #{st_agent_code} OR C.ORIGIN_AGENT = #{st_agent_code})
+			</if>
+			
+			<if test='st_status != null and st_status.equals("N")'>
+				<![CDATA[
+				AND A.STATUS != 'D' AND C.STATUS != 'D' AND A.PRODUCT_CLOSE_FLAG = 'N'
+				]]>
+			</if>
+			<if test='st_status != null and st_status.equals("Y")'>
+				<![CDATA[
+				AND A.STATUS != 'D' AND A.PRODUCT_CLOSE_FLAG = 'Y'
+				]]>
+			</if>
+			<if test='st_status != null and st_status.equals("A")'>
+				<![CDATA[
+				AND A.STATUS != 'D' AND A.PRODUCT_CLOSE_FLAG = 'A'
+				]]>
+			</if>
+			<if test='st_status != null and st_status.equals("C")'>
+				<![CDATA[
+				AND A.STATUS != 'D' AND A.PRODUCT_CLOSE_FLAG = 'C'
+				]]>
+			</if>
+			<if test='st_status != null and st_status.equals("B")'>
+				<![CDATA[
+				AND A.STATUS != 'D' AND A.PRODUCT_CLOSE_FLAG = 'B'
+				]]>
+			</if>
+			<if test='st_status != null and st_status.equals("D")'>
+				<![CDATA[
+				AND (A.STATUS = 'D' OR C.STATUS = 'D') 
+				]]>
+			</if>
+			
+			<if test="st_from_date != null and st_from_date != '' and st_to_date != null and st_to_date != '' and  st_date.equals('RE')">
+				AND C.ADD_DATE BETWEEN #{st_from_date} AND #{st_to_date}
+			</if>
+			<if test="st_from_date != null and st_from_date != '' and st_to_date != null and st_to_date != '' and  st_date.equals('CH')">
+				AND C.CHANGE_DATE BETWEEN #{st_from_date} AND #{st_to_date}
+			</if>
+			
+			
+			
+			<if test='st_description_field != null and st_description_field != "ALL"'>
+				<foreach collection="RESULT_IN_DESCRIPTION" item="resultInDescription" >
+					AND C.DESCRIPTION LIKE UPPER('%'||#{resultInDescription}||'%')
+				</foreach>
+			</if>
+			<if test='st_specification_field != null and st_specification_field != "ALL"'>
+				<foreach collection="RESULT_IN_SPECIFICATION" item="resultInSpecification" >
+					AND C.SPECIFICATION LIKE UPPER('%'||#{resultInSpecification}||'%')
+				</foreach>
+			</if>
+			<if test='st_maker_name_field != null and st_maker_name_field != "ALL"'>
+				<foreach collection="RESULT_IN_MAKER" item="resultInMaker" >
+					AND C.MAKER_NAME LIKE UPPER('%'||#{resultInMaker}||'%')
+				</foreach>
+			</if>
+			
+			ORDER BY CHANGE_DATE DESC
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+
+</mapper>

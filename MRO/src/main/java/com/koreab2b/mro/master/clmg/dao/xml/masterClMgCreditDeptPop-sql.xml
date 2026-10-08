@@ -1,0 +1,221 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.clmg">
+	<!-- 조회 -->
+	<select id="selectMasterClMgCreditDeptPop" parameterType="java.util.Map" resultType="java.util.Map">
+			<![CDATA[
+		    /*	selectMasterClMgCreditDeptPop */
+				SELECT
+					CMPY.COM_CODE
+					, CMPY.COM_NAME_LOC
+					, COD.ADD_DATE
+					, COD.TEXT2 AS KEP_DEPT
+					, (SELECT USR.USER_NAME_LOC 
+						FROM ICOMLUSR USR WHERE USR.USER_ID = COD.ADD_USER_ID) AS USER_NANE_LOC
+				    , SUBSTR(COD.TEXT3,0,3)||'-'||SUBSTR(COD.TEXT3,4,2)||'-'||SUBSTR(COD.TEXT3,6,5)  IRS_NO
+				    , COD.TEXT4  AS REQ_DEPT_CD
+					,(SELECT TEXT1 
+						FROM ICOMCOD2 COD2
+						WHERE COD2.TYPE = 'C001'
+						AND COD2.COMPANY_CODE = COD.CODE1
+						AND COD2.CODE = COD.TEXT4) AS REQ_DEPT_NM
+				    , (SELECT DECODE(COUNT(COD2.CODE),0,'N','Y') 
+				    	FROM ICOMCOD2 COD2
+						WHERE COD2.TYPE = 'BYEX'
+						AND COD2.COMPANY_CODE = 'KRKORE0001'
+						AND COD2.CODE = COD.CODE1) AS BYEX_YN
+					, COD.CODE2
+					, ACNT.PAY_TERMS
+					,(SELECT
+				     	A.TEXT1
+				      FROM ICOMCOD1 A
+				      WHERE A.TYPE =  'SA15'
+				      AND A.FLAG = 'Y'
+				      AND A.CODE = ACNT.PAY_TERMS) AS PAY_TERMS_TEXT
+			    FROM ICOMCOD3 COD , ICOMCMPY CMPY, ACNTBUYR ACNT
+			    WHERE COD.BUYER ='KRKORE0001'
+			    AND COD.TYPE = 'BYMP'
+			    AND COD.FLAG = 'Y'
+			    AND COD.CODE1 = CMPY.COM_CODE
+			    AND CMPY.COM_CODE = ACNT.BUYER(+)
+			    AND COD.CODE1 = ACNT.BUYER(+)
+			    AND COD.TEXT1 = REPLACE(#{st_irs_no},'-','')
+			    AND COD.TEXT2 =  #{st_dept_cd}
+			]]>
+	</select>
+	<update id="insertMasterClMgCreditDeptPop"  parameterType="java.util.Map">
+		<![CDATA[
+		/*insertMasterClMgCreditDeptPop*/
+				INSERT INTO ICOMCOD3
+				(BUYER
+				,TYPE
+				,CODE1
+				,CODE2
+				,TEXT1
+				,TEXT2
+				,TEXT3	
+				,TEXT4
+				,FLAG
+				,ADD_USER_ID
+				,ADD_DATE
+				)
+				VALUES
+				(
+					'KRKORE0001'
+					,'BYMP'
+					,#{COM_CODE}
+					,(SELECT NVL(MAX(CD.CODE2)+1,1) FROM ICOMCOD3 CD
+						WHERE CD.TYPE = 'BYMP'
+						AND CD.BUYER = 'KRKORE0001'
+						AND CD.CODE1 = #{COM_CODE})
+					,REPLACE(#{st_irs_no},'-','')
+					,#{KEP_DEPT}
+					,REPLACE(#{IRS_NO},'-','')
+					,#{REQ_DEPT_CD}
+					,'Y'
+					,#{st_user_id}
+					,TO_CHAR(SYSDATE, 'YYYYMMDD')
+				)
+		]]>
+	</update>
+	<update id="deleteMasterClMgCreditDeptPop"  parameterType="java.util.Map">
+		<![CDATA[
+		/*deleteMasterClMgCreditDeptPop*/
+				DELETE ICOMCOD3
+				WHERE BUYER = 'KRKORE0001'
+				AND TYPE = 'BYMP'
+				AND CODE1 = #{COM_CODE}
+				AND CODE2 = #{CODE2}
+		]]>
+	</update>
+	<select id="selectMasterClMgCreditBondPop" parameterType="java.util.Map" resultType="java.util.Map">
+			<![CDATA[
+		    /*	selectMasterClMgCreditBondPop */
+				SELECT
+				 SUBSTR (COD.CODE1, 1, 3) || '-'|| SUBSTR (COD.CODE1, 4, 2)|| '-'|| SUBSTR (COD.CODE1, 6) AS LOAN_IRS_NO
+				 , SUBSTR (COD.CODE2, 1, 3) || '-'|| SUBSTR (COD.CODE2, 4, 2)|| '-'|| SUBSTR (COD.CODE2, 6) AS IRS_NO
+				 , COD.TEXT4 AS IRS_NM
+				 , COD.TEXT1 AS KEP_DEPT
+				 , ADD_DATE
+				 , ADD_USER_ID
+				 , (SELECT USR.USER_NAME_LOC
+				 	FROM ICOMLUSR USR
+				 	WHERE USR.USER_ID = COD.ADD_USER_ID) AS ADD_USER_NAME
+			    FROM ICOMCOD3 COD
+			    WHERE COD.BUYER ='KRKORE0001'
+			    AND COD.TYPE = 'CDMP'
+			    AND COD.FLAG = 'Y'
+			    AND COD.CODE1 =  REPLACE(#{st_irs_no},'-','')
+			    AND COD.TEXT1 =  #{st_dept_cd}
+			]]>
+	</select>
+	<update id="insertMasterClMgCreditBondPop"  parameterType="java.util.Map">
+		<![CDATA[
+		/*insertMasterClMgCreditBondPop*/
+				INSERT INTO ICOMCOD3
+				(BUYER
+				,TYPE
+				,CODE1
+				,CODE2
+				,TEXT1
+				,TEXT2
+				,TEXT3
+				,TEXT4
+				,FLAG
+				,ADD_USER_ID
+				,ADD_DATE
+				)
+				VALUES
+				(
+					'KRKORE0001'
+					,'CDMP'
+					,REPLACE(#{LOAN_IRS_NO},'-','')
+					,REPLACE(#{IRS_NO},'-','')
+					,#{KEP_DEPT}
+					,(SELECT COD1.TEXT1 FROM  ICOMCOD1 COD1
+						WHERE COD1.TYPE = 'TX06'
+						AND COD1.CODE =#{KEP_DEPT}
+						AND COD1.FLAG = 'Y' )
+					,(SELECT COD2.TEXT1 FROM ICOMCOD2 COD2
+						WHERE COD2.COMPANY_CODE = 'KRKORE0001'
+						AND COD2.TYPE ='C001'
+						AND COD2.FLAG = 'Y'
+						AND COD2.CODE = #{KEP_DEPT})
+					,#{IRS_NM}
+					,'Y'
+					,#{st_user_id}
+					,TO_CHAR(SYSDATE, 'YYYYMMDD')
+				)
+		]]>
+	</update>
+	<update id="deleteMasterClMgCreditBondPop"  parameterType="java.util.Map">
+		<![CDATA[
+		/*deleteMasterClMgCreditBondPop*/
+				DELETE ICOMCOD3
+				WHERE BUYER = 'KRKORE0001'
+				AND TYPE = 'CDMP'
+				AND CODE1 = REPLACE(#{LOAN_IRS_NO},'-','')
+				AND CODE2 = REPLACE(#{IRS_NO},'-','')
+		]]>
+	</update>
+	<select id="selectMasterClMgBondExcpPop" parameterType="java.util.Map" resultType="java.util.Map">
+			<![CDATA[
+		    /*	selectMasterClMgBondExcpPop */
+		    SELECT
+		       SUBSTR (COD.CODE1, 1, 3) || '-'|| SUBSTR (COD.CODE1, 4, 2)|| '-'|| SUBSTR (COD.CODE1, 6) AS IRS_NO
+		       , COD.CODE2 KEP_DEPT
+		       , COD.TEXT1 AS IRS_NM
+		       , COD.ADD_DATE
+		       , (SELECT USR.USER_NAME_LOC FROM ICOMLUSR USR WHERE USR.USER_ID = COD.ADD_USER_ID) ADD_USER_NAME
+		    FROM ICOMCOD3 COD
+		    WHERE BUYER = 'KRKORE0001'
+		    AND COD.TYPE = 'EXMP'
+			]]>
+			<if test="st_irs_no != null and st_irs_no != ''">
+						AND		SUBSTR (COD.CODE1, 1, 3) || '-'|| SUBSTR (COD.CODE1, 4, 2)|| '-'|| SUBSTR (COD.CODE1, 6)  LIKE '%' || #{st_irs_no} || '%'
+			</if>
+			<if test="st_irs_nm != null and st_irs_nm != ''">
+						AND		COD.TEXT1 LIKE '%' || #{st_irs_nm} || '%'
+			</if>
+			<![CDATA[
+		    ORDER BY COD.CODE1, COD.TEXT1 
+			]]>
+	</select>
+	<update id="insertMasterClMgBondExcpPop"  parameterType="java.util.Map">
+		<![CDATA[
+		/*insertMasterClMgBondExcpPop*/
+				INSERT INTO ICOMCOD3
+				(BUYER
+				,TYPE
+				,CODE1
+				,CODE2
+				,TEXT1
+				,FLAG
+				,ADD_USER_ID
+				,ADD_DATE
+				)
+				VALUES
+				(
+					'KRKORE0001'
+					,'EXMP'
+					,REPLACE(#{IRS_NO},'-','')
+					,#{KEP_DEPT}
+					,#{IRS_NM}
+					,'Y'
+					,#{st_user_id}
+					,TO_CHAR(SYSDATE, 'YYYYMMDD')
+				)
+		]]>
+	</update>
+	<update id="deleteMasterClMgBondExcpPop"  parameterType="java.util.Map">
+		<![CDATA[
+		/*deleteMasterClMgBondExcpPop*/
+				DELETE ICOMCOD3
+				WHERE BUYER = 'KRKORE0001'
+				AND TYPE = 'EXMP'
+				AND CODE1 = REPLACE(#{IRS_NO},'-','')
+				AND CODE2 = #{KEP_DEPT}
+		]]>
+	</update>
+</mapper>   
+   

@@ -1,0 +1,189 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="common.wmst">
+
+
+	<update id="selectMasterWmStAssmblDirectionsCreationPopBomQty" parameterType="java.util.Map" >
+			<![CDATA[
+				/*selectMasterWmStAssmblDirectionsCreationPopBomQty*/
+						UPDATE WMSSTCK SET PRE_GR_QTY = PRE_GR_QTY+#{ASSEMBLY_QTY}  WHERE WAREHOUSE_CODE = #{st_warehouse_code}    AND STDCATLG_ID =#{BUYER_ITEM_NO} AND AGENT = 'KRKORE0001' 
+				]]>
+	</update>
+
+	<update id="selectMasterWmStAssmblDirectionsCreationPopSubQty" parameterType="java.util.Map" >
+			<![CDATA[
+				/*selectMasterWmStAssmblDirectionsCreationPopSubQty*/
+				
+							UPDATE WMSSTCK ST SET  
+			 AVAIL_QTY = NVL(AVAIL_QTY,0)-(SELECT QTY*#{ASSEMBLY_QTY} FROM KEPBOFM WHERE BOM_ID = #{BUYER_ITEM_NO} AND SUB_ID = ST.STDCATLG_ID AND STATUS <> 'D'),
+			 ALLOC_QTY = NVL(ALLOC_QTY,0)+(SELECT QTY*#{ASSEMBLY_QTY}  FROM KEPBOFM WHERE BOM_ID =#{BUYER_ITEM_NO} AND SUB_ID = ST.STDCATLG_ID AND STATUS <> 'D'),            
+			 CHANGE_DATE = TO_CHAR(SYSDATE,'YYYYMMDD'),
+			 CHANGE_USER =  #{st_user_id}
+			WHERE (WAREHOUSE_CODE, STDCATLG_ID, AGENT) IN ( 
+			SELECT ST.WAREHOUSE_CODE, STDCATLG_ID, ST.AGENT 
+			FROM WMSSTCK ST, KEPBOFM BOM 
+			WHERE ST.STDCATLG_ID = BOM.SUB_ID 
+			  AND ST.WAREHOUSE_CODE = #{st_warehouse_code}     
+			  AND BOM.BOM_ID = #{BUYER_ITEM_NO}
+			  AND ST.PROCESS_TYPE = '1' 
+			  AND ST.AGENT = 'KRKORE0001' 
+			  AND ST.STATUS <> 'D' ) 
+				
+				]]>
+	</update>
+
+	<update id="selectMasterWmStAssmblDirectionsCreationPopInsertWmsAssemb" parameterType="java.util.Map" >
+			<![CDATA[
+				/*selectMasterWmStAssmblDirectionsCreationPopInsertWmsAssemb*/
+		INSERT INTO WMSASSEMB(                                       	
+		 AS_NO                                                                      	
+		,BOM_ID                                                                    	
+		,SUB_ID                                                                     	
+		,STATUS                                                                   	
+		,WAREHOUSE_CODE                                                   	
+		,BOM_QTY                                                                 	
+		,SUB_QTY                                                                  	
+		,BOM_AMT                                                                	
+		,SUB_PRICE                                                               	
+		,SUB_AMT                                                                 	
+		,ADD_DATE                                                                	
+		,ADD_USER_ID                                                            	
+		,ASSEMB_FLAG                                                         	
+		,WORK_TYPE                                                               	
+		)                                                                               	
+		SELECT                                                                    	
+			#{ASNO} AS_NO,                                                              		
+			BOM_ID,                                                                	
+			SUB_ID,                                                                 	
+			'C' STATUS,                                                          	
+			ST.WAREHOUSE_CODE,                                             	
+			#{ASSEMBLY_QTY} BOM_QTY,                                                          	
+			BOM.QTY*#{ASSEMBLY_QTY} SUB_QTY,                                              	
+			(                                                                           	
+		SELECT SUM(SST.STC_SELLER_PRICE*SBOM.QTY*#{ASSEMBLY_QTY}) 	
+		FROM  KEPBOFM SBOM, WMSSTCK SST                    	
+		WHERE SBOM.BOM_ID = #{BUYER_ITEM_NO}                         					
+		  AND SBOM.SUB_ID = SST.STDCATLG_ID                    	
+		  AND SST.PROCESS_TYPE = '1'                                 	
+		  AND SST.AGENT = 'KRKORE0001'                              	
+		  AND SST.WAREHOUSE_CODE = #{st_warehouse_code}           						
+		  AND SST.STATUS <> 'D'												
+		  AND SBOM.STATUS <> 'D'											
+		  ) BOM_AMT ,                                                           	
+		                                                                                	
+		  ST.STC_SELLER_PRICE SUB_PRICE,                         	
+		  ST.STC_SELLER_PRICE*BOM.QTY* #{ASSEMBLY_QTY} SUB_AMT,         	
+		  TO_CHAR(SYSDATE,'YYYYMMDD') ADD_DATE,          	
+		 #{st_user_id} ADD_USER_ID,                                        					
+		  'N' ASSEMB_FLAG,                                                  	
+		  #{st_assembly_type} WORK_TYPE                                                   			
+		                                                                                	
+		FROM  KEPBOFM BOM, WMSSTCK ST                        	
+		WHERE BOM.BOM_ID = #{BUYER_ITEM_NO}                            					
+		  AND BOM.SUB_ID = ST.STDCATLG_ID                        	
+		  AND ST.PROCESS_TYPE = '1'                                   	
+		  AND ST.AGENT = 'KRKORE0001'                                	
+		  AND ST.STATUS <> 'D'                                            	
+		  AND ST.WAREHOUSE_CODE = #{st_warehouse_code}                 						
+		  AND ST.STATUS <> 'D'												
+		  AND BOM.STATUS <> 'D'										
+				]]>
+	</update>
+
+	<update id="updateMasterWmStAssmblDirectionsCreationPop" parameterType="java.util.Map" >
+			<![CDATA[
+			/*updateMasterWmStAssmblDirectionsCreationPop*/
+			UPDATE icomsqmt SET year = decode(year,to_char(sysdate,'yyyy'), year, 
+                                                           to_char(sysdate,'yyyy')) ,
+                                      cur_no = decode(year,to_char(sysdate,'yyyy'),cur_no+1,1) 
+                    WHERE company ='KRKORE0001' and doc_type='AS'
+				]]>
+	</update>					
+
+	<update id="insertMasterWmStAssmblDirectionsCreationPop" parameterType="java.util.Map" >
+			<![CDATA[
+				/*insertMasterWmStAssmblDirectionsCreationPop*/
+				
+				Insert INTO icomsqmt (company,doc_type,year,cur_no) 
+                     Values ('KRKORE0001','AS',to_char(sysdate,'yyyy'),2)
+				]]>
+	</update>				
+				
+
+	<select id="selectMasterWmStAssmblDirectionsCreationPopORDERNO" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*selectMasterWmStAssmblDirectionsCreationPopORDERNO*/
+			Select doc_type||SUBSTR(year,3,2)||LPAD(cur_no,6,0)   AS_NO
+                FROM Icomsqmt 
+                WHERE company='KRKORE0001' and doc_type='AS'
+		]]>
+	</select>		
+
+	<select id="selectMasterWmStAssmblDirectionsCreationPopChangeList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*selectMasterWmStAssmblDirectionsCreationPopChangeList*/
+		        SELECT SUB_ID, SUM(QTY)AS SUM_QTY FROM KEPBOFM 
+         WHERE BOM_ID =#{st_bomid}
+        GROUP BY SUB_ID 
+		]]>
+	</select>
+	
+	
+	<select id="selectMasterWmStAssmblDirectionsCreationPopList2" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+				/*selectMasterWmStAssmblDirectionsCreationPopList2*/
+			SELECT                                                                
+			BOM.SUB_ID,														
+			MAX(IT.DESCRIPTION_LOC) DESCRIPTION_LOC,                                        
+			MAX(IT.SPECIFICATION) SPECIFICATION,                                             
+			MAX(IT.UNIT_MEASURE) UNIT_MEASURE,                                            
+			MAX(ST.AVAIL_QTY) AVAIL_QTY,                                                  
+			MAX(ST.STC_SELLER_PRICE) STC_SELLER_PRICE,                                     
+			MAX(IT.MAKER_NAME) MAKER_NAME,                                              
+			MAX(IT.ORIGIN_CODE)  ORIGIN_CODE                                                                                                             
+		FROM ICOMBYIT IT, WMSSTCK ST , KEPBOFM BOM
+		WHERE IT.BUYER = ST.WAREHOUSE_CODE              
+		  AND IT.BUYER_ITEM_NO = ST.STDCATLG_ID         
+		  AND IT.STATUS <> 'D'                                         
+		  AND ST.STATUS <> 'D'
+		  AND BOM.STATUS <> 'D'                                          
+		  AND ST.PROCESS_TYPE = '1'                               
+		  AND BOM.SUB_ID = IT.BUYER_ITEM_NO                 
+		  AND ST.WAREHOUSE_CODE = #{st_warehouse_code}	 
+		  AND BOM.BOM_ID  IN 		
+		]]>
+	    <foreach collection="itemParam" item="st_sel_item_no" index="i" open="(" separator=","  close=")" >	
+				#{st_sel_item_no}
+	 	</foreach>   
+		GROUP BY BOM.SUB_ID
+	</select>	
+
+
+	<select id="selectMasterWmStAssmblDirectionsCreationPopList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*selectMasterWmStAssmblDirectionsCreationPopList*/
+		SELECT                                                       
+			IT.BUYER_ITEM_NO,                                 
+			IT.DESCRIPTION_LOC,                              
+			IT.SPECIFICATION,                                   
+			IT.UNIT_MEASURE,                                   
+			ST.AVAIL_QTY,                                         
+			ST.STC_SELLER_PRICE,                           
+			IT.MAKER_NAME,                                     
+			IT.ORIGIN_CODE 		
+	   FROM ICOMBYIT IT, WMSSTCK ST                
+		WHERE IT.BUYER = ST.WAREHOUSE_CODE    
+		  AND IT.BUYER_ITEM_NO = ST.STDCATLG_ID
+		  AND IT.STATUS <> 'D'                                
+		  AND ST.STATUS <> 'D'                               
+		  AND ST.PROCESS_TYPE = '1'                      
+		  AND ST.WAREHOUSE_CODE =#{st_warehouse_code}			 
+		  AND IT.BUYER_ITEM_NO IN 						 
+		]]>
+		<foreach collection="itemParam" item="st_sel_item_no" index="i" open="(" separator=","  close=")" >	
+				#{st_sel_item_no}
+	 	</foreach>   
+		
+	</select>
+								
+</mapper>

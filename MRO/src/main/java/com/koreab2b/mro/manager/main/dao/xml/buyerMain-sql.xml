@@ -1,0 +1,1118 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="buyerMain">
+
+	<select id="getBuyerVocUserSql" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*getBuyerVocUserSql*/ 
+		    SELECT DISTINCT A.BUYER
+		          ,A.KEP_USER_ID
+		          ,B.USER_ID
+		          ,B.USER_NAME_LOC
+		          ,(SELECT TEXT1 FROM ICOMCOD2 WHERE COMPANY_CODE = B.COM_CODE
+		                AND TYPE='C003' AND CODE = B.POSITION) AS POSITION_NAME
+		          ,B.EMAIL
+		          ,B.PHONE_NUMBER
+		          ,B.MOBILE_PHONE
+		          ,B.DEPARTMENT
+		          , (SELECT TEXT1 FROM ICOMCOD2 COD
+						WHERE COD.TYPE = 'C001'
+						AND COD.COMPANY_CODE = B.COM_CODE
+						AND COD.CODE = B.DEPARTMENT) AS DEPARTMENT_NM 
+		      FROM MIS_BUYER_MNG A, ICOMLUSR B
+		     WHERE A.BUYER  =  #{BUYER}
+		       AND A.STATUS ='C'
+		       AND B.COM_CODE = 'KRKORE0001'
+		       AND A.KEP_USER_ID = B.USER_ID
+		       AND B.STATUS IN ('C','R')
+		       AND A.YEAR  = TO_CHAR(SYSDATE,'YYYY')
+		       AND A.PRIORITY ='Y'
+		       ORDER BY A.KEP_USER_ID
+		]]>
+	</select>
+	<select id="getBuyerBmUserSql" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*getBuyerBmUserSql*/ 
+		    SELECT DISTINCT A.BUYER
+		          ,A.KEP_USER_ID
+		          ,B.USER_ID
+		          ,B.USER_NAME_LOC
+		          ,(SELECT TEXT1 FROM ICOMCOD2 WHERE COMPANY_CODE = B.COM_CODE
+		                AND TYPE='C003' AND CODE = B.POSITION) AS POSITION_NAME
+		          ,B.EMAIL
+		          ,B.PHONE_NUMBER
+		          ,B.MOBILE_PHONE
+		          ,B.DEPARTMENT
+		          , (SELECT TEXT1 FROM ICOMCOD2 COD
+						WHERE COD.TYPE = 'C001'
+						AND COD.COMPANY_CODE = B.COM_CODE
+						AND COD.CODE = B.DEPARTMENT) AS DEPARTMENT_NM 
+		      FROM MIS_BUYER_MNG A, ICOMLUSR B
+		     WHERE A.BUYER  =  #{BUYER}
+		       AND A.STATUS ='C'
+		       AND B.COM_CODE = 'KRKORE0001'
+		       AND A.KEP_USER_ID = B.USER_ID
+		       AND B.STATUS IN ('C','R')
+		       AND A.YEAR  = TO_CHAR(SYSDATE,'YYYY')
+		       AND A.MAIN_CLERK ='Y'
+		       ORDER BY A.KEP_USER_ID
+		]]>
+	</select>
+	<select id="getBuyerStatusCountMainSql" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*getBuyerStatusCountMainSql*/ 
+ 
+ 
+           SELECT 
+
+          (	 SELECT                                                                                               
+		 COUNT(A.USER_ID) CNT                                                                                 
+		 FROM ICOMCART A, ICOMBYIT B, ICOMCQDT C, CMSCATLG D                                                  
+		 WHERE B.BUYER         = C.BUYER                                                                      
+		   AND A.BUYER_ITEM_NO = B.BUYER_ITEM_NO                                                              
+		   AND A.BUYER_ITEM_NO = C.BUYER_ITEM_NO                                                              
+		   AND A.CONTRACT_NO = C.CONTRACT_NO                                                                  
+		   AND A.CONTRACT_SEQ = C.CONTRACT_SEQ                                                                
+		   AND A.BYIT_COMORG_CODE = B.BUYER                                                                   
+		   AND B.CMS_CATLG_ID = D.CMS_CATLG_ID(+)                                                             
+		   AND D.STD_FLAG(+)='Y'                                                                              
+		   AND A.USE_FLAG      = 'C'                                                                
+		   AND B.STATUS       <> 'D'                                                                
+		   AND C.STATUS       <> 'D'                                                                
+		   AND B.PRODUCT_CLOSE_FLAG    IN ('N','Y','T')                                                 
+		   AND A.USER_ID =  #{USER_ID}      
+		   AND NVL(A.PRE_GR_FLAG,'N') = 'N'                                                 
+		   AND A.BUYER =  #{BUYER} AND DECODE(A.BUYER, 'KRHONG0020', A.VERIF_NUM, 'X') IS NOT NULL 
+		   AND NOT EXISTS (
+				SELECT 1 FROM ICOMCMPY CM, ICOMCQDT GC
+				WHERE CM.COM_CODE = A.BUYER
+					AND CM.USING_CATAL_TYPE IN ('A','C')
+					AND GC.BUYER = CM.BYCA_COMORG_CODE
+					AND GC.BELOW_COMORG_CODE = A.BUYER
+					AND GC.CONTRACT_NO = A.CONTRACT_NO
+					AND GC.CONTRACT_SEQ = A.CONTRACT_SEQ
+					AND GC.BUYER_ITEM_NO = A.BUYER_ITEM_NO
+					AND GC.STATUS = 'D'
+				)
+			) AS CART_CNT, 
+
+          (SELECT COUNT(A.PR_SEQ) 
+                FROM ICOMPRDT A, ICOMPODT C 
+                WHERE A.BUYER  = #{BUYER}
+                  AND A.CHANGE_DATE BETWEEN TO_CHAR(SYSDATE -150,'YYYYMMDD') AND TO_CHAR(SYSDATE,'YYYYMMDD') 
+                AND A.STATUS IN ('C','R') 
+                AND C.STATUS(+) <> 'D' 
+                AND A.RECV_FLAG NOT IN ('RR','GR') 
+                AND A.CHANGE_USER_ID = #{USER_ID}
+                AND A.PR_NO = C.PR_NO(+) 
+                AND A.PR_SEQ = C.PR_SEQ(+) 
+                AND A.BUYER = C.BUYER(+) 
+                AND C.ITEM_QTY <> C.GR_QTY ) AS PR_CNT, 
+		
+		  (SELECT								
+		  		COUNT(*)						
+		      FROM ICOGPASSLN A, ICOGDOCU B		
+		     WHERE A.COMPANY	 = #{BUYER}
+		       AND A.USER_ID	 = #{USER_ID}
+		       AND A.PASS_TP	 = '0'			
+		       AND A.COMPANY	 = B.COMPANY	
+		       AND A.DOCU_NO	 = B.DOCU_NO	
+		       AND A.USER_ID	 = B.USER_ID
+		       AND TO_CHAR(B.START_DATE, 'YYYYMMDD') BETWEEN TO_CHAR(ADD_MONTHS(SYSDATE, -1),'YYYYMMDD') AND TO_CHAR(SYSDATE,'YYYYMMDD')	
+		       AND B.PASS_STATUS = 0	) AS SEND_CNT,	-- 결재상신
+
+          (SELECT COUNT(*)
+             FROM ICOGDOCU A, ICOGPASSLN B
+            WHERE A.COMPANY	IN (SELECT BUYER FROM ICOMCOD3 WHERE TYPE = 'M-APPR' AND FLAG = 'Y' AND CODE2 = #{USER_ID} UNION SELECT #{BUYER} FROM DUAL)
+              AND A.PASS_STATUS  = '0'
+              AND A.COMPANY      = B.COMPANY
+              AND A.DOCU_NO      = B.DOCU_NO
+              AND A.CUR_ORDER_NO = B.ORDER_NO
+              AND B.USER_ID IN (SELECT CODE1 FROM ICOMCOD3 WHERE TYPE = 'M-APPR' AND FLAG = 'Y' AND CODE2 = #{USER_ID} UNION SELECT #{USER_ID} FROM DUAL)
+              AND B.PASS_TP  IN ('1','2','3')
+              AND B.PASS_KN  IS  NULL
+              AND TO_CHAR(A.START_DATE,'YYYYMMDD') BETWEEN TO_CHAR(ADD_MONTHS(SYSDATE, -1),'YYYYMMDD') AND TO_CHAR(SYSDATE,'YYYYMMDD')  ) AS RECV_CNT, 
+		(SELECT COUNT(*)
+             FROM ICOGDOCU A, ICOGPASSLN B
+            WHERE A.COMPANY      = #{BUYER}
+              AND A.PASS_STATUS  = '0'
+              AND A.COMPANY      = B.COMPANY
+              AND A.DOCU_NO      = B.DOCU_NO
+              AND A.CUR_ORDER_NO = B.ORDER_NO
+              AND B.USER_ID      = #{USER_ID}
+              AND B.PASS_TP  IN ('1','2','3')
+              AND B.PASS_KN  IS  NULL
+              AND A.EXTIF_TP = 'PR'
+              AND TO_CHAR(A.START_DATE,'YYYYMMDD') BETWEEN TO_CHAR(ADD_MONTHS(SYSDATE, -1),'YYYYMMDD') AND TO_CHAR(SYSDATE,'YYYYMMDD')  ) AS PR_RECV_CNT,
+		(SELECT COUNT(*)
+             FROM ICOGDOCU A, ICOGPASSLN B
+            WHERE A.COMPANY      = #{BUYER}
+              AND A.PASS_STATUS  = '0'
+              AND A.COMPANY      = B.COMPANY
+              AND A.DOCU_NO      = B.DOCU_NO
+              AND A.CUR_ORDER_NO = B.ORDER_NO
+              AND B.USER_ID      = #{USER_ID}
+              AND B.PASS_TP  IN ('1','2','3')
+              AND B.PASS_KN  IS  NULL
+              AND A.EXTIF_TP = 'PX'
+              AND TO_CHAR(A.START_DATE,'YYYYMMDD') BETWEEN TO_CHAR(ADD_MONTHS(SYSDATE, -1),'YYYYMMDD') AND TO_CHAR(SYSDATE,'YYYYMMDD')  ) AS PX_RECV_CNT,
+		    (SELECT COUNT(*) FROM KEPRQDT A	
+		    WHERE A.BUYER = #{BUYER}
+		    AND A.KEP_USER_ID IS NULL	
+		    AND A.BTOA_USER_ID = DECODE((SELECT USER_GROUP FROM ICOMLUSR WHERE USER_ID = #{USER_ID} AND COM_CODE = #{BUYER}), 'A', A.BTOA_USER_ID, #{USER_ID})
+		    AND A.RECV_FLAG NOT IN ('GD','CM','TS')	
+		    AND A.STATUS IN ('C','R')
+		    AND A.BTOA_DATE BETWEEN TO_CHAR(SYSDATE -7,'YYYYMMDD') AND TO_CHAR(SYSDATE,'YYYYMMDD')	
+		    AND A.ATOB_SEND_FLAG='N') AS SOUR_CNT,	
+
+             (SELECT COUNT(A.PR_SEQ)   
+              FROM ICOMPRDT A , ICOMTRGW B, ICOMBYIT C, ICOMCQDT E   , ICOMPRHD F       
+             WHERE A.BUYER   IN (SELECT NVL(CODE2, #{BUYER}) FROM ICOMCOD3 WHERE BUYER = #{BUYER} AND TYPE = 'TGCM' AND CODE1 = #{USER_ID} AND FLAG = 'Y'
+		    							UNION ALL SELECT #{BUYER} FROM DUAL)
+		          AND A.ADD_DATE BETWEEN to_char(add_months(sysdate,-3),'YYYYMMDD') AND TO_CHAR(SYSDATE,'YYYYMMDD') 
+              AND A.SAVE_FLAG = 'PR' 
+              AND A.RECV_FLAG = 'GA'
+              AND A.BUYER            = F.BUYER
+              AND A.PR_NO            = F.PR_NO
+              AND A.BUYER            = B.COM_CODE(+)
+              AND A.PR_NO            = B.KEY_1(+)
+              AND A.BYIT_COMORG_CODE = C.BUYER
+              AND A.BUYER_ITEM_NO    = C.BUYER_ITEM_NO
+              AND A.BYIT_COMORG_CODE = E.BUYER
+              AND A.BUYER_ITEM_NO    = E.BUYER_ITEM_NO
+              AND A.CONTRACT_NO      = E.CONTRACT_NO
+              AND A.CONTRACT_SEQ     = E.CONTRACT_SEQ
+              AND E.BUYER_ITEM_NO    = C.BUYER_ITEM_NO
+              AND E.BUYER            = C.BUYER
+              AND A.STATUS          <> 'D'
+              AND E.STATUS          <> 'D'
+              AND F.STATUS          <> 'D'
+              AND C.STATUS          <> 'D'
+              AND C.PRODUCT_CLOSE_FLAG = 'N'
+                 
+		--콘티넨탈(KRCONT0006)일경우, icomcod2에 등록된 cost center별 담당자가 본인인 건만 조회되게 한다.
+			   AND CASE WHEN   A.BUYER ='KRCONT0006' THEN  '1'						
+			        	 ELSE A.PURCHASER_DEPT										
+			        END																
+					= 																
+			        CASE WHEN   A.BUYER ='KRCONT0006' THEN  (						
+										SELECT to_char(count(*)) FROM ICOMCOD2 X	
+										WHERE 1=1									
+											AND X.TYPE ='M014'						
+											AND NVL(X.FLAG,'Y') = 'Y'				
+											AND X.CODE = A.REF_PR_NO				
+											AND X.COMPANY_CODE = A.BUYER			
+											AND X.TEXT4 =  #{USER_ID}
+									)												
+			        	 ELSE	  #{DEPT}							
+			        END
+			        
+				/* 2022.03.03 발주권 있는 사람만 건수 표기 */
+				AND CASE WHEN A.BUYER = 'KRCONT0006' THEN 'ALL'
+					ELSE (SELECT SUBSTR(ROLE,1,1) FROM ICOMLUSR
+							WHERE USER_ID = #{USER_ID}) END IN ('A', 'C', 'P', 'ALL')			        
+		       ) AS PO_CNT,
+		       
+			(
+			SELECT	COUNT(*)
+			FROM	KEPRQDT A,
+						KEPQTDT B
+			WHERE	A.SO_CA_FLAG = 'SO'
+			AND		A.BUYER IN (SELECT CODE2 FROM ICOMCOD3 WHERE BUYER = #{BUYER} AND TYPE = 'TGCM' AND CODE1 = #{USER_ID} AND FLAG = 'Y'
+										UNION ALL SELECT #{BUYER} FROM DUAL)
+			AND		A.ATOB_DATE BETWEEN TO_CHAR(SYSDATE-30, 'YYYYMMDD') AND TO_CHAR(SYSDATE, 'YYYYMMDD')
+			AND		A.BUYER = B.BUYER
+			AND		A.QUOTATION_NO = B.QUOTATION_NO
+			AND		A.QUOTATION_SEQ = B.QUOTATION_SEQ
+			AND		A.REVISION = B.REVISION
+			AND		B.BID_SUCCESS_FLAG = 'Y'
+			AND		A.ATOB_UNIT_PRICE <> 0
+			AND		A.CONFIRM_DATE IS NULL
+			AND		A.RECV_FLAG IN ('GA', 'GR')
+			AND		A.ATOB_SEND_FLAG = 'Y'
+			AND		A.STATUS IN ('C' ,'R')
+			AND		B.STATUS <> 'D'
+			AND		B.STATUS <> 'O'
+			AND		NVL(A.MSDS_STATUS, 'N') <> 'R'
+			AND		A.BTOA_USER_ID = DECODE((SELECT USER_GROUP FROM ICOMLUSR WHERE USER_ID = #{USER_ID} AND COM_CODE = #{BUYER}), 'A', A.BTOA_USER_ID, #{USER_ID})
+		]]>
+		<if test='RQDT_TYPE == "TYPE2"'>
+   			<if test='MSDS_USER == "Y"'>
+   				AND TRIM(DECODE(A.MSDS_NO, 'MS99999999', '', A.MSDS_NO)) IS NOT NULL
+   				AND NVL(A.MSDS_STATUS, 'N') = 'A'
+   			</if>
+   			<if test='MSDS_USER == "N"'>
+   				AND NVL(A.MSDS_STATUS, 'N') != 'A'
+   			</if>
+   		</if>	
+		<![CDATA[
+			) AS AGMT_CNT
+			
+          FROM DUAL 
+		
+		]]>
+	</select>
+	
+	<select id="getBuyerStatusCountMainSql_v2" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*getBuyerStatusCountMainSql_v2*/ 
+ 
+ 
+           SELECT 
+
+          (	 SELECT                                                                                               
+		 COUNT(A.USER_ID) CNT                                                                                 
+		 FROM ICOMCART A, ICOMBYIT B, ICOMCQDT C, CMSCATLG D                                                  
+		 WHERE B.BUYER         = C.BUYER                                                                      
+		   AND A.BUYER_ITEM_NO = B.BUYER_ITEM_NO                                                              
+		   AND A.BUYER_ITEM_NO = C.BUYER_ITEM_NO                                                              
+		   AND A.CONTRACT_NO = C.CONTRACT_NO                                                                  
+		   AND A.CONTRACT_SEQ = C.CONTRACT_SEQ                                                                
+		   AND A.BYIT_COMORG_CODE = B.BUYER                                                                   
+		   AND B.CMS_CATLG_ID = D.CMS_CATLG_ID(+)                                                             
+		   AND D.STD_FLAG(+)='Y'                                                                              
+		   AND A.USE_FLAG      = 'C'                                                                
+		   AND B.STATUS       <> 'D'                                                                
+		   AND C.STATUS       <> 'D'                                                                
+		   AND B.PRODUCT_CLOSE_FLAG    IN ('N','Y','T')                                                 
+		   AND A.USER_ID =  #{USER_ID}      
+		   AND NVL(A.PRE_GR_FLAG,'N') = 'N'                                                 
+		   AND A.BUYER =  #{BUYER} AND DECODE(A.BUYER, 'KRHONG0020', A.VERIF_NUM, 'X') IS NOT NULL 
+		   AND NOT EXISTS (
+					SELECT 1 FROM ICOMCMPY CM, ICOMCQDT GC
+					WHERE CM.COM_CODE = A.BUYER
+						AND CM.USING_CATAL_TYPE IN ('A','C')
+						AND GC.BUYER = CM.BYCA_COMORG_CODE
+						AND GC.BELOW_COMORG_CODE = A.BUYER
+						AND GC.CONTRACT_NO = A.CONTRACT_NO
+						AND GC.CONTRACT_SEQ = A.CONTRACT_SEQ
+						AND GC.BUYER_ITEM_NO = A.BUYER_ITEM_NO
+						AND GC.STATUS = 'D'
+				)
+			) AS CART_CNT, 
+
+          (SELECT COUNT(A.PR_SEQ) 
+                FROM ICOMPRDT A, ICOMPODT C 
+                WHERE A.BUYER  = #{BUYER}
+                  AND A.CHANGE_DATE BETWEEN TO_CHAR(SYSDATE -150,'YYYYMMDD') AND TO_CHAR(SYSDATE,'YYYYMMDD') 
+                AND A.STATUS IN ('C','R') 
+                AND C.STATUS(+) <> 'D' 
+                AND A.RECV_FLAG NOT IN ('RR','GR') 
+                AND A.CHANGE_USER_ID = #{USER_ID}
+                AND A.PR_NO = C.PR_NO(+) 
+                AND A.PR_SEQ = C.PR_SEQ(+) 
+                AND A.BUYER = C.BUYER(+) 
+                AND C.ITEM_QTY <> C.GR_QTY ) AS PR_CNT, 
+		
+		  (SELECT								
+		  		COUNT(*)						
+		      FROM ICOGPASSLN A, ICOGDOCU B		
+		     WHERE A.COMPANY	 = #{BUYER}
+		       AND A.USER_ID	 = #{USER_ID}
+		       AND A.PASS_TP	 = '0'			
+		       AND A.COMPANY	 = B.COMPANY	
+		       AND A.DOCU_NO	 = B.DOCU_NO	
+		       AND A.USER_ID	 = B.USER_ID
+		       AND TO_CHAR(B.START_DATE, 'YYYYMMDD') BETWEEN TO_CHAR(ADD_MONTHS(SYSDATE, -1),'YYYYMMDD') AND TO_CHAR(SYSDATE,'YYYYMMDD')	
+		       AND B.PASS_STATUS = 0	) AS SEND_CNT,	-- 결재상신
+
+          (SELECT COUNT(*)
+             FROM ICOGDOCU A, ICOGPASSLN B
+            WHERE A.COMPANY	IN (SELECT BUYER FROM ICOMCOD3 WHERE TYPE = 'M-APPR' AND FLAG = 'Y' AND CODE2 = #{USER_ID} UNION SELECT #{BUYER} FROM DUAL)
+              AND A.PASS_STATUS  = '0'
+              AND A.COMPANY      = B.COMPANY
+              AND A.DOCU_NO      = B.DOCU_NO
+              AND A.CUR_ORDER_NO = B.ORDER_NO
+              AND B.USER_ID IN (SELECT CODE1 FROM ICOMCOD3 WHERE TYPE = 'M-APPR' AND FLAG = 'Y' AND CODE2 = #{USER_ID} UNION SELECT #{USER_ID} FROM DUAL)
+              AND B.PASS_TP  IN ('1','2','3')
+              AND B.PASS_KN  IS  NULL
+              AND TO_CHAR(A.START_DATE,'YYYYMMDD') BETWEEN TO_CHAR(ADD_MONTHS(SYSDATE, -1),'YYYYMMDD') AND TO_CHAR(SYSDATE,'YYYYMMDD')  ) AS RECV_CNT, 
+		(SELECT COUNT(*)
+             FROM ICOGDOCU A, ICOGPASSLN B
+            WHERE A.COMPANY      = #{BUYER}
+              AND A.PASS_STATUS  = '0'
+              AND A.COMPANY      = B.COMPANY
+              AND A.DOCU_NO      = B.DOCU_NO
+              AND A.CUR_ORDER_NO = B.ORDER_NO
+              AND B.USER_ID      = #{USER_ID}
+              AND B.PASS_TP  IN ('1','2','3')
+              AND B.PASS_KN  IS  NULL
+              AND A.EXTIF_TP = 'PR'
+              AND TO_CHAR(A.START_DATE,'YYYYMMDD') BETWEEN TO_CHAR(ADD_MONTHS(SYSDATE, -1),'YYYYMMDD') AND TO_CHAR(SYSDATE,'YYYYMMDD')  ) AS PR_RECV_CNT,
+		(SELECT COUNT(*)
+             FROM ICOGDOCU A, ICOGPASSLN B
+            WHERE A.COMPANY      = #{BUYER}
+              AND A.PASS_STATUS  = '0'
+              AND A.COMPANY      = B.COMPANY
+              AND A.DOCU_NO      = B.DOCU_NO
+              AND A.CUR_ORDER_NO = B.ORDER_NO
+              AND B.USER_ID      = #{USER_ID}
+              AND B.PASS_TP  IN ('1','2','3')
+              AND B.PASS_KN  IS  NULL
+              AND A.EXTIF_TP = 'PX'
+              AND TO_CHAR(A.START_DATE,'YYYYMMDD') BETWEEN TO_CHAR(ADD_MONTHS(SYSDATE, -1),'YYYYMMDD') AND TO_CHAR(SYSDATE,'YYYYMMDD')  ) AS PX_RECV_CNT,
+		    (  SELECT  COUNT(DISTINCT b.po_no||b.po_seq||d.inv_no)                     
+		            FROM ICOMPRDT A, ICOMPODT B, ICOMPOHD C, ICOMIVDT D, WMSIVDT E
+		           WHERE A.BUYER = #{BUYER}                               
+		             AND C.PO_CREATE_DATE BETWEEN to_char(add_months(sysdate,-1),'YYYYMMDD') AND TO_CHAR(SYSDATE,'YYYYMMDD')                                
+		             AND A.STATUS ^= 'D'                                     
+		             AND A.BUYER = B.BUYER                                   
+		             AND A.PR_NO = B.PR_NO                                   
+		             AND A.PR_SEQ= B.PR_SEQ
+		             AND B.BUYER = C.BUYER
+		             AND B.PO_NO = C.PO_NO
+		             AND B.BUYER = D.BUYER
+                     AND B.PO_NO = D.PO_NO
+                     AND B.PO_SEQ = D.PO_SEQ
+                     AND D.STATUS ^= 'D'
+		             AND C.STATUS ^= 'D'                                  
+		             AND B.STATUS ^= 'D'    
+		             AND D.BUYER = E.BUYER(+)
+					AND D.INV_NO = E.S_INV_NO(+)
+					AND D.INV_SEQ = E.S_INV_SEQ(+)
+					AND E.STATUS(+) <> 'D'                                 
+		             AND B.ITEM_QTY ^= B.GR_QTY                              
+		             AND B.IV_QTY > B.GR_QTY
+		             AND DECODE(B.PROCESS_TYPE,'0',D.INV_NO, E.INV_NO ) IS NOT NULL
+					AND DECODE(B.PROCESS_TYPE,'0',NVL(D.GR_QTY,0), NVL(E.BUYER_GR_QTY,0)) <> DECODE(B.PROCESS_TYPE,'0',NVL(D.INV_QTY,0), NVL(E.INV_QTY,0))
+		             AND (NVL(FLAGS.DEPT_FIX,'N')     != 'Y' OR A.CHANGE_USER_DEPT =  #{DEPT})
+				     AND (NVL(FLAGS.PR_USER_FIX,'N')  != 'Y' OR A.ADD_USER_ID   =  #{USER_ID})
+				     AND (NVL(FLAGS.PO_USER_FIX,'N')  != 'Y' OR A.PURCHASER_ID   =  #{USER_ID})                         
+		             )  GR_CNT,
+		    
+		    (SELECT COUNT(*) FROM KEPRQDT A	
+		    WHERE A.BUYER   IN (SELECT NVL(CODE2, #{BUYER}) FROM ICOMCOD3 WHERE BUYER = #{BUYER} AND TYPE = 'TGCM' AND CODE1 = #{USER_ID} AND FLAG = 'Y'
+		    							UNION ALL SELECT #{BUYER} FROM DUAL)   
+		    AND A.BTOA_USER_ID = DECODE((SELECT USER_GROUP FROM ICOMLUSR WHERE USER_ID = #{USER_ID} AND COM_CODE = #{BUYER}), 'A', A.BTOA_USER_ID, #{USER_ID})
+		    AND A.STATUS IN ('C','R')
+		    AND A.BTOA_DATE BETWEEN TO_CHAR(ADD_MONTHS(SYSDATE, -1),'YYYYMMDD') AND TO_CHAR(SYSDATE,'YYYYMMDD')
+		    AND F_GET_RE_STTS(A.BUYER, A.QUOTATION_NO,A.QUOTATION_SEQ,A.REVISION,0) = 'RQ10'
+		    AND A.RECV_FLAG != 'TS' 
+		    ) AS SOUR_CNT,
+		    (SELECT COUNT(*) FROM KEPRQDT A	
+		    WHERE A.BUYER   IN (SELECT NVL(CODE2, #{BUYER}) FROM ICOMCOD3 WHERE BUYER = #{BUYER} AND TYPE = 'TGCM' AND CODE1 = #{USER_ID} AND FLAG = 'Y'
+		    							UNION ALL SELECT #{BUYER} FROM DUAL)
+		    AND A.BTOA_USER_ID = DECODE((SELECT USER_GROUP FROM ICOMLUSR WHERE USER_ID = #{USER_ID} AND COM_CODE = #{BUYER}), 'A', A.BTOA_USER_ID, #{USER_ID})
+		    AND A.STATUS IN ('C','R')
+		    AND A.BTOA_DATE BETWEEN TO_CHAR(ADD_MONTHS(SYSDATE, -1),'YYYYMMDD') AND TO_CHAR(SYSDATE,'YYYYMMDD')
+		    AND F_GET_RE_STTS(A.BUYER, A.QUOTATION_NO,A.QUOTATION_SEQ,A.REVISION,0) = 'RQ05'
+		    AND A.RECV_FLAG != 'TS'  
+		    ) AS SOUR_ING_CNT,
+		    (SELECT COUNT(*) FROM KEPRQDT A	
+		    WHERE A.BUYER   IN (SELECT NVL(CODE2, #{BUYER}) FROM ICOMCOD3 WHERE BUYER = #{BUYER} AND TYPE = 'TGCM' AND CODE1 = #{USER_ID} AND FLAG = 'Y'
+		    							UNION ALL SELECT #{BUYER} FROM DUAL)
+		    AND A.BTOA_USER_ID = DECODE((SELECT USER_GROUP FROM ICOMLUSR WHERE USER_ID = #{USER_ID} AND COM_CODE = #{BUYER}), 'A', A.BTOA_USER_ID, #{USER_ID})
+		    AND A.STATUS IN ('C','R')
+		    AND A.BTOA_DATE BETWEEN TO_CHAR(ADD_MONTHS(SYSDATE, -1),'YYYYMMDD') AND TO_CHAR(SYSDATE,'YYYYMMDD')
+		    AND F_GET_RE_STTS(A.BUYER, A.QUOTATION_NO,A.QUOTATION_SEQ,A.REVISION,0) = 'RQ04' 
+		    AND A.RECV_FLAG != 'TS' 
+		    ) AS SOUR_END_CNT,
+		    (SELECT COUNT(A.PR_SEQ)   
+              FROM ICOMPRDT A      
+             WHERE A.BUYER = #{BUYER}
+		      AND A.ADD_DATE BETWEEN to_char(add_months(sysdate,-1),'YYYYMMDD') AND TO_CHAR(SYSDATE,'YYYYMMDD') 
+              AND A.RECV_FLAG IN('GA','PR','PT')             
+              AND A.SAVE_FLAG IN( 'PR','PX')
+              AND A.STATUS <> 'D'
+              AND A.PURCHASER_DEPT = #{DEPT}
+			  							
+				/* 2022.03.03 발주권 있는 사람만 건수 표기 */
+				AND (SELECT SUBSTR(ROLE,1,1) FROM ICOMLUSR WHERE USER_ID = #{USER_ID}) IN ('A', 'C', 'P', 'ALL')			        
+		       ) AS PO_CNT,
+		       (SELECT COUNT(PR.PR_SEQ) FROM ICOMPRDT PR
+		       WHERE PR.BUYER = #{BUYER}
+		    	AND PR.CHANGE_USER_ID = #{USER_ID}
+		    	AND F_GET_PR_STTS(PR.BUYER, PR.PR_NO, PR.PR_SEQ , 0) IN ('PX10')
+		    	AND PR.ADD_DATE BETWEEN to_char(add_months(sysdate,-1),'YYYYMMDD') AND TO_CHAR(SYSDATE,'YYYYMMDD') 
+		    	) AS PR_1_CNT,
+		    	(SELECT COUNT(PR.PR_SEQ) FROM ICOMPRDT PR
+		       WHERE PR.BUYER = #{BUYER}
+		    	AND PR.CHANGE_USER_ID = #{USER_ID}
+		    	AND F_GET_PR_STTS(PR.BUYER, PR.PR_NO, PR.PR_SEQ , 0) IN ('PX20')
+		    	AND PR.ADD_DATE BETWEEN to_char(add_months(sysdate,-1),'YYYYMMDD') AND TO_CHAR(SYSDATE,'YYYYMMDD')
+		    	) AS PR_2_CNT,
+		    	(SELECT COUNT(PR.PR_SEQ) FROM ICOMPRDT PR
+		      WHERE PR.BUYER = #{BUYER}
+		    	AND PR.CHANGE_USER_ID = #{USER_ID}
+		    	AND F_GET_PR_STTS(PR.BUYER, PR.PR_NO, PR.PR_SEQ , 0) IN ('PX30','PX40','PX50','PX60')
+		    	AND PR.ADD_DATE BETWEEN to_char(add_months(sysdate,-1),'YYYYMMDD') AND TO_CHAR(SYSDATE,'YYYYMMDD')
+		    	) AS PR_3_CNT,
+		    	(SELECT COUNT(PR.PR_SEQ) FROM ICOMPRDT PR
+		      WHERE PR.BUYER = #{BUYER}
+		    	AND PR.CHANGE_USER_ID = #{USER_ID}
+		    	AND F_GET_PR_STTS(PR.BUYER, PR.PR_NO, PR.PR_SEQ , 0) IN ('PX70')
+		    	AND PR.ADD_DATE BETWEEN to_char(add_months(sysdate,-1),'YYYYMMDD') AND TO_CHAR(SYSDATE,'YYYYMMDD')
+		    	) AS PR_4_CNT,	
+			(
+			SELECT	COUNT(*)
+			FROM	KEPRQDT A,
+						KEPQTDT B
+			WHERE	A.SO_CA_FLAG = 'SO'
+			AND		A.BUYER   IN (SELECT NVL(CODE2, #{BUYER}) FROM ICOMCOD3 WHERE BUYER = #{BUYER} AND TYPE = 'TGCM' AND CODE1 = #{USER_ID} AND FLAG = 'Y'
+		    							UNION ALL SELECT #{BUYER} FROM DUAL)
+			AND		A.ATOB_DATE BETWEEN TO_CHAR(ADD_MONTHS(SYSDATE, -1),'YYYYMMDD') AND TO_CHAR(SYSDATE,'YYYYMMDD')
+			AND		A.BUYER = B.BUYER
+			AND		A.QUOTATION_NO = B.QUOTATION_NO
+			AND		A.QUOTATION_SEQ = B.QUOTATION_SEQ
+			AND		A.REVISION = B.REVISION
+			AND		B.BID_SUCCESS_FLAG = 'Y'
+			AND		A.ATOB_UNIT_PRICE <> 0
+			AND		A.CONFIRM_DATE IS NULL
+			AND		A.RECV_FLAG IN ('GA', 'GR')
+			AND		A.ATOB_SEND_FLAG = 'Y'
+			AND		A.STATUS IN ('C' ,'R')
+			AND		B.STATUS <> 'D'
+			AND		B.STATUS <> 'O'
+			AND		NVL(A.MSDS_STATUS, 'N') <> 'R'
+			AND		A.BTOA_USER_ID = DECODE((SELECT USER_GROUP FROM ICOMLUSR WHERE USER_ID = #{USER_ID} AND COM_CODE = #{BUYER}), 'A', A.BTOA_USER_ID, #{USER_ID})
+			]]>
+		<if test='RQDT_TYPE == "TYPE2"'>
+   			<if test='MSDS_USER == "Y"'>
+   				AND TRIM(DECODE(A.MSDS_NO, 'MS99999999', '', A.MSDS_NO)) IS NOT NULL
+   				AND NVL(A.MSDS_STATUS, 'N') = 'A'
+   			</if>
+   			<if test='MSDS_USER == "N"'>
+   				AND NVL(A.MSDS_STATUS, 'N') != 'A'
+   			</if>
+   		</if>	
+		<![CDATA[
+			
+			) AS AGMT_CNT
+			
+          FROM DUAL 
+          LEFT JOIN (
+        SELECT NVL(B.COL01_DATA,'N') AS DEPT_FIX
+             , NVL(B.COL02_DATA,'N') AS PR_USER_FIX
+             , NVL(B.COL03_DATA,'N') AS PO_USER_FIX
+          FROM BNTSLGDEF A, BNTSLGIMP B
+         WHERE 1=1
+           AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN A.OPEN_DATE AND A.CLOSE_DATE
+           AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN B.OPEN_DATE AND B.CLOSE_DATE
+           AND A.SLG_ID = B.SLG_ID
+           AND A.SLG_ID = 'P07-0000008'
+           AND NOT EXISTS (SELECT 'X' FROM ICOMLUSR
+                            WHERE USER_ID  =  #{USER_ID}
+                              AND USER_TYPE = 'A')
+           AND ROWNUM = 1
+       ) FLAGS ON 1=1 
+		
+		]]>
+	</select>	
+	
+	<select id="getBuyerStatusCountPCOMainSql" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*getBuyerStatusCountPCOMainSql*/ 
+           SELECT															 
+
+		  (	SELECT COUNT(A.BUYER_ITEM_NO)    		                         
+        	 FROM DOOSCART A, ICOMBYIT B     		                         
+        	 WHERE A.USER_ID  =#{USER_ID}    	                                     
+        	   AND A.USE_FLAG = 'C'          		                         
+        	   AND A.BUYER    = #{BUYER}	                                     
+        	   AND B.STATUS <> 'D'           		                         
+        	   AND B.PRODUCT_CLOSE_FLAG IN ('N','A')                       
+        	   AND A.BUYER = B.BUYER         		                         
+        	   AND A.BUYER_ITEM_NO = B.BUYER_ITEM_NO	 ) AS CART_CNT,      
+
+		    (SELECT COUNT(DISTINCT SUBSTR(PR.REF_PR_NO,0,7))      		     
+		       FROM ICOMPRDT PR, ICOMPODT PO                                 
+		      WHERE PR.BUYER     = PO.BUYER                                  
+		        AND PR.PR_NO     = PO.PR_NO                                  
+		        AND PR.PR_SEQ    = PO.PR_SEQ                                 
+		        AND PR.STATUS    <> 'D'                                      
+		        AND PO.STATUS    <> 'D'                                      
+		        AND PR.BUYER          =#{BUYER}                               
+		        AND PR.CHANGE_USER_ID =#{USER_ID}                                
+		        AND PR.CHANGE_DATE  BETWEEN TO_CHAR(ADD_MONTHS(SYSDATE, -1),'YYYYMMDD') AND TO_CHAR(SYSDATE,'YYYYMMDD')                   
+		        ) AS PR_CNT,                                                 	
+
+		       (SELECT   COUNT(*)	                                         
+		         FROM KEPRQDT A	                                             
+		        WHERE A.BTOA_USER_ID  =#{USER_ID}                                 
+		          AND A.BUYER        =#{BUYER}                          
+		          AND A.BTOA_DATE   BETWEEN TO_CHAR(ADD_MONTHS(SYSDATE, -1),'YYYYMMDD') AND TO_CHAR(SYSDATE,'YYYYMMDD')          
+		          AND A.KEP_USER_ID IS NULL                                  
+		          AND A.RECV_FLAG IN ('GA','NW')	                     
+		          AND A.STATUS IN ('C','R')) AS SOUR_CNT,	                 
+		
+		    (  SELECT  COUNT(DISTINCT b.po_no||b.po_seq)                     
+		            FROM ICOMPRDT A, ICOMPODT B                              
+		           WHERE A.BUYER = #{BUYER}                               
+		             AND A.ADD_USER_ID =#{USER_ID}                                 
+		             AND A.STATUS ^= 'D'                                     
+		             AND A.BUYER = B.BUYER                                   
+		             AND A.PR_NO = B.PR_NO                                   
+		             AND A.PR_SEQ= B.PR_SEQ                                  
+		             AND B.STATUS ^= 'D'                                     
+		             AND B.ITEM_QTY ^= B.GR_QTY                              
+		             AND B.IV_QTY > B.GR_QTY                                 
+		             AND B.DI_QTY >0    )  GR_CNT,                           
+		
+		  ( SELECT COUNT(B.LEGACY_PO_NO||B.LEGACY_PO_SEQ) AS COUNT                                        
+		       FROM ICOMPOHD A , ICOMPODT B , ICOMPORS C , ICOMPRDT D                                     
+		      WHERE A.BUYER = B.BUYER                                                                     
+		        AND A.BUYER =#{BUYER}                                                                       
+		        AND B.RD_DATE BETWEEN TO_CHAR(SYSDATE , 'YYYYMMDD') and TO_CHAR(SYSDATE +5 , 'YYYYMMDD')  
+		        AND A.PO_NO = B.PO_NO                                                                     
+		        AND NVL(B.ITEM_QTY,0) <> NVL(B.GR_QTY,0)                                                  
+		        AND NVL(B.ITEM_QTY,0) <> NVL(B.DI_QTY,0)                                                  
+		        AND D.CHANGE_USER_ID =#{USER_ID}                                                               
+		        AND C.ADMIN_FLAG2 != 'Y'                                                                  
+		        AND B.BUYER = C.BUYER                                                                     
+		        AND B.PO_NO = C.PO_NO                                                                     
+		        AND B.PO_SEQ = C.PO_SEQ                                                                   
+		        AND B.BUYER  = D.BUYER                                                                    
+		        AND B.PR_NO  = D.PR_NO                                                                    
+		        AND B.PR_SEQ = D.PR_SEQ                                                                   
+		        AND A.STATUS <> 'D'                                                                       
+		        AND B.STATUS <> 'D'                                                                       
+		        AND C.STATUS <> 'D'                                                                       
+		        AND D.STATUS <> 'D'       ) IV_CNT                                                        
+		
+          FROM DUAL  														 
+ 
+		]]>
+	</select>
+	<select id="getBuyerBdgtAmt_v2" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*getBuyerBdgtAmt_v2*/
+		 	SELECT
+		 		(SELECT TEXT2 FROM ICOMCOD2 WHERE COMPANY_CODE = X.BUYER AND TYPE = 'Z014' AND  CODE = X.ACCOUNT_TYPE) AS ACCOUNT_TEXT, 
+		 		NVL(Y.PLAN_AMT,0) AS PLAN_AMT,
+		 		NVL(Y.PLAN_AMT,0) - (NVL(Y.RESULT_AMT,0) + NVL(Y.TEMP_AMT,0)) AS TEMP_AMT
+		 		FROM(
+			 	SELECT BUYER,
+				        CODE1 AS DEPT,                 
+				        CODE2 AS ACCOUNT_TYPE          		
+				  FROM ICOMCOD3 A , ICOMCOD2 B , ICOMCOD2 C                      
+				  WHERE 1=1
+				  AND A.BUYER = #{st_com_code}
+				  AND A.BUYER = B.COMPANY_CODE         
+				  AND A.CODE2 = B.CODE                 
+				  AND A.BUYER = C.COMPANY_CODE         
+				  AND A.CODE1 = C.CODE                 
+				  AND B.TYPE  = 'Z014'                 
+				  AND B.FLAG  = 'Y'                    
+				  AND C.TYPE  = 'C001'
+				  AND CODE1 = #{st_dept}
+				  AND A.TYPE= 'DTOA'      ) X,         
+				(SELECT * FROM ICOMBDGT			
+				WHERE 1=1
+				AND BUYER = #{st_com_code}
+				    AND TO_CHAR(SYSDATE,'YYYYMMDD') BETWEEN FROM_DATE AND TO_DATE
+				) Y					  
+			WHERE X.BUYER = Y.BUYER(+)		
+			AND X.DEPT  = Y.DEPT(+)		
+			AND X.ACCOUNT_TYPE = Y.ACCOUNT_TYPE(+)
+			ORDER BY PLAN_AMT DESC
+				
+		]]>
+	</select>
+	
+		<select id="getCompanyPass" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*getCompanyPass*/ 
+ 
+                SELECT DECODE(COUNT(*),0,'N','Y') PASS_FLAG FROM ICOGPASS WHERE COMPANY = #{BUYER}
+		
+		]]>
+	</select>	 
+
+		<select id="getUserGwPass" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*getUserGwPass*/ 
+                SELECT DECODE(COUNT(*),0,'N','Y') AS GW_PASS_FLAG FROM ICOGPASSLN WHERE PASS_KN IS NULL AND USER_ID = #{USER_ID} AND DOCU_NO = #{GW_NO}
+		]]>
+	</select>	 
+
+	
+	<select id="getManualInfo" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*getManualInfo*/ 
+ 
+                SELECT             
+                      MANUAL_NAME,        
+                      MANUAL_FLAG       
+                 FROM ICOMCMPY     
+                WHERE COM_CODE= #{BUYER}
+		
+		]]>
+	</select>	
+	
+	
+		<select id="getShortCutSso" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*getShortCutSso*/ 
+ 
+                SELECT A.COM_CODE,                                                      
+                       A.USER_ID,                                                       
+                       A.PASSWORD PASSWORD       
+                  FROM ICOMLUSR A, ICOMLUSR B                                           
+                 WHERE     A.LEGACY_USER_ID = B.LEGACY_USER_ID                          
+                       AND B.USER_ID = #{USER_ID}                                 
+                       AND B.COM_CODE != A.COM_CODE                                     
+                       AND B.STATUS <> 'D'                                              
+                       AND A.STATUS <> 'D'                                              
+		
+		]]>
+	</select>	
+	
+
+	<update id="CreateSrReq" parameterType="java.util.Map">
+		<![CDATA[
+			/*CreateSrReq*/
+			INSERT INTO KEPAVCDT
+			(
+				VC_NO,
+				REQ_USER_ID,
+				BUYER,
+				RECV_FLAG,
+				REQ_DATE,
+				PH_DATE,
+				CD_USER_ID,
+				CD_DATE,
+				DS_USER_ID,
+				DS_DEPT,
+				DF_DATE,
+				CLAIM_MASTER,
+				PO_NO,
+				BUYER_ITEM_NO,
+				REQ_REMARK,
+				DS_REMARK_A,
+				DS_REMARK_B,
+				DS_REMARK_C,
+				DF_REMARK,
+				RUB_TYPE,
+				CLAIM_GRADE,
+				IMPUTE_TYPE,
+				IMPUTE_AGENT,
+				DS_CHANGE_DATE,
+				CD_DEPT,
+				CLAIM_TYPE,
+				MRO_AREA_TEXT,
+				REQ_USER_TEL,
+				REQ_USER_NAME,
+				MRO_AREA_CODE,
+				REQ_IMAGE_KEY
+			)
+			VALUES
+			(
+				#{VC_NO},					-- 1  VC_NO				접수번호
+				#{userid},					-- 2  REQ_USER_ID		요청자아이디
+				#{buyer},					-- 3  BUYER				구매사
+				#{RECV_FLAG},				-- 4  RECV_FLAG			진행상태
+				TO_DATE(TO_CHAR(SYSDATE, 'YYYYMMDDHH24MISS'),'YYYYMMDDHH24MISS'), -- 5  REQ_DATE		요청일
+				TO_DATE(replace(#{st_ph_date},'/',''),'YYYYMMDDHH24MISS'), 		 -- 6  PH_DATE      처리희망일
+				#{st_cd_user_id},			-- 7  CD_USER_ID		접수자아이디
+				#{st_cd_date},				-- 8  CD_DATE			접수일
+				#{st_ds_user_id},			-- 9  DS_USER_ID		처리자아이디
+				#{st_ds_dept},				-- 10 DS_DEPT			처리부서코드
+				'',							-- 11 DF_DATE     		처리완료일
+				#{st_claim_master},			-- 12 CLAIM_MASTER		대분류클레임
+				#{st_po_no},					-- 13 PO_NO				발주번호
+				#{st_buyer_item_no},			-- 14 BUYER_ITEM_NO		품목코드
+				#{st_req_remark},			-- 15 REQ_REMARK		요청내역
+				'',							-- 16 DS_REMARK_A		진행내역_A
+				'',							-- 17 DS_REMARK_B		진행내역_B
+				'',							-- 18 DS_REMARK_C		진행내역_C
+				'',							-- 19 DF_REMARK			처리내역
+				'',							-- 20 RUB_TYPE			고객평가
+				'',							-- 21 CLAIM_GRADE  		클레임등급
+				'',							-- 22 IMPUTE_TYPE  		귀책타입
+				'',							-- 23 IMPUTE_AGENT		SRM연계공급사
+				'',							-- 24 DS_CHANGE_DATE  	처리담당자변경일
+				#{st_cd_dept},				-- 25 CD_DEPT			접수부서코드
+				'',							-- 26 CLAIM_TYPE		하위클레임
+				'',							-- 27 MRO_AREA			건설사현장
+				#{tel},						-- 28 REQ_USER_TEL		요청자전화번호
+				#{userNameLoc},				-- 29 REQ_USER_NAME		요청자명
+				'',							-- 30 MRO_AREA_CODE		건설사현장코드
+				#{st_image_key}				-- 31 REQ_IMAGE_KEY		파일첨부
+			)
+		]]>
+	</update>
+	
+	
+	<select id="getCustomerCenterList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.jsppagestart"/>
+		<![CDATA[
+		
+		/*getCustomerCenterList*/
+		                   SELECT  
+                         ROWNUM  NO,
+                         Y.CLAIM_TEXT,
+                         Y.VC_NO,
+                         Y.PO_NO,
+                         Y.CD_USER_NAME,
+                         Y.REQ_DATE,
+                         Y.RECV_FLAG_TEXT,
+                         Y.CD_DATE,
+                         Y.BUYER_ITEM_NO,
+                         Y.DS_USER_NAME,
+                         Y.DF_DATE,
+                         Y.RUB_TEXT,
+                         Y.REQ_USER_ID,
+                         Y.REQ_USER_NAME,
+                         Y.REQ_DEPT_CODE,
+                         Y.REQ_USER_DEPT,
+                         Y.CLAIM_TYPE,
+                         Y.RECV_FLAG,
+                         Y.BUYER,
+                         Y.BUYER_NAME,
+                         Y.RUB_TYPE,
+                         Y.CLAIM_TYPE_TEXT
+                    FROM (
+                          SELECT
+                                 ROWNUM NUM,
+                                 X.CLAIM_TEXT,
+                                 X.VC_NO,
+                                 X.PO_NO,
+                                 X.CD_USER_NAME,
+                                 X.REQ_DATE,
+                                 X.RECV_FLAG_TEXT,
+                                 X.CD_DATE,
+                                 X.BUYER_ITEM_NO,
+                                 X.DS_USER_NAME,
+                                 X.DF_DATE,
+                                 X.RUB_TEXT,
+                                 X.REQ_USER_ID,
+                                 X.REQ_USER_NAME,
+                                 X.REQ_DEPT_CODE,
+                                 X.REQ_USER_DEPT,
+                                 X.CLAIM_TYPE,
+                                 X.RECV_FLAG,
+                                 X.BUYER,
+                                 X.BUYER_NAME,
+                                 X.RUB_TYPE,
+                                 X.CLAIM_TYPE_TEXT
+                            FROM (
+                  SELECT
+				        (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'VC03' AND CODE = A.CLAIM_MASTER) AS CLAIM_TEXT,
+				        A.VC_NO,
+				        A.PO_NO,
+				        (SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = A.CD_USER_ID) AS CD_USER_NAME,
+				        TO_CHAR(A.REQ_DATE,'YYYYMMDD') AS REQ_DATE,
+				        (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'VC02' AND CODE = A.RECV_FLAG) AS RECV_FLAG_TEXT,
+				        TO_CHAR(A.CD_DATE,'YYYYMMDD') AS CD_DATE,
+				        A.BUYER_ITEM_NO,
+				        (SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = A.DS_USER_ID) AS DS_USER_NAME,
+				        TO_CHAR(A.DF_DATE,'YYYYMMDD') AS DF_DATE,
+				        DECODE(A.RUB_TYPE,'A','매우만족','B','만족','C','보통','D','불만','F','매우불만','미평가') AS RUB_TEXT,
+				        A.REQ_USER_ID,
+				        (SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = A.REQ_USER_ID)	AS REQ_USER_NAME,
+				        (SELECT DEPARTMENT FROM ICOMLUSR WHERE USER_ID = A.REQ_USER_ID)	AS REQ_DEPT_CODE,
+				        (SELECT TEXT1 FROM ICOMCOD2 WHERE TYPE = 'C001' AND COMPANY_CODE = A.BUYER AND CODE = (SELECT DEPARTMENT FROM ICOMLUSR WHERE USER_ID = A.REQ_USER_ID))	AS REQ_USER_DEPT,
+				        A.CLAIM_TYPE,
+				        A.RECV_FLAG,
+				        A.BUYER,
+				        (SELECT	COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = A.BUYER)	AS BUYER_NAME,
+				        A.RUB_TYPE,
+				        (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'VC01' AND CODE = A.CLAIM_TYPE) AS CLAIM_TYPE_TEXT
+				   FROM KEPAVCDT A
+				   WHERE TO_CHAR(A.REQ_DATE,'YYYYMMDD') BETWEEN  replace(#{fromDate},'/','')  AND replace(#{toDate},'/','')
+				     AND A.SYS_TYPE = 'KA'
+				     ]]>
+		<if test="st_buyer_gubun != 'admin'">
+					AND A.BUYER = #{buyer}
+					AND A.REQ_USER_ID NOT IN (SELECT USER_ID FROM ICOMLUSR WHERE COM_CODE = 'KRKORE0001')
+					AND A.REQ_USER_ID = #{userid}
+		</if>
+		<if test="st_buyer_gubun == 'admin'">
+					AND A.BUYER IN (SELECT	CODE2 FROM ICOMCOD3 WHERE TYPE = 'VOC' AND BUYER = #{buyer} AND CODE1 = #{userid} AND FLAG = 'Y')
+					AND A.REQ_USER_ID NOT IN (SELECT USER_ID FROM ICOMLUSR WHERE COM_CODE = 'KRKORE0001')
+		</if>
+		<if test="st_buyer_groups != null and st_buyer_groups != ''">
+					AND A.BUYER = #{st_buyer_groups}
+			<if test="st_pur_user_id != null and st_pur_user_id != ''">
+					AND A.REQ_USER_ID = #{st_pur_user_id}
+			</if>
+			<if test="st_pur_dept_code != null and st_pur_dept_code != ''">
+					AND A.REQ_USER_ID IN (SELECT USER_ID FROM ICOMLUSR WHERE COM_CODE = #{st_buyer_groups} AND DEPARTMENT = #{st_pur_dept_code} AND STATUS != 'D')
+			</if>
+		</if>
+		<if test="st_recv_flag !=''">
+		<![CDATA[
+ 					AND A.RECV_FLAG   = #{st_recv_flag}
+ 		]]>	 
+ 		</if> 		 
+		<if test="st_claim_master !=''">
+		<![CDATA[
+ 					AND A.CLAIM_MASTER  = #{st_claim_master}        
+ 		]]>	 
+ 		</if> 		 	                                                      
+	<![CDATA[                                                                            
+				    ORDER BY A.REQ_DATE DESC, A.BUYER                                                                                    
+		  
+ 
+			) X
+		      ) Y  
+		      
+      
+ 		]]>  
+		 
+		
+		<include refid="common.ibsheet.xml.jsppageend"/>	
+	</select>
+	
+	<select id="getCustomerCenterList_v2" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		
+		/*getCustomerCenterList_v2*/
+		                   SELECT  
+                         ROWNUM  NO,
+                         Y.CLAIM_TEXT,
+                         Y.VC_NO,
+                         Y.PO_NO,
+                         Y.CD_USER_NAME,
+                         Y.REQ_DATE,
+                         Y.RECV_FLAG_TEXT,
+                         Y.CD_DATE,
+                         Y.BUYER_ITEM_NO,
+                         Y.DS_USER_NAME,
+                         Y.DS_USER_ID,
+                         Y.DS_DEPT,
+                         Y.DF_DATE,
+                         Y.RUB_TEXT,
+                         Y.REQ_USER_ID,
+                         Y.REQ_USER_NAME,
+                         Y.REQ_DEPT_CODE,
+                         Y.REQ_USER_DEPT,
+                         Y.CLAIM_TYPE,
+                         Y.RECV_FLAG,
+                         Y.BUYER,
+                         Y.BUYER_NAME,
+                         Y.RUB_TYPE,
+                         Y.CLAIM_TYPE_TEXT,
+                         Y.REQ_REMARK,
+                         CASE WHEN LENGTH(Y.REQ_REMARK)<=30 THEN Y.REQ_REMARK
+                         	ELSE SUBSTR(Y.REQ_REMARK,0,30)||'...'
+                         END AS REQ_REMARK_SUB,
+				         Y.DF_REMARK
+                    FROM (
+                          SELECT
+                                 ROWNUM NUM,
+                                 X.CLAIM_TEXT,
+                                 X.VC_NO,
+                                 X.PO_NO,
+                                 X.CD_USER_NAME,
+                                 X.REQ_DATE,
+                                 X.RECV_FLAG_TEXT,
+                                 X.CD_DATE,
+                                 X.BUYER_ITEM_NO,
+                                 X.DS_USER_NAME,
+                                 X.DS_USER_ID,
+                                 X.DS_DEPT,
+                                 X.DF_DATE,
+                                 X.RUB_TEXT,
+                                 X.REQ_USER_ID,
+                                 X.REQ_USER_NAME,
+                                 X.REQ_DEPT_CODE,
+                                 X.REQ_USER_DEPT,
+                                 X.CLAIM_TYPE,
+                                 X.RECV_FLAG,
+                                 X.BUYER,
+                                 X.BUYER_NAME,
+                                 X.RUB_TYPE,
+                                 X.CLAIM_TYPE_TEXT,
+                                 X.REQ_REMARK,
+				        		 X.DF_REMARK
+                            FROM (
+                  SELECT
+				        (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'VC03' AND CODE = A.CLAIM_MASTER) AS CLAIM_TEXT,
+				        A.VC_NO,
+				        A.PO_NO,
+				        (SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = A.CD_USER_ID) AS CD_USER_NAME,
+				        TO_CHAR(A.REQ_DATE,'YYYY.MM.DD') AS REQ_DATE,
+				        (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'VC02' AND CODE = A.RECV_FLAG) AS RECV_FLAG_TEXT,
+				        TO_CHAR(A.CD_DATE,'YYYYMMDD') AS CD_DATE,
+				        A.BUYER_ITEM_NO,
+				        (SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = A.DS_USER_ID) AS DS_USER_NAME,
+				        A.DS_USER_ID,
+				        A.DS_DEPT,
+				        TO_CHAR(A.DF_DATE,'YYYY.MM.DD') AS DF_DATE,
+				        DECODE(A.RUB_TYPE,'A','매우만족','B','만족','C','보통','D','불만','F','매우불만','미평가') AS RUB_TEXT,
+				        A.REQ_USER_ID,
+				        (SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = A.REQ_USER_ID)	AS REQ_USER_NAME,
+				        (SELECT DEPARTMENT FROM ICOMLUSR WHERE USER_ID = A.REQ_USER_ID)	AS REQ_DEPT_CODE,
+				        (SELECT TEXT1 FROM ICOMCOD2 WHERE TYPE = 'C001' AND COMPANY_CODE = A.BUYER AND CODE = (SELECT DEPARTMENT FROM ICOMLUSR WHERE USER_ID = A.REQ_USER_ID))	AS REQ_USER_DEPT,
+				        A.CLAIM_TYPE,
+				        A.RECV_FLAG,
+				        A.BUYER,
+				        (SELECT	COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = A.BUYER)	AS BUYER_NAME,
+				        A.RUB_TYPE,
+				        (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'VC01' AND CODE = A.CLAIM_TYPE) AS CLAIM_TYPE_TEXT,
+				        A.REQ_REMARK,
+				        A.DF_REMARK
+				   FROM KEPAVCDT A
+				     WHERE A.SYS_TYPE = 'KA'
+				   ]]>
+				   <if test="fromDate != null and fromDate != ''">
+				   		AND TO_CHAR(A.REQ_DATE,'YYYYMMDD') BETWEEN  #{fromDate} AND #{toDate}
+				   	</if>
+				   	<if test='st_order_flag == "MY_PAGE"'>
+				   		AND A.RECV_FLAG != 'GD'
+				   	</if>
+		<if test="st_buyer_gubun != 'admin'">
+					AND A.BUYER = #{st_com_code}
+					AND A.REQ_USER_ID NOT IN (SELECT USER_ID FROM ICOMLUSR WHERE COM_CODE = 'KRKORE0001')
+					AND A.REQ_USER_ID = #{st_user_id}
+		</if>
+		<if test="st_buyer_gubun == 'admin'">
+					AND A.BUYER IN (SELECT	CODE2 FROM ICOMCOD3 WHERE TYPE = 'VOC' AND BUYER = #{st_com_code} AND CODE1 = #{st_user_id} AND FLAG = 'Y')
+					AND A.REQ_USER_ID NOT IN (SELECT USER_ID FROM ICOMLUSR WHERE COM_CODE = 'KRKORE0001')
+		</if>
+		<if test="st_buyer_groups != null and st_buyer_groups != ''">
+					AND A.BUYER = #{st_buyer_groups}
+			<if test="st_pur_user_id != null and st_pur_user_id != ''">
+					AND A.REQ_USER_ID = #{st_pur_user_id}
+			</if>
+			<if test="st_pur_dept_code != null and st_pur_dept_code != ''">
+					AND A.REQ_USER_ID IN (SELECT USER_ID FROM ICOMLUSR WHERE COM_CODE = #{st_buyer_groups} AND DEPARTMENT = #{st_pur_dept_code} AND STATUS != 'D')
+			</if>
+		</if>
+		<if test="st_recv_flag !='' and st_recv_flag != null">
+		<![CDATA[
+ 					AND A.RECV_FLAG   = #{st_recv_flag}
+ 		]]>	 
+ 		</if> 		 
+		<if test="st_claim_master !='' and st_claim_master != null">
+		<![CDATA[
+ 					AND A.CLAIM_MASTER  = #{st_claim_master}        
+ 		]]>	 
+ 		</if> 		 	                                                      
+	<![CDATA[                                                                            
+				    ORDER BY A.REQ_DATE DESC, A.BUYER                                                                                    
+			) X
+		      ) Y  
+ 		]]>
+ 		  <if test='st_order_flag == "MY_PAGE"'>
+			<![CDATA[
+	 			WHERE ROWNUM <= 4  	
+	 		]]>	 
+	 	  </if>  
+	</select> 
+	
+	<select id="getCustomerOrderInfo_v2" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*getCustomerOrderInfo_v2*/
+			SELECT
+				COUNT( CASE WHEN SUBSTR(ADD_DATE,0,4) = TO_CHAR(SYSDATE,'YYYY') THEN 1 END)  AS YEAR_CNT
+				,SUM(DECODE(SUBSTR(ADD_DATE,0,4),TO_CHAR(SYSDATE,'YYYY'),TRUNC(NVL(TARGET_QTY,0) * NVL(TARGET_PRICE,0)),0))  AS YEAR_AMT
+				,COUNT( CASE WHEN SUBSTR(ADD_DATE,0,6) = TO_CHAR(ADD_MONTHS(SYSDATE,-1), 'YYYYMM') THEN 1 END)  AS PRE_MONTH_CNT
+				,SUM(DECODE(SUBSTR(ADD_DATE,0,6),TO_CHAR(ADD_MONTHS(SYSDATE,-1), 'YYYYMM'),TRUNC(NVL(TARGET_QTY,0) * NVL(TARGET_PRICE,0)),0))  AS PRE_MONTH_AMT
+				,COUNT( CASE WHEN SUBSTR(ADD_DATE,0,6) = TO_CHAR(SYSDATE,'YYYYMM') THEN 1 END)  AS CUR_MONTH_CNT
+				,SUM(DECODE(SUBSTR(ADD_DATE,0,6),TO_CHAR(SYSDATE,'YYYYMM'),TRUNC(NVL(TARGET_QTY,0) * NVL(TARGET_PRICE,0)),0))  AS CUR_MONTH_AMT 	
+			FROM ICOMPRDT
+			WHERE BUYER = #{st_com_code}
+			AND ADD_USER_ID = #{st_user_id}
+			AND STATUS != 'D'
+			AND RECV_FLAG NOT IN ('GR','RR','PR','GD','PD','GC')
+			AND ADD_DATE BETWEEN TO_CHAR(ADD_MONTHS(SYSDATE,-12), 'YYYYMMDD') AND TO_CHAR(SYSDATE, 'YYYYMMDD')
+		]]>  
+	</select>
+	
+	 
+	<select id="getSrsysType" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*getSrsysType*/ 
+ 
+			SELECT 
+			
+			CODE,TEXT1
+			
+			FROM ICOMCOD1 WHERE TYPE = #{TYPE}                    
+		
+		]]>
+	</select>	
+	
+	<select id="getCustomerCenterPop" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*getCustomerCenterPop*/ 
+ 
+			   SELECT																											
+			         A.VC_NO,																									
+			         (SELECT USER_NAME_LOC FROM ICOMLUSR WHERE COM_CODE = A.BUYER AND USER_ID = A.REQ_USER_ID) AS USER_NAME,	
+			         A.PO_NO,																									
+			         (SELECT DESCRIPTION_LOC FROM ICOMBYIT WHERE BUYER = (SELECT BYCA_COMORG_CODE FROM ICOMCMPY WHERE COM_CODE = A.BUYER)												
+			             AND BUYER_ITEM_NO = TRIM(A.BUYER_ITEM_NO)) AS DESCRIPTION,													
+			         (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'VC03' AND CODE = A.CLAIM_MASTER) AS CLAIM_MASTER,				
+			         to_char(A.REQ_DATE,'YYYYMMDD') AS REQ_DATE,																
+			         to_char(A.DF_DATE,'YYYYMMDD') AS DF_DATE,																
+			         (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'VC02' AND CODE = A.RECV_FLAG) AS RECV_FLAG_TEXT,				
+			         DECODE(A.RUB_TYPE,'A','매우만족','B','만족','C','보통','D','불만','F','매우불만','미평가') AS RUB_TEXT,	
+			         A.BUYER_ITEM_NO,																							
+			         A.REQ_USER_ID,																							
+			         A.CLAIM_TYPE,																							
+			         A.RECV_FLAG,																								
+			         A.RUB_TYPE,																								
+			         A.BUYER,
+			         (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = A.BUYER)	AS BUYER_NAME,																									
+			         A.REQ_REMARK,																							
+			         A.DF_REMARK,																								
+			         (SELECT TEXT1 FROM ICOMCOD2 WHERE COMPANY_CODE=A.BUYER AND TYPE='C001' AND CODE= #{req_user_dept} ) AS USER_DEPT,		
+			         (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'VC01' AND CODE = A.CLAIM_TYPE) AS CLAIM_TEXT,					
+			         A.DS_REMARK_A,																							
+			         A.DS_REMARK_B,																							
+			         A.DS_REMARK_C,																							
+			         to_char(A.PH_DATE,'YYYYMMDD') AS PH_DATE,																	
+			         A.REQ_IMAGE_KEY,
+			         A.FEEDBACK_IMAGE_KEY
+			    FROM KEPAVCDT A																								
+			   WHERE A.BUYER =#{buyer}                                 																					
+			     AND A.VC_NO = #{vc_no}                                 																	
+		]]>
+	</select>	
+	
+	
+	
+	
+		<update id="setCustomerRubUpdate"  parameterType="java.util.Map">
+		<![CDATA[
+	 		/*setCustomerRubUpdate*/ 
+	 		
+	 		UPDATE KEPAVCDT SET           
+			   RUB_TYPE=#{RUB_TYPE}  
+		WHERE BUYER=#{BUYER}             
+		  AND VC_NO=#{VC_NO}                
+		  AND REQ_USER_ID=#{REQ_USER_ID}      
+		
+	       ]]>
+	</update>
+	
+	<select id="getChkVocAtckFor1Min" parameterType="java.util.Map" resultType="integer">
+		<![CDATA[
+			/* getChkVocAtckFor1Min */
+			SELECT	TO_CHAR(SYSDATE, 'YYYYMMDDHH24MI') - TO_CHAR(MAX(REQ_DATE), 'YYYYMMDDHH24MI')
+			FROM	KEPAVCDT
+			WHERE	REQ_USER_ID = #{userid}			
+	       ]]>
+	</select>
+	
+	<select id="getChkVocAtckFor30Mins" parameterType="java.util.Map" resultType="integer">
+		<![CDATA[
+			/* getChkVocAtckFor30Mins */
+			SELECT	COUNT(*)
+			FROM	KEPAVCDT
+			WHERE	1=1
+			AND		REQ_USER_ID = #{userid}
+			AND		TO_CHAR(REQ_DATE, 'YYYYMMDDHH24MI') BETWEEN TO_CHAR(SYSDATE - (INTERVAL '30' MINUTE), 'YYYYMMDDHH24MI') AND TO_CHAR(SYSDATE, 'YYYYMMDDHH24MI')
+	       ]]>
+	</select>
+	
+	<update id="setCustomerVocCancel_v2"  parameterType="java.util.Map">
+		<![CDATA[
+	 		/*setCustomerVocCancel_v2*/ 
+	 		UPDATE KEPAVCDT					
+				   SET RECV_FLAG      = 'GD' 	
+				     , CANCEL_USER_ID = #{st_user_id} 
+				     , CANCEL_DATE    = SYSDATE	
+				     , CANCEL_NOTE  = #{CANCEL_NOTE}
+		  WHERE VC_NO=#{st_vc_no}                
+		  AND REQ_USER_ID=#{st_user_id}      
+		
+	       ]]>
+	</update>
+	
+	 
+								
+</mapper>

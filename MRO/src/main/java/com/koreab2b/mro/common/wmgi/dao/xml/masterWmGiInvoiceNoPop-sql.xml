@@ -1,0 +1,394 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="common.wmgi">
+
+	<update id="updateMasterWmGiInvoiceNoPopList_WMSSTCKDelevery" parameterType="java.util.Map" >
+		<![CDATA[
+     	UPDATE WMSSTCK															                                   
+     		SET TOT_QTY	= NVL(TOT_QTY,0) + (#{INV_QTY}),									                           
+     			ALLOC_QTY = NVL(ALLOC_QTY,0) + (#{INV_QTY}),								                           
+     			CHANGE_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD'),						                     
+     			CHANGE_USER = #{USER_ID}													                                   
+     	 WHERE WAREHOUSE_CODE = #{st_ware_house_code}    												                               
+     	   AND STDCATLG_ID = #{STDCATLG_ID}													                               
+     	   AND AGENT = (SELECT DECODE(PROCESS_TYPE, '1', 'KRKORE0001', AGENT)	         
+     					  FROM WMSIVDT											                                   
+     					 WHERE BUYER = #{st_buyer}   AND INV_NO = #{st_IK_NO}  AND INV_SEQ = #{IK_SEQ})		                   
+			
+		]]>
+	</update>	
+
+	<update id="updateMasterWmGiInvoiceNoPopList_ICOMPODTDelevery" parameterType="java.util.Map" >
+		<![CDATA[
+		                                      UPDATE ICOMPODT A                                                          
+                                         SET A.DI_QTY = NVL((SELECT SUM(B.DELIVERY_QTY) FROM WMSIVDT B           
+                                                              WHERE B.WAREHOUSE_CODE =  #{st_ware_house_code}                              
+                                                                AND A.BUYER = B.BUYER                            
+                                                                AND A.PO_NO = B.PO_NO                            
+                                                                AND A.PO_SEQ = B.PO_SEQ                          
+                                                                AND B.STATUS <> 'D'),0)                          
+                                       WHERE A.BUYER =#{st_buyer}                                                       
+                                         AND (A.PO_NO, A.PO_SEQ) IN (SELECT PO_NO, PO_SEQ FROM WMSIVDT           
+                                                                     WHERE WAREHOUSE_CODE = #{st_ware_house_code}                  
+                                                                       AND BUYER = #{st_buyer}                           
+                                                                       AND INV_NO = #{st_IK_NO}                              
+                                                                       AND STATUS <> 'D')                        
+                                                                                                                 
+		
+		]]>
+	</update>
+
+	<update id="updateMasterWmGiInvoiceNoPopList_ICOMIVDTDelevery" parameterType="java.util.Map" >
+		<![CDATA[
+                                              UPDATE ICOMIVDT A                                                                                                                   
+                                                 SET A.GR_QTY = NVL((SELECT SUM(B.DELIVERY_QTY) FROM WMSIVDT B                                                                    
+                                                                      WHERE B.WAREHOUSE_CODE = #{st_ware_house_code}                                                                                    
+                                                                        AND A.BUYER = B.BUYER                                                                                     
+                                                                        AND A.INV_NO = B.S_INV_NO                                                                                 
+                                                                        AND A.INV_SEQ = B.S_INV_SEQ                                                                               
+                                                                        AND B.STATUS <> 'D'),0),                                                                                  
+                                                     A.DELIVERY_QTY = CASE WHEN (SELECT PROCESS_TYPE FROM ICOMPODT WHERE BUYER = A.BUYER                                          
+                                                     AND PO_NO=A.PO_NO AND PO_SEQ = A.PO_SEQ AND STATUS <> 'D') IN ('1','3') THEN NVL((SELECT SUM(B.DELIVERY_QTY) FROM WMSIVDT B  
+                                                                      WHERE B.WAREHOUSE_CODE = #{st_ware_house_code}                                                                                    
+                                                                        AND A.BUYER = B.BUYER                                                                                     
+                                                                        AND A.INV_NO = B.S_INV_NO                                                                                 
+                                                                        AND A.INV_SEQ = B.S_INV_SEQ                                                                               
+                                                                        AND B.STATUS <> 'D'),0) ELSE A.DELIVERY_QTY END,                                                          
+                                                     A.DELIVERY_DATE = CASE WHEN (SELECT PROCESS_TYPE FROM ICOMPODT WHERE BUYER = A.BUYER AND PO_NO=A.PO_NO                       
+                                                     AND PO_SEQ = A.PO_SEQ AND STATUS <> 'D') IN ('1','3') THEN '' ELSE A.DELIVERY_DATE END,
+                                                     A.DELIVERY_ADD_DATE = CASE WHEN (SELECT PROCESS_TYPE FROM ICOMPODT WHERE BUYER = A.BUYER AND PO_NO=A.PO_NO                       
+                                                     AND PO_SEQ = A.PO_SEQ AND STATUS <> 'D') IN ('1','3') THEN NULL ELSE A.DELIVERY_ADD_DATE END,
+       												 A.DELIVERY_ADD_USER_ID = CASE WHEN (SELECT PROCESS_TYPE FROM ICOMPODT WHERE BUYER = A.BUYER AND PO_NO=A.PO_NO                       
+                                                     AND PO_SEQ = A.PO_SEQ AND STATUS <> 'D') IN ('1','3') THEN NULL ELSE A.DELIVERY_ADD_USER_ID END                                       
+                                               WHERE A.BUYER = #{st_buyer}                                                                                                                      
+                                                 AND (A.INV_NO, A.INV_SEQ) IN (SELECT S_INV_NO, S_INV_SEQ FROM WMSIVDT                                                            
+                                                                             WHERE WAREHOUSE_CODE =#{st_ware_house_code}                                                                              
+                                                                               AND BUYER =#{st_buyer}                                                                                       
+                                                                               AND INV_NO = #{st_IK_NO}                                                                                   
+                                                                               AND STATUS <> 'D')                                                                                 
+		                                                                                                                                                                              
+		
+		]]>
+	</update>
+	
+	<update id="updateMasterWmGiInvoiceNoPopListWIDTDelevery" parameterType="java.util.Map" >
+		<![CDATA[
+                              UPDATE WMSIVDT WIDT                                            
+                                 SET WIDT.CHANGE_DATE = TO_CHAR(SYSDATE,'YYYYMMDD'),         
+                                     WIDT.CHANGE_TIME = TO_CHAR(SYSDATE,'HH24MISS'),         
+                                     WIDT.CHANGE_USER_ID = #{USER_ID},                                
+                                     WIDT.DELIVERY_DATE = '',                                
+                                     WIDT.DELIVERY_USER_ID = '',                             
+                                     WIDT.DELIVERY_COMPANY = '',                             
+                                     WIDT.DELIVERY_NO = '',                                  
+                                     WIDT.DELIVERY_QTY = 0,
+                                     WIDT.DELIVERY_ADD_USER_ID = NULL,
+                                     WIDT.DELIVERY_ADD_DATE = NULL                                   
+                               WHERE WIDT.WAREHOUSE_CODE = #{st_ware_house_code}                            
+                                 AND WIDT.BUYER = #{st_buyer}                                            
+                                 AND WIDT.INV_NO = #{st_IK_NO}                                        
+                                 AND WIDT.STATUS <> 'D'                                      
+                                 AND WIDT.DELIVERY_QTY <> 0                                  
+
+		]]>
+	</update>
+
+		<select id="selectMasterWmGiInvoiceNoDoosan" parameterType="java.util.Map" resultType="java.lang.String">
+		<![CDATA[
+               SELECT DECODE(COUNT(*), 0, 'POPUP_NO', 'POPUP_YES') AS DOOSAN_FLAG 
+                 FROM POIFLOAD_DOOS 
+                WHERE COM_CODE =#{st_buyer}    
+                  AND LEGACY_PO_NO = #{LEGACY_PO_NO}
+                  AND DESTINATION_TYPE = 'INVENTORY' 			
+		]]>
+		</select>
+	
+		<select id="selectMasterWmGiInvoiceNoPop" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+				/*selectMasterWmGiInvoiceNoPop*/
+		         SELECT                                                                                                                   
+                MAX((SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = WIDT.BUYER)) AS BUYER_NAME,                               
+                MAX(WIDT.INV_DATE) AS INV_DATE,                                                                                   
+                MAX(WIDT.DELIVERY_DATE) AS DELIVERY_DATE,                                                                         
+                WIDT.INV_NO AS IK_NO,                                                                                             
+                DECODE(SUM(NVL(WIDT.INV_QTY,0)),SUM(NVL(WIDT.DELIVERY_QTY,0)),'배송확정','출고') AS STATUS_TEXT,                  
+                MAX(DECODE((SELECT MAX(DOC_TYPE) FROM ICOMPOHD                                                                    
+                             WHERE BUYER = WIDT.BUYER                                                                             
+                               AND PO_NO = WIDT.PO_NO),                                                                           
+                            'S','선입고','X','Kepmro','일반')) AS DOC_TEXT,                                                       
+                MAX((SELECT MAX(ADD_USER_NAME) FROM ICOMPRDT                                                                      
+                      WHERE BUYER = WIDT.BUYER                                                                                    
+                        AND PR_NO = WIDT.PR_NO)) AS ADD_USER_NAME,                                                                
+                MAX((SELECT MAX(ADD_USER_TEL) FROM ICOMPRDT                                                                       
+                      WHERE BUYER = WIDT.BUYER                                                                                    
+                        AND PR_NO = WIDT.PR_NO)) AS ADD_USER_TEL,                                                                 
+                MAX((SELECT MAX(DELY_TO_LOCATION) FROM ICOMPOHD                                                                   
+                      WHERE BUYER = WIDT.BUYER                                                                                    
+                        AND PO_NO = WIDT.PO_NO)) AS DELY_TO_LOCATION,                                                             
+                WIDT.WAREHOUSE_CODE,                                                                                              
+                WIDT.BUYER,                                                                                                       
+                                                                                                                                  
+                MAX((SELECT MAX(NVL(PODT.GR_QTY,0)) FROM ICOMPODT PODT                                                            
+                      WHERE PODT.BUYER = WIDT.BUYER                                                                               
+                        AND PODT.PO_NO = WIDT.PO_NO                                                                               
+                        AND PODT.PO_SEQ = WIDT.PO_SEQ                                                                             
+                        AND PODT.STATUS <> 'D')) AS PODT_GR_QTY,                                                                  
+                MAX((SELECT MAX(DOC_TYPE) FROM ICOMPOHD                                                                           
+                      WHERE BUYER = WIDT.BUYER                                                                                    
+                        AND PO_NO = WIDT.PO_NO)) AS DOC_TYPE,                                                                     
+            MAX((SELECT LEGACY_PO_NO FROM ICOMPODT WHERE BUYER = WIDT.BUYER AND PO_NO = WIDT.PO_NO AND PO_SEQ = WIDT.PO_SEQ)) LEGACY_PO_NO,    
+            MAX((SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = WIDT.ADD_USER_ID)) ADD_USER_ID,                                           
+            MAX(WIDT.LEGACY_IV_SERIAL) AS LEGACY_IV_SERIAL  ,    
+		    MAX(DECODE(K.BUYER, NULL, 'N', 'Y')) AS KTAG_RPT,       --'Y'이면 K TAG 사용 고객사
+		    (SELECT DECODE(COUNT(INV_NO),0,'N','Y') AS COURIER_TAG_YN
+				FROM KEP_COURIER_MNG MNG
+				WHERE MNG.BUYER =WIDT.BUYER
+				AND MNG.INV_NO = WIDT.INV_NO) AS  COURIER_TAG_YN,
+			(SELECT DECODE(COUNT(MSG_KEY),0,'N','Y') AS HANJIN_TAG_YN
+			FROM KEP_PARCEL_HJ_LB HJ
+			WHERE HJ.MSG_KEY = WIDT.BUYER||WIDT.INV_NO
+			) AS  HANJIN_TAG_YN                                                                  
+           FROM WMSIVDT WIDT
+				, (	SELECT B.COM_CODE AS BUYER
+					FROM BNTSLGDEF A, BNTSLGIMP B
+					WHERE 
+							A.SLG_ID = B.SLG_ID
+						AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN A.OPEN_DATE AND A.CLOSE_DATE     
+						AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN B.OPEN_DATE AND B.CLOSE_DATE
+						AND A.SLG_ID = 'P06-0000054'   --K TAG 사용 관리: 특수로직
+				) K                                                                                                      
+          WHERE WIDT.WAREHOUSE_CODE = #{st_ware_house_code}                                                                                    
+            AND WIDT.BUYER = #{st_buyer}                                                                                                  
+            AND WIDT.INV_NO = #{st_IK_NO}                                                                                         
+            AND WIDT.STATUS <> 'D'             
+            AND WIDT.BUYER = K.BUYER(+)                                                                                   
+         GROUP BY WIDT.WAREHOUSE_CODE, WIDT.BUYER, WIDT.INV_NO                                                                    
+		
+		]]>
+		</select>
+	
+	
+	<select id="selectMasterWmGiInvoiceNoPopListDelevery" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+                                                          SELECT                                                                                                  
+                                                                 WIDT.PO_NO AS PO_NO,                                                                             
+                                                                 WIDT.S_INV_NO AS GR_NO,                                                                          
+                                                                 POHD.PO_CREATE_DATE AS PO_DATE,                                                                  
+			                                                     PODT.CMS_CATLG_ID AS STDCATLG_ID,									                                                  
+                                                                 NVL(WIDT.PO_QTY,0) AS PO_QTY,                                                                    
+                                                                 NVL(WIDT.INV_QTY,0) AS INV_QTY,                                                                  
+                                                                 NVL(WIDT.LIST_PRICE,0) AS LIST_PRICE,                                                            
+                                                                 NVL(WIDT.LIST_AMT,0) AS LIST_AMT,                                                                
+                                                                 WIDT.LEGACY_PO_NO AS LEGACY_PO_NO,                                                               
+                                                                 WIDT.GR_DATE AS GR_DATE,                                                                         
+                                                                 PODT.RD_DATE AS RD_DATE,                                                                         
+                                                                 WIDT.BUYER_ITEM_NO,                                                                              
+                                                                 NVL(WIDT.GR_QTY,0) AS GR_QTY,                                                                    
+                                                                 NVL(WIDT.DELIVERY_QTY,0) AS DELIVERY_QTY,                                                        
+                                                                 NVL(WIDT.UNIT_PRICE,0) AS UNIT_PRICE,                                                            
+                                                                 NVL(WIDT.UNIT_AMT,0) AS UNIT_AMT,                                                                
+                                                                 WIDT.DESCRIPTION AS DESCRIPTION,                                                                 
+                                                                 WIDT.SPECIFICATION AS SPECIFICATION,                                                             
+			                                                           NVL(PODT.DI_QTY,0) AS GI_DELIVERY_QTY,								                                            
+                                                                 POHD.AGENT AS AGENT,                                                                             
+                                                                 PODT.PO_REMARK AS PO_REMARK,                                                                     
+                                                                 WIDT.WAREHOUSE_CODE AS WAREHOUSE_CODE,                                                           
+                                                                 WIDT.BUYER AS BUYER,                                                                             
+                                                                 WIDT.INV_NO AS IK_NO,                                                                            
+                                                                 PODT.BYIT_COMORG_CODE AS BYIT_COMORG_CODE,                                                       
+                                                                 PODT.CONTRACT_NO AS CONTRACT_NO,                                                                 
+                                                                 PODT.CONTRACT_SEQ AS CONTRACT_SEQ,                                                               
+                                                                 WIDT.PO_SEQ AS PO_SEQ,                                                                           
+                                                                 WIDT.S_INV_SEQ AS GR_SEQ,                                                                        
+                                                                 WIDT.INV_SEQ AS IK_SEQ,                                                                          
+                                                                 POHD.DOC_TYPE AS DOC_TYPE,                                                                       
+                                                                 SUBSTR(PODT.BUYER_ITEM_NO,1,7) AS MASTER_ITEM,                                                   
+                                                                 DECODE(POHD.DOC_TYPE,'X',(SELECT NVL(TRIM(IMG_NO),'0') FROM ITEMMAST                     
+                                                                                            WHERE STDCATLG_ID = SUBSTR(PODT.BUYER_ITEM_NO,1,7)),'') AS IMG_NO,    
+			                                                     PODT.PROCESS_TYPE,													                                                            
+			                                                     DECODE(POHD.DOC_TYPE,'S','선입고','X','Kepmro','일반') AS DOC_TEXT,                                    
+			                                            		 DECODE(PODT.PROCESS_TYPE,'1','재고','2','TR','3','VMI') AS PROCESS_TEXT
+			                                            		 ,WIDT.CAR_NO
+			                                            		 ,(SELECT MAX(KTAG_QTY) FROM ICOMKTAG WHERE BUYER=WIDT.BUYER AND INV_NO=WIDT.INV_NO AND INV_SEQ=WIDT.INV_SEQ) AS KTAG_QTY                                     
+                                                            FROM WMSIVDT WIDT, ICOMPOHD POHD, ICOMPODT PODT, ICOMPRDT PRDT, ICOMIVDT IVDT                 
+                                                           WHERE WIDT.WAREHOUSE_CODE = #{st_ware_house_code}                                                                        
+                                                             AND WIDT.BUYER = #{st_buyer}                                                                            
+                                                             AND WIDT.INV_NO = #{st_IK_NO}                                                                          
+                                                             AND WIDT.STATUS <> 'D'                                                                               
+                                                             AND WIDT.BUYER = POHD.BUYER                                                                          
+                                                             AND WIDT.PO_NO = POHD.PO_NO                                                                          
+                                                             AND WIDT.BUYER = PODT.BUYER                                                                          
+                                                             AND WIDT.PO_NO = PODT.PO_NO                                                                          
+                                                             AND WIDT.PO_SEQ = PODT.PO_SEQ                                                                        
+                                                             AND WIDT.BUYER = PRDT.BUYER                                                                          
+                                                             AND WIDT.PR_NO = PRDT.PR_NO                                                                          
+                                                             AND WIDT.PR_SEQ = PRDT.PR_SEQ                                                                        
+                                                             AND WIDT.BUYER = IVDT.BUYER                                                                          
+                                                             AND WIDT.S_INV_NO = IVDT.INV_NO                                                                      
+                                                             AND WIDT.S_INV_SEQ = IVDT.INV_SEQ                                                                    
+                                                             AND POHD.STATUS <> 'D'                                                                               
+                                                             AND PODT.STATUS <> 'D'                                                                               
+                                                             AND PRDT.STATUS <> 'D'                                                                               
+                                                             AND IVDT.STATUS <> 'D'                                                                               
+                                                          ORDER BY WIDT.WAREHOUSE_CODE, WIDT.BUYER, WIDT.INV_NO, WIDT.INV_SEQ                                     	
+				]]>
+	</select>
+
+	<select id="selectMasterWmGiInvoiceNoPopList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*selectMasterWmGiInvoiceNoPopList*/
+    SELECT                                                                                                             
+            WIDT.PO_NO AS PO_NO,                                                                                       
+            WIDT.S_INV_NO AS GR_NO,                                                                                    
+            POHD.PO_CREATE_DATE AS PO_DATE,                                                                            
+                                                                                                                       
+ WIDT.CMS_CATLG_ID AS STDCATLG_ID,									                                                                  
+            NVL(WIDT.PO_QTY,0) AS PO_QTY,                                                                              
+            NVL(WIDT.INV_QTY,0) AS INV_QTY,                                                                            
+            NVL(WIDT.LIST_PRICE,0) AS LIST_PRICE,                                                                      
+            NVL(WIDT.LIST_AMT,0) AS LIST_AMT,                                                                          
+            WIDT.LEGACY_PO_NO AS LEGACY_PO_NO,                                                                         
+            WIDT.GR_DATE AS GR_DATE,                                                                                   
+            PODT.RD_DATE AS RD_DATE,                                                                                   
+            WIDT.BUYER_ITEM_NO,                                                                                        
+            NVL(WIDT.GR_QTY,0) AS GR_QTY,                                                                              
+            NVL(WIDT.DELIVERY_QTY,0) AS DELIVERY_QTY,                                                                  
+            NVL(WIDT.UNIT_PRICE,0) AS UNIT_PRICE,                                                                      
+            NVL(WIDT.UNIT_AMT,0) AS UNIT_AMT,                                                                          
+            WIDT.DESCRIPTION AS DESCRIPTION,                                                                           
+            WIDT.SPECIFICATION AS SPECIFICATION,                                                                       
+      NVL(PODT.DI_QTY,0) AS GI_DELIVERY_QTY,								                                                            
+            POHD.AGENT AS AGENT, 
+                                             (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = POHD.AGENT)AS AGENT_NAME,
+                                (SELECT TEL_NO FROM ICOMCMPY WHERE COM_CODE = POHD.AGENT) AS AGENT_TEL_NO,     
+                                 POHD.PO_REMARK AS PO_HD_REMARK,       
+                                 POHD.DELY_TO_LOCATION AS DELY_TO_LOCATION,    
+                                 
+                                 PRDT.ADD_USER_NAME AS ADD_USER_NAME,
+                                 PRDT.ADD_USER_TEL AS ADD_USER_TEL,                                                                                                   
+            PODT.PO_REMARK AS PO_REMARK,                                                                               
+                                                                                                                       
+            WIDT.WAREHOUSE_CODE AS WAREHOUSE_CODE,                                                                     
+            WIDT.BUYER AS BUYER,                                                                                       
+            WIDT.INV_NO AS IK_NO,                                                                                      
+            PODT.BYIT_COMORG_CODE AS BYIT_COMORG_CODE,                                                                 
+            PODT.CONTRACT_NO AS CONTRACT_NO,                                                                           
+            PODT.CONTRACT_SEQ AS CONTRACT_SEQ,                                                                         
+            WIDT.PO_SEQ AS PO_SEQ,                                                                                     
+            WIDT.S_INV_SEQ AS GR_SEQ,                                                                                  
+            WIDT.INV_SEQ AS IK_SEQ,                                                                                    
+                                                                                                                       
+            POHD.DOC_TYPE AS DOC_TYPE,                                                                                 
+            SUBSTR(PODT.BUYER_ITEM_NO,1,7) AS MASTER_ITEM,                                                             
+            DECODE(POHD.DOC_TYPE,'X',(SELECT NVL(TRIM(IMG_NO),'0') FROM ITEMMAST                                       
+                                       WHERE STDCATLG_ID = SUBSTR(PODT.BUYER_ITEM_NO,1,7)),'') AS IMG_NO,              
+      PODT.PROCESS_TYPE,		                                                                                            
+      DECODE(PODT.PROCESS_TYPE,'1','재고','2','TR','3','VMI') AS PROCESS_TEXT,                                         
+      DECODE(POHD.DOC_TYPE,'S','선입고','X','Kepmro','일반') AS DOC_TEXT,       
+      DECODE(PODT.PROCESS_TYPE,'1','재고','2','TR','3','VMI')  || '('||  DECODE(POHD.DOC_TYPE,'S','선입고','X','Kepmro','일반') ||')'    AS GUBUN_TEXT,                                  
+      PODT.LEGACY_PO_SEQ	
+      ,WIDT.CAR_NO	
+ 	 ,(SELECT MAX(KTAG_QTY) FROM ICOMKTAG WHERE BUYER=WIDT.BUYER AND INV_NO=WIDT.INV_NO AND INV_SEQ=WIDT.INV_SEQ) AS KTAG_QTY         
+ 	 ,F_GET_MSDS_INFO(PODT.BUYER, PODT.BUYER_ITEM_NO ,1) AS MSDS_NO
+ 	 ,NVL(WIDT.BUYER_GR_QTY,0) AS BUYER_GR_QTY													                                                                  
+ FROM WMSIVDT WIDT, ICOMPOHD POHD, ICOMPODT PODT, ICOMPRDT PRDT, ICOMIVDT IVDT  
+               WHERE WIDT.WAREHOUSE_CODE = #{st_ware_house_code}
+                 AND WIDT.BUYER = #{st_buyer}
+                 AND WIDT.INV_NO = #{st_IK_NO}
+                 AND WIDT.STATUS <> 'D'  
+                 AND WIDT.BUYER = POHD.BUYER  
+                 AND WIDT.PO_NO = POHD.PO_NO  
+                 AND WIDT.BUYER = PODT.BUYER  
+                 AND WIDT.PO_NO = PODT.PO_NO  
+                 AND WIDT.PO_SEQ = PODT.PO_SEQ  
+                 AND WIDT.BUYER = PRDT.BUYER  
+                 AND WIDT.PR_NO = PRDT.PR_NO  
+                 AND WIDT.PR_SEQ = PRDT.PR_SEQ  
+                 AND WIDT.BUYER = IVDT.BUYER  
+                 AND WIDT.S_INV_NO = IVDT.INV_NO  
+                 AND WIDT.S_INV_SEQ = IVDT.INV_SEQ  
+                 AND POHD.STATUS <> 'D'  
+                 AND PODT.STATUS <> 'D'  
+                 AND PRDT.STATUS <> 'D'  
+                 AND IVDT.STATUS <> 'D'  
+              ORDER BY WIDT.WAREHOUSE_CODE, WIDT.BUYER, WIDT.INV_NO, WIDT.INV_SEQ  			 
+		]]>
+		
+	</select>
+						
+						
+	<update  id="updateMasterWmGiInvoiceNoPopListWIDT" parameterType="java.util.Map" >
+			<![CDATA[
+              UPDATE WMSIVDT WIDT                                   
+                 SET WIDT.CHANGE_DATE = TO_CHAR(SYSDATE,'YYYYMMDD'),
+                     WIDT.CHANGE_TIME = TO_CHAR(SYSDATE,'HH24MISS'),
+                     WIDT.CHANGE_USER_ID = #{USER_ID},                       
+                     WIDT.STATUS = 'D',                             
+                     WIDT.SND_CHK = 'N'                                                                                               
+               WHERE WIDT.WAREHOUSE_CODE = #{st_ware_house_code}                     
+                 AND WIDT.BUYER = #{st_buyer}                                
+                 AND WIDT.INV_NO = #{st_IK_NO}                               
+                 AND WIDT.STATUS <> 'D'                             
+        		]]>            		
+	</update>	
+	
+	<update  id="updateMasterWmGiInvoiceNoPopList_ICOMIVDT" parameterType="java.util.Map" >
+			<![CDATA[
+	              UPDATE ICOMIVDT A                                                       
+                 SET A.WMS_IVK_QTY = NVL((SELECT SUM(B.INV_QTY) FROM WMSIVDT B        
+                                           WHERE B.WAREHOUSE_CODE = #{st_ware_house_code}                
+                                             AND A.BUYER = B.BUYER                    
+                                             AND A.INV_NO = B.S_INV_NO                
+                                             AND A.INV_SEQ = B.S_INV_SEQ              
+                                             AND B.STATUS <> 'D'),0)                  
+               WHERE A.BUYER = #{st_buyer}                                                         
+                 AND (A.INV_NO,A.INV_SEQ) IN (SELECT S_INV_NO, S_INV_SEQ FROM WMSIVDT 
+                                             WHERE WAREHOUSE_CODE = #{st_ware_house_code}            
+                                               AND BUYER =  #{st_buyer}                             
+                                               AND INV_NO = #{st_IK_NO}      )                        
+                 AND STATUS <> 'D'                                                    
+			]]>            
+	</update>		
+		
+	<update  id="updateMasterWmGiInvoiceNoPopList_ICOMPODT" parameterType="java.util.Map" >
+	<![CDATA[
+	              UPDATE ICOMPODT A                                                     
+                 SET A.IV_QTY = NVL((SELECT SUM(B.INV_QTY) FROM WMSIVDT B           
+                                      WHERE B.WAREHOUSE_CODE = #{st_ware_house_code}                
+                                        AND A.BUYER = B.BUYER                       
+                                        AND A.PO_NO = B.PO_NO                       
+                                        AND A.PO_SEQ = B.PO_SEQ                     
+                                        AND B.STATUS <> 'D'),0)                     
+               WHERE A.BUYER = #{st_buyer}                                               
+                 AND (A.PO_NO,A.PO_SEQ) IN (SELECT PO_NO, PO_SEQ FROM WMSIVDT       
+                                             WHERE WAREHOUSE_CODE =  #{st_ware_house_code}               
+                                               AND BUYER =#{st_buyer}                          
+                                               AND INV_NO =  #{st_IK_NO}   )                      
+                 AND STATUS <> 'D'                                                  
+			]]>     
+	</update>	
+	<update  id="updateMasterWmGiInvoiceNoPopList_WMSSTCK" parameterType="java.util.Map" >
+	<![CDATA[
+			UPDATE WMSSTCK SET AVAIL_QTY = NVL(AVAIL_QTY,0)+ (#{INV_QTY}),
+			                   ALLOC_QTY = NVL(ALLOC_QTY,0)-(#{INV_QTY}),
+			                   STC_SELLER_PRICE = ROUND(DECODE(NVL(AVAIL_QTY,0)+(#{INV_QTY}),0,0,((NVL(AVAIL_QTY,0)*NVL(STC_SELLER_PRICE,0))+(#{INV_QTY}*#{UNIT_PRICE})) / (NVL(AVAIL_QTY,0)+#{INV_QTY})),0), 
+				CHANGE_DATE = TO_CHAR(SYSDATE,'YYYYMMDD'),
+				CHANGE_USER = #{USER_ID}
+			WHERE WAREHOUSE_CODE = #{st_ware_house_code}  
+			  AND STDCATLG_ID = #{STDCATLG_ID}	 
+			  AND AGENT = (SELECT AGENT FROM WMSIVDT WHERE BUYER = #{st_buyer}    AND INV_NO = #{st_IK_NO}  AND INV_SEQ = #{IK_SEQ} ) 	
+			  		]]>     
+	</update>
+	
+	<update  id="updateMasterWmGiInvoiceNoPopList_MSSTCK2" parameterType="java.util.Map" >
+	<![CDATA[
+					UPDATE WMSSTCK SET AVAIL_QTY = NVL(AVAIL_QTY,0)+#{INV_QTY},
+			                   ALLOC_QTY = NVL(ALLOC_QTY,0)-(#{INV_QTY}),
+				CHANGE_DATE = TO_CHAR(SYSDATE,'YYYYMMDD'),
+				CHANGE_USER =#{USER_ID}
+			WHERE WAREHOUSE_CODE = #{st_ware_house_code}  
+			  AND STDCATLG_ID =#{STDCATLG_ID}	 
+			  AND AGENT = (SELECT AGENT FROM WMSIVDT WHERE BUYER = #{st_buyer}     AND INV_NO = #{st_IK_NO}   AND INV_SEQ = #{IK_SEQ} )
+			    		]]>     
+	</update>							
+</mapper>

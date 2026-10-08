@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mdcd">
+	<!-- 조회 -->
+	<select id="selectMasterMdCdBuyerCardManageList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.pagestart"/>	
+			<![CDATA[
+			/* selectMasterMdCdBuyerCardManageList */
+	    	SELECT
+				X.BUYER,
+				X.COM_NAME_LOC,
+				X.PRE_VISIT,
+				X.THAT_VISIT,
+				(SELECT B.TEXT1 FROM ICOMCOD2 B WHERE  B.COMPANY_CODE ='KRKORE0001' AND B.TYPE ='C001' AND B.FLAG = 'Y'	AND B.CODE = X.USR_DEPT) AS USR_DEPT_NM,
+				TO_CHAR(TO_DATE(X.LST_VISIT_DATE, 'YYYYMMDDHH24MISS'),'YYYY-MM-DD HH24:MI') AS LST_VISIT_DATE,
+				X.USR_ID,
+				X.USR_DEPT,
+				X.USR_RSPNSR
+			FROM (
+				SELECT
+					VI.BUYER,
+					GETCMSLOCNAME(VI.BUYER, VI.SITE) AS COM_NAME_LOC,
+					(SELECT DECODE(COUNT(BUYER),0,'N','Y') FROM KEP_VISITDT DT WHERE DT.BUYER =  VI.BUYER AND SUBSTR(DT.VISIT_DATE,0,6) = TO_CHAR(ADD_MONTHS(SYSDATE,-1), 'YYYYMM') AND DT.STATUS <> 'D') AS PRE_VISIT,
+					(SELECT DECODE(COUNT(BUYER),0,'N','Y') FROM KEP_VISITDT DT WHERE DT.BUYER =  VI.BUYER AND SUBSTR(DT.VISIT_DATE,0,6) = TO_CHAR(SYSDATE, 'YYYYMM') AND DT.STATUS <> 'D') AS THAT_VISIT,
+					(SELECT MAX(DT.VISIT_DATE||DT.VISIT_TIME) FROM KEP_VISITDT DT WHERE DT.BUYER = VI.BUYER AND STATUS <> 'D') AS LST_VISIT_DATE,
+					(SELECT MAX(ADD_USER_ID) FROM KEP_VISITDT A WHERE A.BUYER = VI.BUYER AND A.STATUS <> 'D' AND A.VISIT_DATE||A.VISIT_TIME||A.ADD_USER_ID = (SELECT MAX(DT.VISIT_DATE||DT.VISIT_TIME||DT.ADD_USER_ID) FROM KEP_VISITDT DT WHERE DT.BUYER = A.BUYER AND STATUS <> 'D')) AS USR_ID,
+					GETCMSRSPNSR(VI.BUYER,'BM','DEPT') AS USR_DEPT,
+					GETCMSRSPNSR(VI.BUYER,'BM','USR_NM') AS USR_RSPNSR,
+					#{st_user_dept} AS DEPT_A
+				FROM KEP_VISITHD VI
+				WHERE VI.STATUS <> 'D'
+				AND NVL(VI.POTENTIAL_CUSTOMER_YN,'N') = 'N'
+			]]>	
+			<if test="st_buyer_code != null and st_buyer_code != ''">	
+				AND VI.BUYER = #{st_buyer_code}
+			</if>
+			<![CDATA[
+				)  X
+				WHERE 1=1
+			]]>
+			<if test=' st_user_dept != null and st_user_dept != "" ' >
+				AND (X.USR_DEPT = #{st_user_dept} OR X.BUYER =DECODE(X.DEPT_A, '048', '', '') )
+			</if>
+			<if test=' st_kep_user_id != null and st_kep_user_id != "" '>
+			<![CDATA[
+				AND ( X.USR_ID = #{st_kep_user_id} OR EXISTS (SELECT 1 FROM KEP_VISITDT DT WHERE DT.ADD_USER_ID = #{st_kep_user_id}  AND DT.STATUS <> 'D' AND X.BUYER = DT.BUYER) )
+			]]>	
+			</if>
+			<if test="st_avisit_gbn != null and st_avisit_gbn != ''">
+				AND X.PRE_VISIT = #{st_avisit_gbn}
+			</if>
+			<if test="st_bvisit_gbn != null and st_bvisit_gbn != ''">
+				AND X.THAT_VISIT = #{st_bvisit_gbn}
+			</if>
+			<![CDATA[
+				ORDER BY X.COM_NAME_LOC
+			]]>
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+	
+	<!--  부서조회 -->
+	<select id="selectMasterMdCdBuyerCardManageDeptList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/* selectMasterMdCdBuyerCardManageDeptList */
+			SELECT
+			    B.CODE,
+			    B.TEXT1
+			FROM ICOMCOD2 B  
+			WHERE B.COMPANY_CODE = 'KRKORE0001'  
+			AND B.TYPE = 'C001'  
+			AND B.TEXT4 IS NOT NULL  
+			ORDER BY B.TEXT4
+		]]>
+	</select>
+	
+	
+	<!--  부서조회 -->
+	<select id="selectMasterMdCdBuyerCardManageDeptList99" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/* selectMasterMdCdBuyerCardManageDeptList99 */
+			SELECT
+			    B.CODE,
+			    B.TEXT1
+			FROM ICOMCOD2 B  
+			WHERE B.COMPANY_CODE = 'KRKORE0001'  
+			AND B.TYPE = 'C001'
+			AND B.FLAG = 'Y'  
+			AND B.TEXT4 IS NOT NULL  
+			 AND B.VALUE1 LIKE '9%'
+			 ORDER BY B.VALUE1 
+		]]>
+	</select>	
+	
+	<!-- 방문자 조회 -->
+	<select id="selectMasterMdCdBuyerCardManageVisitorList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/* selectMasterMdCdBuyerCardManageVisitorList */
+			SELECT
+				L.USER_ID AS CODE,
+				L.USER_NAME_LOC AS TEXT1
+			FROM ICOMLUSR L
+			WHERE L.COM_CODE = 'KRKORE0001'
+			AND L.STATUS <> 'D'
+			AND L.DEPARTMENT IN ('001','008','009','012','017','042','043','048','010')
+			AND (L.OFFICE_YN IS NULL OR L.OFFICE_YN <> 'Y' )
+		]]>	
+		<if test=' SEARCH1 != null and SEARCH1 != "" ' >
+			AND L.DEPARTMENT = #{SEARCH1}
+		</if>
+		<![CDATA[
+			ORDER BY L.USER_NAME_LOC
+		]]>
+	</select>
+	
+	<!-- 등록고객사 조회 -->
+	<select id="selectMasterMdCdBuyerCardManageCompanyCnt" parameterType="java.util.Map" resultType="String">
+		<![CDATA[
+			SELECT COUNT(*) CNT FROM KEP_VISITHD WHERE BUYER = #{st_com_code}
+		]]>
+	</select>		
+	<update id="insertMasterMdCdBuyerCardManage" parameterType="java.util.Map">
+		<![CDATA[
+		/* insertMasterMdCdBuyerCardManage */
+		INSERT INTO KEP_VISITHD (
+			BUYER,
+			STATUS,
+			ADD_DATE,
+			ADD_TIME,
+			CHANGE_DATE,
+			CHANGE_TIME,
+			ADD_USER_ID,
+			CHANGE_USER_ID,
+			SITE
+		) VALUES(
+			#{st_com_code},
+			'C',
+			TO_CHAR(SYSDATE,'YYYYMMDD'),
+			TO_CHAR(SYSDATE,'HH24MISS'),
+			TO_CHAR(SYSDATE,'YYYYMMDD'),
+			TO_CHAR(SYSDATE,'HH24MISS'),
+			#{st_user_id},
+			#{st_user_id},
+			#{st_site}
+		)
+		]]>
+	</update>	
+</mapper>   
+   

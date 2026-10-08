@@ -1,0 +1,2456 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="buyer.mpso">
+
+	<resultMap id="HanhwaDocuMap" type="java.util.Map">
+		<result property="APPRID" column="APPRID" jdbcType="VARCHAR" javaType="java.lang.String" />
+		<result property="SUBJECT" column="SUBJECT" jdbcType="VARCHAR" javaType="java.lang.String" />
+		<result property="CONTENTS" column="CONTENTS" jdbcType="CLOB" javaType="java.lang.String" />
+		<result property="LEGACY_USER_ID" column="LEGACY_USER_ID" jdbcType="VARCHAR" javaType="java.lang.String" />
+		<result property="ADD_DATE" column="ADD_DATE" jdbcType="VARCHAR" javaType="java.lang.String" />
+	</resultMap>
+	
+	<select id="selectKwangdongGWList" parameterType="java.util.Map" resultType="java.util.Map">
+		/* buyer.mpso.selectKwangdongGWList */
+		SELECT 
+		       A.PR_SEQ AS DOC_SEQ,
+		       A.BUYER_ITEM_NO,
+		       A.DESCRIPTION,
+		       A.UNIT_MEASURE,
+		       TRIM(TO_CHAR(A.TARGET_PRICE, '999,999,999,999,990')) AS UNIT_PRICE,
+		       TRIM(TO_CHAR(A.TARGET_QTY, '999,999,999,999,990'))   AS PR_QTY,
+		       TRIM(TO_CHAR((A.TARGET_QTY * A.TARGET_PRICE), '999,999,999,999,990')) AS PR_AMT,
+		       (SELECT TEXT1 FROM ICOMCOD2 WHERE TYPE = 'M014' AND COMPANY_CODE = A.BUYER AND CODE = A.REF_PR_NO) as COST_CENTER,
+               (SELECT TEXT1 FROM ICOMCOD2 WHERE TYPE = 'C001' AND COMPANY_CODE = A.BUYER AND CODE = A.BUDGET_DEPT) AS BUDGET_DEPT,
+               (SELECT TEXT1 FROM ICOMCOD2 WHERE TYPE = 'Z014' AND COMPANY_CODE = A.BUYER AND CODE = A.ACCOUNT_TYPE) AS ACCOUNT_TYPE
+		  FROM ICOMPRDT A
+		       INNER JOIN ICOMLUSR B ON (1 = 1
+		         AND B.USER_ID        = A.ADD_USER_ID
+		         AND B.LEGACY_USER_ID = #{st_user_id}
+		       )
+		 WHERE A.BUYER     = #{st_buyer}
+		   AND A.PR_NO     = #{st_doc_no}
+		   AND A.RECV_FLAG = 'GA'
+		   AND A.SAVE_FLAG = 'PR'
+		   AND A.STATUS IN ('C','R')
+	</select>
+	
+	<update id="updateAppStatus" parameterType="java.util.Map" useGeneratedKeys="false">
+		/* buyer.mpso.updateAppStatus */
+		UPDATE ICOMPRDT A
+		   SET RECV_FLAG   = #{st_app_flag}
+		     , STATUS      = 'R'
+		     , IV_COLUMN	= #{docnum}
+		     , CHANGE_DATE = TO_CHAR(SYSDATE,'YYYYMMDD')
+		     , CHANGE_TIME = TO_CHAR(SYSDATE,'HH24MISS')
+		 WHERE A.BUYER = #{st_buyer}
+		   AND A.PR_NO = #{st_doc_no}
+	</update>
+
+	<update id="updateApprovalConfirm" parameterType="java.util.Map" useGeneratedKeys="false">
+		/* buyer.mpso.updateApprovalConfirm */
+		UPDATE ICOMPRDT A
+		   SET SAVE_FLAG    = 'PX'
+		     , RECV_QTY     = TARGET_QTY
+		     , PURCHASER_ID = NVL((SELECT USER_ID FROM ICOMLUSR WHERE COM_CODE = A.BUYER AND LEGACY_USER_ID = #{PEmpCode} AND ROWNUM = 1), #{PEmpCode})
+		     , IV_COLUMN	= #{docnum}
+		     , REF_NO       = #{st_ref_no}
+		     , REF_SEQ      = PR_SEQ
+		     , STATUS       = 'R'
+		     , CHANGE_DATE  = TO_CHAR(SYSDATE,'YYYYMMDD')
+		     , CHANGE_TIME  = TO_CHAR(SYSDATE,'HH24MISS')
+		 WHERE A.BUYER = #{st_buyer}
+		   AND A.PR_NO = #{st_doc_no}
+	</update>
+	
+	<update id="updateExternAppStatus" parameterType="java.util.Map" useGeneratedKeys="false">
+		/* buyer.mpso.updateExternAppStatus */
+		UPDATE ICOMPRDT A
+		   SET RECV_FLAG   = #{recv_flag}
+		     , STATUS      = 'R'
+		     , CHANGE_DATE = TO_CHAR(SYSDATE,'YYYYMMDD')
+		     , CHANGE_TIME = TO_CHAR(SYSDATE,'HH24MISS')
+		 WHERE A.BUYER = #{st_buyer}
+		   AND A.PR_NO = #{st_pr_no}
+	</update>
+
+	<update id="updateExternApprovalConfirm" parameterType="java.util.Map" useGeneratedKeys="false">
+		/* buyer.mpso.updateExternApprovalConfirm */
+		UPDATE ICOMPRDT A
+		   SET SAVE_FLAG    = 'PX'
+		     , RECV_FLAG    = 'PS'
+		     , RECV_QTY     = TARGET_QTY
+		     , PURCHASER_ID = NVL((SELECT USER_ID FROM ICOMLUSR WHERE COM_CODE = A.BUYER AND LEGACY_USER_ID = #{st_user_id} AND ROWNUM = 1), #{st_user_id})
+		     , REF_NO       = #{st_ref_no}
+		     , REF_SEQ      = PR_SEQ
+		     , STATUS       = 'R'
+		     , CHANGE_DATE  = TO_CHAR(SYSDATE,'YYYYMMDD')
+		     , CHANGE_TIME  = TO_CHAR(SYSDATE,'HH24MISS')
+		 WHERE A.BUYER = #{st_buyer}
+		   AND A.PR_NO = #{st_pr_no}
+	</update>
+	
+	<select id="selectIFAppPrList" parameterType="java.util.Map" resultType="java.util.Map">
+	/* buyer.mpso.selectIFAppPrList */
+	SELECT
+	       A.BUYER,
+	       A.PR_NO,
+	       A.PR_SEQ,
+	       A.BUYER_ITEM_NO,
+	       A.DESCRIPTION,
+	       A.SPECIFICATION,
+	       'KRW' AS CUR,
+	       A.UNIT_MEASURE,
+	       (SELECT TEXT1 FROM ICOMCOD2
+	         WHERE TYPE = 'C001'
+	           AND CODE = A.BUDGET_DEPT 
+	           AND COMPANY_CODE = A.BUYER) AS BUDGET_DEPT,
+	       (SELECT TEXT1 FROM ICOMCOD2 
+	         WHERE TYPE = 'Z014'
+	           AND CODE = A.ACCOUNT_TYPE
+	           AND COMPANY_CODE = A.BUYER) AS ACCOUNT_TYPE,
+	           A.ACCOUNT_TYPE AS ACCOUNT_CODE,
+	       TO_CHAR(TO_DATE(A.ADD_DATE,'YYYYMMDD'),'YYYY-MM-DD') AS ADD_DATE,
+	       TO_CHAR(TO_DATE(A.RD_DATE,'YYYYMMDD'),'YYYY-MM-DD') AS RD_DATE,
+	       (SELECT COM_NAME_LOC FROM ICOMCMPY
+	         WHERE COM_CODE = 
+	               CASE
+	                 WHEN B.AGENT_OPEN_FLAG = 'Y' THEN A.AGENT
+	                 ELSE 'KRKORE0001'
+	               END ) AS AGENT_NAME,
+	       TRIM(TO_CHAR(A.TARGET_QTY,'999,999,999,999,999')) AS TARGET_QTY,
+	       TRIM(TO_CHAR(A.TARGET_PRICE,'999,999,999,999,999')) AS PRICE,
+	       TRIM(TO_CHAR((A.TARGET_QTY * A.TARGET_PRICE) ,'999,999,999,999,999')) AS AMT,
+           (SELECT TO_CHAR(SUM(TARGET_QTY * TARGET_PRICE),'999,999,999,999,999') FROM ICOMPRDT
+             WHERE BUYER = A.BUYER
+               AND PR_NO = A.PR_NO) AS TOT_AMT,
+           (SELECT TO_CHAR(COUNT(*)) FROM ICOMPRDT
+             WHERE BUYER = A.BUYER
+               AND PR_NO = A.PR_NO) AS TOT_CNT
+	  FROM ICOMPRDT A
+	     , ICOMCMPY B
+	 WHERE 1 = 1
+	   AND A.BUYER = #{buyer}
+	   AND A.PR_NO = #{sPR_No}
+	   
+	   AND A.BUYER = B.COM_CODE
+	</select>
+	
+	<select id="selectAeroIFAppPrList" parameterType="java.util.Map" resultType="java.util.Map">
+	/* buyer.mpso.selectAeroIFAppPrList */
+	SELECT
+	       A.BUYER,
+	       B.COM_NAME_LOC,
+	       A.PR_NO,
+	       A.PR_SEQ,
+	       A.BUYER_ITEM_NO,
+	       SUBSTRB(A.DESCRIPTION,1,100) AS DESCRIPTION,
+	       NVL(A.SPECIFICATION,' ') AS SPECIFICATION,
+	       'KRW' AS CUR,
+	       A.UNIT_MEASURE,
+	       NVL((SELECT NVL(TEXT1,' ') FROM ICOMCOD2 WHERE COMPANY_CODE = A.BUYER AND TYPE = 'C001' AND CODE = A.BUDGET_DEPT), ' ') AS BUDGET_DEPT,
+	       NVL((SELECT NVL(TEXT1,' ') FROM ICOMCOD2 WHERE COMPANY_CODE = A.BUYER AND TYPE = 'Z014' AND CODE = A.ACCOUNT_TYPE), ' ') AS ACCOUNT_TYPE,
+	       TO_CHAR(TO_DATE(A.ADD_DATE,'YYYYMMDD'),'YYYY-MM-DD') AS ADD_DATE,
+	       TO_CHAR(TO_DATE(A.RD_DATE,'YYYYMMDD'),'YYYY-MM-DD') AS RD_DATE,
+	       (SELECT COM_NAME_LOC FROM ICOMCMPY
+	         WHERE COM_CODE = 
+	               CASE
+	                 WHEN B.AGENT_OPEN_FLAG = 'Y' THEN A.AGENT
+	                 ELSE 'KRKORE0001'
+	               END ) AS AGENT_NAME,
+	       TRIM(TO_CHAR(A.TARGET_QTY,'999,999,999,999,999')) AS TARGET_QTY,
+	       TRIM(TO_CHAR(A.TARGET_PRICE,'999,999,999,999,999')) AS PRICE,
+	       TRIM(TO_CHAR((A.TARGET_QTY * A.TARGET_PRICE) ,'999,999,999,999,999')) AS AMT,
+	       NVL(A.LEGACY_PO_NO , ' ') AS LEGACY_PO_NO ,
+	       NVL(C.USER_NAME_LOC,' ') AS USER_NAME_LOC ,
+	       NVL(F_SPLIT(D.DESCRIPT,'^',1), ' ') AS ERP_ITEM_NO,
+	       TRIM(TO_CHAR(SUM(A.TARGET_QTY * A.TARGET_PRICE) OVER() ,'999,999,999,999,999'))  AS AMT_TOTAL
+	  FROM ICOMPRDT A
+	     , ICOMCMPY B
+	     , ICOMLUSR C
+	     , ICOMBYCA D
+	 WHERE 1 = 1
+	   AND A.BUYER = #{buyer}
+	   AND A.PR_NO =  #{sPR_No}
+	   
+	   AND A.BUYER = B.COM_CODE	
+	   
+	   AND C.COM_CODE = A.BUYER
+	   AND C.USER_ID = A.PURCHASER_ID
+	   
+	   AND D.COM_CODE = A.BYIT_COMORG_CODE
+       AND D.STD_CATEG_ID = A.CATEG_ID
+	</select>
+	
+	<update id="updateAppUserInfo" parameterType="java.util.Map">
+		UPDATE ICOMLUSR
+		   SET LAST_LOGIN_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD')
+		     , LAST_LOGIN_TIME = TO_CHAR(SYSDATE, 'HH24MISS')
+		 WHERE USER_ID IN (
+		   SELECT USER_ID FROM ICOGPASSLN
+			WHERE 1 = 1
+			  AND COMPANY = #{COMPANY}
+			  AND DOCU_NO = #{DOCU_NO}
+			  AND PASS_TP != '0' )
+	</update>
+	
+	<update id="insertIfAplSend" parameterType="java.util.Map" useGeneratedKeys="false">
+	INSERT INTO EAI.IF_APL_SEND (
+	  BUYER, DOC_NO, APP_SEQ,
+	  USER_ID, USER_NAME, KEY_1,
+	  KEY_2, KEY_3, KEY_4,
+	  KEY_5, KEY_6, KEY_7,
+	  KEY_8, KEY_9, KEY_10
+	)
+	SELECT 
+	  A.COMPANY,
+	  A.DOCU_NO,
+	  A.ORDER_NO,
+	  A.USER_ID,
+	  B.USER_NAME_LOC,
+	  #{APPR_ID} AS KEY_1,
+	  CASE
+	    WHEN TO_CHAR(A.PASS_TP) = '3' THEN '2'
+	    WHEN TO_CHAR(A.PASS_TP) = '2' THEN '9'
+	    ELSE TO_CHAR(A.PASS_TP)
+	  END AS KEY_2,
+	  '' AS KEY_3, '' AS KEY_4,
+	  '' AS KEY_5, '' AS KEY_6, '' AS KEY_7,
+	  '' AS KEY_8, '' AS KEY_9, '' AS KEY_10
+	  FROM ICOGPASSLN A
+	     , ICOMLUSR B
+	 WHERE 1 = 1
+	   AND A.COMPANY = #{COMPANY}
+	   AND A.DOCU_NO = #{DOCU_NO}
+	   
+	   AND A.USER_ID = B.USER_ID
+	</update>
+
+	<update id="insertIfApmSend" parameterType="java.util.Map" useGeneratedKeys="false">
+	INSERT INTO EAI.IF_APM_SEND (
+	    BUYER,
+	    DOC_NO,
+	    SUBJECT,
+	    CONTENTS,
+	    APP_USER_ID,
+	    APP_USER_NAME,
+	    APP_DATE,
+	    KEY_1,
+	    KEP_2,
+	    KEP_3,
+	    KEP_4,
+	    KEY_5,
+	    KEY_6,
+	    KEY_7,
+	    KEY_8,
+	    KEY_9,
+	    KEY_10,
+	    CREATE_DATM,
+	    IF_FLAG
+	) VALUES (
+	    #{COMPANY},
+	    #{DOCU_NO},
+	    #{DOCU_TITLE},
+	    #{CONTENTS:CLOB},
+	    #{USER_ID},
+	    #{USER_NM},
+	    #{APP_DATE},
+	    #{APPR_ID},
+	    '',
+	    '',
+	    '',
+	    '',
+	    '',
+	    '',
+	    '',
+	    '',
+	    '',
+	    SYSDATE,
+	    'N'
+	)
+	</update>
+	
+	
+	<update id="insertAeroIfAplSend" parameterType="java.util.Map" useGeneratedKeys="false">
+	INSERT INTO EAI.IF_APL_SEND (
+	  BUYER,
+	  DOC_NO,
+	  APP_SEQ,
+	  USER_ID,
+	  USER_NAME,
+	  KEY_1,
+	  KEY_2,
+	  KEY_3,
+	  KEY_4,
+	  KEY_5,
+	  KEY_6,
+	  KEY_7,
+	  KEY_8,
+	  KEY_9,
+	  KEY_10
+	)
+	SELECT 
+	  A.COMPANY,
+	  A.DOCU_NO,
+	  A.ORDER_NO,
+	  (SELECT NVL(LEGACY_USER_ID,A.USER_ID) FROM ICOMLUSR WHERE COM_CODE = #{COMPANY} AND USER_ID = A.USER_ID) AS USER_ID,
+	  A.USER_NM,
+	  #{APPR_ID} AS KEY_1,
+	  CASE
+	  	WHEN TO_CHAR(A.PASS_TP) = '2' THEN '9' 
+	  	WHEN TO_CHAR(A.PASS_TP) = '3' THEN '2'
+	  	ELSE TO_CHAR(A.PASS_TP)
+	  END AS KEY_2,
+	  '' AS KEY_3,
+	  '' AS KEY_4,
+	  '' AS KEY_5,
+	  '' AS KEY_6,
+	  '' AS KEY_7,
+	  '' AS KEY_8,
+	  '' AS KEY_9,
+	  '' AS KEY_10
+	  FROM ICOGPASSLN A
+	 WHERE 1 = 1
+	   AND A.COMPANY = #{COMPANY}
+	   AND A.DOCU_NO = #{DOCU_NO}
+	</update>
+
+	<update id="insertAeroIfApmSend" parameterType="java.util.Map" useGeneratedKeys="false">
+	INSERT INTO EAI.IF_APM_SEND (
+	    BUYER,
+	    DOC_NO,
+	    SUBJECT,
+	    CONTENTS,
+	    APP_USER_ID,
+	    APP_USER_NAME,
+	    APP_DATE,
+	    KEY_1,
+	    KEP_2,
+	    KEP_3,
+	    KEP_4,
+	    KEY_5,
+	    KEY_6,
+	    KEY_7,
+	    KEY_8,
+	    KEY_9,
+	    KEY_10,
+	    CREATE_DATM,
+	    IF_FLAG
+	) VALUES (
+	    #{COMPANY},
+	    #{DOCU_NO},
+	    #{DOCU_TITLE},
+	    #{CONTENTS:CLOB},
+	    #{USER_ID},
+	    #{USER_NM},
+	    #{APP_DATE},
+	    #{APPR_ID},
+	    #{AEROSYSTEMID},
+	    'PR',
+	    '',
+	    '',
+	    '',
+	    '',
+	    '',
+	    '',
+	    '',
+	    SYSDATE,
+	    'N'
+	)
+	</update>
+	
+	<update id="updateHanWhaAeroIfApmSend" parameterType="java.util.Map" >
+	UPDATE EAI.IF_APM_SEND
+	   SET KEY_5 = #{INSTANCEID}
+  	 WHERE KEY_1 = #{APPRID}
+	 AND BUYER = #{BUYER}
+	</update>
+	
+	<select id="selectIFAppInfo" parameterType="java.util.Map" resultType="java.util.Map">
+	/* buyer.mpso.selectIFAppInfo */
+	SELECT 
+	    COMPANY,
+	    DOCU_NO,
+	    DOCU_TITLE,
+	    DOCU_CONT,
+	    USER_ID,
+	    USER_NM,
+	    TO_CHAR(START_DATE,'YYYYMMDD') AS APP_DATE,
+	    GET_CSTMR_DEAL_STTMN_NO(COMPANY) AS APPR_ID
+	  FROM ICOGDOCU
+	 WHERE (COMPANY, DOCU_NO) IN (
+	    SELECT COM_CODE, TARGET
+	      FROM ICOMTRGW
+	     WHERE DOC_NAME = 'PX'
+	       AND (COM_CODE, KEY_1) IN (
+	        SELECT A.BUYER, A.REF_NO
+	          FROM ICOMPRDT A
+	         WHERE A.BUYER = #{buyer}
+	           AND A.PR_NO = #{sPR_No} ) )
+	</select>
+	
+	<select id="selectIFHanwAppInfo" parameterType="java.util.Map" resultType="java.util.Map">
+	<![CDATA[
+	/* buyer.mpso.selectIFHanwAppInfo */
+	SELECT 
+	    COMPANY,
+	    DOCU_NO,
+	    DOCU_TITLE,
+	    REPLACE(REPLACE(NVL(DOCU_CONT, ' '), CHR(13), ''), CHR(10), '<br>') AS DOCU_CONT,
+	    USER_ID,
+	    USER_NM,
+	    TO_CHAR(START_DATE,'YYYYMMDD') AS APP_DATE,
+	    GET_CSTMR_DEAL_STTMN_NO(COMPANY) AS APPR_ID
+	  FROM ICOGDOCU
+	 WHERE (COMPANY, DOCU_NO) IN (
+	    SELECT COM_CODE, TARGET
+	      FROM ICOMTRGW
+	     WHERE DOC_NAME = 'PX'
+	       AND (COM_CODE, KEY_1) IN (
+	        SELECT A.BUYER, A.REF_NO
+	          FROM ICOMPRDT A
+	         WHERE A.BUYER = #{buyer}
+	           AND A.PR_NO = #{sPR_No} ) )
+	]]>           
+	</select>
+
+	<select id="selectIFAeKyAppInfo" parameterType="java.util.Map" resultType="java.util.Map">
+	/* buyer.mpso.selectIFAppInfo */
+	SELECT 
+	    A.BUYER,
+	    A.DOC_NO,
+	    A.SUBJECT,
+	    A.CONTENTS,
+	    A.APP_USER_ID,
+	    A.APP_USER_NAME,
+	    (SELECT TEXT1 FROM ICOMCOD2 WHERE TYPE = 'C003' AND COMPANY_CODE = A.BUYER AND CODE = B.POSITION) AS POSITION,
+	    B.LEGACY_USER_ID,
+	    (SELECT TEXT1 FROM ICOMCOD2 WHERE TYPE = 'C001' AND COMPANY_CODE = A.BUYER AND CODE = B.DEPARTMENT) AS DEPARTMENT,
+	    SUBSTR(A.APP_DATE,0,4) || '년' || SUBSTR(A.APP_DATE,5,2) || '월' || SUBSTR(A.APP_DATE,7) || '일' AS APP_DATE
+	  FROM EAI.IF_APM_SEND A
+	     , ICOMLUSR B
+	 WHERE A.BUYER = #{COMPANY}
+	   AND A.DOC_NO = #{DOCU_NO}
+	   
+	   AND A.APP_USER_ID = B.USER_ID
+	   AND A.BUYER = B.COM_CODE
+	   
+	</select>
+	<select id="selectHanhwaDocu" parameterType="java.util.Map" resultMap="HanhwaDocuMap">
+	/* buyer.mpso.selectHanhwaDocu */
+	SELECT
+	       A.KEY_1 AS APPRID,
+	       A.SUBJECT,
+	       B.LEGACY_USER_ID,
+	       TO_CHAR(C.START_DATE, 'YYYYMMDDHH24MISS') AS ADD_DATE,
+	       C.IMAGE_KEY,
+	       NVL(D.CODE,'501') AS COMP_CD,
+	       NVL(D.TEXT2,' ') AS SHIFT_DATA,
+           S.COL02_DATA AS END_POINT
+	  FROM EAI.IF_APM_SEND A
+	     , ICOMLUSR B
+	     , ICOGDOCU C
+	     , ICOMCOD2 D
+	     , BNTSLGIMP S
+	 WHERE A.BUYER = #{COMPANY}
+	   AND A.DOC_NO = #{DOCU_NO}
+	   
+	   AND S.SLG_ID = 'P11-0000004'
+	   AND S.COM_CODE = A.BUYER
+	   
+	   AND A.APP_USER_ID = B.USER_ID
+	   
+	   AND A.BUYER = C.COMPANY
+	   AND A.DOC_NO = C.DOCU_NO
+	   
+	   AND 'CMPC'  = D.TYPE(+)
+	   AND A.BUYER = D.COMPANY_CODE(+)
+	</select>
+	
+	<select id="selectHanhwaAeroDocu" parameterType="java.util.Map" resultType="java.util.Map">
+	/* buyer.mpso.selectHanhwaAeroDocu */
+	SELECT A.BUYER, A.DOC_NO, KEY_1 AS APPRID, B.LEGACY_USER_ID, A.SUBJECT, A.CONTENTS,
+	       TO_CHAR(C.START_DATE, 'YYYYMMDDHH24MISS') AS ADD_DATE,
+	       A.KEP_2 AS SYSTEMID,
+           '501' AS COMPANYID,
+           'HWC_MRO' AS FORMCODE,
+           C.IMAGE_KEY,
+	       KEP_4 AS PR_NO
+	  FROM EAI.IF_APM_SEND A
+	     , ICOMLUSR B
+	     , ICOGDOCU C
+	 WHERE A.BUYER = #{COMPANY}
+	   AND A.DOC_NO = #{DOCU_NO}
+	   AND A.KEY_9 IS NULL
+	   AND A.KEY_1 IS NOT NULL
+	   AND A.IF_FLAG = 'N'
+	   
+	   AND B.USER_ID = A.APP_USER_ID
+	   
+	   AND C.COMPANY = A.BUYER
+	   AND C.DOCU_NO = A.DOC_NO
+
+	   AND ROWNUM = 1
+	</select>
+	
+	<select id="selectHanWhaAeroPassln" parameterType="java.util.Map" resultType="java.util.Map">
+	/* buyer.mpso.selectHanWhaAeroPassln */
+		SELECT
+	       A.KEY_1 AS APPRID,
+	       TO_CHAR(A.APP_SEQ - 1) AS APPRSEQ,
+	       TO_CHAR(A.KEY_2) AS APPRACTIONCD,
+	        NVL(C.LEGACY_USER_ID,A.USER_ID)  AS USER_ID	
+	  FROM EAI.IF_APL_SEND A
+	     , ICOGPASSLN B
+	     , ICOMLUSR C
+	 WHERE A.BUYER = #{BUYER}
+	   AND A.DOC_NO = #{DOC_NO}
+	   AND A.APP_SEQ = B.ORDER_NO
+	    AND A.KEY_2 != '9'
+	    
+	   AND B.COMPANY = A.BUYER
+	   AND B.DOCU_NO = A.DOC_NO
+	   AND B.USER_ID = C.USER_ID
+       
+	   AND C.COM_CODE = A.BUYER
+	   AND C.LEGACY_USER_ID = A.USER_ID
+	</select>
+	
+	<select id="selectHanWhaAeroPassln_refer" parameterType="java.util.Map" resultType="java.util.Map">
+	/* buyer.mpso.selectHanWhaAeroPassln_refer */
+		SELECT
+	       A.KEY_1 AS APPRID,
+	       TO_CHAR(A.APP_SEQ - 1) AS APPRSEQ,
+	       TO_CHAR(A.KEY_2) AS APPRACTIONCD,
+	        NVL(C.LEGACY_USER_ID,A.USER_ID)  AS USER_ID	
+	  	FROM EAI.IF_APL_SEND A
+	     , ICOGPASSLN B
+	     , ICOMLUSR C
+	 	WHERE A.BUYER = #{BUYER}
+	   AND A.DOC_NO = #{DOC_NO}
+	   AND A.APP_SEQ = B.ORDER_NO
+	    AND A.KEY_2 = '9'
+	    
+	   AND B.COMPANY = A.BUYER
+	   AND B.DOCU_NO = A.DOC_NO
+	   AND B.USER_ID = C.USER_ID
+       
+	   AND C.COM_CODE = A.BUYER
+	   AND C.LEGACY_USER_ID = A.USER_ID
+	</select>
+	
+	
+	<select id="selectHanhwaAttFileList" parameterType="java.util.Map" resultType="java.util.Map">
+	/* buyer.mpso.selectHanhwaAttFileList */
+	SELECT DOC_NO, TO_CHAR(TO_NUMBER(DOC_SEQ)) AS DOC_SEQ, TYPE, DES_FILE_NAME, SRC_FILE_NAME,DES_FILE_DIR
+	  FROM ICOMATCH
+	 WHERE DOC_NO = #{IMAGE_KEY}
+	</select>
+	
+	<select id="selectAeKyPassln" parameterType="java.util.Map" resultType="java.util.Map">
+	
+	SELECT
+	       A.KEY_1 AS APPRID,
+	       TO_CHAR(A.APP_SEQ - 1) AS APPRSEQ,
+	       A.KEY_2 AS APPRACTIONCD,
+	       B.LEGACY_USER_ID,
+	       B.USER_NAME_LOC,
+	       B.USER_ID,
+	       (SELECT TEXT1 FROM ICOMCOD2 WHERE TYPE = 'C003' AND COMPANY_CODE = A.BUYER AND CODE = B.POSITION) AS POSITION
+	  FROM EAI.IF_APL_SEND A
+	     , ICOMLUSR B
+	 WHERE A.BUYER = #{COMPANY}
+	   AND A.DOC_NO = #{DOCU_NO}
+	   
+	   AND A.USER_ID = B.USER_ID
+	   ORDER BY APP_SEQ 
+	   	 
+	</select>
+	
+	<select id="selectHanhwaPassln" parameterType="java.util.Map" resultType="java.util.Map">
+	/* buyer.mpso.selectHanhwaPassln */
+	SELECT
+	       A.KEY_1 AS APPRID,
+	       TO_CHAR(A.APP_SEQ - 1) AS APPRSEQ,
+	       A.KEY_2 AS APPRACTIONCD,
+	       B.LEGACY_USER_ID,
+	       B.USER_NAME_LOC,
+	       C.TEXT1 AS APPRDEPTNM,
+	       B.USER_ID
+	  FROM EAI.IF_APL_SEND A
+	     , ICOMLUSR B
+	     , ICOMCOD2 C
+	 WHERE A.BUYER = #{COMPANY}
+	   AND A.DOC_NO = #{DOCU_NO}
+	   
+	   AND A.USER_ID = B.USER_ID
+	   
+	   AND C.TYPE = 'C001'
+	   AND C.COMPANY_CODE = B.COM_CODE
+	   AND C.CODE = B.DEPARTMENT	 
+	</select>
+	
+	<select id="selectWooJinPRList" parameterType="java.util.Map" resultType="java.util.Map">
+	/* buyer.mpso.selectWooJinPRList */
+		SELECT
+		       A.BUYER AS PLANT,
+		       A.PR_NO,
+		       A.PR_SEQ,
+		       A.BUYER_ITEM_NO,
+		       A.DESCRIPTION,
+		       A.SPECIFICATION,
+		       A.TARGET_QTY AS ITEM_QTY,
+		       A.TARGET_PRICE AS UNIT_PRICE,
+		       A.UNIT_MEASURE,
+		       (A.TARGET_QTY * A.TARGET_PRICE) AS ITEM_AMT,
+		       B.TEXT2 AS ACCOUNT_NAME,
+		       A.REF_PR_NO AS REMARK
+		  FROM ICOMPRDT A
+		     , ICOMCOD2 B
+		 WHERE A.BUYER = #{COMPANY}
+		   AND A.PR_NO = #{DOCU_NO}
+		   AND A.STATUS IN ('C','R')
+		   
+		   AND B.TYPE(+) = 'Z014'
+		   AND B.CODE(+) = A.ACCOUNT_TYPE
+		   AND B.COMPANY_CODE(+) = A.BUYER
+	</select>
+	
+	<update id="updatePrRecvFlag" parameterType="java.util.Map">
+	/* buyer.mpso.updatePrRecvFlag */
+		UPDATE ICOMPRDT
+		   SET RECV_FLAG = 'GS'
+		 WHERE BUYER = #{COMPANY}
+		   AND PR_NO = #{DOCU_NO}
+	</update>
+	
+	<select id="selectWoojinHeaderInfo" parameterType="java.util.Map" resultType="java.util.Map">
+		SELECT 
+		       NVL(MAX(C.TEXT1), '우진기전') AS LOCATION_NAME,
+		       NVL(MAX(B.TEXT1), '우진기전') AS REQ_USER_DEPT_NAME
+		  FROM ICOMPRDT A
+		     , ICOMCOD2 B
+		     , ICOMCOD2 C
+		 WHERE A.BUYER = #{COMPANY}
+		   AND A.PR_NO = #{DOCU_NO}
+		   
+		   AND B.TYPE(+) = 'C001' 
+		   AND B.CODE(+) = A.REQ_DEPT
+		   AND B.COMPANY_CODE(+) = A.BUYER
+		   
+		   AND C.TYPE(+) = 'C012' 
+		   AND C.CODE(+) = A.REQ_DEPT
+		   AND C.COMPANY_CODE(+) = A.BUYER 
+	</select>
+	
+	<update id="insertCharTest" parameterType="java.util.Map" >
+		INSERT INTO KSW_TMP2_CJS
+		(BUYER, PO_NO, LEGACY_PO_NO, REMARK, REMARK2) 
+		VALUES 
+		(#{COMPANY}, #{FROM}, #{TO}, #{ORIGIN}, #{RESULT} )
+	</update>
+	
+	<update id="mergeMisumiCheckOut" parameterType="java.util.Map">
+	MERGE INTO MSM_QTDT A
+	USING (
+		SELECT
+		       #{BUYER} AS BUYER,
+		       #{QUOTATION_NO} AS QUOTATION_NO,
+		       #{QUOTATION_SEQ} AS QUOTATION_SEQ,
+		       #{REVISION} AS REVISION,
+		       #{RFQ_KEP_USER} AS RFQ_KEP_USER
+		  FROM DUAL
+	) B ON ( 1 = 1
+	  AND A.BUYER = B.BUYER
+	  AND A.QUOTATION_NO = B.QUOTATION_NO
+	  AND A.QUOTATION_SEQ = B.QUOTATION_SEQ
+	  AND A.REVISION = B.REVISION
+	  AND A.RFQ_KEP_USER = B.RFQ_KEP_USER
+	)
+	WHEN MATCHED THEN
+		UPDATE SET
+		  	SELLER_ITEM_NO = #{SELLER_ITEM_NO},
+			UNIT_MEASURE = #{UNIT_MEASURE},
+			LEAD_TIME = #{LEAD_TIME},
+			DETAIL_URL = #{DETAIL_URL},
+			IMG_URL = #{IMG_URL},
+			MOQ = #{MOQ},
+			TAX_RATE = #{TAX_RATE},
+			PUR_UNIT_QTY = #{PUR_UNIT_QTY},
+			STOA_LIST_PRICE = #{STOA_LIST_PRICE}
+	WHEN NOT MATCHED THEN
+		INSERT (
+			BUYER,
+			QUOTATION_NO,
+			QUOTATION_SEQ,
+			REVISION,
+			RFQ_KEP_USER,
+			SELLER_ITEM_NO,
+			UNIT_MEASURE,
+			LEAD_TIME,
+			DETAIL_URL,
+			IMG_URL,
+			MOQ,
+			TAX_RATE,
+			PUR_UNIT_QTY,
+			STOA_LIST_PRICE
+		)
+		VALUES (
+			#{BUYER},
+			#{QUOTATION_NO},
+			#{QUOTATION_SEQ},
+			#{REVISION},
+			#{RFQ_KEP_USER},
+			#{SELLER_ITEM_NO},
+			#{UNIT_MEASURE},
+			#{LEAD_TIME},
+			#{DETAIL_URL},
+			#{IMG_URL},
+			#{MOQ},
+			#{TAX_RATE},
+			#{PUR_UNIT_QTY},
+			#{STOA_LIST_PRICE}
+		)
+	
+	</update>
+	
+	<update id="mergeMisumiBuyerCheckOut" parameterType="java.util.Map">
+	MERGE INTO MSM_QTDT A
+	USING (
+		SELECT
+		       #{BUYER} AS BUYER,
+		       #{QUOTATION_NO} AS QUOTATION_NO,
+		       #{QUOTATION_SEQ} AS QUOTATION_SEQ,
+		       #{REVISION} AS REVISION,
+		       #{RFQ_KEP_USER} AS RFQ_KEP_USER
+		  FROM DUAL
+	) B ON ( 1 = 1
+	  AND A.BUYER = B.BUYER
+	  AND A.QUOTATION_NO = B.QUOTATION_NO
+	  AND A.QUOTATION_SEQ = B.QUOTATION_SEQ
+	  AND A.REVISION = B.REVISION
+	  AND A.RFQ_KEP_USER = B.RFQ_KEP_USER
+	)
+	WHEN MATCHED THEN
+		UPDATE SET
+		  	SELLER_ITEM_NO = #{SELLER_ITEM_NO},
+			UNIT_MEASURE = #{UNIT_MEASURE},
+			LEAD_TIME = #{LEAD_TIME},
+			DETAIL_URL = #{DETAIL_URL},
+			IMG_URL = #{IMG_URL},
+			MOQ = #{MOQ},
+			TAX_RATE = #{TAX_RATE},
+			PUR_UNIT_QTY = #{PUR_UNIT_QTY},
+			STOA_LIST_PRICE = #{STOA_LIST_PRICE}
+	WHEN NOT MATCHED THEN
+		INSERT (
+			BUYER,
+			QUOTATION_NO,
+			QUOTATION_SEQ,
+			REVISION,
+			RFQ_KEP_USER,
+			SELLER_ITEM_NO,
+			UNIT_MEASURE,
+			LEAD_TIME,
+			DETAIL_URL,
+			IMG_URL,
+			MOQ,
+			TAX_RATE,
+			PUR_UNIT_QTY,
+			STOA_LIST_PRICE
+		)
+		VALUES (
+			#{BUYER},
+			#{QUOTATION_NO},
+			#{QUOTATION_SEQ},
+			#{REVISION},
+			#{RFQ_KEP_USER},
+			#{SELLER_ITEM_NO},
+			#{UNIT_MEASURE},
+			#{LEAD_TIME},
+			#{DETAIL_URL},
+			#{IMG_URL},
+			#{MOQ},
+			#{TAX_RATE},
+			#{PUR_UNIT_QTY},
+			#{STOA_LIST_PRICE}
+		)
+	
+	</update>
+	
+	
+	<select id="selectBuyerRfqUserInfo"  parameterType="java.util.Map" resultType="java.util.Map">
+	/*buyer.mpso.selectBuyerRfqUserInfo*/
+	SELECT
+	       A.USER_NAME_LOC,
+	       A.DEPARTMENT,
+	       A.FAX_NUMBER,
+	       A.PHONE_NUMBER,
+	       A.EMAIL,
+	       TO_CHAR(SYSDATE+7, 'YYYYMMDD') AS BTOA_END_DATE
+	  FROM ICOMLUSR A
+	 WHERE A.USER_ID = #{st_user_id}
+	   AND A.STATUS IN ('C','R')
+	</select>
+	
+	
+	<select id="selectYoungPoongPRList" parameterType="java.util.Map" resultType="java.util.Map">
+	/*buyer.mpso.selectYoungPoongPRList*/
+	SELECT 
+	       A.BUYER, A.PR_NO, A.PR_SEQ, A.REF_PR_NO,
+	       F_GET_YP_NUM() AS KEP_NUM,
+	       A.ADD_USER_ID, UPPER(B.LEGACY_USER_ID) AS LEGACY_USER_ID, A.ADD_USER_NAME,
+	       LPAD(A.BUYER_ITEM_NO,18,'0') AS BUYER_ITEM_NO,
+	       TO_CHAR(A.TARGET_QTY) AS TARGET_QTY,
+	       TO_CHAR(A.TARGET_PRICE) AS TARGET_PRICE,
+	       A.RD_DATE,
+	       F_SPLIT(A.MG_NOTE,'^',1) AS COST_CENTER,
+	       F_SPLIT(A.MG_NOTE,'^',3) AS WBS,
+	       CASE
+	         WHEN F_SPLIT(A.MG_NOTE,'^',3) IS NULL THEN ' '
+	         ELSE 'Y'
+	       END AS WBS_FLAG
+	  FROM ICOMPRDT A
+	     , ICOMLUSR B
+	 WHERE A.BUYER = #{st_buyer}
+	   AND A.PR_NO = #{sPR_No}
+	   AND A.ADD_USER_ID = B.USER_ID
+	 ORDER BY A.BUYER, A.PR_NO, A.PR_SEQ
+	</select>
+	
+	<update id="mergeGRCompareEvent" parameterType="java.util.Map" >
+	<![CDATA[
+		MERGE INTO ICOMTRXL A
+		USING (
+		  SELECT 'GR_COMP' AS DOC_NAME
+		       , #{st_buyer} AS TARGET
+		       , #{st_close_month} AS KEY_1
+		    FROM DUAL
+		) B ON (1 = 1
+		  AND A.DOC_NAME = B.DOC_NAME
+		  AND A.TARGET = B.TARGET
+		  AND A.KEY_1 = B.KEY_1
+		)
+		WHEN MATCHED THEN
+		  UPDATE SET
+		      KEY_9 = ' ',
+		      KEY_10 = ' '
+		WHEN NOT MATCHED THEN 
+		  INSERT (
+		    DOC_NAME, TARGET, KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6, KEY_7, KEY_8, KEY_9, KEY_10
+		  ) VALUES (
+		    'GR_COMP', #{st_buyer}, #{st_close_month}, ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '
+		  )
+	]]>
+	</update>
+	
+	<update id="insertYPCartInfo" parameterType="java.util.Map">
+		<![CDATA[
+		 	INSERT INTO ICOMCART ( 
+				BUYER
+				, USER_ID
+				, BUYER_ITEM_NO
+				, SEQ
+				, CART_QTY                                    
+				, REG_DATE
+				, USE_FLAG
+				, AGENT
+				, CONTRACT_NO
+				, CONTRACT_SEQ
+				, BYIT_COMORG_CODE
+				, REMARK        
+			) 
+			SELECT 
+			       B.COM_CODE,
+			       NVL((SELECT USER_ID FROM ICOMLUSR
+				         WHERE COM_CODE = B.COM_CODE 
+				           AND LEGACY_USER_ID = #{st_zgwid} 
+				           AND STATUS != 'D' 
+				           AND ROWNUM = 1), #{st_zgwid})
+			       A.BUYER_ITEM_NO,                                                                                               
+				   (SELECT DECODE(MAX(SEQ),NULL,'0', MAX(SEQ))+1                                                        
+					  FROM ICOMCART                                                                        
+					 WHERE BUYER    = B.COM_CODE                                                       
+					   AND USER_ID  = NVL((SELECT USER_ID FROM ICOMLUSR
+									        WHERE COM_CODE = B.COM_CODE 
+									          AND LEGACY_USER_ID = #{st_zgwid} 
+									          AND STATUS != 'D' 
+									          AND ROWNUM = 1), #{st_zgwid})					                                                                
+					   AND USE_FLAG = 'C' ),
+				   NVL(#{MENGE}, 1),
+				   TO_CHAR(SYSDATE,'YYYYMMDD'),
+				   'C',
+				   A.AGENT,
+				   A.CONTRACT_NO,
+				   A.CONTRACT_SEQ,
+				   A.BUYER,
+				   ''
+			  FROM ICOMCQDT A
+			     , ICOMCMPY B
+			 WHERE 1 = 1
+			   AND B.COM_CODE = #{st_buyer}
+			   AND A.BUYER = B.BYCA_COMORG_CODE
+			   AND A.BUYER_ITEM_NO = #{MATNR} 
+			   AND A.STATUS IN ('C','R')
+			)           														
+		]]>	
+	</update>
+	
+	<select id="selectSgsUserInfo" parameterType="java.util.Map" resultType="java.util.Map">
+	<![CDATA[
+	SELECT MAX(COM_CODE) AS COM_CODE
+	     , MAX(USER_ID) AS USER_ID
+	     , MAX(LEGACY_USER_ID) AS LEGACY_USER_ID
+         , CASE
+             WHEN NVL(MAX(PASS_CHANGE_DATE), MAX(REG_DATE)) <= TO_CHAR(SYSDATE - 60, 'YYYYMMDD') THEN 'Y'
+             ELSE 'N'
+           END PASS_CHG_FLAG
+	  FROM ICOMLUSR
+	 WHERE 1=1
+	   AND UPPER(TRIM(EMAIL)) = UPPER(TRIM(#{contactEmail}))
+	   AND COM_CODE = 'KRSGS-0001'
+	   AND STATUS != 'D'
+	]]>
+	</select>
+	
+	<select id="selectFagbUserInfo" parameterType="java.util.Map" resultType="java.util.Map">
+	<![CDATA[
+	SELECT MAX(COM_CODE) AS COM_CODE
+	     , MAX(USER_ID) AS USER_ID
+	     , MAX(LEGACY_USER_ID) AS LEGACY_USER_ID
+         , CASE
+             WHEN NVL(MAX(PASS_CHANGE_DATE), MAX(REG_DATE)) <= TO_CHAR(SYSDATE - 60, 'YYYYMMDD') THEN 'Y'
+             ELSE 'N'
+           END PASS_CHG_FLAG
+	  FROM ICOMLUSR
+	 WHERE 1=1
+	   AND UPPER(TRIM(EMAIL)) = UPPER(TRIM(#{contactEmail}))
+	   AND COM_CODE IN ( SELECT COM_CODE FROM ICOMCMPY WHERE BYCA_COMORG_CODE = 'KRFAGBG001' )
+	   AND STATUS != 'D'
+	]]>
+	</select>
+	
+	<select id="selectPMKUserInfo" parameterType="java.util.Map" resultType="java.util.Map">
+	<![CDATA[
+	SELECT MAX(COM_CODE) AS COM_CODE
+	     , MAX(USER_ID) AS USER_ID
+	     , MAX(LEGACY_USER_ID) AS LEGACY_USER_ID
+         , CASE
+             WHEN NVL(MAX(PASS_CHANGE_DATE), MAX(REG_DATE)) <= TO_CHAR(SYSDATE - 60, 'YYYYMMDD') THEN 'Y'
+             ELSE 'N'
+           END PASS_CHG_FLAG
+	  FROM ICOMLUSR
+	 WHERE 1=1
+	   AND UPPER(TRIM(EMAIL)) = UPPER(TRIM(#{contactEmail}))
+	   AND COM_CODE IN ( SELECT COM_CODE FROM ICOMCMPY WHERE BYCA_COMORG_CODE = 'KRPHILG001' )
+	   AND STATUS != 'D'
+	]]>
+	</select>
+	
+	<select id="selectYHKBUserInfo" parameterType="java.util.Map" resultType="java.util.Map">
+	<![CDATA[
+	SELECT MAX(COM_CODE) AS COM_CODE
+	     , MAX(USER_ID) AS USER_ID
+	     , MAX(LEGACY_USER_ID) AS LEGACY_USER_ID
+         , CASE
+             WHEN NVL(MAX(PASS_CHANGE_DATE), MAX(REG_DATE)) <= TO_CHAR(SYSDATE - 60, 'YYYYMMDD') THEN 'Y'
+             ELSE 'N'
+           END PASS_CHG_FLAG
+	  FROM ICOMLUSR
+	 WHERE 1=1
+	   AND UPPER(TRIM(EMAIL)) = UPPER(TRIM(#{contactEmail}))
+	   AND COM_CODE IN ( SELECT COM_CODE FROM ICOMCMPY WHERE BYCA_COMORG_CODE = 'KRYUHAG001' )
+	   AND STATUS != 'D'
+	]]>
+	</select>
+	
+	<update id="updatePassChangeDateSgsUser" parameterType="java.util.Map">
+		UPDATE ICOMLUSR SET PASS_CHANGE_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD')
+		 WHERE USER_ID = #{USER_ID}
+	</update>
+	
+	<update id="insertPoURLForSgsUser" parameterType="java.util.Map" useGeneratedKeys="false">
+		<![CDATA[
+		MERGE INTO IF_TRXL TRXL
+		  USING DUAL
+		    ON (DOC_NAME = 'PO_URL'
+		        AND TARGET = #{COM_CODE}
+		        AND KEY_1 = #{USER_ID})
+		WHEN MATCHED THEN
+		  UPDATE SET TRXL.KEY_2 = NVL(#{URL}, ' ')
+		            ,TRXL.KEY_3 = NVL(#{BUYERCOOKIE}, ' ')
+		            ,TRXL.KEY_4 = NVL(#{OAFUNC}, ' ')
+		            ,TRXL.KEY_5 = NVL(#{OAHP}, ' ')
+		            ,TRXL.KEY_6 = NVL(#{OASF}, ' ')
+		            ,TRXL.KEY_7 = NVL(#{TRANSACTIONID}, ' ')
+		            ,TRXL.KEY_8 = NVL(#{OPERATIONKEY}, ' ')
+		WHEN NOT MATCHED THEN
+		  INSERT (TRXL.DOC_NAME, TRXL.TARGET, TRXL.KEY_1, TRXL.KEY_2, TRXL.KEY_3, TRXL.KEY_4, TRXL.KEY_5, TRXL.KEY_6, TRXL.KEY_7, TRXL.KEY_8, TRXL.KEY_9, TRXL.KEY_10)
+		  VALUES ('PO_URL', #{COM_CODE}, #{USER_ID}, NVL(#{URL}, ' '), NVL(#{BUYERCOOKIE}, ' '), NVL(#{OAFUNC}, ' '), NVL(#{OAHP}, ' '), NVL(#{OASF}, ' '), NVL(#{TRANSACTIONID}, ' '), NVL(#{OPERATIONKEY}, ' '), ' ', ' ')
+		   ]]>
+	</update>
+	
+	<update id="updatePassChangeDateFagbUser" parameterType="java.util.Map">
+		UPDATE ICOMLUSR SET PASS_CHANGE_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD')
+		 WHERE USER_ID = #{USER_ID}
+	</update>
+	
+	<update id="insertPoURLForFagbUser" parameterType="java.util.Map" useGeneratedKeys="false">
+		<![CDATA[
+		MERGE INTO IF_TRXL TRXL
+		  USING DUAL
+		    ON (DOC_NAME = 'PO_URL'
+		        AND TARGET = #{COM_CODE}
+		        AND KEY_1 = #{USER_ID})
+		WHEN MATCHED THEN
+		  UPDATE SET TRXL.KEY_2 = NVL(#{URL}, ' ')
+		            ,TRXL.KEY_3 = NVL(#{BUYERCOOKIE}, ' ')		           
+		            ,TRXL.KEY_7 = NVL(#{id}, ' ')		          
+		WHEN NOT MATCHED THEN
+		  INSERT (TRXL.DOC_NAME, TRXL.TARGET, TRXL.KEY_1, TRXL.KEY_2, TRXL.KEY_3, TRXL.KEY_4, TRXL.KEY_5, TRXL.KEY_6, TRXL.KEY_7, TRXL.KEY_8, TRXL.KEY_9, TRXL.KEY_10)
+		  VALUES ('PO_URL', #{COM_CODE}, #{USER_ID}, NVL(#{URL}, ' '), NVL(#{BUYERCOOKIE}, ' '), ' ', ' ',' ', NVL(#{id}, ' '), ' ', ' ', ' ')
+		   ]]>
+	</update>
+	
+	<update id="insertSgsPo" parameterType="java.util.Map" useGeneratedKeys="false">
+		INSERT INTO  IF_PODT_UC(
+                     KEP_SEQ ,
+                     SITE    ,
+                     BUYER   ,
+                     LEGACY_PO_NO    ,
+                     LEGACY_PO_SEQ   ,
+                     REVISION        ,
+                     STATUS  ,
+                     BUYER_ITEM_NO   ,
+                     CURRENCY_CODE   ,
+                     UNIT_PRICE      ,
+                     ITEM_QTY        ,
+                     ITEM_AMT        ,
+                     ADD_DATE        ,
+                     RD_DATE ,
+                     REMARK  ,
+                     LOAD_DATE       ,
+                     LOAD_TIME       ,
+                     REQ_USER_INFO   ,
+                     IF_FLAG ,
+                     DELY_TO_LOCATION_TEXT   ,
+                     UNIT_MEASURE    ,
+                     HD_REMARK       ,
+                     DESCRIPTION     ,
+                     SPECIFICATION   ,
+                     IV_COLUMN       
+             )VALUES(
+                     SEQ_IF_PODT_UC.NEXTVAL  ,
+                     'KA'  ,
+                     'SGSK' ,
+                     #{legacy_po_no}  ,
+                     #{legacy_po_seq} ,
+                     '1'      ,
+                     #{status}        ,
+                     #{buyer_item_no} ,
+                     #{currency_code} ,
+                     #{unit_price}    ,
+                     #{item_qty}      ,
+                     #{item_qty}*#{unit_price}      ,
+                     #{add_date}     ,
+                     #{rd_date}       ,
+                     #{remark}        ,
+                     TO_CHAR(SYSDATE,'YYYYMMDD')     ,
+                     TO_CHAR(SYSDATE,'HH24MISS')     ,
+                     #{req_user_info} ,
+                     'N'     ,
+                     #{dely_to_location} ,
+                     #{unit_measure}  ,
+                     #{hd_remark}     ,
+                     #{description}   ,
+                     #{specification} ,
+                     #{iv_column}     
+             )
+	</update>
+	
+	<update id="insertFagbPo" parameterType="java.util.Map" useGeneratedKeys="false">
+		INSERT INTO  IF_PODT_UC(
+                     KEP_SEQ ,
+                     SITE    ,
+                     BUYER   ,
+                     LEGACY_PO_NO    ,
+                     LEGACY_PO_SEQ   ,
+                     REVISION        ,
+                     STATUS  ,
+                     BUYER_ITEM_NO   ,
+                     CURRENCY_CODE   ,
+                     UNIT_PRICE      ,
+                     ITEM_QTY        ,
+                     ITEM_AMT        ,
+                     ADD_DATE        ,
+                     RD_DATE ,
+                     REMARK  ,
+                     LOAD_DATE       ,
+                     LOAD_TIME       ,
+                     REQ_USER_INFO   ,
+                     IF_FLAG ,
+                     DELY_TO_LOCATION_TEXT   ,
+                     UNIT_MEASURE    ,
+                     HD_REMARK       ,
+                     DESCRIPTION     ,
+                     SPECIFICATION   ,
+                     IV_COLUMN       ,
+                     PLANT
+             )VALUES(
+                     SEQ_IF_PODT_UC.NEXTVAL  ,
+                     'KA'  ,
+                     'FAGC' ,
+                     #{legacy_po_no}  ,
+                     #{legacy_po_seq} ,
+                     '1'      ,
+                     #{status}        ,
+                     #{buyer_item_no} ,
+                     #{currency_code} ,
+                     #{unit_price}    ,
+                     #{item_qty}      ,
+                     #{item_qty}*#{unit_price}      ,
+                     #{add_date}     ,
+                     #{rd_date}       ,
+                     #{remark}        ,
+                     TO_CHAR(SYSDATE,'YYYYMMDD')     ,
+                     TO_CHAR(SYSDATE,'HH24MISS')     ,
+                     #{req_user_info} ,
+                     'N'     ,
+                     #{dely_to_location} ,
+                     #{unit_measure}  ,
+                     #{hd_remark}     ,
+                     #{description}   ,
+                     #{specification} ,
+                     #{iv_column}	  ,
+                     #{plant}     
+             )
+	</update>
+	
+	<update id="insertPMKPo" parameterType="java.util.Map" useGeneratedKeys="false">
+		INSERT INTO  IF_PODT_UC(
+                     KEP_SEQ ,
+                     SITE    ,
+                     BUYER   ,
+                     LEGACY_PO_NO    ,
+                     LEGACY_PO_SEQ   ,
+                     REVISION        ,
+                     STATUS  ,
+                     BUYER_ITEM_NO   ,
+                     CURRENCY_CODE   ,
+                     UNIT_PRICE      ,
+                     ITEM_QTY        ,
+                     ITEM_AMT        ,
+                     ADD_DATE        ,
+                     RD_DATE ,
+                     REMARK  ,
+                     LOAD_DATE       ,
+                     LOAD_TIME       ,
+                     REQ_USER_INFO   ,
+                     IF_FLAG ,
+                     DELY_TO_LOCATION_TEXT   ,
+                     UNIT_MEASURE    ,
+                     HD_REMARK       ,
+                     DESCRIPTION     ,
+                     SPECIFICATION   ,
+                     IV_COLUMN       ,
+                     PLANT
+             )VALUES(
+                     SEQ_IF_PODT_UC.NEXTVAL  ,
+                     'KA'  ,
+                     'PMK' ,
+                     #{legacy_po_no}  ,
+                     #{legacy_po_seq} ,
+                     '1'      ,
+                     #{status}        ,
+                     #{buyer_item_no} ,
+                     #{currency_code} ,
+                     #{unit_price}    ,
+                     #{item_qty}      ,
+                     #{item_qty}*#{unit_price}      ,
+                     #{add_date}     ,
+                     #{rd_date}       ,
+                     #{remark}        ,
+                     TO_CHAR(SYSDATE,'YYYYMMDD')     ,
+                     TO_CHAR(SYSDATE,'HH24MISS')     ,
+                     #{req_user_info} ,
+                     'N'     ,
+                     #{dely_to_location} ,
+                     #{unit_measure}  ,
+                     #{hd_remark}     ,
+                     #{description}   ,
+                     #{specification} ,
+                     #{iv_column}	  ,
+                     #{plant}     
+             )
+	</update>
+	
+	<update id="insertYHKBPo" parameterType="java.util.Map" useGeneratedKeys="false">
+		INSERT INTO  IF_PODT_UC(
+                     KEP_SEQ ,
+                     SITE    ,
+                     BUYER   ,
+                     LEGACY_PO_NO    ,
+                     LEGACY_PO_SEQ   ,
+                     REVISION        ,
+                     STATUS  ,
+                     BUYER_ITEM_NO   ,
+                     CURRENCY_CODE   ,
+                     UNIT_PRICE      ,
+                     ITEM_QTY        ,
+                     ITEM_AMT        ,
+                     ADD_DATE        ,
+                     RD_DATE ,
+                     REMARK  ,
+                     LOAD_DATE       ,
+                     LOAD_TIME       ,
+                     REQ_USER_INFO   ,
+                     IF_FLAG ,
+                     DELY_TO_LOCATION_TEXT   ,
+                     UNIT_MEASURE    ,
+                     HD_REMARK       ,
+                     DESCRIPTION     ,
+                     SPECIFICATION   ,
+                     IV_COLUMN       ,
+                     PLANT
+             )VALUES(
+                     SEQ_IF_PODT_UC.NEXTVAL  ,
+                     'KA'  ,
+                     'YHKB' ,
+                     #{legacy_po_no}  ,
+                     #{legacy_po_seq} ,
+                     '1'      ,
+                     #{status}        ,
+                     #{buyer_item_no} ,
+                     #{currency_code} ,
+                     #{unit_price}    ,
+                     #{item_qty}      ,
+                     #{item_qty}*#{unit_price}      ,
+                     #{add_date}     ,
+                     #{rd_date}       ,
+                     #{remark}        ,
+                     TO_CHAR(SYSDATE,'YYYYMMDD')     ,
+                     TO_CHAR(SYSDATE,'HH24MISS')     ,
+                     #{req_user_info} ,
+                     'N'     ,
+                     #{dely_to_location} ,
+                     #{unit_measure}  ,
+                     #{hd_remark}     ,
+                     #{description}   ,
+                     #{specification} ,
+                     #{iv_column}	  ,
+                     #{plant}     
+             )
+	</update>
+	
+	<update id="insertWebServiceLog" parameterType="java.util.Map" useGeneratedKeys="false">
+		INSERT INTO IF_WS_LOG(
+			SEQ,
+			INTERFACE_ID,
+			CONTENTS,
+			FLAG,
+			ERROR_MSG,
+			CREATE_DATE,
+			CHANGE_DATE
+		) VALUES (
+			SEQ_IF_WS_LOG.NEXTVAL,
+			#{INTERFACE_ID},
+			#{CONTENTS:CLOB},
+			#{FLAG},
+			#{ERROR_MSG},
+			SYSDATE,
+			SYSDATE
+		)
+	</update>
+	
+	<update id="updateAeroApmSendResult" parameterType="java.util.Map" >
+		UPDATE EAI.IF_APM_SEND
+		   SET IF_FLAG = #{RTN_FLAG}
+		     , KEY_7 = SUBSTR(#{RTN_MSG}, 1, 3500)
+		     , IF_DATM = SYSDATE
+		 WHERE 1 = 1
+		   AND KEY_1 = #{APPRID}
+		   AND BUYER = #{BUYER}
+	</update>
+	
+	<update id="updateApmSendResult" parameterType="java.util.Map" >
+		UPDATE EAI.IF_APM_SEND
+		   SET IF_FLAG = #{RESULT_FLAG}
+		     , KEY_8 = SUBSTR(#{RESULT_MSG}, 1, 3500)
+		 WHERE 1 = 1
+		   AND KEY_1 = #{KEY_NO}
+	</update>
+	
+	<select id="selectWhaninPrList" parameterType="java.util.Map" resultType="java.util.Map">
+		/* buyer.mpso.selectWhaninPrList */
+		 SELECT   A.BUYER
+				, A.DOC_NO AS PR_NO
+				, A.DOC_SEQ AS PR_SEQ
+				, A.BUYER_ITEM_NO	
+				, A.ADD_DATE	
+				, A.ADD_TIME	
+				, A.DESCRIPTION	
+				, A.SPECIFICATION		
+				, A.UNIT_MEASURE
+				, TO_CHAR( A.ITEM_QTY	 , '999,999,999,999,999') AS ITEM_QTY
+        		, TO_CHAR( A.UNIT_PRICE	 , '999,999,999,999,999') AS UNIT_PRICE
+	        	, TO_CHAR( A.ITEM_AMT	 , '999,999,999,999,999') AS ITEM_AMT
+				, TO_CHAR(TO_DATE(A.RD_DATE,'YYYYMMDD'),'YYYY-MM-DD') AS RD_DATE	
+		  FROM EAI.IF_UCUBE_PR_SEND A
+		 WHERE A.BUYER     = #{BUYER}
+		   AND A.DOC_NO    = #{PR_NO} 
+	</select>
+	
+	<update id="insertWhaninPr" parameterType="java.util.Map" useGeneratedKeys="false">
+		<![CDATA[
+		 	INSERT INTO EAI.IF_UCUBE_PR_SEND ( 
+				  BUYER
+				, DOC_NO
+				, DOC_SEQ
+				, BUYER_ITEM_NO	
+				, ADD_DATE	
+				, ADD_TIME	
+				, DESCRIPTION	
+				, SPECIFICATION		
+				, UNIT_MEASURE		
+				, ITEM_QTY	
+				, UNIT_PRICE	
+				, ITEM_AMT	
+				, RD_DATE	
+				, IF_FLAG
+			) 
+			SELECT 
+			      A.BUYER
+				, A.PR_NO
+				, A.PR_SEQ
+				, A.BUYER_ITEM_NO	
+				, A.ADD_DATE	
+				, A.ADD_TIME	
+				, A.DESCRIPTION	
+				, A.SPECIFICATION		
+				, A.UNIT_MEASURE		
+				, A.TARGET_QTY	
+				, A.TARGET_PRICE	
+				, A.TARGET_QTY*A.TARGET_PRICE AS ITEM_AMT	
+				, A.RD_DATE			
+				, 'N'
+			  FROM ICOMPRDT A
+			 WHERE 1 = 1
+			   AND A.BUYER = #{buyer}
+	   		   AND A.PR_NO = #{sPR_No}									
+		]]>	
+	</update>
+	
+	<select id="selectLegacyUserIdById" parameterType="java.util.Map" resultType="java.util.Map">
+		/* buyer.mpso.selectLegacyUserIdById */
+		 SELECT LEGACY_USER_ID
+		   FROM ICOMLUSR 
+		  WHERE 1=1
+			AND COM_CODE = #{buyer}
+			AND USER_ID = #{userid}
+	</select>
+	
+	<select id="selectNCCHAppHeader" parameterType="java.util.Map" resultType="java.util.Map">
+	/* buyer.mpso.selectNCCHAppHeader */
+	SELECT 
+	       B.LEGACY_USER_ID AS USER_ID,
+	       A.BUYER||A.PR_NO AS AP_FORM_NO,
+	       CASE
+	         WHEN DOC_TYPE = 'F' THEN 'Y'
+	         ELSE 'N'
+	       END AS IS_URGENT,
+	       NVL((SELECT MAX(REF_PR_NO) FROM ICOMPRDT WHERE BUYER = A.BUYER AND PR_NO = A.PR_NO), 'MM1') AS AP_ITEM
+	  FROM ICOMPRHD A, ICOMLUSR B
+	 WHERE A.BUYER = #{buyer}
+	   AND A.PR_NO = #{pr_no}
+	   AND B.USER_ID = A.ADD_USER_ID 
+	</select>
+	
+	<select id="selectNCCHPrList" parameterType="java.util.Map" resultType="java.util.Map">
+	/* buyer.mpso.selectNCCHPrList */
+	SELECT 
+	       A.BUYER, A.PR_NO, A.PR_SEQ,
+	       A.BUYER_ITEM_NO, A.DESCRIPTION, A.SPECIFICATION,
+	       A.UNIT_MEASURE, 
+	       REPLACE(TO_CHAR(A.TARGET_QTY,'999,999,999,999'), ' ', '') AS QTY,
+	       REPLACE(TO_CHAR(A.TARGET_PRICE,'999,999,999,999'), ' ', '') AS PRICE,
+	       REPLACE(TO_CHAR(A.TARGET_PRICE*A.TARGET_QTY,'999,999,999,999'), ' ', '') AS AMOUNT,
+	       REPLACE(TO_CHAR(COUNT(*) OVER(PARTITION BY A.BUYER, A.PR_NO),'999,999,999,999'), ' ', '') AS CNT,
+	       REPLACE(TO_CHAR(SUM(A.TARGET_PRICE*A.TARGET_QTY) OVER(PARTITION BY A.BUYER, A.PR_NO),'999,999,999,999'), ' ', '') AS AMT
+	  FROM ICOMPRDT A
+	 WHERE A.BUYER = #{buyer}
+	   AND A.PR_NO = #{pr_no} 
+	</select>
+	
+	<update id="updatePRDT_TYPE07" parameterType="java.util.Map" >
+	/*buyer.mpso.updatePRDT_TYPE07*/
+    UPDATE ICOMPRDT A
+       SET SAVE_FLAG    = 'PX'
+         , RECV_FLAG    = 'PS'
+         , RECV_QTY     = TARGET_QTY
+         , PURCHASER_ID = ADD_USER_ID
+         , REF_NO       = #{REF_NO}
+         , REF_SEQ      = PR_SEQ
+         , STATUS       = 'R'
+         , CHANGE_DATE  = TO_CHAR(SYSDATE,'YYYYMMDD')
+         , CHANGE_TIME  = TO_CHAR(SYSDATE,'HH24MISS')
+     WHERE A.BUYER = #{buyer}
+       AND A.PR_NO = #{sPR_No}
+	</update>
+	
+		<select id="SelectHanLimAppList" parameterType="java.util.Map" resultType="java.util.Map">
+	/* 한림제약 */
+	SELECT 
+	       A.PR_NO AS PO_REQ_NO
+	     , A.BUYER_ITEM_NO AS GD_CD_MRO
+	     , A.PR_SEQ AS PO_REQ_SEQ
+	      , C.ITEM_NO AS GD_CD 
+	     , A.DESCRIPTION AS GD_NM
+	     , A.MAKER_NAME AS JEJOSA
+	     , NVL(B.MAKER_PART_NO,' ') AS PN
+	     , A.SPECIFICATION AS SPEC
+	     , A.TARGET_PRICE AS DANGA
+	     , A.TARGET_QTY AS REQ_QTY
+	     , A.RD_DATE AS REQ_DATE
+	  FROM ICOMPRDT A, ICOMBYIT B, ICOMCQDT C
+	 WHERE A.BUYER = #{buyer}
+	   AND A.PR_NO = #{sPR_No} 
+	   
+	   AND B.BUYER = A.BYIT_COMORG_CODE
+	   AND B.BUYER_ITEM_NO = A.BUYER_ITEM_NO
+	   
+	   AND C.BUYER = A.BUYER
+	   AND C.CONTRACT_NO = A.CONTRACT_NO
+	   AND C.CONTRACT_SEQ = A.CONTRACT_SEQ
+	   AND C.STATUS != 'D'
+	   AND C.BUYER_ITEM_NO = A.BUYER_ITEM_NO
+	   ORDER BY A.PR_NO, A.PR_SEQ
+	</select>
+	
+ <select id="SelectDongWhaAppList" parameterType="java.util.Map" resultType="java.util.Map">
+	/* 동화산업 */
+	SELECT 
+		   A.BUYER AS BUYER
+		 , A.PR_NO AS PR_NO
+		 , LPAD(TO_NUMBER(A.PR_SEQ), 5, '0') AS PR_SEQ
+	     , NVL(B.LEGACY_USER_ID,' ') AS ERNAM
+	     , A.BUYER_ITEM_NO AS MATNR
+	     , A.DESCRIPTION || '//' || A.SPECIFICATION AS TXZ01
+	     , trim(TO_CHAR(A.TARGET_QTY, '999,999,999,999')) AS MENGE
+	     , A.UNIT_MEASURE AS MEINS
+	     , trim(TO_CHAR(A.TARGET_PRICE * A.TARGET_QTY, '999,999,999,999')) AS ZREQA 
+	     , A.CUR AS WAERS
+	     , NVL(F_SPLIT(A.REF_PR_NO, '%%', 1), ' ') AS WERKS
+	     , NVL((SELECT TEXT1 FROM ICOMCOD2 WHERE TYPE = 'C020' AND CODE = F_SPLIT(A.REF_PR_NO, '%%', 1) AND COMPANY_CODE = A.BUYER), ' ') AS NAME1
+	     , SUBSTR(A.RD_DATE, 1, 4) || '-' || SUBSTR(A.RD_DATE, 5, 2)  || '-' || SUBSTR(A.RD_DATE, 7, 2)   AS LFDAT
+	 	 , NVL(F_SPLIT(A.REF_PR_NO, '%%', 2),' ') AS LGORT  
+	 	 , trim(TO_CHAR(A.TARGET_PRICE, '999,999,999,999')) AS PREIS
+	 	 , CASE
+	 	     WHEN NVL(F_SPLIT(A.REF_PR_NO, '%%', 3),' ') = 'A' THEN LPAD(NVL(F_SPLIT(A.REF_PR_NO, '%%', 4),' '), 12, '0') 
+	 	     ELSE ' '
+	 	   END AS ANLN1
+	 	 , NVL(F_SPLIT(A.REF_PR_NO, '%%', 7),' ') AS KTEXT
+	 	 , NVL(B.USER_NAME_LOC, ' ') AS NAME_TEXTC
+	 	 , CASE
+	 	    WHEN NVL(F_SPLIT(A.REF_PR_NO, '%%', 3),' ') = 'K' THEN (SELECT TEXT1 FROM ICOMCOD2 WHERE COMPANY_CODE = A.BUYER AND TYPE = 'C021' AND CODE = NVL(F_SPLIT(A.REF_PR_NO, '%%', 9),' '))
+	 	    ELSE ' '
+	 	   END AS TXT20
+	 	 , NVL(F_SPLIT(A.REF_PR_NO, '%%', 3),' ') AS KOST  
+	  FROM ICOMPRDT A, ICOMLUSR B
+	 WHERE A.BUYER = #{buyer}
+	   AND A.PR_NO = #{sPR_No} 
+	   
+	   AND B.USER_ID = A.ADD_USER_ID
+	   
+	   
+	</select>
+	 <select id="SelectDongWhaIFkey" parameterType="java.util.Map" resultType="String">
+	/* 동화산업 */
+			SELECT F_GET_NO('KRDONGG007','MR')  AS IFKEY FROM DUAL
+
+	</select>
+		 <select id="SelectDongWhaTEAMCD" parameterType="java.util.Map" resultType="String">
+	/* 동화산업 */
+			SELECT TEAM_CODE  
+			  FROM EAI.IF_DONGWHA_USER_INFO
+             WHERE 'DW'||EMPNO = #{userid}
+	</select>
+	
+	<update id="updateAeKyDocNo" parameterType="java.util.Map" >
+	
+		UPDATE ICOMPRDT SET REF_IF_NO = #{AeKyDocNo}
+		 WHERE BUYER = #{buyer}
+		   AND PR_NO = #{sPR_No}
+	</update>
+	<update id="updatePRDT_DWHA" parameterType="java.util.Map" >
+	/*DWHA*/
+    UPDATE ICOMPRDT A
+       SET SAVE_FLAG    = 'PX'
+         , RECV_FLAG    = 'PS'
+         , RECV_QTY     = TARGET_QTY
+         , PURCHASER_ID = ADD_USER_ID
+         , REF_NO       = #{REF_NO}
+         , REF_IF_NO    = #{DongWha_IFKEY}
+         , REF_SEQ      = PR_SEQ
+         , STATUS       = 'R'
+         , CHANGE_DATE  = TO_CHAR(SYSDATE,'YYYYMMDD')
+         , CHANGE_TIME  = TO_CHAR(SYSDATE,'HH24MISS')
+     WHERE A.BUYER = #{buyer}
+       AND A.PR_NO = #{sPR_No}
+	</update>
+	
+	<update id="updatePRHD_DWHA" parameterType="java.util.Map" >
+	/*DWHA*/
+    UPDATE ICOMPRHD A
+       SET SAVE_FLAG    = 'PX'
+     WHERE A.BUYER = #{buyer}
+       AND A.PR_NO = #{sPR_No}
+	</update>
+	
+	<update id="updatePRDT_QURA" parameterType="java.util.Map" >
+
+    UPDATE ICOMPRDT A
+       SET SAVE_FLAG    = 'PX'
+         , RECV_FLAG    = 'GA'
+         , RECV_QTY     = TARGET_QTY
+         , PURCHASER_ID = ADD_USER_ID
+         , REF_SEQ      = PR_SEQ
+         , REF_NO       = #{REF_NO}
+         , CHANGE_DATE  = TO_CHAR(SYSDATE,'YYYYMMDD')
+         , CHANGE_TIME  = TO_CHAR(SYSDATE,'HH24MISS')
+     WHERE A.BUYER = #{buyer}
+       AND A.PR_NO = #{sPR_No}
+	</update>
+	
+	<update id="updatePRHD_QURA" parameterType="java.util.Map" >
+	
+    UPDATE ICOMPRHD A
+       SET SAVE_FLAG    = 'PX'
+     WHERE A.BUYER = #{buyer}
+       AND A.PR_NO = #{sPR_No}
+	</update>
+	
+	<select id="getQuratisContentsList" parameterType="java.util.Map" resultType="java.util.Map">
+	
+	SELECT 
+	     A.BUYER, A.PR_NO, A.PR_SEQ,
+		 A.BUYER_ITEM_NO AS BUYER_ITEM_NO,
+		 A.DESCRIPTION AS DESCRIPTION,
+		 TO_CHAR(A.TARGET_PRICE, '999,999,999,999') AS TARGET_PRICE,
+		 A.UNIT_MEASURE AS UNIT_MEASURE,
+		 TO_CHAR(A.TARGET_QTY, '999,999,999,999') AS TARGET_QTY,
+		 TO_CHAR(A.TARGET_PRICE * A.TARGET_QTY, '999,999,999,999') AS TOTAL_AMT,
+		 A.ADD_USER_ID AS ADD_USER_ID,
+		 A.REF_PR_NO AS REF_PR_NO,
+		 A.MAKER_PART_NO AS MAKER_PART_NO,
+		 A.REF_NO AS REF_NO,
+		 A.SPECIFICATION,
+		 A.MAKER_NAME,
+		 C.TEXT5 AS FORM_ID,
+		 '[MRO]'|| (SELECT DESCRIPTION FROM ICOMPRDT WHERE BUYER = A.BUYER AND PR_NO = A.PR_NO AND PR_SEQ = '000001') ||
+		 CASE
+		   WHEN (SELECT COUNT(*) FROM ICOMPRDT WHERE BUYER = A.BUYER AND PR_NO = A.PR_NO ) > 0 THEN ' 외 ' || TO_CHAR((SELECT COUNT(*) FROM ICOMPRDT WHERE BUYER = A.BUYER AND PR_NO = A.PR_NO ) - 1) || '건'
+		 END || ' 구매요청의 건' AS APP_SUBJECT
+	  FROM ICOMPRDT A, ICOMLUSR B, ICOMCOD2 C
+	 WHERE A.BUYER = #{Extern_BUYER}
+	   AND A.PR_NO = #{Extern_PR_NO} 
+	   AND A.RECV_FLAG != 'GC'
+	    
+	   AND A.ADD_USER_ID = B.USER_ID
+     
+       AND C.TYPE = 'C001'
+       AND C.COMPANY_CODE = A.BUYER
+       AND C.CODE = A.ADD_USER_DEPT
+     ORDER BY A.BUYER, A.PR_NO, A.PR_SEQ
+	   
+	</select>
+	
+	<update id="ExternCallbackList" parameterType="java.util.Map">
+		UPDATE ICOMPRDT
+		   SET REF_IF_NO = #{approval_id}
+		     , RECV_FLAG = #{RECV_FLAG}
+		     , STATUS = 'R'
+		     , CHANGE_DATE  = TO_CHAR(SYSDATE,'YYYYMMDD')
+             , CHANGE_TIME  = TO_CHAR(SYSDATE,'HH24MISS')
+		 WHERE BUYER = #{BUYER}
+		   AND PR_NO = #{PR_NO}
+		   AND RECV_FLAG != 'GC'
+	</update>
+	
+	<update id="updateExternAppStatusHD" parameterType="java.util.Map">
+		UPDATE ICOMPRHD
+		   SET STATUS       = 'R'
+		     , RECV_FLAG = #{RECV_FLAG}
+	         , CHANGE_DATE  = TO_CHAR(SYSDATE,'YYYYMMDD')
+	         , CHANGE_TIME  = TO_CHAR(SYSDATE,'HH24MISS')
+	     WHERE BUYER = #{BUYER}
+		   AND PR_NO = #{PR_NO}
+	</update>
+	
+	<update id="updateExternAppStatusHD_LNF" parameterType="java.util.Map">
+		UPDATE ICOMPRHD
+		   SET STATUS       = 'R'
+		     , RECV_FLAG = #{RECV_FLAG}
+		     , REMARK = #{APP_USER}
+	         , CHANGE_DATE  = TO_CHAR(SYSDATE,'YYYYMMDD')
+	         , CHANGE_TIME  = TO_CHAR(SYSDATE,'HH24MISS')
+	     WHERE BUYER = #{BUYER}
+		   AND PR_NO = #{PR_NO}
+	</update>
+	<update id="InsertExternIfProgress" parameterType="java.util.Map">
+		 INSERT INTO IF_PROGRESS (
+              BUYER,GUBUN,LEGACY_NO,REVISION,STATUS,
+              IF_FLAG,TOT_CNT,TOT_AMT,ERR_CNT,ERR_MSG,
+              REMARK,CHANGE_DATE,CHANGE_TIME,ADD_DATE,NO_CNT
+            ) VALUES (
+              #{BUYER},'XX',#{REF_NO},'00','C',
+              'C',1,1,0,'작업중!!',
+              'BUDGET',TO_CHAR(SYSDATE,'YYYYMMDD'),TO_CHAR(SYSDATE,'HH24MISS'),TO_CHAR(SYSDATE,'YYYYMMDD'),0
+            )
+	</update>
+	
+	<update id="InsertExternIfProgressPRDT" parameterType="java.util.Map">
+		 INSERT INTO IF_PROGRESS (
+              BUYER,GUBUN,LEGACY_NO,REVISION,STATUS,
+              IF_FLAG,TOT_CNT,TOT_AMT,ERR_CNT,ERR_MSG,
+              REMARK,CHANGE_DATE,CHANGE_TIME,ADD_DATE,NO_CNT ) 
+              SELECT BUYER, 'XX', REF_NO, '00', 'C',
+		             'C',1,1,0,'작업중!!',
+		             'BUDGET',TO_CHAR(SYSDATE,'YYYYMMDD'),TO_CHAR(SYSDATE,'HH24MISS'),TO_CHAR(SYSDATE,'YYYYMMDD'),0
+                FROM ICOMPRDT
+               WHERE BUYER = #{BUYER}
+                 AND PR_NO = #{PR_NO}
+                 AND STATUS != 'D'
+               GROUP BY BUYER, REF_NO  
+	</update>
+	
+	<select id="getPxNum" parameterType="java.util.Map" resultType="java.util.Map">
+	
+		SELECT 
+			 DISTINCT REF_NO
+		  FROM ICOMPRDT 
+		 WHERE BUYER = #{BUYER}
+		   AND PR_NO = #{PR_NO} 
+	  
+	</select>
+	
+	<select id="getHongikContentsList" parameterType="java.util.Map" resultType="java.util.Map">
+	
+	SELECT 
+		 A.BUYER_ITEM_NO AS BUYER_ITEM_NO,
+		 A.DESCRIPTION AS DESCRIPTION,
+		 A.SPECIFICATION AS SPECIFICATION,
+		 TO_CHAR(A.TARGET_PRICE, '999,999,999,999') AS TARGET_PRICE,
+		 A.UNIT_MEASURE AS UNIT_MEASURE,
+		 TO_CHAR(A.TARGET_QTY, '999,999,999,999') AS TARGET_QTY,
+		 TO_CHAR(A.TARGET_PRICE * A.TARGET_QTY, '999,999,999,999') AS TOTAL_AMT,
+		 A.ADD_USER_ID AS ADD_USER_ID,
+		 (SELECT TEXT1 FROM ICOMCOD2 
+		 			  WHERE COMPANY_CODE = A.BUYER
+		 			    AND TYPE = 'C001'
+		 			    AND CODE = A.ADD_USER_DEPT) AS ADD_USER_DEPT,
+		 A.REF_PR_NO AS REF_PR_NO,
+		 A.MAKER_PART_NO AS MAKER_PART_NO,
+		 A.REF_NO AS REF_NO,
+		 B.CHANGE_USER_NAME AS CHNAGE_USER_NAME,
+		 B.CHANGE_USER_TEL AS CHANGE_USER_TEL,
+		 NVL(A.PO_REMARK,' ') AS PO_REMARK,
+		 D.LEGACY_USER_ID AS LEGACY_USER_ID,
+		 A.PURCHASER_DEPT AS PURCHASER_DEPT,
+		 (SELECT TEXT1 FROM ICOMCOD2 
+		 			  WHERE COMPANY_CODE = A.BUYER
+		 			    AND TYPE = 'M014'
+		 			    AND CODE = F_SPLIT(A.REF_PR_NO, '_' , 2)
+		 			  ) AS ACCOUNT_NAME,
+		 (SELECT TEXT5 FROM ICOMCOD2 
+		 			  WHERE COMPANY_CODE = A.BUYER
+		 			    AND TYPE = 'C001'
+		 			    AND FLAG = 'Y'
+		 			    AND CODE = A.PURCHASER_DEPT) AS COMP		  
+		 
+	  FROM ICOMPRDT A, ICOMPRHD B, ICOMLUSR D
+	 WHERE A.BUYER = #{Extern_BUYER}
+	   AND A.PR_NO = #{Extern_PR_NO}
+	   AND A.RECV_FLAG != 'GC'
+	   
+       AND A.BUYER = B.BUYER
+       AND A.PR_NO = B.PR_NO
+       
+	   AND A.ADD_USER_ID = D.USER_ID
+	   
+	</select>
+	
+	<select id="selectLnfAppSendList" parameterType="java.util.Map" resultType="java.util.Map">
+	
+	SELECT 
+		 A.BUYER AS BUYER,
+		 A.PR_NO AS PR_NO,
+		 A.PR_SEQ AS PR_SEQ,
+		 ''	 AS SUBJECT,
+		 A.BUYER_ITEM_NO AS BUYER_ITEM_NO,
+		 C.CATEG_NAME AS CATEGORY,
+		 A.DESCRIPTION AS DESCRIPTION,
+		 A.SPECIFICATION AS SPECIFICATION,
+		 A.UNIT_MEASURE AS UNIT_MEASURE,
+		 TO_CHAR(A.TARGET_QTY, '999,999,999,999') AS ITEM_QTY,
+		 TO_CHAR(A.TARGET_PRICE, '999,999,999,999') AS UNIT_PRICE,
+		 TO_CHAR(A.TARGET_QTY * A.TARGET_PRICE, '999,999,999,999') AS ITEM_AMT,
+		 A.RD_DATE AS RD_DATE,
+		 A.REMARK AS REMARK,
+         B.TEXT1 AS TEXT1,
+         A.BUDGET_DEPT AS BUDGET_DEPT_CD,
+         A.ACCOUNT_TYPE AS ACCOUNT_TYPE_CD,
+		 (SELECT TEXT1 FROM ICOMCOD2 WHERE TYPE = 'C001' AND COMPANY_CODE = A.BUYER AND CODE = A.BUDGET_DEPT) AS BUDGET_DEPT,
+         (SELECT TEXT1 FROM ICOMCOD2 WHERE TYPE = 'Z014' AND COMPANY_CODE = A.BUYER AND CODE = A.ACCOUNT_TYPE) AS ACCOUNT_TYPE
+	  FROM ICOMPRDT A, ICOMCOD2 B, ICOMBYCA C
+	 WHERE A.BUYER = #{BUYER}
+	   AND A.PR_NO = #{DOC_NO}
+	   
+	   AND A.RECV_FLAG = 'GA'
+	   AND A.RECV_FLAG != 'GC'
+	   
+	   AND B.COMPANY_CODE = A.BUYER
+       AND B.CODE = A.ADD_USER_DEPT
+       AND B.TYPE = 'C001'
+       
+       AND C.COM_CODE = A.BYIT_COMORG_CODE
+       AND C.STD_CATEG_ID = A.CATEG_ID
+	</select>
+
+	<update id="mergetHanwhaUser" parameterType="java.util.Map">
+	MERGE INTO EAI.HANWHA_USER A
+	USING (
+	  SELECT #{LEGACY_USER_ID} AS USER_ID
+	    FROM DUAL
+	) B ON (1 = 1
+	  AND A.ID = B.USER_ID
+	)
+	WHEN MATCHED THEN
+		UPDATE SET
+		NAME	= #{USER_NAME_LOC},
+		DEPT_CODE	= #{DEPT_CODE},
+		DEPT_NAME	= #{DEPARTMENT},
+		DEPTFULLPATH	= #{DEPT_PATH},
+		DEPTID		= #{DEPT_ID},
+		DEPTNAMEEN	= #{DEPT_EN},
+		EMP_NO	= #{EMP_NO},
+		PLANT	= #{PLANT},
+		POSITION_CD = #{POSITION_CODE},
+		POSITION_NM = #{POSITION},
+		IF_DATE = SYSDATE,
+		IF_MSG = '사용자 작업결과 반영'
+	WHEN NOT MATCHED THEN
+		INSERT (
+			ID,	NAME,	DEPT_CODE,
+			DEPT_NAME,	EMP_NO,	PLANT,
+			CREATE_DATE,	IF_FLAG, IF_DATE, 
+			POSITION_CD,	POSITION_NM,
+			DEPTFULLPATH,	DEPTID,	DEPTNAMEEN,
+			IF_MSG	
+		) VALUES (
+			#{LEGACY_USER_ID},	#{USER_NAME_LOC},	#{DEPT_CODE},
+			#{DEPARTMENT},	#{EMP_NO},	#{PLANT},
+			SYSDATE,	'Y',	SYSDATE,
+			#{POSITION_CODE},	#{POSITION},
+			#{DEPT_PATH},	#{DEPT_ID}, #{DEPT_EN},
+			'사용자 작업결과 반영'
+		)
+	</update>
+
+	<select id="selectHanwhaUserCnt" parameterType="java.util.Map" resultType="Integer">
+	SELECT COUNT(*) AS CNT
+	  FROM ICOMLUSR
+	 WHERE COM_CODE = #{COM_CODE}
+	 AND LEGACY_USER_ID = #{LEGACY_USER_ID}
+	 AND STATUS IN ('C','R')
+	</select>
+	
+	<update id="updateHanwhaUser" parameterType="java.util.Map">
+	UPDATE ICOMLUSR SET 
+	    STATUS = 'R', 
+	    LAST_LOGIN_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD'), 
+	    LAST_LOGIN_TIME = TO_CHAR(SYSDATE, 'HH24MISS')
+	 WHERE COM_CODE IN (SELECT TEXT1 FROM ICOMCOD2 WHERE TYPE = 'PLNT' AND COMPANY_CODE='KRHANWG002' AND FLAG = 'Y')
+	 AND LEGACY_USER_ID = #{LEGACY_USER_ID}
+	 AND STATUS IN ('C','R')
+	</update>
+	
+	<update id="insertHanwhaUser" parameterType="java.util.Map">
+	INSERT INTO ICOMLUSR (
+		USER_ID,
+		PASSWORD,
+		LANG,
+		USER_NAME_LOC,
+		COM_CODE,
+		DEPARTMENT,
+		POSITION,
+		EMAIL,
+		COUNTRY,
+		ADDRESS_LOC,
+		PHONE_NUMBER,
+		FAX_NUMBER,
+		REG_DATE,
+		STATUS,
+		PERSON_AUTHOR,
+		BEGIN_DATE,
+		LAST_LOGIN_DATE,
+		LAST_LOGIN_TIME,
+		CONFIRM_DATE,
+		CONFIRM_USER_ID,
+		LEGACY_USER_ID,
+		ROLE,
+		MAIL_RECV_FLAG,
+		MOBILE_PHONE,
+		SMS_RECV_FLAG
+	)
+	SELECT 
+		UPPER(TRIM(#{LEGACY_USER_ID}))|| '_' || LPAD( (SELECT COUNT(*) FROM ICOMLUSR WHERE USER_ID LIKE UPPER(TRIM(#{LEGACY_USER_ID}))||'%'), 2, '0'),
+		'1111',
+		'KR',
+		#{USER_NAME_LOC},
+		COM_CODE,
+		'100',
+		#{POSITION_CODE},
+		#{EMAIL},
+		'KR',
+		ADDRESS_LOC,
+		'02-0000-0000',
+		'02-0000-0000',
+		TO_CHAR(SYSDATE,'YYYYMMDD'),
+		'C',
+		'PR',
+		TO_CHAR(SYSDATE,'YYYYMMDD'),
+		TO_CHAR(SYSDATE,'YYYYMMDD'),
+		TO_CHAR(SYSDATE,'HH24MISS'),
+		TO_CHAR(SYSDATE,'YYYYMMDD'),
+		'FTP',
+		#{LEGACY_USER_ID},
+		'U-',
+		'N',
+		'010-0000-0000',
+		'N'
+	  FROM ICOMCMPY
+	 WHERE COM_CODE = #{COM_CODE}
+	</update>
+	
+	<select id="selectMasterPositionCodeManageCheck" parameterType="java.util.Map" resultType="java.lang.String">
+	/*selectMasterPositionCodeManageCheck*/
+		<![CDATA[
+			SELECT
+			    CODE
+			FROM ICOMCOD2 
+			WHERE 1=1
+			AND COMPANY_CODE = #{COM_CODE}
+			AND TYPE = 'C003'
+			AND CODE = #{POSITION_CODE}
+		]]>
+	</select>
+	
+	<update  id="insertMasterPositionCode" parameterType="java.util.Map" >
+	/*insertMasterPositionCode*/
+		<![CDATA[
+			INSERT INTO ICOMCOD2 
+			(
+			    TYPE
+			  , CODE
+			  , COMPANY_CODE
+			  , TEXT1
+			  , TEXT2
+			  , FLAG
+			  , ADD_DATE
+			)
+			VALUES
+			(
+			    'C003'
+			  , #{POSITION_CODE}
+			  , #{COM_CODE}
+			  , #{POSITION}
+			  , #{POSITION_EN}
+			  , 'Y'
+			  , TO_CHAR(SYSDATE , 'YYYYMMDD')
+			)
+		]]>
+	</update>
+	
+	
+	<select id="selectHanwhaAppUser" parameterType="java.util.Map" resultType="java.util.Map">
+	SELECT USER_ID, USER_NAME_LOC, #{DEPARTMENT} AS DEPARTMENT, #{POSITION} AS POSITION
+	  FROM ICOMLUSR
+	 WHERE COM_CODE = #{COM_CODE}
+	 AND LEGACY_USER_ID = #{LEGACY_USER_ID}
+	 AND STATUS IN ('C','R')
+	</select>
+	
+	<select id="selectHanwhaAppUserList" parameterType="java.util.Map" resultType="java.util.Map">
+	/*buyer.mpso.selectHanwhaAppUserList*/
+	SELECT LEGACY_USER_ID, USER_ID, USER_NAME_LOC
+	  FROM ICOMLUSR
+	 WHERE COM_CODE = #{COM_CODE}
+	   AND STATUS IN ('C','R')
+	   AND LEGACY_USER_ID IN
+		<foreach collection="legacyUserIdArray" item="item" index="i" open="(" separator="," close=")" >
+			#{item}
+		</foreach>
+	</select>
+
+	<select id="selectHanwhaApptCnt" parameterType="java.util.Map" resultType="Integer">
+	SELECT COUNT(*) AS CNT
+	  FROM ICOMAPPT
+	 WHERE USER_ID = #{st_user_id}
+	   AND APP_PATH = 1
+	</select>
+	
+	<insert id="insertHanwhaAppt" parameterType="java.util.Map" useGeneratedKeys="false">
+	INSERT INTO ICOMAPPT (
+		USER_ID,		APP_PATH,		SUBJECT,
+		DEFAULT_FLAG,	STATUS,	
+		ADD_DATE,		ADD_TIME,		ADD_USER_ID,
+		CHANGE_DATE,	CHANGE_TIME,	CHANGE_USER_ID
+	) VALUES (
+		#{st_user_id},		1,		#{SUBJECT},
+		'Y',	'C',
+		TO_CHAR(SYSDATE, 'YYYYMMDD'),	TO_CHAR(SYSDATE, 'HH24MISS'),		'MASTER',
+		TO_CHAR(SYSDATE, 'YYYYMMDD'),	TO_CHAR(SYSDATE, 'HH24MISS'),		'MASTER'
+	)	
+	</insert>
+	
+	<update id="deleteHanwhaApse" parameterType="java.util.Map">
+	DELETE ICOMAPSE
+	 WHERE USER_ID = #{st_user_id}
+	 AND APP_PATH = '1'
+	</update>
+	
+	<insert id="insertHanwhaApse" parameterType="java.util.Map" useGeneratedKeys="false">
+	INSERT INTO ICOMAPSE (
+		APP_PATH,			USER_ID,			APPR_ID,
+		APPR_NAME,			APPR_SEQ,			GUBUN,
+		ADD_DATE,			ADD_TIME,			ADD_USER_ID,
+		CHANGE_DATE,		CHANGE_TIME,		CHANGE_USER_ID,
+		STATUS
+	)
+	SELECT
+			1,	#{st_user_id},	A.USER_ID,
+			B.USER_NAME_LOC,
+			CASE
+			  WHEN A.PASS_TP IN ('1','3') THEN ORDER_NO - 1
+			  ELSE 0
+			END,	
+			CASE
+			  WHEN A.PASS_TP = '1' THEN 'C'
+			  WHEN A.PASS_TP = '3' THEN 'H'
+			  ELSE 'R'
+			END,
+			TO_CHAR(SYSDATE, 'YYYYMMDD'),	TO_CHAR(SYSDATE, 'HH24MISS'),	'MASTER',
+			TO_CHAR(SYSDATE, 'YYYYMMDD'),	TO_CHAR(SYSDATE, 'HH24MISS'),	'MASTER',
+			'C'
+	  FROM ICOGPASSLN A, ICOMLUSR B, ICOMTRGW C
+	 WHERE C.COM_CODE = #{BUYER}
+	   AND C.KEY_1 = #{REF_NO}
+	   AND C.DOC_NAME = 'PX'
+	   AND A.COMPANY = C.COM_CODE
+	   AND A.DOCU_NO = C.TARGET
+	   AND B.USER_ID = A.USER_ID
+	   AND A.ORDER_NO != 1
+	 ORDER BY A.ORDER_NO
+	</insert>
+	
+	<insert id="insertIfEvent" parameterType="java.util.Map" useGeneratedKeys="false">
+	INSERT INTO ICOMTRXL VALUES (#{TYPE}, #{buyer}, #{sPR_No}, ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ')
+	</insert>
+
+	<select id="selectHanwhaCompany" parameterType="java.util.Map" resultType="String">
+	SELECT NVL(MAX(TEXT4),'X') AS COMPANY_ID
+	  FROM ICOMCOD2 A
+	 WHERE TYPE = 'PLNT'
+	   AND COMPANY_CODE = 'KRHANWG002'
+	   AND TEXT1 = #{buyer}
+	   AND FLAG = 'Y'
+	</select>
+	
+	<insert id="insertHanwhaSapIfEvent" parameterType="java.util.Map" useGeneratedKeys="false">
+	INSERT INTO ICOMTRXL VALUES (#{TYPE}, #{buyer}, #{sPR_No}, FUN_MAX_SEQ_MNG(#{TYPE}, 'YY'), 'C', ' ', 'N', ' ', ' ', TO_CHAR(SYSDATE, 'YYYY/MM/DD HH24:MI:SS'), 'N', ' ')
+	</insert>
+	
+	<select id="selectAeKyaAppList" parameterType="java.util.Map" resultType="java.util.Map">
+	 	SELECT COM_CODE, TARGET
+	 	  FROM ICOMTRGW
+	 	 WHERE (COM_CODE, KEY_1) IN (
+	 	 	SELECT BUYER, REF_NO
+	 	 	  FROM ICOMPRDT
+	 	 	 WHERE BUYER IN (SELECT BUYER FROM IF_ADMIN WHERE BUYER_ID = 'AEKY')
+	 	 	   AND REF_IF_NO =  #{gw_doc_id}
+	 	 ) 
+	 	 AND DOC_NAME = 'PX'
+	</select>
+	
+	<select id="selectAeKyRqAppList" parameterType="java.util.Map" resultType="java.util.Map">
+	 	SELECT COM_CODE, TARGET, KEY_1
+	      FROM ICOMTRGW
+	     WHERE (COM_CODE, KEY_1) IN (
+	 	 	SELECT BUYER, GW_NO
+	 	 	  FROM KEPRQDT
+	 	 	 WHERE BUYER IN (SELECT BUYER FROM IF_ADMIN WHERE BUYER_ID = 'AEKY')
+	 	 	   AND REF_NO = #{gw_doc_id}
+	 	 )          
+         AND DOC_NAME = 'NS'
+         AND TARGET = #{gwNo}
+	</select>
+	
+	<select id="AeKygetAppInfo" parameterType="java.util.Map" resultType="java.util.Map">
+	<![CDATA[
+    SELECT DISTINCT
+	       B.COMPANY,
+	       B.DOCU_NO,
+	       B.PASS_STATUS,
+	       B.EXTIF_TP,
+	       B.EXTIF_NO,
+	       B.EXTIF_COUNT,
+	       B.CUR_ORDER_NO,
+	       C.USER_ID
+	  FROM EAI.IF_APM_SEND A
+	     , ICOGDOCU B
+	     , ICOGPASSLN C
+	 WHERE 1 = 1
+	   AND A.BUYER = #{COM_CODE}
+	   AND A.DOC_NO = #{TARGET}
+	   AND B.COMPANY = A.BUYER
+	   AND B.DOCU_NO = A.DOC_NO
+     
+	   AND C.COMPANY = B.COMPANY
+	   AND C.DOCU_NO = B.DOCU_NO
+       AND (SELECT LEGACY_USER_ID FROM ICOMLUSR WHERE COM_CODE = C.COMPANY AND USER_ID = C.USER_ID) = #{USERID}
+	]]>
+	</select>
+	
+	<update id="AeKymodifyICOGPASSLN" parameterType="java.util.Map">
+	UPDATE ICOGPASSLN A
+	   SET A.PASS_DATE = SYSDATE
+	     , A.REFER_DATE= SYSDATE
+	     , A.PASS_KN   = #{PASS_KN}
+	 WHERE A.COMPANY   = #{COMPANY}
+	   AND A.DOCU_NO   = #{DOCU_NO}
+	   AND A.USER_ID  = #{USER_ID}
+	   AND A.PASS_DATE IS NOT NULL
+	</update>
+	
+	<update id="AeKyAllPassICOGPASSLN" parameterType="java.util.Map">
+	UPDATE ICOGPASSLN 
+       SET PASS_KN = '1',
+           PASS_DATE = SYSDATE,
+           REFER_DATE= SYSDATE
+     WHERE COMPANY = #{COMPANY}  
+       AND DOCU_NO = #{TARGET}
+       AND PASS_TP = '1'
+       AND PASS_KN IS NULL	
+    </update>
+	
+	<select id="AeKygetICOGPASSLNOrderNo" parameterType="java.util.Map" resultType="java.util.Map">
+	SELECT
+	       TO_CHAR(ORDER_NO) AS ORDER_NO
+	  FROM ICOGPASSLN
+	WHERE 1 = 1
+	  AND COMPANY = #{COMPANY}
+	  AND DOCU_NO = #{DOCU_NO}
+	  AND PASS_TP = #{PASS_TP}
+	  AND PASS_KN IS NULL
+	 ORDER BY TO_NUMBER(ORDER_NO)
+	</select>
+	
+	<select id="AeKyselectPrCancelInfoList" parameterType="java.util.Map" resultType="java.util.Map">	
+	SELECT DISTINCT
+	       A.BUYER, A.PR_NO
+	  FROM ICOMPRDT A
+	 WHERE A.BUYER = #{COM_CODE}
+	   AND A.REF_IF_NO = #{gw_doc_id}	
+	</select>
+	
+	<select id="AeKyselectRqCancelInfoList" parameterType="java.util.Map" resultType="java.util.Map">	
+	SELECT DISTINCT
+	       A.BUYER, A.GW_NO
+	  FROM KEPRQDT A
+	 WHERE A.BUYER = #{COM_CODE}
+	   AND A.REF_NO = #{gw_doc_id}	
+	</select>
+	
+	<update id="AeKyupdatePrCancel" parameterType="java.util.Map">
+	UPDATE ICOMPRDT
+	   SET RECV_FLAG = #{RECV_FLAG}
+	     , CHANGE_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD')
+	     , CHANGE_TIME = TO_CHAR(SYSDATE, 'HH24MISS')
+
+	 WHERE BUYER = #{BUYER}
+	   AND PR_NO = #{PR_NO}
+	</update>
+	
+	<update id="AeKyupdateRqCancel" parameterType="java.util.Map">
+	UPDATE KEPRQDT
+	   SET RECV_FLAG = #{RECV_FLAG}
+	     , CANCEL_DATE = SYSDATE
+         , LOAD_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD')
+	     , LOAD_TIME = TO_CHAR(SYSDATE, 'HH24MISS')
+	 WHERE BUYER = #{BUYER}
+	   AND GW_NO = #{GW_NO}
+	</update>
+	
+	
+	<update id="AeKymodifyAPL" parameterType="java.util.Map">
+	UPDATE EAI.IF_APL_SEND 
+	   SET KEY_3 = #{APPRLINESTATUSCD}
+	 WHERE BUYER = #{COMPANY}
+	   AND DOC_NO = #{DOCU_NO}
+	   AND USER_ID = #{USER_ID}
+	</update>
+	<update id="AeKymodifyICOGDOCU2" parameterType="java.util.Map">
+	UPDATE ICOGDOCU 
+	   SET CUR_ORDER_NO = #{CUR_ORDER_NO}
+	     , PASS_STATUS = #{PASS_STATUS}
+	 WHERE COMPANY = #{COMPANY}
+	   AND DOCU_NO = #{DOCU_NO}
+	   AND PASS_STATUS != #{PASS_STATUS}
+	</update>
+	<update id="AeKyupdateHwinAppStatus" parameterType="java.util.Map">
+	UPDATE EAI.IF_APM_SEND
+	   SET KEY_8 = #{RTN_MSG}
+	     , KEY_9 = #{RTN_FLAG}
+	     , KEY_10 = TO_CHAR(SYSDATE, 'YYYY/MM/DD HH24:MI:SS')
+	 WHERE BUYER = #{COM_CODE}
+	   AND DOC_NO = #{TARGET}
+	</update>
+	<update id="AeKyupdateAppFinal2" parameterType="java.util.Map">
+	UPDATE ICOGDOCU
+	   SET PASS_STATUS = #{PASS_STATUS}
+	     , END_DATE = SYSDATE
+	 WHERE (COMPANY, DOCU_NO) IN (
+		   SELECT BUYER, DOC_NO FROM EAI.IF_APM_SEND
+		    WHERE BUYER = #{COM_CODE}
+		      AND DOC_NO = #{TARGET}
+	   )
+	   AND PASS_STATUS NOT IN ('1','3')
+	</update>
+	<update id="AeKymodifyICOGDOCU_PASSSTATUS" parameterType="java.util.Map">
+	UPDATE ICOGDOCU
+	   SET PASS_STATUS='4'
+	 WHERE (COMPANY,DOCU_NO) IN (
+	         SELECT BUYER, DOC_NO FROM EAI.IF_APM_SEND
+	          WHERE BUYER = #{COM_CODE}
+	            AND DOC_NO = #{TARGET})
+	</update>
+	<update id="AeKymodifyICOGPASSLN_PASSKN" parameterType="java.util.Map">
+	UPDATE ICOGPASSLN
+	   SET PASS_KN='4'
+	 WHERE (COMPANY,DOCU_NO) IN (
+	         SELECT BUYER, DOC_NO FROM EAI.IF_APM_SEND
+	          WHERE BUYER = #{COM_CODE}
+	            AND DOC_NO = #{TARGET} )
+	</update>
+	
+	<update id="InsertMsdsStatus" parameterType="java.util.Map">
+		 INSERT INTO IF_FILE_UC (
+              KEP_SEQ
+              ,DOC_TYPE
+              ,BUYER
+              ,DATA01
+              <if test="MSG != null and MSG != ''">    
+              ,DATA02
+              </if> 
+              <![CDATA[ 
+              ,DATA05
+              ,IF_FLAG
+              ,IF_DATE
+              ,IF_TIME
+            ) VALUES (
+              SEQ_IF_FILE_UC.NEXTVAL
+              ,'MSDS_R'
+              ,'SOUL'
+              ,#{STATUS}
+              ]]>  
+              <if test="MSG != null and MSG != ''">    
+              ,#{MSG}
+              </if>  
+              <![CDATA[   
+              ,#{KEY_ID}
+              ,'N'
+              ,TO_CHAR(SYSDATE,'YYYYMMDD')
+              ,TO_CHAR(SYSDATE,'HH24MISS')
+              ]]>  
+            )
+	</update>
+		<update id="insertNexePr" parameterType="java.util.Map" useGeneratedKeys="false">
+		<![CDATA[
+		 	INSERT INTO EAI.IF_UCUBE_PR_SEND ( 
+				  BUYER
+				, DOC_NO
+				, DOC_SEQ
+				, ADD_DATE	
+				, ADD_TIME	
+				, BUYER_ITEM_NO	
+				, DESCRIPTION	
+				, SPECIFICATION		
+				, UNIT_MEASURE		
+				, ITEM_QTY	
+				, UNIT_PRICE	
+				, ITEM_AMT	
+				, RD_DATE	
+				, CREATE_DATM
+				, IF_FLAG
+				, STATUS
+				, BUDGET_DEPT
+				, ACCOUNT_TYPE
+				, LEGACY_USER_ID
+				, REF_PR_NO
+				, PLANT
+				, KEY_1
+				, KEY_2
+				, KEY_3
+			) 
+		  SELECT 
+			      A.BUYER
+				, A.REF_NO
+				, A.REF_SEQ
+				, A.ADD_DATE	
+				, A.ADD_TIME	
+				, A.BUYER_ITEM_NO	
+				, A.DESCRIPTION	
+				, A.SPECIFICATION		
+				, A.UNIT_MEASURE		
+				, A.TARGET_QTY	
+				, A.TARGET_PRICE	
+				, A.TARGET_QTY*A.TARGET_PRICE AS ITEM_AMT	
+				, A.RD_DATE	
+				, SYSDATE AS CREATE_DATM	 	
+				, 'N'
+				, 'C'
+				, A.BUDGET_DEPT
+				, A.ACCOUNT_TYPE
+				, (SELECT LEGACY_USER_ID FROM ICOMLUSR WHERE USER_ID = A.ADD_USER_ID AND COM_CODE = A.BUYER)
+                , A.REF_PR_NO   
+				, (SELECT CODE FROM ICOMCOD2 WHERE TYPE = 'PLNT' AND COMPANY_CODE = 'KRNEXEG002' AND TEXT1 = A.BUYER) AS PLANT
+                , CASE
+                  WHEN A.REF_PR_NO = ' ' THEN 'K'
+                  WHEN A.REF_PR_NO IS NULL THEN 'K'
+                  ELSE 'A' 
+                  END AS KNTTP  
+				, 'KR10'
+				, A.PR_NO
+			  FROM ICOMPRDT A
+			 WHERE 1 = 1
+			   AND A.BUYER = #{buyer}
+	   		   AND A.PR_NO = #{sPR_No}									
+		]]>	
+	</update>
+	
+	<select id="selectNexePrList" parameterType="java.util.Map" resultType="java.util.Map">
+		/* buyer.mpso.selectNexePrList */
+		 SELECT   BUYER
+				, DOC_NO
+				, DOC_SEQ
+				, ADD_DATE	
+				, ADD_TIME	
+				, BUYER_ITEM_NO	
+				, SUBSTRB(A.DESCRIPTION,1,40) AS DESCRIPTION	
+				, SPECIFICATION		
+				, UNIT_MEASURE		
+				, ITEM_QTY	
+				, UNIT_PRICE	
+				, ITEM_AMT	
+				, RD_DATE	
+				, IF_FLAG
+				, BUDGET_DEPT
+				, ACCOUNT_TYPE
+				, LEGACY_USER_ID
+				, PLANT
+				, REF_PR_NO
+				, KEY_1
+				, KEY_2
+		  FROM EAI.IF_UCUBE_PR_SEND A
+		 WHERE A.BUYER  = #{buyer}
+		   AND A.DOC_NO  = #{REF_NO}
+	</select>
+	
+	<update id="updateNexePrResult" parameterType="java.util.Map">
+		UPDATE EAI.IF_UCUBE_PR_SEND
+		   SET IF_FLAG = #{FLAG}
+		      ,IF_DATM = SYSDATE
+		 WHERE BUYER = #{BUYER}
+		 AND DOC_NO = #{DOC_NO}
+	</update>
+	
+	
+	<select id="selectHansPrList" parameterType="java.util.Map" resultType="java.util.Map">
+		/* buyer.mpso.selectHansPrList */
+		  SELECT 
+			      A.BUYER
+				, A.REF_NO
+				, A.REF_SEQ
+				, A.ADD_DATE	
+				, A.ADD_TIME	
+				, A.BUYER_ITEM_NO	
+				, A.DESCRIPTION	
+				, A.SPECIFICATION		
+				, A.UNIT_MEASURE		
+				, A.TARGET_QTY	
+				, A.TARGET_PRICE	
+				, A.TARGET_QTY*A.TARGET_PRICE AS ITEM_AMT	
+				, A.RD_DATE	
+				, A.BUDGET_DEPT
+				, A.ACCOUNT_TYPE
+				, A.PR_NO
+				, A.PR_SEQ
+				, A.CATEG_ID
+				, (SELECT DESCRIPT FROM ICOMBYCA WHERE STD_CATEG_ID = A.CATEG_ID AND COM_CODE = #{buyer}) AS SAP_CATEG_ID
+				, A.REF_PR_NO
+			  FROM ICOMPRDT A
+			 WHERE 1 = 1
+			   AND A.BUYER = #{buyer}
+	   		   AND A.PR_NO = #{sPR_No}	
+	</select>
+	
+	<update id="insertHansPr" parameterType="java.util.Map" useGeneratedKeys="false">
+		<![CDATA[
+		 	INSERT INTO EAI.IF_UCUBE_PR_SEND ( 
+				BUYER
+				, DOC_NO
+				, DOC_SEQ
+                , PR_NO
+                , PR_SEQ
+				, BUYER_ITEM_NO	
+				, DESCRIPTION	
+				, SPECIFICATION		
+				, UNIT_MEASURE		
+				, ITEM_QTY	
+				, UNIT_PRICE	
+				, ITEM_AMT	
+				, RD_DATE	
+				, CREATE_DATM
+				, IF_FLAG
+				, STATUS
+				, BUDGET_DEPT
+                , CATEGORY1
+                , REQ_USER_NAME
+				, KEY_1
+				, ADD_DATE	
+				, ADD_TIME	
+				, USER_ID
+			) 
+				SELECT 
+			      A.BUYER
+			      , A.REF_NO
+			      , A.REF_SEQ
+			      , A.PR_NO
+			      , A.PR_SEQ
+			      , A.BUYER_ITEM_NO	
+			      , A.DESCRIPTION	
+                  , A.SPECIFICATION	
+			      , A.UNIT_MEASURE	
+                  , A.TARGET_QTY	
+			      , A.TARGET_PRICE	
+                  , A.TARGET_QTY*A.TARGET_PRICE AS ITEM_AMT	
+                  , A.RD_DATE
+                  , SYSDATE AS CREATE_DATM	 
+                  , #{GW_FLAG}
+                  , 'C'
+                  , A.ADD_USER_DEPT
+                  , (SELECT DESCRIPT FROM ICOMBYCA WHERE STD_CATEG_ID = A.CATEG_ID AND COM_CODE = #{buyer}) AS SAP_CATEG_ID
+			      , (SELECT ICOMLUSR.USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = A.ADD_USER_ID AND COM_CODE = A.BUYER) AS USER_NAME_LOC
+                  , A.REF_PR_NO
+                  , A.ADD_DATE	
+				  , A.ADD_TIME	
+				  , A.PURCHASER_ID
+			 FROM ICOMPRDT A
+			WHERE 1 = 1
+			  AND A.BUYER = #{buyer}
+			  AND A.PR_NO = #{sPR_No}									
+		]]>	
+	</update>
+	
+	<resultMap type="Map" id="getSignUpResult">
+		<result property = "buyerCookie" column="buyerCookie" jdbcType="CLOB" javaType="java.lang.String" />
+		<result property = "browserFormPosURL" column="browserFormPosURL" jdbcType="CLOB" javaType="java.lang.String" />
+	</resultMap>
+	
+	<select id="selectYhkbSignUp" parameterType="java.util.Map" resultMap="getSignUpResult">
+	/* selectYhkbSignUp */
+	<![CDATA[
+		SELECT 
+				REPLACE(SUBSTR(CONTENTS, INSTR(CONTENTS,'buyerCookie='),(INSTR(CONTENTS,'browserFormPosURL=') - INSTR(CONTENTS,'buyerCookie=') - 1)),'buyerCookie=','') AS buyerCookie,
+ 				REPLACE(SUBSTR(CONTENTS, INSTR(CONTENTS,'browserFormPosURL=')),'browserFormPosURL=','') AS browserFormPosURL
+		  FROM IF_WS_LOG
+		 WHERE INTERFACE_ID = 'PUNCHOUT'
+		 AND CONTENTS LIKE 'signUpYHKB_st_email=' || #{st_email} || '%'
+	]]>
+	</select>
+	
+	<parameterMap id="paramMap" type="Map">
+		<parameter javaType="java.lang.String" jdbcType="VARCHAR" mode="IN" property="st_buyer" />
+		<parameter javaType="java.lang.String" jdbcType="VARCHAR" mode="IN" property="st_user_name_loc" />
+		<parameter javaType="java.lang.String" jdbcType="VARCHAR" mode="IN" property="st_email" />
+		<parameter javaType="java.lang.String" jdbcType="VARCHAR" mode="IN" property="st_legacy_user_id" />		
+		<parameter javaType="java.lang.String" jdbcType="VARCHAR" mode="OUT" property="returnValue" />
+	</parameterMap>
+	
+	<select id="saveYhkbSignUp" statementType="CALLABLE" parameterMap="paramMap">
+	/* saveYhkbSignUp */
+			{ CALL PROC_USER_SIGNUP(?,?,?,?,'','',?) } 
+	</select>
+	
+	<select id="selectAekyReList" parameterType="java.util.Map" resultType="java.util.Map">
+	/* buyer.mpso."selectAekyReList" */
+	SELECT
+	       A.BUYER,
+	       A.QUOTATION_NO,
+	       A.QUOTATION_SEQ,
+	       A.BUYER_ITEM_NO,
+	       A.DESCRIPTION,
+	       A.SPECIFICATION,
+	       'KRW' AS CUR,
+	       A.UNIT_MEASURE,
+	       A.BTOA_USER_DEPT,	       
+           TRIM(TO_CHAR(DECODE(A.ITEM_QTY,0,1,NVL(A.ITEM_QTY,1)),'999,999,999,999,999')) AS ITEM_QTY,
+	       TRIM(TO_CHAR(A.ATOB_UNIT_PRICE,'999,999,999,999,999')) AS PRICE,
+	       TRIM(TO_CHAR((DECODE(A.ITEM_QTY,0,1,TRIM(NVL(A.ITEM_QTY,1))) * A.ATOB_UNIT_PRICE) ,'999,999,999,999,999')) AS AMT,
+           (SELECT TRIM(TO_CHAR(SUM((DECODE(ITEM_QTY,0,1,NVL(ITEM_QTY,1)) * ATOB_UNIT_PRICE)),'999,999,999,999,999')) FROM KEPRQDT
+             WHERE BUYER = A.BUYER
+               AND GW_NO = A.GW_NO) AS TOT_AMT,
+           (SELECT TO_CHAR(COUNT(*)) FROM KEPRQDT
+             WHERE BUYER = A.BUYER
+               AND GW_NO = A.GW_NO) AS TOT_CNT
+	  FROM KEPRQDT A
+	     , ICOMCMPY B
+	 WHERE 1 = 1
+	   AND A.BUYER = #{buyer}
+       AND A.GW_NO = (SELECT KEY_1 
+                        FROM ICOMTRGW 
+                       WHERE COM_CODE = #{buyer} 
+                         AND TARGET = #{ak_docu_no})
+	   AND A.BUYER = B.COM_CODE
+	</select>
+	
+	<select id="selectAekyReAppInfo" parameterType="java.util.Map" resultType="java.util.Map">
+	/* buyer.mpso.selectAekyReAppInfo */
+	SELECT 
+	    COMPANY,
+	    DOCU_NO,
+	    DOCU_TITLE,
+	    DOCU_CONT,
+	    USER_ID,
+	    USER_NM,
+	    TO_CHAR(START_DATE,'YYYYMMDD') AS APP_DATE,
+	    GET_CSTMR_DEAL_STTMN_NO(COMPANY) AS APPR_ID
+	  FROM ICOGDOCU
+	 WHERE (COMPANY, DOCU_NO) IN (
+	    SELECT COM_CODE, TARGET
+	      FROM ICOMTRGW
+	     WHERE DOC_NAME = 'NS'
+	       AND COM_CODE = #{buyer}
+           AND TARGET = #{ak_docu_no})
+	</select>
+	
+	<update id="updateAeKyRqdtDocNo" parameterType="java.util.Map" >	
+		UPDATE KEPRQDT SET REF_NO = #{AeKyDocNo}
+		 WHERE BUYER = #{buyer}
+		   AND GW_NO = (SELECT KEY_1 
+                        FROM ICOMTRGW 
+                       WHERE COM_CODE = #{buyer} 
+                         AND TARGET = #{ak_docu_no})
+	</update>
+	
+</mapper>

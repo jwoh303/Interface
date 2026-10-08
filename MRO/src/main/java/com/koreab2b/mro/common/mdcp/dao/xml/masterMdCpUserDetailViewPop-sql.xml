@@ -1,0 +1,216 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="common.mdcp">
+
+	<!-- 사용자 정보 -->
+	<select id="selectMasterMdCpUserDetailViewPopList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/* selectMasterMdCpUserDetailViewPopList */
+		SELECT
+			A.USER_ID,
+			A.USER_NAME_LOC,
+			A.USER_NAME_ENG,
+			A.LANG,
+			A.EMAIL,
+			A.USER_TYPE,
+			A.ZIP_CODE,
+			A.COUNTRY,
+			A.CITY,
+			(SELECT TEXT2 FROM ICOMCOD1 WHERE TYPE='M001' AND CODE = A.COUNTRY) COUNTRY_NAME,
+			(SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE='M004' AND CODE = A.CITY) CITY_NAME,
+			A.MOBILE_PHONE,
+			A.ADDRESS_LOC,
+			A.ADDRESS_ENG,
+			A.PHONE_NUMBER,
+			A.FAX_NUMBER,
+			A.COM_CODE,
+			B.COM_NAME_LOC,
+			B.IRS_NO,
+			B.CORP_CODE,
+			(SELECT CORP_NAME FROM BNTBUYERGROUP A WHERE A.CORP_CODE = B.CORP_CODE) AS CORP_NAME,
+			A.PURCHASE_DEPT,
+			(SELECT TEXT1 FROM ICOMCOD2 WHERE TYPE='C001' AND CODE = A.PURCHASE_DEPT AND COMPANY_CODE = A.COM_CODE) AS PURCHASE_DEPT_TEXT,
+			NVL(A.SMS_RECV_FLAG,'N') AS SMS_RECV_FLAG,
+			NVL(A.MAIL_RECV_FLAG,'N') AS MAIL_RECV_FLAG,
+			A.DEPARTMENT,
+			A.POSITION,
+			(SELECT TEXT1 FROM ICOMCOD2 WHERE TYPE='C001' AND CODE = A.DEPARTMENT AND COMPANY_CODE = A.COM_CODE) AS DEPARTMENT_TEXT,
+			(SELECT TEXT1 FROM ICOMCOD2 WHERE TYPE='C003' AND CODE = A.POSITION AND COMPANY_CODE = A.COM_CODE) AS POSITION_TEXT,
+			A.CHANGE_USER_TYPE,
+			A.DELY_TO_LOCATION,
+			(SELECT TEXT2 FROM ICOMCOD2 WHERE TYPE='C012' AND COMPANY_CODE = A.COM_CODE AND CODE = A.DELY_TO_LOCATION) AS DELY_TEXT,
+			A.ROLE,
+			DECODE(SUBSTR(A.ROLE,2,1),'+','주문 : ','')||DECODE(SUBSTR(A.ROLE,0,1),'G','입고','P','발주','C','발주 : 입고','U','조회','A','발주 : 입고') AS ROLE_NAME,
+			A.USER_GROUP,
+			A.ROW_CNT,
+			A.IMG_VIEW_FLAG,
+			A.PERSON_AUTHOR,
+			A.ZIP_KEY,
+			NVL(A.ADDRESS_LOC1, A.ADDRESS_LOC) AS ADDRESS_LOC1,
+			A.ADDRESS_LOC2,
+			A.STATUS,
+			A.LEGACY_USER_ID
+		FROM ICOMLUSR A, ICOMCMPY B
+		WHERE 1=1
+		AND A.COM_CODE = B.COM_CODE
+		AND A.STATUS   <> 'D'
+		AND B.STATUS   <> 'D'
+		AND UPPER(A.USER_ID) = UPPER(#{st_user_id})
+		]]>
+	</select>
+	<!-- 사용자 정보 -->
+	
+	<select id="selectMasterMdCpUserDetailViewApproved" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/* selectMasterMdCpUserDetailViewApproved  */
+		SELECT
+			A.APPR_ID,
+			A.APPR_NAME,
+			A.APPR_SEQ,
+			A.GUBUN
+		FROM ICOMAPSE A, ICOMAPPT B
+		WHERE 1=1
+		AND A.USER_ID = B.USER_ID
+		AND A.APP_PATH = B.APP_PATH
+		AND A.USER_ID = #{st_user_id}
+		AND A.GUBUN = 'C'
+		AND NVL(B.DEFAULT_FLAG,' ') = 'Y'
+		ORDER BY A.APPR_SEQ
+		]]>
+	</select>
+	
+	<select id="selectMasterMdCpUserDetailViewRefer" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/* selectMasterMdCpUserDetailViewRefer  */
+		SELECT
+			A.APPR_ID,
+			A.APPR_NAME,
+			A.APPR_SEQ,
+			A.GUBUN
+		FROM ICOMAPSE A, ICOMAPPT B
+		WHERE 1=1
+		AND A.USER_ID = B.USER_ID
+		AND A.APP_PATH = B.APP_PATH
+		AND A.USER_ID = #{st_user_id}
+		AND A.GUBUN = 'R'
+		AND NVL(B.DEFAULT_FLAG,' ') = 'Y'
+		ORDER BY A.APPR_SEQ
+		]]>
+	</select>
+	
+	<update id="updateMasterMdCpUserDetailViewPop" parameterType="java.util.Map">
+		<![CDATA[
+			UPDATE ICOMLUSR
+			SET
+				ROLE			= NVL(#{st_role},ROLE),
+				USER_GROUP		= NVL(#{st_user_group},USER_GROUP),
+				DEPARTMENT		= NVL(#{st_department},DEPARTMENT),
+				PURCHASE_DEPT	= NVL(#{st_pur_department},PURCHASE_DEPT),
+				DELY_TO_LOCATION= NVL(#{st_dely_to_location},DELY_TO_LOCATION)
+		WHERE USER_ID			= #{st_user_id}
+		]]>
+	</update>
+	
+	<update id="insertMasterMdCpUserInfoLog" parameterType="java.util.Map">
+	/* insertMasterMdCpUserInfoLog  */
+		INSERT INTO KEP.MRO_ROLE_CHG_LOG
+		(
+		CHANGE_DATE,
+		USER_ID,
+		JOB_USER_ID,
+		<if test="st_role != null and st_role != ''">
+		<![CDATA[
+		OLD_ROLE,
+		NEW_ROLE,
+ 		]]>  
+        </if>
+        <if test="st_user_group != null and st_user_group != ''">
+        <![CDATA[                        
+		OLD_RFQ_ROLE,
+		NEW_RFQ_ROLE,
+		]]>
+		</if>
+		NOTE,
+		IP,
+		TERMINAL,
+		OS_USER,
+		DB_USER	
+		)
+		VALUES
+		(
+		SYSDATE,
+		#{st_user_id},
+		#{st_job_user_id},
+		<if test="st_role != null and st_role != ''">
+		<![CDATA[
+		#{st_old_role},
+		#{st_role},
+ 		]]>  
+        </if>
+        <if test="st_user_group != null and st_user_group != ''">
+        <![CDATA[                        
+		#{st_old_user_group},
+		#{st_user_group},
+		]]>
+		</if>
+		'SITE',
+		#{REG_IP},
+		SYS_CONTEXT('USERENV','TERMINAL'  ,30),
+		SYS_CONTEXT('USERENV','OS_USER'   ,30),
+		SYS_CONTEXT('USERENV','SESSION_USER',30)
+		)
+	</update>
+
+	<update id="insertMasterMdCpUserChangeLog" parameterType="java.util.Map">
+	/* insertMasterMdCpUserInfoLog  */
+		INSERT INTO KEP.MRO_USER_CHG_LOG
+		(
+		CHANGE_DATE,
+		USER_ID,
+		JOB_USER_ID,
+		<if test="st_department != null and st_department != ''">            
+		<![CDATA[
+		OLD_DEPARTMENT,
+		NEW_DEPARTMENT,
+ 		]]>  
+        </if>
+        <if test="st_pur_department != null and st_pur_department != ''">            
+		<![CDATA[
+		OLD_PURCHASE_DEPT,
+		NEW_PURCHASE_DEPT,
+ 		]]>  
+        </if>                
+		NOTE,
+		IP,
+		TERMINAL,
+		OS_USER,
+		DB_USER
+		)
+		VALUES
+		(
+		SYSDATE,
+		#{st_user_id},
+		#{st_job_user_id},
+		<if test="st_department != null and st_department != ''">            
+		<![CDATA[
+		#{st_old_department},
+		#{st_department},
+ 		]]>  
+        </if>
+        <if test="st_pur_department != null and st_pur_department != ''">            
+		<![CDATA[
+		#{st_old_pur_department},
+		#{st_pur_department},
+ 		]]>  
+        </if>        
+		'SITE',
+		#{REG_IP},
+		SYS_CONTEXT('USERENV','TERMINAL'  ,30),
+		SYS_CONTEXT('USERENV','OS_USER'   ,30),
+		SYS_CONTEXT('USERENV','SESSION_USER',30)
+		)
+	</update>
+	
+			
+		
+</mapper>

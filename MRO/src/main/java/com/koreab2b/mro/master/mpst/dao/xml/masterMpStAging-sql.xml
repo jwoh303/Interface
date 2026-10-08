@@ -1,0 +1,435 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mpst">
+	<!-- 조회 -->
+	<select id="selectAgingList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.pagestart"/>	
+		/* master.mpst.selectAgingList*/
+        SELECT
+               A.SITE,
+               A.YYYYMM,
+               C.TEXT1 AS SITE_NAME,
+               A.CATEGORY_NAME,
+               A.ITEM_NO,
+               A.DESCRIPTION,
+               A.SPECIFICATION,
+               A.MAKER_NAME,
+               A.UNIT_MEASURE,
+               A.DEPT_NAME,
+               A.WAREHOUSE_NAME,
+               A.STOCK_QTY,
+               A.STOCK_PRICE,
+               A.STOCK_AMT,
+               (A.D01_QTY+A.D02_QTY+A.D03_QTY) AS PRD_QTY_1,
+               (A.D01_QTY+A.D02_QTY+A.D03_QTY) 
+                               * A.STOCK_PRICE AS PRD_AMT_1,
+               (A.D04_QTY+A.D05_QTY+A.D06_QTY) AS PRD_QTY_2,
+               (A.D04_QTY+A.D05_QTY+A.D06_QTY) 
+                               * A.STOCK_PRICE AS PRD_AMT_2,
+               (A.D07_QTY+A.D08_QTY+A.D09_QTY
+               +A.D10_QTY+A.D11_QTY+A.D12_QTY) AS PRD_QTY_3,
+               (A.D07_QTY+A.D08_QTY+A.D09_QTY
+               +A.D10_QTY+A.D11_QTY+A.D12_QTY) 
+                               * A.STOCK_PRICE AS PRD_AMT_3,
+               (A.D13_QTY+A.D14_QTY+A.D15_QTY
+               +A.D16_QTY+A.D17_QTY+A.D18_QTY
+               +A.D19_QTY+A.D20_QTY+A.D21_QTY
+               +A.D22_QTY+A.D23_QTY+A.D24_QTY) AS PRD_QTY_4,
+               (A.D13_QTY+A.D14_QTY+A.D15_QTY
+               +A.D16_QTY+A.D17_QTY+A.D18_QTY
+               +A.D19_QTY+A.D20_QTY+A.D21_QTY
+               +A.D22_QTY+A.D23_QTY+A.D24_QTY) 
+                              * A.STOCK_PRICE  AS PRD_AMT_4,
+               A.ETC_QTY                       AS PRD_QTY_5,
+               A.ETC_QTY      * A.STOCK_PRICE  AS PRD_AMT_5
+          FROM KEP_STOCK_AGING A
+               INNER JOIN ICOMCOD1 C ON (1 = 1
+                 AND C.TYPE = 'SR01'
+                 AND C.CODE = A.SITE
+               )
+         WHERE 1 = 1
+           <if test="st_site != 'ALL'">
+           		AND A.SITE   = #{st_site}
+           </if>
+           AND A.YYYYMM = #{st_yyyymm}
+           AND A.ITEM_NO LIKE #{st_item_no} || '%'
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+	
+	<select id="selectAgingDetail" parameterType="java.util.Map" resultType="java.util.Map">
+		/* master.mpst.selectAgingDetail*/
+		SELECT YYYYMM, GR, AGING
+		  FROM (
+		SELECT
+		       TO_CHAR(TO_DATE(A.YYYYMM,'YYYYMM'), 'YYYY/MM') AS YYYYMM, A.D01_QTY AS GR, B.D01_QTY AS AGING
+		  FROM KEP_STOCK_GR A
+		       INNER JOIN KEP_STOCK_AGING B ON (1 = 1
+		         AND B.SITE    = A.SITE
+		         AND B.YYYYMM  = A.YYYYMM
+		         AND B.ITEM_NO = A.ITEM_NO
+		       )
+		 WHERE 1 = 1
+		   AND A.SITE    = #{st_site}
+		   AND A.YYYYMM  = #{st_yyyymm}
+		   AND A.ITEM_NO = #{st_item_no}
+		UNION ALL
+		SELECT
+		       TO_CHAR(ADD_MONTHS(TO_DATE(A.YYYYMM,'YYYYMM'), -1),'YYYY/MM') as YYYYMM, 
+		       A.D02_QTY AS GR, B.D02_QTY AS AGING
+		  FROM KEP_STOCK_GR A
+		       INNER JOIN KEP_STOCK_AGING B ON (1 = 1
+		         AND B.SITE    = A.SITE
+		         AND B.YYYYMM  = A.YYYYMM
+		         AND B.ITEM_NO = A.ITEM_NO
+		       )
+		 WHERE 1 = 1
+		   AND A.SITE    = #{st_site}
+		   AND A.YYYYMM  = #{st_yyyymm}
+		   AND A.ITEM_NO = #{st_item_no}
+		UNION ALL
+		SELECT
+		       TO_CHAR(ADD_MONTHS(TO_DATE(A.YYYYMM,'YYYYMM'), -2),'YYYY/MM') as YYYYMM, 
+		       A.D03_QTY AS GR, B.D03_QTY AS AGING
+		  FROM KEP_STOCK_GR A
+		       INNER JOIN KEP_STOCK_AGING B ON (1 = 1
+		         AND B.SITE    = A.SITE
+		         AND B.YYYYMM  = A.YYYYMM
+		         AND B.ITEM_NO = A.ITEM_NO
+		       )
+		 WHERE 1 = 1
+		   AND A.SITE    = #{st_site}
+		   AND A.YYYYMM  = #{st_yyyymm}
+		   AND A.ITEM_NO = #{st_item_no}
+		UNION ALL
+		SELECT
+		       TO_CHAR(ADD_MONTHS(TO_DATE(A.YYYYMM,'YYYYMM'), -3),'YYYY/MM') as YYYYMM, 
+		       A.D04_QTY AS GR, B.D04_QTY AS AGING
+		  FROM KEP_STOCK_GR A
+		       INNER JOIN KEP_STOCK_AGING B ON (1 = 1
+		         AND B.SITE    = A.SITE
+		         AND B.YYYYMM  = A.YYYYMM
+		         AND B.ITEM_NO = A.ITEM_NO
+		       )
+		 WHERE 1 = 1
+		   AND A.SITE    = #{st_site}
+		   AND A.YYYYMM  = #{st_yyyymm}
+		   AND A.ITEM_NO = #{st_item_no}
+		UNION ALL
+		SELECT
+		       TO_CHAR(ADD_MONTHS(TO_DATE(A.YYYYMM,'YYYYMM'), -4),'YYYY/MM') as YYYYMM, 
+		       A.D05_QTY AS GR, B.D05_QTY AS AGING
+		  FROM KEP_STOCK_GR A
+		       INNER JOIN KEP_STOCK_AGING B ON (1 = 1
+		         AND B.SITE    = A.SITE
+		         AND B.YYYYMM  = A.YYYYMM
+		         AND B.ITEM_NO = A.ITEM_NO
+		       )
+		 WHERE 1 = 1
+		   AND A.SITE    = #{st_site}
+		   AND A.YYYYMM  = #{st_yyyymm}
+		   AND A.ITEM_NO = #{st_item_no}
+		UNION ALL
+		SELECT
+		       TO_CHAR(ADD_MONTHS(TO_DATE(A.YYYYMM,'YYYYMM'), -5),'YYYY/MM') as YYYYMM, 
+		       A.D06_QTY AS GR, B.D06_QTY AS AGING
+		  FROM KEP_STOCK_GR A
+		       INNER JOIN KEP_STOCK_AGING B ON (1 = 1
+		         AND B.SITE    = A.SITE
+		         AND B.YYYYMM  = A.YYYYMM
+		         AND B.ITEM_NO = A.ITEM_NO
+		       )
+		 WHERE 1 = 1
+		   AND A.SITE    = #{st_site}
+		   AND A.YYYYMM  = #{st_yyyymm}
+		   AND A.ITEM_NO = #{st_item_no}
+		UNION ALL
+		SELECT
+		       TO_CHAR(ADD_MONTHS(TO_DATE(A.YYYYMM,'YYYYMM'), -6),'YYYY/MM') as YYYYMM, 
+		       A.D07_QTY AS GR, B.D07_QTY AS AGING
+		  FROM KEP_STOCK_GR A
+		       INNER JOIN KEP_STOCK_AGING B ON (1 = 1
+		         AND B.SITE    = A.SITE
+		         AND B.YYYYMM  = A.YYYYMM
+		         AND B.ITEM_NO = A.ITEM_NO
+		       )
+		 WHERE 1 = 1
+		   AND A.SITE    = #{st_site}
+		   AND A.YYYYMM  = #{st_yyyymm}
+		   AND A.ITEM_NO = #{st_item_no}
+		UNION ALL
+		SELECT
+		       TO_CHAR(ADD_MONTHS(TO_DATE(A.YYYYMM,'YYYYMM'), -7),'YYYY/MM') as YYYYMM, 
+		       A.D08_QTY AS GR, B.D08_QTY AS AGING
+		  FROM KEP_STOCK_GR A
+		       INNER JOIN KEP_STOCK_AGING B ON (1 = 1
+		         AND B.SITE    = A.SITE
+		         AND B.YYYYMM  = A.YYYYMM
+		         AND B.ITEM_NO = A.ITEM_NO
+		       )
+		 WHERE 1 = 1
+		   AND A.SITE    = #{st_site}
+		   AND A.YYYYMM  = #{st_yyyymm}
+		   AND A.ITEM_NO = #{st_item_no}
+		UNION ALL
+		SELECT
+		       TO_CHAR(ADD_MONTHS(TO_DATE(A.YYYYMM,'YYYYMM'), -8),'YYYY/MM') as YYYYMM, 
+		       A.D09_QTY AS GR, B.D09_QTY AS AGING
+		  FROM KEP_STOCK_GR A
+		       INNER JOIN KEP_STOCK_AGING B ON (1 = 1
+		         AND B.SITE    = A.SITE
+		         AND B.YYYYMM  = A.YYYYMM
+		         AND B.ITEM_NO = A.ITEM_NO
+		       )
+		 WHERE 1 = 1
+		   AND A.SITE    = #{st_site}
+		   AND A.YYYYMM  = #{st_yyyymm}
+		   AND A.ITEM_NO = #{st_item_no}
+		UNION ALL
+		SELECT
+		       TO_CHAR(ADD_MONTHS(TO_DATE(A.YYYYMM,'YYYYMM'), -9),'YYYY/MM') as YYYYMM, 
+		       A.D10_QTY AS GR, B.D10_QTY AS AGING
+		  FROM KEP_STOCK_GR A
+		       INNER JOIN KEP_STOCK_AGING B ON (1 = 1
+		         AND B.SITE    = A.SITE
+		         AND B.YYYYMM  = A.YYYYMM
+		         AND B.ITEM_NO = A.ITEM_NO
+		       )
+		 WHERE 1 = 1
+		   AND A.SITE    = #{st_site}
+		   AND A.YYYYMM  = #{st_yyyymm}
+		   AND A.ITEM_NO = #{st_item_no}
+		UNION ALL
+		SELECT
+		       TO_CHAR(ADD_MONTHS(TO_DATE(A.YYYYMM,'YYYYMM'), -10),'YYYY/MM') as YYYYMM, 
+		       A.D11_QTY AS GR, B.D11_QTY AS AGING
+		  FROM KEP_STOCK_GR A
+		       INNER JOIN KEP_STOCK_AGING B ON (1 = 1
+		         AND B.SITE    = A.SITE
+		         AND B.YYYYMM  = A.YYYYMM
+		         AND B.ITEM_NO = A.ITEM_NO
+		       )
+		 WHERE 1 = 1
+		   AND A.SITE    = #{st_site}
+		   AND A.YYYYMM  = #{st_yyyymm}
+		   AND A.ITEM_NO = #{st_item_no}
+		UNION ALL
+		SELECT
+		       TO_CHAR(ADD_MONTHS(TO_DATE(A.YYYYMM,'YYYYMM'), -11),'YYYY/MM') as YYYYMM, 
+		       A.D12_QTY AS GR, B.D12_QTY AS AGING
+		  FROM KEP_STOCK_GR A
+		       INNER JOIN KEP_STOCK_AGING B ON (1 = 1
+		         AND B.SITE    = A.SITE
+		         AND B.YYYYMM  = A.YYYYMM
+		         AND B.ITEM_NO = A.ITEM_NO
+		       )
+		 WHERE 1 = 1
+		   AND A.SITE    = #{st_site}
+		   AND A.YYYYMM  = #{st_yyyymm}
+		   AND A.ITEM_NO = #{st_item_no}
+		UNION ALL
+		SELECT
+		       TO_CHAR(ADD_MONTHS(TO_DATE(A.YYYYMM,'YYYYMM'), -12),'YYYY/MM') as YYYYMM, 
+		       A.D13_QTY AS GR, B.D13_QTY AS AGING
+		  FROM KEP_STOCK_GR A
+		       INNER JOIN KEP_STOCK_AGING B ON (1 = 1
+		         AND B.SITE    = A.SITE
+		         AND B.YYYYMM  = A.YYYYMM
+		         AND B.ITEM_NO = A.ITEM_NO
+		       )
+		 WHERE 1 = 1
+		   AND A.SITE    = #{st_site}
+		   AND A.YYYYMM  = #{st_yyyymm}
+		   AND A.ITEM_NO = #{st_item_no}
+		UNION ALL
+		SELECT
+		       TO_CHAR(ADD_MONTHS(TO_DATE(A.YYYYMM,'YYYYMM'), -13),'YYYY/MM') as YYYYMM, 
+		       A.D14_QTY AS GR, B.D14_QTY AS AGING
+		  FROM KEP_STOCK_GR A
+		       INNER JOIN KEP_STOCK_AGING B ON (1 = 1
+		         AND B.SITE    = A.SITE
+		         AND B.YYYYMM  = A.YYYYMM
+		         AND B.ITEM_NO = A.ITEM_NO
+		       )
+		 WHERE 1 = 1
+		   AND A.SITE    = #{st_site}
+		   AND A.YYYYMM  = #{st_yyyymm}
+		   AND A.ITEM_NO = #{st_item_no}
+		UNION ALL
+		SELECT
+		       TO_CHAR(ADD_MONTHS(TO_DATE(A.YYYYMM,'YYYYMM'), -14),'YYYY/MM') as YYYYMM, 
+		       A.D15_QTY AS GR, B.D15_QTY AS AGING
+		  FROM KEP_STOCK_GR A
+		       INNER JOIN KEP_STOCK_AGING B ON (1 = 1
+		         AND B.SITE    = A.SITE
+		         AND B.YYYYMM  = A.YYYYMM
+		         AND B.ITEM_NO = A.ITEM_NO
+		       )
+		 WHERE 1 = 1
+		   AND A.SITE    = #{st_site}
+		   AND A.YYYYMM  = #{st_yyyymm}
+		   AND A.ITEM_NO = #{st_item_no}
+		UNION ALL
+		SELECT
+		       TO_CHAR(ADD_MONTHS(TO_DATE(A.YYYYMM,'YYYYMM'), -15),'YYYY/MM') as YYYYMM, 
+		       A.D16_QTY AS GR, B.D16_QTY AS AGING
+		  FROM KEP_STOCK_GR A
+		       INNER JOIN KEP_STOCK_AGING B ON (1 = 1
+		         AND B.SITE    = A.SITE
+		         AND B.YYYYMM  = A.YYYYMM
+		         AND B.ITEM_NO = A.ITEM_NO
+		       )
+		 WHERE 1 = 1
+		   AND A.SITE    = #{st_site}
+		   AND A.YYYYMM  = #{st_yyyymm}
+		   AND A.ITEM_NO = #{st_item_no}
+		UNION ALL
+		SELECT
+		       TO_CHAR(ADD_MONTHS(TO_DATE(A.YYYYMM,'YYYYMM'), -16),'YYYY/MM') as YYYYMM, 
+		       A.D17_QTY AS GR, B.D17_QTY AS AGING
+		  FROM KEP_STOCK_GR A
+		       INNER JOIN KEP_STOCK_AGING B ON (1 = 1
+		         AND B.SITE    = A.SITE
+		         AND B.YYYYMM  = A.YYYYMM
+		         AND B.ITEM_NO = A.ITEM_NO
+		       )
+		 WHERE 1 = 1
+		   AND A.SITE    = #{st_site}
+		   AND A.YYYYMM  = #{st_yyyymm}
+		   AND A.ITEM_NO = #{st_item_no}
+		UNION ALL
+		SELECT
+		       TO_CHAR(ADD_MONTHS(TO_DATE(A.YYYYMM,'YYYYMM'), -17),'YYYY/MM') as YYYYMM, 
+		       A.D18_QTY AS GR, B.D18_QTY AS AGING
+		  FROM KEP_STOCK_GR A
+		       INNER JOIN KEP_STOCK_AGING B ON (1 = 1
+		         AND B.SITE    = A.SITE
+		         AND B.YYYYMM  = A.YYYYMM
+		         AND B.ITEM_NO = A.ITEM_NO
+		       )
+		 WHERE 1 = 1
+		   AND A.SITE    = #{st_site}
+		   AND A.YYYYMM  = #{st_yyyymm}
+		   AND A.ITEM_NO = #{st_item_no}
+		UNION ALL
+		SELECT
+		       TO_CHAR(ADD_MONTHS(TO_DATE(A.YYYYMM,'YYYYMM'), -18),'YYYY/MM') as YYYYMM, 
+		       A.D19_QTY AS GR, B.D19_QTY AS AGING
+		  FROM KEP_STOCK_GR A
+		       INNER JOIN KEP_STOCK_AGING B ON (1 = 1
+		         AND B.SITE    = A.SITE
+		         AND B.YYYYMM  = A.YYYYMM
+		         AND B.ITEM_NO = A.ITEM_NO
+		       )
+		 WHERE 1 = 1
+		   AND A.SITE    = #{st_site}
+		   AND A.YYYYMM  = #{st_yyyymm}
+		   AND A.ITEM_NO = #{st_item_no}
+		UNION ALL
+		SELECT
+		       TO_CHAR(ADD_MONTHS(TO_DATE(A.YYYYMM,'YYYYMM'), -19),'YYYY/MM') as YYYYMM, 
+		       A.D20_QTY AS GR, B.D20_QTY AS AGING
+		  FROM KEP_STOCK_GR A
+		       INNER JOIN KEP_STOCK_AGING B ON (1 = 1
+		         AND B.SITE    = A.SITE
+		         AND B.YYYYMM  = A.YYYYMM
+		         AND B.ITEM_NO = A.ITEM_NO
+		       )
+		 WHERE 1 = 1
+		   AND A.SITE    = #{st_site}
+		   AND A.YYYYMM  = #{st_yyyymm}
+		   AND A.ITEM_NO = #{st_item_no}
+		UNION ALL
+		SELECT
+		       TO_CHAR(ADD_MONTHS(TO_DATE(A.YYYYMM,'YYYYMM'), -20),'YYYY/MM') as YYYYMM, 
+		       A.D21_QTY AS GR, B.D21_QTY AS AGING
+		  FROM KEP_STOCK_GR A
+		       INNER JOIN KEP_STOCK_AGING B ON (1 = 1
+		         AND B.SITE    = A.SITE
+		         AND B.YYYYMM  = A.YYYYMM
+		         AND B.ITEM_NO = A.ITEM_NO
+		       )
+		 WHERE 1 = 1
+		   AND A.SITE    = #{st_site}
+		   AND A.YYYYMM  = #{st_yyyymm}
+		   AND A.ITEM_NO = #{st_item_no}
+		UNION ALL
+		SELECT
+		       TO_CHAR(ADD_MONTHS(TO_DATE(A.YYYYMM,'YYYYMM'), -21),'YYYY/MM') as YYYYMM, 
+		       A.D22_QTY AS GR, B.D22_QTY AS AGING
+		  FROM KEP_STOCK_GR A
+		       INNER JOIN KEP_STOCK_AGING B ON (1 = 1
+		         AND B.SITE    = A.SITE
+		         AND B.YYYYMM  = A.YYYYMM
+		         AND B.ITEM_NO = A.ITEM_NO
+		       )
+		 WHERE 1 = 1
+		   AND A.SITE    = #{st_site}
+		   AND A.YYYYMM  = #{st_yyyymm}
+		   AND A.ITEM_NO = #{st_item_no}
+		UNION ALL
+		SELECT
+		       TO_CHAR(ADD_MONTHS(TO_DATE(A.YYYYMM,'YYYYMM'), -22),'YYYY/MM') as YYYYMM, 
+		       A.D23_QTY AS GR, B.D23_QTY AS AGING
+		  FROM KEP_STOCK_GR A
+		       INNER JOIN KEP_STOCK_AGING B ON (1 = 1
+		         AND B.SITE    = A.SITE
+		         AND B.YYYYMM  = A.YYYYMM
+		         AND B.ITEM_NO = A.ITEM_NO
+		       )
+		 WHERE 1 = 1
+		   AND A.SITE    = #{st_site}
+		   AND A.YYYYMM  = #{st_yyyymm}
+		   AND A.ITEM_NO = #{st_item_no}
+		UNION ALL
+		SELECT
+		       TO_CHAR(ADD_MONTHS(TO_DATE(A.YYYYMM,'YYYYMM'), -23),'YYYY/MM') as YYYYMM, 
+		       A.D24_QTY AS GR, B.D24_QTY AS AGING
+		  FROM KEP_STOCK_GR A
+		       INNER JOIN KEP_STOCK_AGING B ON (1 = 1
+		         AND B.SITE    = A.SITE
+		         AND B.YYYYMM  = A.YYYYMM
+		         AND B.ITEM_NO = A.ITEM_NO
+		       )
+		 WHERE 1 = 1
+		   AND A.SITE    = #{st_site}
+		   AND A.YYYYMM  = #{st_yyyymm}
+		   AND A.ITEM_NO = #{st_item_no}
+		UNION ALL
+		SELECT
+		       '2년 초과' as YYYYMM, 
+		       NULL AS GR, B.ETC_QTY AS AGING
+		  FROM KEP_STOCK_GR A
+		       INNER JOIN KEP_STOCK_AGING B ON (1 = 1
+		         AND B.SITE    = A.SITE
+		         AND B.YYYYMM  = A.YYYYMM
+		         AND B.ITEM_NO = A.ITEM_NO
+		       )
+		 WHERE 1 = 1
+		   AND A.SITE    = #{st_site}
+		   AND A.YYYYMM  = #{st_yyyymm}
+		   AND A.ITEM_NO = #{st_item_no}
+		  ) Z	 
+	</select>
+	
+	<select id="selectAgingItemMaster" parameterType="java.util.Map" resultType="java.util.Map">
+		/* master.mpst.selectAgingItemMaster*/
+		SELECT
+               A.SITE,
+               TO_CHAR(TO_DATE(A.YYYYMM,'YYYYMM'), 'YYYY/MM') AS YYYYMM,
+               B.TEXT1 AS SITE_NAME,
+               A.ITEM_NO,
+               A.DESCRIPTION,
+               TO_CHAR(A.STOCK_QTY, '999,999,999,999,990') AS STOCK_QTY,
+               TO_CHAR(A.STOCK_PRICE, '999,999,999,999,990') AS STOCK_PRICE,
+               TO_CHAR(A.STOCK_AMT, '999,999,999,999,990') AS STOCK_AMT
+		  FROM KEP_STOCK_GR A
+               INNER JOIN ICOMCOD1 B ON (1 = 1
+                 AND B.TYPE = 'SR01'
+                 AND B.CODE = A.SITE
+               )
+		 WHERE A.SITE    = #{st_site}
+		   AND A.YYYYMM  = #{st_yyyymm}
+		   AND A.ITEM_NO = #{st_item_no}
+	</select>
+</mapper>   
+   

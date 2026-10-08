@@ -1,0 +1,384 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="buyer.mdcm">
+	<select id="selectBuyerMdCmPopularGoodsSearchList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.jsppagestart"/>
+		<![CDATA[
+		/*selectBuyerMdCmPopularGoodsSearchList*/
+			SELECT
+				ROWNUM RNK
+				, A.*
+			FROM
+			(
+		          SELECT  /*+LEADING(H) USE_NL(H D) INDEX(D ICOMPODT_T03) */                     
+		                MAX(B.IMGFILE_NAME) IMGFILE_NAME,                                             
+		                MAX(B.IMGFILE_DIR) IMGFILE_DIR,                                               
+		                D.BUYER_ITEM_NO BUYER_ITEM_NO,                                                
+		                MAX(C.DESCRIPTION) DESCRIPTION,                                               
+		                MAX(C.SPECIFICATION) SPECIFICATION,                                           
+		                MAX((SELECT TEXT2 FROM ICOMCOD1 WHERE TYPE = 'M001'                           
+		                       AND CODE = C.ORIGIN_CODE)) ORIGIN_TEXT,                                
+		                MAX(C.MAKER_NAME) MAKER_NAME,                                                 
+		                COUNT(D.BUYER_ITEM_NO) TOT_PO_CNT,                                            
+		                MAX(C.UNIT_MEASURE) UNIT_MEASURE,                                             
+		                MAX(C.UNIT_PRICE) UNIT_PRICE,                                                 
+		                MAX(D.BUYER) BUYER,                                                           
+		                MAX(C.ORIGIN_CODE) ORIGIN_CODE,                                               
+		                MAX(B.CATEGORY_NO) CATEG_ID,                                                  
+		                MAX((SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = C.AGENT)) AGENT_NAME, 
+		                MAX(C.AGENT) AGENT,                                                           
+		                MAX(C.CONTRACT_NO) CONTRACT_NO,                                               
+		                MAX(C.CONTRACT_SEQ) CONTRACT_SEQ,                                             
+		                MAX(D.BYIT_COMORG_CODE) BYIT_COMORG_CODE,                                     
+		                MAX(DECODE(C.ITEM_NO,NULL,C.BUYER_ITEM_NO,C.ITEM_NO)) DOOSAN_BUYER_ITEM_NO    
+		           FROM ICOMPOHD H, ICOMPODT D, ICOMCQDT C, ICOMBYIT B                                
+		          WHERE D.BUYER             = #{st_com_code}                                                   
+		            AND C.BUYER              = #{st_com_code}                                              
+		            AND H.BUYER = D.BUYER                                                             
+		            AND B.BUYER = C.BUYER                                                             
+		            AND H.PO_NO = D.PO_NO                                                             
+		            AND B.BUYER_ITEM_NO = C.BUYER_ITEM_NO                                             
+		            AND D.BUYER_ITEM_NO = C.BUYER_ITEM_NO                                             
+		            AND H.STATUS            != 'D'                                                    
+		            AND D.STATUS            != 'D'                                                    
+		            AND C.STATUS            != 'D'                                                    
+		            AND B.STATUS            != 'D'                                                    
+		            AND B.PRODUCT_CLOSE_FLAG = 'N'                                                    
+		            AND (D.CATEG_ID LIKE 'R-D%' OR D.CATEG_ID LIKE 'R-E%')
+      ]]> 
+		<if test="st_buyer_item_no !=''">
+		<![CDATA[
+					AND UPPER(C.BUYER_ITEM_NO) LIKE '%'||UPPER(#{st_buyer_item_no})||'%'
+			]]>	                             
+
+ 		</if>
+		<if test="st_description !=''">
+		<![CDATA[
+ 					AND UPPER(C.DESCRIPTION) LIKE   '%'||UPPER(#{st_description})||'%'
+ 		]]>	 
+ 		</if> 	
+		<if test="st_specification !=''">
+		<![CDATA[
+ 					AND UPPER(C.SPECIFICATION) LIKE   '%'||UPPER(#{st_specification})||'%'
+ 		]]>	 
+ 		</if>
+	<![CDATA[ 
+	 			 AND H.PO_CREATE_DATE BETWEEN TO_CHAR(ADD_MONTHS(SYSDATE,-3), 'YYYYMMDD')  AND TO_CHAR(SYSDATE, 'YYYYMMDD')
+		          GROUP BY D.BUYER_ITEM_NO                                                            
+		          ORDER BY COUNT(D.BUYER_ITEM_NO) DESC
+		    ) A  
+     ]]> 
+
+
+		
+		<include refid="common.ibsheet.xml.jsppageend"/>	
+	</select> 
+	
+	<select id="getPunchoutItemNoCheck" parameterType="java.util.Map" resultType="String"> 
+		<![CDATA[
+		/*getPunchoutItemNoCheck*/
+	 
+		SELECT COUNT(1) CNT FROM DOOSCART           
+		 WHERE BUYER          		= #{BUYER}                
+		   AND USER_ID        			= #{USER_ID}               
+		   AND USE_FLAG       		= #{USE_FLAG}               
+		   AND BUYER_ITEM_NO  	= #{BUYER_ITEM_NO}              
+		   AND AGENT          			= #{AGENT}               
+		   AND CONTRACT_NO    	= #{CONTRACT_NO}                
+		   AND CONTRACT_SEQ   	= #{CONTRACT_SEQ}                
+		   AND BYIT_COMORG_CODE   = #{BYIT_COMORG_CODE}         
+		]]>	 
+		</select> 
+		
+		<select id="getPunchoutItemSeq" parameterType="java.util.Map" resultType="String">
+ 
+		<![CDATA[
+		/*getPunchoutItemSeq*/
+	 
+		SELECT TO_CHAR(MAX(ITEM_SEQ),'FM000000') FROM DOOSCART      
+		 WHERE BUYER          				= #{BUYER}                
+		   AND USER_ID        				= #{USER_ID}         
+		   AND USE_FLAG       				= #{USE_FLAG}
+		   AND BUYER_ITEM_NO       		= #{BUYER_ITEM_NO}      
+		   AND AGENT       					= #{AGENT}           
+		   AND CONTRACT_NO    			= #{CONTRACT_NO}                
+		   AND CONTRACT_SEQ   			= #{CONTRACT_SEQ}      
+		]]>	 
+		</select> 
+		
+	<update id="insertBuyerMdCmPopularGoodsLisCreate" parameterType="java.util.Map">
+		<![CDATA[
+		
+		/*insertBuyerMdCmPopularGoodsLisCreate*/
+		
+				INSERT INTO DOOSCART   
+				(                                      
+				                
+				BUYER,    USER_ID,   BUYER_ITEM_NO,  SEQ,          CART_QTY,                
+				REG_DATE, USE_FLAG,  AGENT,          CONTRACT_NO,  CONTRACT_SEQ, BYIT_COMORG_CODE ,
+				DESCRIPTION, SPECIFICATION,  UNIT_PRICE, ITEM_SEQ, REG_TIME, LIST_PRICE, REF_PR_NO  
+				
+				) 
+				VALUES 
+				(          				                                                          
+				#{BUYER},                                                                       
+				#{USER_ID},                                                                     
+				#{BUYER_ITEM_NO},                                                          
+				(SELECT DECODE(MAX(SEQ),NULL,'0', MAX(SEQ))+1                             
+					 FROM ICOMCART                                                 
+					WHERE BUYER         		= #{BUYER}                             
+					  AND USER_ID       		= #{USER_ID}                                     
+					  AND BUYER_ITEM_NO = #{BUYER_ITEM_NO}                         
+					  AND CONTRACT_NO   	= #{CONTRACT_NO}                       
+					  AND CONTRACT_SEQ  = #{CONTRACT_SEQ}                         
+					  AND USE_FLAG      		= #{USE_FLAG} ),                            
+				NVL(#{CART_QTY},1),                                                              
+				TO_CHAR(SYSDATE,'YYYYMMDD'),                                           
+				#{USE_FLAG},                                                                         
+				#{AGENT},                                                                         
+				#{CONTRACT_NO},                                                             
+				#{CONTRACT_SEQ},                                                            
+				#{BYIT_COMORG_CODE},
+				 (SELECT DESCRIPTION   FROM ICOMCQDT WHERE BUYER = #{BUYER}
+				 	AND BUYER_ITEM_NO = #{BUYER_ITEM_NO} 
+				 	AND CONTRACT_NO = #{CONTRACT_NO} 
+				 	AND CONTRACT_SEQ = #{CONTRACT_SEQ}),
+				 (SELECT SPECIFICATION   FROM ICOMCQDT WHERE BUYER = #{BUYER}
+				 	AND BUYER_ITEM_NO = #{BUYER_ITEM_NO} 
+				 	AND CONTRACT_NO = #{CONTRACT_NO} 
+				 	AND CONTRACT_SEQ = #{CONTRACT_SEQ}),
+				#{UNIT_PRICE},
+ 					]]>
+				<if test='st_s_logic.equals("R")'>
+					<![CDATA[
+						(SELECT TO_CHAR(DECODE(MAX(ITEM_SEQ),NULL,'0', MAX(ITEM_SEQ))+1,'FM000000') FROM DOOSCART
+						 WHERE BUYER         = #{BUYER}
+						 AND USER_ID          = #{USER_ID}
+						 AND BUYER_ITEM_NO = #{BUYER_ITEM_NO}
+						 AND CONTRACT_NO   = #{CONTRACT_NO}
+						 AND CONTRACT_SEQ  = #{CONTRACT_SEQ}
+						 AND USE_FLAG      =  #{USE_FLAG}) ,  
+ 					]]>	 
+				</if>
+				<if test='st_s_logic.equals("A")'>
+					<![CDATA[
+                          #{ITEM_SEQ}, 
+ 					]]>	 
+				</if>
+	<![CDATA[
+				SUBSTR(TO_CHAR(SYSDATE,'YYYYMMDD HH24MISS'),10,6),
+				0,
+				'CA'          												
+				)               													
+		]]>
+	</update>
+	<update id="updateBuyerMdCmFolderCode" parameterType="java.util.Map">
+		<![CDATA[
+		/*updateBuyerMdCmFolderCode*/
+		   UPDATE DOOSCART         
+               SET ITEM_SEQ = #{FOLDER_CODE}    
+             WHERE BUYER = #{BUYER}        
+               AND USER_ID = #{USER_ID}       
+               AND USE_FLAG = #{USE_FLAG}     
+               AND BUYER_ITEM_NO = #{BUYER_ITEM_NO}
+               AND CONTRACT_NO = #{CONTRACT_NO}
+               AND CONTRACT_SEQ =#{CONTRACT_SEQ}
+               AND AGENT = #{AGENT}   
+               AND BYIT_COMORG_CODE =#{BYIT_COMORG_CODE}
+		]]>
+	</update>
+	<update id="updateBuyerMdCmFolderName" parameterType="java.util.Map">
+		<![CDATA[
+		/*updateBuyerMdCmFolderName*/
+             UPDATE ICOMUSCA 
+                SET CATEG_NAME =  #{FOLDER_3},
+                    CATEG_PATH = '전체 > '||#{FOLDER_3} , 
+                    CHANGE_DATE = TO_CHAR(SYSDATE,'YYYYMMDD'),  
+                    CHANGE_TIME = TO_CHAR(SYSDATE,'HH24MISS')   
+              WHERE BUYER = #{BUYER}
+                AND USER_ID = #{USER_ID}
+                AND CATEG_ID = #{FOLDER_2}
+		]]>
+	</update>
+<select id="selectBuyerMdCmDeletePunchOutSearchList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.jsppagestart"/>
+		<![CDATA[
+		/*selectBuyerMdCmDeletePunchOutSearchList*/
+             SELECT  
+                    B.IMGFILE_NAME IMGFILE_NAME,  
+                    B.IMGFILE_DIR IMGFILE_DIR,  
+                    Q.BUYER_ITEM_NO BUYER_ITEM_NO,  
+                    B.DESCRIPTION_LOC DESCRIPTION,  
+                    B.SPECIFICATION SPECIFICATION,  
+                    (SELECT TEXT2 FROM ICOMCOD1 WHERE TYPE = 'M001' AND CODE = Q.ORIGIN_CODE) ORIGIN_TEXT,  
+                    Q.MAKER_NAME MAKER_NAME,  
+                    (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = Q.AGENT) AGENT_NAME,  
+                    Q.UNIT_MEASURE UNIT_MEASURE,  
+                    Q.UNIT_PRICE UNIT_PRICE,  
+                    '0' TARGET_QTY,  
+                    Q.AGENT AGENT,  
+                    Q.CHANGE_DATE REG_DATE,  
+                    B.CATEGORY_NO CATEG_ID,  
+                    Q.CONTRACT_NO CONTRACT_NO,  
+                    Q.CONTRACT_SEQ CONTRACT_SEQ,  
+                    Q.BELOW_COMORG_CODE BYCA_COMORG_CODE,  
+                    Q.ITEM_NO AS DOOSAN_BUYER_ITEM_NO, 	
+                    DECODE(B.PRODUCT_CLOSE_FLAG,'Y','단종','삭제') PRODUCT_CLOSE_FLAG, 	
+                    DECODE(Q.ITEM_NO,NULL,'비재고','재고가능') AS GUBUN	
+               FROM ICOMCQDT Q, ICOMBYIT B 
+              WHERE Q.BUYER   =#{st_buyer}              
+                AND B.BUYER = Q.BUYER  
+                AND B.BUYER_ITEM_NO = Q.BUYER_ITEM_NO  
+                AND B.CATEGORY_NO NOT IN ('P-A-07-04-ZZZZ','P-H-14-17-0001')  
+                AND (B.PRODUCT_CLOSE_FLAG = 'Y' OR B.STATUS = 'D' OR Q.STATUS = 'D') 
+      ]]> 
+		<if test="st_buyer_item_no !=''">
+		<![CDATA[
+					AND (UPPER(Q.BUYER_ITEM_NO) LIKE '%'||UPPER(#{st_buyer_item_no})||'%' OR  UPPER(Q.BUYER_ITEM_NO) LIKE '%'||UPPER(#{st_buyer_item_no})||'%') 
+			]]>	                             
+
+ 		</if>
+		<if test="st_description !=''">
+		<![CDATA[
+ 					AND UPPER(Q.DESCRIPTION) LIKE   '%'||UPPER(#{st_description})||'%'
+ 		]]>	 
+ 		</if> 	
+		<if test="st_specification !=''">
+		<![CDATA[
+ 					AND UPPER(Q.SPECIFICATION) LIKE   '%'||UPPER(#{st_specification})||'%'
+ 		]]>	 
+ 		</if>
+       <choose>
+	   <when test='st_sort_column != "ALL" '>
+	    	ORDER BY  ${st_sort_column} ${st_sort_flag}
+	    </when> 
+	    <otherwise>
+	    	ORDER BY Q.BUYER_ITEM_NO, Q.DESCRIPTION
+	    </otherwise>
+	    </choose>		
+		<include refid="common.ibsheet.xml.jsppageend"/>	
+	</select> 	
+	<select id="selectBuyerMdCmGreenPunchOutSearchList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.jsppagestart"/>
+		<![CDATA[
+		/*selectBuyerMdCmGreenPunchOutSearchList*/
+                          SELECT  
+                                 B.IMGFILE_NAME IMGFILE_NAME,  
+                                 B.IMGFILE_DIR IMGFILE_DIR,  
+                                 Q.BUYER_ITEM_NO BUYER_ITEM_NO,  
+                                 B.DESCRIPTION_LOC DESCRIPTION,  
+                                 B.SPECIFICATION SPECIFICATION,  
+                                 (SELECT TEXT2 FROM ICOMCOD1 WHERE TYPE = 'M001' AND CODE = Q.ORIGIN_CODE) ORIGIN_TEXT,  
+                                 Q.MAKER_NAME MAKER_NAME,  
+                                 (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = Q.AGENT) AGENT_NAME,  
+                                 Q.UNIT_MEASURE UNIT_MEASURE,  
+                                 Q.UNIT_PRICE UNIT_PRICE,  
+                                 '0' TARGET_QTY,  
+                                 Q.AGENT AGENT,  
+                                 Q.CHANGE_DATE REG_DATE,  
+                                 B.CATEGORY_NO CATEG_ID,  
+                                 Q.CONTRACT_NO CONTRACT_NO,  
+                                 Q.CONTRACT_SEQ CONTRACT_SEQ,  
+                                 Q.BELOW_COMORG_CODE BYCA_COMORG_CODE,  
+                                 Q.ITEM_NO AS DOOSAN_BUYER_ITEM_NO, 	
+                                 DECODE(B.PRODUCT_CLOSE_FLAG,'N','단가계약품목','C','신규요청품목') ITEM_SEQ, 	
+                                 DECODE(Q.ITEM_NO,NULL,'비재고','재고가능') AS GUBUN,	
+                                 Q.BUYER,  
+                                 B.PRODUCT_CLOSE_FLAG,  
+                                (SELECT CMPY.BYCA_COMORG_CODE FROM   ICOMCMPY CMPY WHERE CMPY.COM_CODE = Q.BUYER) AS BYIT_COMORG_CODE
+                            FROM ICOMCQDT Q, ICOMBYIT B 
+                           WHERE Q.BUYER   = #{st_buyer}                
+                             AND B.BUYER = Q.BUYER  
+                             AND B.BUYER_ITEM_NO = Q.BUYER_ITEM_NO  
+                             AND B.CATEGORY_NO NOT IN ('P-A-07-04-ZZZZ','P-H-14-17-0001')  
+                             AND B.PRODUCT_CLOSE_FLAG IN ('N','C') 
+                             AND B.GREEN_FLAG = 'Y' 
+                             AND B.STATUS <> 'D' 
+                             AND Q.STATUS <> 'D' 
+
+      ]]> 
+		<if test="st_buyer_item_no !=''">
+		<![CDATA[
+					AND (UPPER(Q.BUYER_ITEM_NO) LIKE '%'||UPPER(#{st_buyer_item_no})||'%' OR  UPPER(Q.BUYER_ITEM_NO) LIKE '%'||UPPER(#{st_buyer_item_no})||'%')
+			]]>	                             
+
+ 		</if>
+		<if test="st_description !=''">
+		<![CDATA[
+ 					AND UPPER(Q.DESCRIPTION) LIKE   '%'||UPPER(#{st_description})||'%'
+ 		]]>	 
+ 		</if> 	
+		<if test="st_specification !=''">
+		<![CDATA[
+ 					AND UPPER(Q.SPECIFICATION) LIKE   '%'||UPPER(#{st_specification})||'%'
+ 		]]>	 
+ 		</if>
+	<![CDATA[ 
+	 			  ORDER BY Q.BUYER_ITEM_NO, Q.DESCRIPTION      
+     ]]> 
+		<include refid="common.ibsheet.xml.jsppageend"/>	
+	</select> 
+	<select id="selectBuyerMdCmProjectPunchOutSearchList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.jsppagestart"/>
+		<![CDATA[
+		/*selectBuyerMdCmProjectPunchOutSearchList*/
+                          SELECT  
+                                 B.IMGFILE_NAME IMGFILE_NAME,  
+                                 B.IMGFILE_DIR IMGFILE_DIR,  
+                                 Q.BUYER_ITEM_NO BUYER_ITEM_NO,  
+                                 B.DESCRIPTION_LOC DESCRIPTION,  
+                                 B.SPECIFICATION SPECIFICATION,  
+                                 (SELECT TEXT2 FROM ICOMCOD1 WHERE TYPE = 'M001' AND CODE = Q.ORIGIN_CODE) ORIGIN_TEXT,  
+                                 Q.MAKER_NAME MAKER_NAME,  
+                                 (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = Q.AGENT) AGENT_NAME,  
+                                 Q.UNIT_MEASURE UNIT_MEASURE,  
+                                 Q.UNIT_PRICE UNIT_PRICE,  
+                                 '0' TARGET_QTY,  
+                                 Q.AGENT AGENT,  
+                                 Q.CHANGE_DATE REG_DATE,  
+                                 B.CATEGORY_NO CATEG_ID,  
+                                 Q.CONTRACT_NO CONTRACT_NO,  
+                                 Q.CONTRACT_SEQ CONTRACT_SEQ,  
+                                 Q.BELOW_COMORG_CODE BYCA_COMORG_CODE,  
+                                 Q.ITEM_NO AS DOOSAN_BUYER_ITEM_NO, 	
+                                 DECODE(B.PRODUCT_CLOSE_FLAG,'N','단가계약품목','C','신규요청품목') ITEM_SEQ, 	
+                                 DECODE(Q.ITEM_NO,NULL,'비재고','재고가능') AS GUBUN,	
+                                 Q.BUYER,  
+                                 B.PRODUCT_CLOSE_FLAG,
+                                 (SELECT CMPY.BYCA_COMORG_CODE FROM   ICOMCMPY CMPY WHERE CMPY.COM_CODE = Q.BUYER) AS BYIT_COMORG_CODE
+                            FROM ICOMCQDT Q, ICOMBYIT B, ICOMCOD3 C 
+                           WHERE Q.BUYER   = #{st_buyer}      
+                             AND B.BUYER = Q.BUYER  
+                             AND B.BUYER = C.BUYER  
+                             AND C.TYPE = 'PJCT'    
+                             AND B.BUYER_ITEM_NO = C.CODE1    
+                             AND Q.CONTRACT_NO = C.TEXT1      
+                             AND Q.CONTRACT_SEQ = C.CODE2     
+                             AND B.BUYER_ITEM_NO = Q.BUYER_ITEM_NO  
+                             AND B.PRODUCT_CLOSE_FLAG IN ('N','C') 
+                             AND B.STATUS <> 'D' 
+                             AND Q.STATUS <> 'D' 
+
+      ]]> 
+		<if test="st_buyer_item_no !=''">
+		<![CDATA[
+					AND (UPPER(Q.BUYER_ITEM_NO) LIKE '%'||UPPER(#{st_buyer_item_no})||'%' OR  UPPER(Q.BUYER_ITEM_NO) LIKE '%'||UPPER(#{st_buyer_item_no})||'%')
+			]]>	                             
+
+ 		</if>
+		<if test="st_description !=''">
+		<![CDATA[
+ 					AND UPPER(Q.DESCRIPTION) LIKE   '%'||UPPER(#{st_description})||'%'
+ 		]]>	 
+ 		</if> 	
+		<if test="st_specification !=''">
+		<![CDATA[
+ 					AND UPPER(Q.SPECIFICATION) LIKE   '%'||UPPER(#{st_specification})||'%'
+ 		]]>	 
+ 		</if>
+	<![CDATA[ 
+	 		 ORDER BY Q.BUYER_ITEM_NO, Q.DESCRIPTION         
+     ]]> 
+		<include refid="common.ibsheet.xml.jsppageend"/>	
+	</select> 
+</mapper>

@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mpst">
+	<!-- 조회 -->
+	<select id="selectMasterMpStQuotationStatsList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+SELECT   /*selectMasterMpStQuotationStatsList*/       
+
+				YYYY,
+				YYYYMM,
+				LAW_GROUP_CD,
+				LAW_GROUP_NM,
+				GROUP_CD,
+				GROUP_NM,
+				TEAM_CD,
+				TEAM_NM,
+				QUOTATION_OBEY_CNT,
+				QUOTATION_DELAY_CNT,
+				round((decode(QUOTATION_TOT_CNT,0,0,QUOTATION_OBEY_CNT/QUOTATION_TOT_CNT)*100),1)||'(%)' QUOTATION_OBEY_RATE,
+				QUOTATION_LT_WEEKEND,
+				QUOTATION_LT,
+				QUOTATION_TOT_CNT,
+				GR,
+                VALUE1
+     
+					FROM
+					(
+					SELECT A.YYYY AS YYYY ,
+					  '' AS YYYYMM ,
+					  C.GROUP_CODE AS LAW_GROUP_CD ,
+					  C.GROUP_NAME AS LAW_GROUP_NM ,
+					  C.CORP_CODE AS GROUP_CD ,
+					  C.CORP_NAME AS GROUP_NM ,
+					  A.KEP_DEPT AS TEAM_CD ,
+					 DECODE(  GROUPING_ID(C.GROUP_CODE,C.CORP_CODE,A.KEP_DEPT  ),1,'소계',7,'합계',D.TEXT1)  AS TEAM_NM ,
+                      trunc(SUM(NVL(CNT_KEEP, 0))) AS QUOTATION_OBEY_CNT ,    -- 견적 준수건(수정)
+                      trunc(SUM(NVL(CNT_DELY, 0))) AS QUOTATION_DELAY_CNT ,   -- 견적 지연건(수정)
+					  trunc(SUM(NVL(CNT_DELY, 0))) AS QUOTATION_OBEY_RATE ,
+					  --trunc(SUM(NVL(LT_TOT, 0))) AS QUOTATION_LT_WEEKEND ,
+					  ROUND(SUM(CNT_TOT * LT_TOT) / SUM(CNT_TOT),1) AS QUOTATION_LT_WEEKEND ,
+					  --trunc(SUM(NVL(LT_PART, 0))) AS QUOTATION_LT,
+					  ROUND(SUM(CNT_TOT * LT_PART) / SUM(CNT_TOT),1) AS QUOTATION_LT,
+					  trunc((SUM(NVL(CNT_TOT, 0)))) AS QUOTATION_TOT_CNT,  -- 전체견적건
+					    GROUPING_ID(C.GROUP_CODE,C.CORP_CODE,A.KEP_DEPT  ) GR,
+                        max(D.VALUE1) as VALUE1
+					FROM BNTMIS_QT A,
+					  ICOMCMPY B,
+					  BNTBUYERGROUP C,
+					  ICOMCOD2 D
+					WHERE A.BUYER = B.COM_CODE
+					  AND B.CORP_CODE = C.CORP_CODE
+					  AND A.KEP_DEPT = D.CODE
+					  AND D.TYPE = 'C001'
+					  AND D.COMPANY_CODE = 'KRKORE0001'
+		              AND D.VALUE1 LIKE '9%'
+		]]>
+        <if test="st_year != null and st_year != ''">
+    				 AND A.YYYYMM LIKE #{st_year}||#{st_month}||'%'	
+        </if>
+        <if test="st_user_dept != null and st_user_dept != ''">
+    				 AND A.KEP_DEPT  = #{st_user_dept}
+        </if>
+        <if test="st_buyer_group != null and st_buyer_group != ''">
+    				 AND C.GROUP_CODE = #{st_buyer_group}
+        </if>
+        <if test="st_corp_code != null and st_corp_code != ''">
+    				 AND  C.CORP_CODE  = #{st_corp_code}
+        </if>
+        		<![CDATA[
+			
+        		 
+			   GROUP BY ROLLUP (A.YYYY,
+	 
+				  C.GROUP_CODE,
+				  C.GROUP_NAME,
+				  C.CORP_CODE,
+				  C.CORP_NAME,
+				  A.KEP_DEPT,
+				  D.TEXT1)
+				ORDER BY decode(GR,1,0,7,99,0) desc, 
+                A.YYYY ,
+				  C.GROUP_CODE,
+				  C.CORP_CODE,
+				  VALUE1 asc,
+              TEAM_CD
+				)
+		 	 WHERE  (GR = 0 AND TEAM_NM IS NOT NULL)
+		 	 OR (GR = 1 AND GROUP_NM IS NOT NULL)
+			  OR (GR = 7 AND YYYY IS NOT NULL)
+
+
+			]]> 
+	</select>
+
+</mapper>   
+   

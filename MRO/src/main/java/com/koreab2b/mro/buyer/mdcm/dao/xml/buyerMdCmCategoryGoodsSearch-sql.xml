@@ -1,0 +1,204 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="buyer.mdcm">
+	 
+	
+	<!-- 카테고리 조회 -->
+	<select id="getCategoriList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*getCategoriList*/
+SELECT A.STD_CATEG_ID                                -- 카테고리번호[0]
+     , A.CATEG_NAME
+     , A.CATEG_NAME CATEG_NAME_REAL
+     , A.CATEG_TYPE                                  --[2]
+     , A.CATEG_SYS_CODE
+     , A.PID
+     , DECODE (
+            A.CATEG_TYPE,
+            'REG', '',
+            ' ('
+            || (SELECT COUNT (DISTINCT C.BUYER_ITEM_NO)
+                  FROM ICOMBYIT B, ICOMCQDT C
+                 WHERE     B.BUYER = C.BUYER
+                       AND B.BUYER_ITEM_NO = C.BUYER_ITEM_NO
+                       AND B.STATUS <> 'D'
+                       AND C.STATUS <> 'D'
+                       AND B.PRODUCT_CLOSE_FLAG IN ('N', 'Y')
+                       AND C.BELOW_COMORG_CODE = DECODE((SELECT COUNT(*) FROM ICOMCOD1 WHERE TYPE = 'M180' AND FLAG = 'Y' AND CODE = #{param4}), 0, #{param4}, C.BELOW_COMORG_CODE)
+                       AND B.BUYER = A.COM_CODE
+                       AND B.CATEGORY_NO = A.STD_CATEG_ID)
+            || ')')
+            AS CNT --[3]
+  FROM ICOMBYCA A                                   
+ WHERE A.COM_CODE = (SELECT DECODE(USING_CATAL_TYPE, 'A', BYCA_COMORG_CODE  --A :전용
+                                                   , 'C', BYCA_COMORG_CODE  --C : 둘다
+                                                        , 'KRCOMMG001' ) BYCA_COMORG_CODE  --하드코딩
+                       FROM ICOMCMPY
+                      WHERE COM_CODE  =  #{param4} --param4  : 고객사 com_code
+                    )
+   AND A.DEPTH = #{param2}         --param2                          
+   AND A.STATUS <> 'D'      
+   AND A.PID = DECODE(#{param2}, 1, (SELECT STD_CATEG_ID
+                               FROM ICOMBYCA
+                              WHERE COM_CODE =  A.COM_CODE --param1  : 고객사 byca_comorg_code
+                                AND DEPTH = 0                                  
+                                AND STATUS <> 'D' ) --최상위 레벨(대분류)인경우     
+                                ,  #{param3}  --param3 : 선택한 카테고리 
+                      )                          
+  ORDER BY A.CATEG_SYS_CODE
+
+        ]]> 
+	</select> 
+	<!-- 카테고리 조회 -->
+	<select id="getCategoriList2" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*getCategoriList2*/
+		SELECT A.STD_CATEG_ID                                -- 카테고리번호[0]
+		     ,  A.CATEG_NAME                         --[1]
+		     , A.CATEG_NAME CATEG_NAME_REAL
+		     , A.CATEG_TYPE                                  --[2]
+		     , A.CATEG_SYS_CODE
+		     , A.PID
+		     , DECODE (
+		            A.CATEG_TYPE,
+		            'REG', '',
+		            ' ('
+		            || (SELECT COUNT (DISTINCT C.BUYER_ITEM_NO)
+		                  FROM ICOMBYIT B, ICOMCQDT C
+		                 WHERE     B.BUYER = C.BUYER
+		                       AND B.BUYER_ITEM_NO = C.BUYER_ITEM_NO
+		                       AND B.STATUS <> 'D'
+		                       AND C.STATUS <> 'D'
+		                       AND B.PRODUCT_CLOSE_FLAG IN ('N', 'Y')
+		                       AND C.BELOW_COMORG_CODE = DECODE((SELECT COUNT(*) FROM ICOMCOD1 WHERE TYPE = 'M180' AND FLAG = 'Y' AND CODE = #{param4}), 0, #{param4}, C.BELOW_COMORG_CODE) 
+		                       AND B.BUYER = A.COM_CODE
+		                       AND B.CATEGORY_NO = A.STD_CATEG_ID)
+		            || ')')
+		            AS CNT --[3]
+		  FROM ICOMBYCA A                                   
+		 WHERE A.COM_CODE = (SELECT DECODE(USING_CATAL_TYPE, 'A', BYCA_COMORG_CODE  --A :전용
+		                                                   , 'C', BYCA_COMORG_CODE  --C : 둘다
+		                                                        , 'KRCOMMG001' ) BYCA_COMORG_CODE  --하드코딩
+		                       FROM ICOMCMPY
+		                      WHERE COM_CODE  =  #{param4} --param4  : 고객사 com_code
+		                    )
+		   AND A.DEPTH = #{param2}         --param2                          
+		   AND A.STATUS <> 'D'      
+		   AND A.PID = DECODE(#{param2}, 1, (SELECT STD_CATEG_ID
+		                               FROM ICOMBYCA
+		                              WHERE COM_CODE =  A.COM_CODE --param1  : 고객사 byca_comorg_code
+		                                AND DEPTH = 0                                  
+		                                AND STATUS <> 'D' ) --최상위 레벨(대분류)인경우     
+		                                ,  #{param3}  --param3 : 선택한 카테고리 
+		                      )  
+		     AND A.STD_CATEG_ID IN (
+					SELECT DISTINCT STD_CATEG_ID
+					FROM (
+						SELECT STD_CATEG_ID FROM ICOMBYCA A, ICOMCOD3 B
+						WHERE A.COM_CODE=B.BUYER 
+						AND A.COM_CODE =  #{param1}
+						AND A.COM_CODE = B.TEXT1
+						AND B.TYPE = #{type} 
+				  		AND B.CODE1 =  #{param5}
+						AND B.FLAG = 'Y'
+						AND  SUBSTR(A.CATEG_SYS_CODE,1,8) = B.TEXT2
+						UNION ALL
+						SELECT DISTINCT STD_CATEG_ID FROM ICOMBYCA A
+						WHERE A.COM_CODE =  #{param1}
+						AND NOT EXISTS (
+							SELECT 1 FROM ICOMCOD3 B
+							WHERE B.BUYER = A.COM_CODE 
+							AND B.TEXT1 = A.COM_CODE
+							AND  B.TEXT2 = SUBSTR(A.CATEG_SYS_CODE,1,8)
+							AND B.TYPE =   #{type}
+							AND B.FLAG = 'Y'
+						)
+					)
+		     )                        
+		  ORDER BY A.CATEG_SYS_CODE
+
+        ]]> 
+	</select> 
+	<!-- 카테고리 조회 -->
+	<select id="getCategoryPCOList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*getCategoryPCOList*/
+SELECT A.STD_CATEG_ID                                -- 카테고리번호[0]
+     , CASE WHEN LENGTH(A.CATEG_NAME) > 5 THEN SUBSTR(A.CATEG_NAME,0,5)||'...'
+       ELSE A.CATEG_NAME END AS CATEG_NAME                                  --[1]
+     , A.CATEG_NAME||'['||SUBSTR(A.STD_CATEG_ID,#{param5} ,#{param6} )||']' CATEG_NAME_REAL
+     , A.CATEG_TYPE                                  --[2]
+     , A.CATEG_SYS_CODE
+     , A.PID
+     , DECODE (
+            A.CATEG_TYPE,
+            'REG', '',
+            ' ('
+            || (SELECT COUNT (DISTINCT C.BUYER_ITEM_NO)
+                  FROM ICOMBYIT B, ICOMCQDT C
+                 WHERE     B.BUYER = C.BUYER
+                       AND B.BUYER_ITEM_NO = C.BUYER_ITEM_NO
+                       AND B.STATUS <> 'D'
+                       AND C.STATUS <> 'D'
+ 		]]>	 
+ 		<if test='param7.equals("R")'>
+		<![CDATA[
+                       AND SUBSTR(B.CATEGORY_NO,0,1) = 'R'
+ 		]]>	 
+ 		</if>
+ 		<![CDATA[
+                       AND B.PRODUCT_CLOSE_FLAG IN ('N','C','A')
+                       AND C.BELOW_COMORG_CODE =#{param4} 
+                       AND B.BUYER = A.COM_CODE
+                       AND B.CATEGORY_NO = A.STD_CATEG_ID)
+            || ')')
+            AS CNT --[3]
+  FROM ICOMBYCA A                                   
+ WHERE A.COM_CODE = (SELECT DECODE(USING_CATAL_TYPE, 'A', BYCA_COMORG_CODE  --A :전용
+                                                   , 'C', BYCA_COMORG_CODE  --C : 둘다
+                                                        , 'KRCOMMG001' ) BYCA_COMORG_CODE  --하드코딩
+                       FROM ICOMCMPY
+                      WHERE COM_CODE  =  #{param4} --param4  : 고객사 com_code
+                    )
+   AND A.DEPTH = #{param2}         --param2                          
+   AND A.STATUS <> 'D'      
+   AND A.PID IN ( DECODE(#{param2}, 1, (SELECT STD_CATEG_ID
+                               FROM ICOMBYCA
+                              WHERE COM_CODE =  A.COM_CODE --param1  : 고객사 byca_comorg_code
+                                AND DEPTH = 0                                  
+                                AND STATUS <> 'D' ) --최상위 레벨(대분류)인경우     
+                                ,  #{param3}  --param3 : 선택한 카테고리 
+                      ),  (SELECT CA.PID FROM ICOMBYCA CA WHERE CA.COM_CODE = A.COM_CODE AND CA.STD_CATEG_ID =#{param3} ) )                        
+  ORDER BY A.CATEG_SYS_CODE
+
+        ]]> 
+	</select> 
+	<!-- 카테고리 조회 -->
+	<select id="getStdCategoriList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*getStdCategoriList*/
+                SELECT DISTINCT A.CATEG_SYS_CODE,A.CATEG_NAME , A.STD_CATEG_ID 
+                FROM                                                           
+                 (                                                             
+                SELECT  CATEG_SYS_CODE, CATEG_NAME,STD_CATEG_ID, PID           
+                FROM    ICOMBYCA                                               
+                  WHERE   COM_CODE=#{param1}         --param1                             
+                    AND DEPTH <> 0                                             
+                    ) A                                                        
+                CONNECT BY  PRIOR A.PID = A.STD_CATEG_ID                       
+                START WITH A.STD_CATEG_ID = #{param2}         --param2               
+                ORDER BY A.CATEG_SYS_CODE                                      
+      
+        ]]> 
+	</select> 
+ 	<!-- 	고객사 특정사용자 카테고리전용 대상조회  -->
+	<select id="getSpecialCategUserBoolean"  parameterType="java.util.Map" resultType="java.lang.String">
+		/*getSpecialCategUserBoolean*/
+			<![CDATA[
+				SELECT COUNT(CODE1) FROM ICOMCOD3 B
+				WHERE B.BUYER = #{param1}
+				AND B.TYPE = #{type}
+				AND B.FLAG = 'Y'
+			]]>
+	</select>
+</mapper>

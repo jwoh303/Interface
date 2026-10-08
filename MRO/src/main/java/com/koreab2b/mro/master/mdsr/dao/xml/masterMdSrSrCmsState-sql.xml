@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mdsr">
+	<!-- 조회 -->
+	<select id="selectMasterMdSrSrCmsStateList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.pagestart"/>	
+			<![CDATA[
+		    	SELECT  /*selectMasterMdSrSrCmsStateList*/
+				      A.SR_NO AS SR_NO,
+				       (SELECT USER_NAME_LOC
+				          FROM ICOMLUSR
+				         WHERE USER_ID = A.USER_ID)
+				          AS REQ_USER_NAME,
+				       TO_CHAR (A.REQ_DATE, 'YYYY/MM/DD HH24:MI') AS REQ_DATE,
+				       NVL (A.SR_SUBJECT, A.REQ_REMARK) AS SR_SUBJECT,
+				       (SELECT TEXT1
+				          FROM ICOMCOD1
+				         WHERE TYPE = 'SR01' AND CODE = A.SYS_TYPE)
+				          AS SYS_TEXT,
+				       (SELECT TEXT1
+				          FROM ICOMCOD1
+				         WHERE TYPE = 'SR02' AND CODE = A.REQ_TYPE)
+				          AS REQ_TEXT,
+				       (SELECT TEXT1
+				          FROM ICOMCOD1
+				         WHERE TYPE = 'SR05' AND CODE = A.REQ_SR_TYPE)
+				          AS REQ_SR_TEXT,
+				       DECODE (A.RECV_FLAG,
+				               'GA', '요청',
+				               'GS', '요청취소',
+				               'DS', '상신',
+				               'PS', '처리중',
+				               'PA', '처리완료',
+				               'PB', '보류처리',
+				               'GG', '완료')
+				          AS RECV_TEXT,
+				       (SELECT USER_NAME_LOC
+				          FROM ICOMLUSR
+				         WHERE USER_ID = A.CD_USER_ID)
+				          AS CD_USER_NAME,
+				       TO_CHAR (A.DF_DATE, 'YYYY/MM/DD HH24:MI') AS DF_DATE,
+				       A.DF_REMARK AS DF_REMARK,
+				       (SELECT USER_NAME_LOC
+				          FROM ICOMLUSR
+				         WHERE USER_ID = A.DS_USER_ID)
+				          AS DS_USER_NAME,
+				       TO_CHAR (A.FF_DATE, 'YYYY/MM/DD HH24:MI') AS FF_DATE,
+				       A.USER_ID AS USER_ID,
+				       A.RECV_FLAG AS RECV_FLAG,
+				       A.CD_USER_ID AS CD_USER_ID,
+				       A.DS_USER_ID AS DS_USER_ID,
+				       (SELECT TEXT1
+				          FROM ICOMCOD2
+				         WHERE     COMPANY_CODE = 'KRKORE0001'
+				               AND TYPE = 'C001'
+				               AND CODE = A.REQ_DEPT)
+				          REQ_DEPT_NAME,
+				          A.SYS_TYPE as SYS_TYPE,
+				          A.REQ_SR_TYPE AS REQ_SR_TYPE,
+				          A.REQ_TYPE AS REQ_TYPE
+				      
+				  FROM KEPASRDT A									
+				]]>
+				<choose>
+					<when test="st_recv_flag != null and st_recv_flag == 'ING'">
+						<![CDATA[
+						WHERE A.RECV_FLAG IN ('GA','DS','PS')
+	                	]]>
+					</when>
+					<otherwise>
+						<![CDATA[
+						WHERE A.RECV_FLAG IN ('GA','GS','DS','PS','PA','PB','GG')
+						]]>
+					</otherwise>
+				</choose>
+				<if test='st_date_flag != null and st_date_flag != "Y"'>
+					AND TO_CHAR(A.REQ_DATE,'YYYYMMDD') BETWEEN #{st_from_date} AND #{st_to_date}	
+				</if>
+		       <if test="st_sys_type != null and st_sys_type != ''">
+					AND A.SYS_TYPE = #{st_sys_type}
+				</if>
+				<if test="st_req_type != null and st_req_type != ''">
+					AND A.REQ_TYPE = #{st_req_type}
+				</if>
+				<if test="st_req_sr_type != null and st_req_sr_type != ''">
+					AND A.REQ_SR_TYPE = #{st_req_sr_type}
+				</if>
+				<if test="st_kep_user_id != null and st_kep_user_id != ''">
+					AND A.USER_ID = #{st_kep_user_id}
+				</if>
+				<if test="st_ds_user_id != null and st_ds_user_id != ''">
+					AND A.DS_USER_ID = #{st_ds_user_id}
+				</if>
+				<if test="st_cd_user_id != null and st_cd_user_id != ''">
+					AND A.CD_USER_ID = #{st_cd_user_id}
+				</if>
+				<if test="st_sr_no_f != null and st_sr_no_f != ''">
+					AND A.SR_NO LIKE UPPER('%'||#{st_sr_no_f}||'%')
+				</if>
+				<if test="st_remark != null and st_remark != ''">
+					AND (A.SR_SUBJECT LIKE '%'||#{st_remark}||'%' or A.REQ_REMARK LIKE '%'||#{st_remark}||'%')
+				</if>
+				<if test="st_recv_flag != null and st_recv_flag != 'ALL' and st_recv_flag != 'ING'">
+					<![CDATA[
+					 AND DECODE(A.RECV_FLAG,'GA','요청', 
+                                                            'GS','요청취소',  
+                                                            'DS','상신',  
+                                                            'PS','처리중',  
+                                                            'PA','처리완료',  
+                                                            'PB','보류처리',  
+                                                            'GG','완료') = #{st_recv_flag}
+					]]>
+				</if>
+				
+		        <choose>
+		        <when test='st_order_by == "2"'>
+					<![CDATA[
+					ORDER BY NVL(TO_CHAR(A.DF_DATE,'YYYYMMDD'),'19990101') DESC
+                	]]>
+				</when>
+				<when test='st_order_by == "3"'>
+					<![CDATA[
+					ORDER BY NVL(TO_CHAR(A.FF_DATE,'YYYYMMDD'),'19990101')  DESC
+					]]>
+				</when>
+				<otherwise>
+					<![CDATA[
+					ORDER BY A.REQ_DATE DESC
+					]]>
+				</otherwise>
+			</choose>
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+
+</mapper>   
+   

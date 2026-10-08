@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="buyer.mpso">
+
+	<select id="getIFDocNo" parameterType="java.util.Map" resultType="java.util.Map">
+		SELECT GET_CSTMR_DEAL_STTMN_NO(#{buyer}) AS DOC_NO FROM DUAL
+	</select>
+
+	<update id="insertPunchoutUcubeSend" parameterType="java.util.Map">
+		INSERT INTO EAI.IF_UCUBE_PR_SEND (
+			BUYER,				DOC_NO,				DOC_SEQ,
+			LEGACY_USER_ID,		BUYER_ITEM_NO,		ITEM_QTY,
+			DESCRIPTION,		SPECIFICATION,		UNIT_PRICE,
+			ITEM_AMT,			UNIT_MEASURE,		PLANT,
+			IF_FLAG
+		) (
+		  SELECT 
+				 #{buyer},
+				 #{doc_no},
+				 LPAD(NVL((SELECT TO_NUMBER(MAX(DOC_SEQ)) FROM EAI.IF_UCUBE_PR_SEND
+				            WHERE BUYER = #{buyer}
+				              AND DOC_NO = #{doc_no}), 0) + 1, 5, '0'),
+				 UPPER(#{legacy_user_id}),
+				 A.BUYER_ITEM_NO,
+				 #{st_order_qty},
+				 B.DESCRIPTION_LOC,
+				 B.SPECIFICATION,
+				 A.UNIT_PRICE,
+				 #{st_order_qty} * A.UNIT_PRICE,
+				 B.UNIT_MEASURE,
+				 (SELECT TEXT1 FROM ICOMCOD2 WHERE TYPE = 'C020' AND COMPANY_CODE = A.BUYER AND CODE = #{buyer} ) AS PLANT,
+				 'T'
+		    FROM ICOMCQDT A
+		       , ICOMBYIT B
+		   WHERE A.BUYER = (SELECT BYCA_COMORG_CODE FROM ICOMCMPY WHERE COM_CODE = #{buyer} AND STATUS IN ('C','R'))
+		     AND A.CONTRACT_NO = #{st_contract_no}
+		     AND A.CONTRACT_SEQ = #{st_contract_seq}
+		     AND A.STATUS IN ('C','R')
+		     
+		     AND B.BUYER = A.BUYER
+		     AND B.BUYER_ITEM_NO = A.BUYER_ITEM_NO
+		     AND B.STATUS IN ('C','R')
+		     AND B.PRODUCT_CLOSE_FLAG IN ('N')
+		)
+	</update>
+	
+	<update id="updatePunchoutUcubeFlag" parameterType="java.util.Map">
+		UPDATE EAI.IF_UCUBE_PR_SEND
+		   SET IF_FLAG = 'N'
+		 WHERE BUYER = #{buyer}
+		   AND DOC_NO = #{doc_no}
+		   AND IF_FLAG = 'T'
+	</update>
+	
+</mapper>

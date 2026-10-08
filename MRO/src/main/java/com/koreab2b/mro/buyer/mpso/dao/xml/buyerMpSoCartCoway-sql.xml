@@ -1,0 +1,671 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="buyer.mpso">
+ 
+ 
+	
+	<!-- 비용부서조회 PG_06_B_010_01 -->
+	<select id="getDeptSelect" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+
+			/*getDeptSelect*/
+
+
+  	 		SELECT						
+				 ROWNUM NUM			   
+				 ,X.NODE_KEY			  
+				 ,X.LTEXT				 
+				FROM(					 
+				SELECT					
+				   B. NODE_KEY			
+				  , B. LTEXT			  
+				  FROM COWAY_BUDGET_ORG_ET_TREE B 
+				 WHERE ISFOLDER IS NULL 
+					   AND EXISTS 
+						(SELECT 'X' FROM  ( 
+						   SELECT NVL (A.GROUP1 , A. BGORG_F) GROUP1 
+						 FROM COWAY_ORG_AUTHORITY_ET_DATA A, ICOMLUSR C 
+						   WHERE A. PERNR = C.LEGACY_USER_ID 
+						AND KOKRS = '2000' 
+						AND C. USER_ID = #{st_user_id}
+						   UNION					   
+						   SELECT NVL (A.E_KOSTL , A. E_BGORG)  GROUP1  
+						 FROM COWAY_LOGON_ID_TO_MP A, ICOMLUSR C 
+						WHERE A. E_PERNR = C.LEGACY_USER_ID 
+						AND C. USER_ID = #{st_user_id}
+						) A 
+						WHERE (( A.GROUP1 =  B .AUKOS OR A.GROUP1 =  B. BGORG ) OR (A.GROUP1 = 'ROOT' AND 1=1)  ) 
+						) 
+					   AND AUART = 'BGAT'   
+				 ORDER BY BGORG ASC 
+				) X  WHERE 1 =1 
+				
+			 ]]> 
+			 <if test="dept_cd !=''">
+					<![CDATA[
+			 			  AND X.NODE_KEY LIKE '%'||#{dept_cd}||'%'	
+			 		]]>	 
+			</if>   
+			 <if test="dept_nm !=''">
+					<![CDATA[
+			 			  AND X.LTEXT LIKE '%'||#{dept_nm}||'%'	
+			 		]]>	 
+			</if>   			
+			<![CDATA[					 
+		
+		]]> 
+	</select> 
+	 
+	 
+	 
+	 
+	
+	<!-- 계정조회 -->
+	<select id="getBdgtSelect" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+
+		/*getBdgtSelect*/
+
+		SELECT																	  
+			   A.AUFNR,															 
+			   A.BGACT,															 
+			   MAX(A.ACTTX) AS ACTTX,											   
+			   MAX(A.MPAMT) + MAX(A.GR_AMT) AS MPAMT,							   
+			   MAX(A.PLAN_AMT_FLAG) AS PLAN_AMT_FLAG								
+		  FROM (																	
+				SELECT															  
+					   A.AUFNR,													 
+					   A.BGACT,													 
+					   A.ACTTX,													 
+					   (NVL(B.MPAMT,0) - NVL(C.TEMP_AMT+C.RESULT_AMT,0)) AS MPAMT,  
+					   CASE														 
+						 WHEN B.MPAMT - NVL(C.TEMP_AMT+C.RESULT_AMT,0) + NVL( F_COWAY_BUYER_BUDGET_MPAMT2 (C.BUYER , C.DEPT , C.ACCOUNT_TYPE,C.TERM) ,0 ) > 1 THEN 'Y' 
+						 ELSE 'N'												   
+					   END AS PLAN_AMT_FLAG,										
+					   (SELECT NVL(SUM(GR.ITEM_AMT),0)							  
+						  FROM COWAY_BUDGET_ACTUAL BD,							  
+							   ICOMPODT PO,										 
+							   ICOMGRDT GR										  
+						 WHERE BD.BUYER = #{st_buyer}					 
+						   AND BD.BUYER		= C.BUYER							
+						   AND BD.BUDGET_DEPT  = C.DEPT							 
+						   AND BD.ACCOUNT_TYPE = C.ACCOUNT_TYPE					 
+						   AND BD.ADD_DATE BETWEEN C.FROM_DATE AND C.TO_DATE		
+						   AND PO.BUYER  = BD.BUYER								 
+						   AND PO.PR_NO  = BD.PR_NO								 
+						   AND PO.PR_SEQ = BD.PR_SEQ								
+						   AND GR.BUYER  = PO.BUYER								 
+						   AND GR.PO_NO  = PO.PO_NO								 
+						   AND GR.PO_SEQ = PO.PO_SEQ								
+						   AND TRIM(GR.LEGACY_PO_NO) IS NULL						
+						   AND TRIM(GR.LEGACY_GR_NO) IS NOT NULL					
+						   AND GR.STATUS IN ('C','R')							   
+						   ) AS GR_AMT											  
+				  FROM COWAY_MAPPING_ET_BG_MASTER A,								
+					   COWAY_RESTS_ET_ORDER B,									  
+					   ICOMBDGT C												   
+				 WHERE 1 = 1														
+				   AND B.KOKRS = '2000'											 
+				   AND A.KOKRS = B.KOKRS											
+				   AND A.BGACT = B.BGACT											
+				   AND A.AUFNR = B.AUFNR											
+				   AND C.BUYER= #{st_buyer}																 
+				   AND B.AUFNR=C.DEPT											   
+				   AND B.BGACT=C.ACCOUNT_TYPE									   
+				   AND C.TERM_TYPE='M'											  
+				   AND B.GJAHR||LPAD(B.MONAT,2,'0')=C.TERM						  
+				   AND TO_CHAR (SYSDATE, 'YYYYMMDD') BETWEEN C.FROM_DATE AND C.TO_DATE  
+				   AND B.AUFNR =  #{st_userDept}																  
+			 ]]> 
+			 <if test="account_cd !=''">
+					<![CDATA[
+			 			 AND A.BGACT LIKE '%'||#{account_cd}||'%'	
+			 		]]>	 
+			</if>   
+			 <if test="account_nm !=''">
+					<![CDATA[
+			 			  AND A.ACTTX LIKE '%'||#{account_nm}||'%'	
+			 		]]>	 
+			</if>   			
+			<![CDATA[										  
+			   )A																   
+		 GROUP BY AUFNR, BGACT													  
+		
+		
+		]]> 
+	</select> 
+	 
+	 
+	 
+	 
+	 
+	 
+	<!--부서예산조회 -->
+	<select id="getBuyerAdminBudgetListSql" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		
+		/*getBuyerAdminBudgetListSql*/
+
+	   SELECT A. AUFNR											
+					  , (SELECT D . LTEXT FROM COWAY_BUDGET_ORG_ET_TREE D					   
+						  WHERE D. BGORG =A.AUFNR AND ROWNUM= 1 )  AUFNR_NM						  
+					  ,A.BGACT											  
+					  ,MAX(A.ACTTX )		  ACTTX								  
+					   ,MAX(A.REST_AMT )	  REST_AMT								   
+					  ,MAX(A.MPAMT )		  MPAMT								  
+					  ,MAX(A.TERM)			 TERM							 
+				FROM(											   
+				SELECT A. AUFNR											 
+					 ,A.BGACT										   
+					 , A.ACTTX										  
+					 , (NVL(B . MPAMT, 0 ) + NVL( F_COWAY_BUYER_BUDGET_MPAMT2 ('KRCOWA0001' , C .DEPT , C .ACCOUNT_TYPE,C.TERM) ,0 ) - (NVL(C .TEMP_AMT,0) + NVL(C. RESULT_AMT ,0 ))) REST_AMT		
+
+					 , NVL(C .TEMP_AMT,0) + NVL(C. RESULT_AMT ,0 ) MPAMT						
+					 , CASE WHEN B. MPAMT - NVL(C .TEMP_AMT + C. RESULT_AMT ,0 ) > 1 THEN 'Y'		   
+				  ELSE 'N'											
+					   END PLAN_AMT_FLAG										
+					   , B . GJAHR	  , B .MONAT	, C .TERM  AS TERM						
+				  FROM COWAY_MAPPING_ET_BG_MASTER A, COWAY_RESTS_ET_ORDER B					 
+					   , ICOMBDGT C										 
+				  WHERE	 1 = 1										   
+					   AND B . KOKRS = '2000'								   
+					   AND A. KOKRS = B. KOKRS								  
+					   AND A. BGACT = B. BGACT								  
+					   AND A. AUFNR = B. AUFNR								  
+					   AND B . AUFNR= C .DEPT								   
+					   AND B . BGACT= C .ACCOUNT_TYPE							   
+					   AND C. TERM_TYPE ='M'									
+					   AND B . GJAHR||LPAD( B .MONAT , 2, '0' )=C .TERM					 
+					   AND C. BUYER = #{st_buyer}											  
+					   AND C.TERM = #{st_from_year}||#{st_from_month}									   
+						 ]]> 
+			 <if test="st_account_type !=''">
+					<![CDATA[
+			 			 AND C.DEPT  =#{st_account_type}
+			 		]]>	 
+			</if>					 
+			<![CDATA[
+				 )A											 
+				 GROUP BY AUFNR, BGACT									  
+		
+		]]> 
+	</select> 
+	 
+	 
+	 	<!--부서예산조회 -->
+	<select id="getAAA" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+
+			/*getAAA*/
+
+	 SELECT						
+				 ROWNUM NUM			   
+				 ,X.NODE_KEY			  CODE
+				 ,'['||X.NODE_KEY||']'||X.LTEXT  AS TEXT1	
+				FROM(					 
+				SELECT					
+				   B. NODE_KEY			
+				  , B. LTEXT			  
+				  FROM COWAY_BUDGET_ORG_ET_TREE B 
+				 WHERE ISFOLDER IS NULL 
+					   AND EXISTS 
+						(SELECT 'X' FROM  ( 
+						   SELECT NVL (A.GROUP1 , A. BGORG_F) GROUP1 
+						 FROM COWAY_ORG_AUTHORITY_ET_DATA A, ICOMLUSR C 
+						   WHERE A. PERNR = C.LEGACY_USER_ID 
+						AND KOKRS = '2000' 
+						AND C. USER_ID = #{st_user_id}
+						   UNION					   
+						   SELECT NVL (A.E_KOSTL , A. E_BGORG)  GROUP1  
+						 FROM COWAY_LOGON_ID_TO_MP A, ICOMLUSR C 
+						WHERE A. E_PERNR = C.LEGACY_USER_ID 
+						AND C. USER_ID = #{st_user_id}
+						) A 
+						WHERE (( A.GROUP1 =  B .AUKOS OR A.GROUP1 =  B. BGORG ) OR (A.GROUP1 = 'ROOT' AND 1=1)  ) 
+						) 
+					   AND AUART = 'BGAT'   
+				 ORDER BY BGORG ASC 
+				) X  WHERE 1 =1				
+		
+		]]> 
+	</select> 
+	 	 
+	 
+	 
+	 	 	<!--상조용품 조회 -->
+	<select id="getK005List" parameterType="java.util.Map" resultType="String">
+		<![CDATA[
+
+			/*getK005List*/
+			
+	   SELECT	
+				COUNT(CODE) AS SANGJO_CNT	
+			 FROM ICOMCOD1	
+			 WHERE 1=1	
+				AND TYPE = 'K005'	
+				AND TEXT1 = 'D'	
+				
+				]]>  
+<if test="st_query_cart_array != null and st_query_cart_array != ''">	 
+		
+			   	AND CODE IN
+		  
+<foreach collection="st_query_cart_array" item="item" index="i" open="(" separator=","  close=")" >	
+		 	#{item}
+</foreach>   
+
+
+</if>	 
+<![CDATA[	   
+ 
+		
+		]]> 
+	</select> 
+	
+	
+	 
+	<select id="getBuyerCartQty" parameterType="java.util.Map" resultType="String">
+		<![CDATA[
+
+			/*getBuyerCartQty*/
+			
+			 SELECT																						
+					 COUNT(A.USER_ID) CNT																		   	
+					 FROM ICOMCART A, ICOMBYIT B, ICOMCQDT C, CMSCATLG D											
+					 WHERE B.BUYER		 = C.BUYER																
+					   AND A.BUYER_ITEM_NO = B.BUYER_ITEM_NO														
+					   AND A.BUYER_ITEM_NO = C.BUYER_ITEM_NO														
+					   AND A.CONTRACT_NO = C.CONTRACT_NO															
+					   AND A.CONTRACT_SEQ = C.CONTRACT_SEQ														  
+					   AND A.BYIT_COMORG_CODE = B.BUYER															 
+					   AND B.CMS_CATLG_ID = D.CMS_CATLG_ID(+)													   
+					   AND D.STD_FLAG(+)='Y'																		
+					   AND A.USE_FLAG	  = 'C'																	
+					   AND B.STATUS	   <> 'D'																	
+					   AND C.STATUS	   <> 'D'																	
+					   AND B.PRODUCT_CLOSE_FLAG	IN ('N','Y')													 
+					   AND A.BUYER		 = #{st_buyer}															
+					   AND A.USER_ID	   =  #{st_user_id}												
+				 
+		]]> 
+	</select> 
+	
+		<!-- 첨부파일 update -->
+	<update id="updateAttatch" parameterType="java.util.Map">
+		<![CDATA[
+ 		 	UPDATE ICOMCART	A
+		/*updateAttatch*/
+					 SET A.IMAGE_KEY =  #{IMAGE_KEY}				   		
+					WHERE A.BUYER =  #{BUYER}								
+					AND A.USER_ID =  #{USER_ID}			 					
+					AND A.CONTRACT_NO =  #{CONTRACT_NO}			   			
+					AND A.CONTRACT_SEQ =  #{CONTRACT_SEQ}					 	
+					AND A.BUYER_ITEM_NO =  #{BUYER_ITEM_NO}
+					AND A.USE_FLAG = 'C'		  															
+		]]>
+		<if test="SEQ != null and SEQ != ''">
+			AND A.SEQ = #{SEQ}
+		</if>
+	</update> 
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+<select id="selectCowayBuyerAdminBdgtTempCheckCoway" parameterType="java.util.Map" resultType="java.util.Map">
+	<![CDATA[
+	
+	/*selectCowayBuyerAdminBdgtTempCheckCoway*/
+
+
+
+			  SELECT																								  
+				  (SELECT C.TEXT2 FROM ICOMCOD2 C																	 
+					WHERE C.TYPE = 'Z014'																			 
+					  AND C.COMPANY_CODE = X.BUYER																	
+					  AND C.CODE = X.ACCOUNT_TYPE	 ) ACCOUNT_TYPE_TEXT,														-- 0
+				  Z.MPAMT,																							 -- 1
+				  Y.RESULT_AMT-NVL(F_COWAY_BUYER_BUDGET_MPAMT(X.BUYER, X.BUDGET_DEPT, X.ACCOUNT_TYPE) ,0) RESULT_AMT,  -- 2
+				  Y.TEMP_AMT,																						  -- 3
+				  X.TOT_AMT,																						   -- 4
+				   DECODE(SIGN(Z.MPAMT - (Y.RESULT_AMT-NVL(F_COWAY_BUYER_BUDGET_MPAMT(X.BUYER, X.BUDGET_DEPT, X.ACCOUNT_TYPE) ,0) + Y.TEMP_AMT + X.TOT_AMT)),NULL,'예산미편성',-1 ,'예산초과','예산적용') BUYER_CHECK,	-- 5
+				  X.BUDGET_DEPT ,																					  -- 6
+				  X.ACCOUNT_TYPE,																					  -- 7
+				  (SELECT TEXT1 FROM ICOMCOD2 A																	   
+					  WHERE A.COMPANY_CODE = X.BUYER																  
+						AND A.CODE		 = X.BUDGET_DEPT															
+						AND A.TYPE		 = 'C001'		  ) AS BUDGET_DEPT_NAME									 -- 8
+			  FROM																									
+				  (SELECT																							 
+					  MAX(A.BUYER) BUYER,																			 
+					  A.BUDGET_DEPT ,																				 
+					  A.ACCOUNT_TYPE,																				 
+					  SUM((DECODE(A.CART_QTY,'0','1',NVL(A.CART_QTY,1)) *											 
+							  DECODE(B.FIXED_PRICE_FLAG,'N',NVL(A.UNIT_PRICE,0),NVL(C.TARGET_PRICE,0)))) TOT_AMT	  
+				   FROM ICOMCART A, ICOMBYIT B, ICOMCQDT C															
+				  WHERE B.BUYER		   = C.BUYER																   
+					AND A.BUYER_ITEM_NO   = B.BUYER_ITEM_NO														   
+					AND A.BUYER_ITEM_NO   = C.BUYER_ITEM_NO														   
+					AND A.BUYER		   = #{buyer}										   
+					AND A.BYIT_COMORG_CODE = B.BUYER																  
+					AND A.USER_ID	   = #{userid}							
+	   
+	   ]]>  
+<if test="st_query_cart_array != null and st_query_cart_array != ''">	 
+	<choose>
+		<when test='(buyer == "KRCOWA0002" or buyer == "KRCOWA0007" or buyer == "KRCOWA0003" or buyer == "KRCOWA0008" ) or st_seqYn == "Y" '>
+			<![CDATA[
+				   AND C.BUYER_ITEM_NO||C.CONTRACT_NO||C.CONTRACT_SEQ||A.SEQ IN
+			]]>
+			<foreach collection="st_query_cart_array" item="item" index="i" open="(" separator=","  close=")" >
+				#{item}
+			</foreach>
+		</when>
+		<otherwise>
+			<![CDATA[
+			   AND C.BUYER_ITEM_NO||C.CONTRACT_NO||C.CONTRACT_SEQ IN
+			]]>
+			<foreach collection="st_query_cart_array" item="item" index="i" open="(" separator=","  close=")" >
+				#{item}
+			</foreach>
+		</otherwise>
+	</choose>
+</if>	 
+<![CDATA[	  
+
+
+
+					AND A.USE_FLAG	  = 'C'																		 
+					AND B.STATUS	   <> 'D'																		 
+					AND C.STATUS	   <> 'D'																		 
+					AND B.PRODUCT_CLOSE_FLAG	= 'N'																 
+					AND A.CONTRACT_NO = C.CONTRACT_NO																 
+					AND A.CONTRACT_SEQ = C.CONTRACT_SEQ															   
+					AND B.ACCOUNT_TYPE = 'M'																		
+					GROUP BY A.BUDGET_DEPT , A.ACCOUNT_TYPE														   
+															  ) X ,  ICOMBDGT Y ,  COWAY_RESTS_ET_ORDER Z			 
+			  WHERE X.BUYER		   = Y.BUYER																	
+				AND X.BUDGET_DEPT	 = Y.DEPT																	 
+				AND X.ACCOUNT_TYPE	= Y.ACCOUNT_TYPE															 
+				AND X.BUDGET_DEPT = Z.AUFNR																	   
+				AND X.ACCOUNT_TYPE = Z.BGACT																	   
+				AND Z.KOKRS = '2000'																	   
+				AND Z.GJAHR =SUBSTR(Y.TERM,0,4)																	   
+				AND LPAD(Z.MONAT,2,'0') = SUBSTR(Y.TERM,5,2)																	  
+				AND TO_CHAR (SYSDATE, 'YYYYMMDD') BETWEEN Y.FROM_DATE  AND Y.TO_DATE								  
+			
+						   
+
+
+
+]]> 
+</select> 
+
+
+
+ 	
+<!-- 관계 -->
+<select id="getCod2M039DDLB" parameterType="java.util.Map" resultType="java.util.Map">
+	<![CDATA[
+	
+	/*getCod2M039DDLB*/
+
+
+			SELECT	
+				CODE	
+				, TEXT1	
+			FROM ICOMCOD1	
+			WHERE 1=1	
+				AND TYPE = 'M039'	
+				AND FLAG = 'Y'	
+			ORDER BY TEXT1	
+
+]]> 
+</select> 
+
+<!-- 신규여부 -->
+<select id="getCod2M040DDLB" parameterType="java.util.Map" resultType="java.util.Map">
+	<![CDATA[
+	
+	/*getCod2M040DDLB*/
+
+
+			SELECT	
+				CODE	
+				, TEXT1	
+			FROM ICOMCOD1	
+			WHERE 1=1	
+				AND TYPE = 'M040'	
+				AND FLAG = 'Y'	
+			ORDER BY TEXT1	
+
+]]> 
+</select> 
+	<select id="getBuyerMpSHolidayPurchase" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/* getBuyerMpSHolidayPurchase */
+			SELECT ROWNUM RN,  X.*, COUNT(*) OVER() AS TOTNUM FROM (
+
+				SELECT A.BUYER
+					 , A.BUYER_ITEM_NO
+					 , B.CONTRACT_NO
+					 , B.CONTRACT_SEQ
+					 , 'C' USE_FLAG
+					 , 1 CART_QTY
+					 , B.BELOW_COMORG_CODE
+					 , A.DESCRIPTION_LOC DESCRIPTION
+					 , A.SPECIFICATION
+					 , A.MIN_QTY_RATE MIN_QTY
+					 , A.MAX_QTY_RATE MAX_QTY
+					 , NVL(B.MAX_QTY_RATE, 0) DEDUCT_RATE
+					 , B.UNIT_PRICE
+					 , B.AGENT
+					 , A.IMGFILE_DIR
+					 , A.IMGFILE_NAME
+					 , NVL(A.DOC_NO, A.BUYER_ITEM_NO) DOC_NO
+				  FROM ICOMBYIT A
+					 , ICOMCQDT B
+				 WHERE A.BUYER = B.BUYER
+				   AND A.BUYER_ITEM_NO = B.BUYER_ITEM_NO
+				   AND A.BUYER =#{buyer } 
+				   AND EXISTS ( SELECT 1
+								  FROM ICOMBYCA CA, ICOMBYIT IT
+							     WHERE CA.COM_CODE = IT.BUYER
+								   AND CA.COM_CODE = a.BUYER
+								   AND IT.BUYER_ITEM_NO = a.BUYER_ITEM_NO
+								   AND IT.CATEGORY_NO = CA.STD_CATEG_ID
+								   AND CA.CATEG_NAME = '명절선물세트')
+				   AND A.STATUS != 'D'
+				   AND TO_CHAR(SYSDATE, 'yyyyMMdd') BETWEEN FROM_DATE AND TO_DATE
+				ORDER BY A.DESCRIPTION_LOC
+			 ) X
+			 
+		]]>
+	</select>
+	<select id="getBuyerMpSoGroupPurchase" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/* getBuyerMpSoGroupPurchase */
+			SELECT ROWNUM RN,  A.*, COUNT(*) OVER() AS TOTNUM FROM ( 
+				SELECT  MIN(BUYER)BUYER
+					 , MIN(BUYER_ITEM_NO)BUYER_ITEM_NO
+					 , MIN(CONTRACT_NO)CONTRACT_NO
+					 , MIN(CONTRACT_SEQ )CONTRACT_SEQ 
+					 , MIN(USE_FLAG)USE_FLAG
+					 , MIN(CART_QTY)CART_QTY
+					 , MIN(BELOW_COMORG_CODE)BELOW_COMORG_CODE 
+					 , MIN(DESCRIPTION)DESCRIPTION
+					 , TO_CHAR(SUBSTR(REPLACE(WMSYS.WM_CONCAT(SPECIFICATION), '@@,', '@@'),0, LENGTH(REPLACE(WMSYS.WM_CONCAT(SPECIFICATION), '@@,', '@@'))-2)) SPECIFICATION
+					 , TO_CHAR(REPLACE(WMSYS.WM_CONCAT(BUYER_ITEM_NO), ',', '@@')) RPRSNT_ITEM_NO
+					 , MIN(MIN_QTY)MIN_QTY
+					 , MIN(MAX_QTY)MAX_QTY
+					 , MIN(DEDUCT_RATE)DEDUCT_RATE
+					 , MIN(UNIT_PRICE) UNIT_PRICE 
+					 , MIN(AGENT) AGENT 
+					 , MAX(IMGFILE_DIR) AS IMGFILE_DIR
+					 , MAX(IMGFILE_NAME) AS IMGFILE_NAME
+					 , doc_no
+					 FROM ( 
+				SELECT A.BUYER
+					 , A.BUYER_ITEM_NO
+					 , B.CONTRACT_NO
+					 , B.CONTRACT_SEQ 
+					 , 'C' USE_FLAG
+					 , 1 CART_QTY
+					 , B.BELOW_COMORG_CODE 
+					 , A.DESCRIPTION_LOC DESCRIPTION
+					 , A.SPECIFICATION||'@@'SPECIFICATION
+					 , A.MIN_QTY_RATE MIN_QTY
+					 , A.MAX_QTY_RATE MAX_QTY
+					 , NVL(B.MAX_QTY_RATE, 0) DEDUCT_RATE
+					 , B.UNIT_PRICE
+					 , B.AGENT
+					 , A.IMGFILE_DIR
+					 , A.IMGFILE_NAME
+					 , NVL(A.DOC_NO, A.BUYER_ITEM_NO) DOC_NO 
+				  FROM ICOMBYIT A
+					 , ICOMCQDT B 
+				 WHERE A.BUYER = B.BUYER 
+				   AND A.BUYER_ITEM_NO = B.BUYER_ITEM_NO
+				   AND A.BUYER = #{buyer } 
+				   AND EXISTS ( SELECT 1
+								  FROM ICOMBYCA CA, ICOMBYIT IT
+							     WHERE CA.COM_CODE = IT.BUYER
+								   AND CA.COM_CODE = a.BUYER
+								   AND IT.BUYER_ITEM_NO = a.BUYER_ITEM_NO
+								   AND IT.CATEGORY_NO = CA.STD_CATEG_ID
+								   AND CA.CATEG_NAME = '공동구매')
+				   AND A.STATUS != 'D' 
+				   AND TO_CHAR(SYSDATE, 'yyyyMMdd') BETWEEN FROM_DATE AND TO_DATE
+				   )
+				 GROUP BY DOC_NO
+			 ) A
+		]]>
+	</select>
+	<select id="getNewDoctorBatchOrderCatalog" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/* getNewDoctorBatchOrderCatalog */
+			SELECT ROWNUM RN
+			,  A.*
+			, COUNT(*) OVER() AS TOTNUM
+			FROM ( 
+				SELECT  MIN(BUYER)BUYER
+					 , MIN(BUYER_ITEM_NO)BUYER_ITEM_NO
+					 , MIN(CONTRACT_NO)CONTRACT_NO
+					 , MIN(CONTRACT_SEQ )CONTRACT_SEQ 
+					 , MIN(USE_FLAG)USE_FLAG
+					 , MIN(CART_QTY)CART_QTY
+					 , MIN(BELOW_COMORG_CODE)BELOW_COMORG_CODE 
+					 , MIN(DESCRIPTION)DESCRIPTION
+					 , TO_CHAR(SUBSTR(REPLACE(WMSYS.WM_CONCAT(SPECIFICATION), '@@,', '@@'),0, LENGTH(REPLACE(WMSYS.WM_CONCAT(SPECIFICATION), '@@,', '@@'))-4)) SPECIFICATION
+					 , TO_CHAR(REPLACE(WMSYS.WM_CONCAT(BUYER_ITEM_NO), ',', '@@')) RPRSNT_ITEM_NO
+					 , MIN(MIN_QTY)MIN_QTY
+					 , MIN(MAX_QTY)MAX_QTY
+					 , MIN(DEDUCT_RATE)DEDUCT_RATE
+					 , MIN(UNIT_PRICE) UNIT_PRICE 
+					 , MIN(AGENT) AGENT 
+					 , DOC_NO
+					 FROM ( 
+				SELECT A.BUYER
+					 , A.BUYER_ITEM_NO
+					 , B.CONTRACT_NO
+					 , B.CONTRACT_SEQ 
+					 , 'C' USE_FLAG
+					 , 1 CART_QTY
+					 , B.BELOW_COMORG_CODE 
+					 , A.DESCRIPTION_LOC DESCRIPTION
+					 , A.SPECIFICATION||'@@'SPECIFICATION
+					 , A.MIN_QTY_RATE MIN_QTY
+					 , A.MAX_QTY_RATE MAX_QTY
+					 , NVL(B.MAX_QTY_RATE, 0) DEDUCT_RATE
+					 , B.UNIT_PRICE
+					 , B.AGENT
+					 , NVL(A.DOC_NO, A.BUYER_ITEM_NO) DOC_NO 
+				  FROM ICOMBYIT A
+					 , ICOMCQDT B 
+				 WHERE A.BUYER = B.BUYER 
+				   AND A.BUYER_ITEM_NO = B.BUYER_ITEM_NO
+				   AND A.BUYER = #{buyer } 
+				   AND EXISTS ( SELECT 1
+								  FROM ICOMBYCA CA, ICOMBYIT IT
+							     WHERE CA.COM_CODE = IT.BUYER
+								   AND CA.COM_CODE = a.BUYER
+								   AND IT.BUYER_ITEM_NO = a.BUYER_ITEM_NO
+								   AND IT.CATEGORY_NO = CA.STD_CATEG_ID
+								   AND CA.CATEG_NAME = '신규닥터 일괄주문')
+				   AND A.STATUS != 'D' 
+				   AND TO_CHAR(SYSDATE, 'yyyyMMdd') BETWEEN FROM_DATE AND TO_DATE
+				   )
+				 GROUP BY DOC_NO
+			 ) A
+		]]>
+	</select>
+	<select id="getBuyerMpSoSellerRegList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/* getBuyerMpSoSellerRegList */
+			SELECT ROWNUM RN,  X.*, COUNT(*) OVER() AS TOTNUM FROM (
+
+				SELECT A.BUYER
+					 , A.BUYER_ITEM_NO
+					 , B.CONTRACT_NO
+					 , B.CONTRACT_SEQ
+					 , 'O' USE_FLAG
+					 , 1 CART_QTY
+					 , B.BELOW_COMORG_CODE
+					 , A.DESCRIPTION_LOC DESCRIPTION
+					 , A.SPECIFICATION
+					 , A.MIN_QTY_RATE MIN_QTY
+					 , A.MAX_QTY_RATE MAX_QTY
+					 , NVL(B.MAX_QTY_RATE, 0) DEDUCT_RATE
+					 , B.UNIT_PRICE
+					 , B.AGENT
+					 , A.IMGFILE_DIR
+					 , A.IMGFILE_NAME
+					 , NVL(A.DOC_NO, A.BUYER_ITEM_NO) DOC_NO
+				  FROM ICOMBYIT A
+					 , ICOMCQDT B
+				 WHERE A.BUYER =  #{byca_comorg_code }
+				   AND B.BELOW_COMORG_CODE =#{buyer } 
+				   AND A.BUYER = B.BUYER
+				   AND A.BUYER_ITEM_NO = B.BUYER_ITEM_NO
+				   AND EXISTS ( SELECT 1
+								  FROM ICOMBYCA CA, ICOMBYIT IT, ICOMCOD2 COD
+							     WHERE CA.COM_CODE = A.BUYER
+ 							       AND CA.COM_CODE = IT.BUYER
+								   AND IT.BUYER_ITEM_NO = A.BUYER_ITEM_NO
+								   AND IT.CATEGORY_NO = CA.STD_CATEG_ID
+								   AND CA.COM_CODE = COD.TEXT1
+								   AND CA.CATEG_NAME = COD.TEXT2
+								   AND COD.TYPE = 'M018'
+								   AND COD.CODE = 'C001'
+								   AND COD.FLAG = 'Y'
+								   )
+				   AND A.STATUS != 'D'
+				ORDER BY A.DESCRIPTION_LOC
+			 ) X
+			 
+		]]>
+	</select>
+</mapper>

@@ -1,0 +1,194 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mpst">
+	<!-- 조회 -->
+	<select id="selectReturnStatsList" parameterType="java.util.Map" resultType="java.util.Map">
+	/* master.mpst.selectReturnStatsList */
+	<choose>
+		<when test="st_dept_code != null and st_dept_code != '' ">
+			SELECT	X.YYYYMM,
+						X.WMRE_TYPE2,
+						(SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'WM02' AND CODE = X.WMRE_TYPE2) AS WMRE_TYPE2_NAME,
+						X.WMRE_TYPE3,
+						(SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'WM04' AND CODE = X.WMRE_TYPE3) AS WMRE_TYPE3_NAME,
+						X.WMRE_CNT,
+						X.WMRE_AMT,
+						X.TOT_WMRE_CNT,
+						DECODE(X.TOT_WMRE_CNT, 0, 0, ROUND((X.WMRE_CNT / X.TOT_WMRE_CNT * 100), 1)) AS RATE,
+						X.WMRE_TYPE4
+			FROM	(
+						SELECT	C.YYYYMM,
+									C.WMRE_TYPE2,
+									C.WMRE_TYPE3,
+									SUM(C.WMRE_CNT) AS WMRE_CNT,
+									SUM(C.WMRE_AMT) AS WMRE_AMT,
+									SUM(C.TOT_WMRE_CNT) AS TOT_WMRE_CNT,
+									MAX(C.WMRE_TYPE4) AS WMRE_TYPE4
+						FROM	(
+									SELECT	A.YYYYMM,
+												A.WMRE_TYPE2,
+												A.WMRE_TYPE3,
+												A.WMRE_CNT,
+												A.WMRE_AMT,
+												(
+												SELECT	SUM(WMRE_CNT)
+												FROM	KEPWMRE_MNG
+												WHERE	1=1
+												AND		ST_TYPE = 'A'
+												AND		YYYYMM = A.YYYYMM
+												AND		WMRE_TYPE2 = A.WMRE_TYPE2
+												GROUP BY	YYYYMM, WMRE_TYPE2
+												) AS TOT_WMRE_CNT,
+												A.WMRE_TYPE4
+									FROM	KEPWMRE_MNG A
+									WHERE	1=1
+									AND		A.YYYYMM = #{st_yyyymm}
+									AND		A.ST_TYPE = 'A'
+									AND		A.WMRE_TYPE4 = #{st_dept_code}
+		
+									UNION ALL
+		
+									SELECT	#{st_yyyymm} AS YYYYMM,
+												A.CODE AS WMRE_TYPE2,
+												B.CODE AS WMRE_TYPE3,
+												0 AS WMRE_CNT,
+												0 AS WMRE_AMT,
+												0 AS TOT_WMRE_CNT,
+												'' AS WMRE_TYPE4
+									FROM	ICOMCOD1 A, ICOMCOD1 B
+									WHERE	1=1
+									AND		A.TYPE = 'WM02'
+									AND		B.TYPE = 'WM04'
+									AND		A.CODE = B.TEXT2
+						) C
+						GROUP BY C.YYYYMM, C.WMRE_TYPE2, C.WMRE_TYPE3
+			)	X
+			WHERE	1=1
+			ORDER BY X.WMRE_TYPE2, RATE DESC, X.WMRE_TYPE3
+		</when>
+		<otherwise>
+			SELECT	X.YYYYMM,
+						X.WMRE_TYPE2,
+						(SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'WM02' AND CODE = X.WMRE_TYPE2) AS WMRE_TYPE2_NAME,
+						X.WMRE_TYPE3,
+						(SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'WM04' AND CODE = X.WMRE_TYPE3) AS WMRE_TYPE3_NAME,
+						X.WMRE_CNT,
+						X.WMRE_AMT,
+						X.TOT_WMRE_CNT,
+						DECODE(X.TOT_WMRE_CNT, 0, 0, ROUND((X.WMRE_CNT / X.TOT_WMRE_CNT * 100), 1)) AS RATE
+			FROM	(
+						SELECT	C.YYYYMM,
+									C.WMRE_TYPE2,
+									C.WMRE_TYPE3,
+									SUM(C.WMRE_CNT) AS WMRE_CNT,
+									SUM(C.WMRE_AMT) AS WMRE_AMT,
+									MAX(C.TOT_WMRE_CNT) AS TOT_WMRE_CNT
+						FROM	(
+									SELECT	A.YYYYMM,
+												A.WMRE_TYPE2,
+												A.WMRE_TYPE3,
+												A.WMRE_CNT,
+												A.WMRE_AMT,
+												(
+												SELECT	SUM(WMRE_CNT)
+												FROM	KEPWMRE_MNG
+												WHERE	1=1
+												AND		ST_TYPE = 'A'
+												AND		YYYYMM = A.YYYYMM
+												AND		WMRE_TYPE2 = A.WMRE_TYPE2
+												GROUP BY	YYYYMM, WMRE_TYPE2
+												) AS TOT_WMRE_CNT
+									FROM	KEPWMRE_MNG A
+									WHERE	1=1
+									AND		A.YYYYMM = #{st_yyyymm}
+									AND		A.ST_TYPE = 'A'
+		
+									UNION ALL
+		
+									SELECT	#{st_yyyymm} AS YYYYMM,
+												A.CODE AS WMRE_TYPE2,
+												B.CODE AS WMRE_TYPE3,
+												0 AS WMRE_CNT,
+												0 AS WMRE_AMT,
+												0 AS TOT_WMRE_CNT
+									FROM	ICOMCOD1 A, ICOMCOD1 B
+									WHERE	1=1
+									AND		A.TYPE = 'WM02'
+									AND		B.TYPE = 'WM04'
+									AND		A.CODE = B.TEXT2
+						) C
+						GROUP BY C.YYYYMM, C.WMRE_TYPE2, C.WMRE_TYPE3
+			)	X
+			ORDER BY X.WMRE_TYPE2, RATE DESC
+		</otherwise>
+	</choose>
+	</select>
+	
+	<select id="selectReturnStatsBuyerList" parameterType="java.util.Map" resultType="java.util.Map">
+	/* master.mpst.selectReturnStatsBuyerList */
+	SELECT	X.YYYYMM,
+				X.COM_CODE,
+				(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = X.COM_CODE) AS COM_NAME,
+				X.KEP_DEPT,
+				DECODE(X.KEP_DEPT, 'XX', '미지정', (SELECT TEXT1 FROM ICOMCOD2 WHERE COMPANY_CODE = 'KRKORE0001' AND TYPE = 'C001' AND CODE = X.KEP_DEPT)) AS KEP_DEPT_NAME,
+				X.PO_CNT,
+				X.WMRE_CNT,
+				DECODE(X.PO_CNT, 0, 0, ROUND((X.WMRE_CNT / X.PO_CNT * 100), 1)) AS CNT_RATE,
+				X.PO_AMT,
+				X.WMRE_AMT,
+				DECODE(X.PO_AMT+X.WMRE_AMT, 0, 0, ROUND((X.WMRE_AMT / (X.PO_AMT+X.WMRE_AMT) * 100), 1)) AS AMT_RATE
+	FROM	(
+				SELECT	A.YYYYMM,
+							A.COM_CODE,
+							NVL((SELECT MAX(KEP_DEPT) FROM MIS_BUYER_MNG WHERE YEAR = TO_CHAR(SYSDATE, 'YYYY') AND BUYER = A.COM_CODE AND STATUS = 'C'), 'XX') AS KEP_DEPT,
+							A.PO_CNT,
+							A.WMRE_CNT,
+							A.PO_AMT,
+							A.WMRE_AMT
+				FROM	KEPWMRE_MNG A
+				WHERE	1=1
+				AND		A.YYYYMM = #{st_yyyymm}
+				AND		A.ST_TYPE = 'B'
+				AND		A.WMRE_CNT > 0
+	) X
+	WHERE	1=1
+	<if test="st_dept_code != null and st_dept_code != '' ">
+		AND X.KEP_DEPT = #{st_dept_code}
+	</if>
+	ORDER BY X.WMRE_CNT DESC, X.COM_CODE
+	</select>
+	
+	<select id="selectReturnStatsAgentList" parameterType="java.util.Map" resultType="java.util.Map">
+	/* master.mpst.selectReturnStatsAgentList */
+	SELECT	X.YYYYMM,
+				X.COM_CODE,
+				(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = X.COM_CODE) AS COM_NAME,
+				X.KEP_DEPT,
+				DECODE(X.KEP_DEPT, 'XX', '미지정', (SELECT TEXT1 FROM ICOMCOD2 WHERE COMPANY_CODE = 'KRKORE0001' AND TYPE = 'C001' AND CODE = X.KEP_DEPT)) AS KEP_DEPT_NAME,
+				X.PO_CNT,
+				X.WMRE_CNT,
+				DECODE(X.PO_CNT, 0, 0, ROUND((X.WMRE_CNT / X.PO_CNT * 100), 1)) AS CNT_RATE,
+				X.PO_AMT,
+				X.WMRE_AMT,
+				DECODE(X.PO_AMT+X.WMRE_AMT, 0, 0, ROUND((X.WMRE_AMT / (X.PO_AMT+X.WMRE_AMT) * 100), 1)) AS AMT_RATE
+	FROM	(
+				SELECT	A.YYYYMM,
+							A.COM_CODE,
+							A.PO_CNT,
+							A.WMRE_CNT,
+							A.PO_AMT,
+							A.WMRE_AMT,
+							A.WMRE_TYPE4 AS KEP_DEPT
+				FROM	KEPWMRE_MNG A
+				WHERE	1=1
+				AND		A.YYYYMM = #{st_yyyymm}
+				AND		A.ST_TYPE = 'S'
+				AND		A.WMRE_CNT > 0
+	) X
+	WHERE	1=1
+	<if test="st_dept_code != null and st_dept_code != '' ">
+		AND X.KEP_DEPT = #{st_dept_code}
+	</if>
+	ORDER BY X.WMRE_CNT DESC, X.COM_CODE
+	</select>
+</mapper>

@@ -1,0 +1,181 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mpif">
+	
+	<!-- 삼성전자발주현황 조회 -->
+	<select id="selectMasterMpIfSamsungPoList" parameterType="java.util.Map" resultType="java.util.Map">
+	/* master.mpif.selectMpifSamsungPoList */
+		<include refid="common.ibsheet.xml.pagestart"/>
+		<![CDATA[
+		SELECT M.*,
+		       CASE
+		         WHEN M.PROGRESS_STATUS = '02' THEN '확인'
+		         WHEN M.PROGRESS_STATUS = '03' THEN '불가'
+		         ELSE '대기'
+		       END AS PROGRESS_TEXT,
+		       CASE
+		         WHEN M.IF_STATUS = 'Y' THEN '완료'
+		         ELSE '요청'
+		       END AS IF_STATUS_TEXT
+		  FROM (
+		SELECT 
+		       A.PO_NO AS LEGACY_PO_NO,
+		       A.PO_SEQ AS LEGACY_PO_SEQ,
+		       A.PO_REQ_NO,
+		       A.PO_GB,
+		       (SELECT TEXT1 FROM ICOMCOD2 WHERE TYPE = 'C020' AND FLAG = 'Y' AND COMPANY_CODE = NVL(K.TEXT1, 'KRSAMS0123') AND CODE = A.PO_GB) AS PO_GB_TEXT,
+		       CASE
+		         WHEN D.IF_FLAG IS NOT NULL THEN 'Y'
+		         ELSE 'N'
+		       END AS IF_STATUS,
+		       NVL(D.PROGRESS_STATUS, '00') AS PROGRESS_STATUS,
+		       CASE
+		         WHEN C.PO_NO IS NULL AND A.PO_GB = '01' AND P.IF_FLAG = 'D' THEN '인터페이스 삭제'
+		         ELSE C.PO_NO
+		       END AS KEP_PO_NO,
+		       C.PO_SEQ AS KEP_PO_SEQ,
+		       A.PO_DATE,
+		       C.ITEM_QTY AS KEP_PO_QTY,
+		       A.PO_QTY   AS IF_PO_QTY,
+		       C.GR_QTY,
+		       C.RD_DATE AS KEP_RD_DATE,
+		       A.REQ_DELIVERY_DATE AS IF_RD_DATE,
+		       A.STND_DELIVERY_DATE AS STD_RD_DATE,
+		       A.PO_CREATOR_NAME,
+		       A.REQUESTER_NAME,
+		       A.BUDGET_DEPT_NAME,
+		       A.BUDGET_DEPT_CODE,
+		       C.UNIT_PRICE,
+		       C.ITEM_AMT,
+		       C.AGENT_PRICE,
+		       C.AGENT_ITEM_AMT,
+		       A.ITEM_CODE AS BUYER_ITEM_NO,
+		       A.DESCRIPTION,
+		       A.SPECIFICATION,
+		       A.MANUFACTURER AS MAKER_NAME,
+		       A.UNIT_CODE AS UNIT_MEASURE,
+		       (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = B.AGENT) AS AGENT_NAME,
+		       (SELECT TEXT2 FROM ICOMCOD1 WHERE TYPE = 'M034' AND CODE = C.PROCESS_TYPE) AS PROCESS_TEXT,
+		       REQUESTER_NAME  AS PR_USER_NAME,
+		       PO_CREATOR_NAME AS PO_USER_NAME,
+		       F_GET_PLANT_MNG(NVL(K.TEXT1, 'KRSAMS0123'), NVL(TRIM(A.COMPANY_CODE ),'C100') ,'REMG' ,'ID') AS PLANT_USER_ID,
+		       F_GET_PLANT_MNG(NVL(K.TEXT1, 'KRSAMS0123'), NVL(TRIM(A.COMPANY_CODE ),'C100') ,'REMG' ,'NM') AS PLANT_USER_NM,
+		       NVL(TRIM(A.COMPANY_CODE ),'C100') AS PLANT,
+		       (SELECT TEXT1 FROM ICOMCOD2 WHERE TYPE = 'C001' AND COMPANY_CODE = NVL(K.TEXT1, 'KRSAMS0123') AND CODE = NVL(TRIM(A.COMPANY_CODE ),'C100') ) AS PLANT_NAME,
+               CASE
+                 WHEN (SELECT COUNT(*) FROM ICOMCOD2
+                        WHERE TYPE = 'C001'
+                          AND COMPANY_CODE = NVL(K.TEXT1, 'KRSAMS0123')
+                          AND CODE = NVL(TRIM(A.COMPANY_CODE ),'C100')
+                          AND TEXT4 = 'OVERSEA'
+                          AND FLAG = 'Y') > 0 THEN 'DZFB'
+                 ELSE 'L10HMX'
+               END AS SYS_CODE,
+               A.BUYING_PRICE AS IF_PRICE,
+               A.BUYING_CURRENCY AS IF_CURRENCY_CODE,
+               D.IF_DATE AS IF_DATE,
+               TO_CHAR(A.CREATE_DATE, 'YYYY-MM-DD HH24:MI:SS') AS IF_CREATE_DATE,
+               TO_CHAR(P.CANCEL_DATE, 'YYYY-MM-DD HH24:MI:SS') AS CANCEL_DATE,
+               P.CANCEL_RSON AS CANCEL_RSON,
+               (SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = P.CANCEL_ID) AS CANCEL_ID
+               
+               
+		  FROM EAI.IF_SEC_PURCHASE_ORDER A,
+		       ICOMPRDT B,
+		       ICOMPODT C,
+		       EAI.IF_SEC_PO_RESULT_INFO_SEND D,
+		       ICOMCOD2 K,
+		       IF_PODT P
+		 WHERE 1 = 1
+		   AND K.TYPE = 'PLNT'
+		   AND K.COMPANY_CODE = 'KRSAMSG001'
+		   AND K.CODE = A.COMPANY_CODE
+		   AND K.FLAG = 'Y'
+		]]> 
+		<if test='st_all_po == "N" '>
+		   AND A.PO_DATE BETWEEN #{st_from_date} AND #{st_to_date}
+		</if>
+		   AND CASE
+				 WHEN #{st_dept_code} = '095' THEN 1
+				 ELSE ( SELECT COUNT(*) FROM MIS_BUYER_MNG WHERE BUYER IN (SELECT BUYER FROM IF_ADMIN WHERE BUYER_ID = 'SSEC') AND YEAR = TO_CHAR(SYSDATE,'YYYY') AND KEP_USER_ID = #{st_user_id})
+			   END != 0
+		<![CDATA[ 
+		   AND C.BUYER(+) = NVL(K.TEXT1, 'KRSAMS0123')
+		   AND A.PO_NO = C.LEGACY_PO_NO(+)
+		   AND A.PO_SEQ = C.LEGACY_PO_SEQ(+)
+		   AND B.BUYER(+) = NVL(K.TEXT1, 'KRSAMS0123')
+		   AND A.PO_NO = B.LEGACY_PO_NO(+)
+		   AND A.PO_SEQ = B.LEGACY_PO_SEQ(+)
+		   
+		   AND A.PO_NO = D.PO_NO(+)
+		   AND A.PO_SEQ = D.PO_SEQ(+)
+		   AND A.PO_REQ_NO = D.PO_REQ_NO(+)
+		   
+		   AND A.PO_NO = P.LEGACY_PO_NO(+)
+		   AND A.PO_SEQ = P.LEGACY_PO_SEQ(+)
+		]]>
+		<if test="st_po_gb != null and st_po_gb != '' ">
+		   AND A.PO_GB = #{st_po_gb}
+		</if>
+		<if test="st_po_dept_code != null and st_po_dept_code != '' ">
+		   AND A.BUDGET_DEPT_CODE = #{st_po_dept_code}
+		</if>
+		<if test="st_if_po_no != null and st_if_po_no != '' ">
+		   AND A.PO_NO = #{st_if_po_no}  
+		</if>
+		<if test="st_buyer_item_no != null and st_buyer_item_no != '' ">
+		   AND A.ITEM_CODE = #{st_buyer_item_no}
+		</if>
+	
+		<if test="st_po_req_no != null and st_po_req_no != '' ">
+		   AND A.PO_REQ_NO = #{st_po_req_no}
+		</if>
+		
+		<if test="st_po_no != null and st_po_no != '' ">
+		   AND C.PO_NO = #{st_po_no}
+		</if>
+		<![CDATA[ 
+		 ORDER BY A.PO_NO, A.PO_SEQ  
+		  ) M
+		 WHERE 1 = 1
+		]]> 
+		<if test="st_progress_status != null and st_progress_status != '' ">
+		   AND M.PROGRESS_STATUS = #{st_progress_status}
+		</if> 
+    	<if test="st_plant_user_id != null and st_plant_user_id != '' and st_plant_user_id != 'ALL'">
+    	   AND M.PLANT_USER_ID = #{st_plant_user_id}
+    	</if>
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+	
+	<update id="insertMasterMpifSamsungPoReturn" parameterType="java.util.Map">
+	<![CDATA[
+	/*master.mpif.insertMasterMpifSamsungPoReturn*/
+	    INSERT INTO EAI.IF_SEC_PO_RESULT_INFO_SEND (
+	      SYS_CODE,
+	      IF_GB,
+	      PO_NO,
+	      PO_SEQ,
+	      PO_REQ_NO,
+	      PO_GB,
+	      PROGRESS_STATUS,
+	      EPR_PROCESS_DATE,
+	      EPR_PROCESS_HMS,
+	      EPR_PROCESS_RSLT,
+	      IF_FLAG
+	    ) VALUES (
+	      #{SYS_CODE},
+	      'C',
+	      #{LEGACY_PO_NO},
+	      #{LEGACY_PO_SEQ},
+	      #{PO_REQ_NO},
+	      #{PO_GB},
+	      #{st_if_progress_status},
+	      TO_CHAR(SYSDATE, 'YYYYMMDD'),
+	      TO_CHAR(SYSDATE, 'HH24MISS'),
+	      '',
+	      'N'
+	    )	
+	]]>
+	</update>
+</mapper>

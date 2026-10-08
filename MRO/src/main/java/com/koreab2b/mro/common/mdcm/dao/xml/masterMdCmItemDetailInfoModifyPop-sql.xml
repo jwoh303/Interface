@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="common.mdcm">
+
+
+	<select id="selectMasterMdCmItemDetailInfoModifyPopList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/*selectMasterMdCmItemDetailInfoModifyPopList*/
+			SELECT
+				  DECODE(A.CATEGORY_NO, NULL, '', (SELECT CATEG_NAME FROM ICOMBYCA WHERE COM_CODE='PRMTITEM' AND STD_CATEG_ID=A.CATEGORY_NO)) AS CATEG_NAME	-- 0
+				, A.ITEM_NO AS ITEM_NO	-- 1
+				, A.ADD_DATE AS ADD_DATE	-- 2
+				, A.CHANGE_DATE AS CHANGE_DATE	-- 3
+				, (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE=A.AGENT) AS AGENT_NAME	-- 4
+				, DECODE(A.ITEM_STATUS, 'N', '진행 가능 상품', 'P', '단종', 'Q', '일시품절') AS ITEM_STATUS_TEXT	-- 5
+				, A.ITEM_STATUS AS ITEM_STATUS	-- 6
+				, A.DESCRIPTION AS DESCRIPTION	-- 7
+				, A.SPECIFICATION AS SPECIFICATION	-- 8
+				, A.MAKER_NAME AS MAKER_NAME	-- 9
+				, A.MAKER_PART_NO AS MAKER_PART_NO	-- 10
+				, A.QUALITY AS QUALITY	-- 11
+				, (SELECT TEXT2 FROM ICOMCOD1 WHERE TYPE='M001' AND CODE=A.ORIGIN_CODE) AS ORIGIN_TEXT	-- 12
+				, A.MIN_DELIVERY_LT MIN_DELIVERY_LT	-- 13
+				, A.MAX_DELIVERY_LT MAX_DELIVERY_LT	-- 14
+				, A.MAKE_LT MAKE_LT	-- 15
+				, A.USER_PRICE USER_PRICE	-- 16
+				, A.ITEM_QTY1 AS QTY1	-- 17
+				, A.ITEM_QTY_PRICE1 AS PRICE1	-- 18
+				, A.ITEM_QTY2 AS QTY2	-- 19
+				, A.ITEM_QTY_PRICE2 AS PRICE2	-- 20
+				, A.ITEM_QTY3 AS QTY3	-- 21
+				, A.ITEM_QTY_PRICE3 AS PRICE3	-- 22
+				, A.ITEM_QTY4 AS QTY4	-- 23
+				, A.ITEM_QTY_PRICE4 AS PRICE4	-- 24
+				, A.PRINT_OPT_PRICE AS PRINT_OPT_PRICE	-- 25
+				, A.IMAGE_KEY	-- 26
+				, NVL(A.REMARK, ' ') AS REMARK	-- 27
+				, A.ORIGIN_CODE AS ORIGIN_CODE	-- 28
+				, NVL(A.D_REMARK, ' ') AS D_REMARK	-- 29
+				, NVL(A.B_REMARK, ' ') AS B_REMARK	-- 30
+				, DECODE(A.IMG_NAME, NULL, 'NO_IMG', '/attfiles/'||A.IMG_DIR||'/'||A.IMG_NAME) AS IMG_PATH	-- 31
+				, A.AGENT AS AGENT	-- 32
+				, (SELECT CATEG_PATH FROM ICOMBYCA WHERE COM_CODE='PRMTITEM' AND STD_CATEG_ID=A.CATEGORY_NO) AS CATEG_PATH	-- 33
+				, A.CATEGORY_NO	-- 34
+				, DECODE(A.STATUS, 'S', '요청', 'C', '게시', 'B', '반려', 'R','게시', 'A','보관', 'D','삭제','V','추천') AS STATUS	-- 35
+				, DECODE(A.ITEM_FLAG, 'N', '일반', 'G','기획') AS GUBUN	-- 36
+				, DECODE(NVL(A.MIN_ORDER_QTY,0),0,1,NVL(A.MIN_ORDER_QTY,0)) AS MIN_ORDER_QTY	-- 37
+				, A.IMAGE_KEY
+			FROM PRMTITEM A
+			WHERE A.ITEM_NO = #{ITEM_NO}
+		]]>
+	</select>
+	
+	<!-- 판촉물 상품정보 삭제 및 반려처리 -->
+	<update id="updateMasterMdCmItemDetailInfoDeleteNotAccept" parameterType="java.util.Map">
+		<![CDATA[
+			/*updateMasterMdCmItemDetailInfoDeleteNotAccept*/
+			UPDATE PRMTITEM 
+		]]>
+			<if test='st_process_mode != null and st_process_mode != "PLAN"'>
+				<![CDATA[
+				SET
+					  STATUS = #{st_status}
+					, CHANGE_DATE=TO_CHAR(SYSDATE, 'YYYYMMDD')
+				]]>
+			</if>
+			<if test='st_process_mode != null and st_process_mode == "PLAN"'>
+				<![CDATA[
+				SET
+					  CHANGE_DATE=TO_CHAR(SYSDATE, 'YYYYMMDD')
+				]]>
+			</if>
+			
+		<![CDATA[
+				, CHANGE_TIME=TO_CHAR(SYSDATE, 'HH24MISS')
+				, KEP_USER_ID = #{st_user_id}
+		]]>
+			
+			<if test='st_process_mode != null and st_process_mode == "DELETE"'>
+				<![CDATA[
+					, D_REMARK = #{st_d_remark}
+				]]>
+			</if>
+			
+			<if test='st_process_mode != null and st_process_mode == "NO_ACCEPT"'>
+				<![CDATA[
+					, B_REMARK = #{st_b_remark}
+				]]>
+			</if>
+			
+			<if test='st_process_mode != null and st_process_mode == "PLAN"'>
+				<![CDATA[
+					 , ITEM_FLAG = #{st_item_flag}
+				]]>
+			</if>
+			
+		<![CDATA[
+				, KEP_DATE=TO_CHAR(SYSDATE, 'YYYYMMDD')
+				, KEP_TIME=TO_CHAR(SYSDATE, 'HH24MISS')
+			WHERE ITEM_NO = #{st_item_no}
+		]]>
+		
+	</update>
+	
+	<!-- 판촉물 상품정보 수정 -->
+	<update id="updateMasterMdCmItemDetailInfoModifyPop" parameterType="java.util.Map">
+		<![CDATA[
+			/*updateMasterMdCmItemDetailInfoModifyPop*/
+			UPDATE PRMTITEM
+			SET 
+				  AGENT = #{st_agent_code}
+				, DESCRIPTION = #{st_description}
+				, SPECIFICATION = #{st_specification}
+				, MAKER_NAME = #{st_maker_name}
+				, MAKER_PART_NO = #{st_maker_part_no}
+				, QUALITY = #{st_quality}
+				, ORIGIN_CODE = #{st_origin_code}
+				, MIN_DELIVERY_LT = #{st_min_delivery_lt}
+				, MAX_DELIVERY_LT = #{st_max_delivery_lt}
+				, MAKE_LT = #{st_make_lt}
+				, RE_SALE_DATE = ''
+				, USER_PRICE = #{st_user_price}
+				, REMARK = #{st_remark}
+				, KEP_USER_ID = #{st_user_id}
+				, KEP_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD')
+				, KEP_TIME = TO_CHAR(SYSDATE, 'HH24MISS')
+				, ITEM_QTY1 = #{st_qty1}
+				, ITEM_QTY_PRICE1 = #{st_qty_price1}
+				, ITEM_QTY2 = #{st_qty2}
+				, ITEM_QTY_PRICE2 = #{st_qty_price2}
+				, ITEM_QTY3 = #{st_qty3}
+				, ITEM_QTY_PRICE3 = #{st_qty_price3}
+				, ITEM_QTY4 = #{st_qty4}
+				, ITEM_QTY_PRICE4 = #{st_qty_price4}
+				, PRINT_OPT_PRICE = #{st_print_opt_price}
+				, CATEGORY_NO = #{st_categ_id}
+				, MIN_ORDER_QTY = #{st_min_order_qty}
+				WHERE ITEM_NO = #{st_item_no}
+		]]>
+	</update>
+	
+</mapper>

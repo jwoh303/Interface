@@ -1,0 +1,107 @@
+<div class="DIVpopup-overlay" id="DIVpopupOverlay"></div>
+<div class="DIVpopup" id="DIVpopup" style="width:340px;">
+  <div class="wrapPopup" style="padding:30px;">
+    <div class="PopupTit">권한등록<span><a href="#" id="DIVclosePopup"><img src="/resources/imgs/Icon_close.png" /></a></span></div>
+    <table class="ComPopupTableT01 mt15" style="width:100%;">
+      <colgroup>
+        <col style="width:30%;" />
+        <col style="width:70%;" />
+      </colgroup>
+      <thead><tr><th>선택</th><th>권한명</th></tr></thead>
+      <tbody>
+        <tr><td><label class="CheckLargeLabel"><input type="checkbox" id="check_u"><span class="CheckLargeCustom"></span></label></td><td>주문</td></tr>
+        <tr><td><label class="CheckLargeLabel"><input type="checkbox" id="check_p"><span class="CheckLargeCustom"></span></label></td><td>발주</td></tr>
+        <tr><td><label class="CheckLargeLabel"><input type="checkbox" id="check_g"><span class="CheckLargeCustom"></span></label></td><td>입고</td></tr>
+      </tbody>
+    </table>
+    <div class="PopupListBtnBox_Center mt20">
+      <button type="button" class="ButPrimary_large" id="btn_save">확인</button>
+    </div>
+  </div>
+</div>
+
+<script type="text/javascript">
+window.createPopupAPI = function(overlayId, containerId, options) {
+    var $overlay   = $('#' + overlayId);
+    var $container = $('#' + containerId);
+    var animationType = $container.data('animationType') || 'default';
+
+    var roleCode    = (options && options.data && options.data.st_role_code)     || '';
+    var oriRoleCode = (options && options.data && options.data.st_ori_role_code) || '';
+    var userType    = (options && options.data && options.data.st_user_type)     || '';
+
+    var role1 = roleCode.length > 0 ? roleCode.charAt(0) : '';
+    var role2 = roleCode.length > 0 ? roleCode.charAt(1) : '';
+    var oriRole2 = oriRoleCode.length > 1 ? oriRoleCode.substring(1) : '';
+
+    var selectCallback = null;
+    var api = {};
+
+    function close() {
+        var $popup = $container.find('.DIVpopup');
+        if ($popup.hasClass('popup-button-exit') || $popup.hasClass('popup-exit')) return;
+        var exitClass = animationType === 'fromButton' ? 'popup-button-exit' : 'popup-exit';
+        var animationDuration = animationType === 'fromButton' ? 1000 : 200;
+        $popup.removeClass('popup-enter popup-button-enter').addClass(exitClass);
+        $overlay.removeClass('popup-enter').addClass('popup-exit');
+        setTimeout(function() {
+            $overlay.remove();
+            $container.remove();
+            if ($('[id^="popup-overlay-"]').length === 0) {
+                var scrollY = $('body').data('scrollY') || 0;
+                $('body').css({'position':'', 'top':'', 'left':'', 'right':'', 'overflow-y':''});
+                window.scrollTo(0, scrollY);
+            }
+        }, animationDuration);
+    }
+
+    function onSelect(cb) { selectCallback = cb; return api; }
+
+    function init() {
+        // 레거시 commonCoCoAuthorityRegPop.jsp:114-131 와 100% 동일 매핑 (보정 없음)
+        $container.find('#check_u').prop('checked', role2 === '@');
+        $container.find('#check_p').prop('checked', role1 === 'P' || role1 === 'C' || role1 === 'A');
+        $container.find('#check_g').prop('checked', role1 === 'G' || role1 === 'C' || role1 === 'A');
+    }
+
+    function save() {
+        if (userType === 'A') {
+            alert('관리자는 메뉴접근 권한 변경이 불가능 합니다.');
+            return;
+        }
+        var u = $container.find('#check_u').is(':checked');
+        var p = $container.find('#check_p').is(':checked');
+        var g = $container.find('#check_g').is(':checked');
+        var code = '', name = '';
+        if (oriRole2 !== '-' && u) {
+            if (p && g)      { code = 'C+'; name = '주문 : 발주 : 입고'; }
+            else if (p)      { code = 'P+'; name = '주문 : 발주'; }
+            else if (g)      { code = 'G+'; name = '주문 : 입고'; }
+            else             { code = 'U+'; name = '주문'; }
+        } else {
+            if (p && g)      { code = 'C-'; name = '발주 : 입고'; }
+            else if (p)      { code = 'P-'; name = '발주'; }
+            else if (g)      { code = 'G-'; name = '입고'; }
+            else             { code = 'U-'; name = '조회'; }
+        }
+        if (typeof selectCallback === 'function') selectCallback(code, name);
+        close();
+    }
+
+    function bindEvents() {
+        $overlay.on('click', close);
+        $container.find('#DIVclosePopup').on('click', function(e) { e.preventDefault(); close(); });
+        $container.find('#btn_save').on('click', save);
+    }
+
+    api.close = close;
+    api.onSelect = onSelect;
+    api.$overlay = $overlay;
+    api.$container = $container;
+
+    init();
+    bindEvents();
+
+    return api;
+};
+</script>

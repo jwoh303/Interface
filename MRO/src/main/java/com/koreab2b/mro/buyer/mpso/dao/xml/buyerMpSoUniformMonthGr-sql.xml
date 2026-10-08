@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="buyer.mpso">
+	
+	<!-- 조회 -->
+	<select id="selectBuyerMpSoUniformMonthGrList" parameterType="java.util.Map" resultType="java.util.Map">
+	/*selectBuyerMpSoUniformMonthGrList*/
+		<include refid="common.ibsheet.xml.pagestart"/>	
+		<![CDATA[
+		    SELECT	X.BUYER,
+					(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = X.BUYER) AS BUYER_NAME,
+					X.BUYER_ITEM_NO,
+					MAX(X.DESCRIPTION) AS DESCRIPTION,
+					MAX(X.SPECIFICATION) AS SPECIFICATION,
+					SUM(X.GR_QTY) AS GR_QTY,
+					SUM(X.RE_QTY) AS RE_QTY,
+					SUM(X.GR_QTY - X.RE_QTY) AS TOT_QTY
+			FROM	(
+					SELECT	A.BUYER,
+							A.BUYER_ITEM_NO,
+							MAX(A.DESCRIPTION) AS DESCRIPTION,
+							MAX(A.SPECIFICATION) AS SPECIFICATION,
+							SUM(A.ITEM_QTY) AS GR_QTY,
+							0 AS RE_QTY,
+							0 AS TOT_QTY
+					FROM	ICOMGRDT A, ICOMCOD2 B
+					WHERE	1=1
+					AND		A.BUYER = B.COMPANY_CODE
+					AND		A.BUYER_ITEM_NO = B.CODE
+					AND		A.STATUS IN ('C', 'R')
+					AND		A.ITEM_QTY > 0
+					AND		A.GR_DATE BETWEEN #{st_from_date} || '01' AND #{st_from_date} || '31'
+					AND		B.TYPE = 'ST00'
+					AND		B.FLAG = 'Y'
+					AND		A.BUYER IN (SELECT COMPANY_CODE FROM ICOMCOD2 WHERE TYPE = 'ST01' AND CODE = #{st_user_id} AND TEXT2 = #{st_com_code} AND FLAG = 'Y')
+		]]>
+		<if test="st_buyer != 'ALL' and st_buyer != ''">
+		<![CDATA[
+					AND	A.BUYER = #{st_buyer}
+		]]>
+		</if>
+		<if test="st_buyer_item_no != null and st_buyer_item_no != ''">
+		<![CDATA[
+	 				AND A.BUYER_ITEM_NO LIKE '%' || #{st_buyer_item_no} || '%'
+	 	]]>
+		</if>
+		<if test="st_description != null and st_description != ''">
+		<![CDATA[
+	 				AND A.DESCRIPTION LIKE '%' || #{st_description} || '%'
+	 	]]>
+	 	</if>
+	 	<if test="st_specification != null and st_specification != ''">
+		<![CDATA[
+	 				AND A.SPECIFICATION LIKE '%' || #{st_specification} || '%'
+	 	]]>
+	 	</if>
+	 	<![CDATA[
+					GROUP BY A.BUYER, A.BUYER_ITEM_NO
+	
+					UNION ALL
+	
+					SELECT	A.BUYER,
+							A.BUYER_ITEM_NO,
+							MAX(A.DESCRIPTION) AS DESCRIPTION,
+							MAX(A.SPECIFICATION) AS SPECIFICATION,
+							0 AS GR_QTY,
+							SUM(A.ITEM_QTY * -1) AS RE_QTY,
+							0 AS TOT_QTY
+					FROM	ICOMGRDT A, ICOMCOD2 B
+					WHERE	1=1
+					AND		A.BUYER = B.COMPANY_CODE
+					AND		A.BUYER_ITEM_NO = B.CODE
+					AND		A.STATUS IN ('C', 'R')
+					AND		A.ITEM_QTY < 0
+					AND		A.GR_DATE BETWEEN #{st_from_date} || '01' AND #{st_from_date} || '31'
+					AND		B.TYPE = 'ST00'
+					AND		B.FLAG = 'Y'
+					AND		A.BUYER IN (SELECT COMPANY_CODE FROM ICOMCOD2 WHERE TYPE = 'ST01' AND CODE = #{st_user_id} AND TEXT2 = #{st_com_code} AND FLAG = 'Y')
+		]]>
+		<if test="st_buyer != 'ALL' and st_buyer != ''">
+		<![CDATA[
+					AND	A.BUYER = #{st_buyer}
+		]]>
+		</if>
+		<if test="st_buyer_item_no != null and st_buyer_item_no != ''">
+		<![CDATA[
+	 				AND A.BUYER_ITEM_NO LIKE '%' || #{st_buyer_item_no} || '%'
+	 	]]>
+		</if>
+		<if test="st_description != null and st_description != ''">
+		<![CDATA[
+	 				AND A.DESCRIPTION LIKE '%' || #{st_description} || '%'
+	 	]]>
+	 	</if>
+	 	<if test="st_specification != null and st_specification != ''">
+		<![CDATA[
+	 				AND A.SPECIFICATION LIKE '%' || #{st_specification} || '%'
+	 	]]>
+	 	</if>
+	 	<![CDATA[
+					GROUP BY A.BUYER, A.BUYER_ITEM_NO
+			) X
+			WHERE	1=1
+			GROUP BY X.BUYER, X.BUYER_ITEM_NO
+			ORDER BY X.BUYER, X.BUYER_ITEM_NO
+		]]>
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+	
+</mapper>   
+   

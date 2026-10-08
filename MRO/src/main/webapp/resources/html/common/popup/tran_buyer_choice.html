@@ -1,0 +1,1061 @@
+<!--
+  고객사 선택 팝업 (단일 선택 - 라디오 버튼 모드)
+
+  기본 설정:
+  - allowMultiple = false -> 라디오 버튼 (단일 선택)
+  - 체크박스 모드로 변경하려면 setAllowMultiple(true) 호출
+
+  사용 방법:
+  - popupApi.setAllowMultiple(false) -> 라디오 버튼 (기본값)
+  - popupApi.setAllowMultiple(true) -> 체크박스
+-->
+<div class="DIVpopup-overlay" id="DIVpopupOverlay"></div>
+<div class="DIVpopup" id="DIVpopup" style="width: 540px; height: auto; max-height: 80vh; overflow: hidden;">
+  <div class="wrapPopup" style="height: 100%; box-sizing: border-box; display: flex; flex-direction: column;">
+    <div class="PopupTit" style="flex-shrink: 0;">고객사 선택<span><a href="#" id="DIVclosePopup"><img src="/resources/imgs/Icon_close.png" /></a></span></div>
+    <div class="h10" style="flex-shrink: 0;"></div>
+    <div class="SearchPopupInputBox" style="flex-shrink: 0;">
+      <form class="SearchPopupInput" onSubmit="return false;" style="width:100%">
+        <input type="text" placeholder="고객사명" id="customerSearchInput" style="width:85%;">
+        <button type="submit" id="customerSearchBtn">고객사검색버튼</button>
+      </form>
+    </div>
+
+    <!-- 테이블 영역 (IBSheetTablePopup 스타일 사용) -->
+    <div class="IBSheetPopup" style="flex: 1; min-height: 0; margin-top: 10px; overflow-y: auto; overflow-x: hidden; border-radius: 4px;">
+      <table class="IBSheetTablePopup" id="customerTable" style="width:100%;">
+        <colgroup>
+          <col width="10%" />
+          <col width="60%" />
+          <col width="30%" />
+        </colgroup>
+        <thead>
+          <tr>
+            <th id="selectAllHeader">
+              <!-- 다중 선택 모드일 때만 전체 선택 체크박스 표시 -->
+            </th>
+            <th>고객사명</th>
+            <th>등록 품목 건수</th>
+          </tr>
+        </thead>
+        <tbody id="customerTableBody">
+          <!-- 동적으로 데이터 로드 -->
+        </tbody>
+      </table>
+    </div>
+
+    <div style="flex-shrink: 0; height: 20px;"></div>
+    <div class="PopupListBtnBox_Center" style="flex-shrink: 0;">
+      <button class="ButPrimary_large" id="confirmBtn">확인</button>
+    </div>
+  </div><!-- wrapPopup 끝-->
+</div>
+
+<style>
+/* 팝업 전체 레이아웃 - 높이 고정 필수 */
+#DIVpopup {
+  display: flex;
+  flex-direction: column;
+  min-height: 600px !important;
+  max-height: 80vh !important;
+}
+
+.wrapPopup {
+  height: 100% !important;
+  max-height: 100% !important;
+  overflow: hidden !important;
+}
+
+/* base.css 스타일 오버라이드 - 팝업 내 테이블 전용 */
+.IBSheetTablePopup {
+  width: 100%;
+  height: auto;
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: fixed;
+}
+
+.IBSheetTablePopup thead {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.IBSheetTablePopup thead tr {
+  box-sizing: border-box;
+}
+
+/* base.css 스타일 적용 - 헤더 */
+.IBSheetTablePopup th {
+  height: 32px;
+  line-height: 32px;
+  text-align: center;
+  font-size: 16px;
+  font-weight: 500;
+  letter-spacing: -0.8px;
+  color: #5B5C61;
+  vertical-align: top;
+  border-top: 2px solid #e2e8f0;
+  border-bottom: 1px solid #dedede;
+  border-left: 1px solid #dedede;
+  background-color: #f2f7ff;
+}
+
+.IBSheetTablePopup th:first-child {
+  border-left: 0px;
+}
+
+/* base.css 스타일 적용 - 바디 */
+.IBSheetTablePopup tbody {
+  display: table-row-group;
+  height: auto;
+}
+
+.IBSheetTablePopup tbody tr {
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.IBSheetTablePopup tbody tr:hover:not(.loading-row):not(.message-row) {
+  background-color: #f1f3f5;
+}
+
+.IBSheetTablePopup td {
+  height: 28px;
+  line-height: 25px;
+  text-align: center;
+  font-size: 15px;
+  font-weight: 400;
+  letter-spacing: -0.5px;
+  vertical-align: top;
+  color: #404046;
+  border-bottom: 2px solid #eeeeee;
+  border-left: 1px solid #eeeeee;
+  background-color: #fff;
+}
+
+.IBSheetTablePopup td:first-child {
+  border-left: 0px;
+}
+
+/* 체크박스 셀 - table-cell 유지 */
+.IBSheetTablePopup tbody tr:not(.loading-row):not(.message-row) td:nth-child(1) {
+  text-align: center;
+  vertical-align: middle;
+  padding: 0;
+}
+
+/* 로딩/메시지 row는 일반 table-cell 유지 */
+.IBSheetTablePopup tbody tr.loading-row td,
+.IBSheetTablePopup tbody tr.message-row td {
+  display: table-cell !important;
+  text-align: center;
+  vertical-align: middle;
+}
+
+/* 로딩 row는 border 제거 */
+.IBSheetTablePopup tbody tr.loading-row td {
+  border-bottom: none !important;
+}
+
+.IBSheetTablePopup tbody td:nth-child(2) {
+  text-align: left;
+  padding-left: 12px;
+}
+
+.IBSheetTablePopup tbody td:nth-child(3) {
+  text-align: right;
+  padding-right: 12px;
+}
+
+/* CheckCellMediumLabel - 체크박스와 라디오 버튼 공통 스타일 (base.css 스타일 유지) */
+.CheckCellMediumLabel {
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+  margin: 0;
+  font-size: 14px;
+  letter-spacing: -0.2px;
+  font-weight: 400;
+  color: #404046;
+  vertical-align: middle;
+}
+
+/* 실제 input 요소는 숨기고 커스텀 스타일 사용 */
+.CheckCellMediumLabel input[type="checkbox"],
+.CheckCellMediumLabel input[type="radio"] {
+  display: none;
+}
+
+/* 커스텀 체크박스 스타일 - 사각형 */
+.CheckCellMediumLabel input[type="checkbox"] + .CheckCellMediumCustom {
+  position: relative;
+  margin-right: 0;
+  width: 22px;
+  height: 22px;
+  border: 1px solid #d7d7d7;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  background-image: url('/resources/imgs/Check_gray.png');
+  background-size: contain;
+  background-color: #fff;
+}
+
+/* 커스텀 라디오 버튼 스타일 - 동그라미 */
+.CheckCellMediumLabel input[type="radio"] + .CheckCellMediumCustom {
+  position: relative;
+  margin-right: 0;
+  width: 18px;
+  height: 18px;
+  border: 1.5px solid #d7d7d7;
+  border-radius: 50%; /* 동그랗게! */
+  transition: all 0.2s ease;
+  background-image: none; /* 체크 아이콘 제거 */
+  background-color: #fff;
+}
+
+/* 체크박스 선택 상태 - 사각형 + 체크 아이콘 */
+.CheckCellMediumLabel input[type="checkbox"]:checked + .CheckCellMediumCustom {
+  background-color: #2172EC;
+  border-color: #2172EC;
+}
+
+.CheckCellMediumLabel input[type="checkbox"]:checked + .CheckCellMediumCustom::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 22px;
+  height: 22px;
+  background-image: url('/resources/imgs/Check_white.png');
+  background-size: contain;
+  background-repeat: no-repeat;
+}
+
+/* 라디오 버튼 선택 상태 - 동그라미 + 내부 원 */
+.CheckCellMediumLabel input[type="radio"]:checked + .CheckCellMediumCustom {
+  background-color: #fff;
+  border-color: #2172EC;
+  border-width: 1.5px;
+}
+
+.CheckCellMediumLabel input[type="radio"]:checked + .CheckCellMediumCustom::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 8px;
+  height: 8px;
+  background-color: #2172EC;
+  border-radius: 50%;
+  background-image: none;
+}
+
+/* 체크박스 비활성화 상태 */
+.CheckCellMediumLabel input[type="checkbox"]:disabled + .CheckCellMediumCustom {
+  background-color: #ebecf2;
+  border-color: #dedede;
+  cursor: not-allowed;
+  background-image: url('/resources/imgs/Check_gray.png');
+  background-size: contain;
+}
+
+.CheckCellMediumLabel input[type="checkbox"]:disabled:checked + .CheckCellMediumCustom {
+  background-color: #b0b0b0;
+  border-color: #b0b0b0;
+}
+
+.CheckCellMediumLabel input[type="checkbox"]:disabled + .CheckCellMediumCustom::after {
+  opacity: 0.6;
+}
+
+/* 라디오 버튼 비활성화 상태 */
+.CheckCellMediumLabel input[type="radio"]:disabled + .CheckCellMediumCustom {
+  background-color: #ebecf2;
+  border-color: #dedede;
+  cursor: not-allowed;
+}
+
+.CheckCellMediumLabel input[type="radio"]:disabled:checked + .CheckCellMediumCustom {
+  background-color: #fff;
+  border-color: #b0b0b0;
+}
+
+.CheckCellMediumLabel input[type="radio"]:disabled:checked + .CheckCellMediumCustom::after {
+  background-color: #b0b0b0;
+  opacity: 0.6;
+}
+
+/* 로딩 애니메이션 */
+@keyframes shimmer {
+  0% { color: #6c757d; }
+  50% { color: rgba(255,255,255,1); text-shadow: 0 0 10px rgba(255,255,255,1); }
+  100% { color: #6c757d; }
+}
+
+.loading-text span {
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+.loading-text span:nth-child(1) { animation-delay: 0s; }
+.loading-text span:nth-child(2) { animation-delay: 0.1s; }
+.loading-text span:nth-child(3) { animation-delay: 0.2s; }
+.loading-text span:nth-child(4) { animation-delay: 0.3s; }
+.loading-text span:nth-child(5) { animation-delay: 0.4s; }
+.loading-text span:nth-child(6) { animation-delay: 0.5s; }
+</style>
+
+<script type="text/javascript">
+/**
+ * 팝업 API 생성 함수 (전역 - 모든 팝업 공통 함수명)
+ * PopupUtil에서 window.createPopupAPI를 자동으로 호출하여 팝업 API 객체를 받습니다.
+ * 이벤트는 자동으로 초기화되므로 init() 호출 불필요
+ *
+ * @param {string} overlayId - 오버레이 ID (PopupUtil에서 자동 생성하여 전달)
+ * @param {string} containerId - 컨테이너 ID (PopupUtil에서 자동 생성하여 전달)
+ * @returns {Object} 팝업 API 객체
+ */
+window.createPopupAPI = function(overlayId, containerId) {
+    var $overlay = $('#' + overlayId);
+    var $container = $('#' + containerId);
+    var confirmCallback = null;
+    var cancelCallback = null;
+    var animationType = $container.data('animationType') || 'default';
+    // 단일/다중 선택 모드 설정
+    // - false: 라디오 버튼 (단일 선택) - 기본값
+    // - true: 체크박스 (다중 선택)
+    var allowMultiple = false;
+    var customerData = []; // 전체 고객사 데이터 (서버에서 로드)
+    var allData = []; // 검색 필터링용 전체 데이터
+    var apiUrl = '/mpcl/getSellerMpClTranBuyerChoicePopJson.do'; // JSON 엔드포인트
+
+    // ========================================
+    // 무한 스크롤 관련 상태 변수
+    // ========================================
+    var currentPage = 1;           // 현재 페이지
+    var pageSize = 9999;           // 페이지당 항목 수 (고객사 데이터는 한번에 전체 로드)
+    var isLoading = false;         // 로딩 중 플래그
+    var hasMoreData = true;        // 추가 데이터 존재 여부
+    var abortController = null;    // AbortController 인스턴스
+    var debounceDelay = 300;       // Debounce 대기 시간 (ms)
+    var observer = null;           // Intersection Observer 인스턴스
+    var currentKeyword = '';       // 현재 검색어
+
+    // Public API 객체를 먼저 선언 (호이스팅 문제 해결)
+    var api = {};
+
+    // ========================================
+    // Debounce 유틸리티 함수
+    // ========================================
+    function debounce(func, wait) {
+        var timeout;
+        return function() {
+            var context = this;
+            var args = arguments;
+            clearTimeout(timeout);
+            timeout = setTimeout(function() {
+                func.apply(context, args);
+            }, wait);
+        };
+    }
+    
+    
+    
+    
+    
+    /**
+     * 키보드 이벤트 핸들러 (Enter, Space 키로 닫기)
+     */
+    function handleKeydown(e) {
+
+console.log(e.keyCode);
+
+        // Enter(13) 또는 Space(32) 키 감지
+        if (e.keyCode === 13 || e.keyCode === 32) {
+            e.preventDefault();
+            close();
+        }
+    }
+    
+
+    /**
+     * 팝업 닫기 (애니메이션 포함)
+     */
+    function close() {
+        var $popup = $container.find('.DIVpopup');
+
+        // 이미 닫기 애니메이션 중이면 무시
+        if ($popup.hasClass('popup-button-exit') || $popup.hasClass('popup-exit')) {
+            return;
+        }
+
+        // 애니메이션 타입에 따른 클래스 결정
+        var exitClass = animationType === 'fromButton' ? 'popup-button-exit' : 'popup-exit';
+        var animationDuration = animationType === 'fromButton' ? 1000 : 200;
+
+        // 열기 애니메이션 클래스 제거 후 닫기 애니메이션 적용
+        $popup.removeClass('popup-enter popup-button-enter').addClass(exitClass);
+        $overlay.removeClass('popup-enter').addClass('popup-exit');
+
+        // 애니메이션 완료 후 제거
+        setTimeout(function() {
+            // 키보드 이벤트 해제
+            $(document).off('keydown', handleKeydown);
+
+            // Intersection Observer 정리
+            if (observer) {
+                observer.disconnect();
+                observer = null;
+                console.log('[TranBuyerChoice Popup] Intersection Observer 해제');
+            }
+
+            // 진행 중인 요청 취소
+            if (abortController) {
+                abortController.abort();
+                abortController = null;
+            }
+
+            $overlay.remove();
+            $container.remove();
+
+            // ✅ body 스크롤 복원 (모든 팝업이 닫혔는지 확인)
+            if ($('[id^="popup-overlay-"]').length === 0) {
+                var scrollY = $('body').data('scrollY') || 0;
+                $('body').css({
+                    'position': '',
+                    'top': '',
+                    'left': '',
+                    'right': '',
+                    'overflow-y': ''
+                });
+                window.scrollTo(0, scrollY);
+                console.log('[TranBuyerChoice Popup] body 스크롤 복원');
+            }
+
+            console.log('[TranBuyerChoice Popup] 팝업 닫힘');
+        }, animationDuration);
+    }
+
+    /**
+     * 단일/다중 선택 모드 설정 (기존 함수 활용)
+     * @param {boolean} allow - false: 라디오 버튼(단일), true: 체크박스(다중)
+     * @returns {Object} API 객체 (체이닝 지원)
+     */
+    function setAllowMultiple(allow) {
+        var previousMode = allowMultiple;
+        allowMultiple = allow;
+        console.log('[TranBuyerChoice Popup] 선택 모드:', allowMultiple ? '다중 선택(체크박스)' : '단일 선택(라디오)');
+
+        // 모드가 변경되고 이미 데이터가 렌더링되어 있으면 재렌더링
+        if (previousMode !== allowMultiple && customerData.length > 0) {
+            console.log('[TranBuyerChoice Popup] 모드 변경으로 인한 재렌더링 실행');
+            renderCustomerList(customerData);
+        }
+
+        return api; // 체이닝 지원
+    }
+
+    /**
+     * API URL 설정
+     */
+    function setApiUrl(url) {
+        apiUrl = url;
+        console.log('[TranBuyerChoice Popup] API URL 설정:', apiUrl);
+        return api;
+    }
+
+    /**
+     * 고객사 데이터 설정 (임시 데이터 - 서버 로드 우선)
+     */
+    function setCustomerData(data) {
+        customerData = data || [];
+        allData = customerData;
+        renderCustomerList(customerData);
+        console.log('[TranBuyerChoice Popup] 고객사 데이터 설정:', customerData.length, '건');
+        return api; // 체이닝 지원
+    }
+
+    /**
+     * 서버에서 고객사 데이터 로드 (무한 스크롤 지원)
+     * @param {string} keyword - 검색어
+     * @param {boolean} isAppend - true: 기존 데이터에 추가, false: 새로 로드
+     */
+    function loadServerData(keyword, isAppend) {
+        var $tbody = $container.find('#customerTableBody');
+
+        // 이전 요청 취소 (AbortController)
+        if (abortController) {
+            abortController.abort();
+        }
+        abortController = new AbortController();
+
+        // 초기 로드 vs 추가 로드
+        if (!isAppend) {
+            currentPage = 1;
+            hasMoreData = true;
+            customerData = [];
+            currentKeyword = keyword || '';
+            $tbody.html(createLoadingMessage());
+        } else {
+            // 추가 로드 시 로딩 인디케이터 추가
+            appendLoadingIndicator();
+        }
+
+        isLoading = true;
+
+        // AJAX 파라미터 구성 (페이징 포함)
+        var ajaxParams = {
+            keyword: currentKeyword,
+            pageNum: currentPage,
+            pageSize: pageSize
+        };
+
+        console.log('[TranBuyerChoice Popup] 서버 요청 시작:', ajaxParams);
+
+        // HttpUtil을 사용한 POST 요청
+        HttpUtil.post(apiUrl, ajaxParams, {
+            timeout: 30000,
+            showLoader: false,
+            showDefaultAlert: false
+        }).then(function(response) {
+            console.log('[TranBuyerChoice Popup] 서버 응답:', response);
+
+            var newData = parseAPIResponse(response.data);
+
+            // 더 이상 데이터 없음 체크
+            if (!newData || newData.length < pageSize) {
+                hasMoreData = false;
+            }
+
+            if (newData && newData.length > 0) {
+                if (isAppend) {
+                    // 기존 데이터에 추가
+                    customerData = customerData.concat(newData);
+                    appendRows(newData);
+                } else {
+                    // 새로 렌더링
+                    customerData = newData;
+                    allData = newData;
+                    renderCustomerList(newData);
+                }
+
+                currentPage++;
+
+                // Intersection Observer로 마지막 행 관찰
+                observeLastRow();
+
+            } else if (!isAppend) {
+                // 초기 로드 시 데이터 없음
+                $tbody.html('<tr class="message-row" style="height: 25px; cursor: default;"><td colspan="3" style="text-align: center; color: #6c757d; font-style: italic; display: table-cell !important;">조회된 데이터가 없습니다.</td></tr>');
+            }
+
+        }).catch(function(error) {
+            // AbortError는 의도된 취소이므로 무시
+            if (error.name === 'AbortError') {
+                console.log('[TranBuyerChoice Popup] 이전 요청 취소됨');
+                return;
+            }
+            console.error('[TranBuyerChoice Popup] 서버 요청 실패:', error);
+            if (!isAppend) {
+                $tbody.html('<tr class="message-row" style="height: 25px; cursor: default;"><td colspan="3" style="text-align: center; color: #dc3545; display: table-cell !important;">데이터 로드 중 오류가 발생했습니다.</td></tr>');
+            }
+        }).finally(function() {
+            isLoading = false;
+            removeLoadingIndicator();
+        });
+
+        return api;
+    }
+
+    /**
+     * 추가 데이터 로드 (무한 스크롤 트리거)
+     */
+    function loadMoreData() {
+        if (isLoading || !hasMoreData) return;
+        console.log('[TranBuyerChoice Popup] 추가 데이터 로드 - 페이지:', currentPage);
+        loadServerData(currentKeyword, true);
+    }
+
+    /**
+     * 로딩 인디케이터 추가
+     */
+    function appendLoadingIndicator() {
+        var $tbody = $container.find('#customerTableBody');
+        // 기존 로딩 인디케이터 제거
+        $tbody.find('.loading-row').remove();
+        $tbody.append('<tr class="loading-row"><td colspan="3" style="text-align:center; padding:15px; color:#6c757d;">로딩 중...</td></tr>');
+    }
+
+    /**
+     * 로딩 인디케이터 제거
+     */
+    function removeLoadingIndicator() {
+        $container.find('#customerTableBody .loading-row').remove();
+    }
+
+    /**
+     * API 응답 파싱
+     */
+    function parseAPIResponse(responseData) {
+        try {
+            var jsonData;
+
+            // 이미 객체인 경우
+            if (typeof responseData === 'object') {
+                jsonData = responseData;
+            } else {
+                // 문자열인 경우 JSON 파싱
+                jsonData = JSON.parse(responseData);
+            }
+
+            // 배열인 경우 직접 반환
+            if (Array.isArray(jsonData)) {
+                return jsonData;
+            }
+
+            // Data 속성 확인
+            if (jsonData.Data) {
+                return jsonData.Data;
+            }
+
+            console.error('[TranBuyerChoice Popup] 응답 형식 오류:', jsonData);
+            return [];
+
+        } catch (e) {
+            console.error('[TranBuyerChoice Popup] JSON 파싱 에러:', e);
+            return [];
+        }
+    }
+
+    // ========================================
+    // Intersection Observer (무한 스크롤)
+    // ========================================
+
+    /**
+     * Intersection Observer 초기화
+     */
+    function initIntersectionObserver() {
+        // 기존 observer 정리
+        if (observer) {
+            observer.disconnect();
+        }
+
+        observer = new IntersectionObserver(function(entries) {
+            entries.forEach(function(entry) {
+                if (entry.isIntersecting && !isLoading && hasMoreData) {
+                    console.log('[TranBuyerChoice Popup] Intersection Observer 트리거');
+                    loadMoreData();
+                }
+            });
+        }, {
+            root: $container.find('.IBSheetPopup')[0],
+            rootMargin: '100px',  // 하단 100px 전에 트리거
+            threshold: 0.1
+        });
+
+        console.log('[TranBuyerChoice Popup] Intersection Observer 초기화 완료');
+    }
+
+    /**
+     * 마지막 행 관찰 시작
+     */
+    function observeLastRow() {
+        if (!observer) {
+            initIntersectionObserver();
+        }
+
+        // 기존 관찰 해제
+        observer.disconnect();
+
+        var $lastRow = $container.find('#customerTableBody tr:last');
+        if ($lastRow.length && !$lastRow.hasClass('loading-row') && !$lastRow.hasClass('message-row')) {
+            observer.observe($lastRow[0]);
+            console.log('[TranBuyerChoice Popup] 마지막 행 관찰 시작');
+        }
+    }
+
+    /**
+     * 행 HTML 생성 (재사용)
+     */
+    function createRowHtml(customer, index, inputType, inputName) {
+        var customerCode = customer.BUYER || customer.buyer || '';
+        var customerName = customer.BUYER_NAME || customer.buyer_name || '';
+        var itemCount = customer.CNT || customer.cnt || 0;
+
+        return '<tr style="cursor: pointer;" data-index="' + index + '">' +
+               '<td>' +
+               '<label class="CheckCellMediumLabel">' +
+               '<input type="' + inputType + '" name="' + inputName + '" value="' + customerCode + '" ' +
+               'data-customer-name="' + customerName + '" ' +
+               'data-customer-code="' + customerCode + '" ' +
+               'data-item-count="' + itemCount + '" ' +
+               'data-index="' + index + '">' +
+               '<span class="CheckCellMediumCustom"></span>' +
+               '</label>' +
+               '</td>' +
+               '<td>' + customerName + '</td>' +
+               '<td>' + formatNumber(itemCount) + '</td>' +
+               '</tr>';
+    }
+
+    /**
+     * 기존 테이블에 행 추가 (무한 스크롤용)
+     */
+    function appendRows(data) {
+        var $tbody = $container.find('#customerTableBody');
+
+        // 로딩 인디케이터 제거
+        $tbody.find('.loading-row').remove();
+
+        var inputType = allowMultiple ? 'checkbox' : 'radio';
+        var inputName = allowMultiple ? 'customerCheck' : 'customerRadio';
+
+        data.forEach(function(customer, index) {
+            // 전체 데이터에서의 인덱스 계산
+            var globalIndex = customerData.length - data.length + index;
+            var row = createRowHtml(customer, globalIndex, inputType, inputName);
+            $tbody.append(row);
+        });
+
+        // 전체 선택 체크박스 상태 업데이트
+        updateSelectAllState();
+
+        console.log('[TranBuyerChoice Popup] 행 추가 완료:', data.length, '건 (총:', customerData.length, '건)');
+    }
+
+    /**
+     * 헤더의 전체 선택 체크박스 렌더링
+     * allowMultiple이 true일 때만 체크박스 표시
+     */
+    function renderSelectAllHeader() {
+        var $header = $container.find('#selectAllHeader');
+
+        if (allowMultiple) {
+            // 다중 선택 모드: 전체 선택 체크박스 표시
+            $header.html(
+                '<label class="CheckCellMediumLabel">' +
+                '<input type="checkbox" id="selectAllCheckbox">' +
+                '<span class="CheckCellMediumCustom"></span>' +
+                '</label>'
+            );
+            console.log('[TranBuyerChoice Popup] 전체 선택 체크박스 활성화');
+        } else {
+            // 단일 선택 모드: 빈 헤더
+            $header.html('');
+            console.log('[TranBuyerChoice Popup] 전체 선택 체크박스 비활성화 (단일 선택 모드)');
+        }
+    }
+
+    /**
+     * 전체 선택/해제 기능
+     * @param {boolean} checked - 전체 선택 여부
+     */
+    function toggleSelectAll(checked) {
+        $container.find('input[name="customerCheck"]').prop('checked', checked);
+        console.log('[TranBuyerChoice Popup] 전체 ' + (checked ? '선택' : '해제'));
+    }
+
+    /**
+     * 개별 체크박스 상태에 따라 전체 선택 체크박스 상태 업데이트
+     */
+    function updateSelectAllState() {
+        if (!allowMultiple) return;
+
+        var $checkboxes = $container.find('input[name="customerCheck"]');
+        var $selectAll = $container.find('#selectAllCheckbox');
+
+        if ($checkboxes.length === 0) {
+            $selectAll.prop('checked', false);
+            $selectAll.prop('indeterminate', false);
+            return;
+        }
+
+        var checkedCount = $checkboxes.filter(':checked').length;
+        var totalCount = $checkboxes.length;
+
+        if (checkedCount === 0) {
+            // 아무것도 선택 안됨
+            $selectAll.prop('checked', false);
+            $selectAll.prop('indeterminate', false);
+        } else if (checkedCount === totalCount) {
+            // 전체 선택
+            $selectAll.prop('checked', true);
+            $selectAll.prop('indeterminate', false);
+        } else {
+            // 일부만 선택 (indeterminate 상태)
+            $selectAll.prop('checked', false);
+            $selectAll.prop('indeterminate', true);
+        }
+    }
+
+    /**
+     * 고객사 목록 렌더링 (CheckCellMediumLabel 스타일 사용)
+     * allowMultiple 값에 따라 자동으로 라디오 버튼 또는 체크박스로 렌더링
+     */
+    function renderCustomerList(data) {
+        var $tbody = $container.find('#customerTableBody');
+        $tbody.empty();
+
+        // 헤더의 전체 선택 체크박스 렌더링
+        renderSelectAllHeader();
+
+        if (!data || data.length === 0) {
+            $tbody.append('<tr class="message-row" style="height: 25px; cursor: default;"><td colspan="3" style="text-align: center; color: #6c757d; font-style: italic; display: table-cell !important;">검색 결과가 없습니다.</td></tr>');
+            return;
+        }
+
+        data.forEach(function(customer, index) {
+            // allowMultiple 값에 따라 자동으로 input type 결정
+            var inputType = allowMultiple ? 'checkbox' : 'radio';
+            var inputName = allowMultiple ? 'customerCheck' : 'customerRadio';
+
+            // 디버깅: 첫 번째 항목에 대해서만 로그 출력
+            if (index === 0) {
+                console.log('[TranBuyerChoice Popup] 렌더링 타입:', inputType, '| allowMultiple:', allowMultiple);
+            }
+
+            // SQL 응답 필드명: BUYER, BUYER_NAME, CNT
+            var customerCode = customer.BUYER || customer.buyer || '';
+            var customerName = customer.BUYER_NAME || customer.buyer_name || '';
+            var itemCount = customer.CNT || customer.cnt || 0;
+
+            var row = '<tr style="cursor: pointer;" data-index="' + index + '">' +
+                      '<td>' +
+                      '<label class="CheckCellMediumLabel">' +
+                      '<input type="' + inputType + '" name="' + inputName + '" value="' + customerCode + '" ' +
+                      'data-customer-name="' + customerName + '" ' +
+                      'data-customer-code="' + customerCode + '" ' +
+                      'data-item-count="' + itemCount + '" ' +
+                      'data-index="' + index + '">' +
+                      '<span class="CheckCellMediumCustom"></span>' +
+                      '</label>' +
+                      '</td>' +
+                      '<td>' + customerName + '</td>' +
+                      '<td>' + formatNumber(itemCount) + '</td>' +
+                      '</tr>';
+
+            $tbody.append(row);
+        });
+
+        // 전체 선택 체크박스 상태 초기화
+        updateSelectAllState();
+
+        console.log('[TranBuyerChoice Popup] 고객사 목록 렌더링 완료:', data.length, '건');
+    }
+
+    /**
+     * 검색 기능 (클라이언트 필터링) - 레거시
+     * ※ 무한 스크롤 모드에서는 서버 검색(loadServerData)을 사용합니다.
+     * ※ 이 함수는 전체 데이터를 한번에 로드하는 경우에만 사용됩니다.
+     */
+    function searchCustomer(keyword) {
+        if (!keyword || keyword.trim() === '') {
+            renderCustomerList(allData);
+            return;
+        }
+
+        var searchKeyword = keyword.toLowerCase().trim();
+        var filtered = allData.filter(function(customer) {
+            var companyName = ((customer.BUYER_NAME || customer.buyer_name) || '').toLowerCase();
+            var companyCode = ((customer.BUYER || customer.buyer) || '').toLowerCase();
+            return companyName.indexOf(searchKeyword) > -1 || companyCode.indexOf(searchKeyword) > -1;
+        });
+
+        renderCustomerList(filtered);
+        console.log('[TranBuyerChoice Popup] 클라이언트 필터링 결과:', filtered.length, '건');
+    }
+
+    /**
+     * 선택된 고객사 가져오기
+     * allowMultiple 값에 따라 체크박스 또는 라디오 버튼에서 선택된 항목 추출
+     */
+    function getSelectedCustomers() {
+        var selected = [];
+        // allowMultiple에 따라 자동으로 checkbox 또는 radio 선택
+        var inputSelector = allowMultiple ? 'input[name="customerCheck"]:checked' : 'input[name="customerRadio"]:checked';
+
+        $container.find(inputSelector).each(function() {
+            var $input = $(this);
+            selected.push({
+                code: $input.data('customer-code'),
+                name: $input.data('customer-name'),
+                itemCount: $input.data('item-count')
+            });
+        });
+
+        return selected;
+    }
+
+    /**
+     * 확인 버튼 클릭 콜백 설정
+     */
+    function onConfirm(callback) {
+        confirmCallback = callback;
+        return api; // 체이닝 지원
+    }
+
+    /**
+     * 취소(닫기) 콜백 설정
+     */
+    function onCancel(callback) {
+        cancelCallback = callback;
+        return api; // 체이닝 지원
+    }
+
+    /**
+     * 숫자 포맷팅
+     */
+    function formatNumber(num) {
+        if (!num) return '0';
+        return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    }
+
+    /**
+     * 로딩 메시지 생성 (gif 이미지 사용)
+     */
+    function createLoadingMessage() {
+        return '<tr class="loading-row"><td colspan="3" style="padding: 120px 20px; text-align: center; display: table-cell !important;">' +
+               '<img src="/resources/libs/ibsheet7/js/DeepBlue/loading.svg" alt="로딩중..." width="200" height="200" />' +
+               '</td></tr>';
+    }
+
+    /**
+     * 이벤트 바인딩 (내부 함수, 자동 실행)
+     */
+    function bindEvents() {
+        // 기존 이벤트 제거 (중복 방지)
+        $container.find('#DIVclosePopup').off('click');
+        $container.find('#confirmBtn').off('click');
+        $container.find('#customerSearchBtn').off('click');
+        $container.find('#customerSearchInput').off('keypress input');
+        $overlay.off('click');
+
+        // X 버튼 클릭 이벤트
+        $container.find('#DIVclosePopup').on('click', function(e) {
+            e.preventDefault();
+            if (cancelCallback) cancelCallback();
+            close();
+        });
+
+        // 확인 버튼 클릭 이벤트
+        $container.find('#confirmBtn').on('click', function(e) {
+            e.preventDefault();
+            var selectedCustomers = getSelectedCustomers();
+
+            if (selectedCustomers.length === 0) {
+                alert('고객사를 선택해 주세요.');
+                return;
+            }
+
+            if (confirmCallback) {
+                confirmCallback(selectedCustomers);
+            }
+            close();
+        });
+
+        // ========================================
+        // 무한 스크롤용 서버 검색 이벤트 (Debounce 적용)
+        // ========================================
+
+        // Debounce된 서버 검색 함수
+        var debouncedServerSearch = debounce(function(keyword) {
+            console.log('[TranBuyerChoice Popup] Debounce 서버 검색 실행:', keyword);
+            loadServerData(keyword, false);  // 새로 검색 (isAppend = false)
+        }, debounceDelay);
+
+        // 검색 버튼 클릭 이벤트 - 서버 검색
+        $container.find('#customerSearchBtn').on('click', function(e) {
+            e.preventDefault();
+            var keyword = $container.find('#customerSearchInput').val();
+            console.log('[TranBuyerChoice Popup] 검색 버튼 클릭:', keyword);
+            loadServerData(keyword, false);  // 즉시 서버 검색
+        });
+
+        // keypress 이벤트 제거 - PopupUtil의 preventUnintendedKeyActions가 처리함
+        // PopupUtil에서 Enter -> 검색 버튼 클릭으로 자동 전환됨
+
+        // 실시간 서버 검색 (Debounce 적용 - 300ms)
+        $container.find('#customerSearchInput').on('input', function() {
+            var keyword = $(this).val();
+            debouncedServerSearch(keyword);
+        });
+
+        // 오버레이 클릭 시 닫기
+        $overlay.on('click', function() {
+            if (cancelCallback) cancelCallback();
+            close();
+        });
+
+        // 전체 선택 체크박스 이벤트 (이벤트 위임 - 동적 생성 요소)
+        $container.find('#selectAllHeader').off('change', '#selectAllCheckbox');
+        $container.find('#selectAllHeader').on('change', '#selectAllCheckbox', function() {
+            var isChecked = $(this).prop('checked');
+            toggleSelectAll(isChecked);
+        });
+
+        // 개별 체크박스 변경 시 전체 선택 체크박스 상태 업데이트 (이벤트 위임)
+        $container.find('#customerTableBody').off('change', 'input[name="customerCheck"]');
+        $container.find('#customerTableBody').on('change', 'input[name="customerCheck"]', function() {
+            updateSelectAllState();
+        });
+
+        // 고객사 행 클릭 시 체크박스/라디오 버튼 토글 (동적 바인딩 - 이벤트 위임)
+        $container.find('#customerTableBody').off('click', 'tr:not(.loading-row):not(.message-row)');
+        $container.find('#customerTableBody').on('click', 'tr:not(.loading-row):not(.message-row)', function(e) {
+            // 체크박스/라디오 직접 클릭한 경우는 기본 동작 유지 (이벤트 버블링으로 처리됨)
+            if ($(e.target).is('input[type="checkbox"], input[type="radio"], .CheckCellMediumCustom')) {
+                return; // 체크박스/라디오 자체 클릭은 기본 동작 유지
+            }
+
+            // 행 클릭 시 해당 행의 체크박스/라디오 버튼 토글
+            var $checkbox = $(this).find('input[type="checkbox"], input[type="radio"]');
+            if ($checkbox.length > 0) {
+                $checkbox.prop('checked', !$checkbox.prop('checked'));
+                // 다중 선택 모드일 때 전체 선택 상태 업데이트
+                if (allowMultiple) {
+                    updateSelectAllState();
+                }
+                console.log('[TranBuyerChoice Popup] 행 클릭으로 선택 토글:', $checkbox.data('customer-name'));
+            }
+        });
+
+
+
+
+        $(document).on('keydown', handleKeydown);
+
+        console.log('[TranBuyerChoice Popup] 이벤트 자동 바인딩 완료');
+    }
+
+    // Public API 속성 할당
+    api.setAllowMultiple = setAllowMultiple;
+    api.setApiUrl = setApiUrl;
+    api.setCustomerData = setCustomerData;
+    api.loadServerData = loadServerData;
+    api.searchCustomer = searchCustomer;
+    api.getSelectedCustomers = getSelectedCustomers;
+    api.onConfirm = onConfirm;
+    api.onCancel = onCancel;
+    api.close = close;
+    api.$overlay = $overlay;
+    api.$container = $container;
+
+    // ========================================
+    // 자동 실행: 이벤트 즉시 바인딩
+    // ========================================
+    bindEvents();
+
+    // ========================================
+    // 서버 데이터 자동 로드 (초기화 시)
+    // 약간의 지연으로 체이닝 메서드 먼저 실행되도록 보장
+    // ========================================
+    setTimeout(function() {
+        console.log('[TranBuyerChoice Popup] 초기 데이터 로드 시작 (페이지 사이즈:', pageSize, '건)');
+        loadServerData('', false);  // 초기 로드 (isAppend = false)
+    }, 0);
+
+    return api;
+};
+</script>

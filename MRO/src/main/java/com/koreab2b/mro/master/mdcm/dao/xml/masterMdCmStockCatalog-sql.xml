@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mdcm">
+	<!-- 조회 -->
+	<select id="selectMasterMdCmStockCatalogList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.pagestart"/>	
+			<![CDATA[
+			/*selectMasterMdCmStockCatalogList*/
+		    	SELECT                          
+                       DECODE(A.PROCESS_TYPE,'1',(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = A.ORIGIN_AGENT) ,'3',     
+                                                 (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = A.ORIGIN_AGENT),          
+                                                 (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = A.AGENT)) AS AGENT_NAME,  
+                      DECODE(SUBSTR(A.BUYER,7,1),'G',(SELECT COMORG_NAME FROM BYCAORGL WHERE  COMORG_CODE = A.BUYER),          
+                        (SELECT COM_NAME_LOC FROM ICOMCMPY                                                                     
+                         WHERE COM_CODE = A.BUYER)) AS BUYER_NAME,                                                             
+                       A.BUYER_ITEM_NO AS BUYER_ITEM_NO,            
+                       A.DESCRIPTION AS DESCRIPTION,                  
+                       A.SPECIFICATION AS SPECIFICATION,                
+                       A.UNIT_MEASURE AS UNIT_MEASURE,                 
+                       A.UNIT_PRICE AS UNIT_PRICE,               
+                       A.LIST_PRICE AS LIST_PRICE,               
+                       (SELECT TEXT2 FROM ICOMCOD1 WHERE TYPE = 'M001' AND A.ORIGIN_CODE = CODE) AS ORIGIN_NAME,    
+                       A.BUYER,                                          
+                       A.CONTRACT_NO AS CONTRACT_NO,                        
+                       A.CONTRACT_SEQ AS CONTRACT_SEQ,                      
+                       DECODE(A.PROCESS_TYPE,'1',A.ORIGIN_AGENT,'3',     
+                                                 A.ORIGIN_AGENT,         
+                                                 A.AGENT) AS AGENT_CODE, 
+                       DECODE(B.STATUS,'D','삭제',DECODE(A.STATUS,'D','삭제',  
+                                DECODE(B.PRODUCT_CLOSE_FLAG,'N','사용','Y','단종'))) AS STATUS_TEXT  
+               FROM ICOMCQDT A, ICOMBYIT B                             
+              WHERE  A.BUYER = B.BUYER                                 
+                AND  A.BUYER_ITEM_NO = B.BUYER_ITEM_NO                 
+               AND  A.AGENT = #{st_agent_code}                                   
+               AND  A.DESCRIPTION LIKE '%'||#{st_description}||'%'                         
+               AND  A.SPECIFICATION LIKE '%'||#{st_specification}||'%'                       
+               AND  (A.BUYER_ITEM_NO LIKE '%'||#{st_buyer_item_no}||'%' OR A.SELLER_ITEM_NO LIKE '%'||#{st_buyer_item_no}||'%') 
+			]]>
+			<if test='st_status != null and st_status.equals("N")'>
+				<![CDATA[
+				AND B.STATUS != 'D' AND A.STATUS!= 'D' AND  B.PRODUCT_CLOSE_FLAG IN ( 'N', 'T') 
+				]]>
+			</if>
+			<if test='st_status != null and st_status.equals("Y")'>
+				<![CDATA[
+				AND B.STATUS != 'D' AND A.STATUS!= 'D' AND  B.PRODUCT_CLOSE_FLAG = 'Y'
+				]]>
+			</if>
+			<if test='st_status != null and st_status.equals("D")'>
+				<![CDATA[
+				AND (B.STATUS = 'D' OR A.STATUS = 'D')
+				]]>
+			</if>
+			
+			<if test="st_from_date != null and st_from_date != '' and st_to_date != null and st_to_date != '' and  st_date.equals('RE')">
+				AND A.ADD_DATE BETWEEN #{st_from_date} AND #{st_to_date}
+			</if>
+			<if test="st_from_date != null and st_from_date != '' and st_to_date != null and st_to_date != '' and  st_date.equals('CH')">
+				AND A.CHANGE_DATE BETWEEN #{st_from_date} AND #{st_to_date}
+			</if>
+
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+
+</mapper>   
+   

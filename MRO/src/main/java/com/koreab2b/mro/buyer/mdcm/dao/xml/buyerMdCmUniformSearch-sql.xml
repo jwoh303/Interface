@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="buyer.mdcm">
+	<select id="selectBuyerMdCmUniformSearchList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.jsppagestart"/>
+		<![CDATA[
+		/*selectBuyerMdCmUniformSearchList*/
+		SELECT
+		 S.IMGFILE_NAME,       --[01]
+		 S.IMGFILE_DIR,        --[02]
+		 S.DESCRIPTION,        --[03]
+		 S.SPECIFICATION,      --[04]
+		 S.ORIGIN_TEXT,        --[05]
+		 S.MAKER_NAME,         --[06]
+		 S.UNIT_MEASURE,       --[08]
+		 S.PRODUCT_CLOSE_FLAG, --[11]
+		 S.OVER_SHORT_FLAG,    --[13]
+		 S.HS_NO,              --[14]
+		 S.TEXT1 AS GRP_CODE   --[15] 대표코드
+FROM (
+  SELECT
+		 ROWNUM NUM,
+		 A.IMGFILE_NAME,
+		 A.IMGFILE_DIR,
+		 A.DESCRIPTION,
+		 A.SPECIFICATION,
+		 A.MAKER_NAME,
+		 A.UNIT_MEASURE,
+		 (SELECT TEXT2 FROM ICOMCOD1 WHERE TYPE = 'M001' AND CODE = A.ORIGIN_CODE) AS ORIGIN_TEXT,
+		 A.PRODUCT_CLOSE_FLAG,
+		 A.OVER_SHORT_FLAG,
+		 A.HS_NO,
+		 A.TEXT1
+	FROM (
+		  SELECT
+				DECODE(TRIM(BYIT.IMGFILE_NAME), NULL,
+							  (SELECT IMG_NAME FROM CMSIMGES WHERE IMG_NO=CATLG.IMG_NO),BYIT.IMGFILE_NAME) AS IMGFILE_NAME,
+				DECODE(TRIM(BYIT.IMGFILE_DIR), NULL,
+							  (SELECT IMG_DIR FROM CMSIMGES WHERE IMG_NO=CATLG.IMG_NO),BYIT.IMGFILE_DIR) AS IMGFILE_DIR,
+				BYIT.DESCRIPTION_LOC AS DESCRIPTION,
+				BYIT.SPECIFICATION AS SPECIFICATION,
+				BYIT.MAKER_NAME AS MAKER_NAME,
+				BYIT.UNIT_MEASURE AS UNIT_MEASURE,
+				BYIT.ORIGIN_CODE AS ORIGIN_CODE,
+				BYIT.PRODUCT_CLOSE_FLAG AS PRODUCT_CLOSE_FLAG,
+				NVL(TRIM(BYIT.OVER_SHORT_FLAG),'N') AS OVER_SHORT_FLAG,
+				TRIM(BYIT.HS_NO) AS HS_NO,
+				COD.TEXT1 AS TEXT1
+
+
+		FROM  ICOMBYIT BYIT , CMSCATLG CATLG , ICOMCOD3 COD
+		WHERE COD.BUYER =  #{st_com_code}
+		AND COD.TYPE = 'UNIF'
+		AND COD.FLAG = 'Y'
+		AND COD.CODE2 IN(
+				SELECT MAX(CODE2) FROM ICOMCOD3
+				WHERE BUYER = #{st_com_code}
+				AND TYPE = 'UNIF'
+				AND FLAG = 'Y' 
+				GROUP BY TEXT1)
+		AND COD.CODE1 = BYIT.BUYER
+		AND COD.CODE2 = BYIT.BUYER_ITEM_NO
+		AND BYIT.PRODUCT_CLOSE_FLAG IN ('N','Y')
+		AND BYIT.CMS_CATLG_ID = CATLG.CMS_CATLG_ID(+)
+		AND CATLG.STD_FLAG(+)='Y'
+		AND BYIT.STATUS != 'D'
+      ]]>
+      	<if test="st_description !=''">
+		<![CDATA[
+ 					AND BYIT.DESCRIPTION_LOC LIKE '%'||#{st_description}||'%'
+ 		]]>	 
+ 		</if>
+		<if test="st_maker_name !=''">
+		<![CDATA[
+ 					AND BYIT.MAKER_NAME LIKE '%'||#{st_maker_name}||'%'
+ 		]]>
+ 		</if>  		  
+	<![CDATA[
+		  ORDER BY BYIT.DESCRIPTION_LOC  )A ) S	  
+		  ]]>   
+		<include refid="common.ibsheet.xml.jsppageend"/>	
+	</select> 
+	
+	<select id="getUniformSizeSelect" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*getUniformSizeSelect*/
+
+			SELECT 
+			  CQDT.AGENT||'@'||COD.CODE2||'@'||CQDT.CONTRACT_NO||'@'||CQDT.CONTRACT_SEQ||'@'||COD.CODE1||'@'
+			  ||CQDT.UNIT_PRICE||'@'||(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = CQDT.AGENT)
+			  ||'@'||BYIT.IMGFILE_DIR||'@'||BYIT.IMGFILE_NAME AS CODE
+		     ,CQDT.SPECIFICATION||'('||COD.CODE2||')' AS TEXT1
+			  FROM ICOMCOD3 COD , ICOMCQDT CQDT, ICOMBYIT BYIT
+			 WHERE CQDT.BUYER = BYIT.BUYER
+			 	AND CQDT.BUYER_ITEM_NO = BYIT.BUYER_ITEM_NO
+			 	AND BYIT.STATUS != 'D'
+			 	AND CQDT.STATUS != 'D' 
+			 	AND COD.BUYER = #{SEARCH1} -- 파라미터 고객사 코드
+			    AND COD.TEXT1 = #{SEARCH2} -- 파라미터 대표코드
+ 			    AND COD.TYPE = 'UNIF'
+			    AND COD.FLAG = 'Y'
+			    AND COD.CODE1 = CQDT.BUYER
+			    AND COD.CODE2 = CQDT.BUYER_ITEM_NO
+			    AND CQDT.BELOW_COMORG_CODE = COD.BUYER
+		]]> 
+		
+	</select>
+</mapper>

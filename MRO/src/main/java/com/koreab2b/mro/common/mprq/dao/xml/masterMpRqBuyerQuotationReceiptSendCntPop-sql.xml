@@ -1,0 +1,289 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="common.mprq">
+
+
+	<select id="selectMasterMpRqBuyerQuotationReceiptSendCntPopList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*selectMasterMpRqBuyerQuotationReceiptSendCntPopList*/
+			SELECT 	   
+			   X.BUYER, 	   
+			   MAX(X.BUYER_NAME) AS BUYER_NAME, 	   
+			   COUNT(*) AS CNT 	   
+			   FROM( 	   
+				   SELECT 	   
+				       A.BUYER, 	   
+				       (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE=A.buyer) AS BUYER_NAME, 	   
+				       A.QUOTATION_NO, 	   
+				       A.QUOTATION_SEQ, 	   
+				       A.REVISION 	   
+				       FROM KEPRQDT A, (SELECT BUYER FROM BUYEROWN WHERE USER_ID=#{USER_ID}) M 	   
+			]]>
+			<!-- 두중 -->
+			<if test='st_buyer_flag == "1"'>
+				<![CDATA[
+					WHERE A.BUYER ='KRDOOD0001'	   
+			   			AND A.BUYER=M.BUYER
+				]]>	
+			</if>
+			<!-- NOT 두중 -->
+			<if test='st_buyer_flag != "1"'>
+				<![CDATA[
+					WHERE A.BUYER=M.BUYER	   
+			   		 	AND A.BUYER<>'KRDOOD0001'	  
+				]]>	
+			</if>
+	<if test="USER_ID != null and USER_ID != ''">	     
+					   <![CDATA[
+					   AND  A.BUYER  IN  (
+											SELECT A.BUYER
+							                 FROM ICOMCOD3 COD3
+							                 WHERE COD3.BUYER = 'KRKORE0001'
+							                 AND   COD3.TYPE = 'CMPY'
+							                 AND   COD3.CODE1= 'ALL'
+							                 AND   COD3.CODE2 = #{USER_ID}
+							                 UNION ALL
+							                 SELECT MNG.BUYER
+							                 FROM  ICOMCOD3 COD3, MIS_BUYER_MNG MNG
+							                 WHERE COD3.BUYER = 'KRKORE0001'
+							                 AND   COD3.TYPE = 'CMPY'
+							                 AND   COD3.CODE1= MNG.KEP_DEPT
+							                 AND   COD3.CODE2 = #{USER_ID}
+							                 AND   MNG.YEAR = TO_CHAR(SYSDATE,'YYYY')	
+							                 AND   MNG.STATUS = 'C'
+							                 UNION ALL
+							                 SELECT BUYER
+							                 FROM  MIS_BUYER_MNG
+							                 WHERE YEAR = TO_CHAR(SYSDATE,'YYYY')
+							                 AND   STATUS = 'C'
+							                 AND   KEP_USER_ID = #{USER_ID}
+							                 UNION ALL
+							                 SELECT COD.CODE1
+											FROM ICOMCOD3 COD , ICOMCMPY CMPY
+											WHERE  COD.BUYER = 'KRKORE0001'
+											AND COD.TYPE = 'CMPY'
+											AND COD.CODE1 = CMPY.COM_CODE
+											AND COD.CODE2 = #{USER_ID}
+											AND TO_CHAR(SYSDATE,'YYYYMMDD') BETWEEN TEXT2 AND TEXT3
+							                 )
+					   ]]>  
+	</if>  
+				<![CDATA[
+				     AND A.KEP_USER_ID IS NOT NULL 	   
+				     AND A.SO_CA_FLAG='SO' 	   
+				     AND A.ATOB_UNIT_PRICE=0 	   
+				     AND A.ATOB_SEND_FLAG ^='Y' 	   
+				     AND A.RECV_FLAG NOT IN('GD','PM') 	   
+				     AND (A.STATUS = 'C' OR A.STATUS  = 'R')) X 	   
+			     GROUP BY X.BUYER
+				]]>				 
+	</select>
+	<select id="selectMasterMpRqQuotationItemMdreqHistList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+					/*selectMasterMpRqQuotationItemMdreqHistList*/
+					SELECT
+					 REQ.BUYER
+					 ,(SELECT CMPY.COM_NAME_LOC FROM ICOMCMPY CMPY WHERE CMPY.COM_CODE = REQ.BUYER) AS BUYER_NM
+					 ,REQ.QUOTATION_NO
+					 ,REQ.QUOTATION_SEQ
+					 ,REQ.REVISION
+					 ,REQ.ITEM_MD_REVISION
+					 ,REQ.ITEM_MD_STATUS
+					 ,REQ.ITEM_MD_REQ_USER_ID
+					 ,(SELECT USR.USER_NAME_LOC FROM ICOMLUSR USR WHERE USR.USER_ID = REQ.ITEM_MD_REQ_USER_ID) AS ITEM_MD_REQ_USER_NM
+					 ,TO_CHAR(REQ.ITEM_MD_REQ_DATE,'YYYY/MM/DD HH24:MI') AS  ITEM_MD_REQ_DATE
+					 ,REQ.ITEM_MD_REQ_NOTE
+					 ,REQ.ITEM_MD_USER_ID
+					 ,(SELECT USR.USER_NAME_LOC FROM ICOMLUSR USR WHERE USR.USER_ID = REQ.ITEM_MD_USER_ID) AS ITEM_MD_USER_NM
+					 ,TO_CHAR(REQ.ITEM_MD_DATE,'YYYY/MM/DD HH24:MI') AS  ITEM_MD_DATE
+					 ,REQ.ITEM_MD_REQ_IMAGE_KEY
+					 ,DECODE(REQ.ITEM_MD_REQ_IMAGE_KEY,'',2,3) AS ITEM_MD_REQ_IMAGE_KEY_IMG
+					FROM KEP_ITEM_MD_REQ REQ
+					WHERE REQ.BUYER = #{st_buyer}
+					AND REQ.QUOTATION_NO = #{st_quotation_no}
+					AND REQ.QUOTATION_SEQ = #{st_quotation_seq}
+					AND REQ.REVISION = #{st_revision}
+					ORDER BY REQ.ITEM_MD_REVISION DESC
+
+		]]>				 
+	</select>
+	
+	<select id="selectMasterMpRqQuotationAfterItemMdreqHistList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+					/*selectMasterMpRqQuotationAfterItemMdreqHistList*/
+					SELECT
+					 REQ.BUYER
+					 ,(SELECT CMPY.COM_NAME_LOC FROM ICOMCMPY CMPY WHERE CMPY.COM_CODE = REQ.BUYER) AS BUYER_NM
+					 ,REQ.QUOTATION_NO
+					 ,REQ.QUOTATION_SEQ
+					 ,REQ.REVISION
+					 ,REQ.ITEM_MD_REVISION
+					 ,REQ.ITEM_MD_STATUS
+					 ,REQ.ITEM_MD_REQ_USER_ID
+					 ,(SELECT USR.USER_NAME_LOC FROM ICOMLUSR USR WHERE USR.USER_ID = REQ.ITEM_MD_REQ_USER_ID) AS ITEM_MD_REQ_USER_NM
+					 ,TO_CHAR(REQ.ITEM_MD_REQ_DATE,'YYYY/MM/DD HH24:MI') AS  ITEM_MD_REQ_DATE
+					 ,REQ.ITEM_MD_REQ_NOTE
+					 ,REQ.ITEM_MD_USER_ID
+					 ,(SELECT USR.USER_NAME_LOC FROM ICOMLUSR USR WHERE USR.USER_ID = REQ.ITEM_MD_USER_ID) AS ITEM_MD_USER_NM
+					 ,TO_CHAR(REQ.ITEM_MD_DATE,'YYYY/MM/DD HH24:MI') AS  ITEM_MD_DATE
+					 ,REQ.ITEM_MD_REQ_IMAGE_KEY
+					 ,DECODE(REQ.ITEM_MD_REQ_IMAGE_KEY,'',2,3) AS ITEM_MD_REQ_IMAGE_KEY_IMG
+					FROM KEP_AFTER_ITEM_MD_REQ REQ
+					WHERE REQ.BUYER = #{st_buyer}
+					AND REQ.QUOTATION_NO = #{st_quotation_no}
+					AND REQ.QUOTATION_SEQ = #{st_quotation_seq}
+					AND REQ.REVISION = #{st_revision}
+					ORDER BY REQ.ITEM_MD_REVISION DESC
+		]]>				 
+	</select>
+	
+	<select id="selectQuotationRemarkList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+					/*selectQuotationRemarkList*/
+					SELECT
+					 MNG.BUYER
+					 ,MNG.QUOTATION_NO
+					 ,MNG.QUOTATION_SEQ
+					 ,MNG.REVISION
+					 ,MNG.ADD_USER_ID
+					 ,(SELECT USR.USER_NAME_LOC FROM ICOMLUSR USR WHERE USR.USER_ID = MNG.ADD_USER_ID) AS ADD_USER_NM
+					 ,TO_CHAR(MNG.ADD_DATE,'YYYY/MM/DD HH24:MI') AS  ADD_DATE
+					 ,MNG.ADD_NOTE
+					 ,(SELECT USR.USER_NAME_LOC FROM ICOMLUSR USR WHERE USR.USER_ID = MNG.CHANGE_USER_ID) AS CHANGE_USER_NM
+					 ,TO_CHAR(MNG.CHANGE_DATE,'YYYY/MM/DD HH24:MI') AS  CHANGE_DATE		
+					 ,MNG.SEQ
+					 ,MNG.IMAGE_KEY
+					 ,DECODE(MNG.IMAGE_KEY,'',2,3) AS IMAGE_KEY_IMG			 
+					FROM KEP_RQDT_NOTE_MNG MNG
+					WHERE MNG.BUYER = #{st_buyer}
+					AND MNG.QUOTATION_NO = #{st_quotation_no}
+					AND MNG.QUOTATION_SEQ = #{st_quotation_seq}
+					AND MNG.REVISION = #{st_revision}
+					AND MNG.STATUS != 'D'
+					ORDER BY MNG.ADD_DATE DESC
+
+		]]>				 
+	</select>
+	<update  id="insertMasterMpRqQuotationRemarkPop" parameterType="java.util.Map" >
+		<![CDATA[
+			/* insertMasterMpRqQuotationRemarkPop */
+			INSERT INTO KEP_RQDT_NOTE_MNG
+			(
+				BUYER
+				,QUOTATION_NO
+				,QUOTATION_SEQ
+				,REVISION
+				,SEQ
+				,STATUS
+				,ADD_USER_ID
+				,ADD_DATE
+				,ADD_NOTE
+				,CHANGE_USER_ID
+				,CHANGE_DATE
+				,IMAGE_KEY
+			) VALUES (
+				#{st_buyer},
+				#{st_quotation_no},
+				#{st_quotation_seq},
+				#{st_revision},
+				NVL((SELECT MAX(SEQ)+1 FROM KEP_RQDT_NOTE_MNG MNG
+						 WHERE MNG.BUYER = #{st_buyer} 
+						 AND MNG.QUOTATION_NO = #{st_quotation_no} 
+						 AND MNG.QUOTATION_SEQ = #{st_quotation_seq} 
+						 AND MNG.REVISION = #{st_revision} ),1),
+				'C',
+				#{USER_ID},
+				SYSDATE,
+				#{ADD_NOTE},
+				#{USER_ID},
+				SYSDATE,
+				#{IMAGE_KEY}
+			)									
+		]]>
+	</update>
+	<update  id="updateMasterMpRqQuotationRemarkPop" parameterType="java.util.Map" >
+		<![CDATA[
+			/* updateMasterMpRqQuotationRemarkPop */
+			UPDATE KEP_RQDT_NOTE_MNG
+			SET ADD_NOTE = #{ADD_NOTE}
+			,CHANGE_USER_ID = #{USER_ID}
+ 			,CHANGE_DATE = SYSDATE
+ 			,IMAGE_KEY = #{IMAGE_KEY}
+			WHERE BUYER = #{BUYER}
+			AND QUOTATION_NO = #{QUOTATION_NO}
+			AND QUOTATION_SEQ = #{QUOTATION_SEQ}
+			AND REVISION = #{REVISION}
+			AND SEQ = #{SEQ}								
+		]]>
+	</update>
+	<update  id="delMasterMpRqQuotationRemarkPop" parameterType="java.util.Map" >
+		<![CDATA[
+			/* delMasterMpRqQuotationRemarkPop */
+			UPDATE KEP_RQDT_NOTE_MNG
+			SET STATUS = 'D'
+			,CHANGE_USER_ID = #{USER_ID}
+ 			,CHANGE_DATE = SYSDATE
+			WHERE BUYER = #{BUYER}
+			AND QUOTATION_NO = #{QUOTATION_NO}
+			AND QUOTATION_SEQ = #{QUOTATION_SEQ}
+			AND REVISION = #{REVISION}
+			AND SEQ = #{SEQ}
+		]]>
+	</update>
+	
+	<select id="selectMasterMpRqQuotationNegoItemMdreqHistList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+					/*selectMasterMpRqQuotationNegoItemMdreqHistList*/
+					SELECT
+					 REQ.BUYER
+					 ,(SELECT CMPY.COM_NAME_LOC FROM ICOMCMPY CMPY WHERE CMPY.COM_CODE = REQ.BUYER) AS BUYER_NM
+					 ,REQ.QUOTATION_NO
+					 ,REQ.QUOTATION_SEQ
+					 ,REQ.REVISION
+					 ,REQ.ITEM_MD_REVISION
+					 ,REQ.ITEM_MD_STATUS
+					 ,REQ.ITEM_MD_REQ_USER_ID
+					 ,(SELECT USR.USER_NAME_LOC FROM ICOMLUSR USR WHERE USR.USER_ID = REQ.ITEM_MD_REQ_USER_ID) AS ITEM_MD_REQ_USER_NM
+					 ,TO_CHAR(REQ.ITEM_MD_REQ_DATE,'YYYY/MM/DD HH24:MI') AS  ITEM_MD_REQ_DATE
+					 ,REQ.ITEM_MD_REQ_NOTE
+					 ,REQ.ITEM_MD_USER_ID
+					 ,(SELECT USR.USER_NAME_LOC FROM ICOMLUSR USR WHERE USR.USER_ID = REQ.ITEM_MD_USER_ID) AS ITEM_MD_USER_NM
+					 ,TO_CHAR(REQ.ITEM_MD_DATE,'YYYY/MM/DD HH24:MI') AS  ITEM_MD_DATE
+					 ,REQ.ITEM_MD_REQ_IMAGE_KEY
+					 ,DECODE(REQ.ITEM_MD_REQ_IMAGE_KEY,'',2,3) AS ITEM_MD_REQ_IMAGE_KEY_IMG
+					FROM KEP_NEGO_ITEM_MD_REQ REQ
+					WHERE REQ.BUYER = #{st_buyer}
+					AND REQ.QUOTATION_NO = #{st_quotation_no}
+					AND REQ.QUOTATION_SEQ = #{st_quotation_seq}
+					AND REQ.REVISION = #{st_revision}
+					ORDER BY REQ.ITEM_MD_REVISION DESC
+		]]>				 
+	</select>
+	
+	<select id="selectMasterMpRqQuotationSgDHistList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/*selectMasterMpRqQuotationSgDHistList*/
+			SELECT	REQ.BUYER,
+					(SELECT CMPY.COM_NAME_LOC FROM ICOMCMPY CMPY WHERE CMPY.COM_CODE = REQ.BUYER) AS BUYER_NM,
+					REQ.QUOTATION_NO,
+					REQ.QUOTATION_SEQ,
+					REQ.REVISION,
+					REQ.SG_D_REVISION,
+					REQ.SG_ID,
+					REQ.SG_D_STATUS,
+					REQ.SG_D_USER_ID,
+					(SELECT USR.USER_NAME_LOC FROM ICOMLUSR USR WHERE USR.USER_ID = REQ.SG_D_USER_ID) AS SG_D_USER_NM,
+					TO_CHAR(REQ.SG_D_DATE,'YYYY/MM/DD HH24:MI') AS SG_D_DATE,
+					REQ.SG_D_REQ_NOTE,
+					REQ.SG_D_REQ_USER_ID,
+					(SELECT USR.USER_NAME_LOC FROM ICOMLUSR USR WHERE USR.USER_ID = REQ.SG_D_REQ_USER_ID) AS SG_D_REQ_USER_NM,
+					TO_CHAR(REQ.SG_D_REQ_DATE,'YYYY/MM/DD HH24:MI') AS SG_D_REQ_DATE
+			FROM	KEP_SG_D_REQ REQ
+			WHERE	REQ.BUYER = #{st_buyer}
+			AND		REQ.QUOTATION_NO = #{st_quotation_no}
+			AND		REQ.QUOTATION_SEQ = #{st_quotation_seq}
+			AND		REQ.REVISION = #{st_revision}
+			ORDER BY REQ.SG_D_REVISION DESC
+		]]>
+	</select>
+</mapper>

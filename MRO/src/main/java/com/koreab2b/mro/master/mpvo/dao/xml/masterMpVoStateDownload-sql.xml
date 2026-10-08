@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mpvo">
+	<!-- 조회 -->
+	<select id="selectMasterMpVoStateDownloadList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			SELECT  X.SYS_TYPE,
+				        X.BUYER_NAME,
+				        X.VC_NO,
+				        X.CLAIM_MASTER,
+				        X.CLAIM_TEXT,
+				        X.RECV_FLAG_TEXT,
+				        X.REQ_DATE,
+				        X.PH_DATE,
+				        X.CD_DATE,
+				        X.CD_TIME,
+				        X.DF_DATE,
+				        X.DF_TIME,
+				        X.REQ_USER_NAME,
+				        X.REQ_USER_TEL,
+				        X.CD_DEPT,
+				        X.CD_USER_NAME,
+				        X.CD_DEPT_NAME,
+				        X.DS_DEPT,
+				        X.DS_USER_NAME,
+				        X.DS_DEPT_NAME,
+				        X.PO_NO,
+				        X.BUYER_ITEM_NO,
+				        X.LEAD_TIME,
+				        X.RUB_TYPE,
+				        X.CLAIM_GRADE,
+				        X.IMPUTE_TYPE,
+				        X.AGENT_NAME,
+				        X.BUYER,
+				        X.MRO_AREA_TEXT,
+				        X.MRO_AREA_CODE,
+				        X.REQ_REMARK,
+				        X.DS_REMARK_A,
+				        X.DS_REMARK_B,
+				        X.DS_REMARK_C,
+				        X.DF_REMARK,
+				        X.SYS_FLAG_TEXT
+			FROM
+			    (
+			        SELECT  (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE='VC04' AND CODE=A.SYS_TYPE) AS SYS_TYPE,
+				                (SELECT COM_NAME_LOC FROM V_VOC_ICOMCMPY 
+				                 WHERE COM_CODE = A.BUYER AND SYS_TYPE=A.SYS_TYPE AND BUSINESS_COND LIKE '%B%') AS BUYER_NAME,
+				                (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'VC03' AND CODE = A.CLAIM_MASTER) AS CLAIM_MASTER,
+				                (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'VC01' AND CODE = A.CLAIM_TYPE) AS CLAIM_TEXT,
+				                A.VC_NO,
+				                TO_CHAR(A.CD_DATE,'YYYYMMDD') AS CD_DATE,
+				                TO_CHAR(A.CD_DATE,'HH24:MI:SS') AS CD_TIME,
+				                TO_CHAR(A.PH_DATE,'YYYYMMDD') AS PH_DATE,
+				                A.PO_NO,
+				                A.BUYER_ITEM_NO,
+				                (SELECT USER_NAME_LOC FROM V_VOC_ICOMLUSR WHERE USER_ID = A.CD_USER_ID AND SYS_TYPE='KA') AS CD_USER_NAME,
+				                (SELECT USER_NAME_LOC FROM V_VOC_ICOMLUSR WHERE USER_ID = A.DS_USER_ID AND SYS_TYPE='KA') AS DS_USER_NAME,
+				                TO_CHAR(A.REQ_DATE,'YYYYMMDD') AS REQ_DATE,
+				                TO_CHAR(A.DF_DATE,'YYYYMMDD')  AS DF_DATE,
+				                TO_CHAR(A.DF_DATE,'HH24:MI:SS')  AS DF_TIME,
+				                (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'VC02' AND CODE = A.RECV_FLAG) AS RECV_FLAG_TEXT,
+				                DECODE(A.RUB_TYPE,'A','매우만족','B','만족','C','보통','D','불만','F','매우불만','미평가') AS RUB_TYPE,
+				                A.CLAIM_GRADE,
+				                (SELECT TEXT1 FROM V_VOC_ICOMCOD2 
+				                 WHERE COMPANY_CODE='KRKORE0001' AND TYPE='C001' AND CODE=A.DS_DEPT AND SYS_TYPE='KA') AS DS_DEPT_NAME,
+				                (SELECT TEXT1 FROM V_VOC_ICOMCOD2 
+				                 WHERE COMPANY_CODE='KRKORE0001' AND TYPE='C001' AND CODE=A.CD_DEPT AND SYS_TYPE='KA') AS CD_DEPT_NAME,
+				                A.CLAIM_TYPE,
+				                A.RECV_FLAG,
+				                A.CD_USER_ID,
+				                A.DS_USER_ID,
+				                A.BUYER,
+				                ROUND(A.DF_DATE-A.CD_DATE,0) AS LEAD_TIME,
+				                A.DS_DEPT,
+				                A.CD_DEPT,
+				                (SELECT COM_NAME_LOC FROM V_VOC_ICOMCMPY 
+				                 WHERE COM_CODE = A.IMPUTE_AGENT AND SYS_TYPE=A.SYS_TYPE AND BUSINESS_COND LIKE '%S%') AS AGENT_NAME,
+				                DECODE(A.IMPUTE_TYPE,'SS','공급사','MM','KeP','MS','KeP/공급사') AS IMPUTE_TYPE,
+				                A.REQ_USER_TEL AS REQ_USER_TEL,
+				                A.REQ_USER_NAME AS REQ_USER_NAME,
+				                A.MRO_AREA_TEXT AS MRO_AREA_TEXT,
+				                A.MRO_AREA_CODE AS MRO_AREA_CODE,
+				                A.REQ_REMARK AS REQ_REMARK,
+				                A.DS_REMARK_A AS DS_REMARK_A,
+				                A.DS_REMARK_B AS DS_REMARK_B,
+				                A.DS_REMARK_C AS DS_REMARK_C,
+				                A.DF_REMARK AS DF_REMARK,
+				                (DECODE(A.SYS_FLAG, 'B', '구매사', 'D', '구매사(I/F)', '운영자')) AS SYS_FLAG_TEXT
+			        FROM KEPAVCDT A
+			        WHERE TO_CHAR(A.CD_DATE,'YYYYMMDD') BETWEEN REPLACE(#{st_from_date}, '/', '') AND REPLACE(#{st_to_date}, '/', '')
+		]]>
+			<if test="st_sys_type != null and st_sys_type != ''">
+	    		<![CDATA[	AND A.SYS_TYPE = #{st_sys_type}	]]>
+	        </if>
+	        
+	        <if test="st_buyer_code != null and st_buyer_code != ''">
+	    		<![CDATA[	AND (A.SYS_TYPE, A.BUYER) IN 	]]>
+				<foreach collection="arry_buyer_code" item="itm" open="(" separator="," close=")">
+					<![CDATA[	${itm}	]]>
+				</foreach>
+	        </if>
+	        
+	        <if test="st_cd_user_id != null and st_cd_user_id != ''">
+	    		<![CDATA[	AND A.CD_USER_ID = #{st_cd_user_id}	]]>
+	        </if>
+	        
+	        <if test="st_ds_user_id != null and st_ds_user_id != ''">
+	    		<![CDATA[	AND A.DS_USER_ID = #{st_ds_user_id}	]]>
+	        </if>
+	        
+	        <if test="st_recv_flag != null and st_recv_flag != ''">
+	    		<![CDATA[	AND A.RECV_FLAG  = #{st_recv_flag}	]]>
+	        </if>
+	        
+	        <if test="st_ds_dept_code != null and st_ds_dept_code != ''">
+	    		<![CDATA[	AND A.DS_DEPT    = #{st_ds_dept_code}	]]>
+	        </if>
+			            
+		<![CDATA[
+			        ORDER BY A.BUYER,A.VC_NO, A.REQ_DATE
+			    )X
+		]]>
+	</select>
+
+</mapper>   
+   

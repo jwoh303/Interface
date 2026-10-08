@@ -1,0 +1,21 @@
+package com.koreab2b.mro.master.mpds.dao;
+
+import java.util.List;
+import java.util.Map;
+
+public interface MasterMpDsAgrchemiPckmtrlDao {
+	
+	// 리스트 조회
+	public List<Map<String,String>> selectList(Map<String,Object> param);
+
+	// 리스트 조회(Sub
+	public List<Map<String,String>> selectListSub(Map<String,Object> param);
+
+	
+	// 저장
+	public String updateSelectedData(Map<String,String>  formData, List<Object> gridData);
+
+	// 삭제
+	public String deleteSelectedData(Map<String,String>  formData, List<Object> gridData);
+
+}

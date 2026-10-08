@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="buyer.mpst">
+
+	<!-- 조회 -->
+	<select id="selectBuyerMpStRecinpayStateList" parameterType="java.util.Map" resultType="java.util.Map">
+	/*selectBuyerMpStRecinpayStateList*/
+		<include refid="common.ibsheet.xml.jsppagestart"/>
+		<![CDATA[
+			SELECT
+			    X.BUYER
+			  , X.BYCA_COMORG_CODE
+			  , X.ITEM_NO
+			  , X.DESCRIPTION
+			  , X.SPECIFICATION
+			  , X.MAKER_NAME
+			  , X.UNIT_MEASURE
+			  , X.TARGET_PRICE
+			  , X.BASIC_QTY
+			  , X.BASIC_AMT
+			  , X.GR_QTY
+			  , X.GR_AMT
+			  , X.CHUL_QTY
+			  , X.CHUL_AMT
+			  , X.JO_QTY
+			  , X.JO_AMT
+			  , X.LAST_QTY
+			  , X.LAST_AMT
+			  , X.YYYYMM
+			  , X.CONTRACT_NO
+			  , X.CONTRACT_SEQ
+			FROM
+			(
+			    SELECT
+			        A.BUYER
+			      , B.BUYER AS BYCA_COMORG_CODE
+			      , A.ITEM_NO
+			      , B.DESCRIPTION
+			      , B.SPECIFICATION
+			      , B.MAKER_NAME
+			      , B.UNIT_MEASURE
+			      , B.TARGET_PRICE
+			      , A.BASIC_QTY
+			      , A.BASIC_QTY*B.TARGET_PRICE AS BASIC_AMT
+			      , A.GR_QTY
+			      , A.GR_QTY*B.TARGET_PRICE AS GR_AMT
+			      , A.CHUL_QTY
+			      , A.CHUL_QTY*B.TARGET_PRICE AS CHUL_AMT
+			      , A.JO_QTY
+			      , A.JO_QTY*B.TARGET_PRICE AS JO_AMT
+			      , A.LAST_QTY
+			      , A.LAST_QTY*B.TARGET_PRICE AS LAST_AMT
+			      , A.YYYYMM
+			      , B.CONTRACT_NO
+			      , B.CONTRACT_SEQ
+			      , ROW_NUMBER() OVER(PARTITION BY B.BUYER_ITEM_NO ORDER BY B.BUYER, B.CONTRACT_NO DESC, B.CONTRACT_SEQ DESC) AS MAX_CONT
+			    FROM
+			        BUYER_STOCK_MNG A /* 구매사 수불 현황 */
+			      , ICOMCQDT B /* 구매사별 계약서 가격정보 */
+			      , ICOMCMPY C /* 회원사정보 */
+			    WHERE 1=1
+			    AND A.BUYER = C.COM_CODE
+			    AND C.BYCA_COMORG_CODE = B.BUYER
+			    AND A.ITEM_NO = B.BUYER_ITEM_NO
+			    AND B.STATUS <> 'D'
+			    AND A.BUYER = #{st_com_code}
+			    AND A.YYYYMM = #{st_from_date}
+ 		]]>
+ 		<if test="st_buyer_item_no != null and st_buyer_item_no != '' ">
+			    AND A.ITEM_NO LIKE '%' || #{st_buyer_item_no} || '%'
+ 		</if>
+ 		<if test="st_description != null and st_description != '' ">
+			    AND B.DESCRIPTION LIKE '%' || #{st_description} || '%'
+ 		</if>
+ 		<if test="st_specification != null and st_specification != '' ">
+			    AND B.SPECIFICATION LIKE '%' || #{st_specification} || '%'
+ 		</if>
+ 		<![CDATA[
+			) X
+			WHERE
+			    X.MAX_CONT = 1 /* 계약데이터는 마지막 계약을 기준으로 한다 */
+			ORDER BY
+			    X.BUYER
+			  , X.YYYYMM DESC	
+ 		]]>
+		<include refid="common.ibsheet.xml.jsppageend"/>	
+	</select> 
+
+</mapper>

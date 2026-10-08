@@ -1,0 +1,631 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="buyer.mcsc">
+
+	<!-- ========================================== -->
+	<!-- 공지사항 관련 쿼리 (ICOMBOARD_NOTICE)       -->
+	<!-- ========================================== -->
+
+	<!-- [전체 공지사항] 목록 조회 (ALL_CUSTOMER_FLAG = 'Y') - 읽음 상태 포함 -->
+	<select id="selectBuyerNoticeListCommon" parameterType="java.util.Map" resultType="java.util.Map">
+	/*selectBuyerNoticeListCommon - 공통 공지사항 (전체 고객사 대상)*/
+		<![CDATA[
+			SELECT  ROWNUM NUM, T.*
+			FROM (
+				SELECT  A.BID,
+				        A.BTYPE,
+				        A.COMPANY,
+				        (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = A.COMPANY) COM_NAME_LOC,
+				        A.SUBJECT,
+				        A.REG_USER_NAME,
+				        A.REG_DATE,
+				        TO_CHAR(TO_DATE(A.REG_DATE,'YYYYMMDD'),'YYYY.MM.DD') AS REG_DATE_DIS,
+				        A.EXPOSE_TARGET,
+				        A.LCOUNT,
+				        A.IMAGE_KEY,
+				        A.IMPORTANT_FLAG,
+				        A.ALWAYS_SHOW_FLAG,
+				        DBMS_LOB.SUBSTR(A.CONTEXT, 4000, 1) AS CONTEXT,
+				        CASE WHEN R.BID IS NOT NULL THEN 'Y' ELSE 'N' END AS READ_YN
+				FROM ICOMBOARD_NOTICE A
+				LEFT OUTER JOIN ICOMBOARD_NOTICE_READ R
+				  ON A.BID = R.BID AND A.BTYPE = R.BTYPE
+				  AND R.COM_CODE = #{st_company} AND R.USER_ID = #{st_user_id}
+				WHERE A.STATUS != 'D'
+				    AND A.EXPOSE_TARGET IN ('BUY', 'ALL')
+				    AND A.OPEN_FLAG = 'Y'
+				    AND A.ALL_CUSTOMER_FLAG = 'Y'
+				    AND (A.ALWAYS_SHOW_FLAG = 'Y' OR (A.FROM_DATE <= TO_CHAR(SYSDATE, 'YYYYMMDD') AND A.TO_DATE >= TO_CHAR(SYSDATE, 'YYYYMMDD')))
+		]]>
+		<if test="st_keyword != null and st_keyword != ''">
+			<![CDATA[
+				    AND (A.SUBJECT LIKE '%' || #{st_keyword} || '%' OR DBMS_LOB.INSTR(A.CONTEXT, #{st_keyword}) > 0)
+			]]>
+		</if>
+		<![CDATA[
+				ORDER BY A.IMPORTANT_FLAG DESC, CASE WHEN R.BID IS NULL THEN 0 ELSE 1 END, A.REG_DATE DESC, A.BID DESC
+			) T
+ 		]]>
+	</select>
+
+	<!-- [거래사별 공지사항] 목록 조회 (ALL_CUSTOMER_FLAG = 'N') - 읽음 상태 포함 -->
+	<select id="selectBuyerNoticeListCompany" parameterType="java.util.Map" resultType="java.util.Map">
+	/*selectBuyerNoticeListCompany - 거래사별 공지사항 (특정 고객사 대상)*/
+		<![CDATA[
+			SELECT  ROWNUM NUM, T.*
+			FROM (
+				SELECT  A.BID,
+				        A.BTYPE,
+				        A.COMPANY,
+				        (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = A.COMPANY) COM_NAME_LOC,
+				        A.SUBJECT,
+				        A.REG_USER_NAME,
+				        A.REG_DATE,
+				        TO_CHAR(TO_DATE(A.REG_DATE,'YYYYMMDD'),'YYYY.MM.DD') AS REG_DATE_DIS,
+				        A.EXPOSE_TARGET,
+				        A.LCOUNT,
+				        A.IMAGE_KEY,
+				        A.IMPORTANT_FLAG,
+				        A.ALWAYS_SHOW_FLAG,
+				        DBMS_LOB.SUBSTR(A.CONTEXT, 4000, 1) AS CONTEXT,
+				        CASE WHEN R.BID IS NOT NULL THEN 'Y' ELSE 'N' END AS READ_YN
+				FROM ICOMBOARD_NOTICE A
+				LEFT OUTER JOIN ICOMBOARD_NOTICE_READ R
+				  ON A.BID = R.BID AND A.BTYPE = R.BTYPE
+				  AND R.COM_CODE = #{st_company} AND R.USER_ID = #{st_user_id}
+				WHERE A.STATUS != 'D'
+				    AND A.EXPOSE_TARGET IN ('BUY', 'ALL')
+				    AND A.OPEN_FLAG = 'Y'
+				    AND A.ALL_CUSTOMER_FLAG = 'N'
+				    AND (A.ALWAYS_SHOW_FLAG = 'Y' OR (A.FROM_DATE <= TO_CHAR(SYSDATE, 'YYYYMMDD') AND A.TO_DATE >= TO_CHAR(SYSDATE, 'YYYYMMDD')))
+				    AND EXISTS (
+				        SELECT 1 FROM ICOMBOARD_NOTICE_DT DT
+				        WHERE DT.BID = A.BID AND DT.BTYPE = A.BTYPE
+				          AND DT.COM_CODE = #{st_company}
+				    )
+		]]>
+		<if test="st_keyword != null and st_keyword != ''">
+			<![CDATA[
+				    AND (A.SUBJECT LIKE '%' || #{st_keyword} || '%' OR DBMS_LOB.INSTR(A.CONTEXT, #{st_keyword}) > 0)
+			]]>
+		</if>
+		<![CDATA[
+				ORDER BY A.IMPORTANT_FLAG DESC, CASE WHEN R.BID IS NULL THEN 0 ELSE 1 END, A.REG_DATE DESC, A.BID DESC
+			) T
+ 		]]>
+	</select>
+
+	<!-- 공지사항 상세 조회 -->
+	<select id="selectBuyerNoticeDetail" parameterType="java.util.Map" resultType="java.util.Map">
+	/*selectBuyerNoticeDetail*/
+		<![CDATA[
+			SELECT  A.BID,
+			        A.BTYPE,
+			        A.COMPANY,
+			        (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = A.COMPANY) COM_NAME_LOC,
+			        A.SUBJECT,
+			        DBMS_LOB.SUBSTR(A.CONTEXT, 4000, 1) AS CONTEXT,
+			        A.REG_USER_ID,
+			        A.REG_USER_NAME,
+			        A.REG_DATE,
+			        TO_CHAR(TO_DATE(A.REG_DATE,'YYYYMMDD'),'YYYY.MM.DD') AS REG_DATE_DIS,
+			        A.REG_TIME,
+			        A.IMAGE_KEY,
+			        A.LCOUNT,
+			        A.FROM_DATE,
+			        A.TO_DATE,
+			        A.IMPORTANT_FLAG,
+			        A.ALWAYS_SHOW_FLAG,
+			        A.EXPOSE_TARGET,
+			        A.ALL_CUSTOMER_FLAG
+			FROM ICOMBOARD_NOTICE A
+			WHERE A.BID = #{BID}
+			  AND A.BTYPE = #{BTYPE}
+		]]>
+	</select>
+
+	<!-- 공지사항 조회수 증가 -->
+	<update id="updateBuyerNoticeLCount" parameterType="java.util.Map">
+	/*updateBuyerNoticeLCount*/
+		<![CDATA[
+			UPDATE ICOMBOARD_NOTICE
+			SET LCOUNT = NVL(LCOUNT, 0) + 1
+			WHERE BID = #{BID}
+			  AND BTYPE = #{BTYPE}
+		]]>
+	</update>
+
+	<!-- 공지사항 읽음 기록 INSERT -->
+	<insert id="insertBuyerNoticeReadLog" parameterType="java.util.Map" useGeneratedKeys="false">
+	/*insertBuyerNoticeReadLog*/
+		<![CDATA[
+			INSERT INTO ICOMBOARD_NOTICE_READ (BID, BTYPE, COM_CODE, USER_ID, READ_DATE)
+			VALUES (#{bid}, #{btype}, #{comCode}, #{userId}, TO_CHAR(SYSDATE, 'YYYYMMDD'))
+		]]>
+	</insert>
+
+	<!-- 공지사항 읽음 여부 체크 -->
+	<select id="selectBuyerNoticeReadCount" parameterType="java.util.Map" resultType="int">
+	/*selectBuyerNoticeReadCount*/
+		<![CDATA[
+			SELECT COUNT(*) FROM ICOMBOARD_NOTICE_READ
+			WHERE BID = #{bid} AND BTYPE = #{btype}
+			  AND COM_CODE = #{comCode} AND USER_ID = #{userId}
+		]]>
+	</select>
+
+	<!-- 공지사항 등록 (관리자) -->
+	<insert id="insertBuyerNotice" parameterType="java.util.Map">
+		<selectKey keyProperty="BID" resultType="String" order="BEFORE">
+			SELECT NVL(MAX(BID), 0) + 1 AS BID FROM ICOMBOARD_NOTICE WHERE BTYPE = #{BTYPE}
+		</selectKey>
+		<![CDATA[
+		INSERT INTO ICOMBOARD_NOTICE (
+			BID, BTYPE, COMPANY, STATUS, SUBJECT, CONTEXT,
+			REG_USER_ID, REG_USER_NAME, REG_DATE, REG_TIME,
+			REG_DEP, REG_DEP_NAME, IMAGE_KEY, LCOUNT,
+			OPEN_FLAG, FROM_DATE, TO_DATE,
+			IMPORTANT_FLAG, ALWAYS_SHOW_FLAG,
+			EXPOSE_TARGET, NOTICE_TYPE, ALL_CUSTOMER_FLAG
+		) VALUES (
+			#{BID}, #{BTYPE}, #{COMPANY}, 'C', #{SUBJECT}, #{CONTEXT},
+			#{REG_USER_ID}, #{REG_USER_NAME}, #{REG_DATE}, #{REG_TIME},
+			#{REG_DEP}, #{REG_DEP_NAME}, #{IMAGE_KEY}, 0,
+			'N', REPLACE(#{FROM_DATE}, '/', ''), REPLACE(#{TO_DATE}, '/', ''),
+			NVL(#{IMPORTANT_FLAG}, 'N'), NVL(#{ALWAYS_SHOW_FLAG}, 'N'),
+			'BUY', NVL(#{NOTICE_TYPE}, 'CMN'), NVL(#{ALL_CUSTOMER_FLAG}, 'N')
+		)
+		]]>
+	</insert>
+
+	<!-- 공지사항 대상 고객사 등록 -->
+	<insert id="insertBuyerNoticeCustomer" parameterType="java.util.Map" useGeneratedKeys="false">
+		<![CDATA[
+		INSERT INTO ICOMBOARD_NOTICE_DT (
+			BID, BTYPE, COMPANY, STATUS, COM_CODE, COM_NAME, REG_DATE, REG_USER_ID
+		) VALUES (
+			#{BID}, #{BTYPE}, #{COMPANY}, 'C', #{COM_CODE}, #{COM_NAME}, #{REG_DATE}, #{REG_USER_ID}
+		)
+		]]>
+	</insert>
+
+	<!-- 공지사항 수정 (관리자) -->
+	<update id="updateBuyerNotice" parameterType="java.util.Map">
+		<![CDATA[
+		UPDATE ICOMBOARD_NOTICE
+		SET SUBJECT = #{SUBJECT},
+		    CONTEXT = #{CONTEXT},
+		    IMAGE_KEY = #{IMAGE_KEY},
+		    FROM_DATE = REPLACE(#{FROM_DATE}, '/', ''),
+		    TO_DATE = REPLACE(#{TO_DATE}, '/', ''),
+		    ALWAYS_SHOW_FLAG = NVL(#{ALWAYS_SHOW_FLAG}, 'N'),
+		    NOTICE_TYPE = NVL(#{NOTICE_TYPE}, 'CMN'),
+		    ALL_CUSTOMER_FLAG = NVL(#{ALL_CUSTOMER_FLAG}, 'N')
+		WHERE BID = #{BID}
+		  AND BTYPE = #{BTYPE}
+		]]>
+	</update>
+
+	<!-- 공지사항 대상 고객사 삭제 (수정 시 전체 삭제 후 재등록) -->
+	<delete id="deleteBuyerNoticeCustomers" parameterType="java.util.Map">
+		<![CDATA[
+		DELETE FROM ICOMBOARD_NOTICE_DT
+		WHERE BID = #{BID} AND BTYPE = #{BTYPE}
+		]]>
+	</delete>
+
+	<!-- 공지사항 삭제 (STATUS='D') -->
+	<update id="deleteBuyerNotice" parameterType="java.util.Map">
+	/*deleteBuyerNotice*/
+		<![CDATA[
+			UPDATE ICOMBOARD_NOTICE
+			SET STATUS = 'D'
+			WHERE BID = #{BID}
+			  AND BTYPE = #{BTYPE}
+		]]>
+	</update>
+
+	<!-- ========================================== -->
+	<!-- 1:1 문의(VOC) 관련 쿼리 (KEPAVCDT)        -->
+	<!-- ========================================== -->
+
+	<!-- ==========================================================
+	     [운영 DB 반영 필수] KEPAVCDT 컬럼 추가 - ANSWER_READ_DATE
+	     아래 selectBuyerInquiryList 의 READ_YN 산출 및
+	     updateBuyerInquiryRead 의 UPDATE 대상 컬럼.
+
+	     ALTER TABLE KEP.KEPAVCDT ADD (ANSWER_READ_DATE VARCHAR2(8));
+	     COMMENT ON COLUMN KEP.KEPAVCDT.ANSWER_READ_DATE IS '문의자 답변 확인 일자(YYYYMMDD), NULL이면 미확인';
+
+	     적용일: 2026-04-24 (개발 DB 적용 완료)
+	     운영적용일: ___________
+	     ========================================================== -->
+
+	<!-- VOC 문의 목록 조회 (READ_YN 포함 - 답변완료+미확인 시 'N') -->
+	<select id="selectBuyerInquiryList" parameterType="java.util.Map" resultType="java.util.Map">
+	/*selectBuyerInquiryList - KEPAVCDT VOC 목록*/
+		<![CDATA[
+			SELECT
+			    A.VC_NO,
+			    (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'VC03' AND CODE = A.CLAIM_MASTER) AS CLAIM_TEXT,
+			    A.CLAIM_MASTER,
+			    A.BUYER_ITEM_NO,
+			    A.PO_NO,
+			    A.REQ_REMARK,
+			    A.RECV_FLAG,
+			    (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'VC02' AND CODE = A.RECV_FLAG) AS RECV_FLAG_TEXT,
+			    TO_CHAR(A.REQ_DATE,'YYYY.MM.DD') AS REQ_DATE_DIS,
+			    TO_CHAR(A.REQ_DATE,'YYYYMMDD') AS REQ_DATE,
+			    A.REQ_USER_ID,
+			    A.REQ_USER_NAME,
+			    A.REQ_USER_TEL,
+			    TO_CHAR(A.PH_DATE,'YYYY.MM.DD') AS PH_DATE_DIS,
+			    A.DS_REMARK_A,
+			    A.DF_REMARK,
+			    TO_CHAR(A.DF_DATE,'YYYY.MM.DD') AS DF_DATE_DIS,
+			    (SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = A.DS_USER_ID) AS DS_USER_NAME,
+			    A.CLAIM_TYPE,
+			    (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'VC01' AND CODE = A.CLAIM_TYPE) AS CLAIM_TYPE_TEXT,
+			    A.REQ_IMAGE_KEY,
+			    A.FEEDBACK_IMAGE_KEY,
+			    CASE
+			        WHEN A.RECV_FLAG = 'FB'
+			         AND (A.ANSWER_READ_DATE IS NULL
+			              OR A.ANSWER_READ_DATE < TO_CHAR(A.DF_DATE,'YYYYMMDD'))
+			        THEN 'N'
+			        ELSE 'Y'
+			    END AS READ_YN
+			FROM KEPAVCDT A
+			WHERE A.SYS_TYPE = 'KA'
+			  AND A.BUYER = #{st_company}
+			  AND A.REQ_USER_ID = #{st_user_id}
+		]]>
+		<if test="st_from_date != null and st_from_date != ''">
+			<![CDATA[
+			  AND TO_CHAR(A.REQ_DATE,'YYYYMMDD') >= REPLACE(REPLACE(#{st_from_date}, '.', ''), '/', '')
+			]]>
+		</if>
+		<if test="st_to_date != null and st_to_date != ''">
+			<![CDATA[
+			  AND TO_CHAR(A.REQ_DATE,'YYYYMMDD') <= REPLACE(REPLACE(#{st_to_date}, '.', ''), '/', '')
+			]]>
+		</if>
+		<if test="st_claim_master != null and st_claim_master != '' and st_claim_master != 'ALL'">
+			<![CDATA[
+			  AND A.CLAIM_MASTER = #{st_claim_master}
+			]]>
+		</if>
+		<if test="st_recv_flag != null and st_recv_flag != '' and st_recv_flag != 'ALL'">
+			<choose>
+				<when test="st_recv_flag == 'DC'">
+					AND A.RECV_FLAG IN ('DC', 'PS', 'PA')
+				</when>
+				<when test="st_recv_flag == 'FB'">
+					AND A.RECV_FLAG = 'FB'
+				</when>
+				<otherwise>
+					AND A.RECV_FLAG = #{st_recv_flag}
+				</otherwise>
+			</choose>
+		</if>
+		<![CDATA[
+			ORDER BY A.REQ_DATE DESC, A.VC_NO DESC
+		]]>
+	</select>
+
+	<!-- VOC 상세 조회 -->
+	<select id="selectBuyerInquiryDetail" parameterType="java.util.Map" resultType="java.util.Map">
+	/*selectBuyerInquiryDetail - KEPAVCDT VOC 상세*/
+		<![CDATA[
+			SELECT
+			    A.VC_NO,
+			    (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'VC03' AND CODE = A.CLAIM_MASTER) AS CLAIM_TEXT,
+			    A.CLAIM_MASTER,
+			    A.BUYER_ITEM_NO,
+			    A.PO_NO,
+			    A.REQ_REMARK,
+			    A.RECV_FLAG,
+			    (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'VC02' AND CODE = A.RECV_FLAG) AS RECV_FLAG_TEXT,
+			    TO_CHAR(A.REQ_DATE,'YYYY.MM.DD') AS REQ_DATE_DIS,
+			    A.REQ_USER_ID,
+			    A.REQ_USER_NAME,
+			    A.REQ_USER_TEL,
+			    TO_CHAR(A.PH_DATE,'YYYY.MM.DD') AS PH_DATE_DIS,
+			    A.DS_REMARK_A,
+			    A.DS_REMARK_B,
+			    A.DS_REMARK_C,
+			    A.DF_REMARK,
+			    TO_CHAR(A.DF_DATE,'YYYY.MM.DD') AS DF_DATE_DIS,
+			    (SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = A.DS_USER_ID) AS DS_USER_NAME,
+			    A.RUB_TYPE,
+			    DECODE(A.RUB_TYPE,'A','매우만족','B','만족','C','보통','D','불만','F','매우불만','미평가') AS RUB_TEXT
+			FROM KEPAVCDT A
+			WHERE A.VC_NO = #{st_vc_no}
+			  AND A.BUYER = #{st_company}
+		]]>
+	</select>
+
+	<!-- VOC 유형 코드 조회 (ICOMCOD1 TYPE='VC03') -->
+	<select id="selectBuyerQtypeCodeList" parameterType="java.util.Map" resultType="java.util.Map">
+	/*selectBuyerQtypeCodeList - VOC유형 VC03*/
+		<![CDATA[
+			SELECT
+			    CODE,
+			    TEXT1 AS CODE_NAME
+			FROM ICOMCOD1
+			WHERE TYPE = 'VC03'
+			  AND CODE IN ('ZP','ZC','ZE','ZL','ZO','ZD','ZS','ZN')
+			ORDER BY TEXT1
+		]]>
+	</select>
+
+	<!-- VOC 문의 취소 (RECV_FLAG='DC'인 건만 취소 처리) -->
+	<update id="cancelBuyerInquiry" parameterType="java.util.Map">
+	/*cancelBuyerInquiry*/
+		<![CDATA[
+			UPDATE KEPAVCDT
+			SET RECV_FLAG = 'CX'
+			WHERE VC_NO = #{st_vc_no}
+			  AND BUYER = #{st_company}
+			  AND RECV_FLAG = 'DC'
+		]]>
+	</update>
+
+	<!-- 의존: KEPAVCDT.ANSWER_READ_DATE 컬럼 (DDL은 selectBuyerInquiryList 위 주석 참고) -->
+	<!-- 1:1 문의 답변 확인 처리 (소유자 검증 + 답변완료 상태에서만 갱신) -->
+	<update id="updateBuyerInquiryRead" parameterType="java.util.Map">
+	/*updateBuyerInquiryRead*/
+		<![CDATA[
+			UPDATE KEPAVCDT
+			   SET ANSWER_READ_DATE = TO_CHAR(SYSDATE,'YYYYMMDD')
+			 WHERE VC_NO = #{st_vc_no}
+			   AND BUYER = #{st_company}
+			   AND REQ_USER_ID = #{st_user_id}
+			   AND RECV_FLAG IN ('PA','FB')
+		]]>
+	</update>
+
+	<!-- ========================================== -->
+	<!-- 내부 공지사항 관련 쿼리 (BUYERBOARD)         -->
+	<!-- ========================================== -->
+
+	<!-- 내부 공지사항 목록 조회 -->
+	<resultMap id="InternalNoticeMap" type="java.util.HashMap">
+		<result property="CONTEXT" column="CONTEXT" javaType="java.lang.String" jdbcType="CLOB" typeHandler="org.apache.ibatis.type.ClobTypeHandler" />
+	</resultMap>
+
+	<select id="selectBuyerInternalNoticeList" parameterType="java.util.Map" resultMap="InternalNoticeMap">
+	/*selectBuyerInternalNoticeList - 읽음 상태 포함 (ICOMBOARD_NOTICE_READ를 BTYPE='NTC'로 재사용)*/
+		<![CDATA[
+			SELECT A.BID,
+			       A.BTYPE,
+			       A.SUBJECT,
+			       A.CONTEXT,
+			       A.REG_USER_ID,
+			       A.REG_DATE,
+			       TO_CHAR(TO_DATE(A.REG_DATE,'YYYYMMDD'),'YYYY.MM.DD') AS REG_DATE_DIS,
+			       A.REG_TIME,
+			       A.IMAGE_KEY,
+			       A.LCOUNT,
+			       A.FROM_DATE,
+			       A.TO_DATE,
+			       TO_CHAR(TO_DATE(REPLACE(REPLACE(A.FROM_DATE,'/',''),'.',''),'YYYYMMDD'),'YYYY.MM.DD') AS FROM_DATE_DIS,
+			       TO_CHAR(TO_DATE(REPLACE(REPLACE(A.TO_DATE,'/',''),'.',''),'YYYYMMDD'),'YYYY.MM.DD') AS TO_DATE_DIS,
+			       A.OPEN_FLAG,
+			       (SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = A.REG_USER_ID AND STATUS <> 'D') AS USER_NAME_LOC,
+			       CASE WHEN A.REG_DATE < '20260501' THEN 'Y'
+			        	WHEN R.BID IS NOT NULL THEN 'Y' 
+			        	ELSE 'N' END AS READ_YN
+			  FROM BUYERBOARD A
+			  LEFT OUTER JOIN ICOMBOARD_NOTICE_READ R
+			    ON A.BID = R.BID AND R.BTYPE = 'NTC'
+			    AND R.COM_CODE = #{st_company} AND R.USER_ID = #{st_user_id}
+			    AND R.READ_DATE >= A.REG_DATE  -- BID 재사용(삭제 후 재생성)으로 남은 등록일 이전의 옛 읽음로그는 무시
+			 WHERE A.STATUS != 'D'
+			   AND A.BTYPE = 'NTC'
+			   AND A.BYCA_COMORG_CODE = #{st_byca_comorg_code}
+		]]>
+		<choose>
+			<when test='isMain == "Y"'>
+				AND TO_CHAR(SYSDATE,'YYYYMMDD') BETWEEN REPLACE(REPLACE(A.FROM_DATE,'/',''),'.','') AND REPLACE(REPLACE(A.TO_DATE,'/',''),'.','')
+			</when>
+			
+			<otherwise>
+				<if test='isAdmin == null or !isAdmin.equals("Y")'>
+					AND TO_CHAR(SYSDATE,'YYYYMMDD') BETWEEN REPLACE(REPLACE(A.FROM_DATE,'/',''),'.','') AND REPLACE(REPLACE(A.TO_DATE,'/',''),'.','')
+				</if>
+			</otherwise>
+		</choose>
+		<if test="st_keyword != null and st_keyword != ''">
+			<![CDATA[
+			   AND (A.SUBJECT LIKE '%'||#{st_keyword}||'%' OR DBMS_LOB.INSTR(A.CONTEXT, #{st_keyword}) > 0)
+			]]>
+		</if>
+		<![CDATA[
+			ORDER BY A.BID DESC
+		]]>
+	</select>
+
+	<!-- 내부 공지사항 상세 조회 -->
+	<select id="selectBuyerInternalNoticeDetail" parameterType="java.util.Map" resultMap="InternalNoticeMap">
+	/*selectBuyerInternalNoticeDetail*/
+		<![CDATA[
+			SELECT A.BID,
+			       A.BTYPE,
+			       A.SUBJECT,
+			       A.CONTEXT,
+			       A.REG_USER_ID,
+			       A.REG_DATE,
+			       TO_CHAR(TO_DATE(A.REG_DATE,'YYYYMMDD'),'YYYY.MM.DD') AS REG_DATE_DIS,
+			       A.REG_TIME,
+			       A.IMAGE_KEY,
+			       A.LCOUNT,
+			       A.FROM_DATE,
+			       A.TO_DATE,
+			       TO_CHAR(TO_DATE(REPLACE(REPLACE(A.FROM_DATE,'/',''),'.',''),'YYYYMMDD'),'YYYY.MM.DD') AS FROM_DATE_DIS,
+			       TO_CHAR(TO_DATE(REPLACE(REPLACE(A.TO_DATE,'/',''),'.',''),'YYYYMMDD'),'YYYY.MM.DD') AS TO_DATE_DIS,
+			       A.OPEN_FLAG,
+			       A.BYCA_COMORG_CODE,
+			       (SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = A.REG_USER_ID AND STATUS <> 'D') AS USER_NAME_LOC
+			  FROM BUYERBOARD A
+			 WHERE A.BID = #{BID}
+			   AND A.BTYPE = 'NTC'
+			   AND A.BYCA_COMORG_CODE = #{st_byca_comorg_code}
+			   AND A.STATUS != 'D'
+		]]>
+	</select>
+
+	<!-- 내부 공지사항 등록 -->
+	<insert id="insertBuyerInternalNotice" parameterType="java.util.Map">
+		<selectKey keyProperty="BID" order="BEFORE" resultType="integer">
+			SELECT NVL(MAX(BID),0)+1 AS BID FROM BUYERBOARD WHERE BYCA_COMORG_CODE = #{BYCA_COMORG_CODE}
+		</selectKey>
+		<![CDATA[
+		INSERT INTO BUYERBOARD (BID, BTYPE, COM_CODE, BYCA_COMORG_CODE, STATUS, VID, PID, BLEVEL,
+		                        ACL, LCOUNT, SORT, SUBJECT, CONTEXT,
+		                        REG_USER_ID, REG_DATE, REG_TIME, REG_DEP, REG_DEP_NAME,
+		                        IMAGE_KEY, PASSWORD, FROM_DATE, TO_DATE, OPEN_FLAG)
+		VALUES (#{BID}, 'NTC', #{COM_CODE}, #{BYCA_COMORG_CODE}, 'C', #{BID}*10, #{BID}, 0,
+		        'ALL', 0, '', #{SUBJECT}, #{CONTEXT},
+		        #{REG_USER_ID}, TO_CHAR(SYSDATE,'YYYYMMDD'), TO_CHAR(SYSDATE,'HH24MISS'),
+		        #{REG_DEP}, #{REG_DEP_NAME},
+		        #{IMAGE_KEY}, '', REPLACE(REPLACE(#{FROM_DATE},'/',''),'.',''), REPLACE(REPLACE(#{TO_DATE},'/',''),'.',''), 'Y')
+		]]>
+	</insert>
+
+	<!-- 내부 공지사항 수정 -->
+	<update id="updateBuyerInternalNotice" parameterType="java.util.Map">
+	/*updateBuyerInternalNotice*/
+		<![CDATA[
+		UPDATE BUYERBOARD
+		   SET SUBJECT = #{SUBJECT},
+		       CONTEXT = #{CONTEXT},
+		       IMAGE_KEY = #{IMAGE_KEY},
+		       FROM_DATE = REPLACE(REPLACE(#{FROM_DATE},'/',''),'.',''),
+		       TO_DATE = REPLACE(REPLACE(#{TO_DATE},'/',''),'.','')
+		 WHERE BID = #{BID}
+		   AND BTYPE = 'NTC'
+		   AND BYCA_COMORG_CODE = #{st_byca_comorg_code}
+		]]>
+	</update>
+
+	<!-- 내부 공지사항 삭제 -->
+	<delete id="deleteBuyerInternalNotice" parameterType="java.util.Map">
+	/*deleteBuyerInternalNotice*/
+		<![CDATA[
+		DELETE FROM BUYERBOARD
+		 WHERE BID = #{BID}
+		   AND BTYPE = 'NTC'
+		   AND BYCA_COMORG_CODE = #{st_byca_comorg_code}
+		]]>
+	</delete>
+
+	<!-- 내부 공지사항 조회수 증가 -->
+	<update id="updateBuyerInternalNoticeLCount" parameterType="java.util.Map">
+	/*updateBuyerInternalNoticeLCount*/
+		<![CDATA[
+		UPDATE BUYERBOARD
+		   SET LCOUNT = LCOUNT + 1
+		 WHERE BID = #{BID}
+		   AND BTYPE = 'NTC'
+		   AND BYCA_COMORG_CODE = #{st_byca_comorg_code}
+		   AND STATUS <> 'D'
+		]]>
+	</update>
+
+	<!-- 내부 공지사항 읽음 기록 INSERT (ICOMBOARD_NOTICE_READ 재사용, BTYPE='NTC'로 분리) -->
+	<insert id="insertBuyerInternalNoticeReadLog" parameterType="java.util.Map" useGeneratedKeys="false">
+	/*insertBuyerInternalNoticeReadLog - BID 재사용 대비 upsert: 옛 로그가 있으면 READ_DATE를 현재일자로 갱신*/
+		<![CDATA[
+			MERGE INTO ICOMBOARD_NOTICE_READ T
+			USING (SELECT #{bid} AS BID, 'NTC' AS BTYPE, #{comCode} AS COM_CODE, #{userId} AS USER_ID FROM DUAL) S
+			ON (T.BID = S.BID AND T.BTYPE = S.BTYPE AND T.COM_CODE = S.COM_CODE AND T.USER_ID = S.USER_ID)
+			WHEN MATCHED THEN
+				UPDATE SET T.READ_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD')
+			WHEN NOT MATCHED THEN
+				INSERT (BID, BTYPE, COM_CODE, USER_ID, READ_DATE)
+				VALUES (S.BID, S.BTYPE, S.COM_CODE, S.USER_ID, TO_CHAR(SYSDATE, 'YYYYMMDD'))
+		]]>
+	</insert>
+
+	<!-- 내부 공지사항 읽음 여부 체크 -->
+	<select id="selectBuyerInternalNoticeReadCount" parameterType="java.util.Map" resultType="int">
+	/*selectBuyerInternalNoticeReadCount*/
+		<![CDATA[
+			SELECT COUNT(*) FROM ICOMBOARD_NOTICE_READ
+			WHERE BID = #{bid} AND BTYPE = 'NTC'
+			  AND COM_CODE = #{comCode} AND USER_ID = #{userId}
+		]]>
+	</select>
+
+	<!-- ============================================================= -->
+	<!-- 고객사 메인 : 미확인(읽지 않은) 공지 건수 (공지사항 + 내부공지) -->
+	<!-- 목록 3종(selectBuyerNoticeListCommon / Company / InternalNoticeList)과 -->
+	<!-- 동일 조건을 사용하되 읽음 조인을 NOT EXISTS(미확인)로 치환하여 합산 -->
+	<!-- ============================================================= -->
+	<select id="selectBuyerUnreadNoticeCount" parameterType="java.util.Map" resultType="java.util.Map">
+	/*selectBuyerUnreadNoticeCount - 미확인 공지(일반:NOTICE_UNREAD) + 미확인 내부공지(INTERNAL_UNREAD) 종류별 + 합산(TOTAL_UNREAD)*/
+		<![CDATA[
+			SELECT
+				NVL(SUM(CASE WHEN SRC = 'N' THEN 1 ELSE 0 END), 0) AS NOTICE_UNREAD,    /* 공지사항 탭(tabIndex=2) */
+				NVL(SUM(CASE WHEN SRC = 'I' THEN 1 ELSE 0 END), 0) AS INTERNAL_UNREAD,  /* 내부 공지사항 탭(tabIndex=3) */
+				COUNT(*) AS TOTAL_UNREAD
+			FROM (
+				/* 1. 공통 공지사항 (ICOMBOARD_NOTICE, ALL_CUSTOMER_FLAG='Y') */
+				SELECT 'N' AS SRC, A.BID, A.BTYPE
+				FROM ICOMBOARD_NOTICE A
+				WHERE A.STATUS != 'D'
+					AND A.EXPOSE_TARGET IN ('BUY', 'ALL')
+					AND A.OPEN_FLAG = 'Y'
+					AND A.ALL_CUSTOMER_FLAG = 'Y'
+					AND (A.ALWAYS_SHOW_FLAG = 'Y' OR (A.FROM_DATE <= TO_CHAR(SYSDATE, 'YYYYMMDD') AND A.TO_DATE >= TO_CHAR(SYSDATE, 'YYYYMMDD')))
+					AND NOT EXISTS (
+						SELECT 1 FROM ICOMBOARD_NOTICE_READ R
+						WHERE R.BID = A.BID AND R.BTYPE = A.BTYPE
+						  AND R.COM_CODE = #{st_company} AND R.USER_ID = #{st_user_id}
+					)
+					AND SUBSTR(A.REG_DATE,1,6) >= '202605'
+				UNION ALL
+				/* 2. 거래사별 공지사항 (ICOMBOARD_NOTICE, ALL_CUSTOMER_FLAG='N') */
+				SELECT 'N' AS SRC, A.BID, A.BTYPE
+				FROM ICOMBOARD_NOTICE A
+				WHERE A.STATUS != 'D'
+					AND A.EXPOSE_TARGET IN ('BUY', 'ALL')
+					AND A.OPEN_FLAG = 'Y'
+					AND A.ALL_CUSTOMER_FLAG = 'N'
+					AND (A.ALWAYS_SHOW_FLAG = 'Y' OR (A.FROM_DATE <= TO_CHAR(SYSDATE, 'YYYYMMDD') AND A.TO_DATE >= TO_CHAR(SYSDATE, 'YYYYMMDD')))
+					AND EXISTS (
+						SELECT 1 FROM ICOMBOARD_NOTICE_DT DT
+						WHERE DT.BID = A.BID AND DT.BTYPE = A.BTYPE
+						  AND DT.COM_CODE = #{st_company}
+					)
+					AND NOT EXISTS (
+						SELECT 1 FROM ICOMBOARD_NOTICE_READ R
+						WHERE R.BID = A.BID AND R.BTYPE = A.BTYPE
+						  AND R.COM_CODE = #{st_company} AND R.USER_ID = #{st_user_id}
+					)
+					AND SUBSTR(A.REG_DATE,1,6) >= '202605'
+				UNION ALL
+				/* 3. 내부 공지사항 (BUYERBOARD, BTYPE='NTC') */
+				SELECT 'I' AS SRC, A.BID, A.BTYPE
+				FROM BUYERBOARD A
+				WHERE A.STATUS != 'D'
+					AND A.BTYPE = 'NTC'
+					AND A.BYCA_COMORG_CODE = #{st_byca_comorg_code}
+					AND SUBSTR(A.REG_DATE,1,6) >= '202605'
+		]]>
+		<if test='isAdmin == null or !isAdmin.equals("Y")'>
+			AND TO_CHAR(SYSDATE,'YYYYMMDD') BETWEEN REPLACE(REPLACE(A.FROM_DATE,'/',''),'.','') AND REPLACE(REPLACE(A.TO_DATE,'/',''),'.','')
+		</if>
+		<![CDATA[
+					AND NOT EXISTS (
+						SELECT 1 FROM ICOMBOARD_NOTICE_READ R
+						WHERE R.BID = A.BID AND R.BTYPE = 'NTC'
+						  AND R.COM_CODE = #{st_company} AND R.USER_ID = #{st_user_id}
+						  AND R.READ_DATE >= A.REG_DATE
+					)
+			)
+		]]>
+	</select>
+
+</mapper>

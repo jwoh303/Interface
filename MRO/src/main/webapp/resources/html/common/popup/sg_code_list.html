@@ -1,0 +1,213 @@
+
+
+<div class="DIVpopup-overlay" id="DIVpopupOverlay"></div>
+<div class="DIVpopup" id="DIVpopup" style="width:600px;">
+  <div class="wrapPopup" style="padding:40px 20px;">
+    <div class="PopupTit">SG 검색<span><a href="#" id="DIVclosePopup"><img src="/resources/imgs/Icon_close.png" /></a></span></div>
+    <div class="h10"></div>
+    <div class="SearchPopupInputBox">
+      <div class="SearchPopupInput" style="width:100%">
+        <input type="text" id="h_sg_name" style="width:85%;" placeholder="SG 명">
+        <button type="button" id="btnSearch">검색버튼</button>
+      </div>
+    </div>
+    <div class="PopupTxt mt15 mb02">총 <span id="totalCount">0</span>건</div>
+    <div class="IBSheetPopup" style="height:270px;">
+      <table class="IBSheetTablePopup" id="sgTable" style="width:100%;">
+        <colgroup>
+          <col width="30%" />
+          <col width="70%" />
+        </colgroup>
+        <thead>
+          <tr>
+            <th>SG 코드</th>
+            <th>SG명</th>
+          </tr>
+        </thead>
+        <tbody id="sgTableBody">
+        </tbody>
+      </table>
+    </div>
+  </div><!-- wrapPopup 끝-->
+</div>
+
+<style>
+/* IBSheetPopup - base.css에 없을 수 있으므로 포함 */
+.IBSheetPopup{min-height:50px; min-width:300px; text-align:center; vertical-align:top; border-top:1px solid #c5d1e2; background-color:#fff; overflow:auto; border-bottom:1px solid #dedede;}
+.IBSheetPopup {scrollbar-width:thin; scrollbar-color:#acadb3 #ebecf2;}
+.IBSheetPopup::-webkit-scrollbar {width:12px; height:12px;}
+.IBSheetPopup::-webkit-scrollbar-track {background:#ebecf2;}
+.IBSheetPopup::-webkit-scrollbar-thumb {background:#acadb3; border-radius:8px; border:3px solid #ebecf2;}
+.IBSheetPopup::-webkit-scrollbar-thumb:hover {filter:brightness(0.9);}
+.IBSheetPopup::-webkit-scrollbar-thumb:active {filter:brightness(0.8);}
+
+.IBSheetTablePopup{}
+.IBSheetTablePopup thead {position:sticky; top:0; z-index:10;}
+.IBSheetTablePopup th{height:32px; line-height:32px; text-align:center; font-size:16px; font-weight:500; letter-spacing:-0.8px; color:#5B5C61; vertical-align:top; border-bottom:1px solid #dedede; border-left:1px solid #dedede; background-color:#f2f7ff;}
+.IBSheetTablePopup th:first-child{border-left:0px;}
+.IBSheetTablePopup tr:hover{cursor:pointer; background-color:#F7FAE6;}
+.IBSheetTablePopup td{height:28px; line-height:25px; text-align:center; font-size:15px; font-weight:400; letter-spacing:-0.5px; vertical-align:top; color:#404046; border-bottom:1px solid #dedede; border-left:1px solid #dedede; background-color:#fff;}
+.IBSheetTablePopup td:first-child{border-left:0px;}
+
+.NoDate{text-align:center; vertical-align:bottom; font-size:16px; letter-spacing:-0.2px; font-weight:700; color:#5B5C61;}
+.NoDate img{height:80px; width:80px;}
+</style>
+
+<script type="text/javascript">
+/**
+ * SG 조회 팝업 API
+ */
+window.createPopupAPI = function(overlayId, containerId) {
+    var $overlay = $('#' + overlayId);
+    var $container = $('#' + containerId);
+    var selectCallback = null;
+    var animationType = $container.data('animationType') || 'default';
+
+    var allData = [];       // 원본 (피벗 해제된 단순 리스트)
+    var filteredData = [];
+    var $sgTableBody = $container.find('#sgTableBody');
+    var $totalCount = $container.find('#totalCount');
+
+    var api = {};
+
+    function close() {
+        var $popup = $container.find('.DIVpopup');
+        if ($popup.hasClass('popup-button-exit') || $popup.hasClass('popup-exit')) return;
+        var exitClass = animationType === 'fromButton' ? 'popup-button-exit' : 'popup-exit';
+        var animationDuration = animationType === 'fromButton' ? 1000 : 200;
+
+        $popup.removeClass('popup-enter popup-button-enter').addClass(exitClass);
+        $overlay.removeClass('popup-enter').addClass('popup-exit');
+
+        setTimeout(function() {
+            $overlay.remove();
+            $container.remove();
+            if ($('[id^="popup-overlay-"]').length === 0) {
+                var scrollY = $('body').data('scrollY') || 0;
+                $('body').css({ 'position': '', 'top': '', 'left': '', 'right': '', 'overflow-y': '' });
+                window.scrollTo(0, scrollY);
+            }
+        }, animationDuration);
+    }
+
+    function onSelect(callback) {
+        selectCallback = callback;
+        return api;
+    }
+
+    function showNoData(message) {
+        $sgTableBody.html(
+            '<tr><td colspan="2" style="height:200px;"><div class="NoDate mt50 mb50">' +
+            '<img src="/resources/imgs/Icon_Warning01.png" /><br/>' +
+            (message || '조회된 데이터가 없습니다.') +
+            '</div></td></tr>'
+        );
+    }
+
+    /**
+     * 서버에서 SG 목록 로드 (피벗 데이터를 단순 리스트로 변환)
+     */
+    function loadSgList() {
+        $sgTableBody.html(
+            '<tr><td colspan="2" style="height:200px; text-align:center; color:#999;">' +
+            '<img src="/resources/libs/ibsheet7/js/DeepBlue/90px.gif" alt="로딩중..." />' +
+            '</td></tr>'
+        );
+
+        HttpUtil.post('/coco/getCommonCoCoTranGoodsListJson.do', {}, {
+            showLoader: false, showDefaultAlert: false
+        }).then(function(response) {
+            var result = response.data || {};
+            var pivotData = result.data || [];
+
+            // 피벗 데이터 → 단순 리스트 변환
+            allData = [];
+            for (var i = 0; i < pivotData.length; i++) {
+                var row = pivotData[i];
+                if (row.SG_ID_A && $.trim(row.SG_ID_A)) {
+                    allData.push({ SG_ID: $.trim(row.SG_ID_A), SG_NAME: $.trim(row.SG_NAME_A) });
+                }
+                if (row.SG_ID_B && $.trim(row.SG_ID_B)) {
+                    allData.push({ SG_ID: $.trim(row.SG_ID_B), SG_NAME: $.trim(row.SG_NAME_B) });
+                }
+                if (row.SG_ID_C && $.trim(row.SG_ID_C)) {
+                    allData.push({ SG_ID: $.trim(row.SG_ID_C), SG_NAME: $.trim(row.SG_NAME_C) });
+                }
+            }
+            filteredData = allData;
+            $totalCount.text(allData.length);
+            renderTable(filteredData);
+        }).catch(function(error) {
+            console.error('[SgCodePopup] 로드 실패:', error);
+            showNoData('SG 정보를 불러오는 중 오류가 발생했습니다.');
+        });
+    }
+
+    function filterByName() {
+        var keyword = $.trim($container.find('#h_sg_name').val()).toUpperCase();
+        if (!keyword) {
+            filteredData = allData;
+        } else {
+            filteredData = [];
+            for (var i = 0; i < allData.length; i++) {
+                var name = (allData[i].SG_NAME || '').toUpperCase();
+                var code = (allData[i].SG_ID || '').toUpperCase();
+                if (name.indexOf(keyword) >= 0 || code.indexOf(keyword) >= 0) {
+                    filteredData.push(allData[i]);
+                }
+            }
+        }
+        $totalCount.text(filteredData.length);
+        renderTable(filteredData);
+    }
+
+    function renderTable(data) {
+        $sgTableBody.empty();
+        if (data.length === 0) {
+            showNoData('조회된 데이터가 없습니다.');
+            return;
+        }
+        for (var i = 0; i < data.length; i++) {
+            var row = data[i];
+            $sgTableBody.append(
+                '<tr data-index="' + i + '">' +
+                '<td>' + (row.SG_ID || '') + '</td>' +
+                '<td>' + (row.SG_NAME || '') + '</td>' +
+                '</tr>'
+            );
+        }
+    }
+
+    function selectRow(index) {
+        var row = filteredData[index];
+        if (!row) return;
+        if (selectCallback) selectCallback(row);
+        close();
+    }
+
+    function bindEvents() {
+        $container.find('#btnSearch').on('click', filterByName);
+        $container.find('#h_sg_name').on('keydown', function(e) {
+            if (e.keyCode === 13) { e.preventDefault(); filterByName(); }
+        });
+        $container.find('#DIVclosePopup').on('click', function(e) { e.preventDefault(); close(); });
+        $overlay.on('click', close);
+        $sgTableBody.on('click', 'tr', function() {
+            var idx = parseInt($(this).data('index'));
+            if (!isNaN(idx)) selectRow(idx);
+        });
+    }
+
+    api.close = close;
+    api.onSelect = onSelect;
+    api.$overlay = $overlay;
+    api.$container = $container;
+
+    bindEvents();
+    loadSgList();
+
+    setTimeout(function() { $container.find('#h_sg_name').focus(); }, 300);
+
+    return api;
+};
+</script>

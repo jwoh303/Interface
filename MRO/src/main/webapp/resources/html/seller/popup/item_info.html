@@ -1,0 +1,345 @@
+
+<div class="DIVpopup" id="DIVpopup">
+  <div class="wrapPopup">
+    <div class="PopupTit"> <span><a href="#" id="DIVclosePopup"><img src="/resources/imgs/Icon_close.png" /></a></span></div>
+    <table class="PopupPDInfor">
+      <colgroup>
+        <col width="300px" />
+        <col width="430px" />
+      </colgroup>
+      <tr>
+        <td><img class="img" id="itemProductImage" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="품목 이미지" style="max-width:300px; max-height:300px; background:#f5f5f5;"/></td>
+        <td>
+          <table class="PDInfor">
+            <colgroup>
+              <col width="120px" />
+              <col width="300px" />
+            </colgroup>
+            <thead>
+              <tr>
+                <th colspan="2" id="itemNameHeader">품목명</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th>품목코드</th>
+                <td id="itemCode">-</td>
+              </tr>
+              <tr>
+                <th>규격</th>
+                <td id="itemSpec">-</td>
+              </tr>
+              <tr>
+                <th>카테고리명</th>
+                <td id="itemCategory">-</td>
+              </tr>
+              <tr>
+                <th>제조사</th>
+                <td id="itemManufacturer">-</td>
+              </tr>
+              <tr>
+                <th>원산지</th>
+                <td id="itemOrigin">-</td>
+              </tr>
+              <tr>
+                <th>단위</th>
+                <td id="itemUnit">-</td>
+              </tr>
+              <tr>
+                <th>조달일수</th>
+                <td id="itemDeliveryDays">-</td>
+              </tr>
+              <tr>
+                <th>단가</th>
+                <td id="itemPrice">-</td>
+              </tr>
+              <tr>
+                <th>첨부파일</th>
+                <td id="itemAttachment">-</td>
+              </tr>
+              <tr>
+                <th>MSDS</th>
+                <td id="itemMsds">-</td>
+              </tr>
+            </tbody>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </div><!-- wrapPopup 끝-->
+</div>
+
+<script type="text/javascript">
+/**
+ * 품목정보 팝업 API 생성 함수
+ * PopupUtil에서 window.createPopupAPI를 자동으로 호출하여 팝업 API 객체를 받습니다.
+ *
+ * @param {string} overlayId - 오버레이 ID (PopupUtil에서 자동 생성하여 전달)
+ * @param {string} containerId - 컨테이너 ID (PopupUtil에서 자동 생성하여 전달)
+ * @returns {Object} 팝업 API 객체
+ */
+window.createPopupAPI = function(overlayId, containerId) {
+    var $overlay = $('#' + overlayId);
+    var $container = $('#' + containerId);
+    var animationType = $container.data('animationType') || 'default';
+    var confirmCallback = null;
+    var cancelCallback = null;
+    var attachmentDocNo = null;  // 첨부파일 DOC_NO 저장
+    var msdsDocNo = null;         // MSDS DOC_NO 저장
+
+
+
+
+
+    /**
+     * 키보드 이벤트 핸들러 (Enter, Space 키로 닫기)
+     */
+    function handleKeydown(e) {
+        // Enter(13) 또는 Space(32) 키 감지
+        if (e.keyCode === 13 || e.keyCode === 32) {
+            e.preventDefault();
+            if (confirmCallback) confirmCallback();
+            close();
+        }
+    }
+
+
+    /**
+     * 팝업 닫기 (애니메이션 포함)
+     */
+    function close() {
+        var $popup = $container.find('.DIVpopup');
+
+        // 이미 닫기 애니메이션 중이면 무시
+        if ($popup.hasClass('popup-button-exit') || $popup.hasClass('popup-exit')) {
+            return;
+        }
+
+        // 애니메이션 타입에 따른 클래스 결정
+        var exitClass = animationType === 'fromButton' ? 'popup-button-exit' : 'popup-exit';
+        var animationDuration = animationType === 'fromButton' ? 1000 : 200;
+
+        // 열기 애니메이션 클래스 제거 후 닫기 애니메이션 적용
+        $popup.removeClass('popup-enter popup-button-enter').addClass(exitClass);
+        $overlay.removeClass('popup-enter').addClass('popup-exit');
+
+        // 애니메이션 완료 후 제거
+        setTimeout(function() {
+            // 키보드 이벤트 해제
+            $(document).off('keydown', handleKeydown);
+
+            $overlay.remove();
+            $container.remove();
+
+            // ✅ body 스크롤 복원 (모든 팝업이 닫혔는지 확인)
+            if ($('[id^="popup-overlay-"]').length === 0) {
+                var scrollY = $('body').data('scrollY') || 0;
+                $('body').css({
+                    'position': '',
+                    'top': '',
+                    'left': '',
+                    'right': '',
+                    'overflow-y': ''
+                });
+                window.scrollTo(0, scrollY);
+                console.log('[품목정보 팝업] body 스크롤 복원, scrollY:', scrollY);
+            }
+
+            console.log('[품목정보 팝업] 팝업 닫힘');
+        }, animationDuration);
+    }
+
+    /**
+     * 품목 데이터 바인딩
+     * @param {Object} itemData - 품목 데이터 객체
+     * @param {string} itemData.itemCode - 품목코드
+     * @param {string} itemData.itemName - 품목명
+     * @param {string} itemData.specification - 규격
+     * @param {string} itemData.category - 카테고리명
+     * @param {string} itemData.manufacturer - 제조사
+     * @param {string} itemData.origin - 원산지
+     * @param {string} itemData.unit - 단위
+     * @param {string} itemData.deliveryDays - 조달일수
+     * @param {string} itemData.price - 단가
+     * @param {string} itemData.imageUrl - 이미지 URL
+     * @param {Object} itemData.attachment - 첨부파일 정보
+     * @param {Object} itemData.msds - MSDS 정보
+     */
+    function bindItemData(itemData) {
+        if (!itemData) {
+            console.warn('[품목정보 팝업] 품목 데이터가 없습니다.');
+            return api;
+        }
+
+        console.log('[품목정보 팝업] 데이터 바인딩:', itemData);
+
+        // 품목명 (헤더)
+        if (itemData.itemName) {
+            $container.find('#itemNameHeader').text(itemData.itemName);
+        }
+
+        // 품목 이미지
+        if (itemData.imageUrl && itemData.imageUrl !== '/resources/images/noimage.gif') {
+            $container.find('#itemProductImage').attr('src', itemData.imageUrl);
+        } else {
+            // 이미지가 없으면 투명 1px 이미지 유지 (404 방지)
+            $container.find('#itemProductImage').attr('src', 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7');
+        }
+
+        // 품목코드
+        $container.find('#itemCode').text(itemData.itemCode || '-');
+
+        // 규격
+        $container.find('#itemSpec').text(itemData.specification || '-');
+
+        // 카테고리명
+        $container.find('#itemCategory').text(itemData.category || '-');
+
+        // 제조사
+        $container.find('#itemManufacturer').text(itemData.manufacturer || '-');
+
+        // 원산지
+        $container.find('#itemOrigin').text(itemData.origin || '-');
+
+        // 단위
+        $container.find('#itemUnit').text(itemData.unit || '-');
+
+        // 조달일수
+        $container.find('#itemDeliveryDays').text(itemData.deliveryDays ? itemData.deliveryDays + '일' : '-');
+
+        // 단가 (포맷팅)
+        if (itemData.price) {
+            var formattedPrice = Number(itemData.price).toLocaleString('ko-KR') + '원';
+            $container.find('#itemPrice').text(formattedPrice);
+        } else {
+            $container.find('#itemPrice').text('-');
+        }
+
+        // 첨부파일
+        if (itemData.attachment && itemData.attachment.count > 0) {
+            attachmentDocNo = itemData.attachment.docNo;  // DOC_NO 저장
+            var attachHtml = itemData.attachment.count + '개 &nbsp; <button class="ButDownload_Tiny_Outline" id="btnDownloadAttachment">전체다운로드</button>';
+            $container.find('#itemAttachment').html(attachHtml);
+        } else {
+            attachmentDocNo = null;
+            $container.find('#itemAttachment').text('-');
+        }
+
+        // MSDS
+        if (itemData.msds && itemData.msds.count > 0) {
+            msdsDocNo = itemData.msds.docNo;  // MSDS DOC_NO 저장
+            var msdsHtml = itemData.msds.count + '개 &nbsp; <button class="ButDownload_Tiny_Outline" id="btnDownloadMsds">전체다운로드</button>';
+            $container.find('#itemMsds').html(msdsHtml);
+        } else {
+            msdsDocNo = null;
+            $container.find('#itemMsds').text('-');
+        }
+
+        console.log('[품목정보 팝업] 데이터 바인딩 완료');
+        return api; // 체이닝 지원
+    }
+
+    /**
+     * 확인 버튼 클릭 콜백 설정
+     */
+    function onConfirm(callback) {
+        confirmCallback = callback;
+        return api; // 체이닝 지원
+    }
+
+    /**
+     * 취소(닫기) 콜백 설정
+     */
+    function onCancel(callback) {
+        cancelCallback = callback;
+        return api; // 체이닝 지원
+    }
+
+    /**
+     * 파일 다운로드 함수
+     * @param {string} docNo - 문서번호 (DOC_NO)
+     * @param {string} fileType - 파일 타입 ('attachment' 또는 'msds')
+     */
+    function downloadFiles(docNo, fileType) {
+        if (!docNo) {
+            alert('다운로드할 파일이 없습니다.');
+            console.error('[품목정보 팝업] DOC_NO가 없습니다.');
+            return;
+        }
+
+        console.log('[품목정보 팝업] ' + fileType + ' 다운로드 시작 - DOC_NO:', docNo);
+
+        // /common/download_v2.do 호출 (DOC_NO만 전달하면 전체 파일을 zip으로 다운로드)
+        // 현재 페이지와 동일한 프로토콜 사용 (HTTPS 혼합 콘텐츠 방지)
+        var protocol = window.location.protocol; // 'http:' or 'https:'
+        var host = window.location.host; // 'hostname:port'
+        var downloadUrl = protocol + '//' + host + '/common/download_v2.do?DOC_NO=' + encodeURIComponent(docNo);
+
+        // 새 창에서 다운로드 (파일 다운로드는 location.href로 처리)
+        window.location.href = downloadUrl;
+
+        console.log('[품목정보 팝업] ' + fileType + ' 다운로드 URL:', downloadUrl);
+    }
+
+    /**
+     * 이벤트 바인딩 (내부 함수, 자동 실행)
+     */
+    function bindEvents() {
+        // 기존 이벤트 제거 (중복 방지)
+        $container.find('#DIVclosePopup').off('click');
+        $container.find('#btnDownloadAttachment').off('click');
+        $container.find('#btnDownloadMsds').off('click');
+        $overlay.off('click');
+
+        // X 버튼 클릭 이벤트
+        $container.find('#DIVclosePopup').on('click', function(e) {
+            e.preventDefault();
+            if (cancelCallback) cancelCallback();
+            close();
+        });
+
+        // 첨부파일 다운로드 버튼 클릭 이벤트
+        $container.on('click', '#btnDownloadAttachment', function(e) {
+            e.preventDefault();
+            downloadFiles(attachmentDocNo, '첨부파일');
+        });
+
+        // MSDS 다운로드 버튼 클릭 이벤트
+        $container.on('click', '#btnDownloadMsds', function(e) {
+            e.preventDefault();
+            downloadFiles(msdsDocNo, 'MSDS');
+        });
+
+        // 오버레이 클릭 시 닫기
+        $overlay.on('click', function() {
+            if (cancelCallback) cancelCallback();
+            close();
+        });
+
+
+
+
+                // Enter, Space 키 입력 시 닫기
+        $(document).on('keydown', handleKeydown);
+
+        console.log('[품목정보 팝업] 이벤트 자동 바인딩 완료');
+    }
+
+    // Public API
+    var api = {
+        bindItemData: bindItemData,
+        onConfirm: onConfirm,
+        onCancel: onCancel,
+        close: close,
+        $overlay: $overlay,
+        $container: $container
+    };
+
+    // ========================================
+    // 자동 실행: 이벤트 즉시 바인딩
+    // ========================================
+    bindEvents();
+
+    return api;
+};
+</script>

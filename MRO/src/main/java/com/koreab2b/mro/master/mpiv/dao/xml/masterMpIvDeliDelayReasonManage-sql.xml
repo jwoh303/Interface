@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mpiv">
+	<!-- 조회 -->
+	<select id="selectMasterMpIvDeliDelayReasonManageList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.pagestart"/>	
+		<![CDATA[
+			/*selectMasterMpIvDeliDelayReasonManageList*/
+			SELECT	POHD.AGENT,
+					(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = POHD.AGENT) AS AGENT_NAME,
+					PORS.ADD_USER_ID,
+					(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = PORS.ADD_USER_ID) AS AGENT_USER_NAME,
+					PODT.BUYER,
+					(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = PODT.BUYER) AS BUYER_NAME,
+					PODT.LEGACY_PO_NO,
+					PODT.PO_NO,
+					PODT.PO_SEQ,
+					TO_CHAR(TO_DATE(POHD.PO_CREATE_DATE,'YYYYMMDD'),'YYYY.MM.DD') AS PO_DATE,
+					TO_CHAR(TO_DATE(PODT.ADD_DATE||PODT.ADD_TIME,'YYYYMMDDHH24MISS'),'YYYY.MM.DD HH24:MI:SS') AS PO_ADD_DATE,
+					TO_CHAR(TO_DATE(PODT.RD_DATE ,'YYYYMMDD'),'YYYY.MM.DD') AS RD_DATE,
+					TO_CHAR(TO_DATE(PORS.DS_DATE ,'YYYYMMDD'),'YYYY.MM.DD') AS DS_DATE,
+					TO_CHAR(TO_DATE(PORS.ADD_DATE||PORS.ADD_TIME,'YYYYMMDDHH24MISS'),'YYYY.MM.DD HH24:MI:SS') AS RS_ADD_DATE,
+					PODT.DS_DELAY_REASON,
+					DECODE(TRIM(SCM_REMARK),NULL,'-','SCM') AS SCM_REMARK,
+					PODT.BUYER_ITEM_NO,
+					(SELECT TEXT2 FROM ICOMCOD1 WHERE TYPE = 'M034' AND CODE = PODT.PROCESS_TYPE) AS PROCESS_TYPE,
+					PODT.ITEM_QTY,
+					PODT.IV_QTY,
+					PODT.GR_QTY,
+					PODT.DI_QTY,
+					PODT.DESCRIPTION,
+					PODT.SPECIFICATION,
+					POHD.DELY_TO_LOCATION,
+					POHD.PURCHASER_NAME,
+					POHD.PO_REMARK,
+					POHD.PURCHASER_ID,
+					PODT.BYIT_COMORG_CODE,
+					PODT.CONTRACT_NO,
+					PODT.CONTRACT_SEQ
+			FROM	ICOMPORS PORS, ICOMPODT PODT, ICOMPOHD POHD,
+					(
+						SELECT	'TEAM' AS BUYER
+						FROM	ICOMCOD3
+						WHERE	TYPE = 'CMPY'
+						AND		CODE1 = #{st_kep_dept}
+						AND		CODE2 = #{st_user_id}
+						
+						UNION
+						
+						SELECT	DISTINCT BUYER
+						FROM	MIS_BUYER_MNG
+						WHERE	YEAR = TO_CHAR(SYSDATE,'YYYY')
+						AND		STATUS = 'C'
+						AND		KEP_USER_ID = #{st_user_id}
+						AND		1 = DECODE((SELECT COUNT(*) FROM ICOMCOD3 WHERE TYPE = 'CMPY' AND CODE1 = #{st_kep_dept} AND CODE2 = #{st_user_id}), 0, 1, 0)
+					) X
+			WHERE	PORS.STATUS != 'D'
+			AND		PORS.ADD_DATE BETWEEN #{st_from_date} AND #{st_to_date}
+			AND		PORS.BUYER IN (SELECT BUYER FROM MIS_BUYER_MNG WHERE YEAR = TO_CHAR(SYSDATE,'YYYY') AND STATUS = 'C' AND KEP_DEPT = #{st_kep_dept})
+      		AND     PORS.BUYER = DECODE(X.BUYER, 'TEAM', PORS.BUYER, X.BUYER)
+			AND		PORS.BUYER = PODT.BUYER
+			AND		PORS.PO_NO = PODT.PO_NO
+			AND		PORS.PO_SEQ= PODT.PO_SEQ
+			AND		PODT.STATUS != 'D'
+			AND		PODT.BUYER = POHD.BUYER
+			AND		PODT.PO_NO = POHD.PO_NO
+			AND		PODT.RD_DATE < PORS.DS_DATE
+		]]>
+		<if test='st_iv_flag == "N"'>
+			<![CDATA[
+			AND		PORS.COMPLETE_MARK = 'N' -- 납품서 생성 제외
+			]]>
+		</if>
+		<if test="st_buyer_code != null and st_buyer_code.size() > 0">
+			AND		POHD.BUYER IN 
+			<foreach item="item" collection="st_buyer_code"
+				open="(" separator="," close=")">
+				#{item}
+			</foreach>
+		</if>
+		<if test="st_agent_code != null and st_agent_code != ''">
+			<![CDATA[
+			AND		POHD.AGENT = #{st_agent_code}
+			]]>
+		</if>
+		<![CDATA[
+			ORDER BY AGENT_NAME,BUYER_NAME,PO_NO,PO_SEQ
+		]]>
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+</mapper>
+   

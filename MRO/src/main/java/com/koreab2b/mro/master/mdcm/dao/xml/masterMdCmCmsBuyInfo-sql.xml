@@ -1,0 +1,558 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mdcm">
+
+	<!-- 구매정보 조회 및 관리 - 목록 조회 (4밴드 41 데이터컬럼)
+	     CMSPRICE(구매정보) 1건 = 행 1개. 상품 속성은 CMSCATLG 를 조인해 가져온다(1:N 의 1쪽).
+	     TCODE(그리드 hidden 유니크 키) = 구매정보코드와 같은 문자열 - 상세 팝업이 이걸로 단건 조회한다. -->
+	<select id="selectMasterMdCmCmsBuyInfoList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.pagestart"/>
+			<![CDATA[
+				/*selectMasterMdCmCmsBuyInfoList*/
+				SELECT
+				  P.CMS_CATLG_ID || '-' || LPAD(P.CATLG_SEQ, 5, '0') AS TCODE						/* 행 유니크 키 (상세 팝업 호출용, hidden) */
+				 /* -- 밴드1 : 식별 · 상태 -- */
+				 ,P.CMS_CATLG_ID																	/* 상품정보코드 */
+				 ,P.CMS_CATLG_ID || '-' || LPAD(P.CATLG_SEQ, 5, '0') AS BUY_INFO_ID					/* 구매정보코드 (키, 화면 hidden) */
+				 ,LPAD(P.CATLG_SEQ, 5, '0') AS BUY_INFO_SEQ											/* 구매정보코드 : 화면 표기는 순번만 쓴다(상품정보코드는 옆 열에 있다) */
+				 ,DECODE(P.STATUS, 'D', '불가', '가능') AS SUPPLY_STATUS							/* 공급상태 */
+				 /* 만료여부 : 종료일 없으면 공란. 만료예정 기준 30일은 설계서에 정의가 없어 잠정값이다. */
+				 ,CASE WHEN P.BUY_CLOSE_DATE IS NULL OR TRIM(P.BUY_CLOSE_DATE) IS NULL THEN ''
+				       WHEN P.BUY_CLOSE_DATE <  TO_CHAR(SYSDATE, 'YYYYMMDD')      THEN '만료'
+				       WHEN P.BUY_CLOSE_DATE <= TO_CHAR(SYSDATE + 30, 'YYYYMMDD') THEN '만료예정'
+				       ELSE '' END AS EXPIRE_YN													/* 만료여부 */
+				 ,C.DESCRIPTION_LOC																	/* 품목명 */
+				 ,C.MODEL_INFO																		/* 모델번호 */
+				 ,C.SPECIFICATION																	/* 규격 */
+				 ,C.MAKER_NAME																		/* 제조사 */
+				 ,(SELECT TEXT2 FROM ICOMCOD1 WHERE TYPE = 'M001' AND CODE = C.ORIGIN_CODE) AS ORIGIN_CODE_NAME	/* 원산지 */
+				 ,C.ORDER_MEASURE																	/* 단위 */
+				 ,(SELECT CMPY.COM_NAME_LOC FROM ICOMCMPY CMPY WHERE CMPY.COM_CODE = P.AGENT) AS AGENT_NAME	/* 협력사명 */
+				 ,P.AGENT AS AGENT_CODE															/* 협력사코드 */
+				 /* -- 밴드2 : 유효기간 · 매핑 · 분류 -- */
+				 ,P.BUY_CLOSE_DATE AS BUY_CLOSE_DATE												/* 매입단가 종료일 */
+				 /* 매핑고객사수 = 이 구매정보에 연결된 ICOMCQDT 건수 · 지정고객사수 = 그중 CSV_YN='Y'
+				    매핑 축(CMS_CATLG_ID·CATLG_SEQ)은 ICOMCQDT_12 인덱스가 받는다 — 행당 인덱스 레인지 스캔 2회. */
+				 ,(SELECT COUNT(*) FROM ICOMCQDT Q
+				    WHERE Q.CMS_CATLG_ID = P.CMS_CATLG_ID
+				      AND Q.CATLG_SEQ    = P.CATLG_SEQ) AS MAP_BUYER_CNT							/* 매핑고객사수 */
+				 ,(SELECT COUNT(*) FROM ICOMCQDT Q
+				    WHERE Q.CMS_CATLG_ID = P.CMS_CATLG_ID
+				      AND Q.CATLG_SEQ    = P.CATLG_SEQ
+				      AND NVL(Q.CSV_YN, 'N') = 'Y') AS DESIG_BUYER_CNT								/* 지정고객사수 */
+				 ,DECODE(C.ITEM_GUBUN, 'G', '표준품', '비표준품') AS ITEM_GUBUN_NM					/* 상품구분 */
+				 ,DECODE(NVL(C.ONETIME_YN, 'N'), 'Y', '일회성', '일반') AS ONETIME_NM				/* 일회성구분 */
+				 ,(SELECT MD.TEXT1 FROM ICOMCOD1 MD
+				     WHERE MD.TYPE = 'M181' AND MD.CODE = C.TR_HANDLE_TYPE) AS TR_HANDLE_NM			/* TR취급가능여부 */
+				 ,(SELECT SG.SG_NAME
+				     FROM CMSCATEG CG, KEPSGMG SG
+				    WHERE CG.CMS_CATEG_ID = C.CMS_CATEG_ID
+				      AND CG.STATUS <> 'D'
+				      AND CG.SG_ID = SG.SG_ID) AS SG_NAME											/* 카테고리(=SG) */
+				 ,C.CMS_CATEG_ID																	/* 상세분류코드 */
+				 ,(SELECT CATEG_NAME FROM CMSCATEG
+				     WHERE CMS_CATEG_ID = C.CMS_CATEG_ID AND STATUS <> 'D') AS CMS_CATEG_NAME		/* 상세분류 */
+				 ,(SELECT MD.TEXT4
+				     FROM CMSCATEG CG, ICOMCOD3 MD
+				    WHERE CG.CMS_CATEG_ID = C.CMS_CATEG_ID
+				      AND CG.STATUS <> 'D'
+				      AND MD.BUYER = 'KRKORE0001'
+				      AND MD.TYPE  = 'CMSM'
+				      AND MD.CODE2 = '1'
+				      AND MD.FLAG  = 'Y'
+				      AND MD.CODE1 = CG.SG_ID) AS KEP_USER_NAME									/* 구매담당자(SG 정담당) */
+				 /* -- 밴드3 : 기준가 · 이력 -- */
+				 ,C.BASE_PRICE																		/* 기준가(상품 단위) */
+				 /* 기준가매익율 : 기준가가 없거나 0이면 나눗셈이 성립하지 않아 공란으로 둔다 */
+				 ,CASE WHEN NVL(C.BASE_PRICE, 0) = 0 THEN NULL
+				       ELSE TO_CHAR(ROUND((C.BASE_PRICE - P.BUY_PRICE) / C.BASE_PRICE * 100, 2), 'FM9999990.00') || '%'
+				  END AS BASE_MARGIN																/* 기준가매익율(%) */
+				 ,(SELECT MD.TEXT1 FROM ICOMCOD1 MD
+				     WHERE MD.TYPE = 'M183' AND MD.CODE = C.BASE_PRICE_TYPE) AS BASE_PRICE_TYPE		/* 기준가유형 */
+				 ,'' AS TYPE_MARGIN																	/* 유형별 매익율 - 산출 출처 미정이라 보류 */
+				 ,NVL((SELECT 'Y' FROM CMSPRICE_HST H
+				         WHERE H.CMS_CATLG_ID = P.CMS_CATLG_ID
+				           AND H.CATLG_SEQ    = P.CATLG_SEQ
+				           AND ROWNUM = 1), 'N') AS HISTORY										/* 변경이력 유무 (PK 선두라 인덱스로 끝난다) */
+				 ,P.ADD_DATE																		/* 구매정보 등록일 */
+				 ,P.CHANGE_DATE AS CHANGE_DATE															/* 최종변경일 */
+				 /* 불가 변경사유 : 공급상태가 불가인 행에서만 노출 (상품정보 목록의 [미사용 변경사유]와 같은 관례) */
+				 ,CASE WHEN P.STATUS = 'D'
+				       THEN (SELECT MD.TEXT1 FROM ICOMCOD1 MD
+				               WHERE MD.TYPE = 'M185' AND MD.CODE = P.SUPPLY_REASON_CODE)
+				       ELSE '' END AS UNAVAIL_REASON												/* 불가 변경사유 */
+				 /* 대체코드는 상품정보에만 있다(CMSCATLG.ALT_CATLG_ID). 사유가 중복존재(DUP)일 때만 노출 */
+				 ,CASE WHEN P.STATUS = 'D' AND P.SUPPLY_REASON_CODE = 'DUP'
+				       THEN C.ALT_CATLG_ID
+				       ELSE '' END AS ALT_CODE														/* 대체코드 */
+				 /* -- 밴드4 : 거래조건 -- */
+				 ,RTRIM(TO_CHAR(P.BUY_PRICE, 'FM999,999,999,990.99999'), '.') AS LIST_PRICE			/* 매입단가(VAT별도) */
+				 ,P.MIN_ORDER_QTY AS MOQ															/* 최소주문수량 */
+				 ,P.PUR_UNIT_QTY AS PUR_UNIT_QTY													/* 주문배수수량 */
+				 ,(SELECT MD.TEXT2 FROM ICOMCOD1 MD
+				     WHERE MD.TYPE = 'M034' AND MD.CODE = P.PROCESS_TYPE) AS PROCESS_TYPE				/* 거래유형 (M034 는 TEXT2 가 국문) */
+				 ,(SELECT MD.TEXT1 FROM ICOMCOD1 MD
+				     WHERE MD.TYPE = 'M186' AND MD.CODE = P.DELIVERY_TYPE) AS DELIVERY_TYPE			/* 배송유형 */
+				 /* 입고TR : 저장은 센터 회사코드다. 화면엔 센터명으로 보여야 하므로
+				    W001(TEXT1=코드 / TEXT2=명 / TEXT4=B 구매사측)에서 되찾는다.
+				    목록에 없는 코드는 코드 그대로 남긴다 - 빈칸이면 값이 있는지조차 안 보인다. */
+				 ,NVL((SELECT MAX(MD.TEXT2) FROM ICOMCOD1 MD
+				        WHERE MD.TYPE = 'W001' AND MD.TEXT4 = 'B' AND MD.TEXT1 = P.WAREHOUSE_CODE)
+				      , P.WAREHOUSE_CODE) AS TR_NAME							/* 입고TR(센터명) */
+				 ,P.DELIVERY_LT AS LEADTIME															/* 배송일수 */
+				 ,(SELECT MD.TEXT1 FROM ICOMCOD1 MD
+				     WHERE MD.TYPE = 'M132' AND MD.CODE = P.ITEM_MAKE_TYPE) AS ITEM_TYPE			/* 품목구분 */
+				 ,(SELECT MD.TEXT1 FROM ICOMCOD1 MD
+				     WHERE MD.TYPE = 'TX17' AND MD.CODE = P.TAX_TYPE) AS TAX_TYPE					/* 과세구분 */
+				 ,P.SELLER_ITEM_NO AS SELLER_ITEM_NO												/* 협력사품목코드 */
+				 ,P.BUY_OPEN_DATE AS BUY_OPEN_DATE												/* 매입단가 시작일 */
+				FROM CMSPRICE P, CMSCATLG C
+				WHERE P.CMS_CATLG_ID = C.CMS_CATLG_ID
+			]]>
+			<!-- 상품정보코드 : 대량입력(팝업)이 있으면 그 목록으로 정확히 맞추고, 없을 때만 기존 접두 LIKE -->
+			<choose>
+				<when test="st_catlg_id_multi != null and st_catlg_id_multi.size() > 0">
+					AND P.CMS_CATLG_ID IN
+					<foreach item="item" collection="st_catlg_id_multi" open="(" separator="," close=")">
+						UPPER(#{item})
+					</foreach>
+				</when>
+				<when test="st_catlg_id != null and st_catlg_id != ''">
+					AND UPPER(P.CMS_CATLG_ID) LIKE UPPER(#{st_catlg_id}) || '%'
+				</when>
+			</choose>
+			<!-- 공급상태 : 가능(AVAIL) = STATUS<>'D' / 불가(UNAVAIL) = STATUS='D'. 미지정이면 필터 없음 -->
+			<choose>
+				<when test="st_supply_status == 'AVAIL'">
+					AND NVL(P.STATUS, 'C') != 'D'
+				</when>
+				<when test="st_supply_status == 'UNAVAIL'">
+					AND P.STATUS = 'D'
+				</when>
+			</choose>
+			<!-- 만료여부 : 화면 SELECT 와 같은 기준(만료예정 30일은 잠정) -->
+			<choose>
+				<when test="st_expire_yn == 'EXP'">
+					AND P.BUY_CLOSE_DATE IS NOT NULL
+					AND P.BUY_CLOSE_DATE &lt; TO_CHAR(SYSDATE, 'YYYYMMDD')
+				</when>
+				<when test="st_expire_yn == 'EXPSOON'">
+					AND P.BUY_CLOSE_DATE IS NOT NULL
+					AND P.BUY_CLOSE_DATE &gt;= TO_CHAR(SYSDATE, 'YYYYMMDD')
+					AND P.BUY_CLOSE_DATE &lt;= TO_CHAR(SYSDATE + 30, 'YYYYMMDD')
+				</when>
+				<when test="st_expire_yn == 'NONE'">
+					AND (P.BUY_CLOSE_DATE IS NULL OR TRIM(P.BUY_CLOSE_DATE) IS NULL)
+				</when>
+			</choose>
+			<!-- 카테고리 = SG (팝업 복수선택, '@' 구분 문자열을 DaoImpl 이 List 로 변환) -->
+			<if test="st_sg_id_multi != null and st_sg_id_multi.size() != 0">
+				AND EXISTS (SELECT 1 FROM CMSCATEG CG
+				             WHERE CG.CMS_CATEG_ID = C.CMS_CATEG_ID
+				               AND CG.STATUS != 'D'
+				               AND CG.SG_ID IN
+				               <foreach item="item" collection="st_sg_id_multi" open="(" separator="," close=")">
+				               	#{item}
+				               </foreach>
+				            )
+			</if>
+			<!-- 상세분류 (팝업 복수선택, '@' 구분 문자열을 DaoImpl 이 List 로 변환) -->
+			<if test="st_categ_id_multi != null and st_categ_id_multi.size() != 0">
+				AND C.CMS_CATEG_ID IN
+				<foreach item="item" collection="st_categ_id_multi" open="(" separator="," close=")">
+					#{item}
+				</foreach>
+			</if>
+			<!-- 거래유형 : 화면 값이 곧 M034 코드다 (0 직납 / 1 재고 / 2 TR / 3 VMI) -->
+			<if test="st_process_type != null and st_process_type != ''">
+				AND P.PROCESS_TYPE = #{st_process_type}
+			</if>
+			<!-- 배송유형 : 'ALL'(전체)은 코드행이지만 조회에서는 필터를 걸지 않는다.
+			     이 조건을 빼면 DELIVERY_TYPE='ALL' 비교가 되어 조용히 0건이 된다. -->
+			<if test="st_delivery_type != null and st_delivery_type != '' and st_delivery_type != 'ALL'">
+				AND P.DELIVERY_TYPE = #{st_delivery_type}
+			</if>
+			<!-- 품목명 / 규격 / 모델번호 - 각각 독립 입력칸(AND 결합) -->
+			<if test="st_item_name != null and st_item_name != ''">
+				AND C.DESCRIPTION_LOC LIKE '%' || #{st_item_name} || '%'
+			</if>
+			<if test="st_specification != null and st_specification != ''">
+				AND C.SPECIFICATION LIKE '%' || #{st_specification} || '%'
+			</if>
+			<if test="st_model_info != null and st_model_info != ''">
+				AND C.MODEL_INFO LIKE '%' || #{st_model_info} || '%'
+			</if>
+			<!-- 제조사 (돋보기 선택 - 코드) -->
+			<if test="st_maker_code != null and st_maker_code != ''">
+				AND C.MAKER_CODE = #{st_maker_code}
+			</if>
+			<!-- 협력사 : 돋보기로 고르면 코드가 들어온다(복수선택 - DaoImpl 이 '@' 문자열을 List 로 변환).
+			     ⚠ 복수선택 뒤의 st_agent_name 은 "○○ 외 N건" 표시값이라 필터로 쓸 수 없다 — 코드가 있으면 이름 갈래로 내려가지 않는다 -->
+			<choose>
+				<when test="st_agent_code != null and st_agent_code.size() > 0">
+					AND P.AGENT IN
+					<foreach item="item" collection="st_agent_code" open="(" separator="," close=")">
+						#{item}
+					</foreach>
+				</when>
+				<when test="st_agent_name != null and st_agent_name != ''">
+					AND EXISTS (SELECT 1 FROM ICOMCMPY CMPY
+					             WHERE CMPY.COM_CODE = P.AGENT
+					               AND CMPY.COM_NAME_LOC LIKE '%' || #{st_agent_name} || '%')
+				</when>
+			</choose>
+			<!-- 구매담당자 : 상세분류가 매달린 SG 의 정담당(CMSM CODE2='1') 사번 -->
+			<if test="st_kep_user_no != null and st_kep_user_no != ''">
+				AND EXISTS (SELECT 1
+				              FROM CMSCATEG CG, ICOMCOD3 MD
+				             WHERE CG.CMS_CATEG_ID = C.CMS_CATEG_ID
+				               AND CG.STATUS != 'D'
+				               AND MD.BUYER = 'KRKORE0001'
+				               AND MD.TYPE  = 'CMSM'
+				               AND MD.CODE2 = '1'
+				               AND MD.FLAG  = 'Y'
+				               AND MD.CODE1 = CG.SG_ID
+				               AND MD.TEXT1 = #{st_kep_user_no})
+			</if>
+			<!-- 조회일자 : 등록일(ADD) / 최종변경일(CHG) / 매입단가유효기간 종료일(PVD) -->
+			<if test="(st_checkbox == null or st_checkbox == '') and st_from_date != null and st_from_date != '' and st_to_date != null and st_to_date != ''">
+				<choose>
+					<when test="st_date_type == 'CHG'">
+						AND P.CHANGE_DATE BETWEEN #{st_from_date} AND #{st_to_date}
+					</when>
+					<when test="st_date_type == 'PVD'">
+						AND P.BUY_CLOSE_DATE BETWEEN #{st_from_date} AND #{st_to_date}
+					</when>
+					<otherwise>
+						AND P.ADD_DATE BETWEEN #{st_from_date} AND #{st_to_date}
+					</otherwise>
+				</choose>
+			</if>
+			<![CDATA[
+				ORDER BY P.CMS_CATLG_ID, P.CATLG_SEQ
+			]]>
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+
+	<!-- 구매정보 상세 단건 조회 (TCODE = 구매정보코드 문자열, 페이징 래퍼 없음)
+	     ⚠ 팝업 JSP 는 상태를 'N'(미사용/불가) 기준으로 읽는다 - 명칭이 아니라 Y/N 으로 내려야 한다. -->
+	<select id="selectMasterMdCmCmsBuyInfoDetail" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/*selectMasterMdCmCmsBuyInfoDetail*/
+			SELECT
+			  P.CMS_CATLG_ID || '-' || LPAD(P.CATLG_SEQ, 5, '0') AS BUY_INFO_ID					/* 구매정보코드 (키) */
+			 ,LPAD(P.CATLG_SEQ, 5, '0') AS BUY_INFO_SEQ											/* 구매정보코드 : 화면 표기는 순번만 쓴다(상품정보코드는 옆 열에 있다) */
+			 ,P.CMS_CATLG_ID																	/* 상품정보코드 */
+			 ,C.CMS_CATEG_ID																	/* 상세분류코드 */
+			 ,C.DESCRIPTION_LOC																	/* 품목명 */
+			 ,C.SPECIFICATION																	/* 규격 */
+			 ,C.MAKER_NAME																		/* 제조사 */
+			 ,(SELECT TEXT2 FROM ICOMCOD1 WHERE TYPE = 'M001' AND CODE = C.ORIGIN_CODE) AS ORIGIN_CODE_NAME	/* 원산지 */
+			 ,C.ORDER_MEASURE																	/* 단위 */
+			 ,C.MODEL_INFO																		/* 모델번호 */
+			 ,DECODE(C.STATUS, 'D', 'N', 'Y') AS USE_STATUS										/* 상품상태 (N=미사용) */
+			 ,DECODE(P.STATUS, 'D', 'N', 'Y') AS SUPPLY_STATUS									/* 공급상태 (N=불가) */
+			 ,(SELECT CMPY.COM_NAME_LOC FROM ICOMCMPY CMPY WHERE CMPY.COM_CODE = P.AGENT) AS AGENT_NAME	/* 협력사명 */
+			 ,P.AGENT AS AGENT_CODE											/* 협력사코드 */
+			 /* TO_CHAR 필수 : 이 팝업은 스크립틀릿이라 Map 값을 String 으로 캐스팅한다.
+			    NUMBER 를 그대로 내리면 BigDecimal 이 담겨 ClassCastException 이 난다(값이 NULL 인 동안은 통과한다). */
+			 ,TRIM(TO_CHAR(P.BUY_PRICE)) AS LIST_PRICE											/* 매입단가(VAT별도) */
+			 ,TRIM(TO_CHAR(P.DELIVERY_LT)) AS LEADTIME											/* 배송일수 */
+			 ,TRIM(TO_CHAR(P.MIN_ORDER_QTY)) AS MOQ												/* 최소주문수량 */
+			 ,TRIM(TO_CHAR(P.PUR_UNIT_QTY)) AS PUR_UNIT_QTY									/* 주문배수수량 */
+			 ,(SELECT MD.TEXT2 FROM ICOMCOD1 MD
+			     WHERE MD.TYPE = 'M034' AND MD.CODE = P.PROCESS_TYPE) AS PROCESS_TYPE				/* 거래유형 */
+			 ,(SELECT MD.TEXT1 FROM ICOMCOD1 MD
+			     WHERE MD.TYPE = 'M186' AND MD.CODE = P.DELIVERY_TYPE) AS DELIVERY_COND			/* 배송유형 (팝업의 옛 '배송조건' 슬롯) */
+			 ,P.BUY_OPEN_DATE AS PRICE_VALID_DATE												/* 매입단가 시작일 */
+			 ,P.BUY_CLOSE_DATE AS PRICE_VALID_END_DATE											/* 매입단가 종료일 */
+			 ,P.SELLER_ITEM_NO AS SELLER_ITEM_NO												/* 협력사품목코드 */
+			 ,P.TAX_TYPE AS TAX_TYPE															/* 과세구분 (코드 11/12 - 팝업 select 가 코드로 고른다) */
+			 ,P.ITEM_MAKE_TYPE AS ITEM_MAKE_TYPE												/* 품목구분 (코드 ST/SI/MK/MI) */
+			 ,(SELECT SG.SG_NAME
+			     FROM CMSCATEG CG, KEPSGMG SG
+			    WHERE CG.CMS_CATEG_ID = C.CMS_CATEG_ID
+			      AND CG.STATUS <> 'D'
+			      AND CG.SG_ID = SG.SG_ID) AS SG_NAME
+			 ,(SELECT CG.CATEG_PATH FROM CMSCATEG CG
+			    WHERE CG.CMS_CATEG_ID = C.CMS_CATEG_ID AND CG.STATUS <> 'D') AS CMS_CATEG_PATH
+			 ,DECODE(C.ITEM_GUBUN, 'G', '표준품', '비표준품') AS ITEM_GUBUN_NM
+			 ,DECODE(NVL(C.ONETIME_YN,'N'), 'Y', '일회성', '일반') AS ONETIME_NM
+			 ,(SELECT MD.TEXT1 FROM ICOMCOD1 MD
+			     WHERE MD.TYPE = 'M181' AND MD.CODE = C.TR_HANDLE_TYPE) AS TR_HANDLE_NM
+			 ,(SELECT MD.TEXT4
+			     FROM CMSCATEG CG, ICOMCOD3 MD
+			    WHERE CG.CMS_CATEG_ID = C.CMS_CATEG_ID
+			      AND CG.STATUS <> 'D'
+			      AND MD.BUYER = 'KRKORE0001'
+			      AND MD.TYPE = 'CMSM'
+			      AND MD.CODE2 = '1'
+			      AND MD.FLAG = 'Y'
+			      AND MD.CODE1 = CG.SG_ID) AS KEP_USER_NAME
+			 ,TRIM(TO_CHAR(C.BASE_PRICE)) AS BASE_PRICE
+			 ,(SELECT MD.TEXT1 FROM ICOMCOD1 MD
+			     WHERE MD.TYPE = 'M183' AND MD.CODE = C.BASE_PRICE_TYPE) AS BASE_PRICE_TYPE_NM
+			 ,NVL((SELECT 'Y' FROM CMSCATLG_HST H
+			         WHERE H.CMS_CATLG_ID = C.CMS_CATLG_ID
+			           AND H.JOB_COLUMN = 'BASE_PRICE' AND ROWNUM = 1), 'N') AS BASE_PRICE_CHG_YN
+			 ,C.ADD_DATE    AS ITEM_ADD_DATE
+			 ,C.CHANGE_DATE AS ITEM_CHANGE_DATE
+			 ,(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = C.ADD_USER_ID)    AS ITEM_ADD_USER_NAME
+			 ,(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = C.CHANGE_USER_ID) AS ITEM_CHANGE_USER_NAME
+			 ,C.QUOTATION_NO AS ITEM_QUOTATION_NO
+			 ,P.ADD_DATE    AS BUY_ADD_DATE
+			 ,P.CHANGE_DATE AS BUY_CHANGE_DATE
+			 ,(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = P.ADD_USER_ID)    AS BUY_ADD_USER_NAME
+			 ,(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = P.CHANGE_USER_ID) AS BUY_CHANGE_USER_NAME
+			 ,P.QUOTATION_NO AS BUY_QUOTATION_NO
+			 ,DECODE(C.SAFE_STATUS, 'CERT', '인증', 'UNCERT', '미인증', 'EXCL', '비대상', '') AS SAFE_STATUS_NM
+			 ,DECODE(C.SAFE_TYPE, 'KC', 'KC인증', 'KCS', 'KCS인증', 'KFI', 'KFI인증', C.SAFE_TYPE) AS SAFE_TYPE_NM
+			 ,C.SAFE_NO
+			 ,NVL(TRIM(C.MSDS_NO), TRIM(C.AC_NO)) AS CHEM_INFO_NO
+			 ,(SELECT A.CMC_HARMFUL_YN FROM KEPMSDSHD A WHERE A.MSDS_NO = C.MSDS_NO) AS HARMFUL_YN			 
+			 ,C.IMGFILE_DIR																					/* 상품이미지 S3 경로 */
+			 ,C.IMGFILE_NAME																					/* 상품이미지 파일명 */
+			 ,NVL2(TRIM(C.IMGFILE_DIR), 'https://keps3.koreab2b.com/'||C.IMGFILE_DIR||'/'||C.IMGFILE_NAME, '') AS ITEM_IMAGE	/* 상품이미지 URL (미등록이면 공백) */
+			 ,C.DETAIL_IMGFILE_DIR											/* 상세이미지 S3 경로 */
+			 ,C.DETAIL_IMGFILE_NAME											/* 상세이미지 파일명 */
+			 ,NVL2(TRIM(C.DETAIL_IMGFILE_DIR), 'https://keps3.koreab2b.com/'||C.DETAIL_IMGFILE_DIR||'/'||C.DETAIL_IMGFILE_NAME, '') AS DETAIL_ITEM_IMAGE	/* 상세이미지 URL (미등록이면 공백) */
+			FROM CMSPRICE P, CMSCATLG C
+			WHERE P.CMS_CATLG_ID = C.CMS_CATLG_ID
+			  AND P.CMS_CATLG_ID = SUBSTR(#{st_tcode}, 1, INSTR(#{st_tcode}, '-') - 1)
+			  AND P.CATLG_SEQ    = TO_NUMBER(SUBSTR(#{st_tcode}, INSTR(#{st_tcode}, '-') + 1))
+		]]>
+	</select>
+
+	<!-- 구매정보 변경이력 목록 (13열)
+	     CMSPRICE_HST 는 컬럼 단위 세로전개다. 한 번의 저장에서 여러 컬럼이 바뀌면 같은 (JOB_DATE, ADD_TIME) 로
+	     여러 행이 쌓이므로, 그 쌍으로 묶어(피벗) 화면 한 줄로 되돌린다.
+	     첫 줄(등록)은 이력에 없다 - 추적 8컬럼의 첫 OLD_DATA 를 되감아 합성하고, 이력이 없는 컬럼은 현재값을 쓴다.
+	     (상품정보 기준가 이력과 같은 관례) -->
+	<select id="selectMasterMdCmCmsBuyInfoHistoryList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.pagestart"/>
+			<![CDATA[
+				/*selectMasterMdCmCmsBuyInfoHistoryList*/
+				SELECT
+				  CASE WHEN V.SORT_SEQ = 0 THEN '최초등록'
+				       WHEN V.JOB_DATE IS NULL THEN ''
+				       ELSE SUBSTR(V.JOB_DATE,1,4)||'-'||SUBSTR(V.JOB_DATE,5,2)||'-'||SUBSTR(V.JOB_DATE,7,2)
+				       || CASE WHEN V.ADD_TIME IS NULL OR LENGTH(TRIM(V.ADD_TIME)) < 6 THEN ''
+				               ELSE ' '||SUBSTR(V.ADD_TIME,1,2)||':'||SUBSTR(V.ADD_TIME,3,2)||':'||SUBSTR(V.ADD_TIME,5,2) END
+				  END AS CHANGE_DATE											/* 변경일시 : 첫 줄은 날짜 대신 '최초등록' */
+				 ,DECODE(V.STATUS, 'D', '불가', NULL, '', '가능') AS SUPPLY_STATUS					/* 공급상태 */
+				 ,CASE WHEN V.BUY_PRICE IS NULL OR TRIM(V.BUY_PRICE) IS NULL THEN ''
+				       ELSE RTRIM(TO_CHAR(TO_NUMBER(V.BUY_PRICE), 'FM999,999,999,990.99999'), '.') END AS BUY_PRICE	/* 매입단가 */
+				 ,V.BUY_OPEN_DATE																	/* 매입단가 유효기간 시작일 */
+				 ,V.BUY_CLOSE_DATE																	/* 매입단가 유효기간 종료일 */
+				 ,V.DELIVERY_LT																		/* 배송일수 */
+				 ,(SELECT MD.TEXT1 FROM ICOMCOD1 MD
+				     WHERE MD.TYPE = 'M132' AND MD.CODE = V.ITEM_MAKE_TYPE) AS ITEM_MAKE_TYPE		/* 품목구분 */
+				 ,(SELECT MD.TEXT1 FROM ICOMCOD1 MD
+				     WHERE MD.TYPE = 'TX17' AND MD.CODE = V.TAX_TYPE) AS TAX_TYPE					/* 과세여부 */
+				 ,V.SELLER_ITEM_NO																	/* 협력사 품목코드 */
+				 /* 변경사유 : 공급상태만 코드(M185)로 남고 나머지 항목은 텍스트로 남는다 - 코드가 없으면 텍스트를 쓴다 */
+				 ,NVL((SELECT MD.TEXT1 FROM ICOMCOD1 MD
+				        WHERE MD.TYPE = 'M185' AND MD.CODE = V.CHANGE_REASON_CODE)
+				      , V.CHANGE_REASON_REMARK) AS CHANGE_REASON									/* 변경사유 */
+				 ,V.ALT_CODE																		/* 대체코드 */
+				 ,(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = V.ADD_USER_ID) AS CHANGE_USER	/* 변경담당자 */
+				FROM (
+					/* 0) 등록 시점 : 추적 8컬럼의 첫 OLD_DATA 로 되감고, 이력이 없는 컬럼은 현재값을 그대로 쓴다 */
+					SELECT 0 AS SORT_SEQ
+					     , P.ADD_DATE AS JOB_DATE
+					     , '000000'   AS ADD_TIME
+					     , NVL(F.O_STATUS,      P.STATUS)                 AS STATUS
+					     , NVL(F.O_BUY_PRICE,   TO_CHAR(P.BUY_PRICE))     AS BUY_PRICE
+					     , NVL(F.O_BUY_OPEN,    P.BUY_OPEN_DATE)          AS BUY_OPEN_DATE
+					     , NVL(F.O_BUY_CLOSE,   P.BUY_CLOSE_DATE)         AS BUY_CLOSE_DATE
+					     , NVL(F.O_DELIVERY_LT, TO_CHAR(P.DELIVERY_LT))   AS DELIVERY_LT
+					     , NVL(F.O_ITEM_MAKE,   P.ITEM_MAKE_TYPE)         AS ITEM_MAKE_TYPE
+					     , NVL(F.O_TAX_TYPE,    P.TAX_TYPE)               AS TAX_TYPE
+					     , NVL(F.O_SELLER_ITEM, P.SELLER_ITEM_NO)         AS SELLER_ITEM_NO
+					     , CAST(NULL AS VARCHAR2(10))  AS CHANGE_REASON_CODE
+					     , CAST(NULL AS VARCHAR2(500)) AS CHANGE_REASON_REMARK
+					     /* 대체코드는 CMSPRICE_HST 에 보관할 컬럼이 없다(대체코드 2컬럼이 설계에서 빠졌다).
+					        이력 시점의 값을 복원할 방법이 없으므로 공란으로 둔다. */
+					     , CAST(NULL AS VARCHAR2(20)) AS ALT_CODE
+					     , P.ADD_USER_ID
+					  FROM CMSPRICE P
+					     , (SELECT MAX(CASE WHEN JOB_COLUMN = 'STATUS'         THEN FIRST_OLD END) AS O_STATUS
+					             , MAX(CASE WHEN JOB_COLUMN = 'BUY_PRICE'      THEN FIRST_OLD END) AS O_BUY_PRICE
+					             , MAX(CASE WHEN JOB_COLUMN = 'BUY_OPEN_DATE'  THEN FIRST_OLD END) AS O_BUY_OPEN
+					             , MAX(CASE WHEN JOB_COLUMN = 'BUY_CLOSE_DATE' THEN FIRST_OLD END) AS O_BUY_CLOSE
+					             , MAX(CASE WHEN JOB_COLUMN = 'DELIVERY_LT'    THEN FIRST_OLD END) AS O_DELIVERY_LT
+					             , MAX(CASE WHEN JOB_COLUMN = 'ITEM_MAKE_TYPE' THEN FIRST_OLD END) AS O_ITEM_MAKE
+					             , MAX(CASE WHEN JOB_COLUMN = 'TAX_TYPE'       THEN FIRST_OLD END) AS O_TAX_TYPE
+					             , MAX(CASE WHEN JOB_COLUMN = 'SELLER_ITEM_NO' THEN FIRST_OLD END) AS O_SELLER_ITEM
+					          FROM (SELECT JOB_COLUMN
+					                     , MIN(OLD_DATA) KEEP (DENSE_RANK FIRST ORDER BY JOB_DATE, ADD_TIME, JOB_SEQ) AS FIRST_OLD
+					                  FROM CMSPRICE_HST
+					                 WHERE CMS_CATLG_ID = SUBSTR(#{st_buy_info}, 1, INSTR(#{st_buy_info}, '-') - 1)
+					                   AND CATLG_SEQ    = TO_NUMBER(SUBSTR(#{st_buy_info}, INSTR(#{st_buy_info}, '-') + 1))
+					                 GROUP BY JOB_COLUMN)) F
+					 WHERE P.CMS_CATLG_ID = SUBSTR(#{st_buy_info}, 1, INSTR(#{st_buy_info}, '-') - 1)
+					   AND P.CATLG_SEQ    = TO_NUMBER(SUBSTR(#{st_buy_info}, INSTR(#{st_buy_info}, '-') + 1))
+					UNION ALL
+					/* 1) 변경 시점 : (JOB_DATE, ADD_TIME) 한 쌍 = 저장 한 번 = 화면 한 줄 */
+					SELECT 1 AS SORT_SEQ
+					     , H.JOB_DATE
+					     , H.ADD_TIME
+					     , MAX(CASE WHEN H.JOB_COLUMN = 'STATUS'         THEN H.NEW_DATA END) AS STATUS
+					     , MAX(CASE WHEN H.JOB_COLUMN = 'BUY_PRICE'      THEN H.NEW_DATA END) AS BUY_PRICE
+					     , MAX(CASE WHEN H.JOB_COLUMN = 'BUY_OPEN_DATE'  THEN H.NEW_DATA END) AS BUY_OPEN_DATE
+					     , MAX(CASE WHEN H.JOB_COLUMN = 'BUY_CLOSE_DATE' THEN H.NEW_DATA END) AS BUY_CLOSE_DATE
+					     , MAX(CASE WHEN H.JOB_COLUMN = 'DELIVERY_LT'    THEN H.NEW_DATA END) AS DELIVERY_LT
+					     , MAX(CASE WHEN H.JOB_COLUMN = 'ITEM_MAKE_TYPE' THEN H.NEW_DATA END) AS ITEM_MAKE_TYPE
+					     , MAX(CASE WHEN H.JOB_COLUMN = 'TAX_TYPE'       THEN H.NEW_DATA END) AS TAX_TYPE
+					     , MAX(CASE WHEN H.JOB_COLUMN = 'SELLER_ITEM_NO' THEN H.NEW_DATA END) AS SELLER_ITEM_NO
+					     , MAX(H.CHANGE_REASON_CODE) AS CHANGE_REASON_CODE
+					     /* 한 번의 저장에서 항목마다 사유가 다를 수 있다(항목별 1행) - 한 줄로 묶이니 사유도 모아 보여 준다 */
+					     , LISTAGG(DISTINCT H.CHANGE_REASON_REMARK, ' / ')
+					         WITHIN GROUP (ORDER BY H.CHANGE_REASON_REMARK) AS CHANGE_REASON_REMARK
+					     , CAST(NULL AS VARCHAR2(20)) AS ALT_CODE
+					     , MAX(H.ADD_USER_ID) AS ADD_USER_ID
+					  FROM CMSPRICE_HST H
+					 WHERE H.CMS_CATLG_ID = SUBSTR(#{st_buy_info}, 1, INSTR(#{st_buy_info}, '-') - 1)
+					   AND H.CATLG_SEQ    = TO_NUMBER(SUBSTR(#{st_buy_info}, INSTR(#{st_buy_info}, '-') + 1))
+					 GROUP BY H.JOB_DATE, H.ADD_TIME
+				) V
+				ORDER BY V.SORT_SEQ, V.JOB_DATE, V.ADD_TIME
+			]]>
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+
+	<!--
+		구매정보 상세 [변경] — 변경 항목 1건 반영.
+		항목마다 컴럼이 달라 한 문장 안에서 CHG_KEY 로 갈라 쓴다.
+		변경값(CHG_VALUE)은 화면이 보낸 코드값이고, 이력은 SET 절의 F_HST_CMSPRICE 가 남긴다.
+		⚠ 매입단가 인상은 WHERE 가 걸러 0건이 되고, 호출부가 0건을 보고 결재 신청으로 돌린다.
+	-->
+	<update id="updateMasterMdCmCmsBuyInfoChangeItem" parameterType="java.util.Map">
+		/*updateMasterMdCmCmsBuyInfoChangeItem*/
+		UPDATE CMSPRICE
+		<set>
+			<choose>
+				<when test="CHG_KEY == 'STATUS'">
+					STATUS = F_HST_CMSPRICE(CMS_CATLG_ID, CATLG_SEQ, 'STATUS'
+					                      , DECODE(#{CHG_VALUE}, 'UNAVAIL', 'D', 'C')
+					                      , #{st_user_id}, #{CHG_REASON_CODE}, #{CHG_REASON}) ,
+					SUPPLY_REASON_CODE   = #{CHG_REASON_CODE} ,
+					SUPPLY_REASON_REMARK = #{CHG_REASON} ,
+				</when>
+				<when test="CHG_KEY == 'BUY_PRICE'">
+					BUY_PRICE = TO_NUMBER(F_HST_CMSPRICE(CMS_CATLG_ID, CATLG_SEQ, 'BUY_PRICE'
+					                                   , #{CHG_VALUE}, #{st_user_id}, NULL, #{CHG_REASON})) ,
+				</when>
+				<when test="CHG_KEY == 'BUY_OPEN_DATE'">
+					BUY_OPEN_DATE = F_HST_CMSPRICE(CMS_CATLG_ID, CATLG_SEQ, 'BUY_OPEN_DATE'
+					                             , #{CHG_VALUE}, #{st_user_id}, NULL, #{CHG_REASON}) ,
+				</when>
+				<when test="CHG_KEY == 'BUY_CLOSE_DATE'">
+					BUY_CLOSE_DATE = F_HST_CMSPRICE(CMS_CATLG_ID, CATLG_SEQ, 'BUY_CLOSE_DATE'
+					                              , #{CHG_VALUE}, #{st_user_id}, NULL, #{CHG_REASON}) ,
+				</when>
+				<when test="CHG_KEY == 'DELIVERY_LT'">
+					DELIVERY_LT = TO_NUMBER(F_HST_CMSPRICE(CMS_CATLG_ID, CATLG_SEQ, 'DELIVERY_LT'
+					                                     , #{CHG_VALUE}, #{st_user_id}, NULL, #{CHG_REASON})) ,
+				</when>
+				<when test="CHG_KEY == 'ITEM_MAKE_TYPE'">
+					ITEM_MAKE_TYPE = F_HST_CMSPRICE(CMS_CATLG_ID, CATLG_SEQ, 'ITEM_MAKE_TYPE'
+					                              , #{CHG_VALUE}, #{st_user_id}, NULL, #{CHG_REASON}) ,
+				</when>
+				<when test="CHG_KEY == 'TAX_TYPE'">
+					TAX_TYPE = F_HST_CMSPRICE(CMS_CATLG_ID, CATLG_SEQ, 'TAX_TYPE'
+					                        , #{CHG_VALUE}, #{st_user_id}, NULL, #{CHG_REASON}) ,
+				</when>
+				<when test="CHG_KEY == 'SELLER_ITEM_NO'">
+					SELLER_ITEM_NO = F_HST_CMSPRICE(CMS_CATLG_ID, CATLG_SEQ, 'SELLER_ITEM_NO'
+					                              , #{CHG_VALUE}, #{st_user_id}, NULL, #{CHG_REASON}) ,
+				</when>
+			</choose>
+			CHANGE_USER_ID = #{st_user_id} ,
+			CHANGE_DATE    = TO_CHAR(SYSDATE,'YYYYMMDD') ,
+			CHANGE_TIME    = TO_CHAR(SYSDATE,'HH24MISS')
+		</set>
+		<![CDATA[
+		 WHERE CMS_CATLG_ID = SUBSTR(#{st_buy_info}, 1, INSTR(#{st_buy_info}, '-') - 1)
+		   AND CATLG_SEQ    = TO_NUMBER(SUBSTR(#{st_buy_info}, INSTR(#{st_buy_info}, '-') + 1))
+		]]>
+		<if test="CHG_KEY == 'BUY_PRICE'">
+			<![CDATA[
+		   AND (BUY_PRICE IS NULL OR TO_NUMBER(#{CHG_VALUE}) <= BUY_PRICE)
+			]]>
+		</if>
+	</update>
+
+	<!--
+		매입단가 인상 품의 신청. GUBUN = SP(단건) / SPM(일괄).
+		실제 반영은 결재 승인 시 commonMdCmBuyPriceApproval 이 한다.
+	-->
+	<update id="insertMasterMdCmCmsBuyInfoPriceReqHd" parameterType="java.util.Map">
+		<![CDATA[
+			/*insertMasterMdCmCmsBuyInfoPriceReqHd*/
+			INSERT INTO KEPMGPHD (
+			   BUYER, PM_NO, STATUS, REG_DATE, CHANGE_DATE
+			 , REG_USER_ID, REG_USER_DEPT, GUBUN, CA_FLAG, SUBJECT, REMARK
+			) VALUES (
+			   #{st_com_code}, #{st_pm_no}, 'C', SYSDATE, SYSDATE
+			 , #{st_user_id}, #{st_user_dept}, #{st_gubun}, 'N', #{st_subject}, #{st_remark}
+			)
+		]]>
+	</update>
+
+	<!--
+		디테일 1행. 구매정보코드(BUY_INFO_ID) 를 쌌 개 키로 보관한다.
+		⚠ INSERT 로 선언하되 값이 전부 리터럴이라 RETURNING 문제가 없다.
+		인상사유 텍스트는 BELOW_TEXT 에 담는다(사유 전용 텍스트 컴럼이 없다).
+	-->
+	<update id="insertMasterMdCmCmsBuyInfoPriceReqDt" parameterType="java.util.Map">
+		<![CDATA[
+			/*insertMasterMdCmCmsBuyInfoPriceReqDt*/
+			INSERT INTO KEPMGPDT (
+			   BUYER, PM_NO, PM_SEQ, STATUS, REG_DATE, CHANGE_DATE, REG_USER_ID
+			 , CMS_CATLG_ID, CATLG_SEQ, AGENT
+			 , RE_LIST_PRICE, CH_LIST_PRICE
+			 , BELOW_TEXT
+			) VALUES (
+			   #{st_com_code}, #{st_pm_no}, #{st_pm_seq}, 'C', SYSDATE, SYSDATE, #{st_user_id}
+			 , SUBSTR(#{BUY_INFO_ID}, 1, INSTR(#{BUY_INFO_ID}, '-') - 1)
+			 , TO_NUMBER(SUBSTR(#{BUY_INFO_ID}, INSTR(#{BUY_INFO_ID}, '-') + 1))
+			 , #{AGENT}
+			 , (SELECT P.BUY_PRICE FROM CMSPRICE P
+			     WHERE P.CMS_CATLG_ID = SUBSTR(#{BUY_INFO_ID}, 1, INSTR(#{BUY_INFO_ID}, '-') - 1)
+			       AND P.CATLG_SEQ    = TO_NUMBER(SUBSTR(#{BUY_INFO_ID}, INSTR(#{BUY_INFO_ID}, '-') + 1)))
+			 , TO_NUMBER(NULLIF(#{PRICE_AFTER},  ''))
+			 , #{PRICE_REASON}
+			)
+		]]>
+	</update>
+
+	<select id="selectMasterMdCmCmsBuyInfoDetailMapList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/*selectMasterMdCmCmsBuyInfoDetailMapList*/
+			SELECT (SELECT G.COMORG_CODE FROM BYCAORGL G
+			          WHERE G.COMORG_CODE = (SELECT CMPY.BYCA_COMORG_CODE FROM ICOMCMPY CMPY
+			                                  WHERE CMPY.COM_CODE = Q.BUYER)) AS GROUP_CODE
+			     , (SELECT G.COMORG_NAME FROM BYCAORGL G
+			          WHERE G.COMORG_CODE = (SELECT CMPY.BYCA_COMORG_CODE FROM ICOMCMPY CMPY
+			                                  WHERE CMPY.COM_CODE = Q.BUYER)) AS GROUP_NAME
+			     , Q.BUYER AS BUYER_CODE
+			     , (SELECT CMPY.COM_NAME_LOC FROM ICOMCMPY CMPY
+			          WHERE CMPY.COM_CODE = Q.BUYER) AS BUYER_NAME
+			     , Q.BUYER_ITEM_NO
+			     , Q.CONTRACT_NO
+			     , Q.CONTRACT_SEQ
+			     , NVL(Q.CSV_YN, 'N') AS CSV_YN
+			     , (SELECT DECODE(R.CONTRACT_FLAG, 'F', 'Y', 'N') FROM KEP_BUYER_RATE R
+			          WHERE R.BUYER = Q.BUYER AND R.TO_DATE = '299912') AS FEE_BASE_YN
+			     , (SELECT RTRIM(TO_CHAR(R.RATE, 'FM999,990.99'), '.') FROM KEP_BUYER_RATE R
+			          WHERE R.BUYER = Q.BUYER AND R.TO_DATE = '299912') AS FEE_BASE_RATE
+			     , Q.BUYER || '|' || Q.CONTRACT_NO || '|' || Q.CONTRACT_SEQ AS TCODE
+			  FROM ICOMCQDT Q
+			 WHERE Q.CMS_CATLG_ID = SUBSTR(#{st_buy_info}, 1, INSTR(#{st_buy_info}, '-') - 1)
+			   AND Q.CATLG_SEQ    = TO_NUMBER(SUBSTR(#{st_buy_info}, INSTR(#{st_buy_info}, '-') + 1))
+			 ORDER BY Q.BUYER, Q.CONTRACT_NO, Q.CONTRACT_SEQ
+		]]>
+	</select>
+
+</mapper>

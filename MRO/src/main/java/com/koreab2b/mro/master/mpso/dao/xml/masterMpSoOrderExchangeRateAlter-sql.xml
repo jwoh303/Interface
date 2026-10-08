@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mpso">
+	<!-- 조회 -->
+	<select id="selectMasterMpSoOrderExchangeRateList" parameterType="java.util.Map" resultType="java.util.Map">
+	<![CDATA[
+		 /*selectMasterMpSoOrderExchangeRateList*/
+
+			SELECT
+			 X.BUYER
+			 ,(SELECT CMPY.COM_NAME_LOC FROM ICOMCMPY CMPY
+			 	WHERE CMPY.COM_CODE = X.BUYER) AS COM_NAME_LOC
+			 ,X.PO_NO
+			 ,X.PO_SEQ
+			 ,X.EXP_GR_NO
+			 ,X.EXP_DATE_OF_SHIPMENT
+			 ,X.GR_YN
+			 ,X.PO_YN
+			 ,X.AR_BILL_FLAG
+			 ,X.EXP_CUR
+			 ,X.EXP_CUR_PRICE
+			 ,X.ITEM_QTY
+			 ,Y.EXP_FOR_UNIT_PRICE
+			 ,Y.EXP_FOR_ITEM_AMT
+			 ,X.AS_UNIT_PRICE
+			 ,X.AS_ITEM_AMT
+			 ,X.UNIT_PRICE
+			 ,X.AGENT_PRICE
+			 ,X.UNIT_PRICE * X.ITEM_QTY AS ITEM_AMT
+			 ,X.PR_NO
+			 ,X.PR_SEQ
+			 ,X.BUYER_ITEM_NO
+			 , '' AS REASON10
+             , X.BYIT_COMORG_CODE
+             , X.CONTRACT_NO
+             , X.CONTRACT_SEQ
+             , X.PROCESS_TYPE
+             , X.IMPORT_FLAG
+             , X.KEP_PRICE
+             , X.DS_FLAG
+             , X.CLSD_FLAG
+             , X.WAREHOUSE_CODE
+             , X.CMS_CATLG_ID 
+             , X.AGENT
+             , X.DOC_TYPE
+     		 , DECODE(X.STATUS_TEXT,'','',DECODE(X.STATUS_TEXT , '발주', '전', '후')) RS_FLAG
+     		  ,'0' REASON6
+			FROM (
+				SELECT
+				  A.BUYER
+				 , A.PO_NO
+				 , A.PO_SEQ
+				 , A.EXP_CUR
+				 , A.EXP_GR_NO
+				 , A.EXP_DATE_OF_SHIPMENT
+				 , A.UNIT_PRICE
+				 , A.AGENT_PRICE
+				 , DECODE(B.PO_SEQ,'','N','Y') AS PO_YN
+				 , CASE WHEN B.ITEM_QTY = B.GR_QTY THEN 'Y'
+				   ELSE 'N' END AS GR_YN
+				 , NVL((SELECT MAX(AR_BILL_FLAG) FROM ICOMGRDT GRDT
+				 	WHERE GRDT.BUYER = B.BUYER
+				 	AND GRDT.PO_NO = B.PO_NO
+				 	AND GRDT.PO_SEQ = B.PO_SEQ
+				 	AND GRDT.STATUS != 'D'
+				 	AND AR_BILL_FLAG = 'Y'
+				 	),'N') AS AR_BILL_FLAG
+				 , A.EXP_CUR_PRICE
+				 , B.GR_QTY AS ITEM_QTY
+				 , B.UNIT_PRICE AS AS_UNIT_PRICE
+				 , B.ITEM_AMT AS AS_ITEM_AMT
+				 , B.PR_NO
+				 , B.PR_SEQ
+				 , A.BUYER_ITEM_NO
+
+	              , B.BYIT_COMORG_CODE
+	              , B.CONTRACT_NO
+	              , B.CONTRACT_SEQ
+	              , B.PROCESS_TYPE
+	              , B.IMPORT_FLAG
+	              , F_GET_KEP_PRICE(B.BUYER, B.PO_NO, B.PO_SEQ, A.AGENT_PRICE) KEP_PRICE
+	              , B.DS_FLAG
+	              , B.CLSD_FLAG
+	              , B.WAREHOUSE_CODE
+	              , B.CMS_CATLG_ID 
+	              , C.AGENT
+	              , C.DOC_TYPE
+             		, DECODE(B.PR_NO,'','', DECODE(B.GR_QTY, 0,DECODE(B.IV_QTY,0, DECODE(B.DO_QTY,0,'발주','수주접수'),'송장생성'),    
+                            DECODE(( NVL(B.ITEM_QTY,0) - NVL((B.GR_QTY),0)),0,'입고완료','부분입고'))) STATUS_TEXT
+				FROM  KEP_PO_BULK_TMP A,  ICOMPODT B, ICOMPOHD C
+				WHERE A.BUYER = B.BUYER
+				AND A.PO_NO = B.PO_NO
+				AND A.PO_SEQ = B.PO_SEQ
+				AND B.BUYER = C.BUYER
+				AND B.PO_NO = C.PO_NO
+				AND B.STATUS != 'D'
+				AND C.STATUS != 'D'
+				AND A.USER_ID =  #{USER_ID}
+				AND A.ADD_DATE BETWEEN #{START_ADD_DATE} AND #{END_ADD_DATE}
+				AND B.GR_QTY != 0
+			)X, ICOMPRDT Y
+			WHERE X.BUYER = Y.BUYER(+)
+			AND X.PR_NO = Y.PR_NO(+)
+			AND X.PR_SEQ = Y.PR_SEQ(+)
+			AND Y.STATUS (+)!= 'D'
+			ORDER BY X.BUYER ,X.PO_NO ,X.PO_SEQ
+	
+	]]>
+</select> 
+	<update  id="deleteMasterMpSoOrderExchangeRateTmp" parameterType="java.util.Map" >
+		<![CDATA[
+				 /*deleteMasterMpSoOrderExchangeRateTmp*/  
+                DELETE KEP_PO_BULK_TMP           
+                WHERE USER_ID = #{USER_ID}
+                AND PO_NO = #{PO_NO}
+                AND PO_SEQ = #{PO_SEQ}
+                AND BUYER_ITEM_NO = #{BUYER_ITEM_NO}
+	 
+	          		]]> 
+	</update>	
+		<update  id="insertMasterMpSoOrderExchangeRateTmp" parameterType="java.util.Map" >
+		<![CDATA[
+				 /*insertMasterMpSoOrderExchangeRateTmp*/  
+                INSERT INTO KEP_PO_BULK_TMP                
+                (                                   
+                    USER_ID
+					,BUYER
+					,PO_NO
+					,PO_SEQ
+					,BUYER_ITEM_NO
+					,UNIT_PRICE
+					,AGENT_PRICE
+					,ADD_DATE
+					,ADD_TIME
+					,EXP_CUR_PRICE
+					,EXP_CUR
+					,EXP_GR_NO
+					,EXP_DATE_OF_SHIPMENT
+        			)
+             VALUES (                                      
+                    #{USER_ID}
+					,#{BUYER}
+					,#{PO_NO}
+					,#{PO_SEQ}
+					,#{BUYER_ITEM_NO}
+					,#{UNIT_PRICE}
+					,(SELECT PODT.AGENT_PRICE
+						FROM ICOMPODT PODT
+						WHERE PODT.BUYER =#{BUYER} 
+						AND PODT.PO_NO = #{PO_NO} 
+						AND PODT.PO_SEQ =#{PO_SEQ}) 
+					,TO_CHAR(SYSDATE, 'YYYYMMDD')
+					,TO_CHAR(SYSDATE, 'HH24MISS')
+					,#{EXP_CUR_PRICE}
+					,#{EXP_CUR}
+					,#{EXP_GR_NO}
+					,#{EXP_DATE_OF_SHIPMENT}
+                )           
+	          		]]> 
+	</update>
+</mapper>   
+   

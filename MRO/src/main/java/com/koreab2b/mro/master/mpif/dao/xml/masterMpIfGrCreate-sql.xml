@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mpif">
+
+	<select id="selectMasterMpIfGrCreateList" parameterType="java.util.Map" resultType="java.util.Map">
+		/*selectMasterMpIfGrCreateList*/
+		<include refid="common.ibsheet.xml.pagestart"/>	
+		<![CDATA[
+				SELECT A.BUYER
+					 , (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = A.BUYER) AS BUYER_NAME
+					 , A.LEGACY_GR_NO
+					 , A.LEGACY_GR_SEQ
+					 , A.LEGACY_PO_NO
+					 , A.LEGACY_PO_SEQ
+					 , A.BUYER_ITEM_NO
+					 , A.STATUS
+					 , A.GR_DATE
+					 , A.GR_QTY
+					 , A.UNIT_PRICE
+					 , A.GR_AMT
+					 , A.ADD_USER_ID
+					 , A.ERROR_MSG
+					 , CASE
+			            WHEN A.IF_FLAG = 'N' THEN '0'
+			            WHEN A.IF_FLAG = 'T' THEN '1'
+			            WHEN A.IF_FLAG = 'E' THEN '2'
+			           END AS IF_FLAG
+					 , A.IF_DATE
+			    FROM 
+			    	IF_GRDT_EXUP A /* 인터페이스 주문상세내역 */
+			        INNER JOIN
+			        (
+			            SELECT DISTINCT BUYER
+			            FROM MIS_BUYER_MNG /* 고객사별 담당자 정보 */
+			            WHERE 1=1
+			              AND YEAR   = TO_CHAR(SYSDATE,'YYYY')
+			              AND STATUS = 'C'
+			              AND KEP_DEPT = #{st_user_dept}
+			        ) K
+			            ON (K.BUYER = A.BUYER)
+				    WHERE 1=1
+				      AND A.IF_FLAG <> 'D'
+					  AND A.BUYER = #{st_buyer_code}
+		              AND A.ADD_USER_ID = #{st_user_id}
+	    
+				ORDER BY
+				    A.BUYER
+				  , A.LEGACY_GR_NO
+                  , A.LEGACY_GR_SEQ
+				  , A.BUYER_ITEM_NO
+		]]>
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+
+	<update  id="updateMasterMpIfGrFlag" parameterType="java.util.Map" >
+	/*updateMasterMpIfGrFlag*/
+		<![CDATA[
+			UPDATE IF_GRDT_EXUP 
+			SET IF_FLAG = #{IF_FLAG}
+			  , ERROR_MSG = #{ERROR_MSG}
+			WHERE 1=1
+			AND BUYER             = #{BUYER}
+			AND LEGACY_GR_NO      = NVL(#{LEGACY_GR_NO},' ')
+			AND LEGACY_GR_SEQ     = NVL(#{LEGACY_GR_SEQ},' ')
+			AND LEGACY_PO_NO     = NVL(#{LEGACY_PO_NO},' ')
+			AND LEGACY_PO_SEQ	 = NVL(#{LEGACY_PO_SEQ},' ')
+			AND ADD_USER_ID		  = NVL(#{st_user_id},' ')
+		]]>
+	</update>
+				
+	<update  id="deleteMasterMpIfGrCreate" parameterType="java.util.Map" >
+		<![CDATA[
+			/*deleteMasterMpIfGrCreate*/
+			 DELETE FROM IF_GRDT_EXUP
+			  WHERE BUYER = #{BUYER}
+				AND LEGACY_GR_NO      = NVL(#{LEGACY_GR_NO},' ')
+				AND LEGACY_GR_SEQ     = NVL(#{LEGACY_GR_SEQ},' ')
+				AND LEGACY_PO_NO     = NVL(#{LEGACY_PO_NO},' ')
+				AND LEGACY_PO_SEQ	 = NVL(#{LEGACY_PO_SEQ},' ')
+				AND ADD_USER_ID		  = NVL(#{st_user_id},' ')
+		]]>
+	</update>
+	
+	<select id="getMasterMpIfGrCreateComcodeCheck" parameterType="java.util.Map" resultType="java.util.Map">
+		/*getMasterMpIfGrCreateComcodeCheck*/
+		<![CDATA[
+			SELECT COUNT(CODE) AS CNT
+              FROM ICOMCOD1
+             WHERE TYPE = 'I002'
+               AND CODE = #{BUYER}
+               AND FLAG = 'Y'
+		]]>
+	</select>
+	
+	<update id="saveMasterMpIfGrCreate" parameterType="java.util.Map" useGeneratedKeys="false">
+		<![CDATA[
+			/*saveMasterMpIfGrCreate*/
+			INSERT INTO IF_GRDT_EXUP 
+						(BUYER, LEGACY_GR_NO, LEGACY_GR_SEQ, LEGACY_PO_NO, LEGACY_PO_SEQ, BUYER_ITEM_NO,
+						 STATUS, GR_DATE, GR_QTY, UNIT_PRICE, GR_AMT, ADD_USER_ID, IF_FLAG)
+				  VALUES(UPPER(TRIM(#{BUYER})), TRIM(#{LEGACY_GR_NO}), TRIM(#{LEGACY_GR_SEQ}), TRIM(#{LEGACY_PO_NO}), TRIM(#{LEGACY_PO_SEQ}), TRIM(#{BUYER_ITEM_NO}),
+					     'C', TRIM(#{GR_DATE}), TRIM(#{GR_QTY}), NVL(#{UNIT_PRICE},0), NVL(#{GR_AMT},0), TRIM(#{st_user_id}), 'N')
+		]]>
+	</update>
+	
+	<update  id="updateMasterMpIfGrCreate" parameterType="java.util.Map" >
+	/*updateMasterMpIfGrCreate*/
+		<![CDATA[
+			UPDATE IF_GRDT_EXUP 
+			SET GR_DATE = #{GR_DATE}
+			WHERE 1=1
+			AND BUYER             = #{BUYER}
+			AND LEGACY_GR_NO      = NVL(#{LEGACY_GR_NO},' ')
+			AND LEGACY_GR_SEQ     = NVL(#{LEGACY_GR_SEQ},' ')
+			AND LEGACY_PO_NO     = NVL(#{LEGACY_PO_NO},' ')
+			AND LEGACY_PO_SEQ	 = NVL(#{LEGACY_PO_SEQ},' ')
+			AND ADD_USER_ID		  = NVL(#{st_user_id},' ')
+		]]>
+	</update>
+	
+	<update id="executeMasterMpIfGrCreate" parameterType="java.util.Map" useGeneratedKeys="false">
+		<![CDATA[
+			/*executeMasterMpIfGrCreate*/
+			INSERT INTO ICOMTRXL(DOC_NAME, TARGET, KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6, KEY_7, KEY_8, KEY_9, KEY_10)
+						  VALUES('GR_EXUP',#{st_user_id},#{st_buyer_code},' ',' ',' ',' ',' ',' ',' ',' ',' ')
+		]]>
+	</update>
+	
+	<update  id="updateMasterMpIfGrFlagAll" parameterType="java.util.Map" >
+		<![CDATA[
+			/*updateMasterMpIfGrFlag*/
+			UPDATE IF_GRDT_EXUP
+			   SET IF_FLAG = 'T'
+		     WHERE BUYER = #{st_buyer_code}
+		       AND ADD_USER_ID = #{st_user_id}
+		]]>
+	</update>
+	
+</mapper>

@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="common.wmre">
+
+
+	<select id="selectMasterWmReReturnPopList" parameterType="java.util.Map" resultType="java.util.Map">
+			<include refid="common.ibsheet.xml.pagestart"/>	
+		<![CDATA[
+		/*selectMasterWmReReturnPopList*/
+        SELECT A.BUYER
+               , (SELECT D.COM_NAME_LOC FROM ICOMCMPY D WHERE D.COM_CODE = A.BUYER) AS BUYER_NAME
+               , (F_GET_PO_STTS(A.BUYER, A.PO_NO , A.PO_SEQ , 1)) AS STATUS_TEXT          -- 진행상태
+               , A.PO_NO AS PO_NO
+               , A.PO_SEQ AS PO_SEQ
+               , A.LEGACY_PO_NO AS LEGACY_PO_NO
+               , A.LEGACY_PO_SEQ AS LEGACY_PO_SEQ
+               , A.BUYER_ITEM_NO AS BUYER_ITEM_NO
+               , A.DESCRIPTION AS DESCRIPTION
+               , A.SPECIFICATION AS SPECIFICATION
+               , A.ITEM_QTY AS ITEM_QTY
+               , A.UNIT_MEASURE AS UNIT_MEASURE
+               , B.PO_CREATE_DATE AS PO_CREATE_DATE    -- 발주일
+               , A.RD_DATE AS RD_DATE          -- 납기요청일
+               , ( SELECT MAX(C.GR_DATE) 
+                     FROM ICOMGRDT C
+                    WHERE A.BUYER  = C.BUYER
+                      AND A.PO_NO  = C.PO_NO
+                      AND A.PO_SEQ = C.PO_SEQ ) AS GR_DATE         
+               , (DECODE(A.PROCESS_TYPE,'0'                                           
+                                             ,(SELECT MIN(INVOICE_DATE) 
+                                                 FROM ICOMIVDT                                
+                                                WHERE BUYER  = A.BUYER 
+                                                  AND PO_NO  = A.PO_NO                               
+                                                  AND PO_SEQ = A.PO_SEQ 
+                                                  AND STATUS <>'D')                             
+                                             ,(SELECT MIN(INV_DATE) 
+                                                 FROM WMSIVDT                                     
+                                                WHERE BUYER  = A.BUYER   
+                                                  AND PO_NO  = A.PO_NO                            
+                                                  AND PO_SEQ = A.PO_SEQ  
+                                                  AND STATUS <> 'D'))) AS INVOICE_DATE   --납품일
+                , (DECODE(A.PROCESS_TYPE,'0'                                           
+                                              ,(SELECT MIN(DELIVERY_DATE) 
+                                                  FROM ICOMIVDT                               
+                                                 WHERE BUYER = A.BUYER 
+                                                  AND PO_NO  = A.PO_NO                               
+                                                  AND PO_SEQ = A.PO_SEQ 
+                                                  AND STATUS <>'D')                             
+                                              ,(SELECT MIN(DELIVERY_DATE) 
+                                                  FROM WMSIVDT                                
+                                                 WHERE BUYER  = A.BUYER   
+                                                   AND PO_NO  = A.PO_NO                            
+                                                   AND PO_SEQ = A.PO_SEQ  
+                                                   AND STATUS <> 'D'))) AS DELIVERY_DATE  --배송일               
+                , NVL(A.GR_QTY,0) AS GR_QTY
+                , NVL(A.IV_QTY,0) AS INVOICE_QTY                                       
+                , NVL(A.DI_QTY,0) AS DELIVERY_QTY
+                , B.AGENT AS SELLER
+                , (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = B.AGENT) AS SELLER_NAME
+                , A.PROCESS_TYPE AS PROCESS_TYPE                                
+                , (DECODE(A.PROCESS_TYPE,'0','직납','1','재고','2','TR','3','VMI')) AS PROCESS_TYPE_NAME    
+                , (SELECT DISTINCT ADD_USER_NAME FROM ICOMPRDT WHERE BUYER = A.BUYER AND PR_NO = A.PR_NO AND PR_SEQ = A.PR_SEQ ) AS PROCESS_USER_NAME
+                , D.BUYER_DEPT_CODE
+                , D.BUYER_PERSON_NAME
+                , D.BUYER_PERSON_TEL
+                , D.B_REQ_DATE
+                , D.B_REQ_USER_ID
+                , D.WMRE_NO
+                ,(SELECT TEXT1 
+        		   FROM ICOMCOD2 
+                  WHERE TYPE = 'C001' 
+                     AND COMPANY_CODE = A.BUYER 
+                     AND CODE =D.BUYER_DEPT_CODE)  BUYER_DEPT_NAME
+                ,D.WMRE_TYPE
+                ,D.WMRE_QTY
+                ,D.B_REQ_REMARK
+               -- ,A.WAREHOUSE_CODE
+                ,CASE 
+                         WHEN A.PROCESS_TYPE IN ('1','3')  THEN  (SELECT distinct COD2.TEXT1 FROM ICOMCOD2  COD2
+                                                                                           WHERE COD2.COMPANY_CODE = 'KRKORE0001'
+                                                                                               AND COD2.TYPE = 'WR01'
+                                                                                               AND COD2.FLAG = 'Y'
+                                                                                               AND COD2.TEXT2 = B.AGENT ) 
+                         ELSE A.WAREHOUSE_CODE
+                         END AS WAREHOUSE_CODE
+                ,( SELECT BB.COM_NAME_LOC   TEXT1
+                 FROM  ICOMCMPY BB
+                WHERE  BB.COM_CODE  =   (CASE 
+                         WHEN A.PROCESS_TYPE IN ('1','3')  THEN  (SELECT distinct COD2.TEXT1 FROM ICOMCOD2  COD2
+                                                                                           WHERE COD2.COMPANY_CODE = 'KRKORE0001'
+                                                                                               AND COD2.TYPE = 'WR01'
+                                                                                               AND COD2.FLAG = 'Y'
+                                                                                               AND COD2.TEXT2 = B.AGENT ) 
+                         ELSE A.WAREHOUSE_CODE
+                         END)
+                
+                )  WAREHOUSE_NAME 
+               ,NVL((SELECT COUNT(RS.PO_NO) FROM ICOMPORS RS WHERE RS.BUYER =A.BUYER AND RS.PO_NO = A.PO_NO AND RS.PO_SEQ = A.PO_SEQ),0) STATUS_BACK_CODE
+               ,NVL((SELECT SUM(WMRE.WMRE_QTY) FROM BNTWMRE WMRE WHERE WMRE.BUYER = A.BUYER AND WMRE.PO_NO = A.PO_NO AND WMRE.PO_SEQ = A.PO_SEQ AND WMRE.CANCEL_DATE IS NULL),0) TOTAL_WMRE_QTY
+               , PR.ADD_USER_ID AS PR_ADD_USER_ID
+               , PR.ADD_USER_NAME AS PR_ADD_USER_NAME
+               , PR.ADD_USER_TEL AS PR_ADD_USER_TEL
+               , PR.ADD_USER_DEPT AS PR_ADD_USER_DEPT
+               , (SELECT TEXT1 FROM ICOMCOD2
+					WHERE COMPANY_CODE = A.BUYER
+					AND TYPE = 'C001'
+					AND CODE = PR.ADD_USER_DEPT ) AS PR_ADD_USER_DEPT_NM
+          FROM ICOMPODT A, ICOMPOHD B,  BNTWMRE D,ICOMPRDT PR
+         WHERE A.BUYER  = B.BUYER 
+           AND A.PO_NO  = B.PO_NO
+            AND A.BUYER  = D.BUYER(+) 
+            AND A.PO_SEQ = D.PO_SEQ(+)
+            AND A.PO_NO = D.PO_NO(+)
+            AND A.PO_NO = D.PO_NO(+)
+            AND  PR.BUYER          = A.BUYER  
+            AND  PR.PR_NO         = A.PR_NO
+            AND  PR.PR_SEQ        = A.PR_SEQ              
+           AND B.PO_CREATE_DATE BETWEEN #{st_from_date} AND #{st_to_date}    
+           AND A.BUYER =#{st_buyer_code}
+            
+ 		]]>     
+		<if test="st_com_code != null and st_com_code != ''">
+			AND B.AGENT = #{st_com_code}
+		</if>
+		<if test="st_po_no != null and st_po_no != ''">
+			<![CDATA[
+					 AND A.PO_NO  LIKE #{st_po_no}||'%'
+			]]>	
+		</if> 
+		<if test="st_buyer_item_no != null and st_buyer_item_no != ''">
+			<![CDATA[
+					AND A.BUYER_ITEM_NO  LIKE #{st_buyer_item_no}|| '%'
+			]]>	
+		</if>
+				
+		  	ORDER BY 	 A.PO_NO , A.PO_SEQ                   
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+								
+</mapper>

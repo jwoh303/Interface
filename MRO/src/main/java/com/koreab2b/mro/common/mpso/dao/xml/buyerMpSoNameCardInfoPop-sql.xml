@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="common.mpso">
+	<select id="selectBuyerMpSoNameCardInfoPopList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/* selectBuyerMpSoNameCardInfoPopList */
+			SELECT	REMARK AS CART_REMARK
+			FROM	ICOMCART
+			WHERE	BUYER = #{st_buyer}
+			AND		USER_ID = #{st_user_id}
+			AND		SEQ = #{st_seq}
+			AND		USE_FLAG = 'C'
+		]]> 
+	</select>
+
+	<select id="selectBuyerMpSoNameCardUserInfoList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/* selectBuyerMpSoNameCardUserInfoList */
+			SELECT
+				USER_NAME_LOC ,
+				USER_NAME_ENG ,
+				(
+					SELECT text1 FROM icomcod2
+					WHERE type = 'C003'
+						AND company_code = #{st_buyer}
+						AND code = u.POSITION 
+				) AS POSITION ,
+				(
+					SELECT text1 FROM icomcod2
+					WHERE type = 'C001'
+						AND company_code = #{st_buyer}
+						AND code = u.DEPARTMENT 
+				) AS DEPARTMENT ,
+				PHONE_NUMBER ,
+				MOBILE_PHONE ,
+				EMAIL ,
+				ADDRESS_LOC,
+				ADDRESS_LOC1 ,
+				ADDRESS_LOC2,
+				(
+					SELECT text2 FROM icomcod2
+					WHERE type = 'C012'
+						AND company_code = #{st_buyer}
+						AND code = u.DELY_TO_LOCATION 
+				
+				) AS DELY_TO_LOCATION 
+			
+			FROM ICOMLUSR u
+			WHERE com_code = #{st_buyer}
+				AND user_id = #{st_user_id}
+		]]> 
+	</select>
+
+	<!-- 한샘: code1List(POST/LEVL) 후보 중 TEXT1이 입력값과 일치하는 CODE1을 찾음(직위/직급 자동판별).
+	     LSAT: code1List=[WKPL] 고정 + CODE2로 특정 근무지 1건을 찍어서 주소(TEXT2/TEXT3)까지 같이 조회.
+	     stPosition/stCode2 둘 다 선택 파라미터라 서로 안 건드리고 같은 쿼리를 공유한다. -->
+	<select id="selectBuyerMpSoNameCardColumnInfoList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/* selectBuyerMpSoNameCardColumnInfoList */
+			SELECT
+				CODE1
+				, TEXT2
+				, TEXT3
+			FROM
+				ICOMCOD4
+			WHERE
+				BUYER = #{stBuyer}
+				AND TYPE = #{type}
+				AND FLAG = 'Y'
+				AND CODE1 IN
+				]]>
+					<foreach collection = "code1List" item = "code1" open = "(" separator = "," close = ")">
+					<![CDATA[
+						#{code1}
+					]]>
+					</foreach>
+				<if test="stPosition != null and stPosition != ''">
+				<![CDATA[
+				AND TEXT1 = #{stPosition}
+				]]>
+				</if>
+				<if test="stCode2 != null and stCode2 != ''">
+				<![CDATA[
+				AND CODE2 = #{stCode2}
+				]]>
+				</if>
+				<![CDATA[
+				 FETCH FIRST 1 ROWS ONLY
+		]]>
+	</select>
+
+	<select id="selectBuyerMpSoNameCardCenterAddr" parameterType="java.util.Map" resultType="String">
+		<![CDATA[
+		/* selectBuyerMpSoNameCardCenterAddr */
+			SELECT	TEXT2
+			FROM	ICOMCOD2
+			WHERE	COMPANY_CODE = #{st_buyer}
+			AND		TYPE = 'SYCT'
+			AND		CODE = #{st_center_code}
+			AND		FLAG = 'Y'
+		]]> 
+	</select>
+	
+	<!-- ICOMCART REMARK 명함정보 저장 -->
+	<update id="updateBuyerMpSoCartRemarkNameCard" parameterType="java.util.Map">
+		<![CDATA[
+		/* updateBuyerMpSoCartRemarkNameCard */
+			UPDATE	ICOMCART
+			SET		REMARK = #{st_remark}
+			WHERE	1=1
+			AND		BUYER = #{st_buyer}
+			AND		USER_ID = #{st_user_id}
+			AND		SEQ = #{st_seq}
+			AND		USE_FLAG = 'C'
+		]]>
+	</update>
+	
+	<!-- HAAC용 ICOMCART REMARK 명함정보 저장 -->
+	<update id="updateBuyerMpSoCartRemarkNameCardHaac" parameterType="java.util.Map">
+		<![CDATA[
+		/* updateBuyerMpSoCartRemarkNameCardHaac */
+			UPDATE	ICOMCART
+			SET		REMARK = #{st_remark} || ';' || #{st_center_addr}
+			WHERE	1=1
+			AND		BUYER = #{st_buyer}
+			AND		USER_ID = #{st_user_id}
+			AND		SEQ = #{st_seq}
+			AND		USE_FLAG = 'C'
+		]]>
+	</update>
+	
+	<!-- HAAC용 주소 포함된 비고 장바구니 화면으로 리턴용 -->
+	<select id="selectBuyerMpSoNameCardRemark" parameterType="java.util.Map" resultType="String">
+		<![CDATA[
+		/* selectBuyerMpSoNameCardRemark */
+			SELECT	REMARK
+			FROM	ICOMCART
+			WHERE	1=1
+			AND		BUYER = #{st_buyer}
+			AND		USER_ID = #{st_user_id}
+			AND		SEQ = #{st_seq}
+			AND		USE_FLAG = 'C'
+		]]>
+	</select>
+
+	<!-- LSAT용 근무지 콤보박스(코드/명칭) -->
+	<select id="selectBuyerMpSoNameCardWorkplaceCombo" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/* selectBuyerMpSoNameCardWorkplaceCombo */
+			SELECT	CODE2 AS CODE
+			,		TEXT1 AS TEXT1
+			FROM	ICOMCOD4
+			WHERE	BUYER = #{st_buyer}
+			AND		TYPE = 'NCIF'
+			AND		CODE1 = 'WKPL'
+			AND		FLAG = 'Y'
+			ORDER BY CODE2
+		]]>
+	</select>
+
+</mapper>

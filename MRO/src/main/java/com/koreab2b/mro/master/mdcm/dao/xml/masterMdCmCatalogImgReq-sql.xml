@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mdcm">
+	<!-- 조회 -->
+	<select id="selectMasterMdCmCatalogImgList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.pagestart"/>	
+			<![CDATA[
+		    /*	selectMasterMdCmCatalogImgList */
+			SELECT 
+				 A.BUYER
+				 ,B.BUYER AS BELOW_COMORG_CODE
+				 ,(SELECT CMPY.COM_NAME_LOC FROM ICOMCMPY CMPY WHERE CMPY.COM_CODE = B.BUYER) AS BUYER_NM
+				 ,A.BUYER_ITEM_NO
+				 ,B.AGENT
+				 ,(SELECT CMPY.COM_NAME_LOC FROM ICOMCMPY CMPY WHERE CMPY.COM_CODE = B.AGENT) AS AGENT_NM
+				 ,B.ADD_USER_ID
+				 ,(SELECT USR.USER_NAME_LOC FROM ICOMLUSR USR WHERE USR.USER_ID = B.ADD_USER_ID) AS ADD_USER_NM
+				 ,B.CONFIRM_USER_ID
+				 ,(SELECT USR.USER_NAME_LOC FROM ICOMLUSR USR WHERE USR.USER_ID = B.CONFIRM_USER_ID) AS CONFIRM_USER_NM
+				 ,DECODE(B.STATUS,'S','요청','C','승인','반려') AS STATUS_NM
+				 ,B.STATUS
+				 ,B.CONFIRM_DATE
+				 ,B.REMARK
+				 ,B.ADD_DATE
+				 ,NVL2 (TRIM(A.IMGFILE_DIR||A.IMGFILE_NAME), 'https://keps3.koreab2b.com/'||A.IMGFILE_DIR|| '/' ||A.IMGFILE_NAME, '/resources/images/icon_emptyimg.gif') AS IMG
+				 ,NVL2 (TRIM(A.DETAIL_IMGFILE_NAME||A.DETAIL_IMGFILE_NAME), 'https://keps3.koreab2b.com/'||A.DETAIL_IMGFILE_DIR|| '/' ||A.DETAIL_IMGFILE_NAME, '/resources/images/icon_emptyimg.gif') AS IMG_DT
+				 ,NVL2 (TRIM(B.IMGFILE_DIR||B.IMGFILE_NAME), 'https://keps3.koreab2b.com/'||B.IMGFILE_DIR|| '/' ||B.IMGFILE_NAME, '/resources/images/icon_emptyimg.gif') AS REQ_IMG
+				 ,NVL2 (TRIM(B.DETAIL_IMGFILE_NAME||B.DETAIL_IMGFILE_NAME), 'https://keps3.koreab2b.com/'||B.DETAIL_IMGFILE_DIR|| '/' ||B.DETAIL_IMGFILE_NAME, '/resources/images/icon_emptyimg.gif') AS REQ_IMG_DT
+				 ,A.DESCRIPTION_LOC
+				 ,A.SPECIFICATION
+				 ,A.MAKER_NAME
+				 ,A.UNIT_MEASURE
+				 ,B.IMG_REQ_NO
+				 ,B.IMGFILE_NAME
+				 ,B.IMGFILE_DIR
+				 ,B.DETAIL_IMGFILE_NAME
+				 ,B.DETAIL_IMGFILE_DIR
+				 ,A.KEP_MAKER_PART_NO
+			FROM ICOMBYIT A, KEPREQIMG B, ICOMCMPY C
+			WHERE A.BUYER = C.BYCA_COMORG_CODE
+			AND B.BUYER = C.COM_CODE
+			AND A.BUYER_ITEM_NO = B.BUYER_ITEM_NO
+			AND B.ADD_DATE BETWEEN #{st_from_date} AND #{st_to_date}
+			AND A.STATUS != 'D'
+			AND B.STATUS != 'D'
+			]]>				 
+			<if test="st_buyer_code != null and st_buyer_code != ''">
+				AND  C.COM_CODE = #{st_buyer_code}
+			</if>
+			<if test="st_agent_code != null and st_agent_code != ''">
+				AND  B.AGENT = #{st_agent_code}
+			</if>
+			<if test="st_description != null and st_description != ''">
+				AND A.DESCRIPTION_LOC LIKE #{st_description}||'%'
+			</if>
+			<if test="st_req_status != null and st_req_status != ''">
+				AND  B.STATUS = #{st_req_status}
+			</if>
+			<if test="st_buyer_item_no != null and st_buyer_item_no != ''">
+				AND A.BUYER_ITEM_NO LIKE #{st_buyer_item_no}||'%'
+			</if>
+			<if test="st_sepc != null and st_sepc != ''">
+				AND A.SPECIFICATION LIKE #{st_sepc}||'%'
+			</if>
+			<if test="st_kep_maker_part_no != null and st_kep_maker_part_no != ''">
+				AND A.KEP_MAKER_PART_NO LIKE '%'||#{st_kep_maker_part_no}||'%'
+			</if>
+	          <if test="st_sg_user_id != null and st_sg_user_id != '' and st_sg_user_id != 'ALL'">
+     				AND A.CMS_CATEG_ID IN (SELECT COD.CODE2 FROM ICOMCOD3 COD
+															WHERE COD.BUYER = 'KRKORE0001' 
+															AND COD.TYPE = 'SSG'
+															AND CODE1 = #{st_sg_user_id}
+															AND FLAG = 'Y'
+															MINUS
+															SELECT COD.CODE2 FROM ICOMCOD3 COD
+															WHERE  COD.BUYER = C.COM_CODE
+															AND COD.TYPE = 'ESG'
+															AND CODE1 !=  #{st_sg_user_id}
+															AND FLAG = 'Y'
+															     				)	
+          		</if>
+		    <if test='st_doc_type ==  "Y"'  >
+	            <![CDATA[
+	                AND  TRIM(A.IMGFILE_NAME) IS NOT NULL
+	            ]]>
+				<![CDATA[
+				 ORDER BY B.IMG_REQ_NO
+				]]>
+			</if>
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+	<update id="updateMasterMdCmCatalogImg" parameterType="java.util.Map">
+	/*master.mdcm.updateMasterMdCmCatalogImg*/
+		<![CDATA[
+             UPDATE ICOMBYIT A  
+                SET A.IMGFILE_NAME = #{IMGFILE_NAME}
+                , A.IMGFILE_DIR =  #{IMGFILE_DIR}
+                , A.IMG_CHG_DATE = SYSDATE
+                , A.IMG_CHG_USER_ID = #{ADD_USER_ID}
+               WHERE A.BUYER = #{BUYER}
+               AND A.BUYER_ITEM_NO = #{BUYER_ITEM_NO}
+		]]>
+	</update>
+	<update id="updateMasterMdCmCatalogImgDec" parameterType="java.util.Map">
+	/*master.mdcm.updateMasterMdCmCatalogImgDec*/
+		<![CDATA[
+             UPDATE ICOMBYIT A  
+                SET A.DETAIL_IMGFILE_NAME = #{DETAIL_IMGFILE_NAME}
+                , A.DETAIL_IMGFILE_DIR =  #{DETAIL_IMGFILE_DIR}
+               WHERE A.BUYER = #{BUYER}
+               AND A.BUYER_ITEM_NO = #{BUYER_ITEM_NO}
+		]]>
+	</update>
+	<update id="updateMasterMdCmCatalogImgInfo" parameterType="java.util.Map">
+	/*master.mdcm.updateMasterMdCmCatalogImgInfo*/
+		<![CDATA[
+             UPDATE KEPREQIMG A  
+                SET A.STATUS = #{STATUS}
+                , A.CONFIRM_DATE = TO_CHAR(SYSDATE,'YYYYMMDD')
+                ,A.CONFIRM_TIME = TO_CHAR(SYSDATE,'HH24MISS')
+                ,A.CONFIRM_USER_ID= #{USR_ID}
+                ,A.REMARK = #{REMARK}
+                ,A.CHANGE_DATE = TO_CHAR(SYSDATE,'YYYYMMDD')
+                ,A.CHANGE_TIME = TO_CHAR(SYSDATE,'HH24MISS')
+                ,A.CHANGE_USER_ID = #{USR_ID}
+               WHERE A.AGENT = #{AGENT}
+               AND A.IMG_REQ_NO = #{IMG_REQ_NO}
+		]]>
+	</update>
+</mapper>   
+   

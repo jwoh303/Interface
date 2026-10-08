@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="common.none">
+
+	<select id="getCommonNoNeMyMenuAllList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*getCommonNoNeMyMenuAllList*/
+			SELECT    (LEVEL - 1) LVL
+			        , X.MENUID AS MENU_ID
+			        , X.UPPERID AS UPPER_ID
+			        , X.NAME
+			        , LTRIM(SYS_CONNECT_BY_PATH(X.NAME, ' ＞ '), ' ＞') PATH
+			        , CONNECT_BY_ISLEAF IS_LEAF
+			        , X.MY_MENU_YN
+			        , X.URL
+			        , X.TYPE
+			        , X.MENUORDER AS MENU_ORDER
+			        , X.TOPMENUID
+			FROM
+			    (
+			        SELECT 			MENU.MENU_ID AS MENUID
+			                            , MENU.UPPER_ID AS UPPERID
+			                            , MENU.NAME
+			                            , MENU.DEPTH						
+			                            , MENU.TYPE
+			                            , AUTH.AUTH_ID AS AUTHID
+			                            , MENU.URL
+			                            , MENU.MENU_ORDER AS MENUORDER
+			                            , MENU.MENU_DC AS MENUDC
+			                            , MENU.CREATE_DT AS CREATEDT
+			                            , DECODE(SUBSTR(MENU.MENU_ID, 0, 1), 'b', 'b00100000000', 
+				                                DECODE(MENU.DEPTH,
+				                                0,MENU.MENU_ID,
+				                                1,MENU.MENU_ID,
+				                                2,MENU.UPPER_ID,
+				                                3,(SELECT UPPER_ID FROM KX_MENUINFO WHERE MENU_ID = MENU.UPPER_ID),
+				                                4,(SELECT UPPER_ID FROM KX_MENUINFO WHERE MENU_ID = MENU.UPPER_ID)
+			                                )) AS TOPMENUID
+			                            , NVL(MENU.ROLE_ID,'N') AS ROLEID 
+			                            , DECODE(PRTY.PRTY_VALUE, NULL, 'N', 'Y') AS MY_MENU_YN
+			        FROM 			KX_MENUINFO MENU
+			                            , KX_MENUAUTH AUTH
+			                            , ( SELECT PRTY.*
+			                                  FROM KX_USERPRTY PRTY
+			                                 WHERE PRTY.PRTY_KEY = 'MYMENU_LIST'
+			                                   AND PRTY.USE_FLAG = 'Y'
+			                                   AND PRTY.USER_ID =  #{st_user_id}
+			                              ) PRTY
+			        WHERE     		MENU.MENU_ID = AUTH.MENU_ID
+			        AND             NVL(MENU.USE_FLAG, 'Y')  != 'N'
+			        AND             NVL(AUTH.USE_FLAG, 'Y')  != 'N'
+			        AND             ( MENU.ROLE_ID IN ( SELECT ROLE_ID FROM KX_USERROLE WHERE USE_FLAG = 'Y' AND USER_ID = #{st_user_id}) OR MENU.ROLE_ID IS NULL )
+			        AND             AUTH.AUTH_ID IN (SELECT AUTH.AUTH_ID AS AUTH_ID    --사용자의 ROLE
+											                        FROM KX_AUTHINFO AUTH
+												                           , KX_USERAUTH USERAUTH
+											                       WHERE AUTH.AUTH_ID = USERAUTH.AUTH_ID
+											                         AND USERAUTH.USER_ID = #{st_user_id} 
+											                         AND AUTH.USE_FLAG = 'Y'
+						                                             AND USERAUTH.USE_FLAG = 'Y')
+			        AND             MENU.MENU_ID = PRTY.PRTY_VALUE(+)
+			        AND 			MENU.TYPE != 'tab'
+			        ORDER BY 		MENU.DEPTH ASC , MENU.MENU_ORDER ASC
+			    ) X
+			
+			   ]]>
+			   <if test='st_com_type == "S"'>
+			   	START WITH
+			       X.DEPTH = 2
+			   		AND X.MENUID LIKE 'sr%'      --협력사
+			   </if>
+			   <if test='st_com_type == "B"'>
+			   	START WITH
+			       X.DEPTH = 2
+			   		AND X.MENUID LIKE 'br%'      --고객사
+			   </if>
+			   <![CDATA[
+			   
+			 CONNECT BY PRIOR X.MENUID = X.UPPERID
+			 ]]>
+			ORDER SIBLINGS BY X.MENUID
+	</select>
+	
+	<select id="getCommonNoNeMyMenuList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*getCommonNoNeMyMenuList*/
+			SELECT A.USER_ID
+				     , A.PRTY_KEY
+				     , A.PRTY_SEQ
+				     , A.PRTY_VALUE
+				     , C.MENU_ID
+				     , C.UPPER_ID
+				     , C.NAME
+				     , C.URL
+				     , DECODE(SUBSTR(C.MENU_ID, 0, 1), 'b', 'b00100000000', 
+	                                DECODE(C.DEPTH,
+	                                0,C.MENU_ID,
+	                                1,C.MENU_ID,
+	                                2,C.UPPER_ID,
+	                                3,(SELECT UPPER_ID FROM KX_MENUINFO WHERE MENU_ID = C.UPPER_ID),
+	                                4,(SELECT UPPER_ID FROM KX_MENUINFO WHERE MENU_ID = C.UPPER_ID)
+                                )) AS TOPMENUID
+			FROM KX_USERPRTY A
+				   , KX_MENUAUTH B
+				   , KX_MENUINFO C
+			WHERE A.PRTY_KEY = 'MYMENU_LIST'
+				AND A.USER_ID = #{st_user_id}
+			    AND A.PRTY_VALUE = B.MENU_ID
+			    AND B.MENU_ID = C.MENU_ID
+			    AND A.USE_FLAG = 'Y'
+			    AND B.USE_FLAG = 'Y'
+			    AND C.USE_FLAG = 'Y'
+			    AND ( C.ROLE_ID IN ( SELECT ROLE_ID FROM KX_USERROLE WHERE USE_FLAG = 'Y' AND USER_ID =  #{st_user_id} ) OR C.ROLE_ID IS NULL )
+			    AND B.AUTH_ID = ( SELECT AUTH.AUTH_ID AS AUTH_ID    --사용자의 ROLE
+					                        FROM KX_AUTHINFO AUTH
+						                           , KX_USERAUTH USERAUTH
+					                       WHERE AUTH.AUTH_ID = USERAUTH.AUTH_ID
+					                         AND USERAUTH.USER_ID = #{st_user_id} 
+					                         AND AUTH.USE_FLAG = 'Y'
+                                             AND USERAUTH.USE_FLAG = 'Y')
+        ]]>
+        <if test='st_com_type == "S"'>
+        	AND C.MENU_ID LIKE 'sr%'
+        </if>
+        <if test='st_com_type == "B"'>
+        	AND C.MENU_ID LIKE 'br%'
+        </if>
+       <![CDATA[
+                ORDER BY A.PRTY_SEQ
+		]]>
+	</select>
+	
+	<update id="deleteMyMenu_all" parameterType="java.util.Map">
+		<![CDATA[
+		/*deleteMyMenu_all*/
+			DELETE FROM KX_USERPRTY
+			WHERE PRTY_KEY = #{st_prty_key}
+				AND USER_ID = #{st_user_id}
+		]]>
+	</update>
+	
+	<update id="insertMyMenu" parameterType="java.util.Map">
+		<![CDATA[
+		/*insertMyMenu*/
+			INSERT INTO KX_USERPRTY (
+			    USER_ID,
+			    PRTY_KEY,
+			    PRTY_SEQ,
+			    PRTY_VALUE,
+			    CREATE_DT,
+			    USE_FLAG
+			) VALUES (
+			    #{st_user_id},
+			    #{st_prty_key},
+			    ]]>
+			    <choose>
+ 				<when test="st_prty_seq != null and st_prty_seq != '' ">
+ 					 #{st_prty_seq},
+ 				</when>
+ 				<otherwise>
+ 					(SELECT NVL(MAX(PRTY_SEQ),0) + 1 FROM KX_USERPRTY WHERE USER_ID = #{st_user_id} AND PRTY_KEY = 'MYMENU_LIST'),
+ 				</otherwise>
+ 				</choose>
+ 			
+			    <![CDATA[
+			    #{st_prty_value},
+			    SYSDATE,
+			    #{st_use_flag}
+			)
+		]]>
+	</update>
+
+</mapper>

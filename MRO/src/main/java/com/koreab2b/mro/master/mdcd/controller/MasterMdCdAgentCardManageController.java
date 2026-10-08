@@ -1,0 +1,64 @@
+package com.koreab2b.mro.master.mdcd.controller;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
+
+import com.koreab2b.mro.common.ibsheet.IBSheetUtil;
+import com.koreab2b.mro.master.mdcd.service.MasterMdCdAgentCardManageService;
+
+@Controller("masterMdCdAgentCardManageController")
+public class MasterMdCdAgentCardManageController {
+
+	private static final Logger logger = LoggerFactory.getLogger(MasterMdCdAgentCardManageController.class);
+
+	@Autowired
+	private MasterMdCdAgentCardManageService masterMdCdAgentCardManageService;
+	
+	// 조회
+	@RequestMapping(value = "/mdcd/getMasterMdCdAgentCardManageList.do",  method = {RequestMethod.GET,RequestMethod.POST})
+	@ResponseBody
+	public Map<String, Object> searchMasterMdCdAgentCardManageList(HttpServletRequest req, @RequestParam Map<String, Object> pMap) {
+		logger.debug("요청 파라미터 : {}", pMap);
+
+		//페이징용 파라미터의 셋팅
+		pMap = IBSheetUtil.addParamForPaging3(pMap);
+		
+		List<Map<String,String>> _data = masterMdCdAgentCardManageService.getList(pMap);
+		
+		return IBSheetUtil.addResut(req, _data , pMap);
+	}
+
+	// 엑셀다운로드
+	@RequestMapping(value = "/mdcd/excelMasterMdCdAgentCardManageList.do",  method = {RequestMethod.GET,RequestMethod.POST})
+	public void excelList(HttpServletRequest req,HttpServletResponse res, @RequestParam Map<String, Object> pMap){
+		pMap = IBSheetUtil.addParamForPaging3(pMap);
+		List<Map<String,String>> _data = masterMdCdAgentCardManageService.getList(pMap);
+		IBSheetUtil.excelOut(req, res, _data);
+	}
+		
+	/*// 저장
+	@RequestMapping(value = "/mdcd/saveMasterMdCdAgentCardManageList.do", method = RequestMethod.POST)
+	@ResponseBody
+	public Map<String, Object> saveMasterMdCdAgentCardManage(HttpServletRequest req, @RequestParam Map<String, String> pMap) {
+		Map<String, Object> _response = new HashMap<String, Object>();
+
+		logger.debug("saveMasterMdCdAgentCardManageList Map 요청 파라미터 : formData {}", pMap); 
+		String _rtnMsg = masterMdCdAgentCardManageService.updateSelectedData(pMap);
+
+		_response.put("msg", _rtnMsg);
+		return _response;
+	}*/
+}

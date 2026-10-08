@@ -1,0 +1,321 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="seller.mprq">
+	<!-- 조회 -->
+	<select id="selectSellerMpRqQuotReqList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.pagestart"/>	
+			<![CDATA[
+		/* selectSellerMpRqQuotReqList */
+	    SELECT                   
+	        Z.NUM,
+	        Z.SOURCING_STATUS,
+	        Z.ATOS_DATE,
+	        Z.BUYER_ITEM_NO,
+	        Z.SELLER_ITEM_NO,
+	        Z.UNIT_MEASURE,
+	        Z.MAKER_NAME,
+	        Z.ORIGIN_NAME,
+	        Z.ITEM_QTY,
+	        Z.KEP_USER_ID,
+	        Z.KEP_USER_NAME,
+	        (SELECT PHONE_NUMBER FROM ICOMLUSR WHERE USER_ID = Z.KEP_USER_ID) AS KEP_USER_PHONE,  
+	        Z.QUOTATION_NO,    
+	        Z.QUOTATION_SEQ,  
+	        TO_CHAR(TO_DATE(Z.ATOS_END_DATE || Z.ATOS_END_TIME, 'YYYY/MM/DD HH24:MI:SS'), 'YYYY/MM/DD HH24:MI') AS ATOS_END_DATE, 
+	        Z.ATOS_END_TIME, 
+	        Z.DESCRIPTION,   
+	        Z.SPECIFICATION,  
+	        Z.ATOS_REMARK,
+	        CASE WHEN Z.ATOS_REMARK IS NULL THEN '0' ELSE '1' END AS ATOS_REMARK_YN,
+	        Z.IMAGE_KEY,
+	        CASE WHEN Z.IMAGE_KEY IS NULL THEN '2' ELSE '3' END IMAGE_KEY_YN,
+	        Z.BUYER,
+	        Z.REVISION,     
+	        Z.AGENT,         
+	        Z.AGENT_REVISION,    
+	        Z.REMARK_URL,       
+	        Z.ORIGIN_CODE,      
+	        Z.LEAD_TIME,      
+	        Z.STOA_LIST_PRICE,   
+	        Z.ITEM_AMT,         
+	        Z.STOA_REMARK,
+	        CASE WHEN Z.STOA_REMARK IS NULL THEN '0' ELSE '1' END AS STOA_REMARK_YN,    
+	        Z.BUYER_NAME || ' ' || Z.PLANT_NAME AS BUYER_NAME,     
+	        Z.REF_NO,          
+	        Z.CMS_CATEG_ID,    
+	        Z.CMS_CATLG_ID,    
+	        Z.CMS_SPEC,      
+	        Z.STOA_DATE,     
+	        Z.STOA_TIME,    
+	        Z.MAKER_PART_NO,
+	        /*SLOGIC-BEGIN(P04-4040-04)*/
+	        CASE WHEN Z.BUYER IN ('KRDHIM0005','KRDOOS0046','KRDIGU0001','KRDAEW0043','KRDHIM0002','KRDAEW0045','KRDHIM0003','KRDOOS0020', 
+	               'KRDOOS0024','KRXPR00738','KRDOOS0023','KRDOOS0003','KRDOOS0008','KRDHIM0001','KRKEPS0002')  
+	                THEN 'Y'  
+	        ELSE  'N' END AS CERT_CHECK,
+	        /*SLOGIC-END*/
+	        (SELECT REPLACE(IRS_NO,'-','') FROM ICOMCMPY WHERE COM_CODE=Z.AGENT ) AS AGENT_IRS_NO ,
+	        Z.MSDS_YN,
+	        /*SLOGIC-BEGIN(P04-4041-01)*/
+	        DECODE((SELECT COUNT(*) FROM BNTSLGIMP WHERE SLG_ID = 'P04-4041-01' AND COM_CODE = Z.BUYER AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN OPEN_DATE AND CLOSE_DATE), 0, 'N', 'Y') AS MOQ_USE_FLAG,
+	        /*SLOGIC-END*/
+	        /*SLOGIC-BEGIN(P04-4041-02)*/
+	        DECODE((SELECT COUNT(*) FROM BNTSLGIMP WHERE SLG_ID = 'P04-4041-02' AND COM_CODE = Z.BUYER AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN OPEN_DATE AND CLOSE_DATE), 0, 'N', 'Y') AS DELI_AREA_USE_FLAG,
+	        /*SLOGIC-END*/
+	        /*SLOGIC-BEGIN(P04-4041-03)*/
+	        DECODE((SELECT COUNT(*) FROM BNTSLGIMP WHERE SLG_ID = 'P04-4041-03' AND COM_CODE = Z.BUYER AND TO_CHAR(SYSDATE, 'YYYYMMDD') BETWEEN OPEN_DATE AND CLOSE_DATE), 0, 'N', 'Y') AS PROCESS_TYPE_FLAG,
+	        /*SLOGIC-END*/
+	        Z.MIN_ORDER_QTY,
+	        Z.PUR_UNIT_QTY,
+	        Z.SELLER_AREA,
+	        CASE WHEN Z.SELLER_AREA IS NULL THEN '4' ELSE '5' END AS SELLER_AREA_YN,
+	        Z.RFQ_IMG_FLAG,
+	        Z.PRE_GR_FLAG,
+	        Z.PLANT,
+	        Z.PLANT_NAME,
+	        Z.SAFETY_FLAG,
+	        (SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'M160' AND CODE = Z.SAFETY_FLAG) AS SAFETY_FLAG_TEXT,
+	        DECODE((SELECT COUNT(*) FROM ICOMATCH WHERE DOC_NO = Z.SELLER_IMAGE_KEY), 0, '', Z.SELLER_IMAGE_KEY) AS SELLER_IMAGE_KEY,
+	       	DECODE((SELECT COUNT(*) FROM ICOMATCH WHERE DOC_NO = Z.SELLER_IMAGE_KEY), 0, '2', '3') AS SELLER_IMAGE_KEY_YN,
+	        Z.IMGFILE_DIR,
+	        Z.IMGFILE_NAME,
+	        CASE WHEN Z.IMGFILE_NAME IS NULL THEN '4' ELSE '5' END AS IMGFILE_NAME_YN,
+	        'N' AS QTDT_PRE_GR_FLAG,
+	        Z.VAT_FLAG,
+   			(SELECT SG_ID FROM CMSCATEG WHERE CMS_CATEG_ID = Z.CMS_CATEG_ID) AS SG_ID,
+   			(SELECT SUBSTR(TEXT2, 0,20)||'...' FROM ICOMCOD2 WHERE TYPE = 'C012' AND CODE = (SELECT DELY_TO_LOCATION FROM ICOMLUSR WHERE USER_ID = Z.BTOA_USER_ID) AND COMPANY_CODE = Z.BUYER) AS DELY_TO_LOCATION
+	    FROM(                    
+	    SELECT                   
+	            ROWNUM NUM,      
+	            Y.SOURCING_STATUS,  
+	            Y.ATOS_DATE,     
+	            Y.BUYER_ITEM_NO,
+	            Y.SELLER_ITEM_NO, 
+	            Y.UNIT_MEASURE,  
+	            Y.MAKER_NAME,    
+	            Y.ORIGIN_NAME,   
+	            Y.ITEM_QTY,      
+	            Y.KEP_USER_ID,   
+	            Y.KEP_USER_NAME, 
+	            Y.QUOTATION_NO,  
+	            Y.QUOTATION_SEQ, 
+	            Y.ATOS_END_DATE, 
+	            Y.ATOS_END_TIME, 
+	            Y.DESCRIPTION,   
+	            Y.SPECIFICATION, 
+	            Y.ATOS_REMARK,   
+	            Y.IMAGE_KEY,     
+	            Y.BUYER,         
+	            Y.REVISION,      
+	            Y.AGENT,         
+	            Y.AGENT_REVISION,
+	            Y.REMARK_URL,    
+	            Y.ORIGIN_CODE,   
+	            Y.LEAD_TIME,     
+	            Y.STOA_LIST_PRICE,  
+	            Y.ITEM_AMT,      
+	            Y.STOA_REMARK,   
+	            Y.BUYER_NAME,    
+	            Y.REF_NO,        
+	            Y.CMS_CATEG_ID,  
+	            Y.CMS_CATLG_ID,  
+	            Y.CMS_SPEC,       
+	            Y.STOA_DATE,       
+	            Y.STOA_TIME,       
+	            Y.MAKER_PART_NO,
+	            Y.MSDS_YN,
+	            Y.MIN_ORDER_QTY,
+	            Y.PUR_UNIT_QTY,
+	            Y.SELLER_AREA,
+	            Y.RFQ_IMG_FLAG,
+	            Y.PRE_GR_FLAG,
+	            Y.PLANT,
+	            Y.PLANT_NAME,
+	            Y.SAFETY_FLAG,
+	            Y.SELLER_IMAGE_KEY,
+	            Y.IMGFILE_DIR,
+	        	Y.IMGFILE_NAME,
+	        	Y.VAT_FLAG,
+	        	Y.BTOA_USER_ID
+	    FROM                     
+	    (                        
+	                SELECT       
+	                X.SOURCING_STATUS,  
+	                X.ATOS_DATE,     
+	                X.BUYER_ITEM_NO,
+	                X.SELLER_ITEM_NO, 
+	                X.UNIT_MEASURE,  
+	                X.MAKER_NAME,    
+	                X.ORIGIN_NAME,   
+	                X.ITEM_QTY,      
+	                X.KEP_USER_ID,   
+	                X.KEP_USER_NAME, 
+	                X.QUOTATION_NO,  
+	                X.QUOTATION_SEQ, 
+	                X.ATOS_END_DATE, 
+	                X.ATOS_END_TIME, 
+	                X.DESCRIPTION,   
+	                X.SPECIFICATION, 
+	                X.ATOS_REMARK,   
+	                X.IMAGE_KEY,     
+	                X.BUYER,         
+	                X.REVISION,      
+	                X.AGENT,         
+	                X.AGENT_REVISION,
+	                X.REMARK_URL,    
+	                X.ORIGIN_CODE,   
+	                X.LEAD_TIME,     
+	                X.STOA_LIST_PRICE,  
+	                X.ITEM_AMT,      
+	                X.STOA_REMARK,   
+	                X.BUYER_NAME,    
+	                X.REF_NO,        
+	                X.CMS_CATEG_ID,  
+	                X.CMS_CATLG_ID,  
+	                X.CMS_SPEC,       
+	                X.STOA_DATE,       
+	                X.STOA_TIME,       
+	                X.MAKER_PART_NO ,
+	                X.MSDS_YN,
+	                X.MIN_ORDER_QTY,
+	                X.PUR_UNIT_QTY,
+	                X.SELLER_AREA,
+	                X.RFQ_IMG_FLAG,
+	                X.PRE_GR_FLAG,
+	                X.PLANT,
+	                X.PLANT_NAME,
+	                X.SAFETY_FLAG,
+	                X.SELLER_IMAGE_KEY,
+	                X.IMGFILE_DIR,
+	        		X.IMGFILE_NAME,
+	        		X.VAT_FLAG,
+	        		X.BTOA_USER_ID
+	    FROM(                        
+	                    SELECT       
+	
+	                    DECODE((SELECT COUNT(*) FROM KEPQTDT WHERE BUYER=A.BUYER                 
+	                                                           AND QUOTATION_NO=A.QUOTATION_NO   
+	                                                           AND QUOTATION_SEQ=A.QUOTATION_SEQ 
+	                                                           AND REVISION=A.REVISION           
+	                                                           AND AGENT=B.AGENT                 
+	                                                           AND STATUS <> 'D'), 1, '신규견적', '재견적요청') AS SOURCING_STATUS,
+	
+	                    B.ATOS_DATE,                                                                                         
+	                    A.BUYER_ITEM_NO,
+	                    B.SELLER_ITEM_NO,
+	                    A.UNIT_MEASURE,                                                                                      
+	                    A.MAKER_NAME,                                                                                        
+	                    (SELECT TEXT2 FROM ICOMCOD1 WHERE TYPE='M001' and code=A.ORIGIN_CODE) AS ORIGIN_NAME,                
+	                    A.ITEM_QTY,                                                                                          
+	                    A.KEP_USER_ID,                                                                                       
+	                    (SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID=A.KEP_USER_ID AND STATUS <> 'D') AS KEP_USER_NAME, 
+	                    A.QUOTATION_NO,                  
+	                    A.QUOTATION_SEQ,                 
+	                    B.ATOS_END_DATE,                 
+	                    B.ATOS_END_TIME,                 
+	                    A.DESCRIPTION,                   
+	                    A.SPECIFICATION,                 
+	                    NVL(TRIM(A.ATOS_REMARK),'') AS ATOS_REMARK,  
+	                    DECODE(A.IMAGE_PASS_FLAG,'Y',A.IMAGE_KEY,A.SELLER_IMAGE_KEY) AS IMAGE_KEY,                     
+	                    A.BUYER,                         
+	                    A.REVISION,                      
+	                    B.AGENT,                         
+	                    B.AGENT_REVISION,                
+	                    A.REMARK_URL,                    
+	                    B.ORIGIN_NAME AS ORIGIN_CODE,    
+	                    B.LEAD_TIME,                     
+	                    B.STOA_LIST_PRICE,               
+	                    B.ITEM_QTY * B.STOA_LIST_PRICE AS ITEM_AMT, 
+	                    B.STOA_REMARK,                   
+	                    (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE=F_GET_HIDDEN_BUYER_NAME(A.BUYER, '01') AND STATUS <> 'D') AS BUYER_NAME, 
+	                    A.REF_NO,                        
+	                    A.CMS_CATEG_ID,                  
+	                    A.CMS_CATLG_ID,                  
+	                    (SELECT SPECIFICATION FROM CMSCATLG WHERE CMS_CATLG_ID = A.CMS_CATLG_ID) AS CMS_SPEC,  
+	                    B.STOA_DATE,     
+	                    B.STOA_TIME,  
+	                    A.MAKER_PART_NO,
+	                    A.MSDS_YN,
+						B.MIN_ORDER_QTY,
+						B.PUR_UNIT_QTY,
+						B.SELLER_AREA,
+						NVL(A.RFQ_IMG_FLAG,'N') AS RFQ_IMG_FLAG,
+						A.PRE_GR_FLAG,
+						A.PLANT,
+						F_GET_BUYER_PLANT_TEXT(A.BUYER, A.PLANT) AS PLANT_NAME,
+						A.SAFETY_FLAG,
+						B.SELLER_IMAGE_KEY,
+						B.IMGFILE_DIR,
+	        			B.IMGFILE_NAME,
+	        			NVL(C.VAT_FLAG,'N') AS VAT_FLAG,
+	        			A.BTOA_USER_ID
+	               FROM KEPRQDT A, KEPQTDT B, KEP_BUYER_FLAG C            
+	              WHERE A.BUYER=B.BUYER                  
+	                AND A.QUOTATION_NO=B.QUOTATION_NO    
+	                AND A.QUOTATION_SEQ=B.QUOTATION_SEQ  
+	                AND A.REVISION=B.REVISION
+	                AND A.BUYER = C.COM_CODE(+)            
+	   				AND B.AGENT=#{st_com_code}	
+	                AND A.STATUS IN ('C','R')            
+	                AND NVL(B.ADMIN_CLOSE_FLAG,'N') = 'N'
+	                /*SLOGIC-BEGIN(P04-4040-04)*/
+	                AND B.STATUS IN ('C','R')            
+	                AND DECODE(A.BUYER,'KRDOOD0001',NULL,B.STOA_DATE)  IS NULL              
+	                AND A.RECV_FLAG <> 'GD'              
+	                /*SLOGIC-END*/
+	                AND B.ATOS_END_DATE || B.ATOS_END_TIME > TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')  
+	              ORDER BY B.ATOS_END_DATE, B.ATOS_END_TIME, B.BUYER, B.QUOTATION_NO, B.QUOTATION_SEQ, B.REVISION ASC   )X )Y )Z 
+
+		]]>
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+	
+	<!-- 견적제출 -->
+	<update id="saveSellerMpRqQuotReqList" parameterType="java.util.Map" >
+		<![CDATA[
+		UPDATE	KEPQTDT   /* saveSellerMpRqQuotReqList */
+		SET		LEAD_TIME = DECODE(#{st_giveup_yn},'Y','0',#{LEAD_TIME}),
+				SEL_USER_ID = #{st_user_id},
+				SEL_USER_NAME = #{st_user_name},
+				SEL_USER_TEL = #{st_user_tel},
+				STOA_LIST_PRICE = DECODE(#{st_giveup_yn},'Y','0',DECODE(#{TAX_TYPE},'12',#{STOA_LIST_PRICE},DECODE(#{VAT_FLAG},'Y',ROUND(#{STOA_LIST_PRICE}*1.1),#{STOA_LIST_PRICE}))),
+				STOA_DATE = TO_CHAR(SYSDATE,'YYYYMMDD'),
+				STOA_TIME = TO_CHAR(SYSDATE,'HH24MISS'),
+				STOA_REMARK = NVL(#{GIVEUP_REMARK},#{STOA_REMARK}),
+				SELLER_IMAGE_KEY = #{SELLER_IMAGE_KEY},
+				MIN_ORDER_QTY = DECODE(#{MIN_ORDER_QTY}, '', 1, #{MIN_ORDER_QTY}),
+				PUR_UNIT_QTY = DECODE(#{PUR_UNIT_QTY}, '', 1, #{PUR_UNIT_QTY}),
+				SELLER_AREA = #{SELLER_AREA},
+				PROCESS_TYPE = #{PROCESS_TYPE},
+				IMGFILE_DIR = #{IMGFILE_DIR},
+				IMGFILE_NAME = #{IMGFILE_NAME},
+				TAX_TYPE = DECODE(#{TAX_TYPE}, '', '11', #{TAX_TYPE}),
+				ITEM_MAKE_TYPE = #{ITEM_MAKE_TYPE},
+				PRE_GR_FLAG = #{QTDT_PRE_GR_FLAG},
+				VAT_YN = #{VAT_FLAG},
+				SELLER_ITEM_NO = #{SELLER_ITEM_NO}
+		WHERE	BUYER = #{BUYER}
+		AND		QUOTATION_NO = #{QUOTATION_NO}
+		AND		QUOTATION_SEQ = #{QUOTATION_SEQ}
+		AND		REVISION = #{REVISION}
+		AND		AGENT = #{AGENT}
+		AND		AGENT_REVISION = #{AGENT_REVISION}
+		AND		STATUS <> 'D'                                 
+		AND		(ATOS_END_DATE||ATOS_END_TIME) > TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS')
+		]]>
+	</update>
+	
+	<!-- MSDS_YN 협력사 선택정보 업데이트 -->
+	<update id="saveSellerMpRqQuotReqMsds" parameterType="java.util.Map">
+		<![CDATA[
+		 	UPDATE KEPRQDT   /*saveSellerMpRqQuotReqMsds*/                                 
+               SET MSDS_YN =  DECODE(#{MSDS_YN},'Y','Y','N')   
+                   , MSDS_USER_ID = DECODE(#{MSDS_YN},'Y',#{st_user_id},' ')
+             WHERE BUYER = #{BUYER}
+               AND QUOTATION_NO = #{QUOTATION_NO}
+               AND QUOTATION_SEQ = #{QUOTATION_SEQ}    
+               AND REVISION = #{REVISION}                      	 		 										   
+		]]>
+	</update>
+</mapper>   
+   

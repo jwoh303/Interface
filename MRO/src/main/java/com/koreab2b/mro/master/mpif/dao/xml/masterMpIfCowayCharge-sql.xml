@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mpif">
+	
+	<!-- 조회 -->
+	<select id="selectMasterMpIfCowayChargeList" parameterType="java.util.Map" resultType="java.util.Map">
+	/* master.mpif.selectMasterMpIfCowayChargeList */
+	
+	SELECT
+	       SUBSTR(A.CLOSE_MONTH,1,4) || '/' || SUBSTR(A.CLOSE_MONTH,5,2) AS CLOSE_MONTH,
+	       A.BUYER,
+	       B.COM_NAME_LOC,
+	       A.PR_NO,
+	       A.PR_SEQ,
+	       A.PO_NO,
+	       A.PO_SEQ,
+	       A.LEGACY_USER_ID,
+	       C.USER_NAME_LOC,
+	       A.AMOUNT,
+	       A.CMITM,
+	       CASE
+	         WHEN A.CMITM = '5038' THEN '명함공제'
+	         WHEN A.CMITM = '5052' THEN '필터공제'
+	         ELSE '입력오류'
+	       END          AS CMITM_NAME,
+	       C.DEPARTMENT AS DEPT_CODE,
+	       D.TEXT1      AS DEPT_NAME,
+	       E.BUYER_ITEM_NO,
+	       E.DESCRIPTION,
+	       A.IF_FLAG,
+	       A.IF_MSG
+	  FROM COWAY_ZHR_WEB127 A
+	     , ICOMCMPY B 
+	     , ICOMLUSR C
+	     , ICOMCOD2 D
+	     , ICOMPODT E
+	 WHERE 1 = 1
+	   AND CLOSE_MONTH = #{YYYYMM}
+	   
+	   AND A.BUYER = B.COM_CODE
+	   
+	   AND A.BUYER          = C.COM_CODE
+	   AND A.LEGACY_USER_ID = C.LEGACY_USER_ID
+	   
+	   AND 'C001'       = D.TYPE(+)
+	   AND C.DEPARTMENT = D.CODE(+)
+	   AND C.COM_CODE   = D.COMPANY_CODE(+)
+	   
+	   AND A.BUYER  = E.BUYER
+	   AND A.PO_NO  = E.PO_NO
+	   AND A.PO_SEQ = E.PO_SEQ
+	   
+	 ORDER BY A.CMITM, A.BUYER, A.PO_NO, A.PO_SEQ
+	   
+	</select>
+	
+	<update id="insertMasterMpIfCowayChargeList" parameterType="java.util.Map" useGeneratedKeys="false">
+	<![CDATA[
+	INSERT INTO COWAY_ZHR_WEB127 (
+	  BUYER, 		PO_NO,			PO_SEQ,
+	  PR_NO, 		PR_SEQ,			LEGACY_USER_ID,
+	  AMOUNT,		ADD_DATE,		CMITM,
+	  CLOSE_MONTH
+	) (
+	  SELECT
+	         A.BUYER,
+	         A.PO_NO,
+	         A.PO_SEQ,
+	         A.PR_NO,
+	         A.PR_SEQ,
+	         #{LEGACY_USER_ID} AS LEGACY_USER_ID,
+	         #{AMOUNT} AS AMOUNT,
+	         TO_CHAR(SYSDATE, 'YYYYMMDD') AS ADD_DATE,
+	         #{CMITM} AS CMITM,
+	         #{CLOSE_MONTH} AS CLOSE_MONTH
+	    FROM ICOMPODT A
+	   WHERE A.BUYER = #{BUYER}
+	     AND A.PO_NO = #{PO_NO}
+	     AND A.BUYER_ITEM_NO = #{BUYER_ITEM_NO}
+	     AND ROWNUM = 1
+	)
+	]]>
+	</update>
+	
+	<delete id="deleteMasterMpIfCowayChargeList" parameterType="java.util.Map">
+	/* master.mpif.deleteMasterMpIfCowayChargeList */
+	
+	DELETE FROM COWAY_ZHR_WEB127
+	 WHERE BUYER          = #{BUYER}
+	   AND PO_NO          = #{PO_NO}
+	   AND PO_SEQ         = #{PO_SEQ}
+	   AND PR_NO          = #{PR_NO}
+	   AND PR_SEQ         = #{PR_SEQ}
+	   AND LEGACY_USER_ID = #{LEGACY_USER_ID}
+	</delete>
+</mapper>   
+   

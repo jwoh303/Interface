@@ -1,0 +1,255 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.wmre">
+	<!-- 조회 -->
+	<select id="selectMasterWmReReturnMultiRegList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.pagestart"/>	
+			<![CDATA[
+				/* selectMasterWmReReturnMultiRegList */
+				SELECT	TRXL.TARGET AS BUYER_CODE
+							,(
+								SELECT	IC.COM_NAME_LOC
+								FROM	ICOMCMPY IC
+								WHERE	IC.COM_CODE = TRXL.TARGET
+							) AS BUYER_NAME
+							,TRXL.KEY_1 AS PO_NO
+							,TRXL.KEY_2 AS PO_SEQ
+							,PODT.LEGACY_PO_NO
+							,PODT.LEGACY_PO_SEQ
+							,PODT.BUYER_ITEM_NO AS BUYER_ITEM_NO
+							,PODT.DESCRIPTION AS DESCRIPTION
+							,PODT.SPECIFICATION AS SPECIFICATION
+							,PODT.UNIT_MEASURE AS UNIT_MEASURE
+							,(
+								SELECT	IC.COM_NAME_LOC
+						     	FROM	ICOMCMPY IC
+						     	WHERE	IC.COM_CODE = POHD.AGENT
+						     ) AS SELLER_NAME
+							,POHD.AGENT AS SELLER
+							,PODT.PROCESS_TYPE
+							,CASE	WHEN PODT.PROCESS_TYPE IN ('1', '3')	THEN	(
+																									SELECT	DISTINCT COD2.TEXT1
+																									FROM	ICOMCOD2 COD2
+																									WHERE	COD2.COMPANY_CODE = 'KRKORE0001'
+																									AND		COD2.TYPE = 'WR01'
+																									AND		COD2.FLAG = 'Y'
+																									AND		COD2.TEXT2 = POHD.AGENT
+																							)
+									ELSE PODT.WAREHOUSE_CODE
+							END AS WAREHOUSE_CODE
+							,PRDT.ADD_USER_DEPT AS BUYER_DEPT_CODE
+							,(
+								SELECT	IC.TEXT1
+								FROM	ICOMCOD2 IC
+								WHERE	1=1
+								AND		COMPANY_CODE = TRXL.TARGET
+								AND		TYPE = 'C001'
+								AND		CODE = PRDT.ADD_USER_DEPT
+							) AS BUYER_DEPT_NAME
+							,PRDT.ADD_USER_NAME AS BUYER_USER_NAME
+							,PRDT.ADD_USER_TEL AS BUYER_USER_TEL
+							,TRXL.KEY_3 AS B_REQ_DATE
+							,TRXL.KEY_6 AS B_REQ_REMARK
+							,PODT.ITEM_QTY AS ITEM_QTY
+							,NVL((
+									SELECT	SUM(WMRE.WMRE_QTY)
+									FROM	BNTWMRE WMRE
+									WHERE	WMRE.BUYER = PODT.BUYER
+									AND		WMRE.PO_NO = PODT.PO_NO
+									AND		WMRE.PO_SEQ = PODT.PO_SEQ 
+									AND		WMRE.CANCEL_DATE IS NULL)
+							, 0	) AS TOTAL_WMRE_QTY
+							,TRXL.KEY_5 AS WMRE_QTY
+							,TRXL.KEY_4 AS WMRE_TYPE
+							,TRXL.KEY_7 AS M_REC_DATE
+							,TRXL.KEY_8 AS M_REC_REMARK
+							,TRXL.KEY_9 AS WMRE_TYPE2
+							,TRXL.KEY_10 AS WMRE_TYPE3
+							,TRXL.KEY_11 AS WMRE_TYPE_DETAIL
+							,NVL((
+									SELECT	COUNT(RS.PO_NO)
+									FROM	ICOMPORS RS
+									WHERE	RS.BUYER =PODT.BUYER
+									AND		RS.PO_NO = PODT.PO_NO
+									AND		RS.PO_SEQ = PODT.PO_SEQ)
+							, 0) AS STATUS_BACK_CODE
+							,PRDT.STATUS AS PRDT_STATUS
+							,PODT.STATUS AS PODT_STATUS
+							,POHD.STATUS AS POHD_STATUS
+							,TRXL.KEY_13 AS DELIVERY_FLAG
+				FROM	BNTTRXL TRXL
+				,			ICOMPODT PODT
+				,			ICOMPRDT PRDT
+				,			ICOMPOHD POHD
+				WHERE	1=1
+				AND		PRDT.BUYER = PODT.BUYER 
+				AND		PRDT.PR_NO = PODT.PR_NO 
+				AND		PRDT.PR_SEQ = PODT.PR_SEQ
+				AND		POHD.BUYER = PODT.BUYER
+				AND		POHD.PO_NO = PODT.PO_NO
+				AND		TRXL.TARGET = PODT.BUYER
+				AND		TRXL.KEY_1 = PODT.PO_NO
+				AND		TRXL.KEY_2 = PODT.PO_SEQ
+				AND		TRXL.KEY_12 = #{st_user_id}
+				AND		TRXL.DOC_NAME = 'BNTWMRE'
+				]]>
+			<if test="st_buyer_code != null and st_buyer_code != ''">
+				AND		PODT.BUYER = #{st_buyer_code}
+	        </if>
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+
+	<update  id="setBntTrxlMasterWmreReturnMultiUplolad" parameterType="java.util.Map" >
+		<![CDATA[
+			/* setBntTrxlMasterWmreReturnMultiUplolad */
+				INSERT INTO BNTTRXL
+				(
+					  DOC_NAME				-- 'BNTWMRE'
+					 ,TARGET				-- BUYER_CODE
+					 ,KEY_1					-- PO_NO
+					 ,KEY_2					-- PO_SEQ
+					 ,KEY_3					-- B_REQ_DATE
+					 ,KEY_4					-- WMRE_TYPE
+					 ,KEY_5					-- WMRE_QTY
+					 ,KEY_6					-- B_REQ_REMARK
+					 ,KEY_7					-- M_REC_DATE
+					 ,KEY_8					-- M_REC_REMARK
+					 ,KEY_9					-- WMRE_TYPE2
+					 ,KEY_10				-- WMRE_TYPE3
+					 ,KEY_11				-- WMRE_TYPE_DETAIL
+					 ,KEY_12				-- ADD_USER_ID
+					 ,KEY_13				-- DELIVERY_FLAG
+					 ,KEY_14				-- ' '
+					 ,KEY_15				-- ' '
+				)
+				VALUES(
+					  'BNTWMRE'
+					 ,#{BUYER_CODE}
+				     ,#{PO_NO}
+				     ,#{PO_SEQ}
+				     ,#{B_REQ_DATE}
+				     ,#{WMRE_TYPE}
+				     ,#{WMRE_QTY}
+				     ,#{B_REQ_REMARK}
+				     ,#{M_REC_DATE}
+				     ,#{M_REC_REMARK}
+				     ,#{WMRE_TYPE2}
+				     ,#{WMRE_TYPE3}
+				     ,#{WMRE_TYPE_DETAIL}
+				     ,#{st_user_id}
+				     ,NVL(#{DELIVERY_FLAG}, ' ')
+				     ,' '
+				     ,' '
+				 )
+				      
+		]]>
+	</update>
+
+	<!-- 삭제 -->
+	<update id="deleteBntTrxlMasterWmreReturnMultiUplolad"  parameterType="java.util.Map">
+		<![CDATA[
+		/* deleteBntTrxlMasterWmreReturnMultiUplolad */
+				DELETE FROM BNTTRXL
+				      WHERE DOC_NAME = 'BNTWMRE'
+				        AND TARGET = #{BUYER_CODE}
+				        AND KEY_1 = #{PO_NO}
+				        AND KEY_2 = #{PO_SEQ}
+		]]>
+	</update>
+	
+	<!-- 업로드 전 초기화 삭제 -->
+	<update id="initBntTrxlMasterWmreReturnMultiUplolad"  parameterType="java.util.Map">
+		<![CDATA[
+		/* initBntTrxlMasterWmreReturnMultiUplolad */
+			DELETE	BNTTRXL
+			WHERE	DOC_NAME = 'BNTWMRE'
+			AND		KEY_12 = #{st_user_id}
+		]]>
+	</update>
+	
+	<!-- 등록 -->
+	<update  id="insertMasterWmreReturnMulti" parameterType="java.util.Map" >
+		<![CDATA[
+			/*	insertMasterWmreReturnMulti */
+				INSERT INTO BNTWMRE
+				(
+					WMRE_NO
+					,BUYER
+					,PO_NO
+					,PO_SEQ
+					,LEGACY_PO_NO
+					,LEGACY_PO_SEQ
+					,BUYER_ITEM_NO
+					,DESCRIPTION
+					,SPECIFICATION
+					,ITEM_QTY
+					,UNIT_MEASURE
+					,SELLER
+					,PROCESS_TYPE
+					,BUYER_DEPT_CODE
+					,BUYER_PERSON_NAME
+					,BUYER_PERSON_TEL
+					,WAREHOUSE_CODE
+					,ADD_USER_ID
+					,PROCESS_USER_NAME
+					,WMRE_QTY
+					,WMRE_TYPE
+					,WMRE_TYPE2
+					,WMRE_TYPE3
+					,WMRE_TYPE_DETAIL
+					,B_REQ_DATE
+					,B_REQ_USER_ID
+					,B_REQ_FLAG
+					,M_REC_DATE
+					,M_REC_USER_ID
+					,M_REC_FLAG
+					,FLAG
+					,B_REQ_REMARK
+					,M_REC_REMARK
+					,DELIVERY_FLAG
+				)
+				VALUES
+				(
+					(
+						SELECT	'WM'||TO_CHAR(SYSDATE,'YYMMDD')|| LPAD(COUNT(WMRE_NO)+1,3,0) AS WMRE_NO
+						FROM	BNTWMRE
+						WHERE	SUBSTR(WMRE_NO,3,6) = TO_CHAR(SYSDATE,'YYMMDD')	
+					)
+					,#{BUYER_CODE}
+					,#{PO_NO}
+					,#{PO_SEQ}
+					,#{LEGACY_PO_NO}
+					,#{LEGACY_PO_SEQ}
+					,#{BUYER_ITEM_NO}
+					,#{DESCRIPTION}
+					,#{SPECIFICATION}
+					,#{ITEM_QTY}
+					,#{UNIT_MEASURE}
+					,#{SELLER}
+					,#{PROCESS_TYPE}
+					,#{BUYER_DEPT_CODE}
+					,#{BUYER_USER_NAME}
+					,#{BUYER_USER_TEL}
+					,#{WAREHOUSE_CODE}
+					,#{st_user_id}
+					,#{BUYER_USER_NAME}
+					,#{WMRE_QTY}
+					,#{WMRE_TYPE}
+					,#{WMRE_TYPE2}
+					,#{WMRE_TYPE3}
+					,#{WMRE_TYPE_DETAIL}
+					,#{B_REQ_DATE}
+					,#{st_user_id}
+					,'02'
+					,#{M_REC_DATE}
+					,#{st_user_id}
+					,'02'
+					,'02'
+					,#{B_REQ_REMARK}
+					,#{M_REC_REMARK}
+					,#{DELIVERY_FLAG}
+				)
+		]]>
+	</update>
+</mapper>   
+   

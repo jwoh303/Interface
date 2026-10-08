@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="common.wmgi">
+
+
+	<select id="selectMasterWmGiCartRegPopList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*selectMasterWmGiCartRegPopList*/
+	SELECT																				                                                                        
+		CQDT.BUYER_ITEM_NO,																                                                                  
+		CQDT.DESCRIPTION,																                                                                    
+		CQDT.MAKER_NAME,																                                                                    
+		CASE WHEN STCK.MAX_STOCK_QTY-STCK.AVAIL_QTY < 0 THEN 0 ELSE STCK.MAX_STOCK_QTY-STCK.AVAIL_QTY END AS COM_STCK_QTY,  
+		CQDT.LIST_PRICE,																                                                                    
+		STCK.SAFE_STOCK_QTY,															                                                                  
+	                                                                                                                      
+		(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = CQDT.AGENT) AS AGENT_NAME,	                                    
+		(SELECT TEL_NO FROM ICOMCMPY WHERE COM_CODE = CQDT.AGENT) AS AGENT_TEL,			                                        
+		DECODE(CQDT.PROCESS_TYPE,'1','재고상품','3','VMI상품') AS INCOME_PATH,			                                        
+		CQDT.SPECIFICATION,																                                                                  
+		CQDT.UNIT_MEASURE,																                                                                  
+		STCK.AVAIL_QTY,																	                                                                    
+		STCK.MIN_ORDER_QTY,																                                                                  
+		STCK.MAX_STOCK_QTY,																                                                                                                                                              
+		CQDT.CONTRACT_NO,																                                                                    
+		CQDT.CONTRACT_SEQ,																                                                                  
+		CQDT.BUYER_ITEM_NO,																                                                                  
+		CQDT.AGENT,																		                                                                      
+		CQDT.PROCESS_TYPE																                                                                                                                                                               
+	FROM ICOMCQDT CQDT, WMSSTCK STCK													                                                            
+	WHERE BUYER =#{st_warehouse_code}																                                                                    
+		AND CQDT.BUYER = STCK.WAREHOUSE_CODE											                                                          
+		AND CQDT.BUYER_ITEM_NO = STCK.STDCATLG_ID											                                                      
+													                                                            					 
+		]]>
+                <if test='buyerCnt == "1"'>   
+                  AND CQDT.BUYER_ITEM_NO IN
+	  			<foreach collection="buyerParam" item="STDCATLG_ID" index="i" open="(" separator=","  close=")" >	
+	    			 	#{STDCATLG_ID}
+	  			</foreach>   
+               </if>  
+	</select>
+	
+	<update id="insertMasterWmGiCartRegPopList" parameterType="java.util.Map">
+		<![CDATA[
+			/*insertMasterWmGiCartRegPopList*/
+		INSERT INTO ICOMCART 
+			(BUYER,USER_ID,CONTRACT_NO, CONTRACT_SEQ, USE_FLAG, BUYER_ITEM_NO, AGENT, CART_QTY, UNIT_PRICE , REG_DATE ,BYIT_COMORG_CODE ,SEQ ) 
+			VALUES(#{st_warehouse_code} ,							
+				 #{st_USER_ID} ,							
+				 #{CONTRACT_NO} ,							
+				 #{CONTRACT_SEQ} ,				
+				 'C',						
+				 #{BUYER_ITEM_NO} ,						
+				 #{AGENT} ,					
+				 #{COM_STCK_QTY} ,						
+				 #{LIST_PRICE} ,						
+				TO_CHAR(SYSDATE,'YYYYMMDD'),
+				 #{st_warehouse_code} ,						
+				(SELECT DECODE(MAX(SEQ),NULL,'0', MAX(SEQ))+1                                                        
+                   FROM ICOMCART                                                                        
+                  WHERE BUYER         = #{st_warehouse_code}                                                           
+                    AND USER_ID       = #{st_USER_ID}                                                             
+                    AND USE_FLAG      = 'C' )
+				)							
+
+				]]>
+	</update>
+					
+					
+	<select id="selectMasterWmGiCartRegPop"  parameterType="java.util.Map" resultType="java.util.Map">
+			<![CDATA[
+		SELECT COUNT(*) AS COUNTVALUE FROM ICOMCART 
+		 WHERE BUYER = #{st_warehouse_code}				
+			AND USER_ID =  #{st_USER_ID}			
+			AND CONTRACT_NO = #{CONTRACT_NO}			
+			AND CONTRACT_SEQ =#{CONTRACT_SEQ}	
+		   AND USE_FLAG = 'C'			
+		   				]]>
+	</select>							
+</mapper>

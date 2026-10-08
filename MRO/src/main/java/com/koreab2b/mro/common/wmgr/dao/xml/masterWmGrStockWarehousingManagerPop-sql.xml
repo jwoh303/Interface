@@ -1,0 +1,256 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="common.wmgr">
+
+	<select id="selectMasterWmGrStockWarehousingManagerPopVMIPop" parameterType="java.util.Map" resultType="java.util.Map">
+
+		/*selectMasterWmGrStockWarehousingManagerPopVMIPop*/
+		<choose>
+				 	<when test='GUBUN == "STCK"' >
+			SELECT                                                                                  
+			     MAX((SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = PODT.BUYER)) AS BUYER_NAME,
+			     '재고' GUBUN,                                                                            
+			     MAX(PRDT.ADD_USER_NAME) AS ADD_USER_NAME,                                          
+			     MAX(PRDT.ADD_USER_TEL) AS ADD_USER_TEL,                                            
+			     POHD.PO_NO,                                                                        
+			     MAX(POHD.PO_CREATE_DATE) AS PO_DATE,                                               
+			     MAX(PODT.RD_DATE) AS RD_DATE,                                                      
+			     IVDT.INV_NO,                                                                       
+			     MAX(PODT.DS_DATE) AS INV_DATE,                                                      
+			     MAX(IVDT.WMS_GR_DATE) AS GR_DATE,                                                  
+			     MAX((SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = POHD.AGENT)) AS AGENT_NAME,
+			     MAX((SELECT TEL_NO FROM ICOMCMPY WHERE COM_CODE = POHD.AGENT)) AS AGENT_TEL        
+			  FROM ICOMPOHD POHD, ICOMPODT PODT, ICOMPRDT PRDT, ICOMIVDT IVDT                       
+			 WHERE POHD.BUYER = #{ware_house_code}                                                             
+			   AND POHD.PO_NO = #{PO_NO}                                                           
+			   AND IVDT.INV_NO = #{INV_NO}                                                        
+			   AND POHD.BUYER = PODT.BUYER                                                          
+			   AND POHD.PO_NO = PODT.PO_NO                                                          
+			   AND PODT.BUYER = PRDT.BUYER                                                          
+			   AND PODT.PR_NO = PRDT.PR_NO                                                          
+			   AND PODT.PR_SEQ = PRDT.PR_SEQ                                                        
+			   AND PODT.BUYER = IVDT.BUYER                                                          
+			   AND PODT.PO_NO = IVDT.PO_NO                                                          
+			   AND PODT.PO_SEQ = IVDT.PO_SEQ                                                        
+			GROUP BY POHD.BUYER, POHD.PO_NO,IVDT.INV_NO        				 	
+				 	</when>
+				 	<otherwise>
+			SELECT                                                                                      
+				MAX((SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE =EDI.BUYER)) AS BUYER_NAME,       
+				'VMI' GUBUN,                                                                                  
+				MAX((SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = EDI.POK_USER_ID)) ADD_USER_NAME,
+				MAX((SELECT PHONE_NUMBER FROM ICOMLUSR WHERE USER_ID = EDI.POK_USER_ID)) ADD_USER_TEL,  
+				VPO_NO AS PO_NO,                                                                        
+				MAX(VPO_DATE) AS PO_DATE,                                                              
+				MAX(RD_DATE) AS RD_DATE,                                                                
+				VPO_NO AS INV_NO,                                                                       
+				MAX(RD_DATE) AS INV_DATE,                                                               
+				MAX(VGR_DATE) AS GR_DATE,                                                               
+				MAX((SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE=EDI.AGENT)) AS AGENT_NAME,        
+				MAX((SELECT TEL_NO FROM ICOMCMPY WHERE COM_CODE=EDI.AGENT)) AS AGENT_TEL                
+			                                                                                            
+			                                                                                            
+			FROM EDIVPODT EDI                                                                           
+			WHERE BUYER = #{ware_house_code}                                                                         
+			  AND VPO_NO =#{PO_NO}                                                                        
+			GROUP BY BUYER, VPO_NO   				 	
+					</otherwise>
+		</choose>
+	</select>
+
+
+
+	<select id="selectMasterWmGrStockWarehousingManagerPopVMIList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*selectMasterWmGrStockWarehousingManagerPopVMIList*/
+			SELECT
+				EDI.BUYER_ITEM_NO,			        
+				EDI.CONTRACT_NO,       
+				EDI.CONTRACT_SEQ,
+				EDI.DESCRIPTION,				       
+				EDI.MAKER_NAME,				       
+				EDI.ITEM_QTY,					       
+				STCK.AVAIL_QTY,				       
+				EDI.UNIT_PRICE,				       
+				EDI.UNIT_MEASURE,				       
+				EDI.SPECIFICATION,			       
+				EDI.GR_QTY,						       
+				STCK.PRE_GR_QTY,				       
+				EDI.ITEM_AMT,					       
+				EDI.VPO_SEQ INV_SEQ,					       
+				EDI.VPO_SEQ,					       
+				EDI.IV_QTY INV_QTY,						
+				'Y' AS GR_MODIFIABLE			
+			FROM EDIVPODT EDI , WMSSTCK STCK
+			WHERE BUYER =#{ware_house_code}
+				AND VPO_NO = #{st_po_no}
+				AND EDI.BUYER = STCK.WAREHOUSE_CODE
+				AND EDI.BUYER_ITEM_NO = STCK.STDCATLG_ID
+				AND EDI.STATUS <> 'D'	
+				AND EDI.AGENT = STCK.AGENT
+				AND EDI.CONTRACT_NO = STCK.CONTRACT_NO
+				AND EDI.CONTRACT_SEQ = STCK.CONTRACT_SEQ
+				AND STCK.STATUS <> 'D'				 
+		]]>
+	</select>
+	
+	
+		<select id="selectMasterWmGrStockWarehousingManagerPopList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		   		/*selectMasterWmGrStockWarehousingManagerPopList*/
+			SELECT 
+				PO.BUYER_ITEM_NO, 		
+				PO.CONTRACT_NO, 		
+				PO.CONTRACT_SEQ, 		
+				PO.DESCRIPTION, 		
+				PO.MAKER_NAME, 		
+				PO.ITEM_QTY, 			
+				STCK.AVAIL_QTY, 		
+				PO.UNIT_PRICE, 		
+				PO.UNIT_MEASURE, 		
+				PO.SPECIFICATION, 		
+				IV.WMS_GR_QTY AS GR_QTY, 		
+				STCK.PRE_GR_QTY, 		
+				PO.ITEM_AMT, 			
+				IV.INV_SEQ, 			
+				PO.PO_SEQ VPO_SEQ, 			
+				IV.INV_QTY INV_QTY, 					 
+				(CASE WHEN GR.AP_BILL_FLAG = 'Y' THEN 'N' 											
+					  WHEN GR.GR_DATE IS NULL THEN 'N' 											
+					  WHEN PO.PROCESS_TYPE <> '1' THEN 'Y' 										
+					  WHEN SUBSTR(GR.GR_DATE, 1, 6) >= TO_CHAR(SYSDATE, 'YYYYMM') THEN 'Y' 		
+					  WHEN SUBSTR(GR.GR_DATE, 1, 6) = TO_CHAR(ADD_MONTHS(SYSDATE, -1), 'YYYYMM') 	
+					 	AND TO_CHAR(SYSDATE, 'DD') <= '06' 
+								THEN 'Y' 
+					  ELSE 'N' 
+				 END) AS GR_MODIFIABLE 														
+			FROM ICOMPODT PO, WMSSTCK STCK ,ICOMCQDT CQ,ICOMIVDT IV	, WMSIVDT WMS, ICOMGRDT GR 
+			WHERE PO.BUYER = #{ware_house_code}					
+				AND PO.PO_NO = #{st_po_no}						
+				AND IV.INV_NO = #{st_inv_no}					
+				AND PO.BUYER = IV.BUYER					
+				AND PO.PO_NO = IV.PO_NO					
+				AND PO.PO_SEQ = IV.PO_SEQ				
+				AND PO.BUYER = CQ.BUYER					
+				AND PO.CONTRACT_NO = CQ.CONTRACT_NO		
+				AND PO.CONTRACT_SEQ = CQ.CONTRACT_SEQ	
+				AND CQ.BUYER = STCK.WAREHOUSE_CODE		
+				AND CQ.BUYER_ITEM_NO = STCK.STDCATLG_ID	
+				AND CQ.BUYER_ITEM_NO = STCK.STDCATLG_ID	
+				AND PO.BUYER = WMS.BUYER(+)					
+				AND PO.PO_NO = WMS.PO_NO(+)					
+				AND PO.PO_SEQ = WMS.PO_SEQ(+)				
+				AND IV.BUYER = GR.BUYER(+)					
+				AND IV.INV_NO = GR.INV_NO(+)					
+				AND IV.INV_SEQ = GR.INV_SEQ(+)				
+				AND PO.STATUS <> 'D'					
+				AND STCK.STATUS <> 'D'					
+				AND CQ.STATUS <> 'D'					
+				AND WMS.STATUS(+) <> 'D'					
+				AND GR.STATUS(+) <> 'D'		
+				]]>
+	</select>			
+	
+	<update id="updateMasterWmGrStockWarehousingManagerPopIvdt">
+			<![CDATA[
+			 /* updateMasterWmGrStockWarehousingManagerPopIvdt */
+				UPDATE ICOMIVDT SET WMS_GR_QTY = 0 , 
+			            WMS_GR_DATE = '', 
+						WMS_GR_USER_ID = '',
+						GR_QTY = 0,	
+						CHANGE_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD'), 
+						CHANGE_TIME = TO_CHAR(SYSDATE, 'HH24MISS') 
+				WHERE BUYER = #{ware_house_code}
+	  			  AND INV_NO = #{st_inv_no}
+			
+		    ]]>
+	</update>
+	
+	
+	<update id="updateMasterWmGrStockWarehousingManagerPopPodt">
+			<![CDATA[
+			/* updateMasterWmGrStockWarehousingManagerPopPodt */
+						UPDATE ICOMPODT 
+						     SET GR_QTY = GR_QTY - ${GR_QTY} , 
+		            		      DI_QTY = DI_QTY - ${GR_QTY}    	
+                        WHERE BUYER =#{ware_house_code} 
+                           AND PO_NO = #{st_po_no} 
+                           AND PO_SEQ = #{VPO_SEQ}
+		    ]]>
+	</update>			
+	
+	<update id="deleteMasterWmGrStockWarehousingManagerPopGrDt">
+			<![CDATA[
+			/* deleteMasterWmGrStockWarehousingManagerPopGrDt */
+						UPDATE ICOMGRDT SET STATUS = 'D' 
+							WHERE BUYER = #{ware_house_code}    
+  								AND INV_NO =  #{st_inv_no}
+  								AND INV_SEQ = #{INV_SEQ}
+			]]>
+	</update>
+	
+	<update id="updateMasterWmGrStockWarehousingManagerPopWmsStckForSTCK">
+		<![CDATA[
+			/* updateMasterWmGrStockWarehousingManagerPopWmsStckForSTCK */
+			UPDATE WMSSTCK 
+			    SET TOT_QTY = TOT_QTY - (${INV_QTY}), 
+ 					 AVAIL_QTY = AVAIL_QTY - (${INV_QTY}),   
+ 					 PRE_GR_QTY = PRE_GR_QTY + ${INV_QTY}, 
+ 					 STC_SELLER_PRICE = ROUND(DECODE(AVAIL_QTY- (${INV_QTY}),0,0,((AVAIL_QTY*STC_SELLER_PRICE)-(${INV_QTY}*${UNIT_PRICE}))/(AVAIL_QTY-(${INV_QTY}))),0) 		
+		   WHERE WAREHOUSE_CODE =#{ware_house_code}    	
+              AND STDCATLG_ID = (		 
+                                           SELECT BUYER_ITEM_NO FROM ICOMPODT PO  
+                                           WHERE PO.BUYER  = #{ware_house_code}    	
+                                              AND PO.PO_NO  = #{st_po_no} 	
+                                              AND PO.PO_SEQ =#{VPO_SEQ}	
+                                         )							
+               AND AGENT = 'KRKORE0001'	
+               AND CONTRACT_NO = (		
+                                              SELECT CONTRACT_NO 
+                                               FROM ICOMPODT PO  
+                                              WHERE PO.BUYER  = #{ware_house_code} 		
+                                                 AND PO.PO_NO  = #{st_po_no} 		
+                                                 AND PO.PO_SEQ =#{VPO_SEQ}	
+                                              )							
+              AND CONTRACT_SEQ = (		
+                                               SELECT CONTRACT_SEQ 
+                                                 FROM ICOMPODT PO  
+                                                WHERE PO.BUYER  = #{ware_house_code} 	
+                                                   AND PO.PO_NO  = #{st_po_no} 		
+                                                   AND PO.PO_SEQ = #{VPO_SEQ}		
+                                             )      	
+		]]>		
+	</update>
+	
+	
+	<update id="updateMasterWmGrStockWarehousingManagerPopEdidt">
+			<![CDATA[
+				/* updateMasterWmGrStockWarehousingManagerPopEdidt */
+  						UPDATE EDIVPODT 
+  						     SET
+                                  RECV_FLAG = 'B',  
+                                  GR_QTY = 0,		
+                                 RECV_USER_ID = '',
+                                 VGR_DATE = ''     
+                      WHERE  BUYER =  #{ware_house_code} 	  
+                         AND VPO_NO = #{st_inv_no} 	 
+				
+					]]>		
+	</update>
+				
+				
+	<update id="updateMasterWmGrStockWarehousingManagerPopWmsStckForVMI">
+		<![CDATA[
+						UPDATE WMSSTCK 
+						     SET TOT_QTY = TOT_QTY - (${GR_QTY}), 
+ 						          AVAIL_QTY = AVAIL_QTY - (${GR_QTY}),   
+				                  PRE_GR_QTY = PRE_GR_QTY + ${GR_QTY}, 
+                                  STC_SELLER_PRICE = ${UNIT_PRICE}		  
+                        WHERE WAREHOUSE_CODE =  #{ware_house_code} 	
+                           AND STDCATLG_ID = (SELECT BUYER_ITEM_NO FROM EDIVPODT WHERE BUYER =  #{ware_house_code} 	 AND VPO_NO = #{st_po_no} 	 AND VPO_SEQ =  #{VPO_SEQ}) 
+                           AND AGENT = (SELECT AGENT FROM EDIVPODT WHERE BUYER =#{ware_house_code}  AND VPO_NO = #{st_po_no} 	 AND VPO_SEQ = #{VPO_SEQ}) 
+                           AND CONTRACT_NO = (SELECT CONTRACT_NO FROM EDIVPODT WHERE BUYER = #{ware_house_code} AND VPO_NO = #{st_po_no} AND VPO_SEQ =#{VPO_SEQ}) 
+                           AND CONTRACT_SEQ = (SELECT CONTRACT_SEQ FROM EDIVPODT WHERE BUYER = #{ware_house_code} AND VPO_NO = #{st_po_no}  AND VPO_SEQ = #{VPO_SEQ}) 
+		]]>		
+	</update>			
+</mapper>

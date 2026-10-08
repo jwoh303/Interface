@@ -1,0 +1,234 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mp.so">
+	<!-- 발주 정보 조회 -->
+	<select id="getMasterMpSoProgessDmSendPopPoList" parameterType="java.util.Map" resultType="java.util.Map">	
+		<![CDATA[
+		/*getMasterMpSoProgessDmSendPopPoList*/
+		SELECT
+				PO.BUYER AS BUYER,
+				PO.PO_NO AS PO_NO,
+				PO.PO_SEQ AS PO_SEQ,
+				PO.BUYER_ITEM_NO AS BUYER_ITEM_NO,
+				PO.DESCRIPTION AS DESCRIPTION,
+				PO.SPECIFICATION AS SPECIFICATION,
+				PO.ITEM_QTY AS PO_QTY,
+				PO.UNIT_PRICE AS UNIT_PRICE,
+				PO.ITEM_AMT AS ITEM_AMT,
+				(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = PR.REQ_USER_ID) AS REQ_USER_NAME			
+		FROM	ICOMPRDT PR, ICOMPODT PO
+		WHERE	1=1
+		AND		PR.BUYER = PO.BUYER
+		AND		PR.PR_NO = PO.PR_NO
+		AND		PR.PR_SEQ = PO.PR_SEQ
+		AND		(PO.BUYER, PO.PO_NO, PO.PO_SEQ) IN 
+		]]>
+
+		<foreach item="st_polist" index="index" collection="st_polist.split('@')" open="(" separator="," close=")" >			
+			('${st_polist}')			
+		</foreach>
+
+		<![CDATA[
+		ORDER BY PO.PO_NO, PO.ADD_DATE
+		]]>
+	</select>
+	
+	<!-- 수신 정보 조회 -->
+	<select id="getMasterMpSoProgessDmSendPopUserList" parameterType="java.util.Map" resultType="java.util.Map">	
+		<![CDATA[
+		/*getMasterMpSoProgessDmSendPopUserList*/
+		SELECT
+		 	X.RECV_NAME,
+       		X.EMAIL,
+       		X.MOBILE
+       	FROM (
+			SELECT
+					(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = PR.REQ_USER_ID) AS RECV_NAME,
+					(SELECT EMAIL FROM ICOMLUSR WHERE USER_ID = PR.REQ_USER_ID) AS EMAIL,
+					(SELECT MOBILE_PHONE FROM ICOMLUSR WHERE USER_ID = PR.REQ_USER_ID) AS MOBILE			
+			FROM	ICOMPRDT PR, ICOMPODT PO
+			WHERE	1=1
+			AND		PR.BUYER = PO.BUYER
+			AND		PR.PR_NO = PO.PR_NO
+			AND		PR.PR_SEQ = PO.PR_SEQ
+			AND		(PO.BUYER, PO.PO_NO, PO.PO_SEQ) IN 
+			]]>
+	
+			<foreach item="st_polist" index="index" collection="st_polist.split('@')" open="(" separator="," close=")" >			
+				('${st_polist}')				
+			</foreach>
+	
+			<![CDATA[
+			UNION ALL
+			
+			SELECT
+					(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = PR.PURCHASER_ID) AS RECV_NAME,
+					(SELECT EMAIL FROM ICOMLUSR WHERE USER_ID = PR.PURCHASER_ID) AS EMAIL,
+					(SELECT MOBILE_PHONE FROM ICOMLUSR WHERE USER_ID = PR.PURCHASER_ID) AS MOBILE			
+			FROM	ICOMPRDT PR, ICOMPODT PO
+			WHERE	1=1
+			AND		PR.BUYER = PO.BUYER
+			AND		PR.PR_NO = PO.PR_NO
+			AND		PR.PR_SEQ = PO.PR_SEQ
+			AND		(PO.BUYER, PO.PO_NO, PO.PO_SEQ) IN 
+			]]>
+	
+			<foreach item="st_polist2" index="index" collection="st_polist2.split('@')" open="(" separator="," close=")" >			
+				('${st_polist2}')				
+			</foreach>
+			<![CDATA[
+		) X		
+		GROUP BY X.RECV_NAME, X.EMAIL, X.MOBILE
+		]]>
+	</select>
+	
+	<update	id="insertMasterMpSoProgressDmSendInfo" parameterType="java.util.Map">
+	/*insertMasterMpSoProgressDmSendInfo*/
+		<![CDATA[
+		INSERT INTO DM_SEND_INFO
+		(
+			DM_ID,
+			SEQ,
+			SENT_BUYER,
+			SENT_PO_NO,
+			SENT_PO_SEQ
+
+		)
+		VALUES
+		(
+			#{DM_ID},
+			(SELECT NVL(MAX(TO_NUMBER(SEQ)),0)+1 FROM DM_SEND_INFO WHERE DM_ID = #{DM_ID}),
+			#{BUYER},
+			#{PO_NO},
+			#{PO_SEQ}
+		)
+		]]>
+	</update>
+	
+	<update	id="insertMasterMpSoProgressDmMailSend" parameterType="java.util.Map">
+	/*insertMasterMpSoProgressDmMailSend*/
+		<![CDATA[
+		INSERT INTO MAILSEND
+		(
+			MAILFORM_ID,
+			SEND_COM_TYPE,
+			RECV_COM_TYPE,
+			SEND_COM_CODE,
+			SEND_USER_ID,
+			KEY1,
+			KEY2,
+			KEY3,
+			KEY4,
+			KEY5,
+			KEY6,
+			KEY7,
+			KEY8,
+			KEY9,
+			KEY10,
+			CRE_DATE,
+			ERR_DATE
+		)
+		VALUES
+		(
+			#{MAILFORM_ID},
+			'M',
+			'B',
+			'KRKORE0001',
+			#{st_user_id},
+			#{RECV_ADDRESS}, -- key1
+			#{DM_ID}, -- key2
+			' ', -- key3
+			' ', -- key4
+			' ', --  key5
+			' ', --  key6
+			NULL,
+			NULL,
+			NULL,
+			NULL,
+			SYSDATE, -- 생성일
+			NULL -- 오류 발생일
+		)
+		]]>
+	</update>
+	
+	<update	id="insertMasterMpSoProgressDmSendHistory" parameterType="java.util.Map">
+	/*insertMasterMpSoProgressDmSendHistory*/
+		<![CDATA[
+		INSERT INTO DM_SEND_HIST
+		(
+			DM_ID,
+			RECV_COM_CODE,
+			SEND_TYPE,
+			RECV_ADDRESS,
+			SEND_USER_ID,
+			SEND_EMAIL,
+			SEND_TEL,
+			MAILFORM_ID,
+			REMARK,
+			TEMP_SAVE_YN,
+			SMS_CONTENTS,
+			RECV_NAME,
+			ADD_USER_ID,
+			ADD_DATE,
+			CHANGE_USER_ID,
+			CHANGE_DATE,
+			SEND_PROC_USER_ID,
+			SEND_PROC_DATE,
+			MAILSUBJ
+		)
+		VALUES
+		(
+			#{DM_ID},
+			#{st_buyer},
+			#{SEND_TYPE},
+			#{RECV_ADDRESS},
+			#{st_user_id},
+			#{st_send_mail},
+			#{st_send_tel},
+			#{MAILFORM_ID},
+			#{REMARK},
+			'N',
+			#{SMS_CONTENTS},
+			DECODE(#{RECV_ADDRESS}, #{st_send_mail}, (SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = #{st_user_id}), #{RECV_NAME}),
+			#{st_user_id},
+			SYSDATE,
+			#{st_user_id},
+			SYSDATE,
+			#{st_user_id},
+			SYSDATE,
+			#{st_mail_subject}
+		)
+		]]>
+	</update>
+	
+	<update	id="insertMasterMpSoProgressDmSmsSend" parameterType="java.util.Map">
+	/*insertMasterMpSoProgressDmSmsSend*/
+		<![CDATA[
+		INSERT INTO SUREDATA (
+			SEQNO,
+			USERCODE,
+			REQPHONE,
+			CALLPHONE,
+			MSG,
+			REQTIME,
+			RESULT, 
+			KIND,
+ 			KEP_ID,
+ 			KEP_WD
+		)
+		VALUES (
+			SEQ_SUREDATA.NEXTVAL, -- 
+			'koreab2b', -- 슈어엠측에서 발급한 아이디
+			'0230168989', -- 발신번호
+			REPLACE(#{MOBILE},'-',''), -- 발송번호
+			#{st_sms_contents}, -- 내용
+			'00000000000000', -- 즉시발송 코드
+			'0', -- 결과(0 : 대기, 1 : SELECT, Y : 성공, N: 실패)
+			#{st_kind}, -- 메시지종류(S : SMS, M : MMS, I : 국제SMS, L : 국제MMS, T : 알림톡)
+			'DMSMS',
+			#{st_user_id} -- 보내는 user_id(운영사 id)
+		)
+		]]>
+	</update>	
+	
+</mapper>

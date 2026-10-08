@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mpif">
+
+	<!-- 조회 -->
+	<select id="selectMasterMpIfProgressStateMainList" parameterType="java.util.Map" resultType="java.util.Map">
+	/*selectMasterMpIfProgressStateMainList*/
+		<include refid="common.ibsheet.xml.pagestart"/>	
+		<![CDATA[
+			SELECT
+			    X.COM_NAME_LOC /* 구매회사명 */
+			  , X.IF_STATUS /* 상태 */
+			  , X.DEPT /* 담당부서 */
+			  , X.PO_TOTAL /* 발주총건수 */
+			  , X.PO_TODAY_TOT /* 당일건수 */
+			  , X.PO_TODAY_NO /* 당일미확인건수 */
+			  , X.PO_AGO_TOT /* 이전건수 */
+			  , X.PO_AGO_NO /* 이전미확인건수 */
+			  , X.RE /* 소싱건수 */
+			  , X.IV /* 납품서건수 */
+			  , X.GR /* 입고건수 */
+			  , X.ETC /* 기타건수 */
+			  , X.ERR_DATE /* 최초오류발생일 */
+			  , X.ADD_DATE /* 최종작업일시 ** 데몬 체크일시 */
+			  , X.PUR_REMARK || ' / ' || X.CMP_REMARK AS REMARK
+			  , X.PUR_REMARK /* 구매팀정보 */
+			  , X.CMP_REMARK /* 전산팀정보 */
+			  , X.COM_CODE /* 회원사코드 */
+			FROM
+			(
+			    SELECT /*+USE_NL(MNG PROG) INDEX(MNG SYS_C0010008) INDEX(ADMIN SYS_C009831) INDEX(INFO SYS_C009833)*/ 
+			    	DISTINCT 
+			        CMPY.COM_NAME_LOC               AS COM_NAME_LOC
+			      , DECODE(ADMIN.OK_FLAG
+			             , 'Y', DECODE(TO_CHAR(SYSDATE, 'YYYYMMDD')
+			                         , ADMIN.ADD_DATE, '0'
+			                         , '2')
+			             , DECODE(TO_CHAR(SYSDATE, 'YYYYMMDD')
+			                    , ADMIN.ADD_DATE, '0'
+			                    , '1')
+			        ) AS IF_STATUS
+			      , DEPT.TEXT1                      AS DEPT
+			      , NVL(PROG.PO_TOTAL, 0)           AS PO_TOTAL
+			      , NVL(PROG.PO_TODAY_TOT, 0)       AS PO_TODAY_TOT
+			      , NVL(PROG.PO_TODAY_NO, 0)        AS PO_TODAY_NO
+			      , NVL(PROG.PO_AGO_TOT, 0)         AS PO_AGO_TOT
+			      , NVL(PROG.PO_AGO_NO, 0)          AS PO_AGO_NO
+			      , NVL(PROG.RE, 0)                 AS RE
+			      , NVL(PROG.IV, 0)                 AS IV
+			      , NVL(PROG.GR, 0)                 AS GR
+			      , NVL(PROG.ETC, 0)                AS ETC
+			      , PROG.ERR_DATE                   AS ERR_DATE
+			      , ADMIN.ADD_DATE||ADMIN.ADD_TIME  AS ADD_DATE
+			      , INFO.PUR_REMARK                 AS PUR_REMARK
+			      , INFO.CMP_REMARK                 AS CMP_REMARK
+			      , CMPY.COM_CODE                   AS COM_CODE
+			      , ADMIN.BUYER_ID                  AS BUYER_ID
+			    FROM 
+			        MIS_BUYER_MNG MNG /* 고객사별 담당자 정보 */
+			        INNER JOIN ICOMCOD2 DEPT /* 회사별 코드관리 */
+			            ON ( DEPT.COMPANY_CODE = 'KRKORE0001' AND DEPT.TYPE = 'C001' AND DEPT.CODE = MNG.KEP_DEPT )
+			        INNER JOIN ICOMCMPY CMPY /* 회원사정보 */
+			            ON ( CMPY.COM_CODE = MNG.BUYER )
+			        INNER JOIN IF_ADMIN ADMIN /* 구매사별 KeP담당자 */
+			            ON ( ADMIN.BUYER = MNG.BUYER )
+			        LEFT OUTER JOIN IF_BUYERINFO INFO /* 구매사 관리 정보 */
+			            ON ( INFO.BUYER_ID = ADMIN.BUYER_ID )
+			        LEFT OUTER JOIN
+			        (
+			            SELECT /*+INDEX(IF_PROGRESS IF_PROGRESS_02)*/
+			                BUYER
+			              , SUM(DECODE(GUBUN,'PO',1,0)) AS PO_TOTAL
+			              , SUM(DECODE(GUBUN,'PO',DECODE(CHANGE_DATE,TO_CHAR(SYSDATE,'YYYYMMDD'),DECODE(IF_FLAG,'A',1,'N',1,'E','1',0),0),0)) AS PO_TODAY_TOT
+			              , SUM(DECODE(GUBUN,'PO',DECODE(CHANGE_DATE,TO_CHAR(SYSDATE,'YYYYMMDD'),DECODE(IF_FLAG,'A',1,'E','1',0),0),0)) AS PO_TODAY_NO
+			              , SUM(DECODE(GUBUN,'PO',DECODE(CHANGE_DATE,TO_CHAR(SYSDATE,'YYYYMMDD'),0,DECODE(IF_FLAG,'A',1,'N',1,'E','1',0)),0)) AS PO_AGO_TOT
+			              , SUM(DECODE(GUBUN,'PO',DECODE(CHANGE_DATE,TO_CHAR(SYSDATE,'YYYYMMDD'),0,DECODE(IF_FLAG,'A',1,'E','1',0)),0)) AS PO_AGO_NO
+			              , SUM(DECODE(GUBUN,'RE',1,0)) AS RE
+			              , SUM(DECODE(GUBUN,'IV',1,0)) AS IV
+			              , SUM(DECODE(GUBUN,'GR',1,0)) AS GR
+			              , SUM(DECODE(GUBUN,'XX',1,0)) AS ETC
+			              , MIN(CHANGE_DATE||CHANGE_TIME) AS ERR_DATE
+			            FROM 
+			                IF_PROGRESS /* 오류 현황 메인 */
+			            WHERE 1=1
+			            AND IF_FLAG IN ('A','N','C','T','E')
+		]]>
+		<if test="buyer_code_array != null and buyer_code_array != '' ">
+			            AND BUYER IN
+			<foreach item="item" index="index" collection="buyer_code_array" open="(" separator="," close=")">
+			                 #{item}
+			</foreach>
+		</if>
+		<![CDATA[
+			            GROUP BY
+			                BUYER
+			        ) PROG 
+			            ON ( PROG.BUYER = MNG.BUYER )
+			    WHERE 1 = 1
+			    AND MNG.YEAR   = TO_CHAR(SYSDATE,'YYYY')
+			    AND MNG.STATUS = 'C'
+			   -- AND MNG.PRIORITY = 'Y'
+		]]>
+		<if test="buyer_code_array != null and buyer_code_array != '' ">
+			    AND MNG.BUYER IN
+			<foreach item="item" index="index" collection="buyer_code_array" open="(" separator="," close=")">
+					#{item}
+			</foreach>
+		</if>
+		<if test="st_user_dept != null and st_user_dept != '' ">
+			    AND MNG.KEP_DEPT = #{st_user_dept}
+		</if>
+		<if test='st_user_check_value == "N" '>
+			    AND MNG.KEP_USER_ID = #{st_user_id}
+		</if>
+		<![CDATA[
+			    ORDER BY 
+			        CMPY.COM_NAME_LOC
+			) X
+			WHERE 
+			    PO_TOTAL IS NOT NULL
+			OR  RE IS NOT NULL
+			OR  IV IS NOT NULL
+			OR  GR IS NOT NULL
+			OR  ETC IS NOT NULL
+			OR  LENGTHB(BUYER_ID) = 4
+		]]>
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+
+</mapper>   
+   

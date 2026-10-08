@@ -1,0 +1,326 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mdct">
+	<!-- 조회 -->
+	<select id="selectMasterMdctBuyerReportManageList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.pagestart"/>	
+			<![CDATA[
+				/* selectMasterMdctBuyerReportManageList */
+				SELECT 
+				 A.REPORT_NO
+				 , A.GROUP_CODE
+				 , A.GROUP_NAME
+				 , 1 AS PRINT_IMG
+				 , A.CLOSE_MONTH
+				 , TO_CHAR(ADD_MONTHS(TO_DATE(A.CLOSE_MONTH, 'YYYYMM'), -1), 'YYYYMM') AS CLOSE_MONTH_M1
+				 , TO_CHAR(ADD_MONTHS(TO_DATE(A.CLOSE_MONTH, 'YYYYMM'), -12), 'YYYYMM') AS CLOSE_MONTH_M12
+				 , A.STATUS
+				 , A.TR_YN
+				 , A.TR_TYPE
+				 , A.TR_STATUS
+				 , A.TRDT_YN
+				 , A.TRDT_TYPE
+				 , A.TRDT_STATUS
+				 , A.CONTRACT_YN
+				 , A.CONTRACT_TYPE
+				 , A.CONTRACT_STATUS
+				 , A.RD_YN
+				 , A.RD_TYPE
+				 , A.RD_STATUS
+				 , A.BUYER_CA_RD_YN
+				 , A.BUYER_CA_RD_TYPE
+				 , A.BUYER_CA_RD_STATUS
+				 , A.PD_YN
+				 , A.PD_TYPE
+				 , A.PD_STATUS
+				 , A.BUYER_CA_PD_YN
+				 , A.BUYER_CA_PD_TYPE
+				 , A.BUYER_CA_PD_STATUS
+				 , A.DE_CD_YN
+				 , A.DE_CD_TYPE
+				 , A.DE_CD_STATUS
+				 , A.DE_WD_YN
+				 , A.DE_WD_TYPE
+				 , A.DE_WD_STATUS
+				 , A.RE_CD_YN
+				 , A.RE_CD_TYPE
+				 , A.RE_CD_STATUS
+				 , A.RE_WD_YN
+				 , A.RE_WD_TYPE
+				 , A.RE_WD_STATUS
+				 , A.EVALUATION_YN
+				 , A.EVALUATION_STATUS
+				 , A.BUYER_INFO
+				 , A.PRINT_DATE
+				 , A.ADD_DATE
+				 , A.ADD_USER_ID
+				 , A.CHANGE_DATE
+				 , A.CHANGE_USER_ID
+				 , A.CANCEL_NOTE
+				 , (SELECT
+					 COUNT(B.COM_CODE)
+					FROM ICOMCOD2 A, ICOMCMPY B
+					WHERE A.COMPANY_CODE = 'KRKORE0001'
+					AND A.TYPE ='RPMP'
+					AND A.CODE = B.COM_CODE
+					AND B.STATUS != 'D'
+					AND A.TEXT1 = A.GROUP_CODE
+					AND A.FLAG = 'Y') AS GROUP_CODE_CNT
+				FROM KEP.KEP_REPORT_DT A
+				WHERE A.CLOSE_MONTH BETWEEN #{st_from_date} AND #{st_to_date}	
+				AND A.STATUS != 'D'			
+				AND A.GROUP_CODE IN (SELECT COD.TEXT1 FROM ICOMCOD2 COD
+										WHERE COD.TYPE ='RPMP'
+										AND COD.FLAG = 'Y'
+										AND COD.CODE IN (SELECT COD.CODE
+							                 FROM ICOMCOD3 COD3
+							                 WHERE COD3.BUYER = 'KRKORE0001'
+							                 AND   COD3.TYPE = 'CMPY'
+							                 AND   COD3.CODE1= 'ALL'
+							                 AND   COD3.CODE2 = #{st_user_id}
+							                 UNION ALL
+							                 SELECT MNG.BUYER
+							                 FROM  ICOMCOD3 COD3, MIS_BUYER_MNG MNG
+							                 WHERE COD3.BUYER = 'KRKORE0001'
+							                 AND   COD3.TYPE = 'CMPY'
+							                 AND   COD3.CODE1= MNG.KEP_DEPT
+							                 AND   COD3.CODE2 = #{st_user_id}
+							                 AND   MNG.YEAR = TO_CHAR(SYSDATE,'YYYY')	
+							                 AND   MNG.STATUS = 'C'
+							                 UNION ALL
+							                 SELECT BUYER
+							                 FROM  MIS_BUYER_MNG
+							                 WHERE YEAR = TO_CHAR(SYSDATE,'YYYY')
+							                 AND   STATUS = 'C'
+							                 AND   KEP_USER_ID = #{st_user_id}
+							                 UNION ALL
+							                 SELECT COD.CODE1
+											FROM ICOMCOD3 COD , ICOMCMPY CMPY
+											WHERE  COD.BUYER = 'KRKORE0001'
+											AND COD.TYPE = 'CMPY'
+											AND COD.CODE1 = CMPY.COM_CODE
+											AND COD.CODE2 = #{st_user_id}
+											AND TO_CHAR(SYSDATE,'YYYYMMDD') BETWEEN TEXT2 AND TEXT3
+										)
+									)
+			]]>
+			<if test="st_group_code != null and st_group_code != ''">
+				AND A.GROUP_CODE LIKE '%'||#{st_group_code}||'%'
+			</if>
+			<if test="st_group_nm != null and st_group_nm != ''">
+				AND A.GROUP_NAME LIKE '%'||#{st_group_nm}||'%'
+			</if>
+			<if test="st_contract_status != null and st_contract_status != ''">
+				AND A.STATUS = #{st_contract_status}
+			</if>
+			<![CDATA[
+				ORDER BY A.GROUP_CODE, A.CLOSE_MONTH
+			]]>
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+	<!-- 삭제 -->
+	<update id="deleteMasterMdctBuyerReportReportDt"  parameterType="java.util.Map">
+		<![CDATA[
+				/*deleteMasterMdctBuyerReportReportDt*/
+				UPDATE KEP_REPORT_DT					
+				   SET STATUS      = 'D' 	
+				     , CHANGE_DATE = SYSDATE
+				     , CHANGE_USER_ID = #{st_user_id}	
+				     , CANCEL_NOTE = '재생성으로 인한 기존 데이터 삭제'
+				 WHERE REPORT_NO = #{REPORT_NO}
+		]]>
+	</update>
+	<!-- 생성 -->
+	<update id="insertMasterMdctBuyerReportReportDt"  parameterType="java.util.Map">
+		<![CDATA[
+				/*insertMasterMdctBuyerReportReportDt*/
+			    INSERT INTO KEP_REPORT_DT
+			    (REPORT_NO
+			    , GROUP_CODE
+			    , GROUP_NAME
+			    , CLOSE_MONTH
+			    , STATUS
+			    , TR_YN
+			    , TR_TYPE
+			    , TR_STATUS
+			    , TRDT_YN
+			    , TRDT_TYPE
+			    , TRDT_STATUS
+			    , CONTRACT_YN
+			    , CONTRACT_TYPE
+			    , CONTRACT_STATUS
+			    , RD_YN
+			    , RD_TYPE
+			    , RD_STATUS
+			    , BUYER_CA_RD_YN
+			    , BUYER_CA_RD_TYPE
+			    , BUYER_CA_RD_STATUS
+			    , PD_YN
+			    , PD_TYPE
+			    , PD_STATUS
+			    , BUYER_CA_PD_YN
+			    , BUYER_CA_PD_TYPE
+			    , BUYER_CA_PD_STATUS
+			    , DE_CD_YN
+			    , DE_CD_TYPE
+			    , DE_CD_STATUS
+			    , DE_WD_YN
+			    , DE_WD_TYPE
+			    , DE_WD_STATUS
+			    , RE_CD_YN
+			    , RE_CD_TYPE
+			    , RE_CD_STATUS
+			    , RE_WD_YN
+			    , RE_WD_TYPE
+			    , RE_WD_STATUS
+			    , EVALUATION_YN
+			    , EVALUATION_STATUS
+			    , BUYER_INFO
+			    , ADD_DATE
+			    , ADD_USER_ID
+			    , CHANGE_DATE
+			    , CHANGE_USER_ID
+			    )
+			     
+				SELECT 
+				 #{REPORT_NO}
+				 , A.GROUP_CODE
+				 , A.GROUP_NAME
+				 , #{CLOSE_MONTH}
+				 , 'R'
+				 , A.TR_YN
+				 , DECODE(A.TR_YN, 'Y', A.TR_TYPE, 'X') AS TR_TYPE
+				 , DECODE(A.TR_YN, 'N', 'X',DECODE( A.TR_TYPE, 'A','Y','M','N','X')) AS TR_STATUS
+				 , A.TRDT_YN
+				 , DECODE(A.TRDT_YN, 'Y', A.TRDT_TYPE, 'X') AS TRDT_TYPE
+				 , DECODE(A.TRDT_YN, 'N', 'X',DECODE(A.TRDT_TYPE, 'A','Y','M','N','X')) AS TRDT_STATUS
+				 , A.NEW_CONTRACT_YN
+				 , DECODE(A.NEW_CONTRACT_YN, 'Y', A.NEW_CONTRACT_TYPE, 'X') AS CONTRACT_TYPE
+				 , DECODE(A.NEW_CONTRACT_YN, 'N', 'X',DECODE(A.NEW_CONTRACT_TYPE, 'A','Y','M','N','X')) AS CONTRACT_STATUS
+				 , A.RD_YN
+				 , DECODE(A.RD_YN, 'Y', A.RD_TYPE, 'X') AS RD_TYPE
+				 , DECODE(A.RD_YN, 'N', 'X',DECODE(A.RD_TYPE, 'A','Y','M','N','X')) AS RD_STATUS
+				 , A.BUYER_CA_RD_YN
+				 , DECODE(A.BUYER_CA_RD_YN, 'Y', A.BUYER_CA_RD_TYPE, 'X') AS BUYER_CA_RD_TYPE
+				 , DECODE(A.BUYER_CA_RD_YN, 'N', 'X',DECODE(A.BUYER_CA_RD_TYPE, 'A','Y','M','N','X')) AS BUYER_CA_RD_STATUS
+				 , A.PD_YN
+				 , DECODE(A.PD_YN, 'Y', A.PD_TYPE, 'X') AS PD_TYPE
+				 , DECODE(A.PD_YN, 'N', 'X',DECODE(A.PD_TYPE, 'A','Y','M','N','X')) AS PD_STATUS
+				 , A.BUYER_CA_PD_YN
+				 , DECODE(A.BUYER_CA_PD_YN, 'Y', A.BUYER_CA_PD_TYPE, 'X') AS BUYER_CA_PD_TYPE
+				 , DECODE(A.BUYER_CA_PD_YN, 'N', 'X',DECODE(A.BUYER_CA_PD_TYPE, 'A','Y','M','N','X')) AS BUYER_CA_PD_STATUS
+				 , A.DE_CD_YN
+				 , DECODE(A.DE_CD_YN, 'Y', A.DE_CD_TYPE, 'X') AS DE_CD_TYPE
+				 , DECODE(A.DE_CD_YN, 'N', 'X',DECODE(A.DE_CD_TYPE, 'A','Y','M','N','X')) AS DE_CD_STATUS
+				 , A.DE_WD_YN
+				 , DECODE(A.DE_WD_YN, 'Y', A.DE_WD_TYPE, 'X') AS DE_WD_TYPE
+				 , DECODE(A.DE_WD_YN, 'N', 'X',DECODE(A.DE_WD_TYPE, 'A','Y','M','N','X')) AS DE_WD_STATUS
+				 , A.RE_CD_YN
+				 , DECODE(A.RE_CD_YN, 'Y', A.RE_CD_TYPE, 'X') AS RE_CD_TYPE
+				 , DECODE(A.RE_CD_YN, 'N', 'X',DECODE(A.RE_CD_TYPE, 'A','Y','M','N','X')) AS RE_CD_STATUS
+				 , A.RE_WD_YN
+				 , DECODE(A.RE_WD_YN, 'Y', A.RE_WD_TYPE, 'X') AS RE_WD_TYPE
+				 , DECODE(A.RE_WD_YN, 'N', 'X',DECODE(A.RE_WD_TYPE, 'A','Y','M','N','X')) AS RE_WD_STATUS
+				 , A.EVALUATION_YN
+				 , DECODE(A.EVALUATION_YN, 'Y','N', 'X') AS EVALUATION_STATUS
+				 , KEP.GET_BUYER_KEP_REPORT(A.GROUP_CODE) AS BUYER_INFO
+				 , SYSDATE AS ADD_DATE
+				 , #{st_user_id} AS ADD_USER_ID
+				 , SYSDATE AS CHANGE_DATE
+				 , #{st_user_id} AS CHANGE_USER_ID
+				FROM KEP_REPORT A
+				WHERE GROUP_CODE = #{GROUP_CODE}
+		]]>
+	</update>
+	<update  id="insertMasterMdctBuyerReportKepmgpDt" parameterType="java.util.Map" >
+		<![CDATA[
+		/*insertMasterMdctBuyerReportKepmgpDt*/
+     	INSERT INTO KEPMGPDT (  
+                                 BUYER
+                                 , PM_NO
+                                 , PM_SEQ
+                                 , STATUS
+                                 , REG_DATE          
+                                 , CHANGE_DATE       
+                                 , REG_USER_ID       
+                                 , PO_NO
+                               	) VALUES
+                               	(
+							  		'KRKORE0001'
+                                 , #{PM_NO}
+								 , TO_CHAR(#{PM_SEQ},'FM000000')
+								 , 'C'
+								 , SYSDATE
+								 , SYSDATE
+								 , #{st_user_id}
+								 , #{REPORT_NO}
+								)
+  		]]>
+	</update>
+	<update  id="insertMasterMdctBuyerReportKepmgpHd" parameterType="java.util.Map" >
+		<![CDATA[
+		/*insertMasterMdctBuyerReportKepmgpHd*/
+          INSERT INTO KEPMGPHD (  
+                                 BUYER,              
+                                 PM_NO,              
+                                 STATUS,             
+                                 REG_DATE,           
+                                 CHANGE_DATE,        
+                                 REFER_DATE,         
+                                 CONFIRM_DATE,       
+                                 REG_USER_ID,        
+                                 REG_USER_DEPT,      
+                                 CONFIRM_USER_ID,    
+                                 CONFIRM_USER_DEPT,  
+                                 GUBUN,              
+                                 CA_FLAG,            
+                                 SUBJECT,            
+                                 REMARK,             
+                                 CON_REMARK,         
+                                 CONFIRM_CODE,       
+                                 BUYER_SUBJECT,      
+                                 BUYER_REMARK        
+                               ) VALUES (  
+                                          'KRKORE0001',			-- BUYER
+                                          #{PM_NO},				-- PM_NO
+                                          'C',					-- STATUS
+                                          SYSDATE,				-- REG_DATE
+                                          SYSDATE,				-- CHANGE_DATE
+                                          '',					-- REFER_DATE
+                                          '',					-- CONFIRM_DATE
+                                          #{st_user_id},		-- REG_USER_ID
+                                          #{st_user_dept},		-- REG_USER_DEPT
+                                          '',					-- CONFIRM_USER_ID
+                                          '',					-- CONFIRM_USER_DEPT
+                                          'RPT',				-- GUBUN
+                                          'N',					-- CA_FLAG 카탈로그 변경
+                                          '리포트 자동화 결재저장',	-- SUBJECT 고객사결재테이블로 통합으로 인하여 사용안함
+                                          '리포트 자동화 결재저장',	-- REMARK 고객사결재테이블로 통합으로 인하여 사용안함
+                                          '',					-- CON_REMARK
+                                          '',					-- CONFIRM_CODE
+		                                  '리포트 자동화 결재저장',	-- BUYER_SUBJECT 고객사결재테이블로 통합으로 인하여 사용안함
+		                                  '리포트 자동화 결재저장'	-- BUYER_REMARK 고객사결재테이블로 통합으로 인하여 사용안함
+                                        )
+  		]]>
+	</update>
+	
+	<select id="selectMasterMdCtBuyerReportProcCheck" parameterType="java.util.Map" resultType="String">
+		<![CDATA[
+			/* selectMasterMdCtBuyerReportProcCheck */
+			SELECT	COUNT(GROUP_CODE) AS CNT
+			FROM	KEP.KEP_REPORT_DT
+			WHERE	1=1
+			AND		GROUP_CODE = #{GROUP_CODE}
+			AND		CLOSE_MONTH = TO_CHAR(ADD_MONTHS(SYSDATE,-1),'YYYYMM')
+			AND		STATUS = 'C'
+		]]>
+	</select>
+	
+	<update  id="PKG_REPORT_STATISTICS_CREATE_RG" parameterType="java.util.Map" >
+		<![CDATA[
+			 /* PKG_REPORT_STATISTICS_CREATE_RG */
+			 call KEP.PKG_REPORT_STATISTICS_CREATE_RG.REPORT_STATISTICS_JOB(#{GROUP_CODE})
+		]]>
+	</update>
+</mapper>   
+   

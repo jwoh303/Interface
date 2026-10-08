@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="common.mpso">
+	<select id="selectBuyerMpSoChangeAccountPopList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/* selectBuyerMpSoChangeAccountPopList */
+			SELECT	A.BUYER,
+					A.CODE1 AS REQ_DEPT,
+					(SELECT TEXT1 FROM ICOMCOD2 WHERE TYPE = 'C001' AND COMPANY_CODE = A.BUYER AND CODE = A.CODE1) AS REQ_DEPT_NAME,
+					B.CODE1 AS BUDGET_DEPT,
+					(SELECT TEXT1 FROM ICOMCOD2 WHERE TYPE = 'C001' AND COMPANY_CODE = A.BUYER AND CODE = B.CODE1) AS BUDGET_DEPT_NAME,
+					B.CODE2 AS ACCOUNT_CODE,
+					DECODE(C.FLAG, 'Y', '[선택불가] ', 'N', '[선택가능] ', '') || C.TEXT1 AS ACCOUNT_NAME,
+					NVL(SUM(D.TARGET_QTY * D.TARGET_PRICE), 0) AS TARGET_AMT,
+					C.FLAG AS POSB_FLAG
+			FROM	ICOMCOD3 A, ICOMCOD3 B, ICOMCOD2 C, ICOMPRDT D
+			WHERE	1=1
+			AND		A.TYPE = 'DTOD'
+			AND		A.BUYER = #{st_com_code}
+			AND		A.CODE1 = #{dept_code}
+			AND		A.BUYER = B.BUYER
+			AND		A.CODE2 = B.CODE1
+			AND		B.TYPE = 'DTOA'
+			AND		B.BUYER = C.COMPANY_CODE
+			AND		B.CODE2 = C.CODE
+			AND		((SELECT TEXT1 FROM ICOMCOD2 WHERE TYPE = 'C001' AND COMPANY_CODE = A.BUYER AND CODE = B.CODE1) LIKE '%' || #{st_budget_dept} || '%' OR B.CODE1 LIKE '%' || #{st_budget_dept} || '%')
+			AND		C.TYPE = 'Z014'
+			AND		(C.TEXT1 LIKE '%' || #{st_account} || '%' OR B.CODE2 LIKE '%' || #{st_account} || '%')
+			AND		A.BUYER = D.BUYER(+)
+			AND		A.CODE1 = D.REQ_DEPT(+)
+			AND		B.CODE1 = D.BUDGET_DEPT(+)
+			AND		B.CODE2 = D.ACCOUNT_TYPE(+)
+			AND		D.STATUS(+) <> 'D'
+			AND		D.CHANGE_DATE(+) BETWEEN REPLACE(#{startDate}, '/', '') AND REPLACE(#{endDate}, '/', '')
+			AND		EXISTS (SELECT 'X' FROM ICOMCMPY WHERE COM_CODE = A.BUYER AND STATUS IN ('C','R') AND BUDGET_FLAG = 'Y')
+			GROUP BY A.BUYER, A.CODE1, B.CODE1, B.CODE2, C.TEXT1, C.FLAG
+			ORDER BY A.BUYER, C.FLAG, TARGET_AMT DESC, B.CODE1, B.CODE2
+		]]> 
+	</select>
+	
+	<select id="selectBuyerMpSoChangeAccountPopList_v2" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/* selectBuyerMpSoChangeAccountPopList_v2 */
+			SELECT	A.BUYER,
+					A.CODE1 AS REQ_DEPT,
+					(SELECT TEXT1 FROM ICOMCOD2 WHERE TYPE = 'C001' AND COMPANY_CODE = A.BUYER AND CODE = A.CODE1) AS REQ_DEPT_NAME,
+					B.CODE1 AS BUDGET_DEPT,
+					(SELECT TEXT1 FROM ICOMCOD2 WHERE TYPE = 'C001' AND COMPANY_CODE = A.BUYER AND CODE = B.CODE1) AS BUDGET_DEPT_NAME,
+					B.CODE2 AS ACCOUNT_CODE,
+					C.TEXT1 AS ACCOUNT_NAME,
+					NVL(SUM(D.TARGET_QTY * D.TARGET_PRICE), 0) AS TARGET_AMT,
+					C.FLAG AS POSB_FLAG
+			FROM	ICOMCOD3 A, ICOMCOD3 B, ICOMCOD2 C, ICOMPRDT D
+			WHERE	1=1
+			AND		A.TYPE = 'DTOD'
+			AND		A.BUYER = #{st_com_code}
+			AND		A.CODE1 = #{dept_code}
+			AND		A.BUYER = B.BUYER
+			AND		A.CODE2 = B.CODE1
+			AND		B.TYPE = 'DTOA'
+			AND		B.BUYER = C.COMPANY_CODE
+			AND		B.CODE2 = C.CODE
+			AND		((SELECT TEXT1 FROM ICOMCOD2 WHERE TYPE = 'C001' AND COMPANY_CODE = A.BUYER AND CODE = B.CODE1) LIKE '%' || #{st_budget_dept} || '%' OR B.CODE1 LIKE '%' || #{st_budget_dept} || '%')
+			AND		C.TYPE = 'Z014'
+			AND		(C.TEXT1 LIKE '%' || #{st_account} || '%' OR B.CODE2 LIKE '%' || #{st_account} || '%')
+			AND		A.BUYER = D.BUYER(+)
+			AND		A.CODE1 = D.REQ_DEPT(+)
+			AND		B.CODE1 = D.BUDGET_DEPT(+)
+			AND		B.CODE2 = D.ACCOUNT_TYPE(+)
+			AND		D.STATUS(+) <> 'D'
+			AND		D.CHANGE_DATE(+) BETWEEN REPLACE(#{startDate}, '/', '') AND REPLACE(#{endDate}, '/', '')
+			AND		EXISTS (SELECT 'X' FROM ICOMCMPY WHERE COM_CODE = A.BUYER AND STATUS IN ('C','R') AND BUDGET_FLAG = 'Y')
+			GROUP BY A.BUYER, A.CODE1, B.CODE1, B.CODE2, C.TEXT1, C.FLAG
+			ORDER BY A.BUYER, C.FLAG, TARGET_AMT DESC, B.CODE1, B.CODE2
+		]]> 
+	</select>
+	
+	<update id="saveBuyerMpSoChangeAccountPop" parameterType="java.util.Map">
+		<![CDATA[
+		/* saveBuyerMpSoChangeAccountPop */
+			UPDATE	ICOMPRDT A
+			SET		A.BUDGET_DEPT = #{budget_dept},
+					A.ACCOUNT_TYPE = #{account_type}
+			WHERE	A.BUYER = #{st_com_code}
+			AND		A.PR_NO = #{pr_no}
+			AND		A.PR_SEQ = #{pr_seq}		
+		]]>
+	</update>
+</mapper>

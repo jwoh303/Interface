@@ -15,6 +15,7 @@
 | **[uCUBE](file:///D:/project/if_local/uCUBE)** | EAI / Middleware Engine (JBoss) | uCUBE EAI 엔진 기반 DB/File 어댑터 및 변환 규칙 실행 환경 |
 | **[FileClient](file:///D:/project/if_local/FileClient)** | Java Standalone / File I/F | 구매사/고객사 파일 기반 인터페이스(CNDI PO/GR/IV 등) 송수신 모듈 |
 | **[SoapAxisServer](file:///D:/project/if_local/SoapAxisServer)** | SOAP WebService Provider (Apache Axis) | 외부에서 호출하는 SOAP 웹서비스 제공 서버 모듈 |
+| **[MRO](file:///D:/project/if_local/MRO)** | Spring MVC Web / Security (Maven) | MRO 메인 코어 웹 애플리케이션 모듈 (`D:\project\MRO_PJT\workspace\MRO_PJT\MRO`) |
 
 ---
 
@@ -28,4 +29,6 @@
   - `SFTPClient/bin_sftp/SFTPClient.jar` (414MB)
   - `SFTPClient/lib/aws-java-sdk-1.11.892-javadoc.jar` (221MB)
   - `SFTPClient/lib/aws-java-sdk-1.11.892.jar` (174MB)
+  - `MRO/src/main/webapp/WEB-INF/lib/aws-java-sdk-1.11.893-javadoc.jar` (221MB)
+  - `MRO/src/main/webapp/WEB-INF/lib/aws-java-sdk-1.11.893.jar` (174MB)
   - `*.war`

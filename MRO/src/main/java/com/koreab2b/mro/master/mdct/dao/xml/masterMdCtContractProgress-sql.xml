@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mdct">
+	<!-- 조회 -->
+	<select id="selectMasterMdCtContractProgressList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.pagestart"/>	
+			<![CDATA[
+		    	SELECT
+					A.COMPANY_CODE
+					,A.CONT_STATUS
+					,(SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'C008' AND CODE = A.CONT_STATUS) CONT_STATUS_TEXT
+					,A.FORM_NO
+					,A.COMPANY_TYPE
+					,(SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'C007' AND CODE = A.COMPANY_TYPE) COMPANY_TYPE_TEXT
+					,A.BIZ_TYPE
+					,(SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'C006' AND CODE = A.BIZ_TYPE) BIZ_TYPE_TEXT
+					,(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = A.COMPANY_CODE) COMPANY_NAME
+					,(SELECT IRS_NO FROM ICOMCMPY WHERE COM_CODE = A.COMPANY_CODE) BIZMN_REGST_NO
+					,A.CONT_NO || '-' || A.CONT_COUNT AS CONT_NO
+					,A.CONT_COUNT
+					,A.CONT_NO AS CONT_NO_HID
+					,A.APPR_STATUS
+					,A.CONT_TITLE
+					,B.FORM_NAME
+					,DECODE(LENGTH(A.CONT_DATE), 8, SUBSTR(A.CONT_DATE, 1, 4)||'/'||SUBSTR(A.CONT_DATE, 5, 2)||'/'||SUBSTR(A.CONT_DATE, 7, 2), A.CONT_DATE) CONT_DATE
+					,DECODE(LENGTH(A.START_DATE), 8, SUBSTR(A.START_DATE, 1, 4)||'/'||SUBSTR(A.START_DATE, 5, 2)||'/'||SUBSTR(A.START_DATE, 7, 2), A.START_DATE)START_DATE
+					,DECODE(LENGTH(A.END_DATE), 8, SUBSTR(A.END_DATE, 1, 4)||'/'||SUBSTR(A.END_DATE, 5, 2)||'/'||SUBSTR(A.END_DATE, 7, 2), A.END_DATE)END_DATE
+					,A.COP_DEPT_NAME
+					,(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = A.USER_ID) USER_NAME
+					,C.RJ_REASON
+					,DECODE(LENGTH(C.RJ_DATE), 8, SUBSTR(C.RJ_DATE, 1, 4)||'/'||SUBSTR(C.RJ_DATE, 5, 2)||'/'||SUBSTR(C.RJ_DATE, 7, 2), C.RJ_DATE)RJ_DATE
+					,(SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'C009' AND CODE = C.RJ_TYPE) RJ_TYPE
+					,(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = C.ADD_USER_ID) RJ_USER
+				FROM ICOMECCT A, ICOMECCF B,
+				(
+					SELECT
+						X.RJ_NO
+						,X.CONT_NO
+						,X.CONT_COUNT
+						,X.RJ_REASON
+						,X.RJ_DATE
+						,X.RJ_TYPE
+						,X.ADD_USER_ID
+					FROM (SELECT MAX(RJ_NO) RJ_NO FROM ICOMECRJ GROUP BY CONT_NO, CONT_COUNT ) Z, ICOMECRJ X
+					WHERE Z.RJ_NO = X.RJ_NO
+				) C
+				WHERE A.FORM_NO = B.FORM_NO
+				AND A.CONT_NO = C.CONT_NO(+)
+				AND A.CONT_COUNT = C.CONT_COUNT(+)
+			]]>
+			<if test="st_cont_title != null and st_cont_title != ''">
+				AND A.CONT_TITLE LIKE '%'|| #{st_cont_title} || '%'	
+			</if>
+			<if test="st_from_date != null and st_from_date != ''">
+				<![CDATA[
+				AND A.START_DATE >= #{st_from_date}
+				]]>
+			</if>
+			<if test="st_to_date != null and st_to_date != ''">
+				<![CDATA[
+				AND A.END_DATE <= #{st_to_date}
+				]]>
+			</if>
+			<if test="st_biz_type != null and st_biz_type != ''">
+				AND A.BIZ_TYPE = #{st_biz_type}
+			</if>
+			<if test="st_company_type != null and st_company_type != ''">
+				AND A.COMPANY_TYPE = #{st_company_type}
+			</if>
+			<if test="st_cont_status != null and st_cont_status != ''">
+				AND A.CONT_STATUS = #{st_cont_status}
+			</if>
+			<if test="st_buyer_code != null and st_buyer_code != ''">
+				AND A.COMPANY_CODE = #{st_buyer_code}
+			</if>
+			<if test="st_user_dept_name != null and st_user_dept_name != ''">
+				AND A.COP_DEPT_NAME = #{st_user_dept_name}
+			</if>
+			<if test="st_kep_user_id != null and st_kep_user_id != ''">
+				AND A.USER_ID = #{st_kep_user_id}
+			</if>
+			ORDER BY A.CONT_NO DESC, A.CONT_COUNT DESC, C.RJ_NO ASC		        
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+	
+	<select id="selectMasterMdCtContractProgressDeptList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/* selectMasterMdCtContractProgressDeptList */
+			SELECT
+				B.CODE,
+				MAX(B.TEXT1) TEXT1
+			FROM  ICOMCOD2 B
+			WHERE B.COMPANY_CODE ='KRKORE0001'
+			AND B.CODE IN ('042','043','008','009','017','048')
+			AND B.TYPE ='C001'
+			GROUP BY B.CODE
+			ORDER BY CODE
+		]]>
+	</select>
+	
+	<select id="selectMasterMdCtContractProgressKepUserList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			SELECT
+				L.USER_ID AS CODE
+				,L.USER_NAME_LOC AS TEXT1
+			FROM ICOMLUSR L
+			WHERE L.COM_CODE = 'KRKORE0001'
+			AND L.STATUS IN ('C','R')
+			AND (L.OFFICE_YN IS NULL OR L.OFFICE_YN <> 'Y' )
+		]]>	
+		<if test=' SEARCH1 != null and SEARCH1 != "" ' >
+			AND L.DEPARTMENT = #{SEARCH1}
+		</if>
+		ORDER BY L.USER_NAME_LOC
+	</select>	
+
+	<!-- 협력사전송 -->
+	<update id="updateMasterMdCtContractProgress"  parameterType="java.util.Map">
+		<![CDATA[
+			UPDATE ICOMECCT
+			SET
+				CONT_STATUS			= 'CS1'
+				,CHANGE_DATE			= TO_CHAR(SYSDATE,'YYYYMMDD')
+				,CHANGE_TIME			= TO_CHAR(SYSDATE,'HH24MISS')
+				,CHANGE_USER_ID		= #{st_user_id}
+			WHERE CONT_NO		= #{CONT_NO_HID}
+			AND CONT_COUNT		= #{CONT_COUNT}
+			AND CONT_STATUS	= 'TMP'
+		]]>
+	</update>
+	
+	<!-- 삭제 -->
+	<update id="deleteMasterMdCtContractProgress"  parameterType="java.util.Map">
+		<![CDATA[
+			DELETE
+			FROM ICOMECCT
+			WHERE CONT_NO = #{CONT_NO_HID}
+			AND CONT_COUNT = #{CONT_COUNT}
+			AND CONT_STATUS = 'TMP'
+		]]>
+	</update>
+
+</mapper>   
+   

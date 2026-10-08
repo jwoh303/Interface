@@ -1,0 +1,215 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mprq">
+	<select id="selectMasterMpRqBulkQuotationProject" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/*selectMasterMpRqBulkQuotationProject*/
+			SELECT 	PROJECT_NAME,
+					BURQ_NO,
+					KEP_DEPT,
+					(SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'BURQ02' AND CODE = PROJECT_STATUS) AS PROJECT_STATUS_NAME,
+					PROJECT_TYPE,
+					PROJECT_UNIT,
+					PROJECT_MNG_USER,
+					BURQ_INPUT_IMAGE_KEY,
+					BURQ_OUTPUT_IMAGE_KEY,
+					SG_START_SCHD_DATE, 
+					TO_CHAR(SG_START_DATE, 'YYYY/MM/DD') AS SG_START_DATE,
+					RFQ_START_SCHD_DATE,
+					TO_CHAR(RFQ_START_DATE, 'YYYY/MM/DD') AS RFQ_START_DATE,
+					RFQ_END_SCHD_DATE,
+					TO_CHAR(RFQ_END_DATE, 'YYYY/MM/DD') AS RFQ_END_DATE,
+					RFQ_MERGE_SCHD_DATE,
+					TO_CHAR(RFQ_MERGE_DATE, 'YYYY/MM/DD') AS RFQ_MERGE_DATE,
+					RFQ_SUBMIT_SCHD_DATE,
+					TO_CHAR(RFQ_SUBMIT_DATE, 'YYYY/MM/DD') AS RFQ_SUBMIT_DATE,
+					RFQ_APPROVAL_SCHD_DATE,
+					TO_CHAR(RFQ_APPROVAL_DATE, 'YYYY/MM/DD') AS RFQ_APPROVAL_DATE,
+					DECODE((SELECT COUNT(*) FROM KEP_BURQ_ITEM A WHERE BURQ_NO = A.BURQ_NO),0,'Y','N') AS UNIT_YN,
+					PROJECT_STATUS,
+					TO_CHAR((SELECT COUNT(*) FROM KEP_BURQ_ITEM WHERE BURQ_NO = #{st_burq_no})) AS ITEM_CNT		
+			FROM KEP_BURQ_MNG
+			WHERE BURQ_NO = #{st_burq_no}			
+		]]>
+	</select>
+	
+	<select id="selectMasterMpRqBulkQuotationDetailSheetPop1" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/*selectMasterMpRqBulkQuotationDetailSheetPop1*/
+			SELECT	'C' AS STATUS,
+					A.BUYER,
+					NVL((SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = A.BUYER),(SELECT COMORG_NAME FROM BYCAORGL WHERE COMORG_CODE = A.BUYER)) AS BUYER_NAME,
+					TEXT1 AS PROCESS_TYPE,
+					TEXT2 AS PARCEL_YN,
+					TEXT3 AS WAREHOUSE
+			FROM (
+				SELECT COMPANY_CODE AS BUYER, TEXT1, TEXT2, TEXT3
+				FROM ICOMCOD2 COD2
+				WHERE TYPE = 'BURQ'
+				AND FLAG = 'Y'
+				AND CODE = #{st_burq_no}
+			) A
+		]]>
+	</select>
+	
+	<select id="selectMasterMpRqBulkQuotationDetailSheetPop2" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/*selectMasterMpRqBulkQuotationDetailSheetPop2*/
+			SELECT	SG_ID,
+					(SELECT SG_NAME FROM KEPSGMG B WHERE A.SG_ID = B.SG_ID) AS SG_NAME,
+					(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = SM_USER_ID) AS SM_USER_NAME,
+					COUNT(*) AS TOT_CNT,  -- 대상건수
+					SUM(REQ_CNT) AS REQ_CNT, -- 요청건수
+					SUM(RES_CNT) AS RES_CNT, -- 회신건수
+					SUM(AMT)  AS AMT -- 기준 금액 
+			FROM (
+				SELECT	NVL(SG_ID, ' ') AS SG_ID,
+						NVL(SM_USER_ID, ' ') AS SM_USER_ID,
+						(SELECT COUNT(*) FROM KEP_BURQ_RFQ RFQ WHERE RFQ.BURQ_NO = ITEM.BURQ_NO AND RFQ.ITEM_KEY_ID = ITEM.ITEM_KEY_ID AND ATOS_DATE IS NOT NULL)  AS REQ_CNT, -- 각 품목별 요청건수
+						(SELECT COUNT(*) FROM KEP_BURQ_RFQ RFQ WHERE RFQ.BURQ_NO = ITEM.BURQ_NO AND RFQ.ITEM_KEY_ID = ITEM.ITEM_KEY_ID AND CH_LIST_PRICE IS NOT NULL) AS RES_CNT, -- 각 품목별 회신건수
+						RE_LIST_PRICE * NVL(ITEM_QTY,1)  AS AMT
+				FROM KEP_BURQ_ITEM  ITEM
+				WHERE BURQ_NO = #{st_burq_no}   
+				 ) A
+			GROUP BY SG_ID, SM_USER_ID
+		]]>
+	</select>
+	
+	<select id="selectMasterMpRqBulkQuotationDetailSheetPopNotice" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+			/*selectMasterMpRqBulkQuotationDetailSheetPopNotice*/
+			SELECT 	TO_CHAR(ADD_DATE,'YYYY/MM/DD') AS ADD_DATE,
+					NOTICE_TYPE,
+					NOTICE_REMARK,
+					SEQ,
+					'C' AS NOTICE_STATUS
+			FROM KEP_BURQ_NOTC
+			WHERE	BURQ_NO = #{st_burq_no}
+			AND 	NOTICE_TYPE = #{st_notice_type}
+			AND		NOTICE_STATUS <> 'D'	
+			ORDER BY SEQ
+		]]>
+	</select>	
+	
+	<!--벌크소싱 프로젝트 수정 -->
+	<update id="updateBulkQuotationProject" parameterType="java.util.Map" >
+		<![CDATA[
+			/*updateBulkQuotationProject*/
+			UPDATE KEP_BURQ_MNG
+			SET PROJECT_NAME = #{st_project_name},
+				PROJECT_MNG_USER = #{st_project_mng_user},
+				PROJECT_UNIT = #{st_project_unit},
+				KEP_DEPT = #{st_kep_dept},
+				SG_START_SCHD_DATE = #{st_sg_start_schd_date},
+				RFQ_START_SCHD_DATE = #{st_rfq_start_schd_date},
+				RFQ_END_SCHD_DATE = #{st_rfq_end_schd_date},
+				RFQ_MERGE_SCHD_DATE = #{st_rfq_merge_schd_date},
+				RFQ_SUBMIT_SCHD_DATE = #{st_rfq_submit_schd_date},
+				RFQ_APPROVAL_SCHD_DATE = #{st_rfq_approval_schd_date},
+				BURQ_INPUT_IMAGE_KEY = #{st_image_key},
+				BURQ_OUTPUT_IMAGE_KEY = #{st_image_key2},
+				PROJECT_END_DATE = #{st_rfq_approval_schd_date},
+				CHANGE_DATE = SYSDATE,
+				CHANGE_USER_ID = #{USER_ID}			
+			WHERE BURQ_NO = #{st_burq_no}
+		]]>
+	</update>
+	
+	<select id="selectBurqMaxSeq" parameterType="java.util.Map" resultType="String">
+			/*selectBurqMaxSeq*/
+			SELECT NVL(MAX(SEQ),0)+1  FROM KEP_BURQ_NOTC
+			WHERE BURQ_NO = #{st_burq_no}
+			AND NOTICE_TYPE = #{NOTICE_TYPE}
+	</select>
+	
+	<!--벌크소싱 프로젝트 조회 및 수정 - 유의사항 신규 저장 -->
+	<update id="updateBulkQuotationtNotice_1" parameterType="java.util.Map" >
+		<![CDATA[
+			INSERT INTO KEP_BURQ_NOTC
+				(BURQ_NO,NOTICE_TYPE,SEQ,NOTICE_STATUS,NOTICE_REMARK,ADD_DATE,ADD_USER_ID,CHANGE_DATE,CHANGE_USER_ID)
+				VALUES (
+					#{st_burq_no},
+					#{NOTICE_TYPE},
+					#{st_seq},
+					'C',
+					#{NOTICE_REMARK},
+					SYSDATE,
+					#{USER_ID},
+					SYSDATE,
+					#{USER_ID}
+				)
+		]]>
+	</update>
+	
+	<!--벌크소싱 프로젝트 조회 및 수정 - 유의사항 수정 -->
+	<update id="updateBulkQuotationtNotice_2" parameterType="java.util.Map" >
+		<![CDATA[
+			/*updateBulkQuotationtNotice_2*/
+			UPDATE KEP_BURQ_NOTC
+			SET NOTICE_STATUS = #{NOTICE_STATUS},
+				NOTICE_REMARK = #{NOTICE_REMARK},
+				CHANGE_DATE = SYSDATE,
+				CHANGE_USER_ID = #{USER_ID}
+			WHERE BURQ_NO = #{st_burq_no}
+			AND SEQ = #{SEQ}
+			AND NOTICE_TYPE = #{NOTICE_TYPE}
+		]]>
+	</update>
+	
+	<!--벌크소싱 프로젝트 조회 및 수정 - 고객사 정보 : 삭제-->
+	<update id="deleteBulkQuotationtBuyer" parameterType="java.util.Map" >
+		<![CDATA[
+			/*updateBulkQuotationtBuyer_1*/
+			DELETE ICOMCOD2
+			WHERE TYPE = 'BURQ'
+			AND CODE = #{st_burq_no}
+			AND COMPANY_CODE = #{BUYER}
+		]]>
+	</update>
+
+	<!--벌크소싱 프로젝트 조회 및 수정 - 고객사 정보 : 업로드 내용 저장-->
+	<update id="updateBulkQuotationtBuyer_1" parameterType="java.util.Map" >
+		<![CDATA[
+			/*updateBulkQuotationtBuyer_2*/
+			UPDATE ICOMCOD2
+			SET TEXT1 = #{PROCESS_TYPE},
+				TEXT2 = #{PARCEL_YN},
+				TEXT3 = #{WAREHOUSE}
+			WHERE CODE = #{st_burq_no}
+			AND COMPANY_CODE = #{BUYER}
+		]]>
+	</update>
+	
+		<!--벌크소싱 프로젝트 조회 및 수정 - 고객사 정보 : 견적건들 정보 수정-->
+	<update id="updateBulkQuotationtBuyer_2" parameterType="java.util.Map" >
+		<![CDATA[
+			/*updateBulkQuotationtBuyer_2*/
+			UPDATE KEP_BURQ_RFQ
+			SET SM_PROCESS_TYPE = #{PROCESS_TYPE},
+				SM_PARCEL_YN = #{PARCEL_YN},
+				SM_WAREHOUSE_CODE = #{WAREHOUSE}
+			WHERE BURQ_NO = #{st_burq_no}
+			AND NVL(BUYER,BYIT_COMORG_CODE) = #{BUYER}
+		]]>
+	</update>
+	
+	<!--벌크소싱 프로젝트 조회 및 수정 - 고객사 정보 : 신규저장-->
+	<update id="insertBulkQuotationtBuyer" parameterType="java.util.Map" >
+		<![CDATA[
+			/*insertBulkQuotationtBuyer*/
+			INSERT INTO ICOMCOD2
+			(TYPE,CODE,COMPANY_CODE,TEXT1,TEXT2,TEXT3,FLAG,ADD_DATE)
+			VALUES (
+				'BURQ', 
+				#{st_burq_no},
+				#{BUYER},
+				#{PROCESS_TYPE},
+				#{PARCEL_YN},
+				#{WAREHOUSE},
+				'Y',
+				TO_CHAR(SYSDATE,'YYYYMMDD')
+			)
+		]]>
+	</update>		
+</mapper>   
+   

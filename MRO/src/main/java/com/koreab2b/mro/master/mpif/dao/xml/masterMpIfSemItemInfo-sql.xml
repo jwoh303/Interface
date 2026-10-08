@@ -1,0 +1,271 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mpif">
+
+	<!-- 조회 -->
+	<select id="selectMasterMpIfSemItemInfoList" parameterType="java.util.Map" resultType="java.util.Map">
+	/*master.mpif.selectMasterMpIfSemItemInfoList*/
+		<include refid="common.ibsheet.xml.pagestart"/>
+		SELECT *
+		  FROM (
+
+			SELECT 
+			       CASE
+			         WHEN M.SND_CHK = 'E' THEN 'F'
+			         WHEN M.SND_CHK = 'N' THEN 'N'
+			         WHEN M.SND_CHK = 'Y' OR M.SND_CHK IS NULL THEN
+			           CASE
+			             WHEN MAS.IF_FLAG IS NULL THEN 'F'
+			             WHEN MAS.IF_FLAG != 'S' THEN MAS.IF_FLAG
+			             ELSE 
+			               CASE
+			                 WHEN DTL.IF_FLAG IS NULL THEN 'F'
+			                 WHEN DTL.IF_FLAG != 'S' THEN DTL.IF_FLAG
+			                 ELSE
+			                   CASE
+			                     WHEN PRC.IF_FLAG IS NULL THEN 'F'
+			                     ELSE PRC.IF_FLAG
+			                   END
+			               END
+			           END
+			       END AS P_FLAG,
+			       MAS.IF_FLAG AS MASTER_IF_FLAG, 
+			       DTL.IF_FLAG AS DETAIL_IF_FLAG, 
+			       PRC.IF_FLAG AS PRICE_IF_FLAG,
+			       RTN.IF_FLAG AS RTN_IF_FLAG,
+			       DECODE(MAS.IF_FLAG,'S','0','F','2',NULL,'2','1') AS MASTER_IF_FLAG_IMG,
+			       DECODE(DTL.IF_FLAG,'S','0','F','2',NULL,'2','1') AS DETAIL_IF_FLAG_IMG,
+			       DECODE(PRC.IF_FLAG,'S','0','F','2',NULL,'2','1') AS PRICE_IF_FLAG_IMG,
+			       DECODE(RTN.IF_FLAG,'S','0','F','2',NULL,'2','1') AS RTN_IF_FLAG_IMG,
+			       MAS.CREATE_DATE AS MASTER_CREATE_DATE,
+			       MAS.IF_DATE AS MASTER_IF_DATE, 
+			       MAS.IF_MSG AS MASTER_IF_MSG,
+			       DTL.CREATE_DATE AS DETAIL_CREATE_DATE, 
+			       DTL.IF_DATE AS DETAIL_IF_DATE, 
+			       DTL.IF_MSG AS DETAIL_IF_MSG,
+			       PRC.CREATE_DATE AS PRICE_CREATE_DATE, 
+			       PRC.IF_DATE AS PRICE_IF_DATE, 
+			       PRC.IF_MSG AS PRICE_IF_MSG,
+			       MAS.IMG_URL,
+			       DTL.DLV_AREA_CD,
+			       DTL.COMP_ITEM_ID,
+			       DTL.PROD_PMT_LT,
+			       DTL.MIN_ORD_QUT,
+			       DTL.PK_UNIT_QUT,
+			       PRC.DMS_PC,
+			       PRC.DMS_PC AS UNIT_PRICE,
+			       PRC.PCS_PC,
+			       PRC.EXP_PC,
+			       PRC.EXP_PC_UNIT,
+			       PRC.FEE,
+			       PRC.OVS_COST,
+			       M.*,
+			       MAS.PC_CHRG_NM
+			  FROM (
+			    SELECT 
+			           BYIT.DOC_NO AS REQ_ID,
+			           BYIT.DOC_NO,
+			           BYIT.BUYER,
+			           NULL AS QUOTATION_NO,
+			           NULL AS QUOTATION_SEQ,
+			           NULL AS REVISION,
+			           NULL AS SND_CHK,
+			           NULL AS SND_DATM,
+			           BYIT.BUYER_ITEM_NO,
+			           BYIT.CMS_CATLG_ID,
+			           DECODE(BYIT.IMGFILE_NAME,'','5','6') AS IMGFILE_NAME_IMG,
+			           BYIT.IMGFILE_DIR,
+			           BYIT.IMGFILE_NAME,
+			           BYIT.ADD_DATE, 
+			           BYIT.CHANGE_DATE,
+			           BYIT.DESCRIPTION_LOC AS ITEM_NM,
+			           BYIT.SPECIFICATION AS STD,
+			           BYIT.PRODUCT_CLOSE_FLAG,
+			           (SELECT CATEG_NAME FROM ICOMBYCA
+			             WHERE COM_CODE = BYIT.BUYER
+			               AND STD_CATEG_ID = BYIT.CATEGORY_NO)  AS CATEGORY_TEXT,
+			           BYIT.CATEGORY_NO,
+			           BYIT.MAKER_NAME AS MAKER,
+			           NVL(BYIT.KEP_MAKER_PART_NO, BYIT.SPECIFICATION) AS MODEL_NM
+			      FROM ICOMBYIT BYIT
+			         , ICOMCQDT CQDT
+			     WHERE BYIT.BUYER = 'KRSAMS0140'
+			       AND BYIT.STATUS != 'D'
+			       AND BYIT.CMS_CATLG_ID != ' '
+			       AND BYIT.PRODUCT_CLOSE_FLAG != 'S'
+			       AND BYIT.CHANGE_DATE BETWEEN #{st_from_date} AND #{st_to_date}
+		<if test="st_buyer_item_no != null and st_buyer_item_no != '' ">
+			       AND BYIT.BUYER_ITEM_NO LIKE #{st_buyer_item_no} || '%'
+		</if>
+		<if test="st_cms_catlg_id != null and st_cms_catlg_id != '' ">
+			       AND BYIT.CMS_CATLG_ID LIKE #{st_cms_catlg_id} || '%'
+		</if>
+			       AND BYIT.BUYER = CQDT.BUYER
+			       AND BYIT.BUYER_ITEM_NO = CQDT.BUYER_ITEM_NO
+				
+				UNION
+
+			    SELECT 
+			           NVL(BYIT.DOC_NO,RQ.QUOTATION_NO) AS REQ_ID,
+			           BYIT.DOC_NO,
+			           BYIT.BUYER,
+			           RQ.QUOTATION_NO,
+			           RQ.QUOTATION_SEQ,
+			           RQ.REVISION,
+			           RQ.SND_CHK,
+			           RQ.SND_DATM,
+			           BYIT.BUYER_ITEM_NO,
+			           BYIT.CMS_CATLG_ID,
+			           DECODE(BYIT.IMGFILE_NAME,'','5','6') AS IMGFILE_NAME_IMG,
+			           BYIT.IMGFILE_DIR,
+			           BYIT.IMGFILE_NAME,
+			           BYIT.ADD_DATE, 
+			           BYIT.CHANGE_DATE,
+			           BYIT.DESCRIPTION_LOC AS ITEM_NM,
+			           BYIT.SPECIFICATION AS STD,
+			           BYIT.PRODUCT_CLOSE_FLAG,
+			           (SELECT CATEG_NAME FROM ICOMBYCA
+			             WHERE COM_CODE = BYIT.BUYER
+			               AND STD_CATEG_ID = BYIT.CATEGORY_NO)  AS CATEGORY_TEXT,
+			           BYIT.CATEGORY_NO,
+			           BYIT.MAKER_NAME AS MAKER,
+			           NVL(BYIT.KEP_MAKER_PART_NO, BYIT.SPECIFICATION) AS MODEL_NM
+			      FROM ICOMBYIT BYIT
+			         , ICOMCQDT CQDT
+			         , KEPRQDT RQ
+			     WHERE BYIT.BUYER = 'KRSAMS0140'
+			       AND BYIT.STATUS != 'D'
+			       AND BYIT.CMS_CATLG_ID != ' '
+			       AND BYIT.PRODUCT_CLOSE_FLAG = 'S'
+			       AND BYIT.CHANGE_DATE BETWEEN #{st_from_date} AND #{st_to_date}
+		<if test="st_buyer_item_no != null and st_buyer_item_no != '' ">
+			       AND BYIT.BUYER_ITEM_NO LIKE #{st_buyer_item_no} || '%'
+		</if>
+		<if test="st_cms_catlg_id != null and st_cms_catlg_id != '' ">
+			       AND BYIT.CMS_CATLG_ID LIKE #{st_cms_catlg_id} || '%'
+		</if>
+			       AND BYIT.BUYER = CQDT.BUYER
+			       AND BYIT.BUYER_ITEM_NO = CQDT.BUYER_ITEM_NO
+			       
+			       AND BYIT.BUYER = RQ.BUYER
+			       AND BYIT.BUYER_ITEM_NO = RQ.BUYER_ITEM_NO 
+			       AND BYIT.CMS_CATLG_ID = RQ.CMS_CATLG_ID
+			       AND 'GA' = RQ.RECV_FLAG		       
+			  ) M
+			     , EAI.IF_SEM_ITEM_MASTER_SEND MAS
+			     , EAI.IF_SEM_ITEM_DETAIL DTL
+			     , EAI.IF_SEM_ITEM_PRICE PRC
+			     , EAI.IF_SEM_ITEM_MAPPING RTN
+			 WHERE 1 = 1 
+		<if test="st_req_id != null and st_req_id != '' ">
+			   AND M.REQ_ID LIKE #{st_req_id} || '%'
+		</if>
+			   AND M.CMS_CATLG_ID = MAS.COMP_ITEM_ID(+)
+			   AND M.REQ_ID = DTL.REQ_ID(+)
+			   AND M.CMS_CATLG_ID = DTL.COMP_ITEM_ID(+)
+			   AND M.REQ_ID = PRC.REQ_ID(+)
+			   AND M.CMS_CATLG_ID = PRC.COMP_ITEM_ID(+)
+			   AND M.REQ_ID = RTN.REQ_ID(+)
+			   AND M.CMS_CATLG_ID = RTN.COMP_ITEM_ID(+)
+		<if test="st_suser_name != null and st_suser_name != '' and st_suser_name != '전체' ">
+			   AND MAS.PC_CHRG_NM = #{st_suser_name}
+		</if>		  
+		  )
+		 WHERE 1 = 1
+		 <if test="st_result != null and st_result != '' and st_result != '전체' ">
+		   AND 'Y' = DECODE( #{st_result} , RTN_IF_FLAG, 'Y', PRICE_IF_FLAG, 'Y', DETAIL_IF_FLAG, 'Y', MASTER_IF_FLAG, 'Y', 'N' )
+		 </if>
+		 
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+
+	<update id="updateKeprqdtInfoForSem" parameterType="java.util.Map">
+		UPDATE KEPRQDT
+		   SET CMS_CATLG_ID = #{CMS_CATLG_ID}
+		     , SND_CHK = 'N'
+		 WHERE BUYER = #{BUYER}
+		   AND QUOTATION_NO = #{QUOTATION_NO}
+		   AND QUOTATION_SEQ = #{QUOTATION_SEQ}
+		   AND REVISION = #{REVISION}
+	</update>
+	
+	<update id="updateIcombyitInfoForSem" parameterType="java.util.Map">
+		UPDATE ICOMBYIT
+		   SET CMS_CATLG_ID = #{CMS_CATLG_ID}
+		     , CHANGE_DATE = TO_CHAR(SYSDATE,'YYYYMMDD')
+		     , CHANGE_USER_ID = #{st_user_id}
+		     , CHANGE_USER_NAME = #{st_user_name_loc}
+		 WHERE BUYER = #{BUYER}
+		   AND BUYER_ITEM_NO = #{BUYER_ITEM_NO}
+	</update>
+	
+	<update id="deleteSemItemMasterInfo" parameterType="java.util.Map">
+		UPDATE EAI.IF_SEM_ITEM_MASTER_SEND
+		   SET IF_FLAG = 'D'
+		      ,IF_MSG = #{P_MSG}||IF_MSG
+		 WHERE COMP_ITEM_ID = #{COMP_ITEM_ID}
+	</update>
+	<update id="deleteSemItemDetailInfo" parameterType="java.util.Map">
+		UPDATE EAI.IF_SEM_ITEM_DETAIL
+		   SET IF_FLAG = 'D'
+		      ,IF_MSG = #{P_MSG}||IF_MSG
+		 WHERE REQ_ID = #{QUOTATION_NO}
+		   AND COMP_ITEM_ID = #{COMP_ITEM_ID}
+	</update>
+	<update id="deleteSemItemPriceInfo" parameterType="java.util.Map">
+		UPDATE EAI.IF_SEM_ITEM_PRICE
+		   SET IF_FLAG = 'D'
+		      ,IF_MSG = #{P_MSG}||IF_MSG
+		 WHERE REQ_ID = #{QUOTATION_NO}
+	</update>
+	
+	<update id="requotSemKeprqdtInfo" parameterType="java.util.Map">
+	    UPDATE KEPRQDT 
+	       SET ATOB_UNIT_PRICE = 0 
+	         , SND_CHK         = 'N'
+	         , SND_DATM        = NULL
+	         , BTOA_NEGO_PRICE = #{UNIT_PRICE}
+	         , BTOA_END_DATE   = BTOA_END_DATE
+	         , BTOA_END_TIME   = BTOA_END_TIME
+	         , REJECT_REMARK   = #{st_user_name_loc} || ' - 품목IF재견적 처리 / ' || CASE WHEN TRIM( #{MASTER_IF_MSG} ) IS NOT NULL THEN #{MASTER_IF_MSG}
+																		            WHEN TRIM( #{DETAIL_IF_MSG} ) IS NOT NULL THEN #{DETAIL_IF_MSG}
+																		            WHEN TRIM( #{PRICE_IF_MSG} ) IS NOT NULL THEN #{PRICE_IF_MSG} 
+																		            ELSE ' '
+        																	  END
+	         , RECV_FLAG       = 'GA' 
+		 WHERE BUYER = #{BUYER}
+		   AND QUOTATION_NO = #{QUOTATION_NO}
+		   AND QUOTATION_SEQ = #{QUOTATION_SEQ}
+		   AND REVISION = #{REVISION}
+	       AND RECV_FLAG  IN ('GA') 
+	       AND STATUS IN ('C','R')
+	</update>
+	
+	<update id="requotSemKepqtdtInfo" parameterType="java.util.Map">
+	    UPDATE KEPQTDT 
+	       SET BTOA_NEGO_PRICE =  #{UNIT_PRICE}
+		 WHERE BUYER = #{BUYER}
+		   AND QUOTATION_NO = #{QUOTATION_NO}
+		   AND QUOTATION_SEQ = #{QUOTATION_SEQ}
+		   AND REVISION = #{REVISION}
+	       AND STATUS = 'C'
+	</update>
+
+	<update id="deleteSemQuotReceipt"  parameterType="java.util.Map">
+		<![CDATA[
+				UPDATE KEPRQDT	 /*deleteSemQuotReceipt*/				
+				   SET RECV_FLAG      = 'GD' 	
+				     , CANCEL_USER_ID = #{USR_ID}    		/*CANCEL_USER_ID*/
+				     , CANCEL_DATE    = SYSDATE	
+				     , CANCEL_REMARK  = #{CANCEL_REMARK}    		/*CANCEL_REMARK*/
+				     , SND_CHK = 'N'
+				     , SND_DATM = NULL
+				 WHERE BUYER          = #{BUYER}			/*BUYER*/
+				   AND QUOTATION_NO   = #{QUOTATION_NO}	 		/*QUOTATION_NO*/
+				   AND QUOTATION_SEQ  = #{QUOTATION_SEQ}			/*QUOTATION_SEQ*/
+				   AND REVISION       = #{REVISION}			/*REVISION*/
+				   AND STATUS IN ('C','R')
+		]]>
+	</update>
+
+</mapper>

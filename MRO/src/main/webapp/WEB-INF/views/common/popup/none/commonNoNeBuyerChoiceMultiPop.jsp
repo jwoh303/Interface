@@ -1,0 +1,473 @@
+<%--
+**********************************************
+* 메뉴 : 
+* 화면 : 구매사(고객사) 선택 (다건) 팝업
+* 기능 : 구매사를 여러건 선택 할 수 있는 팝업
+* 프로그램 ID : PG_90_C_900_59
+* 담당자 :  고영일 ( 설계 : 공통 )
+* 착수일 : 2014-06-19
+**********************************************
+--%>
+<%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
+<%@ page import="java.util.List"%>
+<%@ page import="java.util.Map"%>
+<%@ page import="com.koreab2b.mro.util.CommonUtil"%>
+<%@ page import="com.koreab2b.mro.manager.login.domain.SessionInfo"%>
+<!doctype html>
+<html>
+<head>
+<%@ include file="../../../common/include/head_pop.jspf"  %>
+</head>
+<%
+@SuppressWarnings (value="unchecked")
+List<Map<String,String>> _dataList = (List<Map<String,String>>) request.getAttribute("data"); 		// 조회된 결과 
+String search_opt = CommonUtil.nvl((String) request.getParameter("search_opt"),"2");  	//  (조회조건)
+String disable_yn = CommonUtil.nvl((String) request.getParameter("disable_yn"),"Y");  	//  (조회조건)
+
+String st_comorg_value = "";
+if("0".equals(search_opt)){
+	st_comorg_value = "";
+}else if("1".equals(search_opt)){
+	st_comorg_value = "RESP";
+}else if("2".equals(search_opt)){
+	st_comorg_value = "MNG";
+}
+
+String st_comorg_type = CommonUtil.nvl((String) request.getParameter("st_comorg_type"),st_comorg_value);  		//  (조회조건)
+String st_com_name_loc =  CommonUtil.nvl((String) request.getParameter("st_com_name_loc"), ""); 	//  (조회조건)
+String st_comorg_name = CommonUtil.nvl((String) request.getParameter("st_comorg_name"),"");  	//  (조회조건)
+String st_select_data_list = CommonUtil.nvl((String) request.getParameter("st_select_data_list"),"");  	//  (조회조건)
+
+%>
+
+<script type="text/javascript">
+
+function checkAll(){
+	var chechboxCnt = $('input:checkbox[name="inCheckBox"]').length;
+	var chk_stat = document.forms.CommonNoNeBuyerChoiceMultiPop.check_status.checked;
+
+	if(chechboxCnt == 0){
+		alert("조회된 데이터가 없습니다.");
+		return;
+	}
+	for(var i=0; i<chechboxCnt; i++){
+		$("input:checkbox[name=inCheckBox]")[i].checked = chk_stat;
+	}
+}
+
+function addCompany(){
+	var schCompObj = $("#tblSchComp input:checkbox[name=inCheckBox]:checked");
+	
+	if(schCompObj.length <= 0){
+		alert("선택된 고객사가 존재 하지 않습니다.");
+		return;
+	}
+	
+	var selCompObj = $("#tblSelComp tbody tr");
+	var strAddRow = "";
+	
+	var com_code = "";
+	var com_name_loc = "";
+	var byca_comorg_code = "";
+	var comorg_name = "";
+	
+	for(var inx = 0 ; inx < schCompObj.length ; inx++){
+		
+		com_code = $(schCompObj[inx]).val();
+		com_name_loc = $(schCompObj[inx]).parent().parent().find("input:hidden[name=com_name_loc]").val();
+		byca_comorg_code = $(schCompObj[inx]).parent().parent().find("input:hidden[name=byca_comorg_code]").val();
+		comorg_name = $(schCompObj[inx]).parent().parent().find("input:hidden[name=comorg_name]").val();
+		
+		if($(selCompObj).find("input:hidden[name=com_code]:input[value=" + com_code + "]").length > 0){
+			alert(com_code+"@"+com_name_loc+"코드가 중복되었습니다.");
+			$(schCompObj[inx]).attr("checked", false);
+			return;
+		}else{
+			strAddRow   = "";
+			strAddRow += "<tr>";
+			strAddRow += "    <td>";
+			strAddRow += "        <input type=\"checkbox\" name=\"inCheckBox\" value=\""+com_code+"\" checked=\"checked\" />";
+			strAddRow += "        <input type=\"hidden\" name=\"byca_comorg_code\" value=\""+byca_comorg_code+"\" />";
+			strAddRow += "        <input type=\"hidden\" name=\"comorg_name\" value=\""+comorg_name+"\" />";
+			strAddRow += "        <input type=\"hidden\" name=\"com_code\" value=\""+com_code+"\" />";
+			strAddRow += "        <input type=\"hidden\" name=\"com_name_loc\" value=\""+com_name_loc+"\" />";
+			strAddRow += "    </td>";
+			strAddRow += "    <td class=\"left\">"+com_name_loc+"</td>";
+			strAddRow += "    <td class=\"left\">"+com_code+"</rd>";
+			strAddRow += "    <td class=\"left\">"+comorg_name+"</rd>";
+			strAddRow += "</tr>";
+			
+			$("#tblSelComp tbody").append(strAddRow);
+			$(schCompObj[inx]).attr("checked", false);
+		}
+	}
+}
+
+function delCompany(){
+	var schCompObj = $("#tblSelComp input:checkbox[name=inCheckBox]:checked");
+	
+	if(schCompObj.length <= 0){
+		alert("삭제 할 고객사가 존재 하지 않습니다.");
+		return;
+	}
+	
+	for(var inx = 0 ; inx < schCompObj.length ; inx++){
+		$(schCompObj[inx]).parent().parent().remove();
+	}
+}
+
+function addGrpComp(){
+	var schCompObj = $("#tblSchComp tbody input:checkbox[name=inCheckBox]:checked");
+	
+	if(schCompObj.length <= 0){
+		alert("선택된 고객사가 존재 하지 않습니다.");
+		return;
+	}
+	
+	var arryComorg_code = new Array();
+	var schComorg_code = "";
+	
+	for(var inx = 0 ; inx < schCompObj.length; inx++){
+		schComorg_code = $(schCompObj[inx]).parent().find("input:hidden[name=byca_comorg_code]").val();
+		arryComorg_code.push(schComorg_code);
+		$(schCompObj[inx]).attr("checked", false);
+	}
+	
+	arryComorg_code = $.unique(arryComorg_code);
+	
+	var com_code = "";
+	var com_name_loc = "";
+	var byca_comorg_code = "";
+	var comorg_name = "";
+	
+	var selCompObj = $("#tblSelComp tbody tr");
+	var selComorg_code_cnt = 0;
+	var strAddRow = "";
+	
+	for(var inx = 0 ; inx < arryComorg_code.length ; inx++){
+		schCompObj = $("#tblSchComp tbody").find("input:hidden[name=byca_comorg_code]:input[value=" + arryComorg_code[inx] + "]");
+		selComorg_code_cnt = $("#tblSelComp tbody").find("input:hidden[name=byca_comorg_code]:input[value=" + arryComorg_code[inx] + "]").length;
+		for(var i = 0 ; i < schCompObj.length; i++){
+			com_code = $(schCompObj[i]).parent().find("input:hidden[name=com_code]").val();
+			com_name_loc = $(schCompObj[i]).parent().find("input:hidden[name=com_name_loc]").val();
+			byca_comorg_code = $(schCompObj[i]).parent().find("input:hidden[name=byca_comorg_code]").val();
+			comorg_name = $(schCompObj[i]).parent().find("input:hidden[name=comorg_name]").val();
+			
+			if($(selCompObj).find("input:hidden[name=com_code]:input[value=" + com_code + "]").length > 0){
+				continue;
+			}
+			
+			strAddRow   = "";
+			strAddRow += "<tr>";
+			strAddRow += "    <td>";
+			strAddRow += "        <input type=\"checkbox\" name=\"inCheckBox\" value=\""+com_code+"\" checked=\"checked\" />";
+			strAddRow += "        <input type=\"hidden\" name=\"byca_comorg_code\" value=\""+byca_comorg_code+"\" />";
+			strAddRow += "        <input type=\"hidden\" name=\"comorg_name\" value=\""+comorg_name+"\" />";
+			strAddRow += "        <input type=\"hidden\" name=\"com_code\" value=\""+com_code+"\" />";
+			strAddRow += "        <input type=\"hidden\" name=\"com_name_loc\" value=\""+com_name_loc+"\" />";
+			strAddRow += "    </td>";
+			strAddRow += "    <td class=\"left\">"+com_name_loc+"</td>";
+			strAddRow += "    <td class=\"left\">"+com_code+"</rd>";
+			strAddRow += "    <td class=\"left\">"+comorg_name+"</rd>";
+			strAddRow += "</tr>";
+			
+			if(selComorg_code_cnt > 0){
+				$("#tblSelComp tbody").find("input:hidden[name=byca_comorg_code]:input[value=" + arryComorg_code[inx] + "]").last().parent().parent().after(strAddRow);
+			}else{
+				$("#tblSelComp tbody").append(strAddRow);
+			}
+		}
+	}
+}
+
+function delGrpComp(){
+	var schCompObj = $("#tblSelComp input:checkbox[name=inCheckBox]:checked");
+	
+	if(schCompObj.length <= 0){
+		alert("삭제 할 고객사가 존재 하지 않습니다.");
+		return;
+	}
+	
+	var selOrgCompObj = null;
+	var selOrgComCode = null;
+	for(var inx = 0 ; inx < schCompObj.length ; inx++){
+		selOrgComCode = $(schCompObj[inx]).parent().find("input:hidden[name=byca_comorg_code]").val();
+		selOrgCompObj = $("#tblSelComp tbody").find("input:hidden[name=byca_comorg_code]:input[value=" + selOrgComCode + "]");
+		if(selOrgCompObj != null && selOrgCompObj.length > 0){
+			for(var i = 0 ; i < selOrgCompObj.length ; i++){
+				$(selOrgCompObj).parent().parent().remove();
+			}
+		}
+	}
+}
+
+function kepSearch(){
+	if($("input:radio[name=st_comorg_type]:checked").val() == "ALL"){
+		if(isEmpty($("#st_com_name_loc").val()) && isEmpty($("#st_comorg_name").val())){
+			alert("검색 조건을 입력 하세요.");
+			return;			
+		}
+	}
+	
+	var com_code = "";
+	var com_name_loc = "";
+	var byca_comorg_code = "";
+	var comorg_name = "";
+	
+	var selCompObj = $("#tblSelComp tbody tr");
+	var st_select_data_list = "";
+	if(selCompObj != null && selCompObj.length > 0){
+		for(var inx = 0 ; inx < selCompObj.length; inx++){
+			if(selCompObj.length == 1){
+				com_code = $(selCompObj[inx]).find("input:hidden[name=com_code]").val() + "@";
+				com_name_loc = $(selCompObj[inx]).find("input:hidden[name=com_name_loc]").val() + "@";
+				byca_comorg_code = $(selCompObj[inx]).find("input:hidden[name=byca_comorg_code]").val() + "@";
+				comorg_name = $(selCompObj[inx]).find("input:hidden[name=comorg_name]").val() + "@";
+				
+				st_select_data_list = st_select_data_list + com_code+com_name_loc+byca_comorg_code+comorg_name+"|";
+			}else{
+				com_code =   $(selCompObj[inx]).find("input:hidden[name=com_code]").val() + "@";
+				com_name_loc =   $(selCompObj[inx]).find("input:hidden[name=com_name_loc]").val() + "@";
+				byca_comorg_code =  $(selCompObj[inx]).find("input:hidden[name=byca_comorg_code]").val() + "@";
+				comorg_name =  $(selCompObj[inx]).find("input:hidden[name=comorg_name]").val() + "@";
+				
+				st_select_data_list = st_select_data_list + com_code+com_name_loc+byca_comorg_code+comorg_name+"|";
+			}
+		}
+	}
+	
+	$('#st_select_data_list').val(st_select_data_list); 	
+	$('#CommonNoNeBuyerChoiceMultiPop').attr("action", "/none/getCommonNoNeBuyerChoiceMultiPop.do").submit();    
+}
+
+function kep_onload(){ 	
+	
+	var strAddRow = "";
+	var tmp = $('#st_select_data_list').val(); 
+	 
+	var tmpArray = tmp.split("|"); 
+	if (tmpArray != ""){ 
+		for (var i = 0 in  tmpArray){  
+			var tmpArrayReal = tmpArray[i].split("@");  
+ 
+				if (tmpArrayReal != ""){
+					strAddRow += "<tr>";
+					strAddRow += "    <td>";
+					strAddRow += "        <input type=\"checkbox\" name=\"inCheckBox\" value=\""+tmpArrayReal[0]+"\" checked=\"checked\" />";
+					strAddRow += "        <input type=\"hidden\" name=\"byca_comorg_code\" value=\""+tmpArrayReal[2]+"\" />";
+					strAddRow += "        <input type=\"hidden\" name=\"comorg_name\" value=\""+tmpArrayReal[3]+"\" />";
+					strAddRow += "        <input type=\"hidden\" name=\"com_code\" value=\""+tmpArrayReal[0]+"\" />";
+					strAddRow += "        <input type=\"hidden\" name=\"com_name_loc\" value=\""+tmpArrayReal[1]+"\" />";
+					strAddRow += "    </td>";
+					strAddRow += "    <td class=\"left\">"+tmpArrayReal[1]+"</td>";
+					strAddRow += "    <td class=\"left\">"+tmpArrayReal[0]+"</rd>";
+					strAddRow += "    <td class=\"left\">"+tmpArrayReal[3]+"</rd>";
+					strAddRow += "</tr>"; 
+				}
+			}
+	 
+	}
+	
+	$("#tblSelComp tbody").append(strAddRow);
+}
+
+function kepEnter2() {	
+	if (event.keyCode == 13) { 
+		kepSearch();
+	}
+}
+
+function setReset(){
+	document.location.href = "/none/showCommonNoNeBuyerChoiceMultiPop.do";
+}
+
+function setReturn(){
+	
+	var com_code = "";
+	var com_name_loc = "";
+	var byca_comorg_code = "";
+	var comorg_name = "";
+	
+	var selCompObj = $("#tblSelComp tbody tr");
+	
+	if(selCompObj != null && selCompObj.length > 0){
+		for(var inx = 0 ; inx < selCompObj.length; inx++){
+			if(selCompObj.length == 1){
+				com_code = $(selCompObj[inx]).find("input:hidden[name=com_code]").val();
+				com_name_loc = $(selCompObj[inx]).find("input:hidden[name=com_name_loc]").val();
+				byca_comorg_code = $(selCompObj[inx]).find("input:hidden[name=byca_comorg_code]").val();
+				comorg_name = $(selCompObj[inx]).find("input:hidden[name=comorg_name]").val();
+			}else{
+				com_code = com_code +  $(selCompObj[inx]).find("input:hidden[name=com_code]").val() + "@";
+				com_name_loc = com_name_loc +  $(selCompObj[inx]).find("input:hidden[name=com_name_loc]").val() + "@";
+				byca_comorg_code = byca_comorg_code + $(selCompObj[inx]).find("input:hidden[name=byca_comorg_code]").val() + "@";
+				comorg_name = comorg_name + $(selCompObj[inx]).find("input:hidden[name=comorg_name]").val() + "@";
+			}
+		}
+	}
+	
+	opener.setPopupReturn(com_code,com_name_loc,byca_comorg_code,comorg_name);
+	this.close();
+}
+ 
+</script> 
+<body onload="kep_onload()">
+	 <form name=CommonNoNeBuyerChoiceMultiPop id=CommonNoNeBuyerChoiceMultiPop method=post >
+	 <input type="hidden"  name="search_opt" value="<%=search_opt %>"/>
+	 <input type="hidden"  name="disable_yn" value="<%=disable_yn %>"/>
+	 <input type="hidden"  name="st_select_data_list"  id="st_select_data_list" value="<%=st_select_data_list %>"/>
+	 
+	<!--최소 가로길이 400px, 최소 세로길이 400px입니다-->
+	<div id="popWrapper" style="height:494px; min-height: 100px;">
+    	<div id="popHeader">
+        	<h1 class="title">고객사 검색</h1>
+            <p class="popClose"><a href="javascript:self.close()"><img src="/resources/images/<%=_closeImgSrc %>" alt="닫기버튼" /></a></p>
+        </div>
+        <!--팝업내용입니다-->
+        <div id="popContainer">
+        	<div style="height:360px;">
+        		<div id="cont_searchA">
+					<table class="cont_t_list01" style="width:100%">
+						<caption>구매사(고객사) 리스트</caption>
+						<colgroup>
+							<col width="7%" />
+							<col width="38%" />
+							<col width="7%" />
+							<col width="38%" />
+							<col width="10%" />
+						</colgroup>
+						<tbody>
+							<tr>
+								<td>고객사</td>
+								<td>  
+									<input type="text" class="input_type_text" name="st_com_name_loc" id="st_com_name_loc" value="<%=st_com_name_loc %>" onkeydown="kepEnter2()" style="ime-mode:active; width : 80%; ">
+								</td>
+								<td>그룹사</td>
+								<td>  
+									<input type="text" class="input_type_text" name="st_comorg_name" id="st_comorg_name" value="<%=st_comorg_name %>" onkeydown="kepEnter2()" style="ime-mode:active; width : 80%;">
+								</td>
+							</tr>
+							<tr>
+								<td>검색옵션</td>
+								<td colspan="2">
+									<input type="radio" class="Noborder"  name="st_comorg_type" value="ALL" <%if(st_comorg_type.equals("") || st_comorg_type.equals("ALL")){ out.print("checked=\"checked\""); } %> <%if("N".equals(disable_yn)){ %>disabled="disabled"<%} %>/>전체&nbsp;
+									<input type="radio" class="Noborder"  name="st_comorg_type" value="RESP" <%if(st_comorg_type.equals("RESP")){ out.print("checked=\"checked\""); } %> <%if("N".equals(disable_yn)){ %>disabled="disabled"<%} %>/>내가 담당인 고객사&nbsp;
+									<input type="radio" class="Noborder"  name="st_comorg_type" value="MNG" <%if(st_comorg_type.equals("MNG")){ out.print("checked=\"checked\""); } %> <%if("N".equals(disable_yn)){ %>disabled="disabled"<%} %>/>나의 관리 고객사 &nbsp;
+									<%if("N".equals(disable_yn)){ %>
+										<input type="hidden" name="st_comorg_type" value="<%=st_comorg_type %>"/>
+									<%} %>
+								</td>
+								<td class="right" colspan="2">
+									<span class="btn_search"><a href="javascript:kepSearch();">조회</a></span>
+									<span class="btn_reset"><a href="javascript:setReset();">초기화</a></span>
+								</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+            	<!--왼쪽영역-->
+           	    <div style="width:45%; height:320px; float:left;">
+					<div class="scrollArea" style="height:308px">
+					<!-- 선택할 고객사 -->
+					<table id="tblSchComp"  class="cont_t_list02"  style="width:100% ">
+		                    <caption>구매사(고객사) 선택 리스트</caption>
+		                    <colgroup>
+		                        <col width="15%" /> 
+		                        <col width="35%" />  
+		                        <col width="20%" /> 
+		                        <col width="*" />  
+		                    </colgroup>
+		                    <thead>
+		                        <tr>
+									<th scope="col">
+<%
+if (_dataList == null || _dataList.size() == 0){
+}else{ 
+%>                            
+                            <input type="checkbox" name="check_status" id="check_status" value="선택"  style="cursor:pointer;" onclick="checkAll();">
+<%
+	}
+%>      
+		                            선택</th> 
+		                            <th scope="col">고객사</th>  
+		                            <th scope="col">고객사코드</th>  
+		                            <th scope="col">그룹사</th>
+		                        </tr>
+		                    </thead>
+		                    <tbody>
+<%
+if (_dataList == null || _dataList.size() == 0){
+%>
+			               		<tr bgcolor="#FFFFFF">
+			                        <td colspan="4" align="center" height = "250">
+			                        <span class="font1">조회된 데이타가 없습니다.</span>
+			                        </td>
+			                    </tr>
+<%}else{
+	for (int j=0; j<_dataList.size(); j++) {
+		Map<String,String> rowData = _dataList.get(j);
+%> 
+								<tr>
+									<td >
+										<input type="checkbox" name="inCheckBox" value="<%=CommonUtil.nvl(rowData.get("COM_CODE"))%>" />
+										<input type="hidden" name="byca_comorg_code" value="<%=CommonUtil.nvl(rowData.get("BYCA_COMORG_CODE"))%>" />
+										<input type="hidden" name="comorg_name" value="<%=CommonUtil.nvl(rowData.get("COMORG_NAME"))%>" />
+										<input type="hidden" name="com_code" value="<%=CommonUtil.nvl(rowData.get("COM_CODE"))%>" />
+										<input type="hidden" name="com_name_loc" value="<%=CommonUtil.nvl(rowData.get("COM_NAME_LOC"))%>" />
+									</td>
+									<td class="left" ><%=CommonUtil.nvl(rowData.get("COM_NAME_LOC"))%></td>
+									<td ><%=CommonUtil.nvl(rowData.get("COM_CODE"))%></td>
+									<td class="left" ><%=CommonUtil.nvl(rowData.get("COMORG_NAME"))%></td>
+								</tr>
+<% } 
+}%>
+		                    </tbody>
+		                </table> 
+		                </div> 	
+                </div>
+                <!--//왼쪽영역끝-->
+                <div style="width:80px; height:210px; float:left; padding:80px 7px 0 7px;">
+                    <span class="btn_02 mr04"><a href="javascript:addCompany()" >&gt;</a></span>
+					<span class="btn_02 mr04"><a href="javascript:delCompany()" >&lt;</a></span>
+                    <span class="btn_02 mr04" style="margin-top: 20px;"><a href="javascript:addGrpComp()" >&gt;&gt;</a></span>
+					<span class="btn_02 mr04"><a href="javascript:delGrpComp()" >&lt;&lt;</a></span>
+                </div>
+                
+                <!--오른쪽영역-->
+                <div style="width:44%; height:320px; float:left;">
+ 				        <!-- 선택 고객사 -->
+						<div class="scrollArea" style="height:308px">
+						<table id="tblSelComp" class="cont_t_list02"  style="width:100%" >
+			                    <caption>선택된 고객사</caption>
+			                    <colgroup>
+			                        <col width="10%" /> 
+			                        <col width="35%" />  
+			                        <col width="20%" /> 
+			                        <col width="*" />  
+			                    </colgroup>
+			                    <thead>
+			                        <tr>
+			                            <th scope="col">선택</th> 
+			                            <th scope="col">고객사</th>  
+			                            <th scope="col">고객사코드</th>  
+			                            <th scope="col">그룹사</th>
+			                        </tr>
+			                    </thead>
+			                    <tbody id="content">
+			                    </tbody>
+						</table>                    
+			         	</div>
+
+                </div>
+                <!--//오른쪽영역-->
+            </div>
+       		<!--버튼영역-->
+			<div class="btnArea ac" style="margin-bottom:0px; margin-top: 0px;"> 
+			     <span class="fr btn_02"><a href="javascript:self.close()">닫기</a></span>
+			     <span class="fr btn_02" style="margin-right: 10px;"><a href="javascript:setReturn();">확인</a></span>
+			</div>
+        </div>
+    </div>
+</form>
+</body>
+</html>

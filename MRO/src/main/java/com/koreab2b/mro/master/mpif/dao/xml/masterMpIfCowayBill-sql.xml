@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mpif">
+	
+	<!-- 조회 -->
+	<select id="selectMasterMpIfCowayBillList" parameterType="java.util.Map" resultType="java.util.Map">
+	/* master.mpif.selectMasterMpIfCowayBillList */
+	
+	
+	SELECT DISTINCT
+	       B.BUYER,
+	       BG.COM_NAME_LOC AS BUYER_NAME,
+	       B.PO_NO,
+	       B.PO_SEQ,
+	       C.PR_NO,
+	       C.PR_SEQ,
+	       A.LEGACY_GR_NO,
+	       D.USER_NAME_LOC AS REQ_USER_NAME,
+	       (SELECT E.TEXT1 FROM ICOMCOD2 E
+	         WHERE 1 = 1
+	           AND E.TYPE = 'C001'
+	           AND E.COMPANY_CODE = D.COM_CODE
+	           AND E.CODE = D.DEPARTMENT
+	           AND E.FLAG = 'Y'
+	       ) AS REQ_DEPT_NAME,
+	       AG.COM_NAME_LOC AS AGENT_NAME,
+	       (SELECT LTEXT FROM COWAY_BUDGET_ORG_ET_TREE
+	         WHERE BGORG  = C.BUDGET_DEPT
+	           AND ROWNUM = 1 ) AS BUDGET_DEPT,
+	       (SELECT LTEXT FROM COWAY_ACCOUNT_ET_OUTPUT
+	         WHERE BGACT  = C.ACCOUNT_TYPE
+	           AND ROWNUM = 1 ) AS ACCOUNT_TYPE,
+	       B.ADD_DATE,
+	       B.RD_DATE,
+	       A.GR_DATE,
+	       A.UNIT_PRICE,
+	       A.ITEM_QTY,
+	       A.ITEM_AMT,
+	       (SELECT CATEG_PATH FROM ICOMBYCA BA
+	         WHERE 1 = 1
+	           AND BI.BUYER       = BA.COM_CODE
+	           AND BI.CATEGORY_NO = BA.STD_CATEG_ID
+	       ) AS CATEGORY_PATH,
+	       A.BUYER_ITEM_NO,
+	       REPLACE(REPLACE(B.DESCRIPTION,CHR(10),''),CHR(13),'') AS DESCRIPTION,
+	       B.SPECIFICATION,
+	       B.UNIT_MEASURE,
+	       BI.MAKER_NAME,
+	       (SELECT TEXT2 FROM ICOMCOD1
+	         WHERE TYPE = 'M001'
+	           AND CODE = NVL(BI.ORIGIN_CODE,'Z1') ) AS ORIGIN_CODE
+	  FROM ICOMGRDT A
+	     , ICOMPODT B
+	     , ICOMPRDT C
+	     , ICOMPOHD PH
+	     , ICOMCMPY AG
+	     , ICOMCMPY BG
+	     , ICOMBYIT BI
+	     , ICOMLUSR D
+	     , ICOMLUSR F
+	 WHERE A.BUYER IN ('KRCOWA0001','KRCOWA0005','KRCOWA0006')
+	 <if test="YYYYMM != null and YYYYMM != '' ">
+	   AND A.GR_DATE LIKE #{YYYYMM}||'%'
+	 </if>
+	   AND TRIM(A.LEGACY_GR_NO) IS NOT NULL
+	   AND A.STATUS IN ('C','R')
+	
+	   AND B.BUYER  = A.BUYER
+	   AND B.PO_NO  = A.PO_NO
+	   AND B.PO_SEQ = A.PO_SEQ
+	   AND B.STATUS IN ('C','R')
+	   
+	   AND C.BUYER  = B.BUYER
+	   AND C.PR_NO  = B.PR_NO
+	   AND C.PR_SEQ = B.PR_SEQ
+	   AND C.STATUS IN ('C','R')
+	   
+	   AND B.BUYER = PH.BUYER
+	   AND B.PO_NO = PH.PO_NO
+	
+	   AND PH.AGENT = AG.COM_CODE
+	   
+	   AND PH.BUYER = BG.COM_CODE
+	   
+	   AND BG.BYCA_COMORG_CODE = BI.BUYER
+	   AND A.BUYER_ITEM_NO     = BI.BUYER_ITEM_NO
+	   
+	   AND D.USER_ID = C.PURCHASER_ID
+	
+	   AND F.USER_ID = C.REQ_USER_ID
+	   
+	  ORDER BY B.BUYER, B.PO_NO, B.PO_SEQ, A.GR_DATE
+	</select>
+	
+</mapper>   
+   

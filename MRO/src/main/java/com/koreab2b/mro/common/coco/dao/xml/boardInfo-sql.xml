@@ -1,0 +1,380 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="board">
+ 	
+		<select id="boardList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.jsppagestart"/>
+		<![CDATA[
+		/*board.boardList*/
+			Select  /*+ index_asc(icomboard icomboard_pk) */   
+                              BID,   
+                              COMPANY,   
+                              SUBJECT,   
+                              REG_USER_NAME,   
+                              (SELECT EMAIL FROM ICOMLUSR WHERE COM_CODE = COMPANY AND USER_ID = REG_USER_ID) EMAIL,   
+                              REG_DATE,   
+                              ACL,   
+                              LCOUNT,   
+                              DECODE(BTYPE,'NT','공지사항',   
+                                           'EB','e-Biz뉴스',   
+                                           'DI','전시회소식',   
+                                           'EM','e마켓자료실',   
+                                           'SI','상품자료실',   
+                                           'BD','게시판',   
+                                           'PI','구매정보') BTYPE_DIS,   
+                              DECODE(ACL,'INC','자사',   
+                                         'BUY','구매사',   
+                                         'SEL','판매사',   
+                                         'KEP','KEP',   
+                                         'MEB','회원전체',   
+                                         'CST','특정회사',   
+                                         'UST','특정사용자',   
+                                         'ALL','전체') ACL_DIS,   
+                              BTYPE,   
+                              TO_DATE,
+                              FROM_DATE,
+                              (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = COMPANY) COM_NAME_LOC,   
+                              BLEVEL,   
+                              VID,   
+                              OPEN_FLAG
+                         From ICOMBOARD   
+                         Where STATUS ! ='D'   
+                         ]]>
+                           <if test='startDate != "" '> 
+                                <![CDATA[            
+                                        AND FROM_DATE <= #{startDate}  
+                                        AND TO_DATE >= #{startDate}
+                                ]]>
+                            </if>
+                           <if test="sbtype != 'ALL'"> 
+                                <![CDATA[            
+                                        AND BTYPE = #{sbtype}
+                                ]]>
+                            </if>   
+                            <if test="sacl != 'ALL'"> 
+                                <![CDATA[            
+                                        AND ACL = #{sacl}
+                                ]]>
+                            </if>     
+                            <if test="st_open_flag != 'ALL'"> 
+                                <![CDATA[            
+                                        AND OPEN_FLAG = #{st_open_flag}
+                                ]]>
+                            </if>  
+							<![CDATA[		
+			    			Order By BID desc			 	   
+							]]>
+		<include refid="common.ibsheet.xml.jsppageend"/>
+	</select> 
+	
+	<select id="getBoardMaxBid" parameterType="java.util.Map" resultType="java.util.Map">
+	/*board.getBoardMaxBid*/
+	<![CDATA[
+	SELECT MAX(NVL(BID,1))+1 MAX_BID FROM ICOMBOARD
+	]]>				 
+	</select> 
+	
+	
+		<update id="boardWrite" parameterType="java.util.Map">
+			<selectKey keyProperty="BID" order="BEFORE" resultType="integer"> 
+				<![CDATA[
+					SELECT MAX(NVL(BID,1))+1 AS BID FROM ICOMBOARD WHERE BTYPE = #{BTYPE}
+				]]>
+			</selectKey>
+			<![CDATA[
+	 		 	/*board.boardWrite*/
+	 		 	Insert into ICOMBOARD(	      		
+		 		 	BID
+					,BTYPE
+					,COMPANY
+					,STATUS
+					,VID
+					,PID
+					,BLEVEL
+					,ACL
+					,LCOUNT
+					,SORT
+					,SUBJECT
+					,CONTEXT
+					,REG_USER_ID
+					,REG_DATE
+					,REG_TIME
+					,REG_DEP
+					,REG_DEP_NAME
+					,IMAGE_KEY
+					,PASSWORD
+					,REG_USER_NAME
+					,OPEN_FLAG
+					,FROM_DATE
+					,TO_DATE
+				)
+				values
+				(
+		 		 	#{BID}
+					,#{BTYPE}
+					,#{COMPANY}
+					,'C'
+					,#{BID} * 10
+					,#{BID}
+					,0
+					,#{ACL}
+					,0
+					,''
+					,#{SUBJECT}
+					,#{CONTEXT}
+					,#{REG_USER_ID}
+					,to_char(sysdate,'YYYYMMDD')
+					,to_char(sysdate,'HH24MISS')
+					,#{REG_DEP}
+					,#{REG_DEP_NAME}
+					,#{IMAGE_KEY}
+					,''
+					,#{REG_USER_NAME}
+			]]>
+			<if test="COMPANY != null and COMPANY != ''">
+			<choose>
+				<when test='COMPANY.equals("KRKORE0001")'>
+					<![CDATA[
+					, 'Y'
+					]]>					
+				</when>
+				<otherwise>
+					<![CDATA[
+					, 'N'
+					]]>
+				</otherwise>
+			</choose>
+			</if>	
+			<![CDATA[
+					,replace(#{FROM_DATE},'/','')
+					,replace(#{TO_DATE},'/','')
+				)												
+			]]>
+	</update> 
+	
+	<update id="insertICOMBDDT" parameterType="java.util.Map">
+		 /*board.insertICOMBDDT*/
+		<![CDATA[
+ 		 	INSERT INTO ICOMBDDT (BID,
+			                      BTYPE,
+			                      COMPANY,
+			                      STATUS,
+			                      COM_CODE,
+			                      USER_ID)
+			     VALUES (#{BID},
+			             #{BTYPE},
+			             #{COMPANY},
+			             'C',
+			             #{COM_CODE},
+			             'ALL')
+		]]>
+	</update>
+	
+	<update id="deleteICOMBDDT" parameterType="java.util.Map">
+		 /*board.deleteICOMBDDT*/
+		<![CDATA[
+ 		 	DELETE FROM  ICOMBDDT 
+				WHERE BID = #{BID}		
+				AND BTYPE = #{BTYPE}	
+		]]>
+	</update>
+	
+	<resultMap  id="ResMap" type="java.util.HashMap">     
+		<result  javaType="java.lang.String" column="BID"  property="BID" />
+		<result   javaType="java.lang.String" column="BTYPE"  property="BTYPE" />     
+		<result   javaType="java.lang.String" column="COMPANY"  property="COMPANY" />     
+		<result   javaType="java.lang.String" column="STATUS"  property="STATUS" />
+		<result   javaType="java.lang.String" column="VID"  property="VID" />
+		<result   javaType="java.lang.String" column="PID"  property="PID" />
+		<result  javaType="java.lang.String" column="ACL"   property="ACL" />
+		<result  javaType="java.lang.String" column="LCOUNT"   property="LCOUNT" />
+		<result  javaType="java.lang.String" column="SORT"   property="SORT" />
+		<result   javaType="java.lang.String" column="SUBJECT"  property="SUBJECT" />
+		<result  property="CONTEXT" column="CONTEXT" javaType="java.lang.String" jdbcType="CLOB" typeHandler="org.apache.ibatis.type.ClobTypeHandler" />  
+		<result  javaType="java.lang.String" column="REG_USER_ID"   property="REG_USER_ID" />
+		<result  javaType="java.lang.String" column="REG_DATE"   property="REG_DATE" />
+		<result  javaType="java.lang.String" column="REG_TIME"   property="REG_TIME" />
+		<result   javaType="java.lang.String" column="REG_DEP"  property="REG_DEP" />
+		<result  javaType="java.lang.String" column="REG_DEP_NAME"   property="REG_DEP_NAME" />
+		<result  javaType="java.lang.String" column="IMAGE_KEY"   property="IMAGE_KEY" />
+		<result  javaType="java.lang.String" column="PASSWORD"   property="PASSWORD" />
+		<result  javaType="java.lang.String" column="REG_USER_NAME"   property="REG_USER_NAME" />
+		<result   javaType="java.lang.String" column="OPEN_FLAG"  property="OPEN_FLAG" />
+		<result   javaType="java.lang.String" column="FROM_DATE"  property="FROM_DATE" />
+		<result   javaType="java.lang.String" column="TO_DATE"  property="TO_DATE" />
+	</resultMap >  
+	
+	<select id="boardDetail" parameterType="java.util.Map" resultMap="ResMap">
+	/*board.boardDetail*/
+	<![CDATA[
+	SELECT
+		 		BID
+				,BTYPE
+				,DECODE(BTYPE,'NT','공지사항','EB','e-Biz뉴스','DI','전시회소식','EM','e마켓자료실','SI','상품자료실','PI','구매정보') BTYPE_DIS
+				,COMPANY
+				,STATUS
+				,VID
+				,PID
+				,BLEVEL
+				,ACL
+				,DECODE(ACL,'INC','자사','BUY','구매사','SEL','공급사','KEP','KEP','CST','특정회사','UST','특정사용자','ALL','전체','EXP','수출') ACL_DIS
+				,LCOUNT
+				,SORT
+				,SUBJECT
+				,CONTEXT
+				,REG_USER_ID
+				,to_char(to_date(REG_DATE, 'YYYYMMDD'),'YYYY/MM/DD') REG_DATE
+				,REG_TIME
+				,REG_DEP
+				,REG_DEP_NAME
+				,IMAGE_KEY
+				,PASSWORD
+				,REG_USER_NAME
+				,OPEN_FLAG
+				,to_char(to_date(FROM_DATE, 'YYYYMMDD'),'YYYY/MM/DD') FROM_DATE
+				,to_char(to_date(TO_DATE, 'YYYYMMDD'),'YYYY/MM/DD') TO_DATE
+			FROM ICOMBOARD
+			WHERE BID = #{BID}
+			AND  BTYPE = #{BTYPE}
+	]]>				 
+	</select> 
+	
+	
+	 <update id="updateBoardLCount" parameterType="java.util.Map">
+		 /*board.updateBoardLCount*/
+		<![CDATA[
+ 		 	UPDATE ICOMBOARD SET
+			    LCOUNT = LCOUNT+1
+			WHERE BTYPE = #{BTYPE}
+				AND BID = #{BID}
+		]]>
+	</update>
+	
+		<update id="boardUpdate" parameterType="java.util.Map">
+		/*board.boardUpdate*/
+		<![CDATA[
+ 		 	UPDATE  ICOMBOARD SET  
+ 		 		 ACL = #{ACL}	  
+				,SUBJECT = #{SUBJECT}		
+				,CONTEXT = #{CONTEXT}		  
+				,IMAGE_KEY = #{IMAGE_KEY}		  
+				,FROM_DATE = REPLACE(#{FROM_DATE},'/','')
+				,TO_DATE = REPLACE(#{TO_DATE},'/','')
+				WHERE BID = #{BID}		
+				AND BTYPE = #{BTYPE}
+		]]>
+	</update> 
+	
+		<update id="boardDelete" parameterType="java.util.Map">
+		/*board.boardDelete*/
+		<![CDATA[
+ 		 	DELETE FROM  ICOMBOARD 
+				WHERE BID = #{BID}		
+				AND BTYPE = #{BTYPE}		
+		]]>
+	</update> 	
+	
+	
+	<select id="codeMasterList" parameterType="java.util.Map" resultType="java.util.Map">
+	/*board.codeMasterList*/
+	<![CDATA[
+	SELECT
+		 		TYPE
+				,CODE
+				,TEXT1
+				,TEXT2
+				,TEXT3
+				,TEXT4
+				,FLAG
+				,VALUE1
+				,ADD_DATE
+				,TEXT5
+				,TEXT6
+			FROM ICOMCOD1
+			WHERE TYPE = #{TYPE}
+	]]>				 
+	</select> 
+	
+	 <update id="deleteAllIcomcod1" parameterType="java.util.Map">
+	 /*board.deleteAllIcomcod1*/
+		<![CDATA[
+ 		 	DELETE FROM  ICOMCOD1 
+				WHERE TYPE = #{FORM_TYPE}		
+		]]>
+	</update> 		
+		
+	 <update id="insertComcod1" parameterType="java.util.Map">
+	 /*board.insertComcod1*/
+		<![CDATA[
+		 INSERT INTO  ICOMCOD1  (
+			TYPE --코드종류 구분
+			,CODE --코드
+			,TEXT1 --TEXT1
+			,TEXT2 --TEXT2
+			,TEXT3 --TEXT3
+			,TEXT4 --TEXT4
+			,FLAG --사용유무
+			,VALUE1 --우선순위
+			,ADD_DATE --등록일
+			,TEXT5 --
+			,TEXT6 --
+		) values (
+			#{TYPE} --코드종류 구분
+			,#{CODE} --코드
+			,#{TEXT1} --TEXT1
+			,#{TEXT2} --TEXT2
+			,#{TEXT3} --TEXT3
+			,#{TEXT4} --TEXT4
+			,#{FLAG} --사용유무
+			,#{VALUE1} --우선순위
+			,replace(#{ADD_DATE},'/','') --등록일
+			,#{TEXT5} --
+			,#{TEXT6} --
+		)  
+		]]>
+	</update> 	
+	
+	<select id="getMasterMdAmSelectCompanyPop" parameterType="java.util.Map" resultType="java.util.Map">
+	<![CDATA[
+	/*board.getMasterMdAmSelectCompanyPop*/
+	SELECT DISTINCT  
+               A.COM_CODE,
+               (SELECT COM_NAME_LOC  
+                  FROM ICOMCMPY  
+                 WHERE COM_CODE = A.COM_CODE) AS COM_NAME_LOC,
+               (SELECT ADDRESS_LOC  
+                  FROM ICOMCMPY  
+                 WHERE COM_CODE = A.COM_CODE) AS ADDRESS_LOC,
+               (SELECT IRS_NO  
+                  FROM ICOMCMPY  
+                 WHERE COM_CODE = A.COM_CODE) AS IRS_NO
+          FROM ICOMBDDT A  
+         WHERE A.BID = #{BID}  
+           AND A.BTYPE = #{BTYPE}
+	]]>				 
+	</select> 
+	
+	<update id="boardConfirm" parameterType="java.util.Map">
+		<![CDATA[
+		/*board.boardConfirm*/
+		UPDATE ICOMBOARD SET
+		]]>
+		<choose>
+			<when test='st_open_type.equals("YES")'>
+				<![CDATA[
+				OPEN_FLAG =  'Y'
+				]]>					
+			</when>
+			<otherwise>
+				<![CDATA[
+				OPEN_FLAG =  'N'
+				]]>
+			</otherwise>
+		</choose>
+		<![CDATA[		
+		WHERE BID = #{BID}  
+           AND BTYPE = #{BTYPE}
+		]]>
+	</update>
+				
+</mapper>

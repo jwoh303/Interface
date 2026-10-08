@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mdam">
+	
+	<!-- 조회 -->
+	<select id="selectMasterMdAmUniformProgressList" parameterType="java.util.Map" resultType="java.util.Map">
+	/*selectMasterMdAmUniformProgressList*/
+		<include refid="common.ibsheet.xml.pagestart"/>	
+		<![CDATA[
+		SELECT	X.BUYER,
+				X.BUYER_NAME,
+				X.ST_NO,
+				X.ST_SEQ,
+				X.STATUS,
+				DECODE	(X.STATUS,
+						'GC', '생산입고완료',
+						'GP', '생산부분입고',
+						'SB', '협력사 반려',
+						'SC', '협력사 결재',
+						'MB', '운영사 반려',
+						'MC', '운영사 결재',
+						'BB', '고객사 반려',
+						'BC', '고객사 결재',
+						'BS', '고객사 상신',
+						'X', '상태 확인 필요'
+				) AS STATUS_TEXT,
+				X.ADD_DATE,
+				X.BUYER_ITEM_NO,
+				X.DESCRIPTION,
+				X.SPECIFICATION,
+				X.UNIT_MEASURE,
+				X.APRV_ID,
+				X.APRV_USER_NAME,
+				X.ITEM_QTY,
+				X.GR_QTY,
+				X.REQ_NOTE
+		FROM	(
+				SELECT	A.BUYER AS BUYER,
+						(SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = A.BUYER) AS BUYER_NAME,
+						A.ST_NO AS ST_NO,
+						A.ST_SEQ AS ST_SEQ,
+						CASE	WHEN A.ITEM_QTY = A.GR_QTY THEN
+									'GC' --생산입고완료
+			              		WHEN B.S_CONFIRM_STATUS = 'Y' AND A.GR_QTY != 0 THEN
+									'GP' --생산부분입고
+								WHEN B.S_CONFIRM_STATUS = 'R' THEN
+									'SB' --협력사 반려
+								WHEN B.S_CONFIRM_STATUS = 'Y' AND A.GR_QTY = 0 THEN
+									'SC' --협력사 결재
+								WHEN B.A_CONFIRM_STATUS = 'R' THEN
+									'MB' --운영사 반려
+								WHEN B.A_CONFIRM_STATUS = 'Y' THEN
+									'MC' --운영사 결재
+								WHEN B.B_CONFIRM_STATUS = 'R' THEN
+									'BB' --고객사 반려
+								WHEN B.B_CONFIRM_STATUS = 'Y' THEN
+									'BC' --고객사 결재
+								WHEN B.B_CONFIRM_STATUS = 'N' THEN
+									'BS' --고객사 상신
+								ELSE 'X'
+						END  AS STATUS,
+						TO_CHAR(A.ADD_DATE, 'YYYY/MM/DD') AS ADD_DATE,
+						A.BUYER_ITEM_NO AS BUYER_ITEM_NO,
+						A.DESCRIPTION AS DESCRIPTION,
+						A.SPECIFICATION AS SPECIFICATION,
+						A.UNIT_MEASURE AS UNIT_MEASURE,
+						B.B_CONFIRM_USER_ID AS APRV_ID,
+						(SELECT	USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = B.B_CONFIRM_USER_ID) AS APRV_USER_NAME,
+						A.ITEM_QTY AS ITEM_QTY,
+						A.GR_QTY AS GR_QTY,
+						A.REQ_NOTE AS REQ_NOTE
+				FROM	KEP_BUYER_ST_PODT A, KEP_BUYER_ST_POHD B
+				WHERE	1=1
+				AND		A.BUYER = B.BUYER
+				AND		A.ST_NO = B.ST_NO
+				AND		A.BUYER IN (SELECT COMPANY_CODE FROM ICOMCOD2 WHERE TYPE = 'ST01' AND CODE = #{st_user_id} AND TEXT2 = #{st_com_code} AND FLAG = 'Y')
+				]]>
+				<if test="st_buyer != 'ALL' and st_buyer != ''">
+					AND	A.BUYER = #{st_buyer}
+				</if>
+				<if test="st_st_no != NULL and st_st_no != ''">
+					AND	A.ST_NO LIKE '%' || #{st_st_no} || '%'
+				</if>
+				<if test="st_buyer_item_no != NULL and st_buyer_item_no != ''">
+					AND	A.BUYER_ITEM_NO LIKE '%' || #{st_buyer_item_no} || '%'
+				</if>
+				<if test='st_period_ignore_value == "N"'>
+					AND	TO_CHAR(A.ADD_DATE, 'YYYYMMDD') BETWEEN #{st_from_date} AND #{st_to_date}
+				</if>
+				
+		<![CDATA[
+		) X
+		WHERE	1=1
+		]]>
+		<if test="st_status_text != 'ALL' and st_status_text != ''">
+			AND	X.STATUS = #{st_status_text}
+		</if>
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+</mapper>   
+   

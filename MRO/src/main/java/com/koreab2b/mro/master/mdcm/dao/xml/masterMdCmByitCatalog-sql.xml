@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mdcm">
+	<!-- 조회 -->
+
+	
+	<select id="selectMasterMdCmCatalogByitPopList" parameterType="java.util.Map" resultType="java.util.Map">	
+			<![CDATA[
+			/*selectMasterMdCmCatalogByitPopList*/
+		    	SELECT /*+LEADING(D)*/
+	                A.BUYER_ITEM_NO AS BUYER_ITEM_NO,  
+	                (SELECT COM_NAME_LOC FROM ICOMCMPY  
+	                  WHERE COM_CODE = C.AGENT) AS AGENT_NAME,  
+	                C.MAKER_NAME AS MAKER_NAME,  
+	                C.UNIT_PRICE AS UNIT_PRICE,  
+	                C.LIST_PRICE AS LIST_PRICE,  
+	                C.UNIT_MEASURE AS UNIT_MEASURE,  
+	                (SELECT COM_NAME_LOC FROM ICOMCMPY  
+	                          WHERE COM_CODE = C.BELOW_COMORG_CODE) AS BELOW_TEXT,										
+					DECODE(NVL(DECODE(SUBSTR(A.STDCATLG_ID,0,1),'M',A.STDCATLG_ID,''),'00'),'00','NO','YES') AS MAPP_TEXT,  
+                    A.DESCRIPTION_LOC AS DESCRIPTION,  
+                    A.SPECIFICATION AS SPECIFICATION,  
+                    A.BUYER AS BUYER,  
+                    A.STATUS AS BYIT_STATUS,  
+                    A.CMS_CATLG_ID AS STDCATLG_ID,  
+                    A.CMS_CATEG_ID AS STDCATEG_ID,  
+                    A.PRODUCT_CLOSE_FLAG AS PRODUCT_CLOSE_FLAG,  
+                    C.BELOW_COMORG_CODE AS BELOW_COMORG_CODE,  
+                    C.STATUS AS CQDT_STATUS,  
+                    C.CONTRACT_NO AS CONTRACT_NO,  
+                    C.CONTRACT_SEQ AS CONTRACT_SEQ,  
+                    C.AGENT AS AGENT,  
+                    (SELECT /*+USE_NL(C P)*/ COUNT(*) FROM ICOMCQEP P  
+                      WHERE P.BUYER = C.BUYER  
+                        AND P.BUYER_ITEM_NO = C.BUYER_ITEM_NO  
+                        AND P.CONTRACT_NO = C.CONTRACT_NO  
+                        AND P.CONTRACT_SEQ = C.CONTRACT_SEQ) AS CQEP_CNT,  
+                    C.CHANGE_DATE AS CHANGE_DATE,
+                    C.ADD_DATE AS ADD_DATE,  
+                    C.ITEM_MAKE_TYPE,
+                    C.DELIVERY_LT,
+                    A.MSDS_NO,
+                    1 AS PRINT,
+                    A.REFINE_NOTE,
+                    C.TO_DATE,
+                    A.MAKER_PART_NO,
+                    A.KEP_MAKER_PART_NO,
+                    (SELECT USR.USER_NAME_LOC FROM ICOMLUSR USR WHERE USR.USER_ID =  A.REFINE_USER_ID) AS REFINE_USER_NM,
+					(SELECT COUNT(MNG.BUYER_ITEM_NO) FROM KEPBTOA_MNG MNG
+						WHERE MNG.BUYER = C.BUYER
+						AND MNG.BELOW_COMORG_CODE = C.BELOW_COMORG_CODE
+						AND MNG.BUYER_ITEM_NO =  C.BUYER_ITEM_NO ) BTOA_MNG_CNT,
+					 F_GET_RE_SGMNG(C.BELOW_COMORG_CODE, A.CMS_CATEG_ID, '',3) AS SOUR_MNG
+               FROM ICOMBYIT A, 
+               			ICOMBYCA B,
+               			ICOMCQDT C
+                       WHERE A.BUYER = C.BUYER   
+		                AND A.BUYER_ITEM_NO = C.BUYER_ITEM_NO 
+		                AND C.ADD_DATE BETWEEN '20010416' AND TO_CHAR(SYSDATE,'YYYYMMDD')
+		                AND A.BUYER = B.COM_CODE
+		                AND A.CATEGORY_NO = B.STD_CATEG_ID
+		                AND A.STATUS != 'D' 
+		                AND C.STATUS != 'D' 
+		                AND A.PRODUCT_CLOSE_FLAG = 'N' 
+                        AND C.BUYER = #{st_buyer_code}
+                        AND C.BELOW_COMORG_CODE = (SELECT CMPY.BYCA_COMORG_CODE FROM ICOMCMPY CMPY WHERE CMPY.COM_CODE= #{st_buyer_code})
+			]]>
+              <if test="st_agent_code != null and st_agent_code != ''">
+				AND (C.AGENT = #{st_agent_code} OR C.ORIGIN_AGENT = #{st_agent_code})
+			</if>
+			<if test="st_buyer_item_no != null and st_buyer_item_no != ''">
+				AND C.BUYER_ITEM_NO LIKE #{st_buyer_item_no}||'%'
+			</if>
+			<if test="st_description != null and st_description != ''">
+					AND UPPER(A.DESCRIPTION_LOC) LIKE UPPER('%'||#{st_description}||'%')
+			</if>
+			<if test="st_specification != null and st_specification != ''">
+					AND  UPPER(A.SPECIFICATION) LIKE UPPER('%'||#{st_specification}||'%')
+			</if>
+			<if test="st_maker_name != null and st_maker_name != ''">
+					AND UPPER(C.MAKER_NAME) LIKE UPPER('%'||#{st_maker_name}||'%')
+			</if>			
+			<if test="st_kep_user_id != null and st_kep_user_id != '' and st_kep_user_id != 'ALL'">
+   				AND A.CMS_CATEG_ID IN ( SELECT COD.CODE2 FROM ICOMCOD3 COD
+													WHERE COD.BUYER = 'KRKORE0001'
+													AND COD.TYPE = 'SG'
+													AND CODE1 = #{st_kep_user_id}
+													AND FLAG = 'Y'
+													     				)
+			</if>
+			<choose>
+				<when test="st_buyer_code != null and st_buyer_code != ''">
+					<choose>
+						<when test='st_buyer_code == "KRSAMS0140" '>
+							<![CDATA[
+							AND C.BUYER_ITEM_NO LIKE 'M'||'%'
+		                	]]>
+						</when>
+						</choose>
+				</when>
+		  </choose>
+          <if test="st_sg_user_id != null and st_sg_user_id != '' and st_sg_user_id != 'ALL'">
+    				AND A.CMS_CATEG_ID IN (SELECT COD.CODE2 FROM ICOMCOD3 COD
+														WHERE COD.BUYER = 'KRKORE0001' 
+														AND COD.TYPE = 'SSG'
+														AND CODE1 = #{st_sg_user_id}
+														AND FLAG = 'Y'
+														MINUS
+														SELECT COD.CODE2 FROM ICOMCOD3 COD
+														WHERE  COD.BUYER = C.BELOW_COMORG_CODE
+														AND COD.TYPE = 'ESG'
+														AND CODE1 !=  #{st_sg_user_id}
+														AND FLAG = 'Y'
+														     				)	
+         	</if>
+			<![CDATA[
+				ORDER BY  A.BUYER_ITEM_NO
+			]]>
+	</select> 
+	<update id="saveMasterItemNoMapping"  parameterType="java.util.Map">
+		<![CDATA[
+				/*saveMasterItemNoMapping*/
+				UPDATE KEPRQDT 
+				   SET BUYER_ITEM_NO =  #{BUYER_ITEM_NO}
+				   , CMS_CATLG_ID =  #{STDCATLG_ID}
+				WHERE BUYER =#{st_buyer_code}
+				   AND QUOTATION_NO = #{p_quotation_no}   
+				   AND QUOTATION_SEQ = #{p_quotation_seq}
+				   AND REVISION = #{p_revision}
+		]]>
+	</update>
+</mapper>   
+   

@@ -1,0 +1,231 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="export.exbl">
+	<!-- 조회 -->
+	<select id="selectExportExBlExportBlProcList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.pagestart"/>	
+			<![CDATA[
+				SELECT /*selectExportExBlExportBlProcList*/
+				 HD.BUYER
+				 , (SELECT CMPY.COM_NAME_LOC FROM ICOMCMPY CMPY
+				 	WHERE CMPY.COM_CODE = HD.BUYER) AS BUYER_NM
+				 , HD.AGENT
+				 , (SELECT CMPY.COM_NAME_LOC FROM ICOMCMPY CMPY
+				 	WHERE CMPY.COM_CODE = HD.AGENT) AS AGENT_NM
+				 , HD.CI_NO
+				 , HD.CI_DATE
+				 , HD.PKG_COMPANY_CODE
+				 , HD.TOTAL_WEIGHT AS GROSS_WEIGHT
+				 , HD.PACKING_UNIT
+				 , (SELECT TEXT1 FROM ICOMCOD1 COD
+					WHERE COD.TYPE = 'EP05'
+					AND COD.CODE = HD.PACKING_UNIT) AS PCKING_UNIT_NM
+				 , HD.PACKING_WEIGHT
+				 , (SELECT TEXT1 FROM ICOMCOD1 COD
+					WHERE COD.TYPE = 'EP06'
+					AND COD.CODE = HD.PACKING_WEIGHT) AS PACKING_WEIGHT_NM
+				 , HD.FORWARDER
+				 , (SELECT TEXT1 FROM ICOMCOD1 COD
+					WHERE COD.TYPE = 'EP01'
+					AND COD.CODE = HD.FORWARDER) AS FORWARDER_NM
+				 , HD.CURRENCY_CODE
+				 , HD.ITEM_AMT
+				 , TO_CHAR(HD.ADD_DATE,'YYYYMMDD') AS ADD_DATE
+				 , (SELECT USR.USER_NAME_LOC
+				 	FROM ICOMLUSR USR
+				 	WHERE USR.USER_ID = HD.ADD_USER_ID) AS ADD_USER_NM
+				 , HD.ADD_USER_ID
+				 , '1' AS CI_SHEET
+				 , '1' AS PL_SHEET
+				 , HD.NOTIFY_PARTY
+				 , HD.SHIP_METHOD
+				 ,(SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE = 'EP02' AND CODE = HD.SHIP_METHOD) AS SHIP_METHOD_NM
+				 , HD.PORT_OF_LOADING
+				 , HD.FINAL_DESTINATION
+				 , (SELECT TEXT1 FROM ICOMCOD2 COD
+					WHERE COD.TYPE = 'POTD'
+					AND COD.CODE =HD.PORT_OF_LOADING) AS PORT_OF_LOADING_NM
+				 , (SELECT TEXT1 FROM ICOMCOD2 COD
+					WHERE COD.TYPE = 'POTA'
+					AND COD.CODE =HD.FINAL_DESTINATION) AS FINAL_DESTINATION_NM
+				FROM KEP_EXP_CIHD HD
+				WHERE HD.STATUS != 'D'
+				AND HD.BL_COMPLETE_MARK = 'N'
+                 AND HD.PKG_COMPANY_CODE =#{st_pkg_cmpy_no}
+                 AND HD.CI_DATE BETWEEN #{st_from_date} AND #{st_to_date}
+			]]>
+				<if test="st_buyerArr != null and st_buyerArr != ''">
+					AND HD.BUYER IN  
+					<foreach item="item" collection="st_buyerArr" open="(" separator="," close=")">
+				 	#{item}
+					</foreach>
+				</if>    
+             <if test="st_agent_code != null and st_agent_code != ''">               	
+                 <![CDATA[       
+                 	AND HD.AGENT  = #{st_agent_code}
+                   ]]>
+            </if>
+             <if test="st_ci_no != null and st_ci_no != ''">               	
+                 <![CDATA[       
+                 	AND HD.CI_NO LIKE #{st_ci_no}||'%'
+                   ]]>
+            </if>
+			<![CDATA[ 
+	 			ORDER BY HD.BUYER, HD.CI_NO
+ 			   ]]>   
+		<include refid="common.ibsheet.xml.pageend"/>			
+	</select>
+	<select id="selectExportExBlExportBlProcDetail" parameterType="java.util.Map" resultType="java.util.Map">
+			<![CDATA[
+              SELECT /*selectExportExBlExportBlProcDetail*/
+					 HD.BUYER
+					 ,(SELECT CM.COM_NAME_LOC FROM ICOMCMPY CM
+					 	WHERE CM.COM_CODE = HD.BUYER) AS BUYER_NM
+					 , HD.FORWARDER
+					 , (SELECT COD.TEXT1 FROM ICOMCOD1 COD
+						WHERE COD.TYPE = 'EP01'
+						AND COD.CODE = HD.FORWARDER) AS FORWARDER_NM
+					 , HD.CI_NO
+					 , HD.CI_DATE
+					 , HD.CURRENCY_CODE
+					 , HD.ITEM_AMT
+					 , HD.TOTAL_WEIGHT AS GROSS_WEIGHT
+					 , HD.PACKING_WEIGHT
+					 , HD.PACKING_UNIT
+					 , (SELECT COD.TEXT1 FROM ICOMCOD1 COD
+						WHERE COD.TYPE = 'EP05'
+						AND COD.CODE = HD.PACKING_UNIT) AS PACKING_UNIT_NM
+					 , (SELECT SUM(INV_QTY) FROM KEP_EXP_CIDT DT
+					 	WHERE DT.PKG_COMPANY_CODE = HD.PKG_COMPANY_CODE
+					 	AND DT.BUYER = HD.BUYER
+					 	AND DT.AGENT = HD.AGENT
+					 	AND DT.CI_NO = HD.CI_NO
+					 	AND DT.STATUS != 'D') AS SUM_INV_QTY
+					 ,  HD.NOTIFY_PARTY
+					 ,  HD.SHIP_METHOD
+					 ,  HD.PORT_OF_LOADING
+					 ,  HD.FINAL_DESTINATION
+					FROM KEP_EXP_CIHD HD
+					WHERE HD.PKG_COMPANY_CODE =#{st_pkg_cmpy_no}
+					AND HD.STATUS != 'D'
+                    ]]>
+				<if test="st_key != null and st_key != ''">
+					AND HD.BUYER||HD.CI_NO IN
+					<foreach item="item" collection="st_key" open="(" separator="," close=")">
+				 	#{item}
+					</foreach>
+				</if>    
+			<![CDATA[ 
+	 			ORDER BY HD.CI_NO
+ 			   ]]>   
+	</select>
+	<select id="selectExportExBlHouseBlCheck" parameterType="java.util.Map" resultType="java.lang.String">
+		<![CDATA[
+			/*selectExportExBlHouseBlCheck*/
+			SELECT COUNT(PKG_COMPANY_CODE) CNT
+			FROM  KEP_EXP_BLHD HD
+			WHERE UPPER(BL_NO) = UPPER(#{st_bl_no})
+		]]>
+	</select>
+	<update  id="insertExportExBlKepExpBlDt" parameterType="java.util.Map" >
+		<![CDATA[
+			/*insertExportExBlKepExpBlDt*/
+			INSERT INTO KEP_EXP_BLDT(
+				 BUYER
+				 ,PKG_COMPANY_CODE
+				 ,BL_NO
+				 ,BL_SEQ
+				 ,CI_NO
+				 ,STATUS
+				 ,ADD_DATE
+				 ,ADD_USER_ID
+				 ,CHANGE_DATE
+				 ,CHANGE_USER_ID
+			) VALUES (
+					  #{st_buyer}
+					, #{st_pkg_cmpy_no}
+					, UPPER(#{st_bl_no})
+					, TO_CHAR( #{BL_SEQ}, 'FM000000')
+					, #{CI_NO}
+					, 'C'
+					, SYSDATE
+					, #{st_user_id}
+					, SYSDATE
+					, #{st_user_id}
+			)
+		]]>
+	</update>
+	<update  id="updateExportExBlKepExpCiDt" parameterType="java.util.Map" >
+		<![CDATA[
+			/*updateExportExBlKepExpCiDt*/
+		 	UPDATE KEP_EXP_CIHD HD
+		 	SET BL_COMPLETE_MARK = 'Y'
+		 	, STATUS = 'R'
+		 	, CHANGE_DATE = SYSDATE
+		 	, CHANGE_USER_ID = #{st_user_id}
+		 	WHERE  HD.PKG_COMPANY_CODE = #{st_pkg_cmpy_no} 
+		 	AND HD.CI_NO = #{CI_NO}
+		]]>
+	</update>
+	<update  id="insertExportExBlKepExpBlHd" parameterType="java.util.Map" >
+		<![CDATA[
+			/*insertExportExBlKepExpBlHd*/
+			INSERT INTO KEP_EXP_BLHD(
+				 BUYER
+				 ,PKG_COMPANY_CODE
+				 ,BL_NO
+				 ,STATUS
+				 ,DEPARTURE_PORT
+				 ,BL_ISSUE_DATE
+				 ,SHIPPER
+				 ,ETD_DATE
+				 ,SHIPPING_METHOD
+				 ,CHARGABLE_WEIGHT
+				 ,FLIGHT_VESSEL_NO
+				 ,DESTINATION_PORT
+				 ,ON_BOARD_DATE
+				 ,CONSIGNEES
+				 ,ETA_DATE
+				 ,MASTER_BL_NO
+				 ,CARRIER
+				 ,IMAGE_KEY
+				 ,ADD_DATE
+				 ,ADD_USER_ID
+				 ,CHANGE_DATE
+				 ,CHANGE_USER_ID
+				 ,DEPARTURE_PORT_CODE
+				 ,DESTINATION_PORT_CODE
+			) VALUES (
+					  #{st_buyer}
+					, #{st_pkg_cmpy_no}
+					, UPPER(#{st_bl_no})
+					, 'C'
+					, (SELECT TEXT1 FROM ICOMCOD2 COD
+						WHERE COD.TYPE = 'POTD'
+						AND COD.CODE =#{st_departure})
+					, #{st_issue_date}
+					, #{st_shipper}
+					, #{st_etd_date}||#{st_etd_hour}||#{st_etd_minute}
+					, #{st_ship_method}
+					, #{st_charg}
+					, #{st_f_v_no}
+					, (SELECT TEXT1 FROM ICOMCOD2 COD
+						WHERE COD.TYPE = 'POTA'
+						AND COD.CODE =#{st_destination})
+					, #{st_board_date}
+					, #{st_con}
+					, #{st_eta_date}||#{st_eta_hour}||#{st_eta_minute}
+					, UPPER(#{st_master_bl})
+					, #{st_carrier}
+					, #{st_image_key}
+					, SYSDATE
+					, #{st_user_id}
+					, SYSDATE
+					, #{st_user_id}
+					, #{st_departure}
+					, #{st_destination}
+			)
+		]]>
+	</update>
+</mapper>   
+   

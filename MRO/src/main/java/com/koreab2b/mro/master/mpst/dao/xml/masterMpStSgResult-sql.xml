@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mpst">
+	<!-- 조회 -->
+	<select id="selectMasterMpStSgResultList" parameterType="java.util.Map" resultType="java.util.Map">
+			<![CDATA[
+	SELECT KK.* ,ROWNUM RN
+	FROM(
+	SELECT /*selectMasterMpStSgResultList*/    
+          A.SG_ID     
+       , NVL((SELECT X.SG_NAME FROM KEPSGMG X WHERE X.SG_ID = A.SG_ID AND ROWNUM =1),'미분류') AS SG_NM     
+       , ROUND(SUM(A.SALES_AMT),0)  AS SALES_AMT
+       , ROUND(SUM(A.MARGIN_AMT),0) AS SALES_PROFIT
+       , RTRIM(TO_CHAR(ROUND(decode(SUM(A.SALES_AMT)  , 0, 0 ,SUM(A.MARGIN_AMT)  / SUM(A.SALES_AMT)* 100),1), 'FM999990.0'),'.')||'%'  SALES_PROFIT_RATE
+       , RTRIM(TO_CHAR(ROUND(decode(B.TOT_SALES       , 0, 0 ,SUM(A.SALES_AMT)   / B.TOT_SALES* 100),1), 'FM999990.0'),'.')||'%'  SALES_PORTION
+       , RTRIM(TO_CHAR(ROUND(decode(B.TOT_MARGIN      , 0, 0 ,SUM(A.MARGIN_AMT)  / B.TOT_MARGIN* 100),1), 'FM999990.0'),'.')||'%' SALES_PROFIT_PORTION
+  FROM BNTMIS_CUST A, 
+       ( SELECT X.YYYY
+              , SUM(X.SALES_AMT)  AS TOT_SALES
+              , SUM(X.MARGIN_AMT) AS TOT_MARGIN
+           FROM BNTMIS_CUST X, ICOMCMPY C, BNTBUYERGROUP D
+            WHERE X.BUYER = C.COM_CODE
+                    AND C.CORP_CODE = D.CORP_CODE 
+                ]]>
+                <if test="st_year != null and st_year != ''">
+		    				 AND X.YYYY='${st_year}'	
+		         </if>
+		        <if test="st_user_dept != null and st_user_dept != ''">
+		    				 AND X.KEP_DEPT = '${st_user_dept}'
+		        </if>
+		        <if test="st_buyer_group != null and st_buyer_group != ''">
+		    				 AND D.GROUP_CODE = '${st_buyer_group}'
+		        </if>
+		        <if test="st_corp_code != null and st_corp_code != ''">
+		    				 AND D.CORP_CODE = '${st_corp_code}'
+		        </if>
+		        <![CDATA[
+          GROUP BY X.YYYY 
+          ) B, ICOMCMPY C, BNTBUYERGROUP D, ICOMCOD2 E
+  WHERE A.YYYY = B.YYYY
+    AND A.BUYER = C.COM_CODE
+    AND C.CORP_CODE = D.CORP_CODE 
+    AND A.KEP_DEPT = E.CODE
+    AND E.TYPE = 'C001'
+    AND E.COMPANY_CODE = 'KRKORE0001'	
+				]]>
+		        <if test="st_year != null and st_year != ''">
+		    				 AND A.YYYY='${st_year}'	
+		        </if>
+		        <if test="st_user_dept != null and st_user_dept != ''">
+		    				 AND A.KEP_DEPT = '${st_user_dept}'
+		        </if>
+		        <if test="st_buyer_group != null and st_buyer_group != ''">
+		    				 AND D.GROUP_CODE = '${st_buyer_group}'
+		        </if>
+		        <if test="st_corp_code != null and st_corp_code != ''">
+		    				 AND D.CORP_CODE = '${st_corp_code}'
+		        </if>
+		  			<![CDATA[
+		  			  GROUP BY 
+            A.SG_ID
+          , B.TOT_SALES
+          , B.TOT_MARGIN
+  ORDER BY SALES_AMT desc 
+          ) kk
+		  			]]>      
+	</select>
+	
+	<select id="selectMasterMpStCategoryRecordPopList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+    	SELECT /*selectMasterMpStCategoryRecordPopList*/      
+          A.SG_ID     
+       , NVL((SELECT X.SG_NAME FROM KEPSGMG X WHERE X.SG_ID = A.SG_ID AND ROWNUM =1),'미분류') AS SG_NM     
+       , ROUND(SUM(A.SALES_AMT),0)  AS SALES_AMT
+       , ROUND(SUM(A.MARGIN_AMT),0) AS SALES_PROFIT
+       , RTRIM(TO_CHAR(ROUND(decode(SUM(A.SALES_AMT)  , 0, 0 ,SUM(A.MARGIN_AMT)  / SUM(A.SALES_AMT)* 100),1), 'FM999990.0'),'.')||'%'   SALES_PROFIT_RATE
+       , ROUND(decode(B.TOT_SALES       , 0, 0 ,SUM(A.SALES_AMT)   / B.TOT_SALES* 100),1)  SALES_PORTION
+       , ROUND(decode(B.TOT_MARGIN      , 0, 0 ,SUM(A.MARGIN_AMT)  / B.TOT_MARGIN* 100),1) SALES_PROFIT_PORTION
+  FROM BNTMIS_CUST A, 
+       ( SELECT YYYY
+              , SUM(SALES_AMT)  AS TOT_SALES
+              , SUM(MARGIN_AMT) AS TOT_MARGIN
+           FROM BNTMIS_CUST
+          GROUP BY YYYY ) B, ICOMCMPY C, BNTBUYERGROUP D, ICOMCOD2 E
+  WHERE A.YYYY = B.YYYY
+    AND A.BUYER = C.COM_CODE
+    AND C.CORP_CODE = D.CORP_CODE 
+    AND A.KEP_DEPT = E.CODE
+    AND E.TYPE = 'C001'
+    AND E.COMPANY_CODE = 'KRKORE0001'    
+    ]]>
+		        <if test="st_sg_cd != null and st_sg_cd != ''">
+		    				 AND  A.SG_ID  = '${st_sg_cd}'
+		        </if>  
+		<![CDATA[
+                        GROUP BY 
+            A.SG_ID
+          , B.TOT_SALES
+          , B.TOT_MARGIN
+  ORDER BY SG_NM 			
+		]]>
+	</select>
+
+</mapper>   
+   

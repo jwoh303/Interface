@@ -1,0 +1,276 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mdcp">
+	<!-- 조회 -->
+	<select id="selectMasterMdCpAdminApprovalObjctList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.pagestart"/>	
+		<![CDATA[
+		/* selectMasterMdCpAdminApprovalObjctList */
+		SELECT
+			ROWNUM NUM,  
+			A.USER_ID,
+			F_GET_MASKING_RETURN(A.USER_ID, 'NAME') AS USER_ID_MASK,  
+			A.USER_NAME,
+			F_GET_MASKING_RETURN(A.USER_NAME, 'NAME') AS USER_NAME_MASK,  
+			A.COM_NAME,  
+			A.DEPT_NAME,  
+			A.TEL,
+			F_GET_MASKING_RETURN(A.TEL, 'PHONE') AS TEL_MASK,
+			A.COM_STATUS_TEXT,  
+			A.USER_TYPE_TEXT,  
+			A.CHANGE_USER_TYPE_TEXT,  
+			A.USER_TYPE,  
+			A.CHANGE_USER_TYPE,  
+			A.USER_STATUS,  
+			A.COM_STATUS,  
+			A.COM_CODE,
+			A.BUSINESS_COND,  
+			A.DEPT  
+		FROM (  
+			SELECT
+				L.USER_ID USER_ID,  
+				L.USER_NAME_LOC USER_NAME,  
+				C.COM_NAME_LOC COM_NAME,  
+				(SELECT TEXT1 FROM ICOMCOD2 WHERE TYPE='C001' AND COMPANY_CODE = L.COM_CODE AND CODE = L.DEPARTMENT ) AS DEPT_NAME,
+				L.PHONE_NUMBER TEL,  
+				DECODE(C.STATUS,'C','승인','R','승인','S','미승인','B','업체반려') AS COM_STATUS_TEXT,  
+				DECODE(L.USER_TYPE,'A','Admin사용자','U','일반사용자') AS USER_TYPE_TEXT,  
+				DECODE(L.CHANGE_USER_TYPE,'A','Admin사용자','U','일반사용자') AS CHANGE_USER_TYPE_TEXT,  
+				L.USER_TYPE USER_TYPE,  
+				L.CHANGE_USER_TYPE CHANGE_USER_TYPE,  
+				L.STATUS USER_STATUS,  
+				C.STATUS COM_STATUS,  
+				L.COM_CODE COM_CODE,
+				C.BUSINESS_COND ,
+				L.DEPARTMENT DEPT  
+			FROM ICOMLUSR L, ICOMCMPY C  
+			WHERE L.COM_CODE = C.COM_CODE  
+			AND ( (L.STATUS ='S' AND L.USER_TYPE='A') OR (L.STATUS ='R' AND L.USER_TYPE != L.CHANGE_USER_TYPE AND L.CHANGE_USER_TYPE = 'A' AND L.COM_CODE != 'KRKORE0001' ) )                                                                                                                     
+			AND C.STATUS IN ( 'C' ,'R')      
+		]]>
+		<if test="st_search_user_id != null and st_search_user_id != ''">
+		<![CDATA[	
+			AND L.USER_ID LIKE UPPER(#{st_search_user_id})||'%'
+		]]>
+		</if>
+		<if test="st_search_user_name != null and st_search_user_name != ''">
+		<![CDATA[		
+			AND L.USER_NAME_LOC LIKE '%'||#{st_search_user_name}||'%'
+		]]>
+		</if>
+		<if test="st_search_com_name != null and st_search_com_name != ''">
+		<![CDATA[		
+			AND C.COM_NAME_LOC LIKE '%'||#{st_search_com_name}||'%'
+		]]>
+		</if>	
+		<if test="st_search_user_type != null and st_search_user_type != ''">
+		<![CDATA[		
+			AND L.USER_TYPE = #{st_search_user_type}
+		]]>
+		</if>
+		<![CDATA[		
+			 ORDER BY L.REG_DATE DESC
+		) A 
+		]]>
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+
+	<!-- 사용자 승인/거절  -->
+	<update id="updateMasterMdCpAdminApprovalObjct" parameterType="java.util.Map">
+		<![CDATA[
+		UPDATE ICOMLUSR
+		SET
+			STATUS		= #{st_status},
+		]]>
+		<if test='st_status == "C"'>
+		<![CDATA[
+			USER_TYPE			= CHANGE_USER_TYPE,
+			ROLE					= DECODE(CHANGE_USER_TYPE,'U','U+','A+'),
+			CONFIRM_DATE		= TO_CHAR(SYSDATE,'YYYYMMDD'),
+			CONFIRM_USER_ID	= #{st_user_id}
+		]]>
+		</if>
+		<if test='st_status == "A"'>
+		<![CDATA[
+			REJECT_REASON	= #{st_reject_reason}
+		]]>	
+		</if>
+		<![CDATA[	
+			
+		WHERE USER_ID = #{USER_ID}
+		]]>
+	</update>
+	
+	<!-- 사용자 거절  -->
+	<update id="insertMasterMdCpAdminApprovalObjct" parameterType="java.util.Map">
+		<![CDATA[
+		INSERT INTO USERINFO (
+			USERID,
+			PURPOSE,
+			ISVALID,
+			CERTCOUNT,
+			NOTAFTER,
+			USERNAME,
+			USERETC,
+			CREATIONDATE,
+			UPDATEDATE,
+			LASTISSUEDATE,
+			Q1,
+			A1,
+			Q2,
+			A2,
+			CASERIALNUMBER,
+			USERCERT
+		)
+		(
+			SELECT
+				USER_ID,
+				1,
+				1,
+				999,
+				TO_CHAR(ADD_MONTHS(SYSDATE,12),'YYYYMMDDHH24MISS'),
+				USER_NAME_LOC,
+				COM_CODE,
+				TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'),
+				TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'),
+				TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'),
+				'1',
+				'1',
+				'1',
+				'1',
+				1,
+				'EMPTY'
+			FROM ICOMLUSR
+			WHERE STATUS  = 'S'
+			AND USER_ID = #{USER_ID}
+		)
+        ]]> 
+	</update>
+	
+	<update  id="SP_PROC_USERAUTH_GEN" parameterType="java.util.Map" >
+		<![CDATA[
+				 /*call PROC_USERAUTH_GEN*/
+				call PROC_USERAUTH_GEN(#{COM_CODE}, #{USER_ID}) 
+		]]>
+	</update>
+	
+	<select id="getMasterMdCpAdminApprovalObjctUserAuth" parameterType="java.util.Map" resultType="String">
+		<![CDATA[
+			SELECT COUNT(*) CNT FROM KX_USERAUTH WHERE USER_ID = UPPER(#{USER_ID})
+		]]>
+	</select>
+	
+	<!--  사용자 권한 설정 -->
+	<update id="insertMasterMdCpAdminApprovalObjctUserAuth" parameterType="java.util.Map">
+		<![CDATA[
+			INSERT INTO	 KX_USERAUTH 	(									
+					USER_ID,
+					AUTH_ID,
+					CREATE_DT,
+					USE_FLAG
+				)	VALUES (									
+					UPPER(#{USER_ID}),								
+					#{AUTH_ID},
+					SYSDATE,
+					'Y'			
+				)
+		]]>
+	 </update>
+	 
+	<!--  사용자 권한 설정 -->
+	<update id="updateMasterMdCpAdminApprovalObjctUserAuth" parameterType="java.util.Map">
+		<![CDATA[
+			UPDATE KX_USERAUTH
+			SET
+				AUTH_ID		= #{AUTH_ID},
+				USE_FLAG		= 'Y'
+			WHERE USER_ID = UPPER(#{USER_ID})
+		]]>
+	 </update>
+	 
+	 
+	 <select id="selectLogisRateMng_agentPop" parameterType="java.util.Map" resultType="String">
+		<![CDATA[
+			/*selectLogisRateMng_agentPop*/
+			SELECT COUNT(1) AS CNT
+			FROM LOGIS_RATE_MNG
+			WHERE 1=1
+			AND AGENT = #{com_code}
+		]]>
+	</select>
+	 
+	 <!-- 물류수수료율 등록 -->
+	<update id="insertLogisRateMng_agentPop" parameterType="java.util.Map">	
+		<![CDATA[
+		/*insertLogisRateMng_agentPop */
+			MERGE INTO LOGIS_RATE_MNG A 
+			USING
+				(
+				 SELECT
+		              #{com_code}      AS AGENT
+		    	 FROM DUAL
+				) B
+				ON ( 1=1
+					AND   A.AGENT = B.AGENT
+				    AND   A.BUYER = 'ALL'
+				)
+				WHEN MATCHED THEN
+				UPDATE
+				SET
+				       A.AGENT_IRS_NO = #{st_irs_no1} || '-' || #{st_irs_no2} || '-' || #{st_irs_no3}
+				      ,A.LOGIS_RATE = #{st_lgstrate}
+				      ,A.START_DATE = TO_CHAR(SYSDATE, 'YYYYMMDD')
+				      ,A.END_DATE = #{st_lgst_end_date}
+				      ,A.ADD_DATE = SYSDATE
+					  ,A.ADD_USER_ID = #{st_user_id} 
+					  ,A.ADD_USER_NAME = (SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = #{st_user_id})
+					  ,A.CHANGE_DATE = SYSDATE
+					  ,A.CHANGE_USER_ID = #{st_user_id} 
+					  ,A.CHANGE_USER_NAME = (SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = #{st_user_id})
+					  ,A.REMARK = #{st_lgstrate_remark}
+					  
+				WHEN NOT MATCHED THEN	  
+				INSERT (									
+					AGENT,
+					BUYER,
+					STATUS,
+					AGENT_IRS_NO,
+					BUYER_IRS_NO,
+					LOGIS_RATE,					
+					AGENT_USER_NAME,
+					START_DATE,
+					END_DATE,
+					ADD_DATE,
+					ADD_USER_ID,
+					ADD_USER_NAME,
+					CHANGE_DATE,
+					CHANGE_USER_ID,
+					CHANGE_USER_NAME,
+					REMARK,
+					KEP_USER_NAME
+
+				)	VALUES (									
+					#{com_code},
+					'ALL',
+					'C',
+					#{st_irs_no1} || '-' || #{st_irs_no2} || '-' || #{st_irs_no3},
+					NULL,
+					#{st_lgstrate},					
+					(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE COM_CODE = #{com_code} AND ROWNUM = 1),
+					TO_CHAR(SYSDATE, 'YYYYMMDD'),
+					#{st_lgst_end_date},
+					SYSDATE,
+					#{st_user_id},
+					(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = #{st_user_id}),
+					SYSDATE,
+					#{st_user_id},
+					(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = #{st_user_id}),
+					#{st_lgstrate_remark},
+					NVL((SELECT TEXT4 FROM ICOMCOD3  WHERE TYPE ='CMSM' AND CODE2 = '1' 
+					    AND CODE1 = (SELECT SG_ID FROM SUPLINFO2 WHERE SUPPLIER = #{com_code} AND SG_ID IS NOT NULL)),'')							
+				)
+		]]>
+	 </update> 
+
+</mapper>   
+   

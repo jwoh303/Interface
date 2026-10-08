@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="buyer.wmgr">
+	<select id="selectBuyerWmGrAssetTagList" parameterType="java.util.Map" resultType="java.util.Map">
+	/*selectBuyerWmGrAssetTagList*/
+		<include refid="common.ibsheet.xml.pagestart"/>	
+		<![CDATA[
+			SELECT DISTINCT
+			  X.BUYER
+			  ,X.PO_NO
+			  ,X.PO_SEQ
+			  ,X.ORDER_NO
+			  ,X.TAG_PRINT_FLAG
+			  ,DECODE(NVL(X.TAG_PRINT_FLAG,''),'P','1','0') TAG_PRINT_CHECK
+			  ,X.TAG_ATTACH_FLAG
+			  ,DECODE(NVL(X.TAG_ATTACH_FLAG,''),'T','1','0') TAG_ATTACH_CHECK
+			  ,X.DESCRIPTION
+			  ,X.SPECIFICATION
+			  ,X.ITEM_QTY
+			  ,X.UNIT_PRICE
+			  ,X.ITEM_AMT
+			  ,X.REQ_USER_ID
+			  ,X.REQ_USER_NM
+			  ,X.REQ_DEPT
+			  ,X.REQ_DEPT_NM
+			  ,X.BUDGET_DEPT_NM
+			  ,X.ADD_DATE
+			  ,CASE WHEN X.PROCESS_TYPE = '0' THEN DELIVERY_DATE
+			   ELSE  TR_DELIVERY_DATE END AS DELIVERY_DATE
+			  ,X.DELY_TO_LOCATION
+			  ,X.GR_DATE
+			FROM (
+				SELECT
+				   B.BUYER
+				  ,B.PO_NO
+				  ,B.PO_SEQ
+				  ,B.PR_NO||'-'||B.PR_SEQ AS ORDER_NO
+				  ,B.TAG_PRINT_FLAG
+				  ,B.TAG_ATTACH_FLAG
+				  ,B.DESCRIPTION
+				  ,B.SPECIFICATION
+				  ,B.ITEM_QTY
+				  ,B.UNIT_PRICE
+				  ,B.ITEM_AMT AS ITEM_AMT
+				  ,A.REQ_USER_ID
+				  ,(SELECT USR.USER_NAME_LOC
+				  	FROM ICOMLUSR USR WHERE USR.USER_ID = A.REQ_USER_ID) AS REQ_USER_NM
+				  ,A.REQ_DEPT
+				  ,(SELECT TEXT1 FROM ICOMCOD2 COD
+					 WHERE COD.TYPE ='C001'
+					 AND COD.COMPANY_CODE = A.BUYER
+					 AND COD.CODE = A.REQ_DEPT) AS REQ_DEPT_NM
+				 ,(SELECT TEXT1 FROM ICOMCOD2
+				 	 WHERE COMPANY_CODE = A.BUYER
+				 	 AND TYPE = 'C001'
+				 	 AND CODE = A.BUDGET_DEPT) AS BUDGET_DEPT_NM
+				 ,A.ADD_DATE
+				 ,B.PROCESS_TYPE
+				 ,(SELECT MAX(DELIVERY_DATE) FROM ICOMIVDT IVDT
+				 	WHERE IVDT.BUYER = B.BUYER
+				 	AND IVDT.PO_NO = B.PO_NO
+				 	AND IVDT.PO_SEQ = B.PO_SEQ
+				 	AND IVDT.STATUS != 'D') AS DELIVERY_DATE
+				 ,(SELECT MAX(DELIVERY_DATE) FROM WMSIVDT IVDT
+				 	WHERE IVDT.BUYER = B.BUYER
+				 	AND IVDT.PO_NO = B.PO_NO
+				 	AND IVDT.PO_SEQ = B.PO_SEQ
+				 	AND IVDT.STATUS != 'D') AS TR_DELIVERY_DATE
+				 , D.DELY_TO_LOCATION
+				 , C.GR_DATE
+				FROM ICOMPRDT A, ICOMPODT B, ICOMGRDT C, ICOMPOHD D
+				WHERE A.BUYER = B.BUYER
+				AND A.PR_NO = B.PR_NO
+				AND A.PR_SEQ = B.PR_SEQ
+				AND B.BUYER = C.BUYER
+				AND B.PO_NO = C.PO_NO
+				AND B.PO_SEQ = C.PO_SEQ
+				AND B.BUYER = D.BUYER
+				AND B.PO_NO = D.PO_NO
+				AND A.STATUS != 'D'
+				AND B.STATUS != 'D'
+				AND C.STATUS != 'D'
+				AND D.STATUS != 'D'
+				AND A.BUYER = #{SESSION_BUYER_CODE}
+				AND C.GR_DATE BETWEEN #{st_from_date} AND #{st_to_date}
+				AND B.ITEM_QTY = B.GR_QTY
+			    AND B.ACCOUNT_TYPE IN (
+					SELECT COD.CODE  FROM ICOMCOD2 COD
+					WHERE COD.COMPANY_CODE = #{SESSION_BUYER_CODE}
+					AND COD.TYPE ='Z014'
+					AND COD.CODE LIKE '09%'
+				)
+				AND A.BUDGET_DEPT IN (
+					SELECT CODE FROM ICOMCOD2
+			    	WHERE TYPE = 'C001'
+			    	AND COMPANY_CODE = #{SESSION_BUYER_CODE}
+			    	AND FLAG = 'Y'
+			    	AND TEXT5 IN (
+		]]>
+			<if test='st_dept_type == "1" '>
+				'0', '1'
+		    	
+			</if>
+			<if test='st_dept_type == "2" '>
+				'2'
+			</if>
+		<![CDATA[
+					)
+				)
+		]]>
+			<if test="st_req_dept_code != null and st_req_dept_code != '' ">
+			    	AND A.REQ_DEPT = #{st_req_dept_code}
+			</if>
+			<if test="st_desc != null and st_desc != '' ">
+			    	AND B.DESCRIPTION LIKE '%'||#{st_desc}||'%'
+			</if>
+		<![CDATA[
+		) X
+		WHERE 1=1
+		]]>
+		<if test="st_po_no != null and st_po_no != '' ">
+		    	AND UPPER(X.ORDER_NO) LIKE '%'||UPPER(#{st_po_no})||'%'
+		</if>
+		<if test="st_pr_user != null and st_pr_user != '' ">
+		    AND UPPER(X.REQ_USER_NM) LIKE '%'||UPPER(#{st_pr_user})||'%'
+		</if>
+
+		<![CDATA[
+		    ORDER BY X.ORDER_NO
+		]]>
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+	<update  id="updateBuyerWmGrAssetTagList" parameterType="java.util.Map" >
+		<![CDATA[
+				UPDATE ICOMPODT /*updateBuyerWmGrAssetTagList*/
+				   SET TAG_PRINT_FLAG =  DECODE(#{TAG_PRINT_CHECK},'1','P','') 
+				        , TAG_ATTACH_FLAG =  DECODE(#{TAG_ATTACH_CHECK},'1','T','')
+				 WHERE BUYER = #{BUYER}  
+				   AND PO_NO = #{PO_NO}    
+				   AND PO_SEQ = #{PO_SEQ}    
+				   AND STATUS <> 'D'		
+		]]>
+	</update>
+	
+</mapper>

@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="common.none">
+
+
+	<update  id="insertNoNeSendSms" parameterType="java.util.Map" >
+		<![CDATA[
+				/*insertNoNeSendSms*/
+			INSERT INTO SUREDATA                         
+                      (SEQNO
+                      , USERCODE
+                      , REQPHONE
+                      , CALLPHONE
+                      , MSG
+                      , REQTIME
+                      , RESULT
+                      , KIND
+                      , KEP_ID
+                      , KEP_WD)                       
+                 SELECT                                          
+                     SEQ_SUREDATA.NEXTVAL,             
+                     'koreab2b' ,             
+                     REPLACE(#{USER_TEL},'-',''),
+                     REPLACE(#{MOBILE_PHONE},'-',''),
+                     #{s_cont},
+                     '00000000000000',
+                     '0',
+                     #{st_kind},
+                     'GWSMS',
+                     #{USER_ID}
+                 FROM DUAL 
+		]]>
+	</update>
+
+	<select id="selectNoNeSentSmsList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/* selectNoNeSentSmsList */
+		SELECT 	TO_CHAR(TO_DATE(SENTTIME, 'YYYYMMDDHH24MISS'), 'YYYY-MM-DD HH24:MI:SS') AS SENTTIME,
+				KEP_WD,
+				CALLPHONE,
+				DECODE(RESULT, '0', '전송대기', 'Y', '전송요청 성공', 'N', '전송요청 실패', '2', '전송성공', '4', '전송실패', '6', '전송결과 미확인') AS RESULT,
+				MSG,
+				DECODE(KIND, 'T', '알림톡', 'S', 'SMS', 'M', 'MMS', 'I', '국제SMS', 'L', '국제MMS') AS KIND
+		FROM	SUREDATA_LOG
+		WHERE	1=1
+		AND		KEP_ID = 'GWSMS'
+		AND		KEP_WD =  #{USER_ID}
+		AND		SUBSTR(INTIME, 0, 8) BETWEEN #{st_from_date} AND #{st_to_date}
+		]]>
+		<if test="st_recv_phone != null and st_recv_phone != ''">
+			<![CDATA[
+			AND CALLPHONE LIKE '%' || REPLACE(#{st_recv_phone},'-','') || '%'
+			]]>
+		</if>
+		<![CDATA[
+		UNION
+	
+		SELECT	TO_CHAR(TO_DATE(SENTTIME, 'YYYYMMDDHH24MISS'), 'YYYY-MM-DD HH24:MI:SS') AS SENTTIME,
+				KEP_WD,
+				CALLPHONE,
+				DECODE(RESULT, '0', '전송대기', 'Y', '전송요청 성공', 'N', '전송요청 실패', '2', '전송성공', '4', '전송실패', '6', '전송결과 미확인') AS RESULT,
+				MSG,
+				DECODE(KIND, 'T', '알림톡', 'S', 'SMS', 'M', 'MMS', 'I', '국제SMS', 'L', '국제MMS') AS KIND
+		FROM	SUREDATA
+		WHERE	1=1
+		AND		KEP_ID = 'GWSMS'
+		AND		KEP_WD = #{USER_ID}
+		AND		SUBSTR(INTIME, 0, 8) BETWEEN #{st_from_date} AND #{st_to_date}
+		]]>
+		<if test="st_recv_phone != null and st_recv_phone != ''">
+			<![CDATA[
+			AND CALLPHONE LIKE '%' || REPLACE(#{st_recv_phone},'-','') || '%'
+			]]>
+		</if>
+		<![CDATA[
+		ORDER BY SENTTIME DESC
+		]]>
+	</select>
+</mapper>

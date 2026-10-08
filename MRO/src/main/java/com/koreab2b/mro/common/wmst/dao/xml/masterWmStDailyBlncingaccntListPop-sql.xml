@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="common.wmst">
+
+
+	<select id="selectMasterWmStDailyBlncingaccntListPopList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/*selectMasterWmStDailyBlncingaccntListPopList*/
+            SELECT																
+            	TODAY_GR.DAY ,'재고' GUBUN,
+                    TODAY_GR.GR_AMT,											
+                    TODAY_IV.UNIT_AMT,											
+                    TODAY_IV.LIST_AMT,											
+                    FROM_GR.GR_AMT+STCK.STCK_AMT-FROM_IV.LIST_AMT CUR_AMT		
+            FROM (																
+                    select TO_CHAR(( TO_DATE(#{st_cur_date},'YYYYMMDD')-1 ),'YYYYMMDD')  DAY ,								
+                     NVL(SUM(ITEM_AMT),0) GR_AMT								
+                    from icomgrdt										
+                    where buyer = #{st_warehouse_code}							
+                      AND PROCESS_TYPE = '1'									
+                      AND STATUS <> 'D'											
+                      AND GR_DATE between #{toYearFirst} and TO_CHAR(( TO_DATE(#{st_cur_date},'YYYYMMDD')-1 ),'YYYYMMDD') 
+            ) FROM_GR, (														
+                    SELECT TO_CHAR(( TO_DATE(#{st_cur_date},'YYYYMMDD')-1 ),'YYYYMMDD') DAY,									
+                     NVL(SUM(INV_QTY*UNIT_PRICE),0) UNIT_AMT,					
+                     NVL(SUM(INV_QTY*LIST_PRICE),0) LIST_AMT					
+                    FROM WMSIVDT												
+                    WHERE INV_DATE between #{toYearFirst} and TO_CHAR(( TO_DATE(#{st_cur_date},'YYYYMMDD')-1 ),'YYYYMMDD')
+                      AND PROCESS_TYPE = '1'									
+                      AND STATUS <> 'D'											
+                      AND WAREHOUSE_CODE = #{st_warehouse_code}					
+            ) FROM_IV, (														
+                    SELECT TO_CHAR(( TO_DATE(#{st_cur_date},'YYYYMMDD')-1 ),'YYYYMMDD') DAY,									
+                     NVL(SUM(STC_D_SELLER_PRICE * TOT_QTY),0) STCK_AMT			
+                    FROM ICOMSTCL												
+                    WHERE CL_MON = #{beforeYear}								
+                      AND STATUS <> 'D'											
+                      AND WAREHOUSE_CODE = #{st_warehouse_code}					
+            ) STCK  ,(															
+                   select TO_CHAR(( TO_DATE(#{st_cur_date},'YYYYMMDD')-1 ),'YYYYMMDD') DAY ,									
+                    NVL(SUM(ITEM_AMT),0) GR_AMT									
+                    from icomgrdt												
+                    where buyer = #{st_warehouse_code}							
+                      AND PROCESS_TYPE = '1'									
+                      AND STATUS <> 'D'											
+                      AND GR_DATE = TO_CHAR(( TO_DATE(#{st_cur_date},'YYYYMMDD')-1 ),'YYYYMMDD')								
+            ) TODAY_GR,(														
+                   SELECT TO_CHAR(( TO_DATE(#{st_cur_date},'YYYYMMDD')-1 ),'YYYYMMDD') DAY,									
+                    NVL(SUM(INV_QTY*UNIT_PRICE),0) UNIT_AMT,					
+                    NVL(SUM(INV_QTY*LIST_PRICE),0) LIST_AMT						
+                    FROM WMSIVDT												
+                    WHERE INV_DATE = TO_CHAR(( TO_DATE(#{st_cur_date},'YYYYMMDD')-1 ),'YYYYMMDD')							
+                      AND PROCESS_TYPE = '1'									
+                      AND STATUS <> 'D'											
+                      AND WAREHOUSE_CODE = #{st_warehouse_code}					
+            ) TODAY_IV															
+            WHERE FROM_GR.DAY = FROM_IV.DAY										
+              AND FROM_GR.DAY = STCK.DAY										
+              AND FROM_GR.DAY = TODAY_GR.DAY									
+            																	
+            UNION ALL															
+            																	
+                   select #{st_cur_date} DAY ,'입고',							
+                    NVL(SUM(ITEM_AMT),0) GR_AMT	,0,0,0							
+                    from icomgrdt												
+                    where buyer = #{st_warehouse_code}							
+                      AND PROCESS_TYPE = '1'									
+                      AND STATUS <> 'D'											
+                      AND GR_DATE = #{st_cur_date}								
+            UNION ALL															
+                   SELECT #{st_cur_date} DAY,'출고',0,							
+                    NVL(SUM(INV_QTY*UNIT_PRICE),0) UNIT_AMT,					
+                    NVL(SUM(INV_QTY*LIST_PRICE),0) LIST_AMT,0					
+                    FROM WMSIVDT												
+                    WHERE INV_DATE = #{st_cur_date}								
+                      AND PROCESS_TYPE = '1'									
+                      AND STATUS <> 'D'											
+                      AND WAREHOUSE_CODE = #{st_warehouse_code}					
+  
+            																	
+            																	
+            UNION ALL															
+            SELECT																
+                    #{st_cur_date} DAY,'재고',									
+                    0 ,--FROM_GR.GR_AMT,										
+                    0 ,--FROM_IV.UNIT_AMT,										
+                    0 ,--FROM_IV.LIST_AMT,										
+                    FROM_GR.GR_AMT+STCK.STCK_AMT-FROM_IV.LIST_AMT				
+            																	
+            FROM (																
+                    select #{st_cur_date} DAY ,									
+                    NVL(SUM(ITEM_AMT),0) GR_AMT									
+                    from icomgrdt												
+                    where buyer = #{st_warehouse_code}							
+                      AND PROCESS_TYPE = '1'									
+                      AND STATUS <> 'D'											
+                      AND GR_DATE between #{toYearFirst} and #{st_cur_date}	
+            ) FROM_GR, (														
+                    SELECT #{st_cur_date} DAY,									
+                    NVL(SUM(INV_QTY*UNIT_PRICE),0) UNIT_AMT,					
+                    NVL(SUM(INV_QTY*LIST_PRICE),0) LIST_AMT						
+                    FROM WMSIVDT												
+                    WHERE INV_DATE between #{toYearFirst} and #{st_cur_date}	
+                      AND PROCESS_TYPE = '1'									
+                      AND STATUS <> 'D'											
+                      AND WAREHOUSE_CODE = #{st_warehouse_code}					
+            ) FROM_IV, (														
+                    SELECT #{st_cur_date} DAY ,									
+                    NVL(SUM(STC_D_SELLER_PRICE * TOT_QTY),0) STCK_AMT			
+                    FROM ICOMSTCL												
+                    WHERE CL_MON = #{beforeYear}										
+                      AND STATUS <> 'D'											
+                      AND WAREHOUSE_CODE = #{st_warehouse_code}					
+            ) STCK  ,(															
+                    SELECT #{st_cur_date} DAY,									
+                    NVL(SUM(AVAIL_QTY*STC_SELLER_PRICE),0) CUR_AMT				
+                    FROM WMSSTCK												
+                    WHERE WAREHOUSE_CODE = #{st_warehouse_code}					
+                      AND PROCESS_TYPE = '1'									
+                      AND STATUS <> 'D'											
+            ) CURAMT															
+            WHERE FROM_GR.DAY = FROM_IV.DAY										
+              AND FROM_GR.DAY = STCK.DAY										
+              AND FROM_GR.DAY = CURAMT.DAY									 
+		]]>
+		
+
+		
+	</select>
+								
+</mapper>

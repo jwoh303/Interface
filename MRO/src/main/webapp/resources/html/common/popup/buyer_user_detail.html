@@ -1,0 +1,436 @@
+<style>
+/* 팝업 높이 viewport 초과 시 잘림 방지 — 둥근 모서리 보존 + 내부 스크롤
+   .DIVpopup(border-radius:22px) 에 overflow-y:auto 주면 스크롤바가 직사각형으로
+   그려져 우측 모서리가 깨지므로, 부모는 overflow:hidden 으로 클리핑만 하고
+   안쪽 .wrapPopup 에 스크롤을 위임. 스크롤바도 슬림화. */
+#DIVpopup {
+    max-height: 90vh;
+    overflow: hidden;
+    box-sizing: border-box;
+}
+#DIVpopup .wrapPopup {
+    max-height: 90vh;
+    overflow-y: auto;
+    box-sizing: border-box;
+    scrollbar-gutter: stable;
+}
+#DIVpopup .wrapPopup::-webkit-scrollbar        { width: 8px; }
+#DIVpopup .wrapPopup::-webkit-scrollbar-track  { background: transparent; }
+#DIVpopup .wrapPopup::-webkit-scrollbar-thumb  { background: rgba(0,0,0,0.18); border-radius: 4px; }
+#DIVpopup .wrapPopup::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.32); }
+
+/* 회사정보 PerInforSearch — td border-bottom 가림 방지
+   원인: .PerInforPop td { line-height:40px } 와 36px height inline 박스의 정렬 충돌로
+   PerInforSearch inline-box가 td bottom border를 침범. inline-block + middle 정렬로 분리.
+*/
+#DIVpopup .PerInforPop td .PerInforSearch {
+    display: inline-block;
+    vertical-align: middle;
+    line-height: normal;
+}
+#DIVpopup .PerInforPop td { line-height: normal; padding-top: 8px; padding-bottom: 8px; }
+</style>
+<div class="DIVpopup-overlay" id="DIVpopupOverlay"></div>
+<div class="DIVpopup" id="DIVpopup" style="width:1100px;">
+  <div class="wrapPopup" style="padding:30px;">
+    <div class="PopupTit">사용자 상세조회<span><a href="#" id="DIVclosePopup"><img src="/resources/imgs/Icon_close.png" /></a></span></div>
+
+    <div class="PopupTitSub">기본정보</div>
+    <table class="PerInforPop">
+      <colgroup>
+        <col width="140px" />
+        <col width="350px" />
+        <col width="140px" />
+        <col width="350px" />
+      </colgroup>
+      <tr>
+        <th>ID</th>
+        <td><span id="user_id_disp"></span></td>
+        <th id="th_legacy_name"></th>
+        <td><input id="st_legacy_user_id" class="input40" style="width:300px" type="text" /></td>
+      </tr>
+      <tr>
+        <th>국문이름</th>
+        <td><span id="user_name_loc"></span></td>
+        <th>핸드폰</th>
+        <td><span id="mobile_phone"></span></td>
+      </tr>
+      <tr>
+        <th>영문이름</th>
+        <td><span id="user_name_eng"></span></td>
+        <th>전화번호</th>
+        <td><span id="phone_number"></span></td>
+      </tr>
+      <tr>
+        <th>이메일</th>
+        <td><span id="email"></span></td>
+        <th>Fax</th>
+        <td><span id="fax_number"></span></td>
+      </tr>
+      <tr>
+        <th rowspan="2">알림 수신</th>
+        <td colspan="3">
+          <span class="TdTit">채널</span>
+          <label class="CheckLargeLabel"><input type="checkbox" id="st_sms_recv_flag_cb"><span class="CheckLargeCustom"></span>SMS</label>
+          <label class="CheckLargeLabel"><input type="checkbox" id="st_mail_recv_flag_cb"><span class="CheckLargeCustom"></span>이메일</label>
+        </td>
+      </tr>
+      <tr>
+        <td colspan="3">
+          <table class="PerInforSmallPop">
+            <tr>
+              <td style="border:0"><span class="TdTit" style="width:74px;">메일수신</span></td>
+              <td style="border:0">
+                <div id="mail_recv_choice_box"></div>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+
+    <div class="PopupTitSub mt10">회사정보</div>
+    <table class="PerInforPop">
+      <colgroup>
+        <col width="140px" />
+        <col width="350px" />
+        <col width="140px" />
+        <col width="350px" />
+      </colgroup>
+      <tr>
+        <th>회사명</th>
+        <td><span id="com_name_loc"></span></td>
+        <th>법인그룹</th>
+        <td><span id="corp_group"></span></td>
+      </tr>
+      <tr>
+        <th>사업자번호</th>
+        <td><span id="biz_no"></span></td>
+        <th>권한</th>
+        <td>
+          <span class="TdTit">메뉴접근</span>
+          <form class="PerInforSearch" onsubmit="return false;" style="width:240px; margin-left:15px; display:inline-block;">
+            <input type="text" id="st_role_text" style="width:190px;" readonly title="">
+            <input type="hidden" id="st_role">
+            <input type="hidden" id="st_ori_role">
+            <button type="button" id="btn_role_search">검색버튼</button>
+          </form>
+        </td>
+      </tr>
+      <tr>
+        <th style="letter-spacing:-0.7px">부서명/부서코드</th>
+        <td>
+          <form class="PerInforSearch" onsubmit="return false;" style="width:320px">
+            <input type="text" id="st_department_text" style="width:270px;" readonly>
+            <input type="hidden" id="st_department">
+            <button type="button" id="btn_dept_search">검색버튼</button>
+          </form>
+        </td>
+        <th>발주부서</th>
+        <td>
+          <form class="PerInforSearch" onsubmit="return false;" style="width:320px">
+            <input type="text" id="st_purchase_dept_text" style="width:270px;" readonly>
+            <input type="hidden" id="st_purchase_dept">
+            <button type="button" id="btn_purchase_dept_search">검색버튼</button>
+          </form>
+        </td>
+      </tr>
+      <tr>
+        <th>직급</th>
+        <td>
+          <form class="PerInforSearch" onsubmit="return false;" style="width:320px">
+            <input type="text" id="st_position_text" style="width:270px;" readonly>
+            <input type="hidden" id="st_position">
+            <button type="button" id="btn_position_search">검색버튼</button>
+          </form>
+        </td>
+        <th>신규소싱</th>
+        <td>
+          <select id="st_user_group" class="Select" style="width:320px">
+            <option value="Q">본인 의뢰 건 조회</option>
+            <option value="C">본인 의뢰 건 조회 및 단가확정</option>
+            <option value="A">전체 의뢰 건 조회 및 단가확정</option>
+          </select>
+        </td>
+      </tr>
+      <tr>
+        <th>배송주소</th>
+        <td colspan="3">
+          <form class="PerInforSearch" onsubmit="return false;" style="width:810px">
+            <input type="text" id="st_dely_text" style="width:760px;" readonly>
+            <input type="hidden" id="st_dely_to_location">
+            <button type="button" id="btn_dely_search">검색버튼</button>
+          </form>
+        </td>
+      </tr>
+    </table>
+	<br/>
+	※일부 설정은 재로그인 후 적용됩니다.
+    <div class="PopupListBtnBox_Center mt30">
+      <button type="button" class="ButPrimary_large" id="btn_save">저장</button>
+    </div>
+  </div>
+</div>
+
+<script type="text/javascript">
+/**
+ * 구매사 사용자 상세조회 팝업 API
+ * PopupUtil이 window.createPopupAPI를 자동 호출
+ */
+window.createPopupAPI = function(overlayId, containerId, options) {
+    var $overlay   = $('#' + overlayId);
+    var $container = $('#' + containerId);
+    var animationType = $container.data('animationType') || 'default';
+
+    // .AllSearch-select(z-index:10001) 가 팝업(9999) 위로 튀어나오는 문제 차단
+    $container.css('z-index', 10010);
+    $overlay.css('z-index', 10009);
+
+    var userId  = (options && options.data && options.data.userId)  || '';
+    var comCode = (options && options.data && options.data.comCode) || '';
+    var legacyName = (options && options.data && options.data.legacyName) || '';
+
+    var savedCallback = null;
+    var oldRole = '', oldUserGroup = '', oldPersonAuthor = '', currentStatus = '', currentUserType = '';
+
+    var api = {};
+
+    function close() {
+        var $popup = $container.find('.DIVpopup');
+        if ($popup.hasClass('popup-button-exit') || $popup.hasClass('popup-exit')) return;
+        var exitClass = animationType === 'fromButton' ? 'popup-button-exit' : 'popup-exit';
+        var animationDuration = animationType === 'fromButton' ? 1000 : 200;
+        $popup.removeClass('popup-enter popup-button-enter').addClass(exitClass);
+        $overlay.removeClass('popup-enter').addClass('popup-exit');
+        setTimeout(function() {
+            $overlay.remove();
+            $container.remove();
+            if ($('[id^="popup-overlay-"]').length === 0) {
+                var scrollY = $('body').data('scrollY') || 0;
+                $('body').css({'position':'', 'top':'', 'left':'', 'right':'', 'overflow-y':''});
+                window.scrollTo(0, scrollY);
+            }
+        }, animationDuration);
+    }
+
+    function onSaved(cb) { savedCallback = cb; return api; }
+
+    function nvl(v) { return (v === null || v === undefined) ? '' : v; }
+
+    function loadUser() {
+        HttpUtil.post('/mdam/getBuyerMdAmPrivateInfoForPopup_v2.do', { st_user_id: userId, st_reject_flag:'Y' }, {
+            showLoader: false, showDefaultAlert: false
+        }).then(function(res) {
+            var data = res.data || {};
+            var u = (data.userData && data.userData[0]) || {};
+
+            $container.find('#user_id_disp').text(nvl(u.USER_ID));
+            $container.find('#st_legacy_user_id').val(nvl(u.LEGACY_USER_ID));
+            $container.find('#user_name_loc').text(nvl(u.USER_NAME_LOC));
+            $container.find('#user_name_eng').text(nvl(u.USER_NAME_ENG));
+            $container.find('#mobile_phone').text(nvl(u.MOBILE_PHONE));
+            $container.find('#phone_number').text(nvl(u.PHONE_NUMBER));
+            $container.find('#email').text(nvl(u.EMAIL));
+            $container.find('#fax_number').text(nvl(u.FAX_NUMBER));
+            $container.find('#st_sms_recv_flag_cb').prop('checked', nvl(u.SMS_RECV_FLAG) === 'Y');
+            $container.find('#st_mail_recv_flag_cb').prop('checked', nvl(u.MAIL_RECV_FLAG) === 'Y');
+
+            // 메일수신 세부항목: ICOMCOD1.TYPE='MAIL' 마스터 + 사용자 MAIL_RECV_CHOICE(Y/N 시퀀스)로 동적 렌더링
+            var mailMaster = data.mailChoiceMaster || [];
+            var mailChoice = nvl(u.MAIL_RECV_CHOICE);
+            var $box = $container.find('#mail_recv_choice_box').empty();
+            for (var i = 0; i < mailMaster.length; i++) {
+                var label = nvl(mailMaster[i].TEXT4);
+                var checked = (mailChoice.charAt(i) === 'Y') ? 'checked' : '';
+                $box.append(
+                    '<label class="CheckLargeLabel">' +
+                        '<input type="checkbox" class="mail_recv_choice_cb" data-idx="' + i + '" ' + checked + '>' +
+                        '<span class="CheckLargeCustom"></span>' + label +
+                    '</label>'
+                );
+                if ((i + 1) % 5 === 0 && i < mailMaster.length - 1) $box.append('<br/>');
+            }
+
+            $container.find('#com_name_loc').text(nvl(u.COM_NAME_LOC));
+            // 응답 SQL 컬럼: IRS_NO (사업자번호), CORP_NAME (법인그룹명), CORP_CODE
+            $container.find('#corp_group').text(nvl(u.CORP_NAME) || nvl(u.CORP_CODE));
+            $container.find('#biz_no').text(nvl(u.IRS_NO));
+
+            $container.find('#st_role').val(nvl(u.ROLE));
+            $container.find('#st_ori_role').val(nvl(u.ROLE));
+            if(u.ROLE == "A+"){
+            	$container.find('#btn_role_search').hide();
+            }
+            $container.find('#st_role_text').val(nvl(u.ROLE_NAME) || nvl(u.ROLE));
+            $container.find('#st_department').val(nvl(u.DEPARTMENT));
+            $container.find('#st_department_text').val(nvl(u.DEPARTMENT_TEXT));
+            $container.find('#st_position').val(nvl(u.POSITION));
+            $container.find('#st_position_text').val(nvl(u.POSITION_TEXT));
+            $container.find('#st_purchase_dept').val(nvl(u.PURCHASE_DEPT));
+            $container.find('#st_purchase_dept_text').val(nvl(u.PURCHASE_DEPT_TEXT));
+            $container.find('#st_dely_to_location').val(nvl(u.DELY_TO_LOCATION));
+            $container.find('#st_dely_text').val(nvl(u.DELY_TEXT));
+
+            oldRole         = nvl(u.ROLE);
+            oldUserGroup    = nvl(u.USER_GROUP);
+            oldPersonAuthor = nvl(u.PERSON_AUTHOR);
+            currentStatus   = nvl(u.STATUS);
+            currentUserType = nvl(u.USER_TYPE);  // 'A' 관리자/일반 구분 — sub-popup 권한 변경 차단용
+
+            // 신규소싱(USER_GROUP) — 미지정 사용자는 빈칸으로 보이도록 빈 option 을 임시로 붙임
+            var ug  = nvl(u.USER_GROUP);
+            var $ug = $container.find('#st_user_group');
+            $ug.find('option.blank-opt').remove(); // 저장 후 재호출 시 누적 방지
+            if (ug === '') $ug.prepend('<option class="blank-opt" value=""></option>');
+            $ug.val(ug);
+        });
+    }
+    function applyLabels() {
+        $container.find('#th_legacy_name').text(legacyName);
+    }
+
+    function openSubPopup(url, dataObj, applyFn) {
+        PopupUtil.open({
+            url: url,
+            data: dataObj || {},
+            onInit: function(subApi) {
+                // 부모(10010)보다 위로 오도록 sub-popup z-index 상승.
+                $('[id^="popup-overlay-"]').last().css('z-index', 10019);
+                $('[id^="popup-container-"]').last().css('z-index', 10020);
+
+                if (typeof subApi.onSelect === 'function') {
+                    // sub-popup 시그니처 정규화:
+                    //  - dept_code/position_code/del_location: selectCallback(row 객체)
+                    //  - purchase_dept/menu_auth(자작): selectCallback(code, text)
+                    subApi.onSelect(function(arg1, arg2) {
+                        var code, text;
+                        if (arg1 && typeof arg1 === 'object') {
+                            code = arg1.CODE || '';
+                            text = arg1.TEXT1 || arg1.TEXT2 || '';
+                        } else {
+                            code = (arg1 == null) ? '' : String(arg1);
+                            text = (arg2 == null) ? '' : String(arg2);
+                        }
+                        applyFn(code, text);
+                        if (typeof subApi.close === 'function') subApi.close();
+                    });
+                }
+            }
+        });
+    }
+
+    function save() {
+        if (!$container.find('#st_department_text').val()) { alert('부서가 입력되지 않았습니다.'); return; }
+        if (!$container.find('#st_position_text').val())   { alert('직급이 입력되지 않았습니다.'); return; }
+        if (!confirm('사용자 정보를 수정 하시겠습니까?')) return;
+
+        // 메일수신 세부항목 → 위치 기반 Y/N 시퀀스 직렬화 (레거시 commonUserMailRecvChoicePop.jsp:45 동일)
+        var mailRecvChoice = '';
+        $container.find('.mail_recv_choice_cb').each(function() {
+            mailRecvChoice += this.checked ? 'Y' : 'N';
+        });
+        while (mailRecvChoice.length < 50) mailRecvChoice += 'N'; // 50자 우측 N-padding
+
+        var formData = {
+            st_user_id: userId,
+            st_com_code: comCode,
+            st_legacy_user_id: $container.find('#st_legacy_user_id').val(),
+            st_sms_recv_flag: $container.find('#st_sms_recv_flag_cb').is(':checked') ? 'Y' : 'N',
+            st_mail_recv_flag: $container.find('#st_mail_recv_flag_cb').is(':checked') ? 'Y' : 'N',
+            st_mail_recv_choice: mailRecvChoice,
+            st_department: $container.find('#st_department').val(),
+            st_position: $container.find('#st_position').val(),
+            st_role: $container.find('#st_role').val(),
+            st_purchase_dept: $container.find('#st_purchase_dept').val(),
+            st_dely_to_location: $container.find('#st_dely_to_location').val(),
+            st_status: currentStatus,
+            st_old_role: oldRole,
+            st_old_user_group: oldUserGroup,
+            st_old_person_author: oldPersonAuthor,
+            st_row_cnt: '',
+            st_img_view_flag: '',
+            st_user_group: $container.find('#st_user_group').val(),
+            st_person_author: ''
+        };
+
+        HttpUtil.post('/mdam/updateBuyerMdAmPrivateInfoAlterPop.do', formData, {
+            showLoader: true, showDefaultAlert: false
+        }).then(function(res) {
+            var msg = (res.data && res.data.msg) || '';
+            if (msg === 'OK') {
+                alert('사용자 정보 수정이 완료되었습니다.');
+                if (typeof savedCallback === 'function') savedCallback();
+                close();
+            } else {
+                alert('사용자 정보 수정이 실패하였습니다.');
+            }
+        });
+    }
+
+    function bindEvents() {
+        $overlay.on('click', close);
+        $container.find('#DIVclosePopup').on('click', function(e) { e.preventDefault(); close(); });
+
+        $container.find('#btn_dept_search').on('click', function() {
+            openSubPopup(PopupUtil.POPUP_URLS.DEPT_CODE, { com_code: comCode }, function(code, text) {
+                $container.find('#st_department').val(code);
+                $container.find('#st_department_text').val(text);
+            });
+        });
+        $container.find('#btn_position_search').on('click', function() {
+            openSubPopup(PopupUtil.POPUP_URLS.POSITION_CODE, { com_code: comCode, type: 'C003' }, function(code, text) {
+                $container.find('#st_position').val(code);
+                $container.find('#st_position_text').val(text);
+            });
+        });
+        $container.find('#btn_purchase_dept_search').on('click', function() {
+            openSubPopup(PopupUtil.POPUP_URLS.PURCHASE_DEPT, { com_code: comCode }, function(code, text) {
+                $container.find('#st_purchase_dept').val(code);
+                $container.find('#st_purchase_dept_text').val(text);
+            });
+        });
+        $container.find('#btn_dely_search').on('click', function() {
+            // 배송주소는 TEXT1(도착지명)이 아닌 TEXT2(도착지주소)를 input에 채워야 하므로 직접 처리
+            PopupUtil.open({
+                url: PopupUtil.POPUP_URLS.DEL_LOCATION,
+                data: { com_code: comCode, del_code: $container.find('#st_dely_to_location').val() },
+                onInit: function(subApi) {
+                    $('[id^="popup-overlay-"]').last().css('z-index', 10019);
+                    $('[id^="popup-container-"]').last().css('z-index', 10020);
+                    if (typeof subApi.onSelect === 'function') {
+                        subApi.onSelect(function(row) {
+                            if (!row) return;
+                            $container.find('#st_dely_to_location').val(row.CODE || '');
+                            $container.find('#st_dely_text').val(row.TEXT2 || row.TEXT1 || '');
+                            if (typeof subApi.close === 'function') subApi.close();
+                        });
+                    }
+                }
+            });
+        });
+        $container.find('#btn_role_search').on('click', function() {
+            openSubPopup(PopupUtil.POPUP_URLS.MENU_AUTH, {
+                st_role_code: $container.find('#st_role').val().replace("+", "@"),
+                st_ori_role_code: $container.find('#st_ori_role').val().replace("+", "@"),
+                st_user_type: currentUserType  // 'A' 관리자면 sub-popup이 변경 차단
+            }, function(code, text) {
+                $container.find('#st_role').val(code);
+                var disp = text || code;
+                $container.find('#st_role_text').val(disp).attr('title', disp);  // 잘림 시 hover 툴팁
+            });
+        });
+        $container.find('#btn_save').on('click', save);
+    }
+
+    api.close   = close;
+    api.onSaved = onSaved;
+    api.$overlay   = $overlay;
+    api.$container = $container;
+
+    bindEvents();
+    applyLabels();
+    loadUser();
+
+    return api;
+};
+</script>

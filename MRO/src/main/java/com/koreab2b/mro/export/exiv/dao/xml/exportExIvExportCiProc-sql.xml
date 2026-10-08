@@ -1,0 +1,807 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="export.exiv">
+	<!-- 조회 -->
+	<select id="selectExportExIvExportCiProcList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.pagestart"/>	
+			<![CDATA[
+              SELECT /*selectExportExIvExportCiProcList*/
+                     PODT.BUYER,
+                     (SELECT COM_NAME_LOC
+                     	FROM ICOMCMPY CM WHERE CM.COM_CODE = PODT.BUYER) AS BUYER_NAME,
+                     POHD.PO_CREATE_DATE,
+                     PODT.RD_DATE,
+                     PODT.PO_NO,
+                     PODT.PO_SEQ,
+                     PODT.BUYER_ITEM_NO,
+                     PODT.DESCRIPTION,
+                     PODT.SPECIFICATION,
+                     PODT.UNIT_MEASURE,
+                     PODT.MAKER_NAME ,
+                     POHD.DELY_TO_LOCATION,
+                     DECODE(POHD.DELY_TO_LOCATION,'','1','0') AS  DELY_TO_LOCATION_IMG,
+                     PRDT.ADD_USER_NAME,
+                     PRDT.ADD_USER_TEL,
+                     (SELECT COM_NAME_LOC
+                     	FROM ICOMCMPY CM WHERE CM.COM_CODE = POHD.AGENT) AS AGENT_NAME,
+                     (SELECT TEL_NO
+                     	FROM ICOMCMPY CM WHERE CM.COM_CODE = POHD.AGENT) AS AGENT_TEL_NO,
+                     PODT.LEGACY_PO_NO,
+                     IVDT.INV_NO,
+                     PODT.ITEM_AMT,
+                     POHD.AGENT AS AGENT,
+                     POHD.PO_REMARK,
+                     PODT.DELAY_REMARK,
+                     PODT.SCM_REMARK,
+                     IVDT.INVOICE_DATE AS INV_DATE,
+                     PODT.PROCESS_TYPE,
+                     IVDT.PKG_RS_DATE,
+                     IVDT.PKG_GR_DATE,
+                     IVDT.PKG_GR_QTY,
+                     IVDT.PKG_GR_USER_ID,
+                     NVL(IVDT.PKG_CI_QTY,0) GI_PKG_CI_QTY,
+                     IVDT.PKG_GR_QTY - NVL(IVDT.PKG_CI_QTY,0) AS PKG_CI_QTY,
+                     (SELECT USR.USER_NAME_LOC
+                     	FROM ICOMLUSR USR
+                     	WHERE USR.USER_ID = IVDT.PKG_GR_USER_ID) AS PKG_GR_USER_NM,
+                     IVDT.INV_QTY,
+                     IVDT.INV_SEQ,
+                     PRDT.EXP_CUR,
+                     PRDT.EXP_FOR_UNIT_PRICE
+                     ,POHD.PURCHASER_NAME AS PURCHASER_NAME
+                     ,COD2.TEXT1 AS PURCHASE_DEPT
+                     ,POHD.OVERSEA_TO_LOCATION
+                     ,PODT.PLANT
+                     ,PRDT.PURCHASER_DEPT AS PURCHASER_DEPT_CD
+                FROM ICOMPODT PODT, ICOMPOHD POHD, ICOMPRDT PRDT, ICOMIVDT IVDT, ICOMCOD2 COD2
+               WHERE PODT.BUYER = POHD.BUYER  
+                 AND PODT.PO_NO = POHD.PO_NO  
+                 AND PODT.BUYER = PRDT.BUYER  
+                 AND PODT.PR_NO = PRDT.PR_NO  
+                 AND PODT.PR_SEQ = PRDT.PR_SEQ  
+                 AND PODT.BUYER = IVDT.BUYER  
+                 AND PODT.PO_NO = IVDT.PO_NO  
+                 AND PODT.PO_SEQ = IVDT.PO_SEQ
+                 AND PODT.STATUS <> 'D'  
+                 AND POHD.STATUS <> 'D'  
+                 AND PRDT.STATUS <> 'D'  
+                 AND IVDT.STATUS <> 'D'  
+                 AND PODT.PROCESS_TYPE = '0'
+                 AND NVL(IVDT.PKG_GR_QTY,0) > 0  
+                 AND POHD.PKG_COMPANY_CODE =#{st_pkg_cmpy_no}
+                 AND NVL(IVDT.PKG_CI_QTY,0)< NVL(IVDT.PKG_GR_QTY,0)          
+                 AND PRDT.EXP_CUR IS NOT NULL
+                 AND PRDT.BUYER = COD2.COMPANY_CODE(+)
+                 AND COD2.TYPE(+) = 'C001'
+                 AND PRDT.PURCHASER_DEPT = COD2.CODE(+)
+                    ]]>
+				<if test="st_buyerArr != null and st_buyerArr != ''">
+					AND PODT.BUYER IN  
+					<foreach item="item" collection="st_buyerArr" open="(" separator="," close=")">
+				 	#{item}
+					</foreach>
+				</if>    
+             <if test="st_agent_code != null and st_agent_code != ''">               	
+                 <![CDATA[       
+                 	AND POHD.AGENT  = #{st_agent_code}
+                   ]]>
+            </if>
+             <if test="st_inv_no != null and st_inv_no != ''">               	
+                 <![CDATA[       
+                 	AND IVDT.INV_NO LIKE #{st_inv_no}||'%' 	         
+                   ]]>
+            </if> 
+             <if test="st_po_no != null and st_po_no != ''">               	
+                 <![CDATA[       
+                 	AND PODT.PO_NO LIKE #{st_po_no}||'%'
+                   ]]>
+            </if>
+             <if test="st_legacy_po_no != null and st_legacy_po_no != ''">               	
+                 <![CDATA[       
+                 	AND PODT.LEGACY_PO_NO LIKE #{st_legacy_po_no}||'%' 	         
+                   ]]>
+            </if>     
+             <if test="st_inv_no != null and st_inv_no != ''">               	
+                 <![CDATA[       
+                 	AND IVDT.INV_NO LIKE #{st_inv_no}||'%' 	         
+                   ]]>
+            </if>
+            <if test="st_purchase_dept != null and st_purchase_dept != ''">               	
+                 <![CDATA[       
+                 	AND UPPER(COD2.TEXT1) LIKE  UPPER('%'||#{st_purchase_dept}||'%') 	         
+                   ]]>
+            </if>
+            <!-- 발주일 -->
+            <if test='st_date_type == "A"' >
+				<![CDATA[
+					AND POHD.PO_CREATE_DATE BETWEEN #{st_from_date} AND #{st_to_date}         
+					]]>	
+			</if>
+			<!-- 입고일 -->
+			<if test='st_date_type == "B"' >
+				<![CDATA[
+					AND IVDT.PKG_GR_DATE BETWEEN #{st_from_date} AND #{st_to_date}  
+				]]>	
+			</if>
+                                   
+			<![CDATA[ 
+              UNION ALL  
+              SELECT
+                     PODT.BUYER,
+                     (SELECT COM_NAME_LOC
+                     	FROM ICOMCMPY CM WHERE CM.COM_CODE = PODT.BUYER) AS BUYER_NAME,
+                     POHD.PO_CREATE_DATE,
+                     PODT.RD_DATE,
+                     PODT.PO_NO,
+                     PODT.PO_SEQ,
+                     PODT.BUYER_ITEM_NO,
+                     PODT.DESCRIPTION,
+                     PODT.SPECIFICATION,
+                     PODT.UNIT_MEASURE,
+                     PODT.MAKER_NAME ,
+                     POHD.DELY_TO_LOCATION,
+                     DECODE(POHD.DELY_TO_LOCATION,'','1','0') AS  DELY_TO_LOCATION_IMG,
+                     PRDT.ADD_USER_NAME,
+                     PRDT.ADD_USER_TEL,
+                     (SELECT COM_NAME_LOC
+                     	FROM ICOMCMPY CM WHERE CM.COM_CODE = POHD.AGENT) AS AGENT_NAME,
+                     (SELECT TEL_NO
+                     	FROM ICOMCMPY CM WHERE CM.COM_CODE = POHD.AGENT) AS AGENT_TEL_NO,
+                     PODT.LEGACY_PO_NO,
+                     IVDT.INV_NO,
+                     PODT.ITEM_AMT,
+                     POHD.AGENT AS AGENT,
+                     POHD.PO_REMARK,
+                     PODT.DELAY_REMARK,
+                     PODT.SCM_REMARK,
+                     IVDT.INV_DATE AS INV_DATE,
+                     PODT.PROCESS_TYPE,
+                     IVDT.PKG_RS_DATE,
+                     IVDT.PKG_GR_DATE,
+                     IVDT.PKG_GR_QTY,
+                     IVDT.PKG_GR_USER_ID,
+                     NVL(IVDT.PKG_CI_QTY,0) GI_PKG_CI_QTY,
+                     IVDT.PKG_GR_QTY - NVL(IVDT.PKG_CI_QTY,0) AS PKG_CI_QTY,
+                     (SELECT USR.USER_NAME_LOC
+                     	FROM ICOMLUSR USR
+                     	WHERE USR.USER_ID = IVDT.PKG_GR_USER_ID) AS PKG_GR_USER_NM,
+                     IVDT.INV_QTY,
+                     IVDT.INV_SEQ,
+                     PRDT.EXP_CUR,
+                     PRDT.EXP_FOR_UNIT_PRICE
+                     ,POHD.PURCHASER_NAME AS PURCHASER_NAME
+                     ,COD2.TEXT1 AS PURCHASE_DEPT
+                     ,POHD.OVERSEA_TO_LOCATION
+                     ,PODT.PLANT
+                     ,PRDT.PURCHASER_DEPT AS PURCHASER_DEPT_CD
+                FROM ICOMPODT PODT, ICOMPOHD POHD, ICOMPRDT PRDT, WMSIVDT IVDT, ICOMCOD2 COD2
+               WHERE PODT.BUYER = POHD.BUYER  
+                 AND PODT.PO_NO = POHD.PO_NO  
+                 AND PODT.BUYER = PRDT.BUYER  
+                 AND PODT.PR_NO = PRDT.PR_NO  
+                 AND PODT.PR_SEQ = PRDT.PR_SEQ  
+                 AND PODT.BUYER = IVDT.BUYER  
+                 AND PODT.PO_NO = IVDT.PO_NO  
+                 AND PODT.PO_SEQ = IVDT.PO_SEQ
+                 AND PODT.STATUS <> 'D'  
+                 AND POHD.STATUS <> 'D'  
+                 AND PRDT.STATUS <> 'D'  
+                 AND IVDT.STATUS <> 'D'  
+                 AND PODT.PROCESS_TYPE != '0'
+                 AND NVL(IVDT.PKG_GR_QTY,0) > 0  
+                 AND POHD.PKG_COMPANY_CODE =#{st_pkg_cmpy_no}  
+				 AND NVL(IVDT.PKG_CI_QTY,0)< NVL(IVDT.PKG_GR_QTY,0)    
+				 AND PRDT.EXP_CUR IS NOT NULL
+                 AND PRDT.BUYER = COD2.COMPANY_CODE(+)
+                 AND COD2.TYPE(+) = 'C001'
+                 AND PRDT.PURCHASER_DEPT = COD2.CODE(+)          
+                    ]]>
+				<if test="st_buyerArr != null and st_buyerArr != ''">
+					AND PODT.BUYER IN  
+					<foreach item="item" collection="st_buyerArr" open="(" separator="," close=")">
+				 	#{item}
+					</foreach>
+				</if>    
+             <if test="st_agent_code != null and st_agent_code != ''">               	
+                 <![CDATA[       
+                 	AND POHD.AGENT  = #{st_agent_code}
+                   ]]>
+            </if>
+             <if test="st_po_no != null and st_po_no != ''">               	
+                 <![CDATA[       
+                 	AND PODT.PO_NO LIKE #{st_po_no}||'%'
+                   ]]>
+            </if>
+             <if test="st_legacy_po_no != null and st_legacy_po_no != ''">               	
+                 <![CDATA[       
+                 	AND PODT.LEGACY_PO_NO LIKE #{st_legacy_po_no}||'%' 	         
+                   ]]>
+            </if>     
+             <if test="st_inv_no != null and st_inv_no != ''">               	
+                 <![CDATA[       
+                 	AND IVDT.INV_NO LIKE #{st_inv_no}||'%' 	         
+                   ]]>
+            </if>
+            <if test="st_purchase_dept != null and st_purchase_dept != ''">               	
+                 <![CDATA[       
+                 	AND UPPER(COD2.TEXT1) LIKE  UPPER('%'||#{st_purchase_dept}||'%') 	         
+                   ]]>
+            </if>
+            <!-- 발주일 -->
+            <if test='st_date_type == "A"' >
+				<![CDATA[
+					AND  POHD.PO_CREATE_DATE BETWEEN #{st_from_date} AND #{st_to_date}         
+					]]>	
+			</if>
+			<!-- 입고일 -->
+			<if test='st_date_type == "B"' >
+				<![CDATA[
+					AND IVDT.PKG_GR_DATE BETWEEN #{st_from_date} AND #{st_to_date}  
+				]]>	
+			</if>                      
+			<![CDATA[ 
+	 			ORDER BY BUYER_NAME, PO_NO, PO_SEQ
+ 			   ]]>   
+		<include refid="common.ibsheet.xml.pageend"/>			
+	</select>
+
+	<update id="updateExportExIvExportCiProcHd" parameterType="java.util.Map">
+		<![CDATA[
+			/*updateExportExIvExportCiProcHd*/
+			UPDATE ICOMIVDT A
+			SET
+				PKG_RS_DATE = #{SCHEDULED_DATE}
+				, PKG_GR_QTY = A.INV_QTY
+				, PKG_GR_USER_ID = #{st_user_id} 
+				WHERE A.BUYER = #{BUYER}
+				AND A.INV_NO = #{INV_NO}
+				AND STATUS != 'D'
+		]]>
+	</update>
+	<select id="selectExportExIvExportCiProcDetail" parameterType="java.util.Map" resultType="java.util.Map">
+			<![CDATA[
+              SELECT /*selectExportExIvExportCiProcDetail*/
+              		'1' AS SELECTED,
+                     PODT.BUYER,
+                     POHD.PO_CREATE_DATE,
+                     PODT.RD_DATE,
+                     PODT.PO_NO,
+                     PODT.PO_SEQ,
+                     PODT.BUYER_ITEM_NO,
+                     PODT.DESCRIPTION,
+                     PODT.SPECIFICATION,
+                     PODT.UNIT_MEASURE,
+                     PODT.MAKER_NAME ,
+                     IVDT.INV_NO,
+                     PODT.ITEM_AMT,
+                     POHD.AGENT AS AGENT,
+                     POHD.PO_REMARK,
+                     PODT.DELAY_REMARK,
+                     PODT.SCM_REMARK,
+                     PODT.PROCESS_TYPE,
+                     NVL(IVDT.PKG_CI_QTY,0) GI_PKG_CI_QTY,
+                     IVDT.INV_QTY,
+                     IVDT.INV_SEQ,
+                     '1' AS LOT_IMG,
+                     IVDT.INV_QTY-NVL(IVDT.PKG_CI_QTY,0) AS  PKG_CI_QTY,
+                     IVDT.INV_QTY-NVL(IVDT.PKG_CI_QTY,0) AS  PKG_CI_QTY_2,
+                     POHD.AGENT,
+                     PRDT.EXP_CUR,
+                     PRDT.EXP_FOR_UNIT_PRICE,
+                     PODT.LEGACY_PO_NO,
+                     PODT.LEGACY_PO_SEQ,
+                     PODT.PLANT,
+                     POHD.OVERSEA_TO_LOCATION,
+                     NVL(IVDT.PKG_GR_QTY,0) AS PKG_GR_QTY
+                FROM ICOMPODT PODT, ICOMPOHD POHD, ICOMPRDT PRDT, ICOMIVDT IVDT
+               WHERE PODT.BUYER = POHD.BUYER  
+                 AND PODT.PO_NO = POHD.PO_NO  
+                 AND PODT.BUYER = PRDT.BUYER  
+                 AND PODT.PR_NO = PRDT.PR_NO                                                                                                          
+                 AND PODT.PR_SEQ = PRDT.PR_SEQ  
+                 AND PODT.BUYER = IVDT.BUYER  
+                 AND POHD.BUYER =#{st_buyer}
+                 AND PODT.BUYER =#{st_buyer}
+                 AND PODT.BUYER = #{st_buyer}
+                 AND PODT.PO_NO = #{st_po_no}
+                 AND PODT.PO_SEQ =#{st_po_seq}
+                 AND IVDT.INV_NO = #{st_inv_no}
+                 AND IVDT.INV_SEQ =#{st_inv_seq} 
+                 AND PODT.PO_NO = IVDT.PO_NO  
+                 AND PODT.PO_SEQ = IVDT.PO_SEQ
+                 AND PODT.STATUS <> 'D'  
+                 AND POHD.STATUS <> 'D'  
+                 AND PRDT.STATUS <> 'D'  
+                 AND IVDT.STATUS <> 'D'  
+                 AND PODT.PROCESS_TYPE = '0'
+                 AND NVL(IVDT.PKG_GR_QTY,0) > 0  
+                 AND POHD.PKG_COMPANY_CODE =#{st_pkg_cmpy_no}
+                 AND NVL(IVDT.PKG_CI_QTY,0)< NVL(IVDT.PKG_GR_QTY,0)          
+                 AND PRDT.EXP_CUR IS NOT NULL
+              UNION ALL  
+              SELECT
+              		'1' AS SELECTED,
+                     PODT.BUYER,
+                     POHD.PO_CREATE_DATE,
+                     PODT.RD_DATE,
+                     PODT.PO_NO,
+                     PODT.PO_SEQ,
+                     PODT.BUYER_ITEM_NO,
+                     PODT.DESCRIPTION,
+                     PODT.SPECIFICATION,
+                     PODT.UNIT_MEASURE,
+                     PODT.MAKER_NAME ,
+                     IVDT.INV_NO,
+                     PODT.ITEM_AMT,
+                     POHD.AGENT AS AGENT,
+                     POHD.PO_REMARK,
+                     PODT.DELAY_REMARK,
+                     PODT.SCM_REMARK,
+                     PODT.PROCESS_TYPE,
+                     NVL(IVDT.PKG_CI_QTY,0) GI_PKG_CI_QTY,
+                     IVDT.INV_QTY,
+                     IVDT.INV_SEQ,
+                     '1' AS LOT_IMG,
+                     IVDT.INV_QTY-NVL(IVDT.PKG_CI_QTY,0) AS  PKG_CI_QTY,
+                     IVDT.INV_QTY-NVL(IVDT.PKG_CI_QTY,0) AS  PKG_CI_QTY_2,
+                     POHD.AGENT,
+                     PRDT.EXP_CUR,
+                     PRDT.EXP_FOR_UNIT_PRICE,
+                     PODT.LEGACY_PO_NO,
+                     PODT.LEGACY_PO_SEQ,
+                     PODT.PLANT,
+                     POHD.OVERSEA_TO_LOCATION,
+                     NVL(IVDT.PKG_GR_QTY,0) AS PKG_GR_QTY
+                FROM ICOMPODT PODT, ICOMPOHD POHD, ICOMPRDT PRDT, WMSIVDT IVDT
+               WHERE PODT.BUYER = POHD.BUYER  
+                 AND PODT.PO_NO = POHD.PO_NO  
+                 AND PODT.BUYER = PRDT.BUYER  
+                 AND PODT.PR_NO = PRDT.PR_NO  
+                 AND PODT.PR_SEQ = PRDT.PR_SEQ  
+                 AND PODT.BUYER = IVDT.BUYER  
+                 AND POHD.BUYER =#{st_buyer}
+                 AND PODT.BUYER =#{st_buyer}
+                 AND PODT.PO_NO = #{st_po_no}
+                 AND PODT.PO_SEQ =#{st_po_seq}
+                 AND IVDT.INV_NO = #{st_inv_no}
+                 AND IVDT.INV_SEQ =#{st_inv_seq}
+                 AND PODT.PO_NO = IVDT.PO_NO  
+                 AND PODT.PO_SEQ = IVDT.PO_SEQ
+                 AND PODT.STATUS <> 'D'  
+                 AND POHD.STATUS <> 'D'  
+                 AND PRDT.STATUS <> 'D'  
+                 AND IVDT.STATUS <> 'D'  
+                 AND PODT.PROCESS_TYPE != '0'
+                 AND NVL(IVDT.PKG_GR_QTY,0) > 0  
+                 AND POHD.PKG_COMPANY_CODE =#{st_pkg_cmpy_no}
+				 AND NVL(IVDT.PKG_CI_QTY,0)< NVL(IVDT.PKG_GR_QTY,0)     
+				 AND PRDT.EXP_CUR IS NOT NULL         
+	 			ORDER BY PO_NO, PO_SEQ
+ 			   ]]>   
+	</select>
+	<select id="selectExportExIvIcomCodPop" parameterType="java.util.Map" resultType="java.util.Map">
+			<![CDATA[
+				/*selectExportExIvIcomCodPop*/
+				SELECT
+				 COD.CODE
+				 , COD.TEXT1
+				 , COD.TEXT2
+				 , COD.TEXT3
+				 , COD.TEXT4
+				FROM ICOMCOD2 COD
+				WHERE COD.TYPE = 'EP01'
+				AND COD.FLAG = 'Y'
+				AND COD.COMPANY_CODE =#{st_com_code}
+                    ]]>
+             <if test="st_code != null and st_code != ''">               	
+                 <![CDATA[       
+                 	AND COD.CODE  LIKE #{st_code}||'%'
+                   ]]>
+            </if>
+             <if test="st_text != null and st_text != ''">               	
+                 <![CDATA[       
+                 	AND UPPER(COD.TEXT1)  LIKE UPPER('%'||#{st_text}||'%')
+                   ]]>
+            </if>
+	</select>
+	<select id="selectExportExIvKepExpCheck" parameterType="java.util.Map" resultType="java.lang.String">
+		<![CDATA[
+			/*selectExportExIvKepExpCheck*/
+			SELECT
+			   COUNT(INV_NO) INV_NO
+			FROM (
+				SELECT INV_NO FROM ICOMIVDT A
+				WHERE A.BUYER = #{BUYER}
+				AND A.INV_NO = #{INV_NO}
+				AND A.INV_SEQ = #{INV_SEQ}
+				AND PKG_GR_QTY  < NVL(PKG_CI_QTY,0) + #{PKG_CI_QTY}
+				UNION ALL
+				SELECT INV_NO FROM WMSIVDT  A
+				WHERE A.BUYER = #{BUYER}
+				AND A.INV_NO = #{INV_NO}
+				AND A.INV_SEQ = #{INV_SEQ}
+				AND PKG_GR_QTY  < NVL(PKG_CI_QTY,0) + #{PKG_CI_QTY}
+			) A
+		]]>
+	</select>
+	<update  id="insertExportExIvKepExpDt" parameterType="java.util.Map" >
+		<![CDATA[
+			/*insertExportExIvKepExpDt*/
+			INSERT INTO KEP_EXP_CIDT(
+				 PKG_COMPANY_CODE
+				 , BUYER
+				 , AGENT
+				 , CI_NO
+				 , CI_SEQ
+				 , STATUS
+				 , BUYER_ITEM_NO
+				 , DESCRIPTION
+				 , SPECIFICATION
+				 , UNIT_MEASURE
+				 , PO_NO
+				 , PO_SEQ
+				 , LEGACY_PO_NO
+				 , LEGACY_PO_SEQ
+				 , INV_NO
+				 , INV_SEQ
+				 , PROCESS_TYPE
+				 , INV_QTY
+				 , NET_WEIGHT
+				 , GROSS_WEIGHT
+				 , CBM
+				 , CTN_NO_FROM
+				 , CTN_NO_TO
+				 , CURRENCY_CODE
+				 , UNIT_PRICE
+				 , ITEM_AMT
+				 , ADD_DATE
+				 , ADD_USER_ID
+				 , CHANGE_DATE
+				 , CHANGE_USER_ID
+			)
+			SELECT 
+				  #{st_pkg_cmpy_no}
+				, A.BUYER
+				, 'KRKORE0001'
+				, #{CI_NO}
+				, TO_CHAR( #{CI_SEQ}, 'FM000000')
+				, 'C'
+				, A.BUYER_ITEM_NO
+				, NVL(B.DESCRIPTION_ENG, A.DESCRIPTION) AS DESCRIPTION
+				, A.SPECIFICATION
+				, A.UNIT_MEASURE
+				, A.PO_NO
+				, A.PO_SEQ
+				, A.LEGACY_PO_NO
+				, A.LEGACY_PO_SEQ
+				, #{INV_NO}
+				, #{INV_SEQ}
+				, #{PROCESS_TYPE}
+				, #{PKG_CI_QTY}
+				, #{N_WEIGHT}
+				, #{G_WEIGHT}
+				, #{CBM}
+				, #{CTN_FROM}
+				, #{CTN_TO}
+				, #{EXP_CUR}
+				, #{EXP_FOR_UNIT_PRICE}
+				, #{EXP_FOR_UNIT_PRICE}* #{PKG_CI_QTY}
+				, SYSDATE
+				, #{st_user_id}
+				, SYSDATE
+				, #{st_user_id}
+			FROM ICOMPODT A, ICOMBYIT B
+			WHERE  A.BYIT_COMORG_CODE = B.BUYER
+			AND A.BUYER_ITEM_NO = B.BUYER_ITEM_NO
+			AND A.BUYER = #{BUYER}
+			AND A.PO_NO = #{PO_NO}
+			AND A.PO_SEQ = #{PO_SEQ}			 
+		]]>
+	</update>
+	<update  id="insertExportExIvKepExpHd" parameterType="java.util.Map" >
+		<![CDATA[
+			/*insertExportExIvKepExpHd*/
+			INSERT INTO KEP_EXP_CIHD(
+				 PKG_COMPANY_CODE
+				 , BUYER
+				 , AGENT
+				 , CI_NO
+				 , CI_DATE
+				 , STATUS
+				 , PORT_OF_LOADING
+				 , FINAL_DESTINATION
+				 , SHIPPER_EXPORTER
+				 , FOR_ACC_RISK_OF_MESSRS
+				 , NOTIFY_PARTY
+				 , CARRIER
+				 , FORWARDER
+				 , SHIP_METHOD
+				 , INCOTERMS
+				 , INCOTERMS_DELAY
+				 , ETD
+				 , ETA
+				 , REMARK
+				 , PACKING_UNIT
+				 , PACKING_WEIGHT
+				 , CURRENCY_CODE
+				 , ITEM_AMT
+				 , TOTAL_WEIGHT
+				 , BL_COMPLETE_MARK
+				 , COMPLETE_MARK
+				 , ADD_DATE
+				 , ADD_USER_ID
+				 , CHANGE_DATE
+				 , CHANGE_USER_ID
+				 , PACKING_QTY
+				 , PAY_TERMS
+			) VALUES (
+					  #{st_pkg_cmpy_no}
+					, #{BUYER}
+					, 'KRKORE0001'
+					, #{CI_NO}
+					, #{st_inv_date}
+					, 'C'
+					, #{st_port}
+					, #{st_destination}
+					, #{st_shipper}
+					, #{st_acc_name}
+					, #{st_notify_party}
+					, #{st_carrier}
+					, #{st_forwarder}
+					, #{st_ship_method}
+					, #{st_incoterms}
+					, #{st_incoterms_dealy}
+					, #{st_etd_date}
+					, #{st_eta_date}
+					, #{st_remark}
+					, #{st_packing}
+					, #{st_packing_weight}
+					, #{EXP_CUR}
+					, #{EXP_AMT}
+					, #{EXP_WEIGHT}
+					, 'N'
+					, 'N'
+					, SYSDATE
+					, #{st_user_id}
+					, SYSDATE
+					, #{st_user_id}
+					, #{st_packing_qty}
+					, #{st_payment_term}
+			)
+		]]>
+	</update>
+	<update  id="insertExportExIvKepExpLotInfo" parameterType="java.util.Map" >
+		<![CDATA[
+			/*insertExportExIvKepExpLotInfo*/
+			INSERT INTO KEP_EXP_LOT_INFO(
+				 PKG_COMPANY_CODE
+				 ,BUYER
+				 ,AGENT
+				 ,CI_NO
+				 ,CI_SEQ
+				 ,LOT_NO
+				 ,LOT_SEQ
+				 ,STATUS
+				 ,BUYER_ITEM_NO
+				 ,LOT_QTY
+				 ,PRODUCTION_DAY
+				 ,ADD_DATE
+				 ,ADD_USER_ID
+				 ,CHANGE_DATE
+				 ,CHANGE_USER_ID
+			) VALUES (
+					  #{PKG_COMPANY_CODE}
+					, #{BUYER}
+					, #{AGENT}
+					, #{CI_NO}
+					, TO_CHAR( #{CI_SEQ}, 'FM000000')
+					, #{LOT_NO}
+					, TO_CHAR( #{LOT_SEQ}, 'FM000000')
+					, 'C'
+					, #{BUYER_ITEM_NO}
+					, #{LOT_QTY}
+					, #{PRODUCTION_DAY}
+					, SYSDATE
+					, #{st_user_id}
+					, SYSDATE
+					, #{st_user_id}
+			)
+		]]>
+	</update>
+	<update id="updateExportExIvExportIcomivdt" parameterType="java.util.Map">
+		<![CDATA[
+			/*"updateExportExIvExportIcomivdt"*/
+			UPDATE ICOMIVDT A
+			SET
+				PKG_CI_QTY = #{PKG_CI_QTY} + NVL(PKG_CI_QTY,0)
+				WHERE A.BUYER = #{BUYER}
+				AND A.INV_NO = #{INV_NO}
+				AND A.INV_SEQ = #{INV_SEQ}
+				AND A.STATUS != 'D'
+		]]>
+	</update>
+	<update id="updateExportExIvExportWmsivdt" parameterType="java.util.Map">
+		<![CDATA[
+			/*"updateExportExIvExportWmsivdt"*/
+			UPDATE WMSIVDT A
+			SET
+				PKG_CI_QTY = #{PKG_CI_QTY} + NVL(PKG_CI_QTY,0)
+				WHERE A.BUYER = #{BUYER}
+				AND A.INV_NO = #{INV_NO}
+				AND A.INV_SEQ = #{INV_SEQ}
+				AND A.STATUS != 'D'
+		]]>
+	</update>
+	<select id="selectExportExIvExpCiDtCheck" parameterType="java.util.Map" resultType="java.lang.String">
+		<![CDATA[
+			/*selectExportExIvExpCiDtCheck*/
+			SELECT COUNT(INV_NO) INV_NO 
+			FROM KEP_EXP_CIDT DT
+			WHERE DT.BUYER = #{BUYER}
+			AND DT.INV_NO = #{INV_NO}
+			AND DT.STATUS != 'D'
+		]]>
+	</select>
+	<update id="updateExportExIvExpCiDtCancle" parameterType="java.util.Map">
+		<![CDATA[
+			/*updateExportExIvExpCiDtCancle*/
+			UPDATE ICOMIVDT A
+			SET
+				PKG_RS_DATE = ''
+				, PKG_GR_QTY = ''
+				, PKG_GR_USER_ID = ''
+				, PKG_GR_DATE = '' 
+				WHERE A.BUYER = #{BUYER}
+				AND A.INV_NO = #{INV_NO}
+				AND STATUS != 'D'
+		]]>
+	</update>
+	<update id="updateExportExIvExpCiDtCancleTr" parameterType="java.util.Map">
+		<![CDATA[
+			/*updateExportExIvExpCiDtCancleTr*/
+			UPDATE WMSIVDT A
+			SET
+				PKG_RS_DATE = ''
+				, PKG_GR_QTY = ''
+				, PKG_GR_USER_ID = ''
+				, PKG_GR_DATE = '' 
+				WHERE A.BUYER = #{BUYER}
+				AND A.INV_NO = #{INV_NO}
+				AND STATUS != 'D'
+		]]>
+	</update>
+	<select id="selectExportExIvExportCICheck" parameterType="java.util.Map" resultType="String">
+		<![CDATA[
+		/* selectExportExIvExportCICheck */
+		SELECT COUNT(CI_NO) CNT FROM  KEP_EXP_CIHD WHERE CI_NO = UPPER(#{st_ci_no})
+		]]>
+	</select>
+	<!-- 품목등록 대상 조회 -->
+	<select id="selectExportExIvExportCiItemList" parameterType="java.util.Map" resultType="java.util.Map">
+			<![CDATA[
+              SELECT /*"selectExportExIvExportCiItemList"*/
+                     PODT.BUYER,
+                     PRDT.PURCHASER_DEPT AS PURCHASER_DEPT_CD,
+                     COD2.TEXT1 AS PURCHASE_DEPT,
+                     IVDT.INV_NO,
+                     PODT.DESCRIPTION,
+                     PODT.SPECIFICATION,
+                     IVDT.INV_QTY,
+                     IVDT.PKG_GR_QTY,
+                     NVL(IVDT.PKG_CI_QTY,0) GI_PKG_CI_QTY,
+                     IVDT.PKG_GR_QTY - NVL(IVDT.PKG_CI_QTY,0) AS PKG_CI_QTY,
+                     IVDT.INV_SEQ,
+                     PODT.PO_NO,
+                     PODT.PO_SEQ,
+                     PODT.PROCESS_TYPE,
+                     PODT.BUYER_ITEM_NO,
+                     PRDT.EXP_FOR_UNIT_PRICE,
+                     PRDT.EXP_CUR,
+                     PODT.BUYER_ITEM_NO
+                FROM ICOMPODT PODT, ICOMPOHD POHD, ICOMPRDT PRDT, ICOMIVDT IVDT, ICOMCOD2 COD2
+               WHERE PODT.BUYER = POHD.BUYER  
+                 AND PODT.PO_NO = POHD.PO_NO  
+                 AND PODT.BUYER = PRDT.BUYER  
+                 AND PODT.PR_NO = PRDT.PR_NO  
+                 AND PODT.PR_SEQ = PRDT.PR_SEQ  
+                 AND PODT.BUYER = IVDT.BUYER  
+                 AND PODT.PO_NO = IVDT.PO_NO  
+                 AND PODT.PO_SEQ = IVDT.PO_SEQ
+                 AND PODT.STATUS <> 'D'  
+                 AND POHD.STATUS <> 'D'  
+                 AND PRDT.STATUS <> 'D'  
+                 AND IVDT.STATUS <> 'D'  
+                 AND PODT.PROCESS_TYPE = '0'
+                 AND NVL(IVDT.PKG_GR_QTY,0) > 0  
+                 AND POHD.PKG_COMPANY_CODE =#{st_pkg_cmpy_no}
+                 AND NVL(IVDT.PKG_CI_QTY,0)< NVL(IVDT.PKG_GR_QTY,0)          
+                 AND PRDT.EXP_CUR IS NOT NULL
+                 AND PRDT.BUYER = COD2.COMPANY_CODE(+)
+                 AND COD2.TYPE(+) = 'C001'
+                 AND PRDT.PURCHASER_DEPT = COD2.CODE(+)
+                 AND PODT.BUYER = #{st_buyer}
+                 AND POHD.PO_CREATE_DATE BETWEEN #{st_from_date} AND #{st_to_date}
+                    ]]>
+             <if test="st_inv_no2 != null and st_inv_no2 != ''">               	
+                 <![CDATA[       
+                 	AND IVDT.INV_NO LIKE #{st_inv_no2}||'%' 	         
+                   ]]>
+            </if>
+             <if test="st_desc != null and st_desc != ''">               	
+                 <![CDATA[       
+                 	AND PODT.DESCRIPTION LIKE #{st_desc}||'%' 	         
+                   ]]>
+            </if>  
+            <if test="st_purchase_dept != null and st_purchase_dept != ''">               	
+                 <![CDATA[       
+                 	AND UPPER(COD2.TEXT1) LIKE  UPPER('%'||#{st_purchase_dept}||'%') 	         
+                   ]]>
+            </if>
+			<![CDATA[ 
+              UNION ALL  
+              SELECT
+                     PODT.BUYER,
+                     PRDT.PURCHASER_DEPT AS PURCHASER_DEPT_CD,
+                     COD2.TEXT1 AS PURCHASE_DEPT,
+                     IVDT.INV_NO,
+                     PODT.DESCRIPTION,
+                     PODT.SPECIFICATION,
+                     IVDT.INV_QTY,
+                     IVDT.PKG_GR_QTY,
+                     NVL(IVDT.PKG_CI_QTY,0) GI_PKG_CI_QTY,
+                     IVDT.PKG_GR_QTY - NVL(IVDT.PKG_CI_QTY,0) AS PKG_CI_QTY,
+                     IVDT.INV_SEQ,
+                     PODT.PO_NO,
+                     PODT.PO_SEQ,
+                     PODT.PROCESS_TYPE,
+                     PODT.BUYER_ITEM_NO,
+                     PRDT.EXP_FOR_UNIT_PRICE,
+                     PRDT.EXP_CUR,
+                     PODT.BUYER_ITEM_NO
+                FROM ICOMPODT PODT, ICOMPOHD POHD, ICOMPRDT PRDT, WMSIVDT IVDT, ICOMCOD2 COD2
+               WHERE PODT.BUYER = POHD.BUYER  
+                 AND PODT.PO_NO = POHD.PO_NO  
+                 AND PODT.BUYER = PRDT.BUYER  
+                 AND PODT.PR_NO = PRDT.PR_NO  
+                 AND PODT.PR_SEQ = PRDT.PR_SEQ  
+                 AND PODT.BUYER = IVDT.BUYER  
+                 AND PODT.PO_NO = IVDT.PO_NO  
+                 AND PODT.PO_SEQ = IVDT.PO_SEQ
+                 AND PODT.STATUS <> 'D'  
+                 AND POHD.STATUS <> 'D'  
+                 AND PRDT.STATUS <> 'D'  
+                 AND IVDT.STATUS <> 'D'  
+                 AND PODT.PROCESS_TYPE != '0'
+                 AND NVL(IVDT.PKG_GR_QTY,0) > 0  
+                 AND POHD.PKG_COMPANY_CODE =#{st_pkg_cmpy_no}  
+				 AND NVL(IVDT.PKG_CI_QTY,0)< NVL(IVDT.PKG_GR_QTY,0)    
+				 AND PRDT.EXP_CUR IS NOT NULL
+                 AND PRDT.BUYER = COD2.COMPANY_CODE(+)
+                 AND COD2.TYPE(+) = 'C001'
+                 AND PRDT.PURCHASER_DEPT = COD2.CODE(+)          
+                 AND PODT.BUYER = #{st_buyer}
+                 AND POHD.PO_CREATE_DATE BETWEEN #{st_from_date} AND #{st_to_date}
+                    ]]>
+     
+             <if test="st_inv_no2 != null and st_inv_no2 != ''">               	
+                 <![CDATA[       
+                 	AND IVDT.INV_NO LIKE #{st_inv_no2}||'%' 	         
+                   ]]>
+            </if>
+            <if test="st_purchase_dept != null and st_purchase_dept != ''">               	
+                 <![CDATA[       
+                 	AND UPPER(COD2.TEXT1) LIKE  UPPER('%'||#{st_purchase_dept}||'%') 	         
+                   ]]>
+            </if>
+             <if test="st_desc != null and st_desc != ''">               	
+                 <![CDATA[       
+                 	AND PODT.DESCRIPTION LIKE #{st_desc}||'%' 	         
+                   ]]>
+            </if>  
+			<![CDATA[ 
+	 			ORDER BY PURCHASE_DEPT, INV_NO
+ 			   ]]>   
+	</select>
+
+</mapper>   
+   

@@ -1,0 +1,508 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.cmcl">
+	<!-- 조회 -->
+	<select id="selectMasterCmClSalesTaxsheetUploadingCreationList" parameterType="java.util.Map" resultType="java.util.Map">
+	/*selectMasterCmClSalesTaxsheetUploadingCreationList*/
+		<![CDATA[
+			SELECT
+			    DECODE(GR.AR_BILL_FLAG,NULL,'오류','Y','생성','N','미생성') AS IS_CREATE
+			  , TM.SEQ AS TAX_SERIAL
+			  , (SELECT TEXT2 FROM ICOMCOD1 WHERE TYPE = 'TX01' AND CODE = TM.KEP_IRS) AS KEP_IRS_NAME 
+			  , TM.IRS_NO AS BUYER_IRS_NO
+			  , DECODE(IR.IRS_NO,NULL,CM.COM_NAME_LOC,IR.IRS_NAME) AS BUYER_NAME
+			  , TM.DEPT_CODE AS KEP_DEPT
+			  , TM.GR_DATE AS GR_DATE
+			  , DECODE(GR.BUYER ,'KRHONG0020',ROUND((TM.GR_AMT/1.1)),TM.GR_AMT) AS GR_AMT
+			  , TM.PO_NO
+			  , TM.GR_NO
+			  , TM.GR_SEQ
+			  , TM.BUYER
+			  , (SELECT IRS_NO	FROM KEPTIRSN WHERE 1=1 AND COM_CODE = 'KRKORE0001' AND SITE = TM.SITE	AND IRS_NO = TM.KEP_IRS) AS KEP_IRS_NO
+			  , TM.SITE AS SITE_GUBUN_CODE
+			  , '' AS BUSINESS_TYPE
+			  , '' AS CL_MON
+			  , F_GET_CREDIT_LIMIT_STTS(TM.BUYER,'','','2') AS CREDIT_LIMIT_FLAG
+			FROM 
+			    KEPTEXUP TM /* 매출세금계산서 업로드 임시 테이블 */
+			  , ICOMGRDT GR /* 구매사별 입고정보 */
+			  , ICOMCMPY CM /* 회원사정보 */
+			  , KEPTIRSN IR /* 구매사 사업자정보 */
+			WHERE 1=1
+			AND TM.BUYER = GR.BUYER(+)
+			AND TM.GR_NO = GR.GR_NO(+)
+			AND TM.GR_SEQ = GR.GR_SEQ(+)
+			AND TM.BUYER = CM.COM_CODE
+			AND TM.SITE = IR.SITE(+)
+			AND TM.IRS_NO = IR.IRS_NO(+)
+			AND TM.BUYER = IR.COM_CODE(+)
+			AND GR.STATUS(+) <> 'D'
+			AND TM.SITE  = 'KA'
+		]]>
+	<choose>
+		<when test="st_buyer_code == 'KRDOOD0001' ">
+			AND( TM.BUYER = #{st_buyer_code} OR TM.BUYER = 'KRDOOS0004')
+		</when>
+		<when test="st_buyer_code == 'KRISUC0004' ">
+			AND( TM.BUYER = #{st_buyer_code} OR TM.BUYER = 'KRISUC0005' OR TM.BUYER = 'KRISUC0006')
+		</when>
+		<when test="st_buyer_code == 'KRCOWA0001' ">
+			AND( TM.BUYER = #{st_buyer_code} OR TM.BUYER = 'KRCOWA0005' OR TM.BUYER = 'KRCOWA0006')
+		</when>
+		<otherwise>
+			AND TM.BUYER = #{st_buyer_code}
+		</otherwise>
+	</choose>
+		<if test=" st_status != 'ALL' ">
+			AND DECODE(GR.AR_BILL_FLAG,NULL,'E',GR.AR_BILL_FLAG) = #{st_status}
+		</if>
+		<![CDATA[
+			ORDER BY 
+			    TM.SEQ
+			  , GR_NO
+			  , GR_SEQ
+			]]>
+	</select>
+	
+	<select id="selectMasterCmClSalesTaxsheetUploadingCreationList_Check" parameterType="java.util.Map" resultType="java.lang.String">
+	/*"selectMasterCmClSalesTaxsheetUploadingCreationList_Check"*/
+		<![CDATA[
+			SELECT 
+			    DECODE(COUNT(*), 0, 'N', 'Y') AS CHECK_YN
+			FROM 
+			    KEPTEXUP /* 매출세금계산서 업로드 임시 테이블 */
+			WHERE 1=1
+			AND BUYER = #{BUYER}
+			AND GR_NO = #{GR_NO}
+			AND GR_SEQ = #{GR_SEQ}
+			]]>
+	</select>
+	
+	<select id="selectMasterCmClSalesTaxsheetUploadingCreationList_KEPTEXUP" parameterType="java.util.Map" resultType="java.util.Map">
+	/*selectMasterCmClSalesTaxsheetUploadingCreationList_KEPTEXUP*/
+		<![CDATA[
+			SELECT 
+			    TAX_BILL_NO 
+			  , SUM(GR_AMT) AS GR_AMT
+			FROM 
+			    KEPTEXUP  A /* 매출세금계산서 업로드 임시 테이블 */
+			WHERE 1=1
+			AND BUYER = #{st_buyer_code}
+			AND SITE = 'KA'
+			AND NOT EXISTS(
+			 	SELECT 1 FROM KEPTARDT B
+			 	WHERE A.TAX_BILL_NO = B.TAX_BILL_NO
+			 	AND A.DEPT_CODE = B.DEPT_CODE
+			)
+			AND GR_DATE BETWEEN SUBSTR(#{issue_date}, 0, 6) || '01' AND #{issue_date}
+			GROUP BY 
+			    TAX_BILL_NO
+			]]>
+	</select>
+
+
+	<!-- 저장 -->
+	<update  id="insertMasterCmClSalesTaxsheetUploadingCreation" parameterType="java.util.Map" >
+	/*insertMasterCmClSalesTaxsheetUploadingCreation*/
+		<![CDATA[
+			INSERT INTO KEPTEXUP /* 매출세금계산서 업로드 임시 테이블 */
+			( 
+			    BUYER 
+			  , GR_NO 
+			  , GR_SEQ 
+			  , SEQ 
+			  , KEP_IRS 
+			  , SITE 
+			  , IRS_NO 
+			  , PO_NO 
+			  , DEPT_CODE 
+			  , GR_DATE 
+			  , GR_AMT 
+			  , ADD_USER_ID 
+			)
+			VALUES
+			( 
+			    #{BUYER}
+			  , #{GR_NO}
+			  , LPAD(#{GR_SEQ}, 6, 0)
+			  , #{TAX_SERIAL}
+			  , #{KEP_IRS_NO} 
+			  , #{SITE_GUBUN_CODE}
+			  , #{BUYER_IRS_NO}
+			  , #{PO_NO}
+			  , #{KEP_DEPT}
+			  , #{GR_DATE}
+			  , #{GR_AMT}
+			  , #{st_user_id}
+			)
+		]]>
+	</update>
+	
+	
+	<!-- 생성 -->
+	<update  id="updateMasterCmClSalesTaxsheetUploadingCreation_KEPTEXUP" parameterType="java.util.Map" >
+	/*updateMasterCmClSalesTaxsheetUploadingCreation_KEPTEXUP*/
+		<![CDATA[
+			UPDATE 
+			    KEPTEXUP /* 매출세금계산서 업로드 임시 테이블 */
+			SET 
+			    TAX_BILL_NO = #{order_no}
+			  , IRS_NO = #{BUYER_IRS_NO}
+			  , DEPT_CODE = #{KEP_DEPT}
+			WHERE 1=1
+			AND BUYER  = #{BUYER}
+			AND GR_NO  = #{GR_NO}
+			AND GR_SEQ = #{GR_SEQ}
+		]]>
+	</update>
+	
+	<update  id="insertMasterCmClSalesTaxsheetUploadingCreation_KEPTARDT" parameterType="java.util.Map" >
+	/*insertMasterCmClSalesTaxsheetUploadingCreation_KEPTARDT*/
+		<![CDATA[
+			INSERT INTO KEPTARDT /* 외상매출_세금계산서 */
+			(
+			    TAX_BILL_NO
+			  , KEP_IRS
+			  , SITE
+			  , DEPT_CODE
+			  , STATUS
+			  , ISSUE_DATE
+			  , CUSTOMER_NAME
+			  , IRS_NO
+			  , BUYER_CODE
+			
+			  , TOT_SUPP_PRICE
+			  , TOT_TAX_PRICE
+			  , TOT_AMT
+			  , SUPP_PRICE
+			  , TAX_PRICE
+			  , AMT
+			
+			  , TAX_TYPE
+			  , BILL_TYPE
+			  , PRINT_DATE
+			  , PRINT_USER_ID
+			  , PRINT_CNT
+			  , PRINT_AVAIL_CNT
+			  , CONFIRM_FLAG
+			  , REMARK_DESCRIPTION
+			  , REMARK_SPECIFICATION
+			  , REMARK_QTY
+			  , REMARK_PRICE
+			  , ASK_TYPE
+			  , ADD_DATE
+			  , ADD_TIME
+			  , ADD_USER_ID
+			  , CHANGE_DATE
+			  , CHANGE_TIME
+			  , CHANGE_USER_ID
+			  , SEND_DATE
+			  , SEND_TIME
+			  , SEND_USER_ID
+			  , IF_SEND_DATE
+			  , IF_SEND_TIME
+			  , IF_SEND_FLAG
+			  , AR_CLOSE_MONTH
+			  , AR_CLOSE_REVISION
+			  , KEP_IRS_NAME
+			  , KEP_CEO_NAME_LOC
+			  , KEP_INDUSTRY_TYPE
+			  , KEP_BUSINESS_ITEMS
+			  , KEP_ADDRESS_LOC
+			  , IRS_NAME
+			  , CEO_NAME_LOC
+			  , INDUSTRY_TYPE
+			  , BUSINESS_ITEMS
+			  , ADDRESS_LOC
+			)
+			SELECT
+			    MAX(SUB.TAX_BILL_NO) TAX_BILL_NO
+			  , MAX(KEP_IRS)
+			  , MAX(SUB.SITE)
+			  , MAX(DEPT_CODE)
+			  , 'C' AS STATUS
+			  , #{issue_date} AS ISSUE_DATE
+			  , MAX(SUB.IRS_NAME)
+			  , MAX(SUB.IRS_NO)
+			  , MAX(BUYER)
+		]]>
+		<choose>
+			<when test="st_buyer_code == 'KRDOOD0001' or st_buyer_code == 'KRDOOS0004' ">
+			  , TRUNC((SELECT SUM(GR_AMT) FROM KEPTEXUP WHERE SEQ = SUB.SEQ AND BUYER IN ('KRDOOD0001','KRDOOS0004'))) AS TOT_SUPP_PRICE
+			  , TRUNC((SELECT SUM(GR_AMT) FROM KEPTEXUP WHERE SEQ = SUB.SEQ AND BUYER IN ('KRDOOD0001','KRDOOS0004') )*0.1) AS TOT_TAX_PRICE
+			  , TRUNC((SELECT SUM(GR_AMT) FROM KEPTEXUP WHERE SEQ = SUB.SEQ AND BUYER IN ('KRDOOD0001','KRDOOS0004') ))
+			    + TRUNC((SELECT SUM(GR_AMT) FROM KEPTEXUP WHERE SEQ = SUB.SEQ AND BUYER IN ('KRDOOD0001','KRDOOS0004') )*0.1) AS TOT_AMT
+			</when>
+			<when test="st_buyer_code == 'KRISUC0004' or st_buyer_code == 'KRISUC0005' or st_buyer_code == 'KRISUC0006' ">
+			  , TRUNC((SELECT SUM(GR_AMT) FROM KEPTEXUP WHERE SEQ = SUB.SEQ AND BUYER IN ('KRISUC0004','KRISUC0005','KRISUC0006') )) AS TOT_SUPP_PRICE
+			  , TRUNC((SELECT SUM(GR_AMT) FROM KEPTEXUP WHERE SEQ = SUB.SEQ AND BUYER IN ('KRISUC0004','KRISUC0005','KRISUC0006') )*0.1) AS TOT_TAX_PRICE
+			  , TRUNC((SELECT SUM(GR_AMT) FROM KEPTEXUP WHERE SEQ = SUB.SEQ AND BUYER IN ('KRISUC0004','KRISUC0005','KRISUC0006') ))
+			    + TRUNC((SELECT SUM(GR_AMT) FROM KEPTEXUP WHERE SEQ = SUB.SEQ AND BUYER IN ('KRISUC0004','KRISUC0005','KRISUC0006') )*0.1) AS TOT_AMT
+			</when>
+			<when test="st_buyer_code == 'KRCOWA0001' or st_buyer_code == 'KRCOWA0005' or st_buyer_code == 'KRCOWA0006' ">
+			  , TRUNC((SELECT SUM(GR_AMT) FROM KEPTEXUP WHERE SEQ = SUB.SEQ AND BUYER IN ('KRCOWA0001','KRCOWA0005','KRCOWA0006') )) AS TOT_SUPP_PRICE
+			  , TRUNC((SELECT SUM(GR_AMT) FROM KEPTEXUP WHERE SEQ = SUB.SEQ AND BUYER IN ('KRCOWA0001','KRCOWA0005','KRCOWA0006') )*0.1) AS TOT_TAX_PRICE
+			  , TRUNC((SELECT SUM(GR_AMT) FROM KEPTEXUP WHERE SEQ = SUB.SEQ AND BUYER IN ('KRCOWA0001','KRCOWA0005','KRCOWA0006') ))
+			    + TRUNC((SELECT SUM(GR_AMT) FROM KEPTEXUP WHERE SEQ = SUB.SEQ AND BUYER IN ('KRCOWA0001','KRCOWA0005','KRCOWA0006') )*0.1) AS TOT_AMT
+			</when>
+			<otherwise>
+			  , TRUNC((SELECT SUM(GR_AMT) FROM KEPTEXUP WHERE SEQ = SUB.SEQ AND BUYER = SUB.BUYER)) AS TOT_SUPP_PRICE
+			  , TRUNC((SELECT SUM(GR_AMT) FROM KEPTEXUP WHERE SEQ = SUB.SEQ AND BUYER = SUB.BUYER )*0.1) AS TOT_TAX_PRICE
+			  , TRUNC((SELECT SUM(GR_AMT) FROM KEPTEXUP WHERE SEQ = SUB.SEQ AND BUYER = SUB.BUYER ))
+			    + TRUNC((SELECT SUM(GR_AMT) FROM KEPTEXUP WHERE SEQ = SUB.SEQ AND BUYER = SUB.BUYER )*0.1) AS TOT_AMT
+			</otherwise>
+		</choose>
+		<![CDATA[
+			  , TRUNC(MAX(AMT)) AS SUPP_PRICE
+			  , TRUNC(MAX(AMT)*0.1) AS TAX_PRICE
+			  , TRUNC(MAX(AMT)) + TRUNC(MAX(AMT)*0.1) AS AMT
+			
+			  , '11' AS TAX_TYPE
+			  , MAX(SUB.BILL_TYPE) AS BILL_TYPE
+			  , '' AS PRINT_DATE
+			  , '' AS PRINT_USER_ID
+			  , 0 AS PRINT_CNT
+			  , 1 AS PRINT_AVAIL_CNT
+			  , 'N' AS CONFIRM_FLAG
+			  , 'MRO품목외' AS REMARK_DESCRIPTION
+			  , 'MRO품목외' AS REMARK_SPECIFICATION
+			  , 1 AS REMARK_QTY
+			  , TRUNC(SUM(AMT)) AS REMARK_PRICE
+			  , '02' AS ASK_TYPE
+			  , TO_CHAR(SYSDATE,'YYYYMMDD') AS ADD_DATE
+			  , TO_CHAR(SYSDATE,'HH24MISS') AS ADD_TIME
+			  , #{st_user_id} AS ADD_USER_ID
+			  , TO_CHAR(SYSDATE,'YYYYMMDD') AS CHANGE_DATE
+			  , TO_CHAR(SYSDATE,'HH24MISS') AS CHANGE_TIME
+			  , #{st_user_id} AS CHANGE_USER_ID
+			  , '' AS SEND_DATE
+			  , '' AS SEND_TIME
+			  , '' AS SEND_USER_ID
+			  , '' AS IF_SEND_DATE
+			  , '' AS IF_SEND_TIME
+			  , '' AS IF_SEND_FLAG
+			  , SUBSTR(#{issue_date}, 0, 6) AS AR_CLOSE_MONTH
+			  , #{close_revision} AS AR_CLOSE_REVISION
+			  , MAX(KIRSN.IRS_NAME) AS KEP_IRS_NAME
+			  , MAX(KIRSN.CEO_NAME_LOC) AS KEP_CEO_NAME_LOC
+			  , MAX(KIRSN.INDUSTRY_TYPE) AS KEP_INDUSTRY_TYPE
+			  , MAX(KIRSN.BUSINESS_ITEMS) AS KEP_BUSINESS_ITEMS
+			  , MAX(KIRSN.ADDRESS_LOC) AS KEP_ADDRESS_LOC
+		]]>
+	<choose>
+		<when test="st_buyer_code == 'KRISUC0004' or st_buyer_code == 'KRISUC0005' or st_buyer_code == 'KRISUC0006' ">
+			  , (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = 'KRISUC0005') AS IRS_NAME
+			  , (SELECT CEO_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = 'KRISUC0005') AS CEO_NAME_LOC
+			  , (SELECT INDUSTRY_TYPE FROM ICOMCMPY WHERE COM_CODE = 'KRISUC0005') AS INDUSTRY_TYPE
+			  , (SELECT BUSINESS_ITEMS FROM ICOMCMPY WHERE COM_CODE = 'KRISUC0005') AS BUSINESS_ITEMS
+			  , (SELECT ADDRESS_LOC FROM ICOMCMPY WHERE COM_CODE = 'KRISUC0005') AS ADDRESS_LOC
+		</when>
+		<when test="st_buyer_code == 'KRCOWA0001' or st_buyer_code == 'KRCOWA0005' or st_buyer_code == 'KRCOWA0006' ">
+			  , (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = 'KRCOWA0001') AS IRS_NAME
+			  , (SELECT CEO_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = 'KRCOWA0001') AS CEO_NAME_LOC
+			  , (SELECT INDUSTRY_TYPE FROM ICOMCMPY WHERE COM_CODE = 'KRCOWA0001') AS INDUSTRY_TYPE
+			  , (SELECT BUSINESS_ITEMS FROM ICOMCMPY WHERE COM_CODE = 'KRCOWA0001') AS BUSINESS_ITEMS
+			  , (SELECT ADDRESS_LOC FROM ICOMCMPY WHERE COM_CODE = 'KRCOWA0001') AS ADDRESS_LOC
+		</when>
+		<otherwise>
+			  , MAX(DECODE(IRSN.IRS_NO,NULL,CM.COM_NAME_LOC,IRSN.IRS_NAME)) AS IRS_NAME
+			  , MAX(DECODE(IRSN.IRS_NO,NULL,CM.CEO_NAME_LOC,IRSN.CEO_NAME_LOC)) AS CEO_NAME_LOC
+			  , MAX(DECODE(IRSN.IRS_NO,NULL,CM.INDUSTRY_TYPE,IRSN.INDUSTRY_TYPE)) AS INDUSTRY_TYPE
+			  , MAX(DECODE(IRSN.IRS_NO,NULL,CM.BUSINESS_ITEMS,IRSN.BUSINESS_ITEMS)) AS BUSINESS_ITEMS
+			  , MAX(DECODE(IRSN.IRS_NO,NULL,CM.ADDRESS_LOC,IRSN.ADDRESS_LOC)) AS ADDRESS_LOC
+		</otherwise>
+	</choose>
+		<![CDATA[
+			FROM
+			(
+			    SELECT
+			        TM.TAX_BILL_NO
+			      , TM.SEQ SEQ
+			      , MAX(TM.KEP_IRS) AS KEP_IRS
+			      , MAX(TM.SITE) AS SITE
+			      , DEPT_CODE
+			      , MIN(DECODE(IR.IRS_NO,NULL,CM.COM_NAME_LOC,IR.IRS_NAME)) AS IRS_NAME
+			      , MAX(TM.IRS_NO) AS IRS_NO
+			      , MAX(TM.BUYER) AS BUYER
+			      , SUM(TM.GR_AMT) AS TOT_AMT
+			      , SUM(TM.GR_AMT) AS AMT
+			      , MAX(CM.CLOSE_CNT) AS CLOSE_CNT
+			      , MAX(CM.BILL_TYPE) AS BILL_TYPE
+			    FROM
+			        KEPTEXUP TM /* 매출세금계산서 업로드 임시 테이블 */
+			      , ICOMGRDT GR /* 구매사별 입고정보 */
+			      , KEPTIRSN IR /* 구매사 사업자정보 */
+			      , ICOMCMPY CM /* 회원사정보 */
+			    WHERE 1=1
+			    AND TM.BUYER = GR.BUYER(+)
+			    AND TM.GR_NO = GR.GR_NO(+)
+			    AND TM.GR_SEQ = GR.GR_SEQ(+)
+			    AND TM.BUYER = CM.COM_CODE
+			    AND TM.SITE = IR.SITE(+)
+			    AND TM.IRS_NO = IR.IRS_NO(+)
+			    AND TM.BUYER = IR.COM_CODE(+)
+			    AND GR.STATUS(+) <> 'D'
+			    AND GR.AR_BILL_FLAG(+) = 'N'
+		]]>
+		<choose>
+			<when test="st_buyer_code == 'KRDOOD0001' or st_buyer_code == 'KRDOOS0004' ">
+			    AND (TM.BUYER = #{st_buyer_code} OR TM.BUYER = 'KRDOOS0004')
+			</when>
+			<when test="st_buyer_code == 'KRISUC0004' or st_buyer_code == 'KRISUC0005' or st_buyer_code == 'KRISUC0006' ">
+			    AND (TM.BUYER = #{st_buyer_code} OR TM.BUYER = 'KRISUC0005' OR TM.BUYER = 'KRISUC0006')
+			</when>
+			<when test="st_buyer_code == 'KRCOWA0001' or st_buyer_code == 'KRCOWA0005' or st_buyer_code == 'KRCOWA0006' ">
+			    AND (TM.BUYER = #{st_buyer_code} OR TM.BUYER = 'KRCOWA0001' OR TM.BUYER = 'KRCOWA0006' OR TM.BUYER = 'KRCOWA0005')
+			</when>
+			<otherwise>
+			    AND TM.BUYER = #{st_buyer_code}
+			</otherwise>
+		</choose>
+		<![CDATA[
+			    AND TM.SITE = 'KA'
+			    AND GR.GR_DATE BETWEEN SUBSTR(#{issue_date}, 0, 6) || '01' AND #{issue_date}
+			    AND ( GR.AR_BILL_FLAG = 'N' OR GR.AR_BILL_FLAG IS NULL OR GR.AR_BILL_FLAG = '' )
+			    AND NOT EXISTS (
+                                 SELECT 1 FROM KEPTARDT B
+                                  WHERE TM.TAX_BILL_NO = B.TAX_BILL_NO
+                                    AND TM.DEPT_CODE = B.DEPT_CODE )
+			    GROUP BY
+			        TM.TAX_BILL_NO
+			      , TM.SEQ
+			      , TM.DEPT_CODE
+			    ORDER BY
+			        SEQ
+			)   SUB
+			  , KEPTIRSN KIRSN /* 구매사 사업자정보 */
+			  , KEPTIRSN IRSN /* 구매사 사업자정보 */
+			  , V_VOC_ICOMCMPY CM
+			WHERE 1=1
+			AND SUB.KEP_IRS = KIRSN.IRS_NO
+			AND SUB.SITE    = KIRSN.SITE
+			AND SUB.IRS_NO  = IRSN.IRS_NO(+)
+			AND SUB.SITE    = IRSN.SITE(+)
+			AND SUB.BUYER   = IRSN.COM_CODE(+)
+			AND SUB.BUYER   = CM.COM_CODE
+			AND SUB.SITE    = CM.SYS_TYPE
+			GROUP BY
+			    BUYER
+			  , TAX_BILL_NO
+			  , SEQ
+			  , DEPT_CODE
+			ORDER BY
+			    SEQ
+		]]>
+	</update>
+	
+	<update  id="insertMasterCmClSalesTaxsheetUploadingCreation_KEPTITEM" parameterType="java.util.Map" >
+	/*insertMasterCmClSalesTaxsheetUploadingCreation_KEPTITEM*/
+		<![CDATA[
+			INSERT INTO KEPTITEM /* 세금계산서 품목정보 */
+			(
+			    TAX_BILL_NO
+			  , ITEM_SEQ
+			  , REMARK_DESCRIPTION
+			  , REMARK_SPECIFICATION
+			  , REMARK_QTY
+			  , REMARK_PRICE
+			  , SUPP_PRICE
+			  , TAX_PRICE
+			  , REMARK_DATE
+			)
+			VALUES
+			(
+			    #{key_order_no}
+			  , (SELECT TO_CHAR(NVL(COUNT(TAX_BILL_NO),0)+1,'FM000000') FROM KEPTITEM
+					WHERE TAX_BILL_NO =#{key_order_no})
+			  , 'MRO용품외'
+			  , ''
+			  , ''
+			  , ''
+			  , TRUNC(#{key_gr_amt})
+			  , TRUNC(#{key_gr_amt} * 0.1)
+			  , TO_CHAR(SYSDATE, 'YYYYMMDD')
+			)
+ 		]]>
+	</update>
+	
+	<update  id="updateMasterCmClSalesTaxsheetUploadingCreation_ICOMGRDT" parameterType="java.util.Map" >
+	/*updateMasterCmClSalesTaxsheetUploadingCreation_ICOMGRDT*/
+		<![CDATA[
+			UPDATE
+			    ICOMGRDT GR /* 구매사별 입고정보 */
+			SET
+			    AR_TAX_BILL_NO      = (SELECT TAX_BILL_NO FROM KEPTEXUP WHERE BUYER = GR.BUYER AND GR_NO = GR.GR_NO AND GR_SEQ = GR.GR_SEQ)
+			  , AR_CLOSE_DEPT       = (SELECT DEPT_CODE FROM KEPTEXUP WHERE BUYER = GR.BUYER AND GR_NO = GR.GR_NO AND GR_SEQ = GR.GR_SEQ)
+			  , AR_CLOSE_MONTH      = SUBSTR(#{issue_date}, 0, 6)
+			  , AR_CLOSE_REVISION   = #{close_revision}
+			  , AR_BILL_FLAG        = 'Y'
+			  , CLOSE_USER_ID       = DECODE(CLOSE_USER_ID,NULL,#{st_user_id},CLOSE_USER_ID)
+			WHERE 1=1
+			AND (BUYER , GR_NO, GR_SEQ) IN 
+			(
+			    SELECT BUYER, GR_NO, GR_SEQ 
+			      FROM KEPTEXUP
+			     WHERE SITE = 'KA'
+ 		]]>
+ 		<choose>
+ 			<when test="st_buyer_code == 'KRDOOD0001' or st_buyer_code == 'KRDOOS0004' ">
+			       AND (BUYER = 'KRDOOD0001' OR BUYER = 'KRDOOS0004')
+ 			</when>
+ 			<when test="st_buyer_code == 'KRISUC0004' or st_buyer_code == 'KRISUC0005' or st_buyer_code == 'KRISUC0006' ">
+			       AND (BUYER = 'KRISUC0004' OR BUYER = 'KRISUC0005' OR BUYER = 'KRISUC0006')
+ 			</when>
+ 			<when test="st_buyer_code == 'KRCOWA0001' or st_buyer_code == 'KRCOWA0005' or st_buyer_code == 'KRCOWA0006' ">
+			       AND (BUYER = 'KRCOWA0001' OR BUYER = 'KRCOWA0005' OR BUYER = 'KRCOWA0006')
+ 			</when>
+ 			<otherwise>
+			       AND BUYER = #{st_buyer_code}
+ 			</otherwise>
+ 		</choose>
+		<![CDATA[
+			  AND TAX_BILL_NO IS NOT NULL
+			)
+			AND AR_BILL_FLAG ='N'
+ 		]]>
+	</update>
+
+
+	<!-- 삭제 -->
+	<update id="deleteMasterCmClSalesTaxsheetUploadingCreation"  parameterType="java.util.Map">
+	/*deleteMasterCmClSalesTaxsheetUploadingCreation*/
+		<![CDATA[
+			DELETE 
+				KEPTEXUP /* 매출세금계산서 업로드 임시 테이블 */ 
+			WHERE 1=1 
+			AND BUYER = #{BUYER} 
+			AND GR_NO = #{GR_NO} 
+			AND GR_SEQ = #{GR_SEQ}
+		]]>
+	</update>
+	
+	<update id="deleteMasterCmClSalesTaxsheetUploadingCreation_KEPTEXUP"  parameterType="java.util.Map">
+	/*deleteMasterCmClSalesTaxsheetUploadingCreation_KEPTEXUP*/
+		<![CDATA[
+			DELETE 
+			    KEPTEXUP /* 매출세금계산서 업로드 임시 테이블 */
+			WHERE 1=1
+			AND SITE = 'KA'
+			AND TAX_BILL_NO IS NOT NULL
+		]]>
+	<choose>
+		<when test="st_buyer_code == 'KRDOOD0001' or st_buyer_code == 'KRDOOS0004' ">
+			AND (BUYER = #{st_buyer_code} OR BUYER = 'KRDOOS0004')
+		</when>
+		<when test="st_buyer_code == 'KRISUC0004' or st_buyer_code == 'KRISUC0005' or st_buyer_code == 'KRISUC0006' ">
+			AND (BUYER = #{st_buyer_code} OR BUYER = 'KRISUC0005' OR BUYER = 'KRISUC0006')
+		</when>
+		<when test="st_buyer_code == 'KRCOWA0001' or st_buyer_code == 'KRCOWA0005' or st_buyer_code == 'KRCOWA0006' ">
+			AND (BUYER = #{st_buyer_code} OR BUYER = 'KRCOWA0001' OR BUYER = 'KRCOWA0006' OR BUYER = 'KRCOWA0005')
+		</when>
+		<otherwise>
+			AND BUYER = #{st_buyer_code}
+		</otherwise>
+	</choose>
+	</update>
+
+</mapper>   
+   

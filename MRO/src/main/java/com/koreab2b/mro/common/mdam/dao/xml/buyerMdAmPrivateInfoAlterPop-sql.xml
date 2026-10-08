@@ -1,0 +1,217 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="common.mdam">
+
+	<select id="selectBuyerMdAmPrivateInfoAlterPopList" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/* selectBuyerMdAmPrivateInfoAlterPopList */
+		SELECT
+			A.USER_ID,
+			'' AS PASSWORD,
+			'N' AS  CHKPASSWORD,
+			A.USER_NAME_LOC,
+			A.USER_NAME_ENG,
+			A.LANG,
+			A.EMAIL,
+			A.USER_TYPE,
+			A.ZIP_CODE,
+			A.COUNTRY,
+			A.CITY,
+			(SELECT TEXT2 FROM ICOMCOD1 WHERE TYPE='M001' AND CODE = A.COUNTRY) COUNTRY_NAME,
+			(SELECT TEXT1 FROM ICOMCOD1 WHERE TYPE='M004' AND CODE = A.CITY) CITY_NAME,
+			A.MOBILE_PHONE,
+			A.ADDRESS_LOC,
+			A.ADDRESS_ENG,
+			A.PHONE_NUMBER,
+			A.FAX_NUMBER,
+			A.COM_CODE,
+			B.COM_NAME_LOC,
+			B.IRS_NO,
+			B.CORP_CODE,
+			(SELECT CORP_NAME FROM BNTBUYERGROUP A WHERE A.CORP_CODE = B.CORP_CODE) AS CORP_NAME,
+			A.PURCHASE_DEPT,
+			(SELECT TEXT1 FROM ICOMCOD2 WHERE TYPE='C001' AND CODE = A.PURCHASE_DEPT AND COMPANY_CODE = A.COM_CODE) AS PURCHASE_DEPT_TEXT,
+			NVL(A.SMS_RECV_FLAG,'N') AS SMS_RECV_FLAG,
+			NVL(A.MAIL_RECV_FLAG,'N') AS MAIL_RECV_FLAG,
+			NVL(A.MAIL_RECV_CHOICE,'') AS MAIL_RECV_CHOICE,
+			A.DEPARTMENT,
+			A.POSITION,
+			(SELECT TEXT1 FROM ICOMCOD2 WHERE TYPE='C001' AND CODE = A.DEPARTMENT AND COMPANY_CODE = A.COM_CODE) AS DEPARTMENT_TEXT,
+			(SELECT TEXT1 FROM ICOMCOD2 WHERE TYPE='C003' AND CODE = A.POSITION AND COMPANY_CODE = A.COM_CODE) AS POSITION_TEXT,
+			A.CHANGE_USER_TYPE,
+			A.DELY_TO_LOCATION,
+			(SELECT TEXT2 FROM ICOMCOD2 WHERE TYPE='C012' AND COMPANY_CODE = A.COM_CODE AND CODE = A.DELY_TO_LOCATION) AS DELY_TEXT,
+			A.ROLE,
+			DECODE(SUBSTR(A.ROLE,2,1),'+','주문 : ','')||DECODE(SUBSTR(A.ROLE,0,1),'G','입고','P','발주','C','발주 : 입고','U','조회') AS ROLE_NAME,
+			A.USER_GROUP,
+			A.ROW_CNT,
+			A.IMG_VIEW_FLAG,
+			A.PERSON_AUTHOR,
+			A.ZIP_KEY,
+			NVL(A.ADDRESS_LOC1, A.ADDRESS_LOC) AS ADDRESS_LOC1,
+			A.ADDRESS_LOC2,
+			A.STATUS,
+			A.LEGACY_USER_ID
+		FROM ICOMLUSR A, ICOMCMPY B
+		WHERE 1=1
+		AND A.COM_CODE = B.COM_CODE
+		]]>
+		<if test='st_reject_flag != "Y"'>
+			AND A.STATUS != 'D'
+		</if>
+		<![CDATA[
+		AND B.STATUS   <> 'D'
+		AND UPPER(A.USER_ID) = UPPER(#{st_user_id})
+		]]>
+	</select>
+	
+	<select id="selectBuyerMdAmPrivateInfoAlterApproved" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/* selectBuyerMdAmPrivateInfoAlterApproved  */
+		SELECT
+			A.APPR_ID,
+			A.APPR_NAME,
+			A.APPR_SEQ,
+			A.GUBUN
+		FROM ICOMAPSE A, ICOMAPPT B
+		WHERE 1=1
+		AND A.USER_ID = B.USER_ID
+		AND A.APP_PATH = B.APP_PATH
+		AND A.USER_ID = #{st_user_id}
+		AND A.GUBUN = 'C'
+		AND NVL(B.DEFAULT_FLAG,' ') = 'Y'
+		ORDER BY A.APPR_SEQ
+		]]>
+	</select>
+	
+	<select id="selectBuyerMdAmPrivateInfoAlterRefer" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/* selectBuyerMdAmPrivateInfoAlterRefer  */
+		SELECT
+			A.APPR_ID,
+			A.APPR_NAME,
+			A.APPR_SEQ,
+			A.GUBUN
+		FROM ICOMAPSE A, ICOMAPPT B
+		WHERE 1=1
+		AND A.USER_ID = B.USER_ID
+		AND A.APP_PATH = B.APP_PATH
+		AND A.USER_ID = #{st_user_id}
+		AND A.GUBUN = 'R'
+		AND NVL(B.DEFAULT_FLAG,' ') = 'Y'
+		ORDER BY A.APPR_SEQ
+		]]>
+	</select>
+
+	<select id="selectDefaultApprovalLineMembers" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+		/* selectDefaultApprovalLineMembers — 기본 결재경로(DEFAULT_FLAG='Y') 의 결재(C)/참조(R)/합의(H) 멤버 통합 조회 */
+		SELECT
+			A.APPR_ID,
+			A.APPR_NAME,
+			A.APPR_SEQ,
+			A.GUBUN
+		FROM ICOMAPSE A, ICOMAPPT B
+		WHERE 1=1
+		AND A.USER_ID = B.USER_ID
+		AND A.APP_PATH = B.APP_PATH
+		AND A.USER_ID = #{st_user_id}
+		AND A.GUBUN IN ('C','R','H')
+		AND NVL(B.DEFAULT_FLAG,' ') = 'Y'
+		ORDER BY A.GUBUN, A.APPR_SEQ
+		]]>
+	</select>
+	
+	<!-- 비밀번호 룰 -->
+	<select id="pwdValidCheckBuyerMdAmPrivateInfoAlterPop" parameterType="java.util.Map" resultType="String">
+		<![CDATA[
+		/* pwdValidCheckBuyerMdAmPrivateInfoAlterPop */
+		SELECT F_PASSWD_RULE(#{st_user_id}, #{st_password}) FROM DUAL
+		]]>
+	</select>
+	
+	<update id="updateBuyerMdAmPrivateInfoAlterPop" parameterType="java.util.Map">
+		UPDATE ICOMLUSR
+		SET
+			ROW_CNT					= #{st_row_cnt},
+			IMG_VIEW_FLAG				= #{st_img_view_flag},
+			SMS_RECV_FLAG				= #{st_sms_recv_flag},
+			MAIL_RECV_FLAG			= #{st_mail_recv_flag},
+			<if test="st_mail_recv_choice != null">
+				MAIL_RECV_CHOICE	= #{st_mail_recv_choice},
+			</if>
+			DEPARTMENT				= #{st_department},
+			POSITION						= #{st_position},
+			ROLE					= NVL(#{st_role},ROLE),
+			PURCHASE_DEPT			= #{st_purchase_dept},
+			PERSON_AUTHOR			= NVL(#{st_person_author},PERSON_AUTHOR),
+			USER_GROUP				= NVL(#{st_user_group},USER_GROUP),
+			DELY_TO_LOCATION		= #{st_dely_to_location},
+			STATUS					= #{st_status},
+			LEGACY_USER_ID				= #{st_legacy_user_id}
+		WHERE USER_ID						= #{st_user_id}
+	</update>
+	
+	<update id="insertBuyerMdAmPrivateUserInfoLog" parameterType="java.util.Map">
+	/* insertBuyerMdAmPrivateUserInfoLog  */
+		INSERT INTO KEP.MRO_ROLE_CHG_LOG
+		(
+		CHANGE_DATE,
+		USER_ID,
+		JOB_USER_ID,
+		<if test="st_person_author != null and st_person_author != ''">
+		<![CDATA[
+		OLD_PERSON_AUTHOR,
+		NEW_PERSON_AUTHOR,
+ 		]]>  
+        </if>
+		<if test="st_role != null and st_role != ''">            
+		<![CDATA[
+		OLD_ROLE,
+		NEW_ROLE,
+ 		]]>  
+        </if>
+        <if test="st_user_group != null and st_user_group != ''">
+        <![CDATA[                        
+		OLD_RFQ_ROLE,
+		NEW_RFQ_ROLE,
+		]]>
+		</if>
+		NOTE,
+		IP,
+		TERMINAL,
+		OS_USER,
+		DB_USER	
+		)
+		VALUES
+		(
+		SYSDATE,
+		#{st_user_id},
+		#{st_job_user_id},
+		<if test="st_person_author != null and st_person_author != ''">
+		<![CDATA[
+		#{st_old_person_author},
+		#{st_person_author},
+ 		]]>  
+        </if>
+		<if test="st_role != null and st_role != ''">            
+		<![CDATA[
+		#{st_old_role},
+		#{st_role},
+ 		]]>  
+        </if>
+        <if test="st_user_group != null and st_user_group != ''">
+        <![CDATA[                        
+		#{st_old_user_group},
+		#{st_user_group},
+		]]>
+		</if>
+		'SITE',
+		#{REG_IP},
+		SYS_CONTEXT('USERENV','TERMINAL'  ,30),
+		SYS_CONTEXT('USERENV','OS_USER'   ,30),
+		SYS_CONTEXT('USERENV','SESSION_USER',30)
+		)
+	</update>
+	
+</mapper>

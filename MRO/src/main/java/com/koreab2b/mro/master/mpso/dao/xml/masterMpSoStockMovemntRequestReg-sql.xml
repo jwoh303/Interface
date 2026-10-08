@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="master.mpso">
+	<!-- 조회 -->
+	<select id="selectMasterMpSoStockMovemntRequestRegList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.pagestart"/>	
+			<![CDATA[
+		    	SELECT
+					A.MOVE_NO,																													/* 재고이동요청번호 */
+					A.MOVE_SEQ,																												/* 재고이동요청순번 */
+					A.WAREHOUSE_CODE_FR,																									/* 출발물류센터 */
+					A.WAREHOUSE_CODE_TO,																									/* 도착물류센터 */
+					A.REQ_USER_ID,																												/* 요청자아이디 */
+					(SELECT USER_NAME_LOC FROM ICOMLUSR WHERE USER_ID = A.REQ_USER_ID) AS REQ_USER_NM,		/* 요청자아이디 */
+					TO_CHAR(TO_DATE(A.REQ_DATE, 'YYYYMMDD'), 'YYYY/MM/DD') AS REQ_DATE,													/* 요청일자 */
+					A. REQ_TIME,																												/* 요청시간 */
+					A.STDCATLG_ID,																												/* 품목코드 */   
+					A.STDCATLG_ID AS STDCATLG,																							/* 품목코드 */
+					(SELECT DESCRIPTION_LOC FROM ICOMBYIT WHERE BUYER = B.ORG_WAREHOUSE_CODE AND BUYER_ITEM_NO = B.STDCATLG_ID) AS DESCRIPTION,		/* 품목명 */ 
+					(SELECT SPECIFICATION FROM ICOMBYIT WHERE BUYER = B.ORG_WAREHOUSE_CODE AND BUYER_ITEM_NO = B.STDCATLG_ID) AS SPECIFICATION,		/* 규격 */
+					B.AVAIL_QTY,																												/* 재고수량 */
+					A.REQ_QTY,																													/* 이동요청수량 */
+					A.MOVE_REMARK																											/* 비고 */
+				FROM BNTWMSMOVE A, WMSSTCK B
+				WHERE A.STATUS = '1'
+				AND A.WAREHOUSE_CODE_FR = B.WAREHOUSE_CODE
+				AND A.STDCATLG_ID = B.STDCATLG_ID
+				AND B.AGENT = #{st_com_code}
+				AND (A.CLOSE_DATE IS NULL OR A.CLOSE_DATE = '')
+			]]>
+		    <if test="st_warehouse_code_fr != null and st_warehouse_code_fr != ''">
+				AND A.WAREHOUSE_CODE_FR = #{st_warehouse_code_fr}							/* 조회조건(출발물류센터) */	
+			</if>
+			<if test="st_warehouse_code_to != null and st_warehouse_code_to != ''">
+				AND A.WAREHOUSE_CODE_TO = #{st_warehouse_code_to}							/* 조회조건(도착물류센터) */	
+			</if>
+			<if test="st_kep_user_id != null and st_kep_user_id != ''">
+				AND A.REQ_USER_ID = #{st_kep_user_id}												/* 조회조건(요청자아이디) */	
+			</if>
+			<if test="st_from_date != null and st_from_date != ''  and st_to_date != null and st_to_date != ''   "  >
+				 AND A.REQ_DATE BETWEEN #{st_from_date} AND #{st_to_date}					/* 조회조건(요청일자) */
+			</if>
+				ORDER BY REQ_DATE			
+		<include refid="common.ibsheet.xml.pageend"/>
+	</select>
+	
+	<select id="selectMasterMpSoStockMovemntRequestRegExcel" parameterType="java.util.Map" resultType="java.util.Map">
+		<![CDATA[
+	    	SELECT
+				IT.BUYER_ITEM_NO AS STDCATLG_ID,
+				IT.BUYER_ITEM_NO AS STDCATLG,
+				IT.DESCRIPTION_LOC AS DESCRIPTION,
+				IT.SPECIFICATION,
+				ST.AVAIL_QTY
+			FROM ICOMBYIT IT, WMSSTCK ST
+			WHERE IT.BUYER = ST.ORG_WAREHOUSE_CODE
+			AND IT.BUYER_ITEM_NO = ST.STDCATLG_ID
+			AND ST.PROCESS_TYPE = '1'
+			AND IT.STATUS <> 'D'
+			AND ST.STATUS <> 'D'
+			AND ST.WAREHOUSE_CODE = #{st_warehouse_code_fr}
+			AND IT.BUYER_ITEM_NO IN
+		]]>
+		<foreach collection="st_stdcatlg_id_array" item="item" index="i" open="(" separator=","  close=")" >
+			#{item}
+		</foreach>
+	</select>
+	
+	<select id="getMasterMpSoStockMovemntRequestRegWareHouseFrList"  resultType="java.util.Map">
+		<![CDATA[
+	        SELECT
+			    A.TEXT1 AS CODE,
+			    (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = A.TEXT1) AS TEXT1
+			FROM ICOMCOD1 A WHERE A.TYPE = 'HUB' AND A.FLAG = 'Y'
+		]]>
+		<if test="SEARCH1 != null and SEARCH1 != ''">
+			AND A.TEXT1 <![CDATA[<>]]> #{SEARCH1}
+		</if>
+	</select>
+	
+	<select id="getMasterMpSoStockMovemntRequestRegWareHouseToList"  resultType="java.util.Map">
+		<![CDATA[
+	        SELECT
+			    A.TEXT1 AS CODE,
+			    (SELECT COM_NAME_LOC FROM ICOMCMPY WHERE COM_CODE = A.TEXT1) AS TEXT1
+			FROM ICOMCOD1 A
+			WHERE A.TYPE = 'HUB' AND A.FLAG = 'Y'
+		]]>	
+		<if test="SEARCH1 != null and SEARCH1 != ''">
+			AND A.TEXT1 <![CDATA[<>]]> #{SEARCH1}
+		</if>
+	</select>
+	
+	<select id="selectMasterMpSoStockMovemntRequestRegAvailQty"  resultType="String">
+		<![CDATA[
+			SELECT
+				AVAIL_QTY
+			FROM WMSSTCK
+			WHERE WAREHOUSE_CODE = #{st_warehouse_code_fr}
+			AND AGENT = #{st_com_code}
+			AND STDCATLG_ID = #{STDCATLG}
+		]]>
+	</select>
+	
+	<select id="selectMasterMpSoStockMovemntRequestRegMoveNo" parameterType="java.util.Map" resultType="String">
+		<![CDATA[
+		/* selectMasterMpSoStockMovemntRequestRegMoveNo */
+		SELECT 'MO'||TO_CHAR(SYSDATE, 'YYYYMMDD')||NVL(LPAD(MAX(TO_NUMBER(SUBSTR(MOVE_NO, 11, 3)))+1, 3, 0), '001') FROM BNTWMSMOVE WHERE MOVE_NO LIKE 'MO'||TO_CHAR(SYSDATE, 'YYYYMMDD')||'%'
+		]]>
+	</select>
+
+	<update  id="insertMasterMpSoStockMovemntRequestReg" parameterType="java.util.Map" >
+		<![CDATA[
+			INSERT INTO BNTWMSMOVE					
+			(									
+				MOVE_NO
+				,MOVE_SEQ
+				,WAREHOUSE_CODE_FR
+				,WAREHOUSE_CODE_TO
+				,STDCATLG_ID
+				,REQ_QTY
+				,STATUS
+				,REQ_USER_ID
+				,REQ_DATE
+				,REQ_TIME
+				,ADD_DATE
+				,ADD_TIME
+				,MOVE_REMARK					
+			) VALUES (									
+				#{st_move_no},
+				(SELECT NVL(LPAD(MAX(TO_NUMBER(MOVE_SEQ))+1, 6, 0), '000001') FROM BNTWMSMOVE WHERE MOVE_NO = #{st_move_no}),
+				#{st_warehouse_code_fr},
+				#{st_warehouse_code_to},
+				#{STDCATLG},
+				#{REQ_QTY},
+				'1',
+				#{st_user_id},
+				#{REQ_DATE},
+				TO_CHAR(SYSDATE, 'HH24MISS'),
+				TO_CHAR(SYSDATE, 'YYYYMMDD'),
+				TO_CHAR(SYSDATE, 'HH24MISS'),
+				#{MOVE_REMARK}
+			)
+		]]>
+	</update>
+
+	<!-- 삭제 -->
+	<update id="deleteMasterMpSoStockMovemntRequestReg"  parameterType="java.util.Map">
+		<![CDATA[
+			DELETE FROM BNTWMSMOVE					
+			WHERE MOVE_NO = #{MOVE_NO}
+			AND MOVE_SEQ = #{MOVE_SEQ}
+			AND STATUS = '1'
+		]]>
+	</update>
+
+</mapper>   
+   

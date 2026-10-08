@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="utf-8" ?> 
+<!DOCTYPE mapper PUBLIC "-//ibatis.apache.org//DTD Mapper 3.0//EN" "http://ibatis.apache.org/dtd/ibatis-3-mapper.dtd">
+<mapper namespace="buyer.mdcm">
+	<select id="selectBuyerMdCmAllGoodsSearchList" parameterType="java.util.Map" resultType="java.util.Map">
+		<include refid="common.ibsheet.xml.pagestart"/>
+		<![CDATA[
+		/*selectBuyerMdCmAllGoodsSearchList*/
+		SELECT X.BUYER_ITEM_NO
+			, X.DESCRIPTION
+			, X.SPECIFICATION
+			, X.MAKER_PART_NO
+			, X.MAKER_NAME
+			, X.ORIGIN_NAME
+			, X.UNIT_MEASURE
+			, X.DELIVERY_LT
+			, X.MIN_ORDER_QTY
+			, X.PUR_UNIT_QTY
+			, X.UNIT_PRICE
+			, X.ADD_DATE
+		FROM (
+			SELECT ROWNUM NUM   
+				, S.BUYER_ITEM_NO
+				, S.DESCRIPTION
+				, S.SPECIFICATION
+				, S.MAKER_PART_NO
+				, S.MAKER_NAME
+				, S.ORIGIN_NAME
+				, S.UNIT_MEASURE
+				, S.DELIVERY_LT
+				, S.MIN_ORDER_QTY
+				, S.PUR_UNIT_QTY
+				, S.UNIT_PRICE
+				, S.ADD_DATE
+			FROM (
+				SELECT DISTINCT
+					A.BUYER_ITEM_NO				-- 품목코드
+					, A.DESCRIPTION				-- 품목명
+					, A.SPECIFICATION			-- 규격
+					, B.MAKER_PART_NO			-- 모델번호
+					, A.MAKER_NAME				-- 제조사
+					, (SELECT TEXT2 FROM ICOMCOD1 WHERE TYPE = 'M001' AND CODE = A.ORIGIN_CODE) AS ORIGIN_NAME	-- 원산지
+					, A.UNIT_MEASURE			-- 단위
+					, A.DELIVERY_LT				-- 배송일수
+					, A.MIN_ORDER_QTY			-- 최소주문
+					, A.PUR_UNIT_QTY			-- 주문배수
+					, A.UNIT_PRICE				-- 단가
+					, B.ADD_DATE				-- 등록일
+				FROM ICOMCQDT A, ICOMBYIT B
+				WHERE A.BUYER = B.BUYER
+		  			AND A.BUYER_ITEM_NO = B.BUYER_ITEM_NO
+			 		AND B.STATUS <> 'D'   -- 승인건만 산출시
+					AND A.STATUS <> 'D'   -- 승인건만 산출시
+					AND B.PRODUCT_CLOSE_FLAG IN ('N','T')
+					AND A.BUYER IN (
+						SELECT BYCA_COMORG_CODE 
+						FROM ICOMCMPY 
+						WHERE COM_CODE IN (SELECT COD3.CODE2 FROM ICOMCOD3 COD3 WHERE COD3.TYPE = 'MPAG' AND COD3.CODE1 = #{st_user_id} AND COD3.FLAG = 'Y')
+					)
+					AND A.BELOW_COMORG_CODE IN (SELECT COD3.CODE2 FROM ICOMCOD3 COD3 WHERE COD3.TYPE = 'MPAG' AND COD3.CODE1 = #{st_user_id} AND COD3.FLAG = 'Y')
+				]]> 
+				<if test = 'st_keyword != null and st_keyword != ""'> 
+					<if test='keyword_sel == "BUYER_ITEM_NO"'>
+					<![CDATA[
+						AND A.BUYER_ITEM_NO LIKE '%'||UPPER(#{st_keyword})||'%'
+			 		]]>	 
+			 		</if>
+					<if test='keyword_sel == "DESCRIPTION"'>
+					<![CDATA[
+						AND UPPER(A.DESCRIPTION) LIKE '%'||#{st_keyword}||'%'
+			 		]]>	 
+			 		</if> 	
+					<if test='keyword_sel == "SPECIFICATION"'>
+					<![CDATA[
+						AND UPPER(A.SPECIFICATION) LIKE '%'||#{st_keyword}||'%'
+			 		]]>	 
+			 		</if>	 			
+					<if test='keyword_sel == "MAKER_NAME"'>
+					<![CDATA[
+						AND UPPER(A.MAKER_NAME) LIKE '%'||#{st_keyword}||'%'
+			 		]]>	 
+			 		</if> 
+			 		<if test='keyword_sel == "ALL"'>
+					<![CDATA[
+						AND (A.BUYER_ITEM_NO LIKE '%'||UPPER(#{st_keyword})||'%'
+							OR UPPER(A.DESCRIPTION) LIKE '%'||#{st_keyword}||'%' 
+							OR UPPER(A.SPECIFICATION) LIKE '%'||#{st_keyword}||'%'
+							OR UPPER(A.MAKER_NAME) LIKE '%'||#{st_keyword}||'%')
+			 		]]>	 
+			 		</if>
+		 		</if>
+		 		AND B.ADD_DATE BETWEEN #{st_from_date} AND #{st_to_date} 
+		 		ORDER BY A.BUYER_ITEM_NO 	
+			) S
+		) X	
+ 		<include refid="common.ibsheet.xml.pageend"/>			
+	</select>
+</mapper>
